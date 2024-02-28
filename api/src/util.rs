@@ -18,6 +18,7 @@ use tracing::error;
 use tracing::field;
 use tracing::instrument;
 use tracing::Span;
+use url::Url;
 use uuid::Uuid;
 
 use crate::api::ApiError;
@@ -237,6 +238,38 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
   (start, limit)
 }
 
+// Sanitize redirect urls
+// - Remove origin from Url: https://evil.com -> /
+// - Replace multiple slashes with one slash to remove prevent
+//   relative url bypass: //evil.com/foo -> /foo
+// - Remove /../ and /./ from path segments
+pub fn sanitize_redirect_url(raw: &str) -> String {
+  let base = Url::parse("http://localhost/").unwrap();
+  let url = base.join(raw).unwrap_or(base.clone());
+
+  let mut sanitized = "".to_string();
+
+  if let Some(segments) = url.path_segments() {
+    for seg in segments {
+      if seg.is_empty() {
+        continue;
+      }
+
+      sanitized.push_str(&format!("/{}", seg));
+    }
+  }
+
+  if let Some(query) = url.query() {
+    sanitized.push_str(&format!("?{}", query));
+  }
+
+  if sanitized.is_empty() {
+    "/".to_string()
+  } else {
+    sanitized
+  }
+}
+
 pub trait RequestIdExt {
   fn param_uuid(&self, name: &str) -> Result<Uuid, ApiError>;
   fn param_scope(&self) -> Result<ScopeName, ApiError>;
@@ -333,6 +366,7 @@ pub mod test {
   use crate::db::{Database, NewUser, User};
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
+  use crate::util::sanitize_redirect_url;
   use crate::ApiError;
   use crate::MainRouterOptions;
   use hyper::http::HeaderName;
@@ -767,5 +801,19 @@ pub mod test {
     assert!(!t.user2.user.is_staff);
     assert!(!t.user3.user.is_staff);
     assert!(t.staff_user.user.is_staff);
+  }
+
+  #[test]
+  fn sanitize_url_test() {
+    assert_eq!(sanitize_redirect_url("/foo"), "/foo");
+    assert_eq!(sanitize_redirect_url("//evil.com/bar"), "/bar");
+    assert_eq!(
+      sanitize_redirect_url("//evil.com//bar?foo=bar"),
+      "/bar?foo=bar"
+    );
+    assert_eq!(sanitize_redirect_url("https://evil.com"), "/");
+    assert_eq!(sanitize_redirect_url("/../foo"), "/foo");
+    assert_eq!(sanitize_redirect_url("/../foo/../bar"), "/bar");
+    assert_eq!(sanitize_redirect_url("/foo/./bar"), "/foo/bar");
   }
 }
