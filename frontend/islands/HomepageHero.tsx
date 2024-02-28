@@ -164,7 +164,7 @@ export function HomepageHero(
               class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center"
               style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
             >
-              Discover, build, and share code built on web standards
+              A registry for modern JavaScript and TypeScript
             </div>
           </h1>
           <div class="flex flex-row gap-4 align-middle justify-center mt-2">
