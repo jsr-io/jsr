@@ -3,6 +3,7 @@
 // a page in the docs.
 
 const staticRedirects = new Map([
+  ["moderator", "https://forms.gle/MWLEi7Qj4cjvXoLb8"],
   ["invalid-path", "/docs/troubleshooting#invalidpath"],
   [
     "case-insensitive-duplicate-path",
