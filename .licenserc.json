@@ -4,6 +4,7 @@
     "api/testdata/",
     "frontend/_fresh/",
     "frontend/node_modules/",
+    "frontend/fresh.gen.ts",
     "target/",
     ".gcs/",
     "terraform/.terraform/",
