@@ -106,6 +106,8 @@ export default {
         88: "22rem",
       },
       borderWidth: {
+        "0": "0",
+        "1": "1px",
         "1.5": "1.5px",
       },
       boxShadow: {
