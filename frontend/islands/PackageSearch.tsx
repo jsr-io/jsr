@@ -241,6 +241,10 @@ function SuggestionList(
             })}
           </ul>
         )}
+      <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
+        <span class="text-sm text-gray-500">powered by</span>
+        <img class="h-4" src="/logos/orama-dark.svg" />
+      </div>
     </div>
   );
 }

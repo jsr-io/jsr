@@ -31,9 +31,16 @@ export default function PackageListPage({ data, url }: PageProps<Data>) {
         >
           {data.packages.map((entry) => ModuleHit(entry))}
         </ListDisplay>
-        <span class="text-sm text-gray-400 block mt-2">
-          Changes made in the last 15 minutes may not be visible yet.
-        </span>
+
+        <div className="mt-2 flex items-start justify-between px-2">
+          <span className="text-sm text-gray-400 block">
+            Changes made in the last 15 minutes may not be visible yet.
+          </span>
+          <div class="flex items-center gap-1">
+            <span className="text-sm text-gray-500">powered by</span>
+            <img className="h-4" src="/logos/orama-dark.svg" />
+          </div>
+        </div>
       </div>
     </div>
   );
