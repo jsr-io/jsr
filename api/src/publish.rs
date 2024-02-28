@@ -1019,10 +1019,8 @@ pub mod tests {
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
-    // TODO(ry): This error should say something more specific to help the user
-    // debug it. This is not done yet because of how errors are propagated from
-    // create_npm_tarball.
-    assert_eq!(error.code, "npmTarballError");
+    assert_eq!(error.code, "invalidPath");
+    assert!(error.message.contains("a_very_long_filename_created_specifically_to_test_the_limitations_of_the_set_path_method_in_the_rust_tar_crate_exceeding_one_hundred_bytes.ts"));
   }
 
   #[tokio::test]
