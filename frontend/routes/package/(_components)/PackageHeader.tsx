@@ -40,11 +40,6 @@ export function PackageHeader(
                 yanked
               </div>
             )}
-            {pkg.whenFeatured && (
-              <div class={`chip sm:big-chip bg-blue-400`}>
-                featured
-              </div>
-            )}
           </div>
         </div>
         <div class="flex items-center gap-8">
