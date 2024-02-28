@@ -1,0 +1,320 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import { Handlers, PageProps } from "$fresh/server.ts";
+import { Head } from "$fresh/runtime.ts";
+import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
+import { ScopeNav } from "../(_components)/ScopeNav.tsx";
+import { ScopePendingInvite } from "../(_components)/ScopePendingInvite.tsx";
+import { ScopeInviteForm } from "../(_islands)/ScopeInviteForm.tsx";
+import { ScopeMemberRole } from "../(_islands)/ScopeMemberRole.tsx";
+import { Table, TableData, TableRow } from "../../../components/Table.tsx";
+import { CopyButton } from "../../../islands/CopyButton.tsx";
+import { State } from "../../../util.ts";
+import { path } from "../../../utils/api.ts";
+import {
+  FullScope,
+  FullUser,
+  Scope,
+  ScopeInvite,
+  ScopeMember,
+} from "../../../utils/api_types.ts";
+import { scopeData } from "../../../utils/data.ts";
+import { TrashCan } from "../../../components/icons/TrashCan.tsx";
+
+interface Data {
+  scope: Scope | FullScope;
+  scopeMember: ScopeMember | null;
+  members: ScopeMember[];
+  invites: ScopeInvite[];
+}
+
+export default function ScopeMembersPage(
+  { params, data, state, url }: PageProps<Data, State>,
+) {
+  const isAdmin = data.scopeMember?.user.id === state.user?.id &&
+      data.scopeMember?.isAdmin || state.user?.isStaff || false;
+
+  const hasOneAdmin =
+    data.members.filter((member) => member.isAdmin).length === 1;
+
+  const isLastAdmin = isAdmin && hasOneAdmin;
+
+  const inviteUrl = url.href;
+
+  return (
+    <div class="mb-20">
+      <Head>
+        <title>
+          Members - @{params.scope} - JSR
+        </title>
+      </Head>
+      <ScopeHeader scope={data.scope} />
+      <ScopeNav active="Members" isAdmin={isAdmin} scope={data.scope.scope} />
+      <ScopePendingInvite
+        userInvites={data.invites.filter((i) =>
+          i.targetUser.id === state.user?.id
+        )}
+        scope={params.scope}
+      />
+      <Table
+        class="mt-8"
+        columns={[
+          { title: "Name", class: "w-auto" },
+          { title: "Role", class: "w-0" },
+          ...(isAdmin
+            ? [{ title: "", class: "w-0", align: "right" as const }]
+            : []),
+        ]}
+        currentUrl={url}
+      >
+        {data.members.map((member) => (
+          <MemberItem
+            member={member}
+            isLastAdmin={hasOneAdmin && member.isAdmin}
+            canEdit={isAdmin}
+          />
+        ))}
+        {data.invites.map((invite) => (
+          <InviteItem invite={invite} inviteUrl={inviteUrl} canEdit={isAdmin} />
+        ))}
+      </Table>
+      {isAdmin && <MemberInvite scope={data.scope.scope} />}
+      {data.scopeMember && (
+        <MemberLeave
+          userId={data.scopeMember.user.id}
+          isAdmin={isAdmin}
+          isLastAdmin={isLastAdmin}
+        />
+      )}
+    </div>
+  );
+}
+
+interface MemberItemProps {
+  isLastAdmin: boolean;
+  member: ScopeMember;
+  canEdit: boolean;
+}
+
+export function MemberItem(props: MemberItemProps) {
+  const { member, canEdit } = props;
+  return (
+    <TableRow key={member.user.id}>
+      <TableData>
+        <a
+          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          href={`/user/${member.user.id}`}
+        >
+          {member.user.name}
+        </a>
+      </TableData>
+      <TableData>
+        {canEdit
+          ? (
+            <ScopeMemberRole
+              scope={member.scope}
+              userId={member.user.id}
+              isAdmin={member.isAdmin}
+              isLastAdmin={props.isLastAdmin}
+            />
+          )
+          : member.isAdmin
+          ? "Admin"
+          : "Member"}
+      </TableData>
+      {canEdit && (
+        <TableData>
+          <div class="flex gap-2 justify-end">
+            <form method="POST" class="contents">
+              <input type="hidden" name="userId" value={member.user.id} />
+              <button
+                class="hover:underline disabled:text-gray-300 disabled:cursor-not-allowed"
+                name="action"
+                value="deleteMember"
+                disabled={props.isLastAdmin}
+                title={props.isLastAdmin
+                  ? "This is the last admin in this scope. Promote another member to admin before removing this one."
+                  : "Remove user"}
+              >
+                <TrashCan class="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </TableData>
+      )}
+    </TableRow>
+  );
+}
+
+interface InviteItemProps {
+  invite: ScopeInvite;
+  inviteUrl: string;
+  canEdit: boolean;
+}
+
+export function InviteItem(props: InviteItemProps) {
+  const { invite, canEdit } = props;
+  return (
+    <TableRow key={invite.targetUser.id} class="striped">
+      <TableData>
+        <a
+          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          href={`/user/${invite.targetUser.id}`}
+        >
+          {invite.targetUser.name}
+        </a>
+      </TableData>
+      <TableData>
+        Invited
+      </TableData>
+      {canEdit && (
+        <TableData>
+          <div class="flex justify-end gap-4">
+            <CopyButton text={props.inviteUrl} title="Copy invite URL" />
+            <form method="POST" class="contents">
+              <input type="hidden" name="userId" value={invite.targetUser.id} />
+              <button
+                class="hover:underline"
+                title="Delete invite"
+                name="action"
+                value="deleteInvite"
+              >
+                <TrashCan class="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </TableData>
+      )}
+    </TableRow>
+  );
+}
+
+function MemberInvite({ scope }: { scope: string }) {
+  return (
+    <div class="max-w-3xl border-t pt-8 mt-8">
+      <h2 class="text-lg font-semibold">Invite member</h2>
+      <p class="mt-2 text-gray-600">
+        Inviting users to this scope grants them access to publish all packages
+        in this scope and create new packages. They will not be able to manage
+        members unless they are granted admin status.
+      </p>
+      <ScopeInviteForm scope={scope} />
+    </div>
+  );
+}
+
+function MemberLeave(
+  props: { userId: string; isAdmin: boolean; isLastAdmin: boolean },
+) {
+  return (
+    <form method="POST" class="max-w-3xl border-t pt-8 mt-12">
+      <h2 class="text-lg font-semibold">Leave scope</h2>
+      <p class="mt-2 text-gray-600">
+        Leaving this scope will revoke your access to all packages in this
+        scope. You will no longer be able to publish packages to this
+        scope{props.isAdmin && " or manage members"}.
+      </p>
+      <input type="hidden" name="userId" value={props.userId} />
+      <button
+        class="button-danger mt-4"
+        type="submit"
+        name="action"
+        value="deleteMember"
+        disabled={props.isLastAdmin}
+      >
+        Leave
+      </button>
+      {props.isLastAdmin && (
+        <p class="mt-2 text-red-600">
+          You are the last admin in this scope. You must promote another member
+          to admin before leaving.
+        </p>
+      )}
+    </form>
+  );
+}
+
+export const handler: Handlers<Data, State> = {
+  async GET(_req, ctx) {
+    let [user, data, membersResp, invitesResp] = await Promise.all([
+      ctx.state.userPromise,
+      scopeData(ctx.state, ctx.params.scope),
+      ctx.state.api.get<ScopeMember[]>(
+        path`/scopes/${ctx.params.scope}/members`,
+      ),
+      ctx.state.api.hasToken()
+        ? ctx.state.api.get<ScopeInvite[]>(
+          path`/scopes/${ctx.params.scope}/invites`,
+        )
+        : Promise.resolve(null),
+    ]);
+    if (user instanceof Response) return user;
+    if (data === null) return ctx.renderNotFound();
+    if (!membersResp.ok) {
+      if (membersResp.code === "scopeNotFound") return ctx.renderNotFound();
+      throw membersResp; // graceful handle errors
+    }
+    if (invitesResp && !invitesResp.ok) {
+      if (
+        invitesResp.code === "actorNotScopeMember" ||
+        invitesResp.code === "actorNotScopeAdmin"
+      ) {
+        invitesResp = null;
+      } else {
+        if (invitesResp.code === "scopeNotFound") return ctx.renderNotFound();
+        throw invitesResp; // graceful handle errors
+      }
+    }
+
+    const scopeMember =
+      membersResp.data.find((member) =>
+        member.user.id === (user as FullUser | null)?.id
+      ) ?? null;
+
+    return ctx.render({
+      scope: data.scope,
+      scopeMember: scopeMember,
+      members: membersResp.data,
+      invites: invitesResp?.data ?? [],
+    });
+  },
+  async POST(req, ctx) {
+    const scope = ctx.params.scope;
+    const form = await req.formData();
+    const action = form.get("action");
+    if (action === "deleteInvite") {
+      const userId = String(form.get("userId"));
+      const res = await ctx.state.api.delete<null>(
+        path`/scopes/${scope}/invites/${userId}`,
+      );
+      if (!res.ok) {
+        if (res.code === "scopeNotFound") return ctx.renderNotFound();
+        throw res; // graceful handle errors
+      }
+    } else if (action === "deleteMember") {
+      const userId = String(form.get("userId"));
+      const res = await ctx.state.api.delete<null>(
+        path`/scopes/${scope}/members/${userId}`,
+      );
+      if (!res.ok) {
+        if (res.code === "scopeNotFound") return ctx.renderNotFound();
+        throw res; // graceful handle errors
+      }
+    } else if (action === "invite") {
+      const githubLogin = String(form.get("githubLogin"));
+      const res = await ctx.state.api.post<ScopeInvite>(
+        path`/scopes/${scope}/members`,
+        { githubLogin },
+      );
+      if (!res.ok) {
+        if (res.code === "scopeNotFound") return ctx.renderNotFound();
+        throw res; // graceful handle errors
+      }
+    } else {
+      throw new Error("Invalid action");
+    }
+    return new Response(null, {
+      status: 303,
+      headers: { Location: `/@${scope}/~/members` },
+    });
+  },
+};

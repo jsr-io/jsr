@@ -1,0 +1,27 @@
+name: Orama Deploy
+
+
+on:
+  # Temporarily disabled
+  # schedule:
+  #   - cron: "*/15 * * * *"
+  workflow_dispatch:
+  
+  
+jobs:
+  orama:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        environment: ["prod", "staging"]
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: Deploy ${{ matrix.environment }}
+        env:
+          ORAMA_INDEX_ID: ${{ secrets.ORAMA_INDEX_ID }}
+          ORAMA_PRIVATE_API_KEY: ${{ secrets.ORAMA_PRIVATE_API_KEY }}
+        run: |
+          curl https://api.oramasearch.com/api/v1/webhooks/$ORAMA_INDEX_ID/deploy \
+          -X POST \
+          -H "Authorization: Bearer $ORAMA_PRIVATE_API_KEY"

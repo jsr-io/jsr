@@ -1,0 +1,1 @@
+ALTER TABLE publishing_tasks ALTER COLUMN package_version SET DATA TYPE text collate en_natural;

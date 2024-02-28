@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies\n      WHERE dependency_kind = $1 AND dependency_name = $2;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "dependency_kind",
+            "kind": {
+              "Enum": [
+                "jsr",
+                "npm"
+              ]
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1caa2a19721c68f296d92eb0ff8d4bd3caf6cb13da95e4e00e6eaa8329bb388d"
+}

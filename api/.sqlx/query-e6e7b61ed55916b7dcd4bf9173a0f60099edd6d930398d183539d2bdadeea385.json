@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)\n      VALUES ($1, $2, $3, $4, $5)\n      RETURNING id, status as \"status: PublishingTaskStatus\", error as \"error: PublishingTaskError\", user_id, package_scope as \"package_scope: ScopeName\", package_name as \"package_name: PackageName\", package_version as \"package_version: Version\", config_file as \"config_file: PackagePath\", created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "status: PublishingTaskStatus",
+        "type_info": {
+          "Custom": {
+            "name": "task_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "processing",
+                "processed",
+                "success",
+                "failure"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "error: PublishingTaskError",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "package_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "package_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "package_version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "config_file: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e6e7b61ed55916b7dcd4bf9173a0f60099edd6d930398d183539d2bdadeea385"
+}

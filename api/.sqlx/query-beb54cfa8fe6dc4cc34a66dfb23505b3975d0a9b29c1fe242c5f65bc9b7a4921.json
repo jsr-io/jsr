@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM oauth_states\n      WHERE csrf_token = $1\n      RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "csrf_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "pkce_code_verifier",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "redirect_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "beb54cfa8fe6dc4cc34a66dfb23505b3975d0a9b29c1fe242c5f65bc9b7a4921"
+}

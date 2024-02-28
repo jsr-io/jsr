@@ -1,0 +1,2 @@
+declare module "some-specifier" {
+}

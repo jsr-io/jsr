@@ -1,0 +1,1 @@
+ALTER TABLE scopes RENAME COLUMN version_publish_per_week_limit TO publish_attempts_per_week_limit;

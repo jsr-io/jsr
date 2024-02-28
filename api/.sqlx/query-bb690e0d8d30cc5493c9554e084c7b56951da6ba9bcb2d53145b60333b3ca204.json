@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          updated_at,\n          created_at\n\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "creator",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "package_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "new_package_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "publish_attempts_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "verify_oidc_actor",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bb690e0d8d30cc5493c9554e084c7b56951da6ba9bcb2d53145b60333b3ca204"
+}

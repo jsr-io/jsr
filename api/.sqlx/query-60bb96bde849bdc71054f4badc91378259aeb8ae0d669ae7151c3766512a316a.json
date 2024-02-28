@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    SELECT package_limit, new_package_per_week_limit FROM scopes WHERE scope = $1;\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "package_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "new_package_per_week_limit",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "60bb96bde849bdc71054f4badc91378259aeb8ae0d669ae7151c3766512a316a"
+}

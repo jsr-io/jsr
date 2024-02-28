@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" style="color-scheme: light dark;">
+<head>
+  <meta charset="utf-8">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office">
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <style>
+    td,th,div,p,a,h1,h2,h3,h4,h5,h6 {font-family: "Segoe UI", sans-serif; mso-line-height-rule: exactly;}
+  </style>
+  <![endif]-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet" media="screen">
+  <style>
+    .body-sub {
+      margin-top: 25px;
+      border-top-width: 1px;
+      padding-top: 25px;
+      border-top-color: #EAEAEC;
+      border-top-style: solid;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    button:hover {
+      text-decoration: underline;
+      background-color: #3b82f6;
+    }
+    @media (prefers-color-scheme: dark) {
+      body,
+      .email-body,
+      .email-body_inner,
+      .email-content,
+      .email-wrapper {
+        background-color: #333333 !important;
+        color: #fff !important;
+      }
+      p,
+      ul,
+      ol,
+      blockquote,
+      h1,
+      h2,
+      h3 {
+        color: #fff !important;
+      }
+    }
+    @media screen {
+      pre {
+        white-space: pre !important;
+      }
+    }
+    :root {
+      color-scheme: light dark;
+    }
+    @media (max-width: 600px) {
+      .sm-w-full {
+        width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body style="margin: 0; width: 100%; background-color: #F2F4F6; padding: 0; -webkit-font-smoothing: antialiased; word-break: break-word">
+  <div role="article" aria-roledescription="email" aria-label lang="en">
+    <table class="email-wrapper" style="width: 100%; background-color: #F2F4F6; font-family: 'Nunito Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td align="center">
+          <table class="email-content" style="width: 100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td class="email-body" style="width: 100%">
+                <table align="center" class="email-body_inner sm-w-full" style="margin-left: auto; margin-right: auto; width: 570px; background-color: #fff" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td style="padding: 45px">
+                      <div style="font-size: 16px">
+                        <div style="margin-bottom: 20px">
+                          <img width="638" height="343" style="width: 100px; height: auto;" src="{{ registry_url }}logo.png" />
+                        </div>
+                        {{> html_inner}}
+                        <div style="margin-bottom: 5px; margin-top: 8px; font-size: 16px; line-height: 24px">
+                          <br>
+                          <hr style="border-color: #e4e4e7; border-top: 0;">
+                          <br>
+                          <br>Need help? Contact us at <a href="mailto:{{ support_email }}" style="color: #2563eb">{{ support_email }}</a>.
+                          <br><a href="{{ registry_url }}" target="_blank" style="color: #2563eb">{{ registry_url }}</a>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

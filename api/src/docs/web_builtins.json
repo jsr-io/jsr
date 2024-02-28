@@ -1,0 +1,6276 @@
+[
+  {
+    "id": [
+      "AggregateError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AggregateError"
+  },
+  {
+    "id": [
+      "Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array"
+  },
+  {
+    "id": [
+      "ArrayBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer"
+  },
+  {
+    "id": [
+      "AsyncFunction"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AsyncFunction"
+  },
+  {
+    "id": [
+      "AsyncGenerator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AsyncGenerator"
+  },
+  {
+    "id": [
+      "AsyncGeneratorFunction"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AsyncGeneratorFunction"
+  },
+  {
+    "id": [
+      "AsyncIterator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator"
+  },
+  {
+    "id": [
+      "Atomics"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Atomics"
+  },
+  {
+    "id": [
+      "BigInt"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/BigInt"
+  },
+  {
+    "id": [
+      "BigInt64Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/BigInt64Array"
+  },
+  {
+    "id": [
+      "BigUint64Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/BigUint64Array"
+  },
+  {
+    "id": [
+      "Boolean"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean"
+  },
+  {
+    "id": [
+      "DataView"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/DataView"
+  },
+  {
+    "id": [
+      "Date"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Date"
+  },
+  {
+    "id": [
+      "Error"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error"
+  },
+  {
+    "id": [
+      "EvalError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/EvalError"
+  },
+  {
+    "id": [
+      "FinalizationRegistry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry"
+  },
+  {
+    "id": [
+      "Float32Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Float32Array"
+  },
+  {
+    "id": [
+      "Float64Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Float64Array"
+  },
+  {
+    "id": [
+      "Function"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Function"
+  },
+  {
+    "id": [
+      "Generator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Generator"
+  },
+  {
+    "id": [
+      "GeneratorFunction"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/GeneratorFunction"
+  },
+  {
+    "id": [
+      "Infinity"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Infinity"
+  },
+  {
+    "id": [
+      "Int16Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Int16Array"
+  },
+  {
+    "id": [
+      "Int32Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Int32Array"
+  },
+  {
+    "id": [
+      "Int8Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Int8Array"
+  },
+  {
+    "id": [
+      "InternalError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/InternalError"
+  },
+  {
+    "id": [
+      "Intl"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl"
+  },
+  {
+    "id": [
+      "Intl",
+      "Collator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/Collator"
+  },
+  {
+    "id": [
+      "Intl",
+      "DateTimeFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat"
+  },
+  {
+    "id": [
+      "Intl",
+      "DisplayNames"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/DisplayNames"
+  },
+  {
+    "id": [
+      "Intl",
+      "DurationFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/DurationFormat"
+  },
+  {
+    "id": [
+      "Intl",
+      "ListFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/ListFormat"
+  },
+  {
+    "id": [
+      "Intl",
+      "Locale"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale"
+  },
+  {
+    "id": [
+      "Intl",
+      "NumberFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat"
+  },
+  {
+    "id": [
+      "Intl",
+      "PluralRules"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/PluralRules"
+  },
+  {
+    "id": [
+      "Intl",
+      "RelativeTimeFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/RelativeTimeFormat"
+  },
+  {
+    "id": [
+      "Intl",
+      "Segmenter"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter"
+  },
+  {
+    "id": [
+      "Intl",
+      "Segments"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segments"
+  },
+  {
+    "id": [
+      "Iterator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Iterator"
+  },
+  {
+    "id": [
+      "JSON"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/JSON"
+  },
+  {
+    "id": [
+      "Map"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Map"
+  },
+  {
+    "id": [
+      "Math"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math"
+  },
+  {
+    "id": [
+      "Math",
+      "E"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/E"
+  },
+  {
+    "id": [
+      "Math",
+      "LN10"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/LN10"
+  },
+  {
+    "id": [
+      "Math",
+      "LN2"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/LN2"
+  },
+  {
+    "id": [
+      "Math",
+      "LOG10E"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/LOG10E"
+  },
+  {
+    "id": [
+      "Math",
+      "LOG2E"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/LOG2E"
+  },
+  {
+    "id": [
+      "Math",
+      "PI"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/PI"
+  },
+  {
+    "id": [
+      "NaN"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/NaN"
+  },
+  {
+    "id": [
+      "Number"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number"
+  },
+  {
+    "id": [
+      "Number",
+      "EPSILON"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number/EPSILON"
+  },
+  {
+    "id": [
+      "Object"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object"
+  },
+  {
+    "id": [
+      "Promise"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise"
+  },
+  {
+    "id": [
+      "Proxy"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Proxy"
+  },
+  {
+    "id": [
+      "RangeError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RangeError"
+  },
+  {
+    "id": [
+      "ReferenceError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError"
+  },
+  {
+    "id": [
+      "Reflect"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Reflect"
+  },
+  {
+    "id": [
+      "RegExp"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RegExp"
+  },
+  {
+    "id": [
+      "Set"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Set"
+  },
+  {
+    "id": [
+      "SharedArrayBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer"
+  },
+  {
+    "id": [
+      "String"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String"
+  },
+  {
+    "id": [
+      "Symbol"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Symbol"
+  },
+  {
+    "id": [
+      "SyntaxError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError"
+  },
+  {
+    "id": [
+      "Temporal"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal"
+  },
+  {
+    "id": [
+      "Temporal",
+      "Calendar"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Calendar"
+  },
+  {
+    "id": [
+      "Temporal",
+      "Duration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration"
+  },
+  {
+    "id": [
+      "Temporal",
+      "Instant"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Instant"
+  },
+  {
+    "id": [
+      "Temporal",
+      "Now"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Now"
+  },
+  {
+    "id": [
+      "Temporal",
+      "PlainDate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDate"
+  },
+  {
+    "id": [
+      "Temporal",
+      "PlainDateTime"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime"
+  },
+  {
+    "id": [
+      "Temporal",
+      "PlainMonthDay"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainMonthDay"
+  },
+  {
+    "id": [
+      "Temporal",
+      "PlainTime"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime"
+  },
+  {
+    "id": [
+      "Temporal",
+      "PlainYearMonth"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainYearMonth"
+  },
+  {
+    "id": [
+      "Temporal",
+      "TimeZone"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/TimeZone"
+  },
+  {
+    "id": [
+      "Temporal",
+      "ZonedDateTime"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime"
+  },
+  {
+    "id": [
+      "TypeError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/TypeError"
+  },
+  {
+    "id": [
+      "TypedArray"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/TypedArray"
+  },
+  {
+    "id": [
+      "URIError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/URIError"
+  },
+  {
+    "id": [
+      "Uint16Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint16Array"
+  },
+  {
+    "id": [
+      "Uint32Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint32Array"
+  },
+  {
+    "id": [
+      "Uint8Array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array"
+  },
+  {
+    "id": [
+      "Uint8ClampedArray"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray"
+  },
+  {
+    "id": [
+      "WeakMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/WeakMap"
+  },
+  {
+    "id": [
+      "WeakRef"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/WeakRef"
+  },
+  {
+    "id": [
+      "WeakSet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/WeakSet"
+  },
+  {
+    "id": [
+      "AbortController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AbortController"
+  },
+  {
+    "id": [
+      "AbortPaymentEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AbortPaymentEvent"
+  },
+  {
+    "id": [
+      "AbortSignal"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AbortSignal"
+  },
+  {
+    "id": [
+      "AbsoluteOrientationSensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AbsoluteOrientationSensor"
+  },
+  {
+    "id": [
+      "AbstractRange"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AbstractRange"
+  },
+  {
+    "id": [
+      "Accelerometer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Accelerometer"
+  },
+  {
+    "id": [
+      "AmbientLightSensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AmbientLightSensor"
+  },
+  {
+    "id": [
+      "AnalyserNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AnalyserNode"
+  },
+  {
+    "id": [
+      "Animation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Animation"
+  },
+  {
+    "id": [
+      "AnimationEffect"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AnimationEffect"
+  },
+  {
+    "id": [
+      "AnimationEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AnimationEvent"
+  },
+  {
+    "id": [
+      "AnimationPlaybackEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AnimationPlaybackEvent"
+  },
+  {
+    "id": [
+      "AnimationTimeline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AnimationTimeline"
+  },
+  {
+    "id": [
+      "Attr"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Attr"
+  },
+  {
+    "id": [
+      "AudioBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioBuffer"
+  },
+  {
+    "id": [
+      "AudioBufferSourceNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioBufferSourceNode"
+  },
+  {
+    "id": [
+      "AudioContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioContext"
+  },
+  {
+    "id": [
+      "AudioData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioData"
+  },
+  {
+    "id": [
+      "AudioDecoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioDecoder"
+  },
+  {
+    "id": [
+      "AudioDestinationNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioDestinationNode"
+  },
+  {
+    "id": [
+      "AudioEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioEncoder"
+  },
+  {
+    "id": [
+      "AudioListener"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioListener"
+  },
+  {
+    "id": [
+      "AudioNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioNode"
+  },
+  {
+    "id": [
+      "AudioParam"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioParam"
+  },
+  {
+    "id": [
+      "AudioParamMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioParamMap"
+  },
+  {
+    "id": [
+      "AudioProcessingEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioProcessingEvent"
+  },
+  {
+    "id": [
+      "AudioScheduledSourceNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioScheduledSourceNode"
+  },
+  {
+    "id": [
+      "AudioSinkInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioSinkInfo"
+  },
+  {
+    "id": [
+      "AudioTrack"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioTrack"
+  },
+  {
+    "id": [
+      "AudioTrackList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioTrackList"
+  },
+  {
+    "id": [
+      "AudioWorklet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioWorklet"
+  },
+  {
+    "id": [
+      "AudioWorkletGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioWorkletGlobalScope"
+  },
+  {
+    "id": [
+      "AudioWorkletNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioWorkletNode"
+  },
+  {
+    "id": [
+      "AudioWorkletProcessor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AudioWorkletProcessor"
+  },
+  {
+    "id": [
+      "AuthenticatorAssertionResponse"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AuthenticatorAssertionResponse"
+  },
+  {
+    "id": [
+      "AuthenticatorAttestationResponse"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AuthenticatorAttestationResponse"
+  },
+  {
+    "id": [
+      "AuthenticatorResponse"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/AuthenticatorResponse"
+  },
+  {
+    "id": [
+      "BackgroundFetchEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BackgroundFetchEvent"
+  },
+  {
+    "id": [
+      "BackgroundFetchManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BackgroundFetchManager"
+  },
+  {
+    "id": [
+      "BackgroundFetchRecord"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BackgroundFetchRecord"
+  },
+  {
+    "id": [
+      "BackgroundFetchRegistration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BackgroundFetchRegistration"
+  },
+  {
+    "id": [
+      "BackgroundFetchUpdateUIEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BackgroundFetchUpdateUIEvent"
+  },
+  {
+    "id": [
+      "BarProp"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BarProp"
+  },
+  {
+    "id": [
+      "BarcodeDetector"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BarcodeDetector"
+  },
+  {
+    "id": [
+      "BaseAudioContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BaseAudioContext"
+  },
+  {
+    "id": [
+      "BatteryManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BatteryManager"
+  },
+  {
+    "id": [
+      "BeforeInstallPromptEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BeforeInstallPromptEvent"
+  },
+  {
+    "id": [
+      "BeforeUnloadEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BeforeUnloadEvent"
+  },
+  {
+    "id": [
+      "BiquadFilterNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BiquadFilterNode"
+  },
+  {
+    "id": [
+      "Blob"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Blob"
+  },
+  {
+    "id": [
+      "BlobEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BlobEvent"
+  },
+  {
+    "id": [
+      "Bluetooth"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Bluetooth"
+  },
+  {
+    "id": [
+      "BluetoothCharacteristicProperties"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothCharacteristicProperties"
+  },
+  {
+    "id": [
+      "BluetoothDevice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothDevice"
+  },
+  {
+    "id": [
+      "BluetoothRemoteGATTCharacteristic"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothRemoteGATTCharacteristic"
+  },
+  {
+    "id": [
+      "BluetoothRemoteGATTDescriptor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothRemoteGATTDescriptor"
+  },
+  {
+    "id": [
+      "BluetoothRemoteGATTServer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothRemoteGATTServer"
+  },
+  {
+    "id": [
+      "BluetoothRemoteGATTService"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothRemoteGATTService"
+  },
+  {
+    "id": [
+      "BluetoothUUID"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BluetoothUUID"
+  },
+  {
+    "id": [
+      "BroadcastChannel"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/BroadcastChannel"
+  },
+  {
+    "id": [
+      "ByteLengthQueuingStrategy"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ByteLengthQueuingStrategy"
+  },
+  {
+    "id": [
+      "CDATASection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CDATASection"
+  },
+  {
+    "id": [
+      "CSPViolationReportBody"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSPViolationReportBody"
+  },
+  {
+    "id": [
+      "CSS"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSS"
+  },
+  {
+    "id": [
+      "CSSAnimation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSAnimation"
+  },
+  {
+    "id": [
+      "CSSConditionRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSConditionRule"
+  },
+  {
+    "id": [
+      "CSSContainerRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSContainerRule"
+  },
+  {
+    "id": [
+      "CSSCounterStyleRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSCounterStyleRule"
+  },
+  {
+    "id": [
+      "CSSFontFaceRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSFontFaceRule"
+  },
+  {
+    "id": [
+      "CSSFontFeatureValuesRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSFontFeatureValuesRule"
+  },
+  {
+    "id": [
+      "CSSFontPaletteValuesRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSFontPaletteValuesRule"
+  },
+  {
+    "id": [
+      "CSSGroupingRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSGroupingRule"
+  },
+  {
+    "id": [
+      "CSSImageValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSImageValue"
+  },
+  {
+    "id": [
+      "CSSImportRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSImportRule"
+  },
+  {
+    "id": [
+      "CSSKeyframeRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSKeyframeRule"
+  },
+  {
+    "id": [
+      "CSSKeyframesRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSKeyframesRule"
+  },
+  {
+    "id": [
+      "CSSKeywordValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSKeywordValue"
+  },
+  {
+    "id": [
+      "CSSLayerBlockRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSLayerBlockRule"
+  },
+  {
+    "id": [
+      "CSSLayerStatementRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSLayerStatementRule"
+  },
+  {
+    "id": [
+      "CSSMathInvert"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathInvert"
+  },
+  {
+    "id": [
+      "CSSMathMax"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathMax"
+  },
+  {
+    "id": [
+      "CSSMathMin"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathMin"
+  },
+  {
+    "id": [
+      "CSSMathNegate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathNegate"
+  },
+  {
+    "id": [
+      "CSSMathProduct"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathProduct"
+  },
+  {
+    "id": [
+      "CSSMathSum"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathSum"
+  },
+  {
+    "id": [
+      "CSSMathValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMathValue"
+  },
+  {
+    "id": [
+      "CSSMatrixComponent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMatrixComponent"
+  },
+  {
+    "id": [
+      "CSSMediaRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSMediaRule"
+  },
+  {
+    "id": [
+      "CSSNamespaceRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSNamespaceRule"
+  },
+  {
+    "id": [
+      "CSSNumericArray"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSNumericArray"
+  },
+  {
+    "id": [
+      "CSSNumericValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSNumericValue"
+  },
+  {
+    "id": [
+      "CSSPageRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSPageRule"
+  },
+  {
+    "id": [
+      "CSSPerspective"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSPerspective"
+  },
+  {
+    "id": [
+      "CSSPositionValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSPositionValue"
+  },
+  {
+    "id": [
+      "CSSPrimitiveValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSPrimitiveValue"
+  },
+  {
+    "id": [
+      "CSSPropertyRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSPropertyRule"
+  },
+  {
+    "id": [
+      "CSSPseudoElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSPseudoElement"
+  },
+  {
+    "id": [
+      "CSSRotate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSRotate"
+  },
+  {
+    "id": [
+      "CSSRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSRule"
+  },
+  {
+    "id": [
+      "CSSRuleList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSRuleList"
+  },
+  {
+    "id": [
+      "CSSScale"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSScale"
+  },
+  {
+    "id": [
+      "CSSSkew"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSSkew"
+  },
+  {
+    "id": [
+      "CSSSkewX"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSSkewX"
+  },
+  {
+    "id": [
+      "CSSSkewY"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSSkewY"
+  },
+  {
+    "id": [
+      "CSSStartingStyleRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSStartingStyleRule"
+  },
+  {
+    "id": [
+      "CSSStyleDeclaration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSStyleDeclaration"
+  },
+  {
+    "id": [
+      "CSSStyleRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSStyleRule"
+  },
+  {
+    "id": [
+      "CSSStyleSheet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSStyleSheet"
+  },
+  {
+    "id": [
+      "CSSStyleValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSStyleValue"
+  },
+  {
+    "id": [
+      "CSSSupportsRule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSSupportsRule"
+  },
+  {
+    "id": [
+      "CSSTransformComponent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSTransformComponent"
+  },
+  {
+    "id": [
+      "CSSTransformValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSTransformValue"
+  },
+  {
+    "id": [
+      "CSSTransition"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSTransition"
+  },
+  {
+    "id": [
+      "CSSTranslate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSTranslate"
+  },
+  {
+    "id": [
+      "CSSUnitValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSUnitValue"
+  },
+  {
+    "id": [
+      "CSSUnparsedValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSUnparsedValue"
+  },
+  {
+    "id": [
+      "CSSValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSValue"
+  },
+  {
+    "id": [
+      "CSSValueList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSValueList"
+  },
+  {
+    "id": [
+      "CSSVariableReferenceValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CSSVariableReferenceValue"
+  },
+  {
+    "id": [
+      "Cache"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Cache"
+  },
+  {
+    "id": [
+      "CacheStorage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CacheStorage"
+  },
+  {
+    "id": [
+      "CanMakePaymentEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CanMakePaymentEvent"
+  },
+  {
+    "id": [
+      "CanvasCaptureMediaStreamTrack"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CanvasCaptureMediaStreamTrack"
+  },
+  {
+    "id": [
+      "CanvasGradient"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CanvasGradient"
+  },
+  {
+    "id": [
+      "CanvasPattern"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CanvasPattern"
+  },
+  {
+    "id": [
+      "CanvasRenderingContext2D"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D"
+  },
+  {
+    "id": [
+      "CaptureController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CaptureController"
+  },
+  {
+    "id": [
+      "CaretPosition"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CaretPosition"
+  },
+  {
+    "id": [
+      "ChannelMergerNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ChannelMergerNode"
+  },
+  {
+    "id": [
+      "ChannelSplitterNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ChannelSplitterNode"
+  },
+  {
+    "id": [
+      "CharacterBoundsUpdateEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CharacterBoundsUpdateEvent"
+  },
+  {
+    "id": [
+      "CharacterData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CharacterData"
+  },
+  {
+    "id": [
+      "Client"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Client"
+  },
+  {
+    "id": [
+      "Clients"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Clients"
+  },
+  {
+    "id": [
+      "Clipboard"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Clipboard"
+  },
+  {
+    "id": [
+      "ClipboardEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ClipboardEvent"
+  },
+  {
+    "id": [
+      "ClipboardItem"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ClipboardItem"
+  },
+  {
+    "id": [
+      "CloseEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CloseEvent"
+  },
+  {
+    "id": [
+      "Comment"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Comment"
+  },
+  {
+    "id": [
+      "CompositionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CompositionEvent"
+  },
+  {
+    "id": [
+      "CompressionStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CompressionStream"
+  },
+  {
+    "id": [
+      "ConstantSourceNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ConstantSourceNode"
+  },
+  {
+    "id": [
+      "ContactAddress"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ContactAddress"
+  },
+  {
+    "id": [
+      "ContactsManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ContactsManager"
+  },
+  {
+    "id": [
+      "ContentIndex"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ContentIndex"
+  },
+  {
+    "id": [
+      "ContentIndexEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ContentIndexEvent"
+  },
+  {
+    "id": [
+      "ContentVisibilityAutoStateChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ContentVisibilityAutoStateChangeEvent"
+  },
+  {
+    "id": [
+      "ConvolverNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ConvolverNode"
+  },
+  {
+    "id": [
+      "CookieChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CookieChangeEvent"
+  },
+  {
+    "id": [
+      "CookieStore"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CookieStore"
+  },
+  {
+    "id": [
+      "CookieStoreManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CookieStoreManager"
+  },
+  {
+    "id": [
+      "CountQueuingStrategy"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CountQueuingStrategy"
+  },
+  {
+    "id": [
+      "Credential"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Credential"
+  },
+  {
+    "id": [
+      "CredentialsContainer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CredentialsContainer"
+  },
+  {
+    "id": [
+      "Crypto"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Crypto"
+  },
+  {
+    "id": [
+      "CryptoKey"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CryptoKey"
+  },
+  {
+    "id": [
+      "CustomElementRegistry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CustomElementRegistry"
+  },
+  {
+    "id": [
+      "CustomEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CustomEvent"
+  },
+  {
+    "id": [
+      "CustomStateSet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/CustomStateSet"
+  },
+  {
+    "id": [
+      "DOMError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMError"
+  },
+  {
+    "id": [
+      "DOMException"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMException"
+  },
+  {
+    "id": [
+      "DOMImplementation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMImplementation"
+  },
+  {
+    "id": [
+      "DOMMatrix"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMMatrix"
+  },
+  {
+    "id": [
+      "DOMMatrixReadOnly"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMMatrixReadOnly"
+  },
+  {
+    "id": [
+      "DOMParser"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMParser"
+  },
+  {
+    "id": [
+      "DOMPoint"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMPoint"
+  },
+  {
+    "id": [
+      "DOMPointReadOnly"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMPointReadOnly"
+  },
+  {
+    "id": [
+      "DOMQuad"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMQuad"
+  },
+  {
+    "id": [
+      "DOMRect"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMRect"
+  },
+  {
+    "id": [
+      "DOMRectReadOnly"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMRectReadOnly"
+  },
+  {
+    "id": [
+      "DOMStringList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMStringList"
+  },
+  {
+    "id": [
+      "DOMStringMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMStringMap"
+  },
+  {
+    "id": [
+      "DOMTokenList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DOMTokenList"
+  },
+  {
+    "id": [
+      "DataTransfer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DataTransfer"
+  },
+  {
+    "id": [
+      "DataTransferItem"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DataTransferItem"
+  },
+  {
+    "id": [
+      "DataTransferItemList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DataTransferItemList"
+  },
+  {
+    "id": [
+      "DecompressionStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DecompressionStream"
+  },
+  {
+    "id": [
+      "DedicatedWorkerGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DedicatedWorkerGlobalScope"
+  },
+  {
+    "id": [
+      "DelayNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DelayNode"
+  },
+  {
+    "id": [
+      "DeprecationReportBody"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DeprecationReportBody"
+  },
+  {
+    "id": [
+      "DeviceMotionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DeviceMotionEvent"
+  },
+  {
+    "id": [
+      "DeviceMotionEventAcceleration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DeviceMotionEventAcceleration"
+  },
+  {
+    "id": [
+      "DeviceMotionEventRotationRate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DeviceMotionEventRotationRate"
+  },
+  {
+    "id": [
+      "DeviceOrientationEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DeviceOrientationEvent"
+  },
+  {
+    "id": [
+      "DirectoryEntrySync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DirectoryEntrySync"
+  },
+  {
+    "id": [
+      "DirectoryReaderSync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DirectoryReaderSync"
+  },
+  {
+    "id": [
+      "Document"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Document"
+  },
+  {
+    "id": [
+      "DocumentFragment"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DocumentFragment"
+  },
+  {
+    "id": [
+      "DocumentPictureInPicture"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DocumentPictureInPicture"
+  },
+  {
+    "id": [
+      "DocumentPictureInPictureEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DocumentPictureInPictureEvent"
+  },
+  {
+    "id": [
+      "DocumentTimeline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DocumentTimeline"
+  },
+  {
+    "id": [
+      "DocumentType"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DocumentType"
+  },
+  {
+    "id": [
+      "DragEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DragEvent"
+  },
+  {
+    "id": [
+      "DynamicsCompressorNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/DynamicsCompressorNode"
+  },
+  {
+    "id": [
+      "EditContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EditContext"
+  },
+  {
+    "id": [
+      "Element"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Element"
+  },
+  {
+    "id": [
+      "ElementInternals"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ElementInternals"
+  },
+  {
+    "id": [
+      "EncodedAudioChunk"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EncodedAudioChunk"
+  },
+  {
+    "id": [
+      "EncodedVideoChunk"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EncodedVideoChunk"
+  },
+  {
+    "id": [
+      "EntrySync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EntrySync"
+  },
+  {
+    "id": [
+      "ErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ErrorEvent"
+  },
+  {
+    "id": [
+      "Event"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Event"
+  },
+  {
+    "id": [
+      "EventCounts"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EventCounts"
+  },
+  {
+    "id": [
+      "EventSource"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EventSource"
+  },
+  {
+    "id": [
+      "EventTarget"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EventTarget"
+  },
+  {
+    "id": [
+      "ExtendableCookieChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ExtendableCookieChangeEvent"
+  },
+  {
+    "id": [
+      "ExtendableEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ExtendableEvent"
+  },
+  {
+    "id": [
+      "ExtendableMessageEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ExtendableMessageEvent"
+  },
+  {
+    "id": [
+      "External"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/External"
+  },
+  {
+    "id": [
+      "External",
+      "AddSearchProvider"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/External/AddSearchProvider"
+  },
+  {
+    "id": [
+      "External",
+      "IsSearchProviderInstalled"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/External/IsSearchProviderInstalled"
+  },
+  {
+    "id": [
+      "EyeDropper"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/EyeDropper"
+  },
+  {
+    "id": [
+      "FeaturePolicy"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FeaturePolicy"
+  },
+  {
+    "id": [
+      "FederatedCredential"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FederatedCredential"
+  },
+  {
+    "id": [
+      "Fence"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Fence"
+  },
+  {
+    "id": [
+      "FencedFrameConfig"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FencedFrameConfig"
+  },
+  {
+    "id": [
+      "FetchEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FetchEvent"
+  },
+  {
+    "id": [
+      "File"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/File"
+  },
+  {
+    "id": [
+      "FileEntrySync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileEntrySync"
+  },
+  {
+    "id": [
+      "FileList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileList"
+  },
+  {
+    "id": [
+      "FileReader"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileReader"
+  },
+  {
+    "id": [
+      "FileReaderSync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileReaderSync"
+  },
+  {
+    "id": [
+      "FileSystem"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystem"
+  },
+  {
+    "id": [
+      "FileSystemDirectoryEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemDirectoryEntry"
+  },
+  {
+    "id": [
+      "FileSystemDirectoryHandle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemDirectoryHandle"
+  },
+  {
+    "id": [
+      "FileSystemDirectoryReader"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemDirectoryReader"
+  },
+  {
+    "id": [
+      "FileSystemEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemEntry"
+  },
+  {
+    "id": [
+      "FileSystemFileEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemFileEntry"
+  },
+  {
+    "id": [
+      "FileSystemFileHandle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemFileHandle"
+  },
+  {
+    "id": [
+      "FileSystemHandle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemHandle"
+  },
+  {
+    "id": [
+      "FileSystemSync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemSync"
+  },
+  {
+    "id": [
+      "FileSystemSyncAccessHandle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemSyncAccessHandle"
+  },
+  {
+    "id": [
+      "FileSystemWritableFileStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FileSystemWritableFileStream"
+  },
+  {
+    "id": [
+      "FocusEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FocusEvent"
+  },
+  {
+    "id": [
+      "FontFace"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FontFace"
+  },
+  {
+    "id": [
+      "FontFaceSet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FontFaceSet"
+  },
+  {
+    "id": [
+      "FontFaceSetLoadEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FontFaceSetLoadEvent"
+  },
+  {
+    "id": [
+      "FormData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FormData"
+  },
+  {
+    "id": [
+      "FormDataEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FormDataEvent"
+  },
+  {
+    "id": [
+      "FragmentDirective"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/FragmentDirective"
+  },
+  {
+    "id": [
+      "GPU"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPU"
+  },
+  {
+    "id": [
+      "GPUAdapter"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUAdapter"
+  },
+  {
+    "id": [
+      "GPUAdapterInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUAdapterInfo"
+  },
+  {
+    "id": [
+      "GPUBindGroup"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUBindGroup"
+  },
+  {
+    "id": [
+      "GPUBindGroupLayout"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUBindGroupLayout"
+  },
+  {
+    "id": [
+      "GPUBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUBuffer"
+  },
+  {
+    "id": [
+      "GPUCanvasContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUCanvasContext"
+  },
+  {
+    "id": [
+      "GPUCommandBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUCommandBuffer"
+  },
+  {
+    "id": [
+      "GPUCommandEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUCommandEncoder"
+  },
+  {
+    "id": [
+      "GPUCompilationInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUCompilationInfo"
+  },
+  {
+    "id": [
+      "GPUCompilationMessage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUCompilationMessage"
+  },
+  {
+    "id": [
+      "GPUComputePassEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUComputePassEncoder"
+  },
+  {
+    "id": [
+      "GPUComputePipeline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUComputePipeline"
+  },
+  {
+    "id": [
+      "GPUDevice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUDevice"
+  },
+  {
+    "id": [
+      "GPUDeviceLostInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUDeviceLostInfo"
+  },
+  {
+    "id": [
+      "GPUError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUError"
+  },
+  {
+    "id": [
+      "GPUExternalTexture"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUExternalTexture"
+  },
+  {
+    "id": [
+      "GPUInternalError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUInternalError"
+  },
+  {
+    "id": [
+      "GPUOutOfMemoryError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUOutOfMemoryError"
+  },
+  {
+    "id": [
+      "GPUPipelineError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUPipelineError"
+  },
+  {
+    "id": [
+      "GPUPipelineLayout"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUPipelineLayout"
+  },
+  {
+    "id": [
+      "GPUQuerySet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUQuerySet"
+  },
+  {
+    "id": [
+      "GPUQueue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUQueue"
+  },
+  {
+    "id": [
+      "GPURenderBundle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPURenderBundle"
+  },
+  {
+    "id": [
+      "GPURenderBundleEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPURenderBundleEncoder"
+  },
+  {
+    "id": [
+      "GPURenderPassEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPURenderPassEncoder"
+  },
+  {
+    "id": [
+      "GPURenderPipeline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPURenderPipeline"
+  },
+  {
+    "id": [
+      "GPUSampler"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUSampler"
+  },
+  {
+    "id": [
+      "GPUShaderModule"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUShaderModule"
+  },
+  {
+    "id": [
+      "GPUSupportedFeatures"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUSupportedFeatures"
+  },
+  {
+    "id": [
+      "GPUSupportedLimits"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUSupportedLimits"
+  },
+  {
+    "id": [
+      "GPUTexture"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUTexture"
+  },
+  {
+    "id": [
+      "GPUTextureView"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUTextureView"
+  },
+  {
+    "id": [
+      "GPUUncapturedErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUUncapturedErrorEvent"
+  },
+  {
+    "id": [
+      "GPUValidationError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GPUValidationError"
+  },
+  {
+    "id": [
+      "GainNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GainNode"
+  },
+  {
+    "id": [
+      "Gamepad"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Gamepad"
+  },
+  {
+    "id": [
+      "GamepadButton"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GamepadButton"
+  },
+  {
+    "id": [
+      "GamepadEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GamepadEvent"
+  },
+  {
+    "id": [
+      "GamepadHapticActuator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GamepadHapticActuator"
+  },
+  {
+    "id": [
+      "GamepadPose"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GamepadPose"
+  },
+  {
+    "id": [
+      "Geolocation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Geolocation"
+  },
+  {
+    "id": [
+      "GeolocationCoordinates"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GeolocationCoordinates"
+  },
+  {
+    "id": [
+      "GeolocationPosition"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GeolocationPosition"
+  },
+  {
+    "id": [
+      "GeolocationPositionError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GeolocationPositionError"
+  },
+  {
+    "id": [
+      "GestureEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GestureEvent"
+  },
+  {
+    "id": [
+      "GravitySensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/GravitySensor"
+  },
+  {
+    "id": [
+      "Gyroscope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Gyroscope"
+  },
+  {
+    "id": [
+      "HID"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HID"
+  },
+  {
+    "id": [
+      "HIDConnectionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HIDConnectionEvent"
+  },
+  {
+    "id": [
+      "HIDDevice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HIDDevice"
+  },
+  {
+    "id": [
+      "HIDInputReportEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HIDInputReportEvent"
+  },
+  {
+    "id": [
+      "HMDVRDevice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HMDVRDevice"
+  },
+  {
+    "id": [
+      "HTMLAllCollection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLAllCollection"
+  },
+  {
+    "id": [
+      "HTMLAnchorElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLAnchorElement"
+  },
+  {
+    "id": [
+      "HTMLAreaElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLAreaElement"
+  },
+  {
+    "id": [
+      "HTMLAudioElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLAudioElement"
+  },
+  {
+    "id": [
+      "HTMLAudioElement",
+      "Audio"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLAudioElement/Audio"
+  },
+  {
+    "id": [
+      "HTMLBRElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLBRElement"
+  },
+  {
+    "id": [
+      "HTMLBaseElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLBaseElement"
+  },
+  {
+    "id": [
+      "HTMLBodyElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLBodyElement"
+  },
+  {
+    "id": [
+      "HTMLButtonElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLButtonElement"
+  },
+  {
+    "id": [
+      "HTMLCanvasElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement"
+  },
+  {
+    "id": [
+      "HTMLCollection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLCollection"
+  },
+  {
+    "id": [
+      "HTMLDListElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDListElement"
+  },
+  {
+    "id": [
+      "HTMLDataElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDataElement"
+  },
+  {
+    "id": [
+      "HTMLDataListElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDataListElement"
+  },
+  {
+    "id": [
+      "HTMLDetailsElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDetailsElement"
+  },
+  {
+    "id": [
+      "HTMLDialogElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDialogElement"
+  },
+  {
+    "id": [
+      "HTMLDivElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDivElement"
+  },
+  {
+    "id": [
+      "HTMLDocument"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLDocument"
+  },
+  {
+    "id": [
+      "HTMLElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLElement"
+  },
+  {
+    "id": [
+      "HTMLEmbedElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLEmbedElement"
+  },
+  {
+    "id": [
+      "HTMLFencedFrameElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFencedFrameElement"
+  },
+  {
+    "id": [
+      "HTMLFieldSetElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFieldSetElement"
+  },
+  {
+    "id": [
+      "HTMLFontElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFontElement"
+  },
+  {
+    "id": [
+      "HTMLFormControlsCollection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFormControlsCollection"
+  },
+  {
+    "id": [
+      "HTMLFormElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFormElement"
+  },
+  {
+    "id": [
+      "HTMLFrameElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFrameElement"
+  },
+  {
+    "id": [
+      "HTMLFrameSetElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLFrameSetElement"
+  },
+  {
+    "id": [
+      "HTMLHRElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLHRElement"
+  },
+  {
+    "id": [
+      "HTMLHeadElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLHeadElement"
+  },
+  {
+    "id": [
+      "HTMLHeadingElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLHeadingElement"
+  },
+  {
+    "id": [
+      "HTMLHtmlElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLHtmlElement"
+  },
+  {
+    "id": [
+      "HTMLIFrameElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLIFrameElement"
+  },
+  {
+    "id": [
+      "HTMLImageElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLImageElement"
+  },
+  {
+    "id": [
+      "HTMLImageElement",
+      "Image"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLImageElement/Image"
+  },
+  {
+    "id": [
+      "HTMLInputElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLInputElement"
+  },
+  {
+    "id": [
+      "HTMLLIElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLLIElement"
+  },
+  {
+    "id": [
+      "HTMLLabelElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLLabelElement"
+  },
+  {
+    "id": [
+      "HTMLLegendElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLLegendElement"
+  },
+  {
+    "id": [
+      "HTMLLinkElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLLinkElement"
+  },
+  {
+    "id": [
+      "HTMLMapElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLMapElement"
+  },
+  {
+    "id": [
+      "HTMLMarqueeElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLMarqueeElement"
+  },
+  {
+    "id": [
+      "HTMLMediaElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLMediaElement"
+  },
+  {
+    "id": [
+      "HTMLMenuElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLMenuElement"
+  },
+  {
+    "id": [
+      "HTMLMetaElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLMetaElement"
+  },
+  {
+    "id": [
+      "HTMLMeterElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLMeterElement"
+  },
+  {
+    "id": [
+      "HTMLModElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLModElement"
+  },
+  {
+    "id": [
+      "HTMLOListElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLOListElement"
+  },
+  {
+    "id": [
+      "HTMLObjectElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLObjectElement"
+  },
+  {
+    "id": [
+      "HTMLOptGroupElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLOptGroupElement"
+  },
+  {
+    "id": [
+      "HTMLOptionElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLOptionElement"
+  },
+  {
+    "id": [
+      "HTMLOptionElement",
+      "Option"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLOptionElement/Option"
+  },
+  {
+    "id": [
+      "HTMLOptionsCollection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLOptionsCollection"
+  },
+  {
+    "id": [
+      "HTMLOutputElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLOutputElement"
+  },
+  {
+    "id": [
+      "HTMLParagraphElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLParagraphElement"
+  },
+  {
+    "id": [
+      "HTMLParamElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLParamElement"
+  },
+  {
+    "id": [
+      "HTMLPictureElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLPictureElement"
+  },
+  {
+    "id": [
+      "HTMLPortalElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLPortalElement"
+  },
+  {
+    "id": [
+      "HTMLPreElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLPreElement"
+  },
+  {
+    "id": [
+      "HTMLProgressElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLProgressElement"
+  },
+  {
+    "id": [
+      "HTMLQuoteElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLQuoteElement"
+  },
+  {
+    "id": [
+      "HTMLScriptElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLScriptElement"
+  },
+  {
+    "id": [
+      "HTMLSelectElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLSelectElement"
+  },
+  {
+    "id": [
+      "HTMLSlotElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLSlotElement"
+  },
+  {
+    "id": [
+      "HTMLSourceElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLSourceElement"
+  },
+  {
+    "id": [
+      "HTMLSpanElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLSpanElement"
+  },
+  {
+    "id": [
+      "HTMLStyleElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLStyleElement"
+  },
+  {
+    "id": [
+      "HTMLTableCaptionElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTableCaptionElement"
+  },
+  {
+    "id": [
+      "HTMLTableCellElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTableCellElement"
+  },
+  {
+    "id": [
+      "HTMLTableColElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTableColElement"
+  },
+  {
+    "id": [
+      "HTMLTableElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTableElement"
+  },
+  {
+    "id": [
+      "HTMLTableRowElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTableRowElement"
+  },
+  {
+    "id": [
+      "HTMLTableSectionElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTableSectionElement"
+  },
+  {
+    "id": [
+      "HTMLTemplateElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTemplateElement"
+  },
+  {
+    "id": [
+      "HTMLTextAreaElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTextAreaElement"
+  },
+  {
+    "id": [
+      "HTMLTimeElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTimeElement"
+  },
+  {
+    "id": [
+      "HTMLTitleElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTitleElement"
+  },
+  {
+    "id": [
+      "HTMLTrackElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLTrackElement"
+  },
+  {
+    "id": [
+      "HTMLUListElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLUListElement"
+  },
+  {
+    "id": [
+      "HTMLUnknownElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLUnknownElement"
+  },
+  {
+    "id": [
+      "HTMLVideoElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HTMLVideoElement"
+  },
+  {
+    "id": [
+      "HashChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HashChangeEvent"
+  },
+  {
+    "id": [
+      "Headers"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Headers"
+  },
+  {
+    "id": [
+      "Highlight"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Highlight"
+  },
+  {
+    "id": [
+      "HighlightRegistry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/HighlightRegistry"
+  },
+  {
+    "id": [
+      "History"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/History"
+  },
+  {
+    "id": [
+      "IDBCursor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBCursor"
+  },
+  {
+    "id": [
+      "IDBCursorWithValue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBCursorWithValue"
+  },
+  {
+    "id": [
+      "IDBDatabase"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBDatabase"
+  },
+  {
+    "id": [
+      "IDBFactory"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBFactory"
+  },
+  {
+    "id": [
+      "IDBIndex"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBIndex"
+  },
+  {
+    "id": [
+      "IDBKeyRange"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBKeyRange"
+  },
+  {
+    "id": [
+      "IDBLocaleAwareKeyRange"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBLocaleAwareKeyRange"
+  },
+  {
+    "id": [
+      "IDBObjectStore"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBObjectStore"
+  },
+  {
+    "id": [
+      "IDBOpenDBRequest"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBOpenDBRequest"
+  },
+  {
+    "id": [
+      "IDBRequest"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBRequest"
+  },
+  {
+    "id": [
+      "IDBTransaction"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBTransaction"
+  },
+  {
+    "id": [
+      "IDBVersionChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IDBVersionChangeEvent"
+  },
+  {
+    "id": [
+      "IIRFilterNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IIRFilterNode"
+  },
+  {
+    "id": [
+      "IdentityCredential"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IdentityCredential"
+  },
+  {
+    "id": [
+      "IdentityProvider"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IdentityProvider"
+  },
+  {
+    "id": [
+      "IdleDeadline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IdleDeadline"
+  },
+  {
+    "id": [
+      "IdleDetector"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IdleDetector"
+  },
+  {
+    "id": [
+      "ImageBitmap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageBitmap"
+  },
+  {
+    "id": [
+      "ImageBitmapRenderingContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageBitmapRenderingContext"
+  },
+  {
+    "id": [
+      "ImageCapture"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageCapture"
+  },
+  {
+    "id": [
+      "ImageData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageData"
+  },
+  {
+    "id": [
+      "ImageDecoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageDecoder"
+  },
+  {
+    "id": [
+      "ImageTrack"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageTrack"
+  },
+  {
+    "id": [
+      "ImageTrackList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ImageTrackList"
+  },
+  {
+    "id": [
+      "Ink"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Ink"
+  },
+  {
+    "id": [
+      "InkPresenter"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/InkPresenter"
+  },
+  {
+    "id": [
+      "InputDeviceCapabilities"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/InputDeviceCapabilities"
+  },
+  {
+    "id": [
+      "InputDeviceInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/InputDeviceInfo"
+  },
+  {
+    "id": [
+      "InputEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/InputEvent"
+  },
+  {
+    "id": [
+      "InstallEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/InstallEvent"
+  },
+  {
+    "id": [
+      "IntersectionObserver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IntersectionObserver"
+  },
+  {
+    "id": [
+      "IntersectionObserverEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/IntersectionObserverEntry"
+  },
+  {
+    "id": [
+      "InterventionReportBody"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/InterventionReportBody"
+  },
+  {
+    "id": [
+      "Keyboard"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Keyboard"
+  },
+  {
+    "id": [
+      "KeyboardEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/KeyboardEvent"
+  },
+  {
+    "id": [
+      "KeyboardLayoutMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/KeyboardLayoutMap"
+  },
+  {
+    "id": [
+      "KeyframeEffect"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/KeyframeEffect"
+  },
+  {
+    "id": [
+      "LargestContentfulPaint"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LargestContentfulPaint"
+  },
+  {
+    "id": [
+      "LaunchParams"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LaunchParams"
+  },
+  {
+    "id": [
+      "LaunchQueue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LaunchQueue"
+  },
+  {
+    "id": [
+      "LayoutShift"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LayoutShift"
+  },
+  {
+    "id": [
+      "LayoutShiftAttribution"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LayoutShiftAttribution"
+  },
+  {
+    "id": [
+      "LinearAccelerationSensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LinearAccelerationSensor"
+  },
+  {
+    "id": [
+      "Location"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Location"
+  },
+  {
+    "id": [
+      "Lock"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Lock"
+  },
+  {
+    "id": [
+      "LockManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/LockManager"
+  },
+  {
+    "id": [
+      "MIDIAccess"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIAccess"
+  },
+  {
+    "id": [
+      "MIDIConnectionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIConnectionEvent"
+  },
+  {
+    "id": [
+      "MIDIInput"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIInput"
+  },
+  {
+    "id": [
+      "MIDIInputMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIInputMap"
+  },
+  {
+    "id": [
+      "MIDIMessageEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIMessageEvent"
+  },
+  {
+    "id": [
+      "MIDIOutput"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIOutput"
+  },
+  {
+    "id": [
+      "MIDIOutputMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIOutputMap"
+  },
+  {
+    "id": [
+      "MIDIPort"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MIDIPort"
+  },
+  {
+    "id": [
+      "Magnetometer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Magnetometer"
+  },
+  {
+    "id": [
+      "MathMLElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MathMLElement"
+  },
+  {
+    "id": [
+      "MediaCapabilities"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaCapabilities"
+  },
+  {
+    "id": [
+      "MediaDeviceInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaDeviceInfo"
+  },
+  {
+    "id": [
+      "MediaDevices"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaDevices"
+  },
+  {
+    "id": [
+      "MediaElementAudioSourceNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaElementAudioSourceNode"
+  },
+  {
+    "id": [
+      "MediaEncryptedEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaEncryptedEvent"
+  },
+  {
+    "id": [
+      "MediaError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaError"
+  },
+  {
+    "id": [
+      "MediaKeyMessageEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaKeyMessageEvent"
+  },
+  {
+    "id": [
+      "MediaKeySession"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaKeySession"
+  },
+  {
+    "id": [
+      "MediaKeyStatusMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaKeyStatusMap"
+  },
+  {
+    "id": [
+      "MediaKeySystemAccess"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaKeySystemAccess"
+  },
+  {
+    "id": [
+      "MediaKeys"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaKeys"
+  },
+  {
+    "id": [
+      "MediaList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaList"
+  },
+  {
+    "id": [
+      "MediaMetadata"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaMetadata"
+  },
+  {
+    "id": [
+      "MediaQueryList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaQueryList"
+  },
+  {
+    "id": [
+      "MediaQueryListEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaQueryListEvent"
+  },
+  {
+    "id": [
+      "MediaRecorder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaRecorder"
+  },
+  {
+    "id": [
+      "MediaRecorderErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaRecorderErrorEvent"
+  },
+  {
+    "id": [
+      "MediaSession"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaSession"
+  },
+  {
+    "id": [
+      "MediaSource"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaSource"
+  },
+  {
+    "id": [
+      "MediaSourceHandle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaSourceHandle"
+  },
+  {
+    "id": [
+      "MediaStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStream"
+  },
+  {
+    "id": [
+      "MediaStreamAudioDestinationNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamAudioDestinationNode"
+  },
+  {
+    "id": [
+      "MediaStreamAudioSourceNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamAudioSourceNode"
+  },
+  {
+    "id": [
+      "MediaStreamEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamEvent"
+  },
+  {
+    "id": [
+      "MediaStreamTrack"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamTrack"
+  },
+  {
+    "id": [
+      "MediaStreamTrackAudioSourceNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamTrackAudioSourceNode"
+  },
+  {
+    "id": [
+      "MediaStreamTrackEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamTrackEvent"
+  },
+  {
+    "id": [
+      "MediaStreamTrackGenerator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamTrackGenerator"
+  },
+  {
+    "id": [
+      "MediaStreamTrackProcessor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaStreamTrackProcessor"
+  },
+  {
+    "id": [
+      "MediaTrackConstraints"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaTrackConstraints"
+  },
+  {
+    "id": [
+      "MediaTrackSettings"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaTrackSettings"
+  },
+  {
+    "id": [
+      "MediaTrackSupportedConstraints"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MediaTrackSupportedConstraints"
+  },
+  {
+    "id": [
+      "MerchantValidationEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MerchantValidationEvent"
+  },
+  {
+    "id": [
+      "MessageChannel"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MessageChannel"
+  },
+  {
+    "id": [
+      "MessageEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MessageEvent"
+  },
+  {
+    "id": [
+      "MessagePort"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MessagePort"
+  },
+  {
+    "id": [
+      "Metadata"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Metadata"
+  },
+  {
+    "id": [
+      "MimeType"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MimeType"
+  },
+  {
+    "id": [
+      "MimeTypeArray"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MimeTypeArray"
+  },
+  {
+    "id": [
+      "MouseEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MouseEvent"
+  },
+  {
+    "id": [
+      "MouseScrollEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MouseScrollEvent"
+  },
+  {
+    "id": [
+      "MutationEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MutationEvent"
+  },
+  {
+    "id": [
+      "MutationObserver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MutationObserver"
+  },
+  {
+    "id": [
+      "MutationRecord"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/MutationRecord"
+  },
+  {
+    "id": [
+      "NDEFMessage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NDEFMessage"
+  },
+  {
+    "id": [
+      "NDEFReader"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NDEFReader"
+  },
+  {
+    "id": [
+      "NDEFReadingEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NDEFReadingEvent"
+  },
+  {
+    "id": [
+      "NDEFRecord"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NDEFRecord"
+  },
+  {
+    "id": [
+      "NamedNodeMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NamedNodeMap"
+  },
+  {
+    "id": [
+      "NavigateEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigateEvent"
+  },
+  {
+    "id": [
+      "Navigation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Navigation"
+  },
+  {
+    "id": [
+      "NavigationCurrentEntryChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigationCurrentEntryChangeEvent/"
+  },
+  {
+    "id": [
+      "NavigationDestination"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigationDestination"
+  },
+  {
+    "id": [
+      "NavigationHistoryEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigationHistoryEntry"
+  },
+  {
+    "id": [
+      "NavigationPreloadManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigationPreloadManager"
+  },
+  {
+    "id": [
+      "NavigationTransition"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigationTransition"
+  },
+  {
+    "id": [
+      "Navigator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Navigator"
+  },
+  {
+    "id": [
+      "NavigatorLogin"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigatorLogin"
+  },
+  {
+    "id": [
+      "NavigatorUAData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NavigatorUAData"
+  },
+  {
+    "id": [
+      "NetworkInformation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NetworkInformation"
+  },
+  {
+    "id": [
+      "Node"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Node"
+  },
+  {
+    "id": [
+      "NodeIterator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NodeIterator"
+  },
+  {
+    "id": [
+      "NodeList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NodeList"
+  },
+  {
+    "id": [
+      "Notification"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Notification"
+  },
+  {
+    "id": [
+      "NotificationEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/NotificationEvent"
+  },
+  {
+    "id": [
+      "OTPCredential"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OTPCredential"
+  },
+  {
+    "id": [
+      "OfflineAudioCompletionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OfflineAudioCompletionEvent"
+  },
+  {
+    "id": [
+      "OfflineAudioContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OfflineAudioContext"
+  },
+  {
+    "id": [
+      "OffscreenCanvas"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OffscreenCanvas"
+  },
+  {
+    "id": [
+      "OffscreenCanvasRenderingContext2D"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OffscreenCanvasRenderingContext2D"
+  },
+  {
+    "id": [
+      "OrientationSensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OrientationSensor"
+  },
+  {
+    "id": [
+      "OscillatorNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OscillatorNode"
+  },
+  {
+    "id": [
+      "OverconstrainedError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/OverconstrainedError"
+  },
+  {
+    "id": [
+      "PageTransitionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PageTransitionEvent"
+  },
+  {
+    "id": [
+      "PaintRenderingContext2D"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaintRenderingContext2D"
+  },
+  {
+    "id": [
+      "PaintSize"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaintSize"
+  },
+  {
+    "id": [
+      "PaintWorkletGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaintWorkletGlobalScope"
+  },
+  {
+    "id": [
+      "PannerNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PannerNode"
+  },
+  {
+    "id": [
+      "PasswordCredential"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PasswordCredential"
+  },
+  {
+    "id": [
+      "Path2D"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Path2D"
+  },
+  {
+    "id": [
+      "PaymentAddress"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentAddress"
+  },
+  {
+    "id": [
+      "PaymentManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentManager"
+  },
+  {
+    "id": [
+      "PaymentMethodChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentMethodChangeEvent"
+  },
+  {
+    "id": [
+      "PaymentRequest"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentRequest"
+  },
+  {
+    "id": [
+      "PaymentRequestEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentRequestEvent"
+  },
+  {
+    "id": [
+      "PaymentRequestUpdateEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentRequestUpdateEvent"
+  },
+  {
+    "id": [
+      "PaymentResponse"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PaymentResponse"
+  },
+  {
+    "id": [
+      "Performance"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Performance"
+  },
+  {
+    "id": [
+      "PerformanceElementTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceElementTiming"
+  },
+  {
+    "id": [
+      "PerformanceEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceEntry"
+  },
+  {
+    "id": [
+      "PerformanceEventTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceEventTiming"
+  },
+  {
+    "id": [
+      "PerformanceLongTaskTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceLongTaskTiming"
+  },
+  {
+    "id": [
+      "PerformanceMark"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceMark"
+  },
+  {
+    "id": [
+      "PerformanceMeasure"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceMeasure"
+  },
+  {
+    "id": [
+      "PerformanceNavigation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceNavigation"
+  },
+  {
+    "id": [
+      "PerformanceNavigationTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceNavigationTiming"
+  },
+  {
+    "id": [
+      "PerformanceObserver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceObserver"
+  },
+  {
+    "id": [
+      "PerformanceObserverEntryList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceObserverEntryList"
+  },
+  {
+    "id": [
+      "PerformancePaintTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformancePaintTiming"
+  },
+  {
+    "id": [
+      "PerformanceResourceTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceResourceTiming"
+  },
+  {
+    "id": [
+      "PerformanceServerTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceServerTiming"
+  },
+  {
+    "id": [
+      "PerformanceTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PerformanceTiming"
+  },
+  {
+    "id": [
+      "PeriodicSyncEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PeriodicSyncEvent"
+  },
+  {
+    "id": [
+      "PeriodicSyncManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PeriodicSyncManager"
+  },
+  {
+    "id": [
+      "PeriodicWave"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PeriodicWave"
+  },
+  {
+    "id": [
+      "PermissionStatus"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PermissionStatus"
+  },
+  {
+    "id": [
+      "Permissions"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Permissions"
+  },
+  {
+    "id": [
+      "PictureInPictureEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PictureInPictureEvent"
+  },
+  {
+    "id": [
+      "PictureInPictureWindow"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PictureInPictureWindow"
+  },
+  {
+    "id": [
+      "Plugin"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Plugin"
+  },
+  {
+    "id": [
+      "PluginArray"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PluginArray"
+  },
+  {
+    "id": [
+      "PointerEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PointerEvent"
+  },
+  {
+    "id": [
+      "PopStateEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PopStateEvent"
+  },
+  {
+    "id": [
+      "PositionSensorVRDevice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PositionSensorVRDevice"
+  },
+  {
+    "id": [
+      "Presentation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Presentation"
+  },
+  {
+    "id": [
+      "PresentationAvailability"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationAvailability"
+  },
+  {
+    "id": [
+      "PresentationConnection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationConnection"
+  },
+  {
+    "id": [
+      "PresentationConnectionAvailableEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationConnectionAvailableEvent"
+  },
+  {
+    "id": [
+      "PresentationConnectionCloseEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationConnectionCloseEvent"
+  },
+  {
+    "id": [
+      "PresentationConnectionList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationConnectionList"
+  },
+  {
+    "id": [
+      "PresentationReceiver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationReceiver"
+  },
+  {
+    "id": [
+      "PresentationRequest"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PresentationRequest"
+  },
+  {
+    "id": [
+      "ProcessingInstruction"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ProcessingInstruction"
+  },
+  {
+    "id": [
+      "ProgressEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ProgressEvent"
+  },
+  {
+    "id": [
+      "PromiseRejectionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PromiseRejectionEvent"
+  },
+  {
+    "id": [
+      "PublicKeyCredential"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PublicKeyCredential"
+  },
+  {
+    "id": [
+      "PushEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PushEvent"
+  },
+  {
+    "id": [
+      "PushManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PushManager"
+  },
+  {
+    "id": [
+      "PushMessageData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PushMessageData"
+  },
+  {
+    "id": [
+      "PushSubscription"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PushSubscription"
+  },
+  {
+    "id": [
+      "PushSubscriptionChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PushSubscriptionChangeEvent"
+  },
+  {
+    "id": [
+      "PushSubscriptionOptions"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/PushSubscriptionOptions"
+  },
+  {
+    "id": [
+      "RTCCertificate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCCertificate"
+  },
+  {
+    "id": [
+      "RTCDTMFSender"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCDTMFSender"
+  },
+  {
+    "id": [
+      "RTCDTMFToneChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCDTMFToneChangeEvent"
+  },
+  {
+    "id": [
+      "RTCDataChannel"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCDataChannel"
+  },
+  {
+    "id": [
+      "RTCDataChannelEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCDataChannelEvent"
+  },
+  {
+    "id": [
+      "RTCDtlsTransport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCDtlsTransport"
+  },
+  {
+    "id": [
+      "RTCEncodedAudioFrame"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCEncodedAudioFrame"
+  },
+  {
+    "id": [
+      "RTCEncodedVideoFrame"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCEncodedVideoFrame"
+  },
+  {
+    "id": [
+      "RTCError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCError"
+  },
+  {
+    "id": [
+      "RTCErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCErrorEvent"
+  },
+  {
+    "id": [
+      "RTCIceCandidate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCIceCandidate"
+  },
+  {
+    "id": [
+      "RTCIceTransport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCIceTransport"
+  },
+  {
+    "id": [
+      "RTCIdentityAssertion"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCIdentityAssertion"
+  },
+  {
+    "id": [
+      "RTCPeerConnection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCPeerConnection"
+  },
+  {
+    "id": [
+      "RTCPeerConnectionIceErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCPeerConnectionIceErrorEvent"
+  },
+  {
+    "id": [
+      "RTCPeerConnectionIceEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCPeerConnectionIceEvent"
+  },
+  {
+    "id": [
+      "RTCRtpReceiver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCRtpReceiver"
+  },
+  {
+    "id": [
+      "RTCRtpScriptTransform"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCRtpScriptTransform"
+  },
+  {
+    "id": [
+      "RTCRtpScriptTransformer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCRtpScriptTransformer"
+  },
+  {
+    "id": [
+      "RTCRtpSender"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCRtpSender"
+  },
+  {
+    "id": [
+      "RTCRtpTransceiver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCRtpTransceiver"
+  },
+  {
+    "id": [
+      "RTCSctpTransport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCSctpTransport"
+  },
+  {
+    "id": [
+      "RTCSessionDescription"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCSessionDescription"
+  },
+  {
+    "id": [
+      "RTCStatsReport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCStatsReport"
+  },
+  {
+    "id": [
+      "RTCTrackEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCTrackEvent"
+  },
+  {
+    "id": [
+      "RTCTransformEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RTCTransformEvent"
+  },
+  {
+    "id": [
+      "RadioNodeList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RadioNodeList"
+  },
+  {
+    "id": [
+      "Range"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Range"
+  },
+  {
+    "id": [
+      "ReadableByteStreamController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReadableByteStreamController"
+  },
+  {
+    "id": [
+      "ReadableStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReadableStream"
+  },
+  {
+    "id": [
+      "ReadableStreamBYOBReader"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReadableStreamBYOBReader"
+  },
+  {
+    "id": [
+      "ReadableStreamBYOBRequest"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReadableStreamBYOBRequest"
+  },
+  {
+    "id": [
+      "ReadableStreamDefaultController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReadableStreamDefaultController"
+  },
+  {
+    "id": [
+      "ReadableStreamDefaultReader"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReadableStreamDefaultReader"
+  },
+  {
+    "id": [
+      "RelativeOrientationSensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RelativeOrientationSensor"
+  },
+  {
+    "id": [
+      "RemotePlayback"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/RemotePlayback"
+  },
+  {
+    "id": [
+      "Report"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Report"
+  },
+  {
+    "id": [
+      "ReportBody"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReportBody"
+  },
+  {
+    "id": [
+      "ReportingObserver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ReportingObserver"
+  },
+  {
+    "id": [
+      "Request"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Request"
+  },
+  {
+    "id": [
+      "ResizeObserver"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ResizeObserver"
+  },
+  {
+    "id": [
+      "ResizeObserverEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ResizeObserverEntry"
+  },
+  {
+    "id": [
+      "ResizeObserverSize"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ResizeObserverSize"
+  },
+  {
+    "id": [
+      "Response"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Response"
+  },
+  {
+    "id": [
+      "SVGAElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAElement"
+  },
+  {
+    "id": [
+      "SVGAngle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAngle"
+  },
+  {
+    "id": [
+      "SVGAnimateColorElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimateColorElement"
+  },
+  {
+    "id": [
+      "SVGAnimateElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimateElement"
+  },
+  {
+    "id": [
+      "SVGAnimateMotionElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimateMotionElement"
+  },
+  {
+    "id": [
+      "SVGAnimateTransformElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimateTransformElement"
+  },
+  {
+    "id": [
+      "SVGAnimatedAngle"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedAngle"
+  },
+  {
+    "id": [
+      "SVGAnimatedBoolean"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedBoolean"
+  },
+  {
+    "id": [
+      "SVGAnimatedEnumeration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedEnumeration"
+  },
+  {
+    "id": [
+      "SVGAnimatedInteger"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedInteger"
+  },
+  {
+    "id": [
+      "SVGAnimatedLength"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedLength"
+  },
+  {
+    "id": [
+      "SVGAnimatedLengthList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedLengthList"
+  },
+  {
+    "id": [
+      "SVGAnimatedNumber"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedNumber"
+  },
+  {
+    "id": [
+      "SVGAnimatedNumberList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedNumberList"
+  },
+  {
+    "id": [
+      "SVGAnimatedPreserveAspectRatio"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedPreserveAspectRatio"
+  },
+  {
+    "id": [
+      "SVGAnimatedRect"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedRect"
+  },
+  {
+    "id": [
+      "SVGAnimatedString"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedString"
+  },
+  {
+    "id": [
+      "SVGAnimatedTransformList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimatedTransformList"
+  },
+  {
+    "id": [
+      "SVGAnimationElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGAnimationElement"
+  },
+  {
+    "id": [
+      "SVGCircleElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGCircleElement"
+  },
+  {
+    "id": [
+      "SVGClipPathElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGClipPathElement"
+  },
+  {
+    "id": [
+      "SVGComponentTransferFunctionElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGComponentTransferFunctionElement"
+  },
+  {
+    "id": [
+      "SVGCursorElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGCursorElement"
+  },
+  {
+    "id": [
+      "SVGDefsElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGDefsElement"
+  },
+  {
+    "id": [
+      "SVGDescElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGDescElement"
+  },
+  {
+    "id": [
+      "SVGElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGElement"
+  },
+  {
+    "id": [
+      "SVGEllipseElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGEllipseElement"
+  },
+  {
+    "id": [
+      "SVGFEBlendElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEBlendElement"
+  },
+  {
+    "id": [
+      "SVGFEColorMatrixElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEColorMatrixElement"
+  },
+  {
+    "id": [
+      "SVGFEComponentTransferElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEComponentTransferElement"
+  },
+  {
+    "id": [
+      "SVGFECompositeElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFECompositeElement"
+  },
+  {
+    "id": [
+      "SVGFEConvolveMatrixElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEConvolveMatrixElement"
+  },
+  {
+    "id": [
+      "SVGFEDiffuseLightingElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEDiffuseLightingElement"
+  },
+  {
+    "id": [
+      "SVGFEDisplacementMapElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEDisplacementMapElement"
+  },
+  {
+    "id": [
+      "SVGFEDistantLightElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEDistantLightElement"
+  },
+  {
+    "id": [
+      "SVGFEDropShadowElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEDropShadowElement"
+  },
+  {
+    "id": [
+      "SVGFEFloodElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEFloodElement"
+  },
+  {
+    "id": [
+      "SVGFEFuncAElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEFuncAElement"
+  },
+  {
+    "id": [
+      "SVGFEFuncBElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEFuncBElement"
+  },
+  {
+    "id": [
+      "SVGFEFuncGElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEFuncGElement"
+  },
+  {
+    "id": [
+      "SVGFEFuncRElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEFuncRElement"
+  },
+  {
+    "id": [
+      "SVGFEGaussianBlurElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEGaussianBlurElement"
+  },
+  {
+    "id": [
+      "SVGFEImageElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEImageElement"
+  },
+  {
+    "id": [
+      "SVGFEMergeElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEMergeElement"
+  },
+  {
+    "id": [
+      "SVGFEMergeNodeElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEMergeNodeElement"
+  },
+  {
+    "id": [
+      "SVGFEMorphologyElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEMorphologyElement"
+  },
+  {
+    "id": [
+      "SVGFEOffsetElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEOffsetElement"
+  },
+  {
+    "id": [
+      "SVGFEPointLightElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFEPointLightElement"
+  },
+  {
+    "id": [
+      "SVGFESpecularLightingElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFESpecularLightingElement"
+  },
+  {
+    "id": [
+      "SVGFESpotLightElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFESpotLightElement"
+  },
+  {
+    "id": [
+      "SVGFETileElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFETileElement"
+  },
+  {
+    "id": [
+      "SVGFETurbulenceElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFETurbulenceElement"
+  },
+  {
+    "id": [
+      "SVGFilterElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFilterElement"
+  },
+  {
+    "id": [
+      "SVGFontElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFontElement"
+  },
+  {
+    "id": [
+      "SVGFontFaceElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFontFaceElement"
+  },
+  {
+    "id": [
+      "SVGFontFaceFormatElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFontFaceFormatElement"
+  },
+  {
+    "id": [
+      "SVGFontFaceNameElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFontFaceNameElement"
+  },
+  {
+    "id": [
+      "SVGFontFaceSrcElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFontFaceSrcElement"
+  },
+  {
+    "id": [
+      "SVGFontFaceUriElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGFontFaceUriElement"
+  },
+  {
+    "id": [
+      "SVGForeignObjectElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGForeignObjectElement"
+  },
+  {
+    "id": [
+      "SVGGElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGGElement"
+  },
+  {
+    "id": [
+      "SVGGeometryElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGGeometryElement"
+  },
+  {
+    "id": [
+      "SVGGlyphElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGGlyphElement"
+  },
+  {
+    "id": [
+      "SVGGlyphRefElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGGlyphRefElement"
+  },
+  {
+    "id": [
+      "SVGGradientElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGGradientElement"
+  },
+  {
+    "id": [
+      "SVGGraphicsElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGGraphicsElement"
+  },
+  {
+    "id": [
+      "SVGHKernElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGHKernElement"
+  },
+  {
+    "id": [
+      "SVGImageElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGImageElement"
+  },
+  {
+    "id": [
+      "SVGLength"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGLength"
+  },
+  {
+    "id": [
+      "SVGLengthList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGLengthList"
+  },
+  {
+    "id": [
+      "SVGLineElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGLineElement"
+  },
+  {
+    "id": [
+      "SVGLinearGradientElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGLinearGradientElement"
+  },
+  {
+    "id": [
+      "SVGMPathElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGMPathElement"
+  },
+  {
+    "id": [
+      "SVGMarkerElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGMarkerElement"
+  },
+  {
+    "id": [
+      "SVGMaskElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGMaskElement"
+  },
+  {
+    "id": [
+      "SVGMetadataElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGMetadataElement"
+  },
+  {
+    "id": [
+      "SVGMissingGlyphElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGMissingGlyphElement"
+  },
+  {
+    "id": [
+      "SVGNumber"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGNumber"
+  },
+  {
+    "id": [
+      "SVGNumberList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGNumberList"
+  },
+  {
+    "id": [
+      "SVGPathElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPathElement"
+  },
+  {
+    "id": [
+      "SVGPatternElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPatternElement"
+  },
+  {
+    "id": [
+      "SVGPoint"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPoint"
+  },
+  {
+    "id": [
+      "SVGPointList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPointList"
+  },
+  {
+    "id": [
+      "SVGPolygonElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPolygonElement"
+  },
+  {
+    "id": [
+      "SVGPolylineElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPolylineElement"
+  },
+  {
+    "id": [
+      "SVGPreserveAspectRatio"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGPreserveAspectRatio"
+  },
+  {
+    "id": [
+      "SVGRadialGradientElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGRadialGradientElement"
+  },
+  {
+    "id": [
+      "SVGRect"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGRect"
+  },
+  {
+    "id": [
+      "SVGRectElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGRectElement"
+  },
+  {
+    "id": [
+      "SVGRenderingIntent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGRenderingIntent"
+  },
+  {
+    "id": [
+      "SVGSVGElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGSVGElement"
+  },
+  {
+    "id": [
+      "SVGScriptElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGScriptElement"
+  },
+  {
+    "id": [
+      "SVGSetElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGSetElement"
+  },
+  {
+    "id": [
+      "SVGStopElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGStopElement"
+  },
+  {
+    "id": [
+      "SVGStringList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGStringList"
+  },
+  {
+    "id": [
+      "SVGStyleElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGStyleElement"
+  },
+  {
+    "id": [
+      "SVGSwitchElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGSwitchElement"
+  },
+  {
+    "id": [
+      "SVGSymbolElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGSymbolElement"
+  },
+  {
+    "id": [
+      "SVGTRefElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTRefElement"
+  },
+  {
+    "id": [
+      "SVGTSpanElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTSpanElement"
+  },
+  {
+    "id": [
+      "SVGTextContentElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTextContentElement"
+  },
+  {
+    "id": [
+      "SVGTextElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTextElement"
+  },
+  {
+    "id": [
+      "SVGTextPathElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTextPathElement"
+  },
+  {
+    "id": [
+      "SVGTextPositioningElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTextPositioningElement"
+  },
+  {
+    "id": [
+      "SVGTitleElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTitleElement"
+  },
+  {
+    "id": [
+      "SVGTransform"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTransform"
+  },
+  {
+    "id": [
+      "SVGTransformList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGTransformList"
+  },
+  {
+    "id": [
+      "SVGUnitTypes"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGUnitTypes"
+  },
+  {
+    "id": [
+      "SVGUseElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGUseElement"
+  },
+  {
+    "id": [
+      "SVGVKernElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGVKernElement"
+  },
+  {
+    "id": [
+      "SVGViewElement"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SVGViewElement"
+  },
+  {
+    "id": [
+      "Sanitizer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Sanitizer"
+  },
+  {
+    "id": [
+      "Scheduler"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Scheduler"
+  },
+  {
+    "id": [
+      "Screen"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Screen"
+  },
+  {
+    "id": [
+      "ScreenDetailed"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ScreenDetailed"
+  },
+  {
+    "id": [
+      "ScreenDetails"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ScreenDetails"
+  },
+  {
+    "id": [
+      "ScreenOrientation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ScreenOrientation"
+  },
+  {
+    "id": [
+      "ScriptProcessorNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ScriptProcessorNode"
+  },
+  {
+    "id": [
+      "ScrollTimeline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ScrollTimeline"
+  },
+  {
+    "id": [
+      "SecurityPolicyViolationEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SecurityPolicyViolationEvent"
+  },
+  {
+    "id": [
+      "Selection"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Selection"
+  },
+  {
+    "id": [
+      "Sensor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Sensor"
+  },
+  {
+    "id": [
+      "SensorErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SensorErrorEvent"
+  },
+  {
+    "id": [
+      "Serial"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Serial"
+  },
+  {
+    "id": [
+      "SerialPort"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SerialPort"
+  },
+  {
+    "id": [
+      "ServiceWorker"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ServiceWorker"
+  },
+  {
+    "id": [
+      "ServiceWorkerContainer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ServiceWorkerContainer"
+  },
+  {
+    "id": [
+      "ServiceWorkerGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ServiceWorkerGlobalScope"
+  },
+  {
+    "id": [
+      "ServiceWorkerRegistration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ServiceWorkerRegistration"
+  },
+  {
+    "id": [
+      "ShadowRoot"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ShadowRoot"
+  },
+  {
+    "id": [
+      "SharedStorage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedStorage"
+  },
+  {
+    "id": [
+      "SharedStorageOperation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedStorageOperation"
+  },
+  {
+    "id": [
+      "SharedStorageRunOperation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedStorageRunOperation"
+  },
+  {
+    "id": [
+      "SharedStorageSelectURLOperation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedStorageSelectURLOperation"
+  },
+  {
+    "id": [
+      "SharedStorageWorklet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedStorageWorklet"
+  },
+  {
+    "id": [
+      "SharedStorageWorkletGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedStorageWorkletGlobalScope"
+  },
+  {
+    "id": [
+      "SharedWorker"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedWorker"
+  },
+  {
+    "id": [
+      "SharedWorkerGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SharedWorkerGlobalScope"
+  },
+  {
+    "id": [
+      "SourceBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SourceBuffer"
+  },
+  {
+    "id": [
+      "SourceBufferList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SourceBufferList"
+  },
+  {
+    "id": [
+      "SpeechGrammar"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechGrammar"
+  },
+  {
+    "id": [
+      "SpeechGrammarList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechGrammarList"
+  },
+  {
+    "id": [
+      "SpeechRecognition"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechRecognition"
+  },
+  {
+    "id": [
+      "SpeechRecognitionAlternative"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechRecognitionAlternative"
+  },
+  {
+    "id": [
+      "SpeechRecognitionErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechRecognitionErrorEvent"
+  },
+  {
+    "id": [
+      "SpeechRecognitionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechRecognitionEvent"
+  },
+  {
+    "id": [
+      "SpeechRecognitionResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechRecognitionResult"
+  },
+  {
+    "id": [
+      "SpeechRecognitionResultList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechRecognitionResultList"
+  },
+  {
+    "id": [
+      "SpeechSynthesis"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechSynthesis"
+  },
+  {
+    "id": [
+      "SpeechSynthesisErrorEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechSynthesisErrorEvent"
+  },
+  {
+    "id": [
+      "SpeechSynthesisEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechSynthesisEvent"
+  },
+  {
+    "id": [
+      "SpeechSynthesisUtterance"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechSynthesisUtterance"
+  },
+  {
+    "id": [
+      "SpeechSynthesisVoice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SpeechSynthesisVoice"
+  },
+  {
+    "id": [
+      "StaticRange"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StaticRange"
+  },
+  {
+    "id": [
+      "StereoPannerNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StereoPannerNode"
+  },
+  {
+    "id": [
+      "Storage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Storage"
+  },
+  {
+    "id": [
+      "StorageEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StorageEvent"
+  },
+  {
+    "id": [
+      "StorageManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StorageManager"
+  },
+  {
+    "id": [
+      "StylePropertyMap"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StylePropertyMap"
+  },
+  {
+    "id": [
+      "StylePropertyMapReadOnly"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StylePropertyMapReadOnly"
+  },
+  {
+    "id": [
+      "StyleSheet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StyleSheet"
+  },
+  {
+    "id": [
+      "StyleSheetList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/StyleSheetList"
+  },
+  {
+    "id": [
+      "SubmitEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SubmitEvent"
+  },
+  {
+    "id": [
+      "SubtleCrypto"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SubtleCrypto"
+  },
+  {
+    "id": [
+      "SyncEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SyncEvent"
+  },
+  {
+    "id": [
+      "SyncManager"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/SyncManager"
+  },
+  {
+    "id": [
+      "TaskAttributionTiming"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TaskAttributionTiming"
+  },
+  {
+    "id": [
+      "TaskController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TaskController"
+  },
+  {
+    "id": [
+      "TaskPriorityChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TaskPriorityChangeEvent"
+  },
+  {
+    "id": [
+      "TaskSignal"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TaskSignal"
+  },
+  {
+    "id": [
+      "Text"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Text"
+  },
+  {
+    "id": [
+      "TextDecoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextDecoder"
+  },
+  {
+    "id": [
+      "TextDecoderStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextDecoderStream"
+  },
+  {
+    "id": [
+      "TextEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextEncoder"
+  },
+  {
+    "id": [
+      "TextEncoderStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextEncoderStream"
+  },
+  {
+    "id": [
+      "TextFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextFormat"
+  },
+  {
+    "id": [
+      "TextFormatUpdateEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextFormatUpdateEvent"
+  },
+  {
+    "id": [
+      "TextMetrics"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextMetrics"
+  },
+  {
+    "id": [
+      "TextTrack"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextTrack"
+  },
+  {
+    "id": [
+      "TextTrackCue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextTrackCue"
+  },
+  {
+    "id": [
+      "TextTrackCueList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextTrackCueList"
+  },
+  {
+    "id": [
+      "TextTrackList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextTrackList"
+  },
+  {
+    "id": [
+      "TextUpdateEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TextUpdateEvent"
+  },
+  {
+    "id": [
+      "TimeRanges"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TimeRanges"
+  },
+  {
+    "id": [
+      "ToggleEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ToggleEvent"
+  },
+  {
+    "id": [
+      "Touch"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Touch"
+  },
+  {
+    "id": [
+      "TouchEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TouchEvent"
+  },
+  {
+    "id": [
+      "TouchList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TouchList"
+  },
+  {
+    "id": [
+      "TrackEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TrackEvent"
+  },
+  {
+    "id": [
+      "TransformStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TransformStream"
+  },
+  {
+    "id": [
+      "TransformStreamDefaultController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TransformStreamDefaultController"
+  },
+  {
+    "id": [
+      "TransitionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TransitionEvent"
+  },
+  {
+    "id": [
+      "TreeWalker"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TreeWalker"
+  },
+  {
+    "id": [
+      "TrustedHTML"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TrustedHTML"
+  },
+  {
+    "id": [
+      "TrustedScript"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TrustedScript"
+  },
+  {
+    "id": [
+      "TrustedScriptURL"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TrustedScriptURL"
+  },
+  {
+    "id": [
+      "TrustedTypePolicy"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TrustedTypePolicy"
+  },
+  {
+    "id": [
+      "TrustedTypePolicyFactory"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/TrustedTypePolicyFactory"
+  },
+  {
+    "id": [
+      "UIEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/UIEvent"
+  },
+  {
+    "id": [
+      "URL"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/URL"
+  },
+  {
+    "id": [
+      "URLPattern"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/URLPattern"
+  },
+  {
+    "id": [
+      "URLSearchParams"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/URLSearchParams"
+  },
+  {
+    "id": [
+      "USB"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USB"
+  },
+  {
+    "id": [
+      "USBAlternateInterface"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBAlternateInterface"
+  },
+  {
+    "id": [
+      "USBConfiguration"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBConfiguration"
+  },
+  {
+    "id": [
+      "USBConnectionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBConnectionEvent"
+  },
+  {
+    "id": [
+      "USBDevice"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBDevice"
+  },
+  {
+    "id": [
+      "USBEndpoint"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBEndpoint"
+  },
+  {
+    "id": [
+      "USBInTransferResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBInTransferResult"
+  },
+  {
+    "id": [
+      "USBInterface"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBInterface"
+  },
+  {
+    "id": [
+      "USBIsochronousInTransferPacket"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBIsochronousInTransferPacket"
+  },
+  {
+    "id": [
+      "USBIsochronousInTransferResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBIsochronousInTransferResult"
+  },
+  {
+    "id": [
+      "USBIsochronousOutTransferPacket"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBIsochronousOutTransferPacket"
+  },
+  {
+    "id": [
+      "USBIsochronousOutTransferResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBIsochronousOutTransferResult"
+  },
+  {
+    "id": [
+      "USBOutTransferResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/USBOutTransferResult"
+  },
+  {
+    "id": [
+      "UserActivation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/UserActivation"
+  },
+  {
+    "id": [
+      "VRDisplay"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRDisplay"
+  },
+  {
+    "id": [
+      "VRDisplayCapabilities"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRDisplayCapabilities"
+  },
+  {
+    "id": [
+      "VRDisplayEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRDisplayEvent"
+  },
+  {
+    "id": [
+      "VREyeParameters"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VREyeParameters"
+  },
+  {
+    "id": [
+      "VRFieldOfView"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRFieldOfView"
+  },
+  {
+    "id": [
+      "VRFrameData"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRFrameData"
+  },
+  {
+    "id": [
+      "VRPose"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRPose"
+  },
+  {
+    "id": [
+      "VRStageParameters"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VRStageParameters"
+  },
+  {
+    "id": [
+      "VTTCue"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VTTCue"
+  },
+  {
+    "id": [
+      "VTTRegion"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VTTRegion"
+  },
+  {
+    "id": [
+      "ValidityState"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ValidityState"
+  },
+  {
+    "id": [
+      "VideoColorSpace"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoColorSpace"
+  },
+  {
+    "id": [
+      "VideoDecoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoDecoder"
+  },
+  {
+    "id": [
+      "VideoEncoder"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoEncoder"
+  },
+  {
+    "id": [
+      "VideoFrame"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoFrame"
+  },
+  {
+    "id": [
+      "VideoPlaybackQuality"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoPlaybackQuality"
+  },
+  {
+    "id": [
+      "VideoTrack"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoTrack"
+  },
+  {
+    "id": [
+      "VideoTrackList"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VideoTrackList"
+  },
+  {
+    "id": [
+      "ViewTimeline"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ViewTimeline"
+  },
+  {
+    "id": [
+      "ViewTransition"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/ViewTransition"
+  },
+  {
+    "id": [
+      "VisibilityStateEntry"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VisibilityStateEntry"
+  },
+  {
+    "id": [
+      "VisualViewport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/VisualViewport"
+  },
+  {
+    "id": [
+      "WGSLLanguageFeatures"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WGSLLanguageFeatures"
+  },
+  {
+    "id": [
+      "WakeLock"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WakeLock"
+  },
+  {
+    "id": [
+      "WakeLockSentinel"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WakeLockSentinel"
+  },
+  {
+    "id": [
+      "WaveShaperNode"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WaveShaperNode"
+  },
+  {
+    "id": [
+      "WebGL2RenderingContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGL2RenderingContext"
+  },
+  {
+    "id": [
+      "WebGLActiveInfo"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLActiveInfo"
+  },
+  {
+    "id": [
+      "WebGLBuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLBuffer"
+  },
+  {
+    "id": [
+      "WebGLContextEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLContextEvent"
+  },
+  {
+    "id": [
+      "WebGLFramebuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLFramebuffer"
+  },
+  {
+    "id": [
+      "WebGLProgram"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLProgram"
+  },
+  {
+    "id": [
+      "WebGLQuery"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLQuery"
+  },
+  {
+    "id": [
+      "WebGLRenderbuffer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLRenderbuffer"
+  },
+  {
+    "id": [
+      "WebGLRenderingContext"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLRenderingContext"
+  },
+  {
+    "id": [
+      "WebGLSampler"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLSampler"
+  },
+  {
+    "id": [
+      "WebGLShader"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLShader"
+  },
+  {
+    "id": [
+      "WebGLShaderPrecisionFormat"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLShaderPrecisionFormat"
+  },
+  {
+    "id": [
+      "WebGLSync"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLSync"
+  },
+  {
+    "id": [
+      "WebGLTexture"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLTexture"
+  },
+  {
+    "id": [
+      "WebGLTransformFeedback"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLTransformFeedback"
+  },
+  {
+    "id": [
+      "WebGLUniformLocation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLUniformLocation"
+  },
+  {
+    "id": [
+      "WebGLVertexArrayObject"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLVertexArrayObject"
+  },
+  {
+    "id": [
+      "WebGLVertexArrayObjectOES"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebGLVertexArrayObjectOES"
+  },
+  {
+    "id": [
+      "WebKitPoint"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebKitPoint"
+  },
+  {
+    "id": [
+      "WebSocket"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebSocket"
+  },
+  {
+    "id": [
+      "WebTransport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebTransport"
+  },
+  {
+    "id": [
+      "WebTransportBidirectionalStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebTransportBidirectionalStream"
+  },
+  {
+    "id": [
+      "WebTransportDatagramDuplexStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebTransportDatagramDuplexStream"
+  },
+  {
+    "id": [
+      "WebTransportError"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebTransportError"
+  },
+  {
+    "id": [
+      "WebTransportReceiveStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WebTransportReceiveStream"
+  },
+  {
+    "id": [
+      "WheelEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WheelEvent"
+  },
+  {
+    "id": [
+      "Window"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Window"
+  },
+  {
+    "id": [
+      "WindowClient"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WindowClient"
+  },
+  {
+    "id": [
+      "WindowControlsOverlay"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WindowControlsOverlay"
+  },
+  {
+    "id": [
+      "WindowControlsOverlayGeometryChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WindowControlsOverlayGeometryChangeEvent"
+  },
+  {
+    "id": [
+      "WindowSharedStorage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WindowSharedStorage"
+  },
+  {
+    "id": [
+      "Worker"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Worker"
+  },
+  {
+    "id": [
+      "WorkerGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WorkerGlobalScope"
+  },
+  {
+    "id": [
+      "WorkerLocation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WorkerLocation"
+  },
+  {
+    "id": [
+      "WorkerNavigator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WorkerNavigator"
+  },
+  {
+    "id": [
+      "Worklet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/Worklet"
+  },
+  {
+    "id": [
+      "WorkletGlobalScope"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WorkletGlobalScope"
+  },
+  {
+    "id": [
+      "WorkletSharedStorage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WorkletSharedStorage"
+  },
+  {
+    "id": [
+      "WritableStream"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WritableStream"
+  },
+  {
+    "id": [
+      "WritableStreamDefaultController"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WritableStreamDefaultController"
+  },
+  {
+    "id": [
+      "WritableStreamDefaultWriter"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/WritableStreamDefaultWriter"
+  },
+  {
+    "id": [
+      "XMLDocument"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XMLDocument"
+  },
+  {
+    "id": [
+      "XMLHttpRequest"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XMLHttpRequest"
+  },
+  {
+    "id": [
+      "XMLHttpRequestEventTarget"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XMLHttpRequestEventTarget"
+  },
+  {
+    "id": [
+      "XMLHttpRequestUpload"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XMLHttpRequestUpload"
+  },
+  {
+    "id": [
+      "XMLSerializer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XMLSerializer"
+  },
+  {
+    "id": [
+      "XPathEvaluator"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XPathEvaluator"
+  },
+  {
+    "id": [
+      "XPathExpression"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XPathExpression"
+  },
+  {
+    "id": [
+      "XPathResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XPathResult"
+  },
+  {
+    "id": [
+      "XRAnchor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRAnchor"
+  },
+  {
+    "id": [
+      "XRAnchorSet"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRAnchorSet"
+  },
+  {
+    "id": [
+      "XRBoundedReferenceSpace"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRBoundedReferenceSpace"
+  },
+  {
+    "id": [
+      "XRCPUDepthInformation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRCPUDepthInformation"
+  },
+  {
+    "id": [
+      "XRCompositionLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRCompositionLayer"
+  },
+  {
+    "id": [
+      "XRCubeLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRCubeLayer"
+  },
+  {
+    "id": [
+      "XRCylinderLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRCylinderLayer"
+  },
+  {
+    "id": [
+      "XRDepthInformation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRDepthInformation"
+  },
+  {
+    "id": [
+      "XREquirectLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XREquirectLayer"
+  },
+  {
+    "id": [
+      "XRFrame"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRFrame"
+  },
+  {
+    "id": [
+      "XRHand"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRHand"
+  },
+  {
+    "id": [
+      "XRHitTestResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRHitTestResult"
+  },
+  {
+    "id": [
+      "XRHitTestSource"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRHitTestSource"
+  },
+  {
+    "id": [
+      "XRInputSource"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRInputSource"
+  },
+  {
+    "id": [
+      "XRInputSourceArray"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRInputSourceArray"
+  },
+  {
+    "id": [
+      "XRInputSourceEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRInputSourceEvent"
+  },
+  {
+    "id": [
+      "XRInputSourcesChangeEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRInputSourcesChangeEvent"
+  },
+  {
+    "id": [
+      "XRJointPose"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRJointPose"
+  },
+  {
+    "id": [
+      "XRJointSpace"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRJointSpace"
+  },
+  {
+    "id": [
+      "XRLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRLayer"
+  },
+  {
+    "id": [
+      "XRLayerEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRLayerEvent"
+  },
+  {
+    "id": [
+      "XRLightEstimate"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRLightEstimate"
+  },
+  {
+    "id": [
+      "XRLightProbe"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRLightProbe"
+  },
+  {
+    "id": [
+      "XRMediaBinding"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRMediaBinding"
+  },
+  {
+    "id": [
+      "XRPose"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRPose"
+  },
+  {
+    "id": [
+      "XRProjectionLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRProjectionLayer"
+  },
+  {
+    "id": [
+      "XRQuadLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRQuadLayer"
+  },
+  {
+    "id": [
+      "XRRay"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRRay"
+  },
+  {
+    "id": [
+      "XRReferenceSpace"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRReferenceSpace"
+  },
+  {
+    "id": [
+      "XRReferenceSpaceEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRReferenceSpaceEvent"
+  },
+  {
+    "id": [
+      "XRRenderState"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRRenderState"
+  },
+  {
+    "id": [
+      "XRRigidTransform"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRRigidTransform"
+  },
+  {
+    "id": [
+      "XRSession"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRSession"
+  },
+  {
+    "id": [
+      "XRSessionEvent"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRSessionEvent"
+  },
+  {
+    "id": [
+      "XRSpace"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRSpace"
+  },
+  {
+    "id": [
+      "XRSubImage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRSubImage"
+  },
+  {
+    "id": [
+      "XRSystem"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRSystem"
+  },
+  {
+    "id": [
+      "XRTransientInputHitTestResult"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRTransientInputHitTestResult"
+  },
+  {
+    "id": [
+      "XRTransientInputHitTestSource"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRTransientInputHitTestSource"
+  },
+  {
+    "id": [
+      "XRView"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRView"
+  },
+  {
+    "id": [
+      "XRViewerPose"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRViewerPose"
+  },
+  {
+    "id": [
+      "XRViewport"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRViewport"
+  },
+  {
+    "id": [
+      "XRWebGLBinding"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRWebGLBinding"
+  },
+  {
+    "id": [
+      "XRWebGLDepthInformation"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRWebGLDepthInformation"
+  },
+  {
+    "id": [
+      "XRWebGLLayer"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRWebGLLayer"
+  },
+  {
+    "id": [
+      "XRWebGLSubImage"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XRWebGLSubImage"
+  },
+  {
+    "id": [
+      "XSLTProcessor"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/API/XSLTProcessor"
+  },
+  {
+    "id": [
+      "array"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array"
+  },
+  {
+    "id": [
+      "bigint"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/BigInt"
+  },
+  {
+    "id": [
+      "boolean"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean"
+  },
+  {
+    "id": [
+      "number"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number"
+  },
+  {
+    "id": [
+      "object"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object"
+  },
+  {
+    "id": [
+      "string"
+    ],
+    "docs": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String"
+  }
+]

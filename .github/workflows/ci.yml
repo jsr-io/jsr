@@ -1,0 +1,253 @@
+name: ci
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+  merge_group:
+
+env:
+  TERRAFORM_VERSION: "1.4.2"
+
+jobs:
+  frontend:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: 1.x
+
+      - name: Check license headers
+        run: deno task lint:license
+
+      - name: Format
+        run: deno fmt --check
+        working-directory: frontend
+
+      - name: Lint
+        run: deno lint
+        working-directory: frontend
+
+      - name: Typecheck
+        run: deno check main.ts
+        working-directory: frontend
+
+      - name: Build Fresh
+        run: deno task build
+        working-directory: frontend
+
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Setup postgres for tests
+        run: docker-compose up -d
+
+      - name: Build
+        run: cargo build --all-targets --tests
+        working-directory: api
+
+      - name: Test
+        run: cargo test
+        working-directory: api
+
+      - uses: taiki-e/cache-cargo-install-action@v1
+        with:
+          tool: sqlx-cli@0.7.1
+
+      # If it's not up to date, run `cargo sqlx prepare` locally and commit the
+      # changes. You may have to run `cargo install sqlx-cli` first.
+      - name: Check sqlx metadata is up to date
+        run: |
+          cargo sqlx migrate run
+          cargo sqlx prepare --check
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://user:password@localhost/registry
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: api
+
+      - name: Format
+        run: cargo fmt --all -- --check
+        working-directory: api
+
+  docker-images:
+    if: github.event_name == 'merge_group' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      API_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/api
+      FRONTEND_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/frontend
+    outputs:
+      api_image_id: ${{ steps.api_image_id.outputs.image_id }}
+      frontend_image_id: ${{ steps.frontend_image_id.outputs.image_id }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate with GCP
+        id: gcp_auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: deno-registry3-infra
+          token_format: access_token
+          workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
+
+      - uses: docker/login-action@v3
+        with:
+          registry: us-central1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.gcp_auth.outputs.access_token }}
+
+      - name: Set up docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Copy Cargo.lock
+        run: cp Cargo.lock api/Cargo.lock
+
+      - name: Build and push api docker image
+        uses: docker/build-push-action@v5
+        id: api_push
+        with:
+          context: api
+          push: true
+          tags: ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}
+          cache-from: type=gha,scope=docker-api
+          cache-to: type=gha,mode=max,scope=docker-api
+
+      - name: Build and push frontend docker image
+        uses: docker/build-push-action@v5
+        id: frontend_push
+        with:
+          context: frontend
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }}
+          cache-from: type=gha,scope=docker-frontend
+          cache-to: type=gha,mode=max,scope=docker-frontend
+
+      - name: Set api_image_id output
+        id: api_image_id
+        run: echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+
+      - name: Set frontend_image_id output
+        id: frontend_image_id
+        run: echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+
+  staging:
+    if: github.event_name == 'merge_group' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    needs: docker-images
+    environment:
+      name: staging
+      url: https://deno-registry-staging.net
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: 1.x
+
+      - name: Install terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Authenticate with GCP
+        id: gcp_auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: deno-registry3-staging
+          workload_identity_provider: projects/1067420915575/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          service_account: github-actions@deno-registry3-staging.iam.gserviceaccount.com
+
+      - name: terraform plan
+        run: |
+          touch terraform/staging.secret.tfvars
+          deno task tf:staging:init
+          terraform version
+          deno task tf:staging:plan
+        env:
+          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
+          TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+          TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
+          TF_VAR_orama_index_id: ${{ secrets.ORAMA_INDEX_ID }}
+          TF_VAR_orama_private_api_key: ${{ secrets.ORAMA_PRIVATE_API_KEY }}
+
+      - name: terraform apply
+        run: deno task tf:staging:apply
+
+  prod:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    needs: docker-images
+    environment:
+      name: prod
+      url: https://jsr.io
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: 1.x
+
+      - name: Install terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Authenticate with GCP
+        id: gcp_auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: deno-registry3-prod
+          workload_identity_provider: projects/614736529383/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          service_account: github-actions@deno-registry3-prod.iam.gserviceaccount.com
+
+      - name: terraform plan
+        run: |
+          touch terraform/prod.secret.tfvars
+          deno task tf:prod:init
+          terraform version
+          deno task tf:prod:plan
+        env:
+          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
+          TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+          TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
+          TF_VAR_orama_index_id: ${{ secrets.ORAMA_INDEX_ID }}
+          TF_VAR_orama_private_api_key: ${{ secrets.ORAMA_PRIVATE_API_KEY }}
+
+      - name: terraform apply
+        run: deno task tf:prod:apply

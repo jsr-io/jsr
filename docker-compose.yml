@@ -1,0 +1,21 @@
+version: "3"
+services:
+  postgres:
+    image: postgres:15
+    # Increase the number of connections to allow for high concurrent testing
+    command: postgres -c 'max_connections=1000'
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: registry
+    ports:
+      - 5432:5432
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true

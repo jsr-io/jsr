@@ -1,0 +1,1 @@
+ALTER TABLE scopes ADD COLUMN verify_oidc_actor BOOLEAN NOT NULL DEFAULT true;

@@ -1,0 +1,16 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import { Handlers, RouteConfig } from "$fresh/server.ts";
+
+export const handler: Handlers = {
+  GET(req, ctx) {
+    const url = new URL(req.url);
+    const redirectPath = url.searchParams.get("redirect") ?? "/";
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "Location": redirectPath,
+        "Set-Cookie": `token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+      },
+    });
+  },
+};

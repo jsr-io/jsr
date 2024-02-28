@@ -1,0 +1,73 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", revision, sha1, sha512, size, updated_at, created_at\n      FROM npm_tarballs\n      WHERE scope = $1 AND name = $2 AND version = $3 AND revision = $4\n      LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "revision",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "sha1",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "sha512",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "size",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "54f705d98db82be934440b48c6a9907cda6919fcbabcabd3a1449158a00ac29d"
+}

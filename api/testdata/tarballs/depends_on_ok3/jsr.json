@@ -1,0 +1,5 @@
+{
+  "name": "@scope/baz",
+  "version": "1.2.3",
+  "exports": "./mod.ts"
+}

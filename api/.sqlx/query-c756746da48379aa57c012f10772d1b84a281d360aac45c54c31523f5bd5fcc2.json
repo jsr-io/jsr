@@ -1,0 +1,94 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM users\n      WHERE id = $1\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_blocked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_staff",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "scope_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "waitlist_accepted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "invite_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "scope_usage!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "c756746da48379aa57c012f10772d1b84a281d360aac45c54c31523f5bd5fcc2"
+}

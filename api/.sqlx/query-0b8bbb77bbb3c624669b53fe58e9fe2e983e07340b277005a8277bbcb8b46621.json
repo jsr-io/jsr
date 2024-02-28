@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\"\n      FROM package_versions\n      WHERE NOT EXISTS (\n        SELECT 1\n        FROM npm_tarballs\n        WHERE npm_tarballs.scope = package_versions.scope AND npm_tarballs.name = package_versions.name AND npm_tarballs.version = package_versions.version AND npm_tarballs.revision = $1\n      )\n      ORDER BY created_at ASC\n      LIMIT 1000\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "version: Version",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0b8bbb77bbb3c624669b53fe58e9fe2e983e07340b277005a8277bbcb8b46621"
+}

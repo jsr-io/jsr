@@ -1,0 +1,5 @@
+{
+  "name": "@scope/foo",
+  "version": "bad.1.2.3.version",
+  "exports": "./mod.ts"
+}

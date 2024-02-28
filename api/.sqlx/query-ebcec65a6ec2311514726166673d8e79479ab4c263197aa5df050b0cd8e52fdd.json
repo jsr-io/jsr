@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT package_scope as \"package_scope: ScopeName\", package_name as \"package_name: PackageName\", package_version as \"package_version: Version\", dependency_kind as \"dependency_kind: DependencyKind\", dependency_name, dependency_constraint, dependency_path, updated_at, created_at\n      FROM package_version_dependencies\n      WHERE package_scope = $1 AND package_name = $2 AND package_version = $3\n      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "package_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "package_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "package_version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "dependency_kind: DependencyKind",
+        "type_info": {
+          "Custom": {
+            "name": "dependency_kind",
+            "kind": {
+              "Enum": [
+                "jsr",
+                "npm"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "dependency_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "dependency_constraint",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "dependency_path",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ebcec65a6ec2311514726166673d8e79479ab4c263197aa5df050b0cd8e52fdd"
+}

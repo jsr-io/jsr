@@ -1,0 +1,1996 @@
+openapi: 3.0.1
+info:
+  title: jsr API
+  version: "1.0.0"
+
+servers:
+  - url: https://api.jsr.io
+
+security:
+  - bearerAuth: []
+
+paths:
+  /scopes:
+    post:
+      summary: Create a new scope
+      description: Creates a new scope
+      operationId: createScope
+      requestBody:
+        description: Scope properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScopeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scope"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}:
+    get:
+      summary: Get scope details
+      description: Returns details of a scope
+      operationId: getScope
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scope"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      summary: Update scope
+      description: Updates the details of a scope
+      operationId: updateScope
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      requestBody:
+        description: Scope properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScopeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scope"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete scope
+      description: Deletes a scope if the scope has no packages
+      operationId: deleteScope
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "204":
+          description: OK, no content
+        "400":
+          description: Invalid request / Scope has packages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/members:
+    get:
+      summary: List scope members
+      description: Returns a list of members of a scope
+      operationId: listScopeMembers
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScopeMember"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Add scope member
+      description: Invites a user to a scope
+      operationId: addScopeMember
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      requestBody:
+        description: Scope member properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddScopeMemberRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopeInvite"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/members/{userId}:
+    patch:
+      summary: Update scope member
+      description: Updates the roles of a scope member
+      operationId: updateScopeMember
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: userId
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      requestBody:
+        description: Scope member properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScopeMemberRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopeMember"
+        "400":
+          description: Invalid request / Can not remove last scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope or scope member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Remove scope member
+      description: Removes a member from a scope
+      operationId: removeScopeMember
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: userId
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      responses:
+        "204":
+          description: OK, no content
+        "400":
+          description: Invalid request / Can not remove last scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope or scope member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/invites:
+    get:
+      summary: List scope invites
+      description: Returns a list of invites to a scope
+      operationId: listScopeInvites
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScopeInvite"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/invites/{userId}:
+    delete:
+      summary: Delete scope invite
+      description: Deletes an invite to a scope
+      operationId: deleteScopeInvite
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: userId
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      responses:
+        "204":
+          description: OK, no content
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope or scope invite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /packages:
+    get:
+      summary: List packages
+      description: Returns a list of packages
+      operationId: listPackages
+      parameters:
+        - name: limit
+          in: query
+          description: The maximum number of packages to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: page
+          in: query
+          description: The page number of packages to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Package"
+                  total:
+                    type: integer
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages:
+    get:
+      summary: List scope packages
+      description: Returns a list of packages in a scope
+      operationId: listScopePackages
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: limit
+          in: query
+          description: The maximum number of packages to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: page
+          in: query
+          description: The page number of packages to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Package"
+                  total:
+                    type: integer
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create a new package
+      description: Creates a new package in a scope
+      operationId: createPackage
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      requestBody:
+        description: Package properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePackageRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Package"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}:
+    get:
+      summary: Get package details
+      description: Returns details of a package
+      operationId: getPackage
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Package"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      summary: Update package
+      description: Updates the details of a package
+      operationId: updatePackage
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      requestBody:
+        description: Package properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePackageRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Package"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope member / User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete package
+      description: Deletes a package if the package has no versions
+      operationId: deletePackage
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "204":
+          description: OK, no content
+        "400":
+          description: Invalid request / Package has versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/dependents:
+    get:
+      summary: List package dependents
+      description: Returns a list of packages that depend on a package
+      operationId: listPackageDependents
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: limit
+          in: query
+          description: The maximum number of dependents to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: page
+          in: query
+          description: The page number of dependents to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: versions_per_package_limit
+          in: query
+          description: The maximum number of versions per package to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Dependent"
+                  total:
+                    type: integer
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions:
+    get:
+      summary: List package versions
+      description: Returns a list of versions of a package
+      operationId: listPackageVersions
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PackageVersion"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}:
+    get:
+      summary: Get package version details
+      description: Returns details of a package version
+      operationId: getPackageVersion
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageVersion"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create a new package version
+      description: Creates a new version of a package
+      operationId: createPackageVersion
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+        - name: config
+          in: query
+          description: The path to the config file
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: A gzipped tarball containing all files in the package version
+        required: true
+        content:
+          application/octet-stream: {}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishingTask"
+        "400":
+          description: Invalid request / Package version already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized / User is not a scope member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      summary: Update package version
+      description: Updates the details of a package version
+      operationId: updatePackageVersion
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+      requestBody:
+        description: Package version properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePackageVersionRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageVersion"
+        "400":
+          description: Invalid request / Package version already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized / User is not a scope member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/dependencies:
+    get:
+      summary: List the dependencies of a package version
+      description: Returns a list of dependencies of a package
+      operationId: listDependencies
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dependency"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user:
+    get:
+      summary: Get authenticated user's details
+      description: Returns details of the authenticated user
+      operationId: getSelfUser
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/scopes:
+    get:
+      summary: List authenticated user's scopes
+      description: Returns a list of scopes that the authenticated user is a member of
+      operationId: listSelfUserScopes
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scope"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/member/{scope}:
+    get:
+      summary: Get authenticated user's scope member details
+      description: Returns details of the authenticated user's membership of a scope
+      operationId: getSelfUserScopeMember
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopeMember"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/invites:
+    get:
+      summary: List authenticated user's scope invites
+      description: Returns a list of invites to scopes that the authenticated user has received
+      operationId: listSelfUserInvites
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScopeInvite"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/invites/{scope}:
+    post:
+      summary: Accept scope invite
+      description: Accepts an invite to a scope
+      operationId: acceptScopeInvite
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope to accept the invite for
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopeMember"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope invite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Decline scope invite
+      description: Declines an invite to a scope
+      operationId: declineScopeInvite
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope to decline the invite for
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+      responses:
+        "204":
+          description: OK, no content
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scope invite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}:
+    get:
+      summary: Get user details
+      description: Returns details of a user
+      operationId: getUser
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/scopes:
+    get:
+      summary: List user's scopes
+      description: Returns a list of scopes that a user is a member of
+      operationId: listUserScopes
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scope"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /authorizations:
+    post:
+      summary: Create authorization
+      description: Starts an authorization flow
+      operationId: createAuthorization
+      requestBody:
+        description: Authorization properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAuthorizationRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAuthorizationResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /authorizations/details/{code}:
+    get:
+      summary: Get authorization details
+      description: Returns details of an authorization
+      operationId: getAuthorizationDetails
+      parameters:
+        - name: code
+          in: path
+          description: The code of the authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Authorization"
+        "404":
+          description: Authorization not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /authorizations/approve/{code}:
+    post:
+      summary: Approve authorization
+      description: Approves an authorization
+      operationId: approveAuthorization
+      parameters:
+        - name: code
+          in: path
+          description: The code of the authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: OK, no content
+        "404":
+          description: Authorization not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /authorizations/deny/{code}:
+    post:
+      summary: Deny authorization
+      description: Denies an authorization
+      operationId: denyAuthorization
+      parameters:
+        - name: code
+          in: path
+          description: The code of the authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: OK, no content
+        "404":
+          description: Authorization not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /authorizations/exchange:
+    post:
+      summary: Exchange authorization code for access token
+      description: Exchanges an authorization code for an access token
+      operationId: exchangeAuthorizationCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorizationExchangeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizationExchangeResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /publishing_tasks/{id}:
+    get:
+      summary: Get publishing task details
+      description: Returns details of a publishing task
+      operationId: getPublishingTask
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the publishing task
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishingTask"
+        "404":
+          description: Publishing task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /stats:
+    get:
+      summary: Get stats
+      description: Returns stats about the registry
+      operationId: getStats
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >-
+        The request is authorized by a bearer issued to the user. The token
+        is sent in a header that looks like this:
+        `Authorization: Bearer {token}`, for example: `Authorization: Bearer
+        jsrw_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRr`.
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: The error code.
+        message:
+          type: string
+          description: The error message.
+      required:
+        - code
+        - message
+
+    ScopeName:
+      type: string
+      pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+      description: The name of a scope. This must not be @ prefixed.
+      example: denoland
+
+    Scope:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        creator:
+          $ref: "#/components/schemas/User"
+        quotas:
+          type: object
+          properties:
+            packageUsage:
+              type: integer
+              description: The number of packages in the scope.
+              example: 3
+            packageLimit:
+              type: integer
+              description: The maximum number of packages allowed in the scope.
+              example: 10
+            newPackagePerWeekUsage:
+              type: integer
+              description: The number of new packages created in the scope in the last week.
+              example: 1
+            newPackagePerWeekLimit:
+              type: integer
+              description: The maximum number of new packages allowed to be created in the scope in a week.
+              example: 5
+            publishAttemptsPerWeekUsage:
+              type: integer
+              description: The number of times packages in the scope have been published in the last week.
+              example: 1
+            publishAttemptsPerWeekLimit:
+              type: integer
+              description: The maximum number of times packages in the scope can be published in a week.
+              example: 5
+        ghActionsVerifyActor:
+          type: boolean
+          description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the scope was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the scope was last updated.
+      required:
+        - scope
+        - createdAt
+        - updatedAt
+
+    CreateScopeRequest:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+      required:
+        - name
+
+    UpdateScopeRequest:
+      type: object
+      properties:
+        ghActionsVerifyActor:
+          type: boolean
+          description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
+      required:
+        - ghActionsVerifyActor
+
+    ScopeMember:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        user:
+          $ref: "#/components/schemas/User"
+        isAdmin:
+          type: boolean
+          description: Whether the user is an admin of the scope.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the user was added to the scope.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the scope member roles were last updated.
+      required:
+        - scope
+        - user
+        - isAdmin
+        - createdAt
+        - updatedAt
+
+    ScopeInvite:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        targetUser:
+          allOf:
+            - $ref: "#/components/schemas/User"
+            - description: The user that the invite is for.
+        inviter:
+          allOf:
+            - $ref: "#/components/schemas/User"
+            - description: The user that sent the invite.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the invite was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the invite was last updated.
+      required:
+        - scope
+        - targetUser
+        - inviter
+        - createdAt
+        - updatedAt
+
+    UserId:
+      type: string
+      format: uuid
+      description: The ID of a user.
+
+    User:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UserId"
+        name:
+          type: string
+          description: The user's display name.
+          example: Ryan Dahl
+        email:
+          type: string
+          description: The user's email address.
+          example: ry@example.com
+        avatarUrl:
+          type: string
+          description: The URL to the user's avatar.
+          example: https://avatars.githubusercontent.com/u/80?v=4
+        githubId:
+          type: integer
+          description: The user's GitHub ID.
+          example: 80
+        isBlocked:
+          type: boolean
+          description: Whether the user is blocked from using the registry.
+        isStaff:
+          type: boolean
+          description: Whether the user is a staff member.
+        scopeUsage:
+          type: integer
+          description: The number of scopes the user created.
+          example: 3
+        scopeLimit:
+          type: integer
+          description: The maximum number of scopes the user can create.
+          example: 10
+        inviteCount:
+          type: integer
+          description: The number of invites pending for the user.
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the user profile was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the user profile was last updated.
+      required:
+        - id
+        - name
+        - avatarUrl
+        - createdAt
+        - updatedAt
+
+    AddScopeMemberRequest:
+      type: object
+      properties:
+        githubLogin:
+          type: string
+          description: The GitHub login of the user to add to the scope.
+          example: ry
+      required:
+        - githubLogin
+
+    UpdateScopeMemberRequest:
+      type: object
+      properties:
+        isAdmin:
+          type: boolean
+          description: Whether the user should be an admin of the scope.
+      required:
+        - isAdmin
+
+    PackageName:
+      type: string
+      pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+      description: The name of a package.
+      example: fmt
+
+    Package:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        name:
+          $ref: "#/components/schemas/PackageName"
+        description:
+          type: string
+          description: The description of the package.
+          example: A module for formatting strings.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the package was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the package was last updated.
+      required:
+        - scope
+        - name
+        - description
+        - createdAt
+        - updatedAt
+
+    CreatePackageRequest:
+      type: object
+      properties:
+        package:
+          $ref: "#/components/schemas/PackageName"
+      required:
+        - package
+
+    UpdatePackageRequest:
+      oneOf:
+        - type: object
+          properties:
+            description:
+              type: string
+              pattern: "^.{0,250}$"
+              description: The description of the package.
+          required:
+            - description
+        - type: object
+          properties:
+            githubRepository:
+              type: object
+              nullable: true
+              properties:
+                owner:
+                  type: string
+                  description: The GitHub user / organization of the repository.
+                  example: denoland
+                repo:
+                  type: string
+                  description: The GitHub repository name.
+                  example: deno
+              required:
+                - owner
+                - repo
+          required:
+            - githubRepository
+
+    Version:
+      type: string
+      description: A semantic version.
+      example: 1.2.3
+
+    Dependent:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        name:
+          $ref: "#/components/schemas/PackageName"
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Version"
+        totalVersions:
+          type: integer
+          description: The total number of versions of the package.
+      required:
+        - scope
+        - name
+        - version
+        - totalVersions
+
+    PackageVersion:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        name:
+          $ref: "#/components/schemas/PackageName"
+        version:
+          $ref: "#/components/schemas/Version"
+        yanked:
+          type: boolean
+          description: Whether the version has been yanked.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the package version was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the package version was last updated.
+      required:
+        - scope
+        - name
+        - version
+        - yanked
+        - createdAt
+        - updatedAt
+
+    UpdatePackageVersionRequest:
+      type: object
+      properties:
+        yanked:
+          type: boolean
+          description: Whether the version is yanked or not.
+      required:
+        - yanked
+
+    PublishingTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The ID of the publishing task.
+        status:
+          type: string
+          description: The status of the publishing task.
+          enum: ["pending", "processing", "processed", "success", "failure"]
+        error:
+          type: object
+          nullable: true
+          properties:
+            code:
+              type: string
+              description: The error code.
+            message:
+              type: string
+              description: The error message.
+        userId:
+          allOf:
+            - $ref: "#/components/schemas/UserId"
+            - type: "null"
+        packageScope:
+          $ref: "#/components/schemas/ScopeName"
+        packageName:
+          $ref: "#/components/schemas/PackageName"
+        packageVersion:
+          $ref: "#/components/schemas/Version"
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the publishing task was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the publishing task was last updated.
+      required:
+        - id
+        - status
+        - error
+        - userId
+        - packageScope
+        - packageName
+        - packageVersion
+        - createdAt
+        - updatedAt
+
+    Dependency:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: The kind of dependency.
+          enum: ["jsr", "npm"]
+        name:
+          type: string
+          description: The fully qualified name of the dependency.
+          example: "@std/fs"
+        constraint:
+          type: string
+          description: The semver constraint of the dependency.
+          example: "^0.50.0"
+        path:
+          type: string
+          description: The path being imported from the dependency. This may be the empty string if the "default entrypoint" is being imported.
+          example: "/exists"
+      required:
+        - kind
+        - name
+        - constraint
+        - path
+
+    Authorization:
+      type: object
+      properties:
+        code:
+          type: string
+          description: The authorization code.
+        permissions:
+          type: array
+          description: The permissions that the token will have.
+          items:
+            $ref: "#/components/schemas/Permission"
+        expiresAt:
+          type: string
+          format: date-time
+          description: The date and time until which the authorization can be approved / exchanged.
+      required:
+        - code
+        - permissions
+        - expiresAt
+
+    Permission:
+      oneOf:
+        - type: object
+          properties:
+            permission:
+              type: string
+              description: The permission name.
+              enum: ["package/publish"]
+            scope:
+              $ref: "#/components/schemas/ScopeName"
+            package:
+              $ref: "#/components/schemas/PackageName"
+            version:
+              $ref: "#/components/schemas/Version"
+            tarballHash:
+              type: string
+              description: The SHA256 hash of the tarball.
+          required:
+            - permission
+            - scope
+            - package
+            - version
+            - tarballHash
+
+    CreateAuthorizationRequest:
+      type: object
+      properties:
+        challenge:
+          type: string
+          description: The challenge that will later be needed to retrieve the token after authorization.
+          example: 1234567890abcdef
+        permissions:
+          type: array
+          description: The permissions that the token will have.
+          items:
+            $ref: "#/components/schemas/Permission"
+      required:
+        - challenge
+
+    CreateAuthorizationResponse:
+      type: object
+      properties:
+        verificationUrl:
+          type: string
+          description: The URL that the user should visit to approve the authorization.
+        code:
+          type: string
+          description: The authorization code that the user can manually enter if they can not directly visit the link.
+        exchangeToken:
+          type: string
+          description: The token that can be used to exchange for a device token after the authorization has been approved.
+        pollInterval:
+          type: integer
+          description: The number of seconds that should be waited between polling the status of the authorization.
+        expiresAt:
+          type: string
+          format: date-time
+          description: The date and time until which the authorization can be approved / exchanged.
+      required:
+        - verification_url
+        - code
+        - exchangeToken
+        - pollInterval
+        - expiresAt
+
+    AuthorizationExchangeRequest:
+      type: object
+      properties:
+        exchangeToken:
+          type: string
+          description: The token that can be used to exchange for a device token after the authorization has been approved.
+        verifier:
+          type: string
+          description: The verifier that was used to generate the challenge.
+      required:
+        - exchangeToken
+        - verifier
+
+    AuthorizationExchangeResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The device token that can be used to authenticate requests.
+        user:
+          allOf:
+            - $ref: "#/components/schemas/User"
+            - description: The user that the token is for.
+      required:
+        - token
+        - user
+
+    Stats:
+      type: object
+      properties:
+        newest:
+          type: array
+          description: The newest packages.
+          items:
+            $ref: "#/components/schemas/Package"
+        updated:
+          type: array
+          description: The recently uploaded package versions.
+          items:
+            $ref: "#/components/schemas/PackageVersion"
+      required:
+        - newest
+        - updated

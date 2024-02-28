@@ -1,0 +1,3 @@
+ALTER TABLE scopes ADD COLUMN package_limit INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE scopes ADD COLUMN new_package_per_week_limit INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE scopes ADD COLUMN version_publish_per_week_limit INTEGER NOT NULL DEFAULT 1000;

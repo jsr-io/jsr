@@ -1,0 +1,1 @@
+ALTER TABLE packages ADD COLUMN runtime_compat JSONB;

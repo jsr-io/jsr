@@ -1,0 +1,17 @@
+.DS_Store
+
+# rust
+target/
+
+# terraform
+.terraform/
+*.tfplan
+*.tfstate*
+*.secret.tfvars
+
+**/.env
+
+frontend/node_modules
+frontend/dist
+
+.gcs

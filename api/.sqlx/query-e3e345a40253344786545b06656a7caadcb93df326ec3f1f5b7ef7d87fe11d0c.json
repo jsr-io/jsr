@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE publishing_tasks\n      SET status = 'processed'\n      WHERE id = $1 AND status = 'processing'\n      RETURNING id, status as \"status: PublishingTaskStatus\", error as \"error: PublishingTaskError\", user_id, package_scope as \"package_scope: ScopeName\", package_name as \"package_name: PackageName\", package_version as \"package_version: Version\", config_file as \"config_file: PackagePath\", created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "status: PublishingTaskStatus",
+        "type_info": {
+          "Custom": {
+            "name": "task_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "processing",
+                "processed",
+                "success",
+                "failure"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "error: PublishingTaskError",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "package_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "package_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "package_version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "config_file: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e3e345a40253344786545b06656a7caadcb93df326ec3f1f5b7ef7d87fe11d0c"
+}

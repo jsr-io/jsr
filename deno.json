@@ -1,0 +1,32 @@
+{
+  "tasks": {
+    "services:macos": "./tools/bin/darwin-arm64/jaeger-all-in-one  & ./tools/bin/darwin-arm64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
+    "services:linux": "docker-compose up & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
+    "services:linux-no-postgres": "docker-compose up jaeger & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
+    "dev:api": "cd api && cargo run",
+    "dev:frontend": "cd frontend && deno task start",
+    "prod:frontend": "./tools/prod_proxy.ts & cd frontend && API_ROOT=https://api.jsr.io deno task start",
+    "lint": "deno task lint:frontend && deno task lint:license",
+    "lint:frontend": "cd frontend && deno lint && deno check main.ts",
+    "lint:license": "deno run --allow-read https://deno.land/x/license_checker@v3.2.3/main.ts -q",
+    "lint:license:fix": "deno run --allow-read --allow-write https://deno.land/x/license_checker@v3.2.3/main.ts -q --inject",
+    "tools:orama:reindex": "deno run --allow-env --allow-net tools/orama_reindex.ts",
+    "tools:deno_symbols": "deno run --allow-run --allow-read --allow-env --allow-net --allow-write tools/generate_global_symbols.ts",
+    "tools:web_symbols": "deno run --allow-write tools/generate_web_symbols.ts",
+
+    "tf:infra:init": "gcloud config set project deno-registry3-infra && cd terraform_infra && terraform init -backend-config bucket=deno-registry3-infra-terraform",
+    "tf:infra:plan": "cd terraform_infra && terraform plan -var-file=infra.tfvars -out=infra.tfplan -input=false",
+    "tf:infra:apply": "cd terraform_infra && terraform apply -input=false infra.tfplan",
+    "tf:staging:init": "gcloud config set project deno-registry3-staging && cd terraform && terraform init -backend-config bucket=deno-registry3-staging-terraform",
+    "tf:staging:plan": "cd terraform && terraform plan -var-file=staging.tfvars -var-file=staging.secret.tfvars -out=staging.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" -var \"frontend_image_id=$FRONTEND_IMAGE_ID\"",
+    "tf:staging:apply": "cd terraform && terraform apply -input=false staging.tfplan",
+    "tf:prod:init": "gcloud config set project deno-registry3-prod && cd terraform && terraform init -backend-config bucket=deno-registry3-prod-terraform",
+    "tf:prod:plan": "cd terraform && terraform plan -var-file=prod.tfvars -var-file=prod.secret.tfvars -out=prod.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" -var \"frontend_image_id=$FRONTEND_IMAGE_ID\"",
+    "tf:prod:apply": "cd terraform && terraform apply -input=false prod.tfplan"
+  },
+  "exclude": ["target/", "api/testdata/", ".gcs/", "frontend/_fresh"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "npm:preact"
+  }
+}

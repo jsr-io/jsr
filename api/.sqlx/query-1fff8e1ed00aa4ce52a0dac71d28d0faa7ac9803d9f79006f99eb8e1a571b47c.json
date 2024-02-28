@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n      scopes.scope as \"scope: ScopeName\",\n      scopes.creator,\n      scopes.package_limit,\n      scopes.new_package_per_week_limit,\n      scopes.publish_attempts_per_week_limit,\n      scopes.verify_oidc_actor,\n      scopes.updated_at,\n      scopes.created_at\n      FROM scopes\n      LEFT JOIN scope_members ON scope_members.scope = scopes.scope\n      WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "creator",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "package_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "new_package_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "publish_attempts_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "verify_oidc_actor",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1fff8e1ed00aa4ce52a0dac71d28d0faa7ac9803d9f79006f99eb8e1a571b47c"
+}

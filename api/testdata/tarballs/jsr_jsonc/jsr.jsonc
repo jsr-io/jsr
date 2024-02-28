@@ -1,0 +1,6 @@
+{
+  // there is a comment here
+  "name": "@scope/foo",
+  "version": "1.2.3",
+  "exports": "./mod.ts"
+}

@@ -1,0 +1,12 @@
+{
+  "**/*.{ts,tsx,rs,tf}": "// Copyright 2024 the JSR authors. All rights reserved. MIT license.",
+  "ignore": [
+    "api/testdata/",
+    "frontend/_fresh/",
+    "frontend/node_modules/",
+    "target/",
+    ".gcs/",
+    "terraform/.terraform/",
+    ".git/"
+  ]
+}
