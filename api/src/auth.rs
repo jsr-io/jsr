@@ -290,10 +290,12 @@ pub async fn login_callback_handler(
 
 #[instrument(name = "GET /logout", skip(req), err, fields(redirect))]
 pub async fn logout_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
-  let redirect_url = req
+  let mut redirect_url = req
     .query("redirect")
     .and_then(|url| urlencoding::decode(url).map(|url| url.into_owned()).ok())
     .unwrap_or("/".to_string());
+
+  redirect_url = sanitize_redirect_url(&redirect_url);
   Span::current().record("redirect", &redirect_url);
 
   Ok(
