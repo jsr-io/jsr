@@ -4,9 +4,12 @@
 
 This is the source code for https://jsr.io, the new JavaScript registry.
 
-> [!IMPORTANT] The rest of this README is only relevant to those interested in
-> contributing to the jsr.io registry. If you are looking for information on how
-> to use the registry, please see https://jsr.io/docs.
+<!--deno-fmt-ignore-start-->
+> [!IMPORTANT]
+> The rest of this README is only relevant to those interested in contributing
+> to the jsr.io registry. If you are looking for information on how to use the
+> registry, please see https://jsr.io/docs.
+<!--deno-fmt-ignore-end-->
 
 ## Project Information
 
