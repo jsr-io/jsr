@@ -23,7 +23,6 @@ import * as $admin_waitlist from "./routes/admin/waitlist.tsx";
 import * as $auth from "./routes/auth.tsx";
 import * as $docs_id_ from "./routes/docs/[...id].tsx";
 import * as $docs_index from "./routes/docs/index.ts";
-import * as $gfm_css from "./routes/gfm.css.ts";
 import * as $go_id_ from "./routes/go/[id].ts";
 import * as $index from "./routes/index.tsx";
 import * as $login from "./routes/login.tsx";
@@ -88,7 +87,6 @@ const manifest = {
     "./routes/auth.tsx": $auth,
     "./routes/docs/[...id].tsx": $docs_id_,
     "./routes/docs/index.ts": $docs_index,
-    "./routes/gfm.css.ts": $gfm_css,
     "./routes/go/[id].ts": $go_id_,
     "./routes/index.tsx": $index,
     "./routes/login.tsx": $login,
