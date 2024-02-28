@@ -21,7 +21,7 @@ export default function Home({ data }: PageProps<Data>) {
         </title>
       </Head>
 
-      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 md:gap-14">
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 md:gap-8">
         <ListPanel title="Featured Packages">
           {data.stats.featured.map(PackageToPanelEntry)}
         </ListPanel>
