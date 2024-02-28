@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { computed, Signal, useSignal } from "@preact/signals";
+import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
@@ -15,21 +15,26 @@ interface PackageSearchProps {
   jumbo?: boolean;
 }
 
-// 450ms is a suggestion from Michele at Orama.
-const TYPING_DEBOUNCE = 450;
+// The maximum time between a query and the result for that query being
+// displayed, if there is a more recent pending query.
+const MAX_STALE_RESULT_MS = 200;
 
 export function PackageSearch(
   { query, indexId, apiKey, jumbo }: PackageSearchProps,
 ) {
-  const suggestions = useSignal<(OramaPackageHit[] | Package[])>([]);
-  const pending = useSignal(false);
-  const debounceRef = useRef(-1);
+  const suggestions = useSignal<OramaPackageHit[] | Package[] | null>(null);
+  const searchNRef = useRef({ started: 0, displayed: 0 });
   const abort = useRef<AbortController | null>(null);
   const selectionIdx = useSignal(-1);
   const ref = useRef<HTMLDivElement>(null);
-  const showSuggestions = useSignal(true);
+  const isFocused = useSignal(false);
+  const search = useSignal(query ?? "");
   const btnSubmit = useSignal(false);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
+
+  const showSuggestions = computed(() =>
+    isFocused.value && search.value.length > 0
+  );
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -43,7 +48,7 @@ export function PackageSearch(
   useEffect(() => {
     const outsideClick = (e: Event) => {
       if (!ref.current) return;
-      showSuggestions.value = ref.current.contains(e.target as Element);
+      isFocused.value = ref.current.contains(e.target as Element);
     };
 
     document.addEventListener("click", outsideClick);
@@ -52,56 +57,69 @@ export function PackageSearch(
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
-    if (value.length > 1) {
-      showSuggestions.value = true;
-      pending.value = true;
-      selectionIdx.value = -1;
-      abort.current?.abort();
+    search.value = value;
+    if (value.length >= 1) {
+      const searchN = ++searchNRef.current.started;
+      const oldAborter = abort.current;
       abort.current = new AbortController();
-      clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(async () => {
-        selectionIdx.value = -1;
+      setTimeout(() => {
+        oldAborter?.abort();
+        if (searchNRef.current.displayed < searchN) {
+          selectionIdx.value = -1;
+          suggestions.value = null;
+        }
+      }, MAX_STALE_RESULT_MS);
+
+      (async () => {
         try {
           if (orama) {
             const res = await orama.search({
               term: value,
               limit: 5,
               mode: "fulltext",
-            }, {
-              // @ts-ignore same named AbortController, but different?
-              abortController: abort.current,
+            }, { abortController: abort.current! });
+            if (
+              abort.current?.signal.aborted ||
+              searchNRef.current.displayed > searchN
+            ) return;
+            searchNRef.current.displayed = searchN;
+            batch(() => {
+              selectionIdx.value = -1;
+              suggestions.value = res?.hits.map((hit) => hit.document) ?? [];
             });
-            suggestions.value = res?.hits.map((hit) => hit.document) ?? [];
           } else {
             const res = await api.get<List<Package>>(path`/packages`, {
               query: value,
               limit: 5,
             });
-            pending.value = false;
             if (res.ok) {
-              suggestions.value = res.data.items;
+              if (
+                abort.current?.signal.aborted ||
+                searchNRef.current.displayed > searchN
+              ) return;
+              searchNRef.current.displayed = searchN;
+              batch(() => {
+                selectionIdx.value = -1;
+                suggestions.value = res.data.items;
+              });
             } else {
               throw res;
             }
           }
         } catch (_e) {
-          suggestions.value = [];
+          if (abort.current?.signal.aborted) return;
+          suggestions.value = null;
         }
-
-        pending.value = false;
-      }, TYPING_DEBOUNCE);
+      })();
     } else {
       abort.current?.abort();
       abort.current = new AbortController();
-      clearTimeout(debounceRef.current);
-      pending.value = false;
-      suggestions.value = [];
+      suggestions.value = null;
     }
   };
 
   function onKeyUp(e: KeyboardEvent) {
-    if (pending.value) return;
-
+    if (suggestions.value === null) return;
     if (e.key === "ArrowDown") {
       selectionIdx.value = Math.min(
         suggestions.value.length - 1,
@@ -113,7 +131,9 @@ export function PackageSearch(
   }
 
   function onSubmit(e: JSX.TargetedEvent<HTMLFormElement>) {
-    if (!btnSubmit.value && selectionIdx.value > -1) {
+    if (
+      !btnSubmit.value && selectionIdx.value > -1 && suggestions.value !== null
+    ) {
       const item = suggestions.value[selectionIdx.value];
       if (item !== undefined) {
         e.preventDefault();
@@ -140,7 +160,7 @@ export function PackageSearch(
           value={query}
           onInput={onInput}
           onKeyUp={onKeyUp}
-          onFocus={() => showSuggestions.value = true}
+          onFocus={() => isFocused.value = true}
           autoComplete="off"
           aria-expanded="false"
         />
@@ -176,7 +196,6 @@ export function PackageSearch(
         <SuggestionList
           showSuggestions={showSuggestions}
           suggestions={suggestions}
-          pending={pending}
           selectionIdx={selectionIdx}
         />
       </div>
@@ -185,43 +204,43 @@ export function PackageSearch(
 }
 
 function SuggestionList(
-  { suggestions, pending, selectionIdx, showSuggestions }: {
-    suggestions: Signal<OramaPackageHit[] | Package[]>;
+  { suggestions, selectionIdx, showSuggestions }: {
+    suggestions: Signal<OramaPackageHit[] | Package[] | null>;
     showSuggestions: Signal<boolean>;
-    pending: Signal<boolean>;
     selectionIdx: Signal<number>;
   },
 ) {
-  if (
-    !showSuggestions.value || !pending.value && suggestions.value.length == 0
-  ) return null;
+  if (!showSuggestions.value) return null;
 
   return (
     <div class="absolute bg-white w-full border sibling:bg-red-500 shadow z-40">
-      {pending.value ? <div class="bg-white px-4">...</div> : null}
-      {!pending.value && (
-        <ul class="divide-y-1">
-          {suggestions.value.map((pkg, i) => {
-            const selected = computed(() => selectionIdx.value === i);
-            return (
-              <li
-                key={pkg.scope + pkg.name}
-                class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
-                aria-selected={selected}
-              >
-                <a href={`/@${pkg.scope}/${pkg.name}`} class="bg-red-600">
-                  <div class="text-cyan-700 font-semibold">
-                    @{pkg.scope}/{pkg.name}
-                  </div>
-                  <div class="text-sm text-gray-500">
-                    {pkg.description || "-"}
-                  </div>
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {suggestions.value === null
+        ? <div class="bg-white text-gray-500 px-4">...</div>
+        : suggestions.value?.length === 0
+        ? <div class="bg-white text-gray-500 italic px-4">No results</div>
+        : (
+          <ul class="divide-y-1">
+            {suggestions.value.map((pkg, i) => {
+              const selected = computed(() => selectionIdx.value === i);
+              return (
+                <li
+                  key={pkg.scope + pkg.name}
+                  class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
+                  aria-selected={selected}
+                >
+                  <a href={`/@${pkg.scope}/${pkg.name}`} class="bg-red-600">
+                    <div class="text-cyan-700 font-semibold">
+                      @{pkg.scope}/{pkg.name}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                      {pkg.description || "-"}
+                    </div>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        )}
     </div>
   );
 }
