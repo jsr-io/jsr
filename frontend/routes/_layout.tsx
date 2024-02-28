@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { PageProps } from "$fresh/server.ts";
+import { PageProps, RouteConfig } from "$fresh/server.ts";
+import { SELF, useCSP } from "$fresh/runtime.ts";
 import { Header } from "../components/Header.tsx";
 import { HomepageHero } from "../islands/HomepageHero.tsx";
 import { State } from "../util.ts";
@@ -7,6 +8,16 @@ import { State } from "../util.ts";
 export default function Layout(
   { Component, state, url }: PageProps<undefined, State>,
 ) {
+  useCSP((csp) => {
+    csp.directives.imgSrc ??= [];
+    csp.directives.imgSrc.push(SELF, "https://avatars.githubusercontent.com");
+    csp.directives.styleSrc ??= [];
+    csp.directives.styleSrc.push(SELF);
+    csp.directives.scriptSrc ??= [];
+    csp.directives.scriptSrc.push(SELF);
+    csp.directives.fontSrc ??= [];
+    csp.directives.fontSrc.push(SELF);
+  });
   return (
     <>
       <div

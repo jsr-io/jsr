@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
 import { State } from "../util.ts";
 import { path } from "../utils/api.ts";
 import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
@@ -206,4 +206,8 @@ export const handler: Handlers<Data, State> = {
     if (!statsResp.ok) throw statsResp; // gracefully handle this
     return ctx.render({ stats: statsResp.data });
   },
+};
+
+export const config: RouteConfig = {
+  csp: true,
 };
