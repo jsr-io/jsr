@@ -44,7 +44,7 @@ impl PackageMetadata {
     versions.sort_by(|(a, _), (b, _)| b.version.cmp(&a.version));
     let latest = versions
       .iter()
-      .find(|(v, _)| v.is_yanked && v.version.0.pre.is_empty())
+      .find(|(v, _)| !v.is_yanked && v.version.0.pre.is_empty())
       .map(|(v, _)| v.version.clone());
     let mut out = Self {
       scope: scope.to_owned(),
