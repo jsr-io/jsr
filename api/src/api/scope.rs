@@ -220,7 +220,7 @@ async fn invite_member_handler(
   let scope = req.param_scope()?;
   Span::current().record("scope", &field::display(&scope));
 
-  let ApiAddScopeMemberRequest { github_login } = decode_json(&mut req).await?;
+  let invite = decode_json::<ApiAddScopeMemberRequest>(&mut req).await?;
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?.to_owned();
@@ -233,14 +233,22 @@ async fn invite_member_handler(
   let iam = req.iam();
   iam.check_scope_admin_access(&scope).await?;
 
-  let new_user = lookup_user_by_github_login(
-    db,
-    github_oauth2_client,
-    &current_user,
-    &github_login,
-  )
-  .await?
-  .ok_or(ApiError::UserNotFound)?;
+  let new_user = match invite {
+    ApiAddScopeMemberRequest::GithubLogin(github_login) => {
+      lookup_user_by_github_login(
+        db,
+        github_oauth2_client,
+        &current_user,
+        &github_login,
+      )
+        .await?
+        .ok_or(ApiError::UserNotFound)?
+    }
+    ApiAddScopeMemberRequest::Email(email) => db
+      .get_user_by_email(&email)
+      .await?
+      .ok_or(ApiError::UserNotFound)?,
+  };
 
   if db.get_scope_member(&scope, new_user.id).await?.is_some() {
     return Err(ApiError::AlreadyScopeMember);
