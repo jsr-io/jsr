@@ -37,19 +37,49 @@ If you have already published a package on deno.land/x, there is a good chance
 it can be migrated to JSR with minimal hassle. Here are the high level steps to
 migrate.
 
-### 1.) Refactor away from HTTPS imports
+### Try using the /x to JSR migration tool
+
+In an attempt to help speed up the migration of existing /x packages to JSR, the
+Deno team has created [a utility](https://github.com/denoland/x-to-jsr) to
+automate the most common steps required. To use this tool, you will need to have
+the most recent version of the Deno CLI installed. Grab the most recent canary
+build for your platform with:
+
+```bash
+deno upgrade --canary
+```
+
+Then, from within your package folder (probably the one with your `deno.json` or
+`mod.ts`), execute the following command:
+
+```bash
+deno run -Ar jsr:@deno/x-to-jsr
+```
+
+This will automatically refactor code where possible, and provide instructions
+in your terminal for additional manual steps that may be required. When you've
+completed the tasks described by the migration tool,
+[follow these instructions](/docs/publishing-packages) to publish your package
+to JSR!
+
+### Manually refactor your package
+
+If you would rather migrate your project by hand, here are the high-level steps
+often required to do so.
+
+#### 1.) Refactor away from HTTPS imports
 
 Your code may be using HTTPS imports for dependencies on deno.land/x or
 deno.land/std. You will need to change how you load these dependencies before
 you can publish on JSR.
 
-**Update standard library imports to the `@std` JSR scope**
+_Update standard library imports to the `@std` JSR scope_
 
 If you are using HTTPS modules from the standard library, we recommend updating
 those dependencies to use the newer [@std scope on JSR](https://jsr.io/@std).
 This will be the place to get the latest version of these modules going forward.
 
-**Use `deno vendor` for other dependencies on deno.land/x**
+_Use `deno vendor` for other dependencies on deno.land/x_
 
 For other dependencies in your project, you can also replace them one by one
 with equivalent dependencies on npm or JSR as described above.
@@ -60,7 +90,7 @@ the option of using the
 download local versions of all your HTTPS dependencies, and store them alongside
 your package in source control.
 
-### 2.) Ensure your library does not contain slow types
+#### 2.) Ensure your library does not contain slow types
 
 In your main package directory, run the following command:
 
@@ -72,7 +102,7 @@ This will inform you of any issues within your TypeScript code that may slow
 down type checking. [Check out the docs here](/docs/about-slow-types) for more
 information on how to fix slow types.
 
-### 3.) Publish!
+#### 3.) Publish!
 
 When you've completed the tasks above,
 [follow these instructions](/docs/publishing-packages) to publish your package
