@@ -28,6 +28,12 @@ export default function Score(
 ) {
   const isStaff = state.user?.isStaff || false;
   const canEdit = data.member?.isAdmin || isStaff;
+  const scorePercentage = Math.floor((data.score.total / MAX_SCORE) * 100);
+  const scoreColorClass = scorePercentage >= 90
+    ? "bg-green-500"
+    : scorePercentage >= 60
+    ? "bg-yellow-500"
+    : "bg-red-500";
 
   return (
     <div class="mb-20">
@@ -47,64 +53,62 @@ export default function Score(
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-8 grid items-start justify-items-center grid-cols-[max-content_auto] gap-5">
-        <div class="grid grid-cols-[max-content_max-content_max-content] items-center gap-x-3 gap-y-5">
+      <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="w-full max-w-56 border-1.5 border-jsr-cyan-100 rounded-lg p-8">
+          <h2 class="text-2xl text-center mb-6">Total score</h2>
+          <div
+            class={`flex items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
+            style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, white ${scorePercentage}%)`}
+          >
+            <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
+              {scorePercentage}%
+            </span>
+          </div>
+        </div>
+
+        <ul class="flex flex-col gap-y-5 md:col-span-2">
           <ScoreItem
             value={data.score.hasReadme}
             scoreValue={2}
-            explanation="has a readme or module doc"
+            explanation="Has a readme or module doc"
           />
           <ScoreItem
             value={data.score.hasReadmeExamples}
             scoreValue={1}
-            explanation="has examples in the readme or module doc"
+            explanation="Has examples in the readme or module doc"
           />
           <ScoreItem
             value={data.score.allEntrypointsDocs}
             scoreValue={1}
-            explanation="has module docs in all entrypoints"
+            explanation="Has module docs in all entrypoints"
           />
           <ScoreItem
             value={data.score.percentageDocumentedSymbols}
             max={5}
             scoreValue={5}
-            explanation="has docs in all symbols"
+            explanation="Has docs in all symbols"
           />
           <ScoreItem
             value={data.score.allFastCheck}
             scoreValue={5}
-            explanation="all entrypoints are fast-check compatible"
+            explanation="All entrypoints are fast-check compatible"
           />
           <ScoreItem
             value={data.score.hasDescription}
             scoreValue={1}
-            explanation="has a description"
+            explanation="Has a description"
           />
           <ScoreItem
             value={data.score.atLeastOneRuntimeCompatible}
             scoreValue={1}
-            explanation="at least one runtime is marked as compatible"
+            explanation="At least one runtime is marked as compatible"
           />
           <ScoreItem
             value={data.score.multipleRuntimesCompatible}
             scoreValue={1}
-            explanation="at least two runtimes are marked as compatible"
+            explanation="At least two runtimes are marked as compatible"
           />
-        </div>
-
-        <div class="bg-jsr-cyan-200 rounded px-10 py-4 space-y-4">
-          <span>Total score</span>
-          <div class="text-center leading-[3rem]">
-            <span class="text-3xl font-bold">{data.score.total}</span>
-            <span>/{MAX_SCORE}</span>
-          </div>
-          <div class="text-center leading-[3rem]">
-            <span class="text-3xl font-bold">
-              {Math.floor((data.score.total / MAX_SCORE) * 100)}
-            </span>
-            <span>%</span>
-          </div>
-        </div>
+        </ul>
       </div>
     </div>
   );
@@ -132,22 +136,22 @@ function ScoreItem(
   }
 
   return (
-    <>
+    <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 items-start border-b-1.5 border-jsr-cyan-100 pb-0.5">
       {status === "complete"
-        ? <Check class="size-6 stroke-green-500 stroke-2" />
+        ? <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
         : (status === "partial"
-          ? <ErrorIcon class="size-6 stroke-yellow-500 stroke-2" />
-          : <Cross class="size-6 stroke-red-500 stroke-2" />)}
+          ? <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
+          : <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />)}
 
-      <span>{props.explanation}</span>
+      <p class="leading-tight">{props.explanation}</p>
 
-      <div class="text-sm ml-3">
+      <div class="text-sm text-gray-400 pt-[0.2em]">
         {typeof props.value === "number"
           ? <span>{Math.floor(props.max * props.value)}/{props.max}</span>
           : <span>{props.value ? props.scoreValue : 0}/{props.scoreValue}
           </span>}
       </div>
-    </>
+    </li>
   );
 }
 
