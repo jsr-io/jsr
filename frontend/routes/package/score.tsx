@@ -53,11 +53,11 @@ export default function Score(
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-8">
-        <div class="w-full max-w-56 border-1.5 border-jsr-cyan-100 rounded-lg p-8">
+      <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
+        <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
           <h2 class="text-2xl text-center mb-6">Total score</h2>
           <div
-            class={`flex items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
+            class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
             style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, white ${scorePercentage}%)`}
           >
             <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
@@ -66,7 +66,7 @@ export default function Score(
           </div>
         </div>
 
-        <ul class="flex flex-col gap-y-5 md:col-span-2">
+        <ul class="flex flex-col gap-y-5 md:col-span-2 md:mr-auto">
           <ScoreItem
             value={data.score.hasReadme}
             scoreValue={2}
