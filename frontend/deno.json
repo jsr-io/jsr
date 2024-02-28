@@ -27,6 +27,9 @@
     "tailwindcss": "npm:tailwindcss@3.4",
     "tailwindcss/": "npm:/tailwindcss@3.4/"
   },
-  "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "preact" },
+  "compilerOptions": {
+    "jsx": "precompile",
+    "jsxImportSource": "preact"
+  },
   "exclude": ["_fresh/", "**/_fresh/*"]
 }
