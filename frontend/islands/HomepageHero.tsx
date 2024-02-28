@@ -157,9 +157,7 @@ export function HomepageHero(
         <div class="text-center">
           <h1 class="relative z-10 flex flex-col items-center gap-6 lg:gap-8">
             <span className="sr-only">JSR</span>
-            <div class="h-[110px] md:h-[143px]">
-              <AnimatedLogo />
-            </div>
+            <AnimatedLogo />
             <div
               class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center"
               style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
