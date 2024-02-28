@@ -60,7 +60,7 @@ export function Header({ user, url }: {
           >
             Docs
           </a>
-          <span class="text-gray-200 pr-2">|</span>
+          <span class="text-gray-200">|</span>
           {user
             ? <UserMenu user={user} logoutUrl={logoutUrl} />
             : (
