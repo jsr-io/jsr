@@ -21,7 +21,7 @@ export default function Home({ data }: PageProps<Data>) {
         </title>
       </Head>
 
-      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 md:gap-8">
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <ListPanel title="Featured Packages">
           {data.stats.featured.map(PackageToPanelEntry)}
         </ListPanel>
@@ -106,7 +106,7 @@ export default function Home({ data }: PageProps<Data>) {
         </BenefitContainer>
 
         <BenefitContainer>
-          <div className="flex gap-5 lg:gap-8 items-center lg:grid lg:grid-cols-4 lg:justify-items-center lg:[&>img]:h-16 lg:max-w-max lg:mx-auto lg:col-span-2">
+          <div className="flex gap-5 lg:gap-8 items-center lg:grid lg:grid-cols-4 lg:justify-items-center lg:[&>img]:h-16 lg:[&>img]:w-auto lg:max-w-max lg:mx-auto lg:col-span-2">
             <img
               src="/logos/node.svg"
               alt="Node logo"
