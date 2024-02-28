@@ -5,25 +5,34 @@ import tailwind from "$fresh/plugins/tailwind.ts";
 import { join } from "$std/path/mod.ts";
 
 export default defineConfig({
-  plugins: [tailwind(), fontFixer()],
+  plugins: [tailwind(), assetifyCssUrl()],
 });
 
+const CSS_URL_REGEX =
+  /url\((?:(?<quote>['"])(?<quoted>(?:(?!\k<quote>|\\).|\\.)*)\k<quote>|(?<unquoted>[^'")]*))\)/g;
+
 // This plugin reads the generated style.css file from tailwind plugin and
-// replaces the font paths with paths that include asset queries for cache
-// busting.
-function fontFixer() {
+// replaces the url() (for font paths) with paths that include asset queries for
+// caching and cache busting.
+function assetifyCssUrl() {
   let outDir: string;
   return {
-    name: "font-fixer",
+    name: "assetify-css-url",
     buildStart(config) {
       outDir = config.build.outDir;
     },
     async buildEnd() {
       const stylePath = join(outDir, "static", "styles.css");
       let styleCss = await Deno.readTextFile(stylePath);
-      styleCss = styleCss.replaceAll(/url\((\/.*?\.woff2)\)/g, (_, path) => {
-        console.log(path);
-        return `url("${asset(path)}")`;
+      styleCss = styleCss.replaceAll(CSS_URL_REGEX, (...args) => {
+        const groups = args.at(-1) as Record<string, string>;
+        let path: string;
+        if (groups.quoted) {
+          path = groups.quoted.replaceAll(/\\./g, (s) => JSON.parse(`"${s}"`));
+        } else {
+          path = groups.unquoted;
+        }
+        return `url(${JSON.stringify(asset(path))})`;
       });
       await Deno.writeTextFile(stylePath, styleCss);
     },
