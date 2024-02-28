@@ -150,7 +150,7 @@ export function HomepageHero(
       id="particles-js"
     >
       <Head>
-        <script src={asset("/scripts/particles.js")}></script>
+        <script src={asset("/scripts/particles.js")} defer></script>
       </Head>
       <style>{canvasStyle}</style>
       <div class="section-x-inset-xl flex flex-col items-center justify-center gap-12 relative">
