@@ -44,7 +44,7 @@ impl OramaClient {
     package: &Package,
     meta: &PackageVersionMeta,
   ) -> Result<(), anyhow::Error> {
-    let score = ApiPackageScore::from((meta, package)).normalized_score();
+    let score = ApiPackageScore::from((meta, package)).score_percentage();
 
     let id = format!("@{}/{}", package.scope, package.name);
     let res = self

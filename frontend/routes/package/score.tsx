@@ -14,6 +14,7 @@ import { Head } from "$fresh/runtime.ts";
 import { Check } from "../../components/icons/Check.tsx";
 import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
+import { QuotaUsage } from "../../components/QuotaCard.tsx";
 
 interface Data {
   package: Package;
@@ -47,7 +48,7 @@ export default function Score(
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-8 grid items-start justify-items-center grid-cols-[max-content_auto] gap-5">
+      <div class="mt-8 grid items-center justify-items-center grid-cols-[max-content_auto] gap-5">
         <div class="grid grid-cols-[max-content_max-content_max-content] items-center gap-x-3 gap-y-5">
           <ScoreItem
             value={data.score.hasReadme}
@@ -92,18 +93,15 @@ export default function Score(
           />
         </div>
 
-        <div class="bg-jsr-cyan-200 rounded px-10 py-4 space-y-4">
-          <span>Total score</span>
-          <div class="text-center leading-[3rem]">
-            <span class="text-3xl font-bold">{data.score.total}</span>
-            <span>/{MAX_SCORE}</span>
-          </div>
+        <div class="ring-1 ring-jsr-cyan-950 rounded-md px-4 py-5 space-y-4">
+          <div class="mx-5">Total score</div>
           <div class="text-center leading-[3rem]">
             <span class="text-3xl font-bold">
-              {Math.floor((data.score.total / MAX_SCORE) * 100)}
+              {data.package.score}
             </span>
             <span>%</span>
           </div>
+          <QuotaUsage limit={100} usage={data.package.score} hideNumber />
         </div>
       </div>
     </div>

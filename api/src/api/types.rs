@@ -342,8 +342,8 @@ pub struct ApiPackageScore {
 impl ApiPackageScore {
   pub const MAX_SCORE: u32 = 18;
 
-  pub fn normalized_score(&self) -> u32 {
-    (self.total * 10) / Self::MAX_SCORE
+  pub fn score_percentage(&self) -> u32 {
+    (self.total * 100) / Self::MAX_SCORE
   }
 }
 
@@ -445,7 +445,7 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       updated_at: package.updated_at,
       created_at: package.created_at,
       version_count: package.version_count as u64,
-      score: score.normalized_score(),
+      score: score.score_percentage(),
       latest_version: package.latest_version,
       when_featured: package.when_featured,
     }

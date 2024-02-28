@@ -20,7 +20,9 @@ export function QuotaCard(
   );
 }
 
-function QuotaUsage(props: { limit: number; usage: number }) {
+export function QuotaUsage(
+  props: { limit: number; usage: number; hideNumber?: boolean },
+) {
   let color = "bg-jsr-yellow-400";
   const percent = props.usage / props.limit;
   if (percent >= 1) {
@@ -40,7 +42,9 @@ function QuotaUsage(props: { limit: number; usage: number }) {
         >
         </div>
       </div>
-      <div class="text-xs text-gray-600">{props.usage}/{props.limit}</div>
+      {!props.hideNumber &&
+        <div className="text-xs text-gray-600">{props.usage}/{props.limit}
+        </div>}
     </div>
   );
 }

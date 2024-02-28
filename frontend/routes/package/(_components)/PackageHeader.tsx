@@ -2,6 +2,7 @@
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { GitHub } from "../../../components/icons/GitHub.tsx";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
+import { QuotaUsage } from "../../../components/QuotaCard.tsx";
 
 interface PackageHeaderProps {
   package: Package;
@@ -48,9 +49,9 @@ export function PackageHeader(
             class="flex items-center gap-2 select-none"
           >
             <span>score</span>
-            <div class="rounded-full bg-jsr-cyan-200 size-12 text-center leading-[3rem]">
+            <div class="rounded-full ring-1 ring-jsr-cyan-950 bg-jsr-cyan-200 size-12 text-center leading-[3rem]">
               <span class="font-bold">{pkg.score}</span>
-              <span class="text-xs">/10</span>
+              <span class="text-xs">%</span>
             </div>
           </a>
 
