@@ -9,6 +9,7 @@ use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
 use sha2::Digest;
 use tar::Header;
+use tracing::error;
 use tracing::info;
 use url::Url;
 
@@ -175,7 +176,15 @@ pub fn create_npm_tarball<'a>(
 
   for (path, content) in transpiled_files.iter() {
     let mut header = Header::new_gnu();
-    header.set_path(format!("./package{path}")).unwrap();
+    header.set_path(format!("./package{path}")).map_err(|e| {
+      error!("bad path {} {}", path, e);
+      // TODO(ry): Currently this PublishError is swallowed and turned into
+      // NpmTarballError. Change error type of this function to PublishError.
+      crate::tarball::PublishError::InvalidPath {
+        path: path.to_string(),
+        error: crate::ids::PackagePathValidationError::TooLong(path.len()),
+      }
+    })?;
     header.set_size(content.len() as u64);
     header.set_mode(0o777);
     header.set_mtime(mtime);

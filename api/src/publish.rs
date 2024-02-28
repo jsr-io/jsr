@@ -1013,6 +1013,19 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn no_long_paths() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_long_paths");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    // TODO(ry): This error should say something more specific to help the user
+    // debug it. This is not done yet because of how errors are propagated from
+    // create_npm_tarball.
+    assert_eq!(error.code, "npmTarballError");
+  }
+
+  #[tokio::test]
   async fn global_type_augmentation1() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("global_type_augmentation1");
