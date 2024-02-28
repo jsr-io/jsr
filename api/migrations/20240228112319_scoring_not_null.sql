@@ -1,0 +1,1 @@
+ALTER TABLE package_versions ALTER COLUMN meta SET NOT NULL;

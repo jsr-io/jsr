@@ -1129,28 +1129,13 @@ impl Database {
     .fetch_all(&self.pool)
     .await?;
 
-    let updated = sqlx::query!(
+    let updated = sqlx::query_as!(
+      PackageVersion,
       r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id
       FROM package_versions
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
-      .map(|r| {
-        PackageVersion {
-          scope: r.scope,
-          name: r.name,
-          version: r.version,
-          user_id: r.user_id,
-          exports: r.exports,
-          is_yanked: r.is_yanked,
-          readme_path: r.readme_path,
-          uses_npm: r.uses_npm,
-          meta: r.meta.unwrap_or_default(),
-          rekor_log_id: r.rekor_log_id,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-        }
-      })
     .fetch_all(&self.pool)
     .await?;
 
@@ -1243,7 +1228,7 @@ impl Database {
         is_yanked: r.package_version_is_yanked,
         readme_path: r.package_version_readme_path,
         uses_npm: r.package_version_uses_npm,
-        meta: r.package_version_meta.unwrap_or_default(),
+        meta: r.package_version_meta,
         updated_at: r.package_version_updated_at,
         created_at: r.package_version_created_at,
         rekor_log_id: r.package_version_rekor_log_id,
@@ -1279,7 +1264,8 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Option<PackageVersion>> {
-    sqlx::query!(
+    sqlx::query_as!(
+      PackageVersion,
       r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
@@ -1288,23 +1274,7 @@ impl Database {
       scope as _,
       name as _,
     )
-      .map(|r| {
-      PackageVersion {
-        scope: r.scope,
-        name: r.name,
-        version: r.version,
-        user_id: r.user_id,
-        exports: r.exports,
-        is_yanked: r.is_yanked,
-        readme_path: r.readme_path,
-        uses_npm: r.uses_npm,
-        meta: r.meta.unwrap_or_default(),
-        rekor_log_id: r.rekor_log_id,
-        updated_at: r.updated_at,
-        created_at: r.created_at,
-      }
-    })
-      .fetch_optional(&self.pool)
+    .fetch_optional(&self.pool)
     .await
   }
 
@@ -1315,7 +1285,8 @@ impl Database {
     name: &PackageName,
     version: &Version,
   ) -> Result<Option<PackageVersion>> {
-    sqlx::query!(
+    sqlx::query_as!(
+      PackageVersion,
       r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
@@ -1323,24 +1294,7 @@ impl Database {
       name as _,
       version as _
     )
-      .map(|r| {
-        PackageVersion {
-          scope: r.scope,
-          name: r.name,
-          version: r.version,
-          user_id: r.user_id,
-          exports: r.exports,
-          is_yanked: r.is_yanked,
-          readme_path: r.readme_path,
-          uses_npm: r.uses_npm,
-          meta: r.meta.unwrap_or_default(),
-          rekor_log_id: r.rekor_log_id,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-        }
-      })
-
-      .fetch_optional(&self.pool)
+    .fetch_optional(&self.pool)
     .await
   }
 
@@ -1436,7 +1390,8 @@ impl Database {
     &self,
     new_package_version: NewPackageVersion<'_>,
   ) -> Result<PackageVersion> {
-    sqlx::query!(
+    sqlx::query_as!(
+      PackageVersion,
       r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id"#,
@@ -1449,24 +1404,7 @@ impl Database {
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
     )
-      .map(|r| {
-        PackageVersion {
-          scope: r.scope,
-          name: r.name,
-          version: r.version,
-          user_id: r.user_id,
-          exports: r.exports,
-          is_yanked: r.is_yanked,
-          readme_path: r.readme_path,
-          uses_npm: r.uses_npm,
-          meta: r.meta.unwrap_or_default(),
-          rekor_log_id: r.rekor_log_id,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-        }
-      })
-
-      .fetch_one(&self.pool)
+    .fetch_one(&self.pool)
     .await
   }
 
@@ -1478,7 +1416,8 @@ impl Database {
     version: &Version,
     yank: bool,
   ) -> Result<PackageVersion> {
-    sqlx::query!(
+    sqlx::query_as!(
+      PackageVersion,
       r#"UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
@@ -1488,24 +1427,7 @@ impl Database {
       version as _,
       yank
     )
-      .map(|r| {
-        PackageVersion {
-          scope: r.scope,
-          name: r.name,
-          version: r.version,
-          user_id: r.user_id,
-          exports: r.exports,
-          is_yanked: r.is_yanked,
-          readme_path: r.readme_path,
-          uses_npm: r.uses_npm,
-          meta: r.meta.unwrap_or_default(),
-          rekor_log_id: r.rekor_log_id,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-        }
-      })
-
-      .fetch_one(&self.pool)
+    .fetch_one(&self.pool)
     .await
   }
 
