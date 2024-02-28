@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment for deployment'
+        description: "Environment for deployment"
         type: choice
         options:
           - prod

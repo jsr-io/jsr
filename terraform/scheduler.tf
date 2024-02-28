@@ -13,3 +13,18 @@ resource "google_cloud_scheduler_job" "npm_tarball_rebuild_missing" {
     }
   }
 }
+
+resource "google_cloud_scheduler_job" "orama_deploy" {
+  name        = "orama-deploy"
+  description = "Deploy the Orama index with any new changes"
+  schedule    = "*/15 * * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://api.oramasearch.com/api/v1/webhooks/${var.orama_index_id}/deploy"
+    headers = {
+      "Authorization" = "Bearer ${var.orama_private_api_key}"
+    }
+  }
+}
