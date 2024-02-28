@@ -5,7 +5,6 @@ import { path } from "../utils/api.ts";
 import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
-import twas from "$twas";
 import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
 
@@ -23,14 +22,14 @@ export default function Home({ data }: PageProps<Data>) {
       </Head>
 
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 md:gap-14">
-        <ListPanel title="New Packages">
-          {data.stats.newest.map(PackageToPanelEntry)}
+        <ListPanel title="Featured Packages">
+          {data.stats.featured.map(PackageToPanelEntry)}
         </ListPanel>
         <ListPanel title="Recent updates">
           {data.stats.updated.map(PackageVersionToPanelEntry)}
         </ListPanel>
-        <ListPanel title="Featured Packages">
-          {data.stats.featured.map(PackageToPanelEntryNoLabel)}
+        <ListPanel title="New Packages">
+          {data.stats.newest.map(PackageToPanelEntry)}
         </ListPanel>
       </div>
 
@@ -183,16 +182,6 @@ function BenefitText({ children }: { children: ComponentChildren }) {
 }
 
 function PackageToPanelEntry(
-  entry: Package,
-): PanelEntry {
-  return {
-    value: `@${entry.scope}/${entry.name}`,
-    href: `/@${entry.scope}/${entry.name}`,
-    label: twas(new Date(entry.createdAt)),
-  };
-}
-
-function PackageToPanelEntryNoLabel(
   entry: Package,
 ): PanelEntry {
   return {
