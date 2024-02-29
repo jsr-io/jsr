@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { IS_BROWSER } from "$fresh/runtime.ts";
-import { useState,useEffect  } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { api, path } from "../utils/api.ts";
 import { PublishingTask } from "../utils/api_types.ts";
 
@@ -62,7 +62,11 @@ export default function PollPublishingTask(
             </div>
           </div>
         )
-        : <div>Waiting a long time? Check your terminal for more detailed status.</div>)}
+        : (
+          <div>
+            Waiting a long time? Check your terminal for more detailed status.
+          </div>
+        ))}
     </div>
   );
 }
