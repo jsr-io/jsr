@@ -34,7 +34,7 @@ export default function PackageListPage({ data, url }: PageProps<Data>) {
           {data.packages.map((entry) => PackageHit(entry))}
         </ListDisplay>
 
-        <div className="mt-2 flex items-start justify-between px-2">
+        <div className="mt-2 flex flex-wrap items-start justify-between px-2">
           <span className="text-sm text-gray-400 block">
             Changes made in the last 15 minutes may not be visible yet.
           </span>
