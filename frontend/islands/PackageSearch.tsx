@@ -7,6 +7,7 @@ import { IS_BROWSER } from "$fresh/runtime.ts";
 import { OramaPackageHit } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import { List, Package } from "../utils/api_types.ts";
+import { PackageHit } from "../components/PackageHit.tsx";
 
 interface PackageSearchProps {
   query?: string;
@@ -234,19 +235,15 @@ function SuggestionList(
           <ul class="divide-y-1">
             {suggestions.value.map((pkg, i) => {
               const selected = computed(() => selectionIdx.value === i);
+              const hit = PackageHit(pkg);
               return (
                 <li
                   key={pkg.scope + pkg.name}
                   class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
                   aria-selected={selected}
                 >
-                  <a href={`/@${pkg.scope}/${pkg.name}`} class="bg-red-600">
-                    <div class="text-cyan-700 font-semibold">
-                      @{pkg.scope}/{pkg.name}
-                    </div>
-                    <div class="text-sm text-gray-500">
-                      {pkg.description || "-"}
-                    </div>
+                  <a href={hit.href} class="bg-red-600">
+                    {hit.content}
                   </a>
                 </li>
               );
