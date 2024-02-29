@@ -28,10 +28,9 @@ export default function Score(
 ) {
   const isStaff = state.user?.isStaff || false;
   const canEdit = data.member?.isAdmin || isStaff;
-  const scorePercentage = Math.floor((data.score.total / MAX_SCORE) * 100);
-  const scoreColorClass = scorePercentage >= 90
+  const scoreColorClass = data.package.score >= 90
     ? "bg-green-500"
-    : scorePercentage >= 60
+    : data.package.score >= 60
     ? "bg-yellow-500"
     : "bg-red-500";
 
@@ -66,10 +65,10 @@ export default function Score(
           </div>
           <div
             class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
-            style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, white ${scorePercentage}%)`}
+            style={`background-image: conic-gradient(transparent, transparent ${data.package.score}%, white ${data.package.score}%)`}
           >
             <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
-              {scorePercentage}%
+              {data.package.score}%
             </span>
           </div>
           <div class="text-gray-500 text-sm text-center mt-6">
@@ -97,7 +96,6 @@ export default function Score(
           />
           <ScoreItem
             value={data.score.percentageDocumentedSymbols}
-            max={5}
             scoreValue={5}
             explanation="Has docs in all symbols"
           />
@@ -128,12 +126,7 @@ export default function Score(
 }
 
 function ScoreItem(
-  props:
-    & { explanation: string; scoreValue: number }
-    & ({ value: boolean } | {
-      value: number;
-      max: number;
-    }),
+  props: { explanation: string; value: boolean | number; scoreValue: number },
 ) {
   let status: "complete" | "partial" | "missing";
   if (typeof props.value === "boolean") {
@@ -160,7 +153,11 @@ function ScoreItem(
 
       <div class="text-sm text-gray-400 pt-[0.2em]">
         {typeof props.value === "number"
-          ? <span>{Math.floor(props.max * props.value)}/{props.max}</span>
+          ? (
+            <span>
+              {Math.floor(props.scoreValue * props.value)}/{props.scoreValue}
+            </span>
+          )
           : <span>{props.value ? props.scoreValue : 0}/{props.scoreValue}
           </span>}
       </div>
