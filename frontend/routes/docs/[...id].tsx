@@ -49,7 +49,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
                       class={`${
                         id === data.id
                           ? "px-4 text-cyan-700 border-l-4 border-cyan-400 bg-cyan-100"
-                          : "px-5 "
+                          : "pl-5 pr-4"
                       } py-1.5 block leading-5 hover:text-gray-600 hover:underline`}
                     >
                       {title}
