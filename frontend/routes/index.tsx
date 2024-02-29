@@ -19,6 +19,11 @@ export default function Home({ data }: PageProps<Data>) {
         <title>
           JSR: the JavaScript Registry
         </title>
+        <meta
+          name="description"
+          content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
+        />
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
 
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -202,7 +207,9 @@ function PackageVersionToPanelEntry(
 
 export const handler: Handlers<Data, State> = {
   async GET(_req, ctx) {
-    const statsResp = await ctx.state.api.get<Stats>(path`/stats`);
+    const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
+      anonymous: true,
+    });
     if (!statsResp.ok) throw statsResp; // gracefully handle this
     return ctx.render({ stats: statsResp.data });
   },

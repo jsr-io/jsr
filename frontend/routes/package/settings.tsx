@@ -23,6 +23,12 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
         <title>
           Settings - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`@${params.scope}/${params.package} on JSR${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader package={data.package} />

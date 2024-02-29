@@ -24,6 +24,10 @@ pub struct IamHandler<'s> {
 }
 
 impl<'s> IamHandler<'s> {
+  pub fn is_anonymous(&self) -> bool {
+    matches!(self.principal, Principal::Anonymous)
+  }
+
   pub async fn check_scope_write_access(
     &self,
     scope: &ScopeName,

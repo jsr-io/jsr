@@ -15,10 +15,6 @@ export default async function App(
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta
-          name="description"
-          content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
-        />
         <meta property="og:image" content="/images/og-image.webp" />
         <link
           rel="preload"

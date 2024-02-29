@@ -26,6 +26,7 @@ use crate::db::Database;
 use crate::db::Permissions;
 use crate::github::verify_oidc_token;
 use crate::iam::IamInfo;
+use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
@@ -105,6 +106,41 @@ where
       }
       res
     })
+    .boxed()
+  }
+}
+
+pub struct CacheDuration(pub usize);
+impl CacheDuration {
+  pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
+}
+
+pub fn cache<H, HF>(
+  duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let value =
+    header::HeaderValue::from_str(&format!("public, s-maxage={}", duration.0))
+      .unwrap();
+  let handler = Arc::new(handler);
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+    let value = value.clone();
+    async move {
+      let is_anonymous = req.iam().is_anonymous();
+      let mut res = handler(req).await?;
+      if is_anonymous {
+        res
+          .headers_mut()
+          .entry(header::CACHE_CONTROL)
+          .or_insert_with(|| value);
+      }
+      Ok(res)
+    }
     .boxed()
   }
 }

@@ -10,6 +10,7 @@ export interface APIRequest<T> {
   query?: QueryParams;
   body?: T;
   signal?: AbortSignal;
+  anonymous?: boolean;
 }
 
 export type APIResponse<T> = APIResponseOK<T> | APIResponseError;
@@ -66,6 +67,7 @@ interface APIOptions {
 
 interface RequestOptions {
   signal?: AbortSignal;
+  anonymous?: boolean;
 }
 
 export class API {
@@ -92,7 +94,13 @@ export class API {
     query?: QueryParams,
     opts?: RequestOptions,
   ): Promise<APIResponse<RespT>> {
-    return this.request({ method: "GET", path, query, signal: opts?.signal });
+    return this.request({
+      method: "GET",
+      path,
+      query,
+      signal: opts?.signal,
+      anonymous: opts?.anonymous,
+    });
   }
 
   post<RespT = unknown, ReqT = unknown>(
@@ -107,6 +115,7 @@ export class API {
       query,
       body,
       signal: opts?.signal,
+      anonymous: opts?.anonymous,
     });
   }
 
@@ -122,6 +131,7 @@ export class API {
       query,
       body,
       signal: opts?.signal,
+      anonymous: opts?.anonymous,
     });
   }
 
@@ -135,6 +145,7 @@ export class API {
       path,
       query,
       signal: opts?.signal,
+      anonymous: opts?.anonymous,
     });
   }
 
@@ -149,7 +160,7 @@ export class API {
       url.searchParams.append(key, String(value));
     }
     const headers = new Headers();
-    if (this.#token) {
+    if (this.#token && !req.anonymous) {
       headers.append("Authorization", `Bearer ${this.#token}`);
     }
     if (req.body) {

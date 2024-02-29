@@ -48,7 +48,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     containers {
       image = var.api_image_id
-      args  = ["--cloud_trace", "--api", "--tasks=false", "--database_pool_size=3"]
+      args  = ["--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"]
 
       dynamic "env" {
         for_each = local.api_envs
@@ -121,8 +121,8 @@ resource "google_compute_backend_service" "registry_api" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
   custom_response_headers = [
-    "x-deno-cache-id: {cdn_cache_id}",
-    "x-deno-cache-status: {cdn_cache_status}",
+    "x-jsr-cache-id: {cdn_cache_id}",
+    "x-jsr-cache-status: {cdn_cache_status}",
   ]
 
   enable_cdn = true

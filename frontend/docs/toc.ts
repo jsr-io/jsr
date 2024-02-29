@@ -24,6 +24,11 @@ export default [
     group: "Guide",
   },
   {
+    title: "Writing documentation",
+    id: "writing-docs",
+    group: "Guide",
+  },
+  {
     title: "Troubleshooting",
     id: "troubleshooting",
     group: "Guide",

@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import { ComponentChildren } from "preact";
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
 import type {
   Package,
@@ -21,7 +22,7 @@ interface Data {
   member: ScopeMember | null;
 }
 
-export const MAX_SCORE = 18;
+export const MAX_SCORE = 17;
 
 export default function Score(
   { data, params, state }: PageProps<Data, State>,
@@ -40,6 +41,12 @@ export default function Score(
         <title>
           Score - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`@${params.scope}/${params.package} on JSR${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader package={data.package} />
@@ -78,47 +85,89 @@ export default function Score(
           </div>
         </div>
 
-        <ul class="flex flex-col gap-y-5 md:col-span-2 md:mr-auto">
+        <ul class="flex flex-col divide-jsr-cyan-100 divide-y-1 md:col-span-2 w-full">
           <ScoreItem
             value={data.score.hasReadme}
             scoreValue={2}
-            explanation="Has a readme or module doc"
-          />
+            title="Has a readme or module doc"
+          >
+            The package should have a README.md in the root of the repository or
+            a{" "}
+            <a class="link" href="/docs/writing-docs#module-documentation">
+              module doc
+            </a>{" "}
+            in the main entrypoint of the package.
+          </ScoreItem>
           <ScoreItem
             value={data.score.hasReadmeExamples}
             scoreValue={1}
-            explanation="Has examples in the readme or module doc"
-          />
+            title="Has examples in the readme or module doc"
+          >
+            The README or{" "}
+            <a class="link" href="/docs/writing-docs#module-documentation">
+              module doc
+            </a>{" "}
+            of the main entrypoint should have an example of how to use the
+            package, in the form of a code block.
+          </ScoreItem>
           <ScoreItem
             value={data.score.allEntrypointsDocs}
             scoreValue={1}
-            explanation="Has module docs in all entrypoints"
-          />
+            title="Has module docs in all entrypoints"
+          >
+            Every entrypoint of the package should have a{" "}
+            <a class="link" href="/docs/writing-docs#module-documentation">
+              module doc
+            </a>{" "}
+            summarizing what is defined in that module.
+          </ScoreItem>
           <ScoreItem
-            value={data.score.percentageDocumentedSymbols}
+            value={Math.min(1, data.score.percentageDocumentedSymbols + 0.2)}
             scoreValue={5}
-            explanation="Has docs in all symbols"
-          />
+            title="Has docs for most symbols"
+          >
+            At least 80% of the packages' symbols should have{" "}
+            <a class="link" href="/docs/writing-docs#symbol-documentation">
+              symbol documentation
+            </a>. Currently{" "}
+            {(data.score.percentageDocumentedSymbols * 100).toFixed(0)}% of
+            symbols are documented.
+          </ScoreItem>
           <ScoreItem
             value={data.score.allFastCheck}
             scoreValue={5}
-            explanation="All entrypoints are fast-check compatible"
-          />
+            title="No slow types are used"
+          >
+            This package uses no{" "}
+            <a class="link" href="/docs/about-slow-types">
+              slow types
+            </a>.
+          </ScoreItem>
           <ScoreItem
             value={data.score.hasDescription}
             scoreValue={1}
-            explanation="Has a description"
-          />
+            title="Has a description"
+          >
+            The package has a description set in the package settings to help
+            users find this package via search.
+          </ScoreItem>
           <ScoreItem
             value={data.score.atLeastOneRuntimeCompatible}
             scoreValue={1}
-            explanation="At least one runtime is marked as compatible"
-          />
+            title="At least one runtime is marked as compatible"
+          >
+            This package marks at least one runtime as "compatible" in the
+            package settings to aid users in understanding where they can use
+            this package.
+          </ScoreItem>
           <ScoreItem
             value={data.score.multipleRuntimesCompatible}
             scoreValue={1}
-            explanation="At least two runtimes are marked as compatible"
-          />
+            title="At least two runtimes are marked as compatible"
+          >
+            This package is compatible with more than one runtime, and is marked
+            as such in the package settings.
+          </ScoreItem>
         </ul>
       </div>
     </div>
@@ -126,7 +175,12 @@ export default function Score(
 }
 
 function ScoreItem(
-  props: { explanation: string; value: boolean | number; scoreValue: number },
+  props: {
+    title: string;
+    children: ComponentChildren;
+    value: boolean | number;
+    scoreValue: number;
+  },
 ) {
   let status: "complete" | "partial" | "missing";
   if (typeof props.value === "boolean") {
@@ -142,14 +196,17 @@ function ScoreItem(
   }
 
   return (
-    <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 items-start border-b-1.5 border-jsr-cyan-100 pb-0.5">
+    <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 py-1.5 items-start">
       {status === "complete"
         ? <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
         : (status === "partial"
           ? <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
           : <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />)}
 
-      <p class="leading-tight">{props.explanation}</p>
+      <div class="max-w-xl pr-2">
+        <p class="leading-tight">{props.title}</p>
+        <p class="text-gray-500 text-sm">{props.children}</p>
+      </div>
 
       <div class="text-sm text-gray-400 pt-[0.2em]">
         {typeof props.value === "number"

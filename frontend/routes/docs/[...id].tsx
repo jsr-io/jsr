@@ -30,6 +30,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
     <div class="mb-20">
       <Head>
         <title>{data.title} - Docs - JSR</title>
+        <meta name="description" content={data.description} />
       </Head>
 
       <div class="grid grid-cols-1 md:grid-cols-10">
@@ -49,7 +50,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
                       class={`${
                         id === data.id
                           ? "px-4 text-cyan-700 border-l-4 border-cyan-400 bg-cyan-100"
-                          : "px-5 "
+                          : "pl-5 pr-4"
                       } py-1.5 block leading-5 hover:text-gray-600 hover:underline`}
                     >
                       {title}

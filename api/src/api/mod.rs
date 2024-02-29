@@ -29,6 +29,7 @@ use self::scope::scope_router;
 use self::users::users_router;
 
 use crate::util;
+use crate::util::CacheDuration;
 
 pub fn api_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -41,7 +42,10 @@ pub fn api_router() -> Router<Body, ApiError> {
     .scope("/authorizations", authorization_router())
     .scope("/publishing_tasks", publishing_task_router())
     .get("/packages", util::json(global_list_handler))
-    .get("/stats", util::json(global_stats_handler))
+    .get(
+      "/stats",
+      util::cache(CacheDuration::ONE_MINUTE, util::json(global_stats_handler)),
+    )
     .get(
       // todo: remove once CLI uses the new endpoint
       "/publish_status/:publishing_task_id",
