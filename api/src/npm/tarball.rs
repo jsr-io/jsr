@@ -174,7 +174,7 @@ pub fn create_npm_tarball<'a>(
   let mtime = now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
   for (path, content) in transpiled_files.iter() {
-    let mut header = Header::new_gnu();
+    let mut header = Header::new_ustar();
     header.set_path(format!("./package{path}")).map_err(|e| {
       error!("bad path {} {}", path, e);
       // TODO(ry): Currently this PublishError is swallowed and turned into

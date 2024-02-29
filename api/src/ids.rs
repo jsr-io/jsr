@@ -482,7 +482,7 @@ pub struct PackagePath {
 impl PackagePath {
   pub fn new(path: String) -> Result<Self, PackagePathValidationError> {
     let len = path.len();
-    if len > 95 {
+    if len > 160 {
       return Err(PackagePathValidationError::TooLong(len));
     }
 
