@@ -368,7 +368,8 @@ pub fn generate_docs_html(
               )
             })
             .unwrap_or(deno_doc::html::jsdoc::Markdown {
-              html: "<div>No docs found.</div>".to_string(),
+              html: r#"<div style="font-style: italic;">No docs found.</div>"#
+                .to_string(),
               toc: None,
             }),
         );

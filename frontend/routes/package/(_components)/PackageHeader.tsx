@@ -45,10 +45,10 @@ export function PackageHeader(
         <div class="flex items-center gap-8">
           <a
             href={`/@${pkg.scope}/${pkg.name}/score`}
-            class="flex items-center gap-2 select-none"
+            class="flex items-center justify-center gap-2 select-none"
           >
             <span>score</span>
-            <div class="rounded-full ring-1 ring-jsr-cyan-950 bg-jsr-cyan-200 size-12 text-center leading-[3rem]">
+            <div class="rounded border-1.5 border-jsr-cyan-950 px-2.5 py-1">
               <span class="font-bold">{pkg.score}</span>
               <span class="text-xs">%</span>
             </div>

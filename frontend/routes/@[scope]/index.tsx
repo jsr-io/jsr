@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Handlers, PageProps } from "$fresh/server.ts";
-import { ModuleHit } from "../packages.tsx";
 import { PaginationData, State } from "../../util.ts";
 import type {
   FullScope,
@@ -17,6 +16,7 @@ import { scopeDataWithMember } from "../../utils/data.ts";
 import { ScopePendingInvite } from "./(_components)/ScopePendingInvite.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { ListDisplay } from "../../components/List.tsx";
+import { PackageHit } from "../../components/PackageHit.tsx";
 
 interface Data extends PaginationData {
   scope: Scope | FullScope;
@@ -49,7 +49,7 @@ export default function ScopePackagesPage(
         pagination={data}
         currentUrl={url}
       >
-        {data.packages.map((entry) => ModuleHit(entry))}
+        {data.packages.map((entry) => PackageHit(entry))}
       </ListDisplay>
     </div>
   );

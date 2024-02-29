@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RuntimeCompat } from "../utils/api_types.ts";
+import type { RuntimeCompat } from "../utils/api_types.ts";
 
 export const RUNTIME_COMPAT_KEYS: [
   key: keyof RuntimeCompat,
@@ -28,8 +28,8 @@ export function RuntimeCompatIndicator(
   return (
     <div class="min-w-content font-semibold flex items-center gap-2">
       {labeled && <div>Works with</div>}
-      <div class="flex items-center gap-1.5">
-        {RUNTIME_COMPAT_KEYS.map(
+      <div class="flex items-center *:-mx-1 flex-row-reverse">
+        {RUNTIME_COMPAT_KEYS.toReversed().map(
           ([key, name, icon, w, h]) => {
             const value = runtimeCompat[key];
             if (
