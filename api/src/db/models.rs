@@ -237,7 +237,7 @@ pub struct NewPackageVersion<'s> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct PackageVersionMeta {
   pub has_readme: bool,
   pub has_readme_examples: bool,
