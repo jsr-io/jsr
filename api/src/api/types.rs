@@ -446,7 +446,10 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       updated_at: package.updated_at,
       created_at: package.created_at,
       version_count: package.version_count as u64,
-      score: package.latest_version.map(|_| score.score_percentage()),
+      score: package
+        .latest_version
+        .as_ref()
+        .map(|_| score.score_percentage()),
       latest_version: package.latest_version,
       when_featured: package.when_featured,
     }
