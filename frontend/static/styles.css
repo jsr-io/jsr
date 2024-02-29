@@ -171,19 +171,19 @@ body .ddoc #sidepanel a:active {
 
 /* !important seems necessary for taking precendent over current ddoc styling */
 
-body .ddoc h1 {
+body .ddoc .markdown h1 {
   @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
 }
 
-body .ddoc h2 {
+body .ddoc .markdown h2 {
   @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
 }
 
-body .ddoc h3 {
+body .ddoc .markdown h3 {
   @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
 }
 
-body .ddoc h4 {
+body .ddoc .markdown h4 {
   @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
 } 
 
