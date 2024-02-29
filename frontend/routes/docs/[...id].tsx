@@ -35,7 +35,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
       <div class="grid grid-cols-1 md:grid-cols-10">
         <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
           <div>
-            <p class="text-xl font-semibold">Docs</p>
+            <p class="text-xl font-semibold" id="sidebar">Docs</p>
           </div>
 
           {Array.from(groups.entries()).map(([group, files]) => (
@@ -62,6 +62,9 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
         </nav>
 
         <div class="md:col-span-7 mb-12 md:px-6 lg:px-8 order-1 md:order-2">
+          <p class="text-sm mb-6 -mt-2 md:hidden">
+            <a href="#sidebar" class="link">View table of contents</a>
+          </p>
           <h1 class="text-4xl lg:text-5xl text-balance font-medium mb-8 text-gray-900">
             {data.title}
           </h1>
