@@ -31,4 +31,3 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
     ),
   };
 }
-
