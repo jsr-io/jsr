@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { OramaPackageHit } from "../util.ts";
 import type { Package } from "../utils/api_types.ts";
+import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
 import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
 
@@ -24,8 +25,16 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
             hideUnknown
           />
 
-          <div class="rounded border-1.5 border-jsr-cyan-950 text-xs px-2 py-1 flex items-center justify-center">
-            {pkg.score}%
+          <div
+            class={`rounded-full aspect-square p-0.5 ${
+              getScoreBgColorClass(pkg.score)
+            }`}
+            style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
+            title="Package score"
+          >
+            <div class="rounded-full aspect-square bg-white text-xs flex items-center justify-center font-semibold min-w-6">
+              {pkg.score}
+            </div>
           </div>
         </div>
       </div>

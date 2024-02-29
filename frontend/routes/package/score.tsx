@@ -15,6 +15,7 @@ import { Head } from "$fresh/runtime.ts";
 import { Check } from "../../components/icons/Check.tsx";
 import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
+import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 
 interface Data {
   package: Package;
@@ -29,11 +30,6 @@ export default function Score(
 ) {
   const isStaff = state.user?.isStaff || false;
   const canEdit = data.member?.isAdmin || isStaff;
-  const scoreColorClass = data.package.score >= 90
-    ? "bg-green-500"
-    : data.package.score >= 60
-    ? "bg-yellow-500"
-    : "bg-red-500";
 
   return (
     <div class="mb-20">
@@ -71,7 +67,9 @@ export default function Score(
             @{data.package.scope}/{data.package.name}
           </div>
           <div
-            class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
+            class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
+              getScoreBgColorClass(data.package.score)
+            }`}
             style={`background-image: conic-gradient(transparent, transparent ${data.package.score}%, #e7e8e8 ${data.package.score}%)`}
           >
             <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">

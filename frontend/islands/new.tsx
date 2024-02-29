@@ -20,10 +20,10 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-gray-300 text-black";
+    return "bg-jsr-gray-0 text-black";
   });
   return (
-    <div class={color + " hidden md:block rounded-full p-1.75 my-1.5"}>
+    <div class={color + " hidden md:block rounded-full p-1.75"}>
       {children}
     </div>
   );
@@ -54,7 +54,7 @@ export function ScopeSelect(
 
   if (scopes.value.length === 0) {
     return (
-      <div class="space-y-4 bg-gray-50 border-gray-100 p-4 rounded-xl">
+      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
         <span class="text-gray-700">
           You are not a member of any scopes. Create a new scope to publish your
           package.
@@ -106,7 +106,7 @@ export function ScopeSelect(
   return (
     <>
       <select
-        class="w-full md:w-88 mt-4 block py-2 px-4 input-container input select"
+        class="w-full mt-4 block py-2 px-4 input-container input select"
         onChange={(e) => scope.value = e.currentTarget.value}
         value={scope}
       >
@@ -118,7 +118,7 @@ export function ScopeSelect(
       <p class="text-gray-500">
         or{" "}
         <button
-          class="inline text-cyan-700 hover:underline hover:text-blue-400"
+          class="inline link mt-2"
           onClick={() => {
             explicitCreateScope.value = true;
             scope.value = "";
@@ -173,7 +173,7 @@ function CreateScope(
   return (
     <>
       <form class="flex flex-wrap gap-4 items-center" onSubmit={onSubmit}>
-        <label class="flex items-center w-full md:w-88 input-container pl-4 py-[2px] pr-[2px]">
+        <label class="flex items-center w-full md:w-full input-container pl-4 py-[2px] pr-[2px]">
           <span>@</span>
           <input
             class="input py-1.5 pr-4 pl-[1px] flex-grow-1 rounded-md"
@@ -277,7 +277,7 @@ export function PackageName(
   return (
     <>
       <input
-        class="w-full md:w-88 block h-10 px-4 input-container input"
+        class="w-full md:w-full block h-10 px-4 input-container input"
         type="text"
         name="package"
         placeholder="bar"
@@ -331,14 +331,14 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
   ) return null;
 
   return (
-    <div class="max-w-2xl mt-12 bg-gray-50 border-2 rounded-lg p-4 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
+    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
       {pkg.value === null
         ? (
           <>
             <div>
-              <p class="text-gray-500">
+              <p>
                 The package{" "}
-                <code class="bg-gray-200 text-gray-700 px-1  rounded-md inline-block">
+                <code class="text-jsr-cyan-800">
                   @{scope}/{name}
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.
