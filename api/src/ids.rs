@@ -875,13 +875,12 @@ mod tests {
   #[test]
   fn test_package_path_lengths() {
     fn mock_package_path(
-      path_segments: &[u32],
+      path_segments: &[usize],
     ) -> Result<PackagePath, PackagePathValidationError> {
       let mut path = String::new();
       for s in path_segments.iter() {
-        let path_segment =
-          std::iter::repeat("a").take(*s as usize).collect::<String>();
-        path.push_str("/");
+        let path_segment = "a".repeat(*s);
+        path.push('/');
         path.push_str(&path_segment);
       }
       PackagePath::new(path)
