@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import { useState,useEffect  } from "preact/hooks";
 import { api, path } from "../utils/api.ts";
