@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { batch, computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
 import { IS_BROWSER } from "$fresh/runtime.ts";
@@ -36,6 +36,7 @@ export function PackageSearch(
   const showSuggestions = computed(() =>
     isFocused.value && search.value.length > 0
   );
+  const [macintosh, setMacintosh] = useState(true);
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -54,6 +55,27 @@ export function PackageSearch(
 
     document.addEventListener("click", outsideClick);
     return () => document.removeEventListener("click", outsideClick);
+  }, []);
+
+  useEffect(() => {
+    const keyboardHandler = (e: KeyboardEvent) => {
+      if (e.target !== document.body) {
+        return;
+      }
+      if (((e.metaKey || e.ctrlKey) && e.key === "k")) {
+        e.preventDefault();
+        (document.querySelector("#package-search-input") as HTMLInputElement)
+          ?.focus();
+      }
+    };
+    globalThis.addEventListener("keydown", keyboardHandler);
+    return function cleanup() {
+      globalThis.removeEventListener("keydown", keyboardHandler);
+    };
+  });
+
+  useEffect(() => {
+    setMacintosh(window.navigator.platform.includes("Mac"));
   }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
@@ -144,6 +166,7 @@ export function PackageSearch(
     }
   }
 
+  const placeholder = `Search for packages (${macintosh ? "⌘K" : "Ctrl+K"})`;
   return (
     <div ref={ref}>
       <form
@@ -159,7 +182,7 @@ export function PackageSearch(
           type="text"
           name="search"
           class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses}`}
-          placeholder="Search for packages"
+          placeholder={placeholder}
           value={query}
           onInput={onInput}
           onKeyUp={onKeyUp}
