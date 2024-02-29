@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { User } from "./api_types.ts";
 import { getOrInsertItem } from "./client_cache.ts";
 
