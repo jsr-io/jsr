@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT scope_invites.scope as \"scope_invite_scope: ScopeName\", scope_invites.target_user_id as \"scope_invite_target_user_id\", scope_invites.requesting_user_id as \"scope_invite_requesting_user_id\", scope_invites.updated_at as \"scope_invite_updated_at\", scope_invites.created_at as \"scope_invite_created_at\",\n        target_user.id as \"target_user_id\", target_user.name as \"target_user_name\", target_user.avatar_url as \"target_user_avatar_url\", target_user.updated_at as \"target_user_updated_at\", target_user.created_at as \"target_user_created_at\",\n        requesting_user.id as \"requesting_user_id\", requesting_user.name as \"requesting_user_name\", requesting_user.avatar_url as \"requesting_user_avatar_url\", requesting_user.updated_at as \"requesting_user_updated_at\", requesting_user.created_at as \"requesting_user_created_at\"\n      FROM scope_invites\n      LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id\n      LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id\n      WHERE target_user_id = $1",
+  "query": "SELECT scope_invites.scope as \"scope_invite_scope: ScopeName\", scope_invites.target_user_id as \"scope_invite_target_user_id\", scope_invites.requesting_user_id as \"scope_invite_requesting_user_id\", scope_invites.updated_at as \"scope_invite_updated_at\", scope_invites.created_at as \"scope_invite_created_at\",\n        target_user.id as \"target_user_id\", target_user.name as \"target_user_name\", target_user.avatar_url as \"target_user_avatar_url\", target_user.github_id as \"target_user_github_id\", target_user.updated_at as \"target_user_updated_at\", target_user.created_at as \"target_user_created_at\",\n        requesting_user.id as \"requesting_user_id\", requesting_user.name as \"requesting_user_name\", requesting_user.avatar_url as \"requesting_user_avatar_url\", requesting_user.github_id as \"requesting_user_github_id\", requesting_user.updated_at as \"requesting_user_updated_at\", requesting_user.created_at as \"requesting_user_created_at\"\n      FROM scope_invites\n      LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id\n      LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id\n      WHERE scope = $1",
   "describe": {
     "columns": [
       {
@@ -45,43 +45,53 @@
       },
       {
         "ordinal": 8,
+        "name": "target_user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
         "name": "target_user_updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "target_user_created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "requesting_user_id",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "requesting_user_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "requesting_user_avatar_url",
         "type_info": "Text"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
+        "name": "requesting_user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
         "name": "requesting_user_updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "requesting_user_created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -93,14 +103,16 @@
       false,
       false,
       false,
+      true,
       false,
       false,
       false,
       false,
       false,
+      true,
       false,
       false
     ]
   },
-  "hash": "9dd96d147dc578e35f657513177dd76694b27a134daa77ad0a43117c4ea85f03"
+  "hash": "50b6bc5a8b1faf290853dd720a0294e5fa03b32e9bb6f62dfccb40e2beb8ac05"
 }

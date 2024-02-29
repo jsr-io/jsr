@@ -49,6 +49,7 @@ import * as $Authorize from "./islands/Authorize.tsx";
 import * as $CopyButton from "./islands/CopyButton.tsx";
 import * as $DevelopmentLogin from "./islands/DevelopmentLogin.tsx";
 import * as $GitHubActionsLink from "./islands/GitHubActionsLink.tsx";
+import * as $GithubUserLink from "./islands/GithubUserLink.tsx";
 import * as $HomepageHero from "./islands/HomepageHero.tsx";
 import * as $PackageSearch from "./islands/PackageSearch.tsx";
 import * as $PublishingTaskRequeue from "./islands/PublishingTaskRequeue.tsx";
@@ -116,6 +117,7 @@ const manifest = {
     "./islands/CopyButton.tsx": $CopyButton,
     "./islands/DevelopmentLogin.tsx": $DevelopmentLogin,
     "./islands/GitHubActionsLink.tsx": $GitHubActionsLink,
+    "./islands/GithubUserLink.tsx": $GithubUserLink,
     "./islands/HomepageHero.tsx": $HomepageHero,
     "./islands/PackageSearch.tsx": $PackageSearch,
     "./islands/PublishingTaskRequeue.tsx": $PublishingTaskRequeue,

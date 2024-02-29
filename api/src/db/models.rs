@@ -40,6 +40,7 @@ pub struct UserPublic {
   pub id: Uuid,
   pub name: String,
   pub avatar_url: String,
+  pub github_id: Option<i64>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -50,6 +51,7 @@ impl From<User> for UserPublic {
       id: user.id,
       name: user.name,
       avatar_url: user.avatar_url,
+      github_id: user.github_id,
       updated_at: user.updated_at,
       created_at: user.created_at,
     }
