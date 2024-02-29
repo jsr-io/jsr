@@ -36,7 +36,7 @@ export function PackageSearch(
   const showSuggestions = computed(() =>
     isFocused.value && search.value.length > 0
   );
-  const [macintosh, setMacintosh] = useState(true);
+  const [macLike, setMacLike] = useState(true);
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -72,7 +72,9 @@ export function PackageSearch(
   });
 
   useEffect(() => {
-    setMacintosh(window.navigator.platform.includes("Mac"));
+    setMacLike(
+      window.navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i) ? true : false,
+    );
   }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
@@ -163,7 +165,7 @@ export function PackageSearch(
     }
   }
 
-  const placeholder = `Search for packages (${macintosh ? "⌘K" : "Ctrl+K"})`;
+  const placeholder = `Search for packages (${macLike ? "⌘K" : "Ctrl+K"})`;
   return (
     <div ref={ref}>
       <form
