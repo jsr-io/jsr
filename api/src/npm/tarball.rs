@@ -1,12 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use anyhow::Context;
 use base64::Engine;
 use deno_graph::ModuleGraph;
-use deno_graph::ModuleSpecifier;
 use deno_graph::ParsedSourceStore;
 use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
