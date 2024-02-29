@@ -32,13 +32,20 @@ export function PackageNav(
 
   return (
     <Nav>
-      <NavItem href={versionedBase} active={currentTab === "Index"}>
-        Overview
-      </NavItem>
-      <NavItem href={`${versionedBase}/doc`} active={currentTab === "Symbols"}>
-        Symbols
-      </NavItem>
-      {latestVersion && (
+      {((canEdit && versionCount > 0) || !canEdit) && (
+        <NavItem href={versionedBase} active={currentTab === "Index"}>
+          Overview
+        </NavItem>
+      )}
+      {versionCount > 0 && (
+        <NavItem
+          href={`${versionedBase}/doc`}
+          active={currentTab === "Symbols"}
+        >
+          Symbols
+        </NavItem>
+      )}
+      {versionCount > 0 && latestVersion && (
         <NavItem
           href={`${base}/${params.version || latestVersion}`}
           active={currentTab === "Files"}
