@@ -4,11 +4,9 @@ import { Head } from "$fresh/runtime.ts";
 import { OramaPackageHit, PaginationData, State } from "../util.ts";
 import { OramaClient } from "@oramacloud/client";
 import type { List, Package } from "../utils/api_types.ts";
-import {
-  RuntimeCompatIndicator,
-} from "../components/RuntimeCompatIndicator.tsx";
 import { path } from "../utils/api.ts";
-import { ListDisplay, ListDisplayItem } from "../components/List.tsx";
+import { ListDisplay } from "../components/List.tsx";
+import { PackageHit } from "../components/PackageHit.tsx";
 
 interface Data extends PaginationData {
   packages: OramaPackageHit[] | Package[];
@@ -33,10 +31,10 @@ export default function PackageListPage({ data, url }: PageProps<Data>) {
           pagination={data}
           currentUrl={url}
         >
-          {data.packages.map((entry) => ModuleHit(entry))}
+          {data.packages.map((entry) => PackageHit(entry))}
         </ListDisplay>
 
-        <div className="mt-2 flex items-start justify-between px-2">
+        <div className="mt-2 flex flex-wrap items-start justify-between px-2">
           <span className="text-sm text-gray-400 block">
             Changes made in the last 15 minutes may not be visible yet.
           </span>
@@ -48,29 +46,6 @@ export default function PackageListPage({ data, url }: PageProps<Data>) {
       </div>
     </div>
   );
-}
-
-export function ModuleHit(pkg: OramaPackageHit | Package): ListDisplayItem {
-  return {
-    href: `/@${pkg.scope}/${pkg.name}`,
-    content: (
-      <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
-        <div class="grow-1">
-          <div class="text-cyan-700 font-semibold">
-            {`@${pkg.scope}/${pkg.name}`}
-          </div>
-          <div class="text-sm text-gray-600">
-            {pkg.description}
-          </div>
-        </div>
-
-        <RuntimeCompatIndicator
-          runtimeCompat={pkg.runtimeCompat}
-          hideUnknown
-        />
-      </div>
-    ),
-  };
 }
 
 const apiKey = Deno.env.get("ORAMA_PUBLIC_API_KEY");

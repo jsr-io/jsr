@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PageProps } from "$fresh/server.ts";
 import { Header } from "../components/Header.tsx";
-import { HomepageHero } from "../islands/HomepageHero.tsx";
 import { State } from "../util.ts";
 
 export default function Layout(
@@ -13,14 +12,18 @@ export default function Layout(
         class="min-h-[calc(100vh-3rem)]"
         data-dark-theme="light"
       >
+        <a
+          href="#main-content"
+          class="absolute p-4 -translate-y-full bg-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
+        >
+          Skip to main content
+        </a>
         <Header user={state.user} url={url} />
-        {url.pathname === "/" && (
-          <HomepageHero
-            apiKey={Deno.env.get("ORAMA_PUBLIC_API_KEY")}
-            indexId={Deno.env.get("ORAMA_PUBLIC_INDEX_ID")}
-          />
-        )}
-        <div class="section-x-inset-xl py-4 md:py-6">
+        <div
+          class="section-x-inset-xl py-4 md:py-6 focus-visible:ring-0 focus-visible:outline-none"
+          id="main-content"
+          tabIndex={-1}
+        >
           <Component />
         </div>
       </div>
