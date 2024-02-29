@@ -342,7 +342,7 @@ async fn update_member_handler(
 
   let scope_member = match res {
     ScopeMemberUpdateResult::Ok(scope_member) => scope_member,
-    ScopeMemberUpdateResult::TargetIsLastAdmin => {
+    ScopeMemberUpdateResult::TargetIsLastAvailableAdmin => {
       return Err(ApiError::ScopeMustHaveAdmin)
     }
     ScopeMemberUpdateResult::TargetNotMember => {
@@ -384,7 +384,7 @@ pub async fn delete_member_handler(
   let res = db.delete_scope_member(&scope, member_id).await?;
   match res {
     ScopeMemberUpdateResult::Ok(_) => {}
-    ScopeMemberUpdateResult::TargetIsLastAdmin => {
+    ScopeMemberUpdateResult::TargetIsLastAvailableAdmin => {
       return Err(ApiError::ScopeMustHaveAdmin)
     }
     ScopeMemberUpdateResult::TargetNotMember => {
@@ -1936,5 +1936,41 @@ pub mod tests {
     let url = format!("/api/scopes/{}", scope_name);
     let mut resp = t.http().delete(&url).call().await.unwrap();
     resp.expect_ok_no_content().await;
+  }
+
+  #[tokio::test]
+  async fn scope_transfer() {
+    let mut t = TestSetup::new().await;
+
+    // create scope
+    let scope_name = ScopeName::try_from("scope1").unwrap();
+    t.db()
+      .create_scope(&scope_name, t.user1.user.id)
+      .await
+      .unwrap();
+
+    for i in 0..3 {
+      let scope_name = ScopeName::try_from(format!("temp{i}")).unwrap();
+      t.db()
+        .create_scope(&scope_name, t.user2.user.id)
+        .await
+        .unwrap();
+    }
+
+    t.db()
+      .add_user_to_scope(NewScopeMember {
+        scope: &scope_name,
+        user_id: t.user2.user.id,
+        is_admin: true,
+      })
+      .await
+      .unwrap();
+
+    let user_id = t.user1.user.id;
+    let token = t.user1.token.clone();
+    remove_member(&mut t, token, user_id)
+      .await
+      .expect_err_code(StatusCode::BAD_REQUEST, "scopeMustHaveAdmin")
+      .await;
   }
 }

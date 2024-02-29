@@ -2040,7 +2040,7 @@ impl Database {
     .fetch_all(&mut *tx)
     .await?;
     if admins.is_empty() {
-      return Ok(ScopeMemberUpdateResult::TargetIsLastAdmin);
+      return Ok(ScopeMemberUpdateResult::TargetIsLastAvailableAdmin);
     }
 
     tx.commit().await?;
@@ -2056,29 +2056,60 @@ impl Database {
   ) -> Result<ScopeMemberUpdateResult> {
     let mut tx = self.pool.begin().await?;
 
-    let maybe_scope_member = sqlx::query_as!(
-      ScopeMember,
+    let maybe_scope_member = sqlx::query!(
       r#"DELETE FROM scope_members WHERE scope = $1 AND user_id = $2
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at,
+      (SELECT creator FROM scopes WHERE scope = $1) AS "scope_creator!""#,
       scope as _,
       user_id,
     )
+    .map(|r| {
+      (
+        ScopeMember {
+          scope: r.scope,
+          user_id: r.user_id,
+          is_admin: r.is_admin,
+          updated_at: r.updated_at,
+          created_at: r.created_at,
+        },
+        r.user_id == r.scope_creator
+      )
+    })
     .fetch_optional(&mut *tx)
     .await?;
-    let Some(scope_member) = maybe_scope_member else {
+    let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    let admins = sqlx::query!(
-      r#"SELECT user_id FROM scope_members
-      WHERE scope = $1 AND is_admin = true
+    let maybe_available_admin_id = sqlx::query!(
+      r#"
+      SELECT user_id
+      FROM (
+        SELECT scope_members.user_id as "user_id", users.scope_limit as "scope_limit", scope_members.created_at as "created_at", (SELECT COUNT(created_at) FROM scopes WHERE creator = users.id) as "scope_usage"
+        FROM scope_members
+        LEFT JOIN users ON scope_members.user_id = users.id
+        WHERE scope_members.scope = $1 AND scope_members.is_admin = true
+      ) AS subquery
+      WHERE "scope_usage" < scope_limit
+      ORDER BY created_at LIMIT 1;
       "#,
       scope as _,
     )
-    .fetch_all(&mut *tx)
-    .await?;
-    if admins.is_empty() {
-      return Ok(ScopeMemberUpdateResult::TargetIsLastAdmin);
+      .map(|r| r.user_id)
+      .fetch_optional(&mut *tx)
+      .await?;
+    let Some(new_creator_id) = maybe_available_admin_id else {
+      return Ok(ScopeMemberUpdateResult::TargetIsLastAvailableAdmin);
+    };
+
+    if is_creator {
+      let _ = sqlx::query!(
+        r#"UPDATE scopes SET creator = $1 WHERE scope = $2"#,
+        new_creator_id,
+        scope as _,
+      )
+      .execute(&mut *tx)
+      .await?;
     }
 
     tx.commit().await?;
@@ -2696,7 +2727,7 @@ async fn finalize_package_creation(
 #[derive(Debug)]
 pub enum ScopeMemberUpdateResult {
   Ok(ScopeMember),
-  TargetIsLastAdmin,
+  TargetIsLastAvailableAdmin,
   TargetNotMember,
 }
 
