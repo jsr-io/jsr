@@ -169,6 +169,10 @@ body .ddoc #sidepanel a:active {
   background-color: theme("colors.cyan.200");
 }
 
+body .ddoc a {
+  word-wrap: break-word;
+}
+
 body .ddoc .markdown pre {
   @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 py-6 -mx-4 rounded-none md:rounded-md md:border-1.5 md:mx-0 md:p-6;
 }
@@ -195,6 +199,10 @@ body .ddoc .usage nav {
 
 body .ddoc .usage nav label {
   @apply md:hover:bg-jsr-cyan-200 border-jsr-cyan-900/20;
+}
+
+body .ddoc > section > nav.py-4 {
+  @apply pt-0 top-4;
 }
 
 @layer base {
