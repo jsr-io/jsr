@@ -1976,7 +1976,7 @@ pub mod tests {
     let token = t.user1.token.clone();
     remove_member(&mut t, token, user_id)
       .await
-      .expect_err_code(StatusCode::BAD_REQUEST, "scopeMustHaveAdmin")
+      .expect_err_code(StatusCode::BAD_REQUEST, "noScopeOwnerAvailable")
       .await;
   }
 }
