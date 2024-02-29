@@ -29,7 +29,11 @@ export function RuntimeCompatIndicator(
   return (
     <div class="min-w-content font-semibold flex items-center gap-2">
       {labeled && <div>Works with</div>}
-      <div class={`flex items-center ${compact ? "*:-mx-1" : "*:mx-0.5"} flex-row-reverse`}>
+      <div
+        class={`flex items-center ${
+          compact ? "*:-mx-1" : "*:mx-0.5"
+        } flex-row-reverse`}
+      >
         {RUNTIME_COMPAT_KEYS.toReversed().map(
           ([key, name, icon, w, h]) => {
             const value = runtimeCompat[key];
