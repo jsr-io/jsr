@@ -27,7 +27,9 @@ export const handler: Handlers<unknown, State> = {
             schemaVersion: 1,
             label: "",
             // namedLogo: "jsr", TODO: add icon to shields.io or simple-icons. temporary solution below.
-            logoSvg: await Deno.readTextFile(new URL("../../static/logo.svg", import.meta.url)),
+            logoSvg: await Deno.readTextFile(
+              new URL("../../static/logo.svg", import.meta.url),
+            ),
             message: packageResp.data.latestVersion,
             labelColor: "rgb(8,51,68)",
             color: "rgb(247,223,30)",
