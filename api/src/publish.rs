@@ -1020,7 +1020,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "invalidPath");
-    assert!(error.message.contains("a_very_long_filename_created_specifically_to_test_the_limitations_of_the_set_path_method_in_the_rust_tar_crate_exceeding_one_hundred_bytes.ts"));
+    assert!(error.message.contains("a_very_long_filename_created_specifically_to_test_the_limitations_of_the_set_path_method_in_the_rust_tar_crate_exceeding_one_hundred_bytes"));
   }
 
   #[tokio::test]

@@ -55,7 +55,7 @@ package, or [excluding it](/docs/publishing-packages#ignoring-files) in your
 
 Path rules are as follows:
 
-- Less than 160 chars
+- Less than 100 chars
 - Path must not end in a slash
 - Must not contain a double slash (`//`)
 - Must not contain a `.` or `..` path segment

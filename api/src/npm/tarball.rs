@@ -176,9 +176,11 @@ pub fn create_npm_tarball<'a>(
   for (path, content) in transpiled_files.iter() {
     let mut header = Header::new_ustar();
     header.set_path(format!("./package{path}")).map_err(|e| {
-      error!("bad path {} {}", path, e);
-      // TODO(ry): Currently this PublishError is swallowed and turned into
-      // NpmTarballError. Change error type of this function to PublishError.
+      // Ideally we never hit this error, because package length should have been checked
+      // when creating PackagePath.
+      // TODO(ry) This is not the ideal way to pass PublishErrors up the stack
+      // because it will become anyhow::Error and wrapped in an NpmTarballError.
+      error!("bad npm tarball path {} {}", path, e);
       crate::tarball::PublishError::InvalidPath {
         path: path.to_string(),
         error: crate::ids::PackagePathValidationError::TooLong(path.len()),

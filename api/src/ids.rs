@@ -460,7 +460,8 @@ pub enum VersionValidateError {
 /// The path must not contain any double slashes, dot segments, or dot dot
 /// segments.
 ///
-/// The path must be less than 160 characters long, including the slash prefix.
+/// The path must be less than 100 characters long, including the slash prefix,
+/// due to tarball and windows limitations.
 ///
 /// The path must not contain any windows reserved characters, like CON, PRN,
 /// AUX, NUL, or COM1.
@@ -482,7 +483,7 @@ pub struct PackagePath {
 impl PackagePath {
   pub fn new(path: String) -> Result<Self, PackagePathValidationError> {
     let len = path.len();
-    if len > 160 {
+    if len > 100 {
       return Err(PackagePathValidationError::TooLong(len));
     }
 
@@ -703,7 +704,7 @@ fn valid_char(c: char) -> Option<PackagePathValidationError> {
 
 #[derive(Debug, Clone, Error)]
 pub enum PackagePathValidationError {
-  #[error("package path must be at most 160 characters long, but is {0} characters long")]
+  #[error("package path must be at most 100 characters long, but is {0} characters long")]
   TooLong(usize),
 
   #[error("package path must be prefixed with a slash")]
