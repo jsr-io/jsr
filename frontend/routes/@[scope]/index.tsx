@@ -37,6 +37,10 @@ export default function ScopePackagesPage(
         <title>
           @{params.scope} - JSR
         </title>
+        <meta
+          name="description"
+          content={`@${params.scope} on JSR`}
+        />
       </Head>
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Packages" isAdmin={isAdmin} scope={data.scope.scope} />

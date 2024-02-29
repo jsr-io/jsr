@@ -101,7 +101,7 @@ export default function Versions(
         </title>
         <meta
           name="description"
-          content={`JSR - @${params.scope}/${params.package}${
+          content={`@${params.scope}/${params.package} on JSR${
             data.package.description ? `: ${data.package.description}` : ""
           }`}
         />
