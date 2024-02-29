@@ -22,6 +22,10 @@ export const handler: Handlers<unknown, State> = {
           throw packageResp;
         }
       } else {
+        if (packageResp.data.score === null) {
+          return new Response(null, { status: 404 });
+        }
+
         return new Response(
           JSON.stringify({
             schemaVersion: 1,

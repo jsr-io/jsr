@@ -24,9 +24,12 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
             hideUnknown
           />
 
-          <div class="rounded border-1.5 border-jsr-cyan-950 text-xs px-2 py-1 flex items-center justify-center">
-            {pkg.score}%
-          </div>
+          {pkg.score !== null &&
+            (
+              <div class="rounded border-1.5 border-jsr-cyan-950 text-xs px-2 py-1 flex items-center justify-center">
+                {pkg.score}%
+              </div>
+            )}
         </div>
       </div>
     ),

@@ -114,7 +114,7 @@ export interface Package {
   updatedAt: string;
   createdAt: string;
   versionCount: number;
-  score: number;
+  score: number | null;
   latestVersion: string | null;
   whenFeatured: string | null;
 }

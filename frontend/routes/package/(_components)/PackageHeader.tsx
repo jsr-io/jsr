@@ -43,16 +43,18 @@ export function PackageHeader(
           </div>
         </div>
         <div class="flex items-center gap-8">
-          <a
-            href={`/@${pkg.scope}/${pkg.name}/score`}
-            class="flex items-center justify-center gap-2 select-none"
-          >
-            <span>score</span>
-            <div class="rounded border-1.5 border-jsr-cyan-950 px-2.5 py-1">
-              <span class="font-bold">{pkg.score}</span>
-              <span class="text-xs">%</span>
-            </div>
-          </a>
+          {pkg.score && (
+            <a
+              href={`/@${pkg.scope}/${pkg.name}/score`}
+              class="flex items-center justify-center gap-2 select-none"
+            >
+              <span>score</span>
+              <div class="rounded border-1.5 border-jsr-cyan-950 px-2.5 py-1">
+                <span class="font-bold">{pkg.score}</span>
+                <span class="text-xs">%</span>
+              </div>
+            </a>
+          )}
 
           {selectedVersion && pkg.latestVersion !== selectedVersion.version && (
             <a class="button-primary" href={`/@${pkg.scope}/${pkg.name}`}>
