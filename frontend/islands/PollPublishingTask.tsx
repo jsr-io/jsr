@@ -1,5 +1,5 @@
 import { IS_BROWSER } from "$fresh/runtime.ts";
-import { useState } from "preact/hooks";
+import { useState,useEffect  } from "preact/hooks";
 import { api, path } from "../utils/api.ts";
 import { PublishingTask } from "../utils/api_types.ts";
 
@@ -19,23 +19,25 @@ export default function PollPublishingTask(
     }
   >(undefined);
 
-  setTimeout(() => {
-    setMessage({ errored: false });
-  }, 10_000);
+  useEffect(() => {
+    setTimeout(() => {
+      setMessage({ errored: false });
+    }, 10_000);
 
-  const [scope, name] = packageName.split("/");
-  poll(new Date(date), scope.substring(1), name).then((error) => {
-    if (error == null) {
-      window.location.pathname = `/${packageName}`;
-    } else {
-      setMessage({
-        errored: true,
-        code: error.code,
-        message: error.message,
-        task: error.id,
-      });
-    }
-  });
+    const [scope, name] = packageName.split("/");
+    poll(new Date(date), scope.substring(1), name).then((error) => {
+      if (error == null) {
+        window.location.pathname = `/${packageName}`;
+      } else {
+        setMessage({
+          errored: true,
+          code: error.code,
+          message: error.message,
+          task: error.id,
+        });
+      }
+    });
+  }, []);
 
   return (
     <div>
