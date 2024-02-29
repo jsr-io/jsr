@@ -30,6 +30,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
               getScoreBgColorClass(pkg.score)
             }`}
             style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
+            title="Package score"
           >
             <div class="rounded-full aspect-square bg-white text-xs flex items-center justify-center font-semibold min-w-6">
               {pkg.score}
