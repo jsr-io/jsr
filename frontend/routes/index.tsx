@@ -7,6 +7,7 @@ import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
+import { HomepageHero } from "../islands/HomepageHero.tsx";
 
 interface Data {
   stats: Stats;
@@ -26,6 +27,10 @@ export default function Home({ data }: PageProps<Data>) {
         <meta property="og:image" content="/images/og-image.webp" />
       </Head>
 
+      <HomepageHero
+        apiKey={Deno.env.get("ORAMA_PUBLIC_API_KEY")}
+        indexId={Deno.env.get("ORAMA_PUBLIC_INDEX_ID")}
+      />
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <ListPanel title="Featured Packages">
           {data.stats.featured.map(PackageToPanelEntry)}
@@ -53,6 +58,7 @@ export default function Home({ data }: PageProps<Data>) {
       <div>
         <BenefitContainer>
           <img
+            loading="lazy"
             src="/logos/typescript.svg"
             alt="TypeScript logo"
             class="w-full max-w-16 lg:max-w-36 lg:col-span-2 lg:mx-auto"
@@ -78,16 +84,19 @@ export default function Home({ data }: PageProps<Data>) {
         <BenefitContainer>
           <div className="flex gap-5 lg:gap-8 items-center lg:order-2 lg:flex-col xl:flex-row lg:col-span-2">
             <img
+              loading="lazy"
               src="/logos/npm.svg"
               alt="NPM logo"
               class="w-full max-w-16 lg:max-w-28"
             />
             <img
+              loading="lazy"
               src="/logos/yarn.svg"
               alt="Yarn logo"
               class="w-full max-w-16 lg:max-w-28"
             />
             <img
+              loading="lazy"
               src="/logos/pnpm.svg"
               alt="PNPM logo"
               class="w-full max-w-16 lg:max-w-28"
@@ -113,21 +122,25 @@ export default function Home({ data }: PageProps<Data>) {
         <BenefitContainer>
           <div className="flex gap-5 lg:gap-8 items-center lg:grid lg:grid-cols-4 lg:justify-items-center lg:[&>img]:h-16 lg:[&>img]:w-auto lg:max-w-max lg:mx-auto lg:col-span-2">
             <img
+              loading="lazy"
               src="/logos/node.svg"
               alt="Node logo"
               class="w-full max-w-9 lg:max-w-20"
             />
             <img
+              loading="lazy"
               src="/logos/deno.svg"
               alt="Deno logo"
               class="w-full max-w-10 lg:max-w-20"
             />
             <img
+              loading="lazy"
               src="/logos/bun.svg"
               alt="Bun logo"
               class="w-full max-w-11 lg:max-w-20"
             />
             <img
+              loading="lazy"
               src="/logos/cloudflare-workers.svg"
               alt="Cloudflare Workers logo"
               class="w-full max-w-10 lg:max-w-20"

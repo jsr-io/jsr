@@ -72,7 +72,7 @@ export default function Score(
           </div>
           <div
             class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
-            style={`background-image: conic-gradient(transparent, transparent ${data.package.score}%, white ${data.package.score}%)`}
+            style={`background-image: conic-gradient(transparent, transparent ${data.package.score}%, #e7e8e8 ${data.package.score}%)`}
           >
             <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
               {data.package.score}%
@@ -196,7 +196,7 @@ function ScoreItem(
   }
 
   return (
-    <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 py-1.5 items-start">
+    <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 py-3 first:pt-0 items-start">
       {status === "complete"
         ? <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
         : (status === "partial"
@@ -204,8 +204,8 @@ function ScoreItem(
           : <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />)}
 
       <div class="max-w-xl pr-2">
-        <p class="leading-tight">{props.title}</p>
-        <p class="text-gray-500 text-sm">{props.children}</p>
+        <h3 class="leading-tight">{props.title}</h3>
+        <p class="text-gray-500 text-sm leading-tight mt-1">{props.children}</p>
       </div>
 
       <div class="text-sm text-gray-400 pt-[0.2em]">

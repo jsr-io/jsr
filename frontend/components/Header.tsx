@@ -32,7 +32,7 @@ export function Header({ user, url }: {
           : (
             <a href="/" class="outline-none focus-visible:ring-2 ring-cyan-700">
               <span className="sr-only">JSR home</span>
-              <Logo class="h-6 flex-none hover:animate-flip-rotate" />
+              <Logo class="h-8 flex-none hover:animate-flip-rotate" />
             </a>
           )}
         <div class="hidden sm:block grow-1 flex-1">
