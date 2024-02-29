@@ -95,7 +95,7 @@ pub async fn generate_npm_version_manifest<'a>(
       };
       Cow::Owned((dep.dependency_kind, PackageReqReference { req, sub_path }))
     });
-    let npm_dependencies = create_npm_dependencies(scope, name, dependencies);
+    let npm_dependencies = create_npm_dependencies(dependencies)?;
 
     let tarball = Url::options()
       .base_url(Some(npm_url))
