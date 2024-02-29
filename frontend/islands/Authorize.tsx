@@ -1,15 +1,23 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { api, path } from "../utils/api.ts";
 
-export default function Authorize(props: { code: string }) {
+export default function Authorize(
+  props: { code: string; packageNames: string[] },
+) {
   const approve = async () => {
     const res = await api.post(
       path`/authorizations/approve/${props.code}`,
       null,
     );
+
+    const encodedParams = props.packageNames.length === 1
+      ? "packageName=" + encodeURIComponent(props.packageNames[0]) +
+        "&noOfPackages=" + encodeURIComponent(1)
+      : "packageName=" + encodeURIComponent("") +
+        "&noOfPackages=" + encodeURIComponent(props.packageNames.length);
+
     if (res.ok) {
-      // TODO: redirect to somewhere more useful
-      window.location.href = "/";
+      window.location.href = "/publish-approve?" + encodedParams;
     } else {
       console.error(res);
     }
@@ -21,8 +29,7 @@ export default function Authorize(props: { code: string }) {
       null,
     );
     if (res.ok) {
-      // TODO: redirect to somewhere more useful
-      window.location.href = "/";
+      window.location.href = "/publish-deny";
     } else {
       console.error(res);
     }
