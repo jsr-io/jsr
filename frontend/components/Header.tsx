@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { FullUser } from "../utils/api_types.ts";
 import { PackageSearch } from "../islands/PackageSearch.tsx";
