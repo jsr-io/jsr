@@ -17,7 +17,7 @@ export default function Home({ data }: PageProps<Data>) {
     <div class="flex flex-col">
       <Head>
         <title>
-          JSR: JavaScript Registry
+          JSR: the JavaScript Registry
         </title>
       </Head>
 

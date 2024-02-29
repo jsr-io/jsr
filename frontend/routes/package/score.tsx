@@ -39,7 +39,7 @@ export default function Score(
     <div class="mb-20">
       <Head>
         <title>
-          Dependents - @{params.scope}/{params.package} - JSR
+          Score - @{params.scope}/{params.package} - JSR
         </title>
       </Head>
 
