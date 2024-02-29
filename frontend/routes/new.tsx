@@ -38,7 +38,7 @@ export default function New(props: PageProps<Data, State>) {
         </title>
         <meta
           name="description"
-          content="Create a package and publish on JSR."
+          content="Create a package to publish on JSR."
         />
       </Head>
       <div class="flex flex-col md:flex-row gap-12 lg:gap-36">
