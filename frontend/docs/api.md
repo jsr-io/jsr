@@ -35,11 +35,11 @@ at the following URL:
 https://jsr.io/@<scope>/<package-name>/<version>/<path>
 ```
 
-For example, the `/mod.ts` file of the `@luca/flag` package version `1.0.0`
+For example, the `/main.ts` file of the `@luca/flag` package version `1.0.0`
 would be served at the following URL:
 
 ```
-https://jsr.io/@luca/flag/1.0.0/mod.ts
+https://jsr.io/@luca/flag/1.0.0/main.ts
 ```
 
 Modules are immutable, so they can be cached indefinitely. The registry
