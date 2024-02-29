@@ -10,11 +10,13 @@ export default function Authorize(
       null,
     );
 
-    const encodedParams = props.packageNames.length === 1
+    let encodedParams = props.packageNames.length === 1
       ? "packageName=" + encodeURIComponent(props.packageNames[0]) +
         "&noOfPackages=" + encodeURIComponent(1)
       : "packageName=" + encodeURIComponent("") +
         "&noOfPackages=" + encodeURIComponent(props.packageNames.length);
+
+    encodedParams += encodeURIComponent("&date" + new Date().toISOString());
 
     if (res.ok) {
       window.location.href = "/publish-approve?" + encodedParams;

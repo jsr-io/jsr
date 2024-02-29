@@ -1,11 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { Handlers, RouteConfig } from "$fresh/server.ts";
 import { State } from "../util.ts";
 import { Head } from "$fresh/runtime.ts";
 
-export default function PublishDeniedPage({ data }: PageProps) {
+export default function PublishDeniedPage() {
   return (
     <div class="pb-8 mb-16">
       <Head>
@@ -21,8 +20,8 @@ export default function PublishDeniedPage({ data }: PageProps) {
   );
 }
 
-export const handler: Handlers<State> = {
-  GET(req, ctx) {
+export const handler: Handlers<unknown, State> = {
+  GET(_req, ctx) {
     return ctx.render(
       undefined,
       { headers: { "X-Robots-Tag": "noindex" } },

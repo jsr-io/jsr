@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PackageSearch } from "./PackageSearch.tsx";
-import { Logo } from "../components/Logo.tsx";
 import { Plus } from "../components/icons/Plus.tsx";
 import { useEffect } from "preact/hooks";
 import { asset, Head } from "$fresh/runtime.ts";

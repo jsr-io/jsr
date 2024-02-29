@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
 import { Head } from "$fresh/runtime.ts";

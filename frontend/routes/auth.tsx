@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
 import { ComponentChild } from "preact";
