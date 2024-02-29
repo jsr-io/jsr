@@ -293,7 +293,11 @@ fn generate_score(
       || main_entrypoint_doc
         .is_some_and(|doc| doc.doc.as_ref().is_some_and(|doc| !doc.is_empty())),
     has_readme_examples,
-    all_entrypoints_docs: all_entrypoints_have_module_doc(doc_nodes_by_url),
+    all_entrypoints_docs: all_entrypoints_have_module_doc(
+      doc_nodes_by_url,
+      main_entrypoint,
+      readme.is_some(),
+    ),
     percentage_documented_symbols: percentage_of_symbols_with_docs(
       doc_nodes_by_url,
     ),
@@ -301,12 +305,23 @@ fn generate_score(
   }
 }
 
-fn all_entrypoints_have_module_doc(doc_nodes_by_url: &DocNodesByUrl) -> bool {
-  'modules: for (_specifier, nodes) in doc_nodes_by_url {
+fn all_entrypoints_have_module_doc(
+  doc_nodes_by_url: &DocNodesByUrl,
+  main_entrypoint: Option<ModuleSpecifier>,
+  has_readme: bool,
+) -> bool {
+  'modules: for (specifier, nodes) in doc_nodes_by_url {
     for node in nodes {
       if node.kind == DocNodeKind::ModuleDoc {
         continue 'modules;
       }
+    }
+
+    if main_entrypoint
+      .is_some_and(|main_entrypoint| &main_entrypoint == specifier)
+      && has_readme
+    {
+      continue 'modules;
     }
 
     return false;
