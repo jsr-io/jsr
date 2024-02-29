@@ -211,6 +211,10 @@ export const handler: Handlers<Data, State> = {
       anonymous: true,
     });
     if (!statsResp.ok) throw statsResp; // gracefully handle this
-    return ctx.render({ stats: statsResp.data });
+    return ctx.render({ stats: statsResp.data }, {
+      headers: ctx.state.api.hasToken()
+        ? undefined
+        : { "Cache-Control": "public, s-maxage=60" },
+    });
   },
 };
