@@ -1,9 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use anyhow::Context;
 use base64::Engine;
 use deno_graph::ModuleGraph;
+use deno_graph::ModuleSpecifier;
 use deno_graph::ParsedSourceStore;
 use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
@@ -16,6 +19,7 @@ use url::Url;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
+use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
@@ -48,6 +52,7 @@ pub struct NpmTarballOptions<
   pub version: &'a Version,
   pub exports: &'a ExportsMap,
   pub dependencies: Deps,
+  pub files: &'a HashMap<PackagePath, Vec<u8>>,
 }
 
 pub fn create_npm_tarball<'a>(
@@ -65,6 +70,7 @@ pub fn create_npm_tarball<'a>(
     version,
     exports,
     dependencies,
+    files,
   } = opts;
 
   let npm_package_id = NpmMappedJsrPackageName { scope, package };
@@ -89,24 +95,26 @@ pub fn create_npm_tarball<'a>(
     homepage,
   };
 
-  let mut transpiled_files = IndexMap::new();
+  let mut package_files = IndexMap::new();
+  let mut remaining_files = files.clone();
 
   for module in graph.modules() {
     if module.specifier().scheme() != "file" {
       continue;
     };
     let path = module.specifier().path();
+    let pkg_path = PackagePath::try_from(path)?;
+    remaining_files.remove(&pkg_path);
 
     if let Some(json) = module.json() {
-      transpiled_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
+      package_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
     } else if let Some(js) = module.js() {
       match js.media_type {
         deno_ast::MediaType::JavaScript
         | deno_ast::MediaType::Mjs
         | deno_ast::MediaType::Dts
         | deno_ast::MediaType::Dmts => {
-          transpiled_files
-            .insert(path.to_owned(), js.source.as_bytes().to_vec());
+          package_files.insert(path.to_owned(), js.source.as_bytes().to_vec());
         }
         deno_ast::MediaType::Jsx
         | deno_ast::MediaType::TypeScript
@@ -124,8 +132,7 @@ pub fn create_npm_tarball<'a>(
 
           let rewritten_path = rewrite_extension(path, Extension::Js)
             .unwrap_or_else(|| path.to_owned());
-          transpiled_files
-            .insert(rewritten_path, transpiled.as_bytes().to_vec());
+          package_files.insert(rewritten_path, transpiled.as_bytes().to_vec());
         }
         _ => {}
       }
@@ -153,16 +160,22 @@ pub fn create_npm_tarball<'a>(
 
           let rewritten_path = rewrite_extension(path, Extension::Dts)
             .unwrap_or_else(|| path.to_owned());
-          transpiled_files.insert(rewritten_path, dts.text.as_bytes().to_vec());
+          package_files.insert(rewritten_path, dts.text.as_bytes().to_vec());
         }
       }
     }
   }
 
-  let pkg_json_str = serde_json::to_string_pretty(&pkg_json)?;
-  transpiled_files.insert("/package.json".to_string(), pkg_json_str.into());
+  // Insert remaining files not present in deno_graph. These are likely
+  // CSS files, images or other non-js files.
+  for (file, content) in remaining_files.into_iter() {
+    package_files.insert(file.to_string(), content);
+  }
 
-  transpiled_files.sort_keys();
+  let pkg_json_str = serde_json::to_string_pretty(&pkg_json)?;
+  package_files.insert("/package.json".to_string(), pkg_json_str.into());
+
+  package_files.sort_keys();
 
   let mut tar_gz_bytes = Vec::new();
   let mut gz_encoder = flate2::write::GzEncoder::new(
@@ -174,7 +187,7 @@ pub fn create_npm_tarball<'a>(
   let now = std::time::SystemTime::now();
   let mtime = now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
-  for (path, content) in transpiled_files.iter() {
+  for (path, content) in package_files.iter() {
     let mut header = Header::new_ustar();
     header.set_path(format!("./package{path}")).map_err(|e| {
       // Ideally we never hit this error, because package length should have been checked

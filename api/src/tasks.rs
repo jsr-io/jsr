@@ -1,13 +1,16 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use async_tar::EntryType;
 use bytes::Bytes;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::VersionReq;
 use futures::stream;
+use futures::AsyncReadExt;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use hyper::Body;
 use hyper::Request;
 use routerify::ext::RequestExt;
@@ -32,11 +35,13 @@ use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcs_paths;
 use crate::ids::PackageName;
+use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::publish;
+use crate::tarball::gcs_tarball_path;
 use crate::util;
 use crate::util::decode_json;
 use crate::util::ApiResult;
@@ -98,12 +103,62 @@ pub async fn npm_tarball_build_handler(
     let dependencies = db
       .list_package_version_dependencies(&job.scope, &job.name, &job.version)
       .await?;
-    let files: HashSet<_> = db
-      .list_package_files(&job.scope, &job.name, &job.version)
-      .await?
-      .into_iter()
-      .map(|f| f.path)
-      .collect();
+
+    let mut files: HashMap<PackagePath, Vec<u8>> = HashMap::new();
+
+    let task = db
+      .get_publish_task_by_package(&job.scope, &job.name, &job.version)
+      .await?;
+
+    if let Some(task) = task {
+      let tarball_path = gcs_tarball_path(task.id);
+      let stream = buckets
+        .publishing_bucket
+        .bucket
+        .download_stream(&tarball_path, None)
+        .await?
+        .ok_or_else(|| ApiError::PackageVersionNotFound)?;
+
+      let async_read = stream
+        .map(|v| match v {
+          Ok(v) => Ok(v),
+          Err(err) => Err(std::io::Error::other(err)),
+        })
+        .into_async_read();
+      let mut tar = async_tar::Archive::new(async_read).entries().unwrap();
+
+      while let Some(res) = tar.next().await {
+        let mut entry = res?;
+
+        let header = entry.header();
+        let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
+        let path = if path.starts_with("./") {
+          path[1..].to_string()
+        } else if !path.starts_with('/') {
+          format!("/{}", path)
+        } else {
+          path
+        };
+
+        match header.entry_type() {
+          EntryType::Regular => {
+            let path = PackagePath::new(path.clone()).unwrap();
+
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).await?;
+            files.insert(path, bytes);
+          }
+          _ => {}
+        }
+      }
+    }
+
+    // let files: HashMap<_> = db
+    //   .list_package_files(&job.scope, &job.name, &job.version)
+    //   .await?
+    //   .into_iter()
+    //   .map(|f| (f.path, f.))
+    //   .collect();
 
     let dependencies = dependencies
       .into_iter()

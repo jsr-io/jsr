@@ -239,6 +239,7 @@ async fn analyze_package_inner(
     version: &version,
     exports: &exports,
     dependencies: dependencies.iter(),
+    files: &files,
   })
   .map_err(PublishError::NpmTarballError)?;
 
@@ -516,7 +517,7 @@ pub struct RebuildNpmTarballData {
   pub name: PackageName,
   pub version: Version,
   pub exports: ExportsMap,
-  pub files: HashSet<PackagePath>,
+  pub files: HashMap<PackagePath, Vec<u8>>,
   pub dependencies: Vec<(DependencyKind, PackageReqReference)>,
 }
 
@@ -630,13 +631,14 @@ async fn rebuild_npm_tarball_inner(
     version: &version,
     exports: &exports,
     dependencies: dependencies.iter(),
+    files: &files,
   })?;
 
   Ok(npm_tarball)
 }
 
 struct GcsLoader<'a> {
-  files: &'a HashSet<PackagePath>,
+  files: &'a HashMap<PackagePath, Vec<u8>>,
   bucket: &'a BucketWithQueue,
   scope: &'a ScopeName,
   name: &'a PackageName,
@@ -655,7 +657,7 @@ impl<'a> GcsLoader<'a> {
         let Ok(path) = PackagePath::new(specifier.path().to_string()) else {
           return async move { Ok(None) }.boxed();
         };
-        if !self.files.contains(&path) {
+        if !self.files.contains_key(&path) {
           return async move { Ok(None) }.boxed();
         };
         let gcs_path =
