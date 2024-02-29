@@ -16,10 +16,11 @@ export const RUNTIME_COMPAT_KEYS: [
 ];
 
 export function RuntimeCompatIndicator(
-  { runtimeCompat, labeled, hideUnknown }: {
+  { runtimeCompat, labeled, hideUnknown, compact }: {
     runtimeCompat: RuntimeCompat;
     labeled?: boolean;
     hideUnknown?: boolean;
+    compact?: boolean;
   },
 ) {
   const hasExplicitCompat = Object.values(runtimeCompat).some((v) => v);
@@ -28,7 +29,7 @@ export function RuntimeCompatIndicator(
   return (
     <div class="min-w-content font-semibold flex items-center gap-2">
       {labeled && <div>Works with</div>}
-      <div class="flex items-center *:-mx-1 flex-row-reverse">
+      <div class={`flex items-center ${compact ? "*:-mx-1" : "*:mx-0.5"} flex-row-reverse`}>
         {RUNTIME_COMPAT_KEYS.toReversed().map(
           ([key, name, icon, w, h]) => {
             const value = runtimeCompat[key];

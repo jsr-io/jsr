@@ -22,6 +22,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
           <RuntimeCompatIndicator
             runtimeCompat={pkg.runtimeCompat}
             hideUnknown
+            compact
           />
 
           {pkg.score !== null &&
