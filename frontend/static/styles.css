@@ -153,7 +153,7 @@
   }
 
   .search-input {
-    @apply input-container border-cyan-900;
+    @apply input-container border-jsr-cyan-950;
   }
 
   .select {
@@ -203,6 +203,19 @@ body .ddoc .usage nav label {
 
 body .ddoc > section > nav.py-4 {
   @apply pt-0 top-4;
+}
+
+/* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */
+.score-ring-red {
+  @apply bg-red-500;
+}
+
+.score-ring-yellow {
+  @apply bg-yellow-500;
+}
+
+.score-ring-green {
+  @apply bg-green-500;
 }
 
 @layer base {

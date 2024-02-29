@@ -226,11 +226,15 @@ function SuggestionList(
   if (!showSuggestions.value) return null;
 
   return (
-    <div class="absolute bg-white w-full border sibling:bg-red-500 shadow z-40">
+    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
         ? <div class="bg-white text-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
-        ? <div class="bg-white text-gray-500 italic px-4">No results</div>
+        ? (
+          <div class="bg-white text-gray-500 px-4 py-2">
+            No matching results to display
+          </div>
+        )
         : (
           <ul class="divide-y-1">
             {suggestions.value.map((pkg, i) => {
