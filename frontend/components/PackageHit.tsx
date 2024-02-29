@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { OramaPackageHit } from "../util.ts";
 import type { Package } from "../utils/api_types.ts";
 import type { ListDisplayItem } from "./List.tsx";
