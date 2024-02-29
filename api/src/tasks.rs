@@ -140,15 +140,12 @@ pub async fn npm_tarball_build_handler(
           path
         };
 
-        match header.entry_type() {
-          EntryType::Regular => {
-            let path = PackagePath::new(path.clone()).unwrap();
+        if header.entry_type() == EntryType::Regular {
+          let path = PackagePath::new(path.clone()).unwrap();
 
-            let mut bytes = Vec::new();
-            entry.read_to_end(&mut bytes).await?;
-            files.insert(path, bytes);
-          }
-          _ => {}
+          let mut bytes = Vec::new();
+          entry.read_to_end(&mut bytes).await?;
+          files.insert(path, bytes);
         }
       }
     }
