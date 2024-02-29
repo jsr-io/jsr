@@ -47,8 +47,8 @@ export function PackageHeader(
             href={`/@${pkg.scope}/${pkg.name}/score`}
             class="flex items-center gap-2 select-none"
           >
-            <span>score</span>
-            <div class="rounded-full ring-1 ring-jsr-cyan-950 bg-jsr-cyan-200 size-12 text-center leading-[3rem]">
+            <span class="collapse md:visible">score</span>
+            <div class="flex justify-center items-center rounded-full ring-1 ring-jsr-cyan-950 bg-jsr-cyan-200 text-jsr-cyan-950 text-xs size-8 md:text-base md:size-12">
               <span class="font-bold">{pkg.score}</span>
               <span class="text-xs">%</span>
             </div>

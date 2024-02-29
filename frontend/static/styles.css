@@ -170,7 +170,7 @@ body .ddoc #sidepanel a:active {
 }
 
 body .ddoc .markdown pre {
-  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 py-6 -mx-4 rounded-none md:rounded-md md:border-1.5 md:mx-0 md:p-6;
+  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 p-6 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
 }
 
 body .ddoc .markdown :not(pre) > code {
@@ -182,7 +182,7 @@ body .ddoc .markdown a:not(.no_color) {
 }
 
 body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-4 md:mx-0 rounded-none md:rounded-lg border-x-0 md:border-1.5;
+  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
 }
 
 body .ddoc .usage pre.highlight {
