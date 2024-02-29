@@ -171,7 +171,7 @@ match the version of the package being published.
 
 The package being published contains a config file that is either missing an
 `exports` field, or has an `exports` field that is not valid.
-[Learn more about exports](/docs/publishing-oackages#package-metadata).
+[Learn more about exports](/docs/publishing-packages##package-config-file).
 
 You can fix this error by updating the `exports` field of your config file to be
 one of the two valid forms:
