@@ -8,7 +8,7 @@ import { Params } from "./PackageNav.tsx";
 interface DocsProps {
   docs: Docs;
   params: Params;
-  selectedVersion?: PackageVersionWithUser;
+  selectedVersion: PackageVersionWithUser;
 }
 
 export function DocsView({ docs, params, selectedVersion }: DocsProps) {
@@ -26,7 +26,7 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
       )}
       <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
 
-      {selectedVersion?.rekorLogId && (
+      {selectedVersion.rekorLogId && (
         <div class="mt-4 border border-gray-400 rounded-md py-1 px-2">
           <div className="items-center">
             <span className="text-sm text-gray-600 mr-1">
@@ -77,7 +77,7 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
         <LocalSymbolSearch
           scope={params.scope}
           pkg={params.package}
-          version={params.version}
+          version={selectedVersion.version}
         />
         <div
           class="ddoc w-full lg:flex-1 lg:min-h-0 lg:*:!h-full"

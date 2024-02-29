@@ -46,6 +46,7 @@ export default function Symbols(
       <DocsView
         docs={data.docs}
         params={params as unknown as Params}
+        selectedVersion={data.selectedVersion}
       />
     </div>
   );

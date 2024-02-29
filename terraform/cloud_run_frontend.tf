@@ -65,8 +65,8 @@ resource "google_compute_backend_service" "registry_frontend" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
   custom_response_headers = [
-    "x-deno-cache-id: {cdn_cache_id}",
-    "x-deno-cache-status: {cdn_cache_status}",
+    "x-jsr-cache-id: {cdn_cache_id}",
+    "x-jsr-cache-status: {cdn_cache_status}",
   ]
 
   enable_cdn = true

@@ -202,7 +202,9 @@ function PackageVersionToPanelEntry(
 
 export const handler: Handlers<Data, State> = {
   async GET(_req, ctx) {
-    const statsResp = await ctx.state.api.get<Stats>(path`/stats`);
+    const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
+      anonymous: true,
+    });
     if (!statsResp.ok) throw statsResp; // gracefully handle this
     return ctx.render({ stats: statsResp.data });
   },

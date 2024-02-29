@@ -42,12 +42,12 @@ export default function PackagePage(
         latestVersion={data.package.latestVersion}
       />
 
-      {data.docs
+      {data.docs && data.selectedVersion
         ? (
           <DocsView
             docs={data.docs}
             params={params as unknown as Params}
-            selectedVersion={data.selectedVersion ?? undefined}
+            selectedVersion={data.selectedVersion}
           />
         )
         : (
