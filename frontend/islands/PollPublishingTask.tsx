@@ -61,7 +61,7 @@ export default function PollPublishingTask(
             </div>
           </div>
         )
-        : <div>Waiting a long time? Try checking your terminal.</div>)}
+        : <div>Waiting a long time? Check your terminal for more detailed status.</div>)}
     </div>
   );
 }
