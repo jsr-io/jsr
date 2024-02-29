@@ -169,6 +169,8 @@ body .ddoc #sidepanel a:active {
   background-color: theme("colors.cyan.200");
 }
 
+/* !important seems necessary for taking precendent over current ddoc styling */
+
 body .ddoc h1 {
   @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
 }
