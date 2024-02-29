@@ -17,7 +17,6 @@ use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
-use crate::ids::ScopedPackageName;
 use crate::ids::Version;
 use crate::npm::specifiers::rewrite_extension;
 use crate::npm::specifiers::rewrite_specifier;
@@ -72,7 +71,7 @@ pub fn create_npm_tarball<'a>(
   let npm_exports = create_npm_exports(exports);
 
   let npm_dependencies =
-    create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
+    create_npm_dependencies(scope, package, dependencies.map(Cow::Borrowed));
 
   let homepage = Url::options()
     .base_url(Some(registry_url))
@@ -208,18 +207,16 @@ pub fn create_npm_tarball<'a>(
 }
 
 pub fn create_npm_dependencies<'a>(
+  scope: &ScopeName,
+  package: &PackageName,
   dependencies: impl Iterator<Item = Cow<'a, (DependencyKind, PackageReqReference)>>,
-) -> Result<IndexMap<String, String>, anyhow::Error> {
+) -> IndexMap<String, String> {
   let mut npm_dependencies = IndexMap::new();
   for dep in dependencies {
     let (kind, req) = &*dep;
     match kind {
       DependencyKind::Jsr => {
-        let jsr_name = ScopedPackageName::new(req.req.name.clone())?;
-        let npm_name = NpmMappedJsrPackageName {
-          scope: &jsr_name.scope,
-          package: &jsr_name.package,
-        };
+        let npm_name = NpmMappedJsrPackageName { scope, package };
         npm_dependencies
           .insert(npm_name.to_string(), req.req.version_req.to_string());
       }
@@ -230,7 +227,7 @@ pub fn create_npm_dependencies<'a>(
     }
   }
   npm_dependencies.sort_keys();
-  Ok(npm_dependencies)
+  npm_dependencies
 }
 
 pub fn create_npm_exports(exports: &ExportsMap) -> IndexMap<String, String> {
