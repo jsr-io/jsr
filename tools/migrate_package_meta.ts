@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Client } from "https://deno.land/x/postgres/mod.ts";
 import type {
   DocNode,
