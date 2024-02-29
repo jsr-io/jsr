@@ -15,7 +15,6 @@ export interface FullUser extends User {
   scopeUsage: number;
   scopeLimit: number;
   inviteCount: number;
-  waitlistAcceptedAt: string | null;
 }
 
 export interface Scope {
