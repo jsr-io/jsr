@@ -2007,6 +2007,57 @@ impl Database {
     }
   }
 
+  pub async fn transfer_scope<'a>(
+    &self,
+    scope: &ScopeName,
+    is_creator: bool,
+    tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
+  ) -> Result<Option<ScopeMemberUpdateResult>> {
+    let admins_n = sqlx::query!(
+      r#"SELECT COUNT(user_id) FROM scope_members WHERE scope = $1 AND is_admin = true"#,
+      scope as _,
+    )
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut **tx)
+      .await?;
+    if admins_n == 0 {
+      return Ok(Some(ScopeMemberUpdateResult::TargetIsLastAdmin));
+    }
+
+    let maybe_available_admin_id = sqlx::query!(
+      r#"
+      SELECT user_id
+      FROM (
+        SELECT scope_members.user_id as "user_id", users.scope_limit as "scope_limit", scope_members.created_at as "created_at", (SELECT COUNT(created_at) FROM scopes WHERE creator = users.id) as "scope_usage"
+        FROM scope_members
+        LEFT JOIN users ON scope_members.user_id = users.id
+        WHERE scope_members.scope = $1 AND scope_members.is_admin = true
+      ) AS subquery
+      WHERE "scope_usage" < scope_limit
+      ORDER BY created_at LIMIT 1;
+      "#,
+      scope as _,
+    )
+      .map(|r| r.user_id)
+      .fetch_optional(&mut **tx)
+      .await?;
+    let Some(new_creator_id) = maybe_available_admin_id else {
+      return Ok(Some(ScopeMemberUpdateResult::TargetIsLastTransferableAdmin));
+    };
+
+    if is_creator {
+      let _ = sqlx::query!(
+        r#"UPDATE scopes SET creator = $1 WHERE scope = $2"#,
+        new_creator_id,
+        scope as _,
+      )
+      .execute(&mut **tx)
+      .await?;
+    }
+
+    Ok(None)
+  }
+
   #[instrument(name = "Database::delete_scope_member", skip(self), err)]
   pub async fn update_scope_member_role(
     &self,
@@ -2015,32 +2066,41 @@ impl Database {
     is_admin: bool,
   ) -> Result<ScopeMemberUpdateResult> {
     let mut tx = self.pool.begin().await?;
-    let maybe_scope_member = sqlx::query_as!(
-      ScopeMember,
+    let maybe_scope_member = sqlx::query!(
       r#"UPDATE scope_members
       SET is_admin = $1
       WHERE scope = $2 AND user_id = $3
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at,
+      (SELECT creator FROM scopes WHERE scope = $2) AS "scope_creator!""#,
       is_admin,
       scope as _,
       user_id,
     )
-    .fetch_optional(&mut *tx)
+      .map(|r| {
+        (
+          ScopeMember {
+            scope: r.scope,
+            user_id: r.user_id,
+            is_admin: r.is_admin,
+            updated_at: r.updated_at,
+            created_at: r.created_at,
+          },
+          r.user_id == r.scope_creator
+        )
+      })
+      .fetch_optional(&mut *tx)
     .await?;
-    let Some(scope_member) = maybe_scope_member else {
+
+    let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    let admins = sqlx::query!(
-      r#"SELECT user_id FROM scope_members
-      WHERE scope = $1 AND is_admin = true
-      "#,
-      scope as _,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-    if admins.is_empty() {
-      return Ok(ScopeMemberUpdateResult::TargetIsLastAvailableAdmin);
+    if !scope_member.is_admin {
+      if let Some(result) =
+        self.transfer_scope(scope, is_creator, &mut tx).await?
+      {
+        return Ok(result);
+      }
     }
 
     tx.commit().await?;
@@ -2081,35 +2141,10 @@ impl Database {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    let maybe_available_admin_id = sqlx::query!(
-      r#"
-      SELECT user_id
-      FROM (
-        SELECT scope_members.user_id as "user_id", users.scope_limit as "scope_limit", scope_members.created_at as "created_at", (SELECT COUNT(created_at) FROM scopes WHERE creator = users.id) as "scope_usage"
-        FROM scope_members
-        LEFT JOIN users ON scope_members.user_id = users.id
-        WHERE scope_members.scope = $1 AND scope_members.is_admin = true
-      ) AS subquery
-      WHERE "scope_usage" < scope_limit
-      ORDER BY created_at LIMIT 1;
-      "#,
-      scope as _,
-    )
-      .map(|r| r.user_id)
-      .fetch_optional(&mut *tx)
-      .await?;
-    let Some(new_creator_id) = maybe_available_admin_id else {
-      return Ok(ScopeMemberUpdateResult::TargetIsLastAvailableAdmin);
-    };
-
-    if is_creator {
-      let _ = sqlx::query!(
-        r#"UPDATE scopes SET creator = $1 WHERE scope = $2"#,
-        new_creator_id,
-        scope as _,
-      )
-      .execute(&mut *tx)
-      .await?;
+    if let Some(result) =
+      self.transfer_scope(scope, is_creator, &mut tx).await?
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -2727,7 +2762,8 @@ async fn finalize_package_creation(
 #[derive(Debug)]
 pub enum ScopeMemberUpdateResult {
   Ok(ScopeMember),
-  TargetIsLastAvailableAdmin,
+  TargetIsLastAdmin,
+  TargetIsLastTransferableAdmin,
   TargetNotMember,
 }
 

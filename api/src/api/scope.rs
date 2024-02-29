@@ -342,7 +342,10 @@ async fn update_member_handler(
 
   let scope_member = match res {
     ScopeMemberUpdateResult::Ok(scope_member) => scope_member,
-    ScopeMemberUpdateResult::TargetIsLastAvailableAdmin => {
+    ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
+      return Err(ApiError::NoScopeOwnerAvailable)
+    }
+    ScopeMemberUpdateResult::TargetIsLastAdmin => {
       return Err(ApiError::ScopeMustHaveAdmin)
     }
     ScopeMemberUpdateResult::TargetNotMember => {
@@ -384,7 +387,10 @@ pub async fn delete_member_handler(
   let res = db.delete_scope_member(&scope, member_id).await?;
   match res {
     ScopeMemberUpdateResult::Ok(_) => {}
-    ScopeMemberUpdateResult::TargetIsLastAvailableAdmin => {
+    ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
+      return Err(ApiError::NoScopeOwnerAvailable)
+    }
+    ScopeMemberUpdateResult::TargetIsLastAdmin => {
       return Err(ApiError::ScopeMustHaveAdmin)
     }
     ScopeMemberUpdateResult::TargetNotMember => {
