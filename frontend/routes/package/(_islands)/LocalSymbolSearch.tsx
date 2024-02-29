@@ -104,6 +104,20 @@ export function LocalSymbolSearch(
     return () => document.removeEventListener("click", outsideClick);
   }, []);
 
+  useEffect(() => {
+    const keyboardHandler = (e: KeyboardEvent) => {
+      if (e.key === "S") {
+        e.preventDefault();
+        (document.querySelector("#symbol-search-input") as HTMLInputElement)
+          ?.focus();
+      }
+    };
+    globalThis.addEventListener("keydown", keyboardHandler);
+    return function cleanup() {
+      globalThis.removeEventListener("keydown", keyboardHandler);
+    };
+  });
+
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
       const searchResult = await search(db.value!, {
@@ -147,6 +161,7 @@ export function LocalSymbolSearch(
       <input
         type="text"
         placeholder="Search for symbols"
+        id="symbol-search-input"
         class="block text-sm w-full py-1.5 px-2 input-container input border-cyan-900/30"
         disabled={!db}
         onInput={onInput}

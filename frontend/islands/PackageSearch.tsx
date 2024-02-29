@@ -59,9 +59,6 @@ export function PackageSearch(
 
   useEffect(() => {
     const keyboardHandler = (e: KeyboardEvent) => {
-      if (e.target !== document.body) {
-        return;
-      }
       if (((e.metaKey || e.ctrlKey) && e.key === "k")) {
         e.preventDefault();
         (document.querySelector("#package-search-input") as HTMLInputElement)
