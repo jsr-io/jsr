@@ -120,6 +120,10 @@ errors!(
     status: BAD_REQUEST,
     "The last scope admin can not be removed / downgraded.",
   },
+  NoScopeOwnerAvailable {
+    status: BAD_REQUEST,
+    "All other scope admins have exceeded their scope limits, so none can be made owner of the scope.",
+  },
   ScopeLimitReached {
     status: BAD_REQUEST,
     "This account has reached the maximum number of created scopes.",
