@@ -16,7 +16,7 @@ export default function Layout(
           href="#main-content"
           class="absolute p-4 -translate-y-full bg-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
         >
-          Skip to main
+          Skip to main content
         </a>
         <Header user={state.user} url={url} />
         <div
