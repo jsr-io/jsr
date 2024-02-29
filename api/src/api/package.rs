@@ -60,6 +60,7 @@ use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::NpmUrl;
@@ -96,11 +97,14 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get("/:package", util::json(get_handler))
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
-    .get("/:package/versions", util::json(list_versions_handler))
+    .get(
+      "/:package/versions",
+      util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
+    )
     .get("/:package/dependents", util::json(list_dependents_handler))
     .get(
       "/:package/versions/:version",
-      util::json(get_version_handler),
+      util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
     )
     .post(
       "/:package/versions/:version",
@@ -116,15 +120,18 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs",
-      util::json(get_docs_handler),
+      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
     )
     .get(
       "/:package/versions/:version/docs/search",
-      util::json(get_docs_search_handler),
+      util::cache(
+        CacheDuration::ONE_MINUTE,
+        util::json(get_docs_search_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/source",
-      util::json(get_source_handler),
+      util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",

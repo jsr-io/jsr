@@ -14,7 +14,7 @@ import { api, path } from "../../../utils/api.ts";
 export interface LocalSymbolSearchProps {
   scope: string;
   pkg: string;
-  version?: string;
+  version: string;
 }
 
 interface SearchRecord {

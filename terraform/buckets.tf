@@ -45,7 +45,9 @@ resource "google_compute_backend_bucket" "modules" {
   enable_cdn       = true
   compression_mode = "AUTOMATIC"
   custom_response_headers = [
-    "Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; sandbox; form-action 'none';"
+    "Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; sandbox; form-action 'none';",
+    "x-jsr-cache-id: {cdn_cache_id}",
+    "x-jsr-cache-status: {cdn_cache_status}",
   ]
   cdn_policy {
     cache_mode         = "USE_ORIGIN_HEADERS"
@@ -69,8 +71,11 @@ resource "google_compute_backend_bucket" "npm" {
   enable_cdn       = true
   compression_mode = "AUTOMATIC"
   custom_response_headers = [
-    "Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; sandbox; form-action 'none';"
+    "Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; sandbox; form-action 'none';",
+    "x-jsr-cache-id: {cdn_cache_id}",
+    "x-jsr-cache-status: {cdn_cache_status}",
   ]
+
   cdn_policy {
     cache_mode         = "USE_ORIGIN_HEADERS"
     default_ttl        = 0        # no caching unless specified by the backend

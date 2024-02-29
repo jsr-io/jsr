@@ -48,6 +48,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
       <DocsView
         docs={data.docs}
         params={params as unknown as Params}
+        selectedVersion={data.selectedVersion}
       />
     </div>
   );
