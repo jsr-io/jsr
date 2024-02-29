@@ -30,6 +30,7 @@ use std::collections::HashMap;
 pub struct PackageMetadata {
   pub scope: ScopeName,
   pub name: PackageName,
+  pub latest: Option<Version>,
   pub versions: HashMap<Version, PackageMetadataVersion>,
 }
 
@@ -39,10 +40,16 @@ impl PackageMetadata {
     scope: &ScopeName,
     package_name: &PackageName,
   ) -> anyhow::Result<Self> {
-    let versions = db.list_package_versions(scope, package_name).await?;
+    let mut versions = db.list_package_versions(scope, package_name).await?;
+    versions.sort_by(|(a, _), (b, _)| b.version.cmp(&a.version));
+    let latest = versions
+      .iter()
+      .find(|(v, _)| !v.is_yanked && v.version.0.pre.is_empty())
+      .map(|(v, _)| v.version.clone());
     let mut out = Self {
       scope: scope.to_owned(),
       name: package_name.to_owned(),
+      latest,
       versions: HashMap::new(),
     };
     for (version, _) in versions {

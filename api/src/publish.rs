@@ -764,6 +764,7 @@ pub mod tests {
       serde_json::from_slice(&json).unwrap()
     };
     assert_eq!(package_metadata.name, package_name);
+    assert_eq!(package_metadata.latest, Some(version));
     assert_eq!(package_metadata.versions.len(), 1);
   }
 

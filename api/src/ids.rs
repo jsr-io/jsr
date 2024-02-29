@@ -349,7 +349,7 @@ impl serde::Serialize for ScopedPackageName {
 /// A package version, like '1.2.3' or '0.0.0-foo'. The version is not prefixed
 /// with a v.
 /// The version must be a valid semver version.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Version(pub deno_semver::Version);
 
 impl Version {
