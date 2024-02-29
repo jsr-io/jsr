@@ -482,6 +482,9 @@ pub struct PackagePath {
 impl PackagePath {
   pub fn new(path: String) -> Result<Self, PackagePathValidationError> {
     let len = path.len();
+    // The total length of the path must be less than 160 characters to support
+    // windows. We reduce this further to 155 to work around tarball
+    // restrictions.
     if len > 155 {
       return Err(PackagePathValidationError::TooLong(len));
     }
@@ -544,6 +547,10 @@ impl PackagePath {
       }
     }
 
+    // Due to restrictions in how tarballs are built, we need the ensure that
+    // the last path component is less than 100 characters long. We further
+    // reduce this to 95, to allow for modifying the extension (for example, we
+    // add d.ts in places).
     let last = last.unwrap();
     if last.len() > 95 {
       return Err(PackagePathValidationError::LastPathComponentTooLong(
@@ -718,7 +725,7 @@ pub enum PackagePathValidationError {
   #[error("package path must be at most 155 characters long, but is {0} characters long")]
   TooLong(usize),
 
-  #[error("package path must be at most 95 characters long, but is {0} characters long")]
+  #[error("the last path component must be at most 95 characters long, but is {0} characters long")]
   LastPathComponentTooLong(usize),
 
   #[error("package path must be prefixed with a slash")]
