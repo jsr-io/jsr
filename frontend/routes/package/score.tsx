@@ -55,7 +55,15 @@ export default function Score(
 
       <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
         <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
-          <h2 class="text-2xl text-center mb-6">Total score</h2>
+          <div class="flex gap-2 items-center mb-4">
+            <img src="/logo.svg" class="w-16" />
+            <h2 class="text-2xl font-semibold">
+              <span class="sr-only">JSR</span> Score
+            </h2>
+          </div>
+          <div class="mb-6">
+            @{data.package.scope}/{data.package.name}
+          </div>
           <div
             class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${scoreColorClass}`}
             style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, white ${scorePercentage}%)`}
@@ -63,6 +71,11 @@ export default function Score(
             <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
               {scorePercentage}%
             </span>
+          </div>
+          <div class="text-gray-500 text-sm text-center mt-6">
+            The JSR score is a measure of the overall quality of a package,
+            based on a number of factors such as documentation and runtime
+            compatibility.
           </div>
         </div>
 
@@ -126,7 +139,7 @@ function ScoreItem(
   if (typeof props.value === "boolean") {
     status = props.value ? "complete" : "missing";
   } else {
-    if (props.value === props.max) {
+    if (props.value === 1) {
       status = "complete";
     } else if (props.value === 0) {
       status = "missing";
