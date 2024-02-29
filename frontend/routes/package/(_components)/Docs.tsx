@@ -73,7 +73,6 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
 
   return (
     <div class="grid grid-cols-1 lg:grid-cols-4 py-2">
-
       <div class="col-span-1 top-0 md:pl-0 md:pr-2 py-4 box-border">
         <LocalSymbolSearch
           scope={params.scope}
