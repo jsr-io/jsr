@@ -1,0 +1,5 @@
+{
+  "name": "@scope/foo",
+  "version": "1.2.3",
+  "exports": "./a_very_long_filename_created_specifically_to_test_the_limitations_of_the_set_path_method_in_the_rust_tar_crate_exceeding_one_hundred_bytes.ts"
+}
