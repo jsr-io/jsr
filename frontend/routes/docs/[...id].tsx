@@ -30,6 +30,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
     <div class="mb-20">
       <Head>
         <title>{data.title} - Docs - JSR</title>
+        <meta name="description" content={data.description} />
       </Head>
 
       <div class="grid grid-cols-1 md:grid-cols-10">

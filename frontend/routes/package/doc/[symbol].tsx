@@ -34,6 +34,12 @@ export default function Symbol(
           {params.entrypoint && ` from ${params.entrypoint}`}{" "}
           - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`JSR - @${params.scope}/${params.package}${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader

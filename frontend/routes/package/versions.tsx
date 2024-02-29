@@ -27,11 +27,6 @@ interface Data {
   member: ScopeMember | null;
 }
 
-interface ReleaseTrack {
-  releaseTrack: string;
-  latestVersion: string;
-}
-
 export default function Versions(
   { data, params, state }: PageProps<Data, State>,
 ) {
@@ -104,6 +99,12 @@ export default function Versions(
         <title>
           Versions - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`JSR - @${params.scope}/${params.package}${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader package={data.package} />

@@ -32,6 +32,12 @@ export default function Dep(
         <title>
           Dependents - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`JSR - @${params.scope}/${params.package}${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader package={data.package} />

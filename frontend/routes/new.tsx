@@ -36,6 +36,10 @@ export default function New(props: PageProps<Data, State>) {
         <title>
           Publish a package - JSR
         </title>
+        <meta
+          name="description"
+          content="Create a package and publish on JSR."
+        />
       </Head>
       <div class="flex flex-col md:flex-row gap-12 lg:gap-36">
         <div class="md:w-88 space-y-4 flex-shrink-0">

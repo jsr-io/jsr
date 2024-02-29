@@ -22,6 +22,10 @@ export default function PackageListPage({ data, url }: PageProps<Data>) {
         <title>
           {data.query ? `${data.query} - Packages` : "Explore Packages"} - JSR
         </title>
+        <meta
+          name="description"
+          content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
+        />
       </Head>
       <div>
         <ListDisplay

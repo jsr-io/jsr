@@ -30,6 +30,12 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
           {params.entrypoint || "index"} - @{params.scope}/{params.package}{" "}
           - JSR
         </title>
+        <meta
+          name="description"
+          content={`JSR - @${params.scope}/${params.package}${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader

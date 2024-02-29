@@ -41,6 +41,12 @@ export default function PackagePage(
         {data.source?.css && (
           <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
         )}
+        <meta
+          name="description"
+          content={`JSR - @${params.scope}/${params.package}${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader
