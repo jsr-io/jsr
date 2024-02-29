@@ -71,7 +71,7 @@ export default function PackagePage({
                   {"  "}
                   <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"name": "@${data.package.scope}/${data.package.name}",\n`}</span>
                   {"  "}
-                  <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"version": "0.0.1",\n`}</span>
+                  <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"version": "0.1.0",\n`}</span>
                   {"  "}
                   <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"exports": "./mod.ts"\n`}</span>
                   {`}`}
