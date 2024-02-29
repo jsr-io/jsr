@@ -8,6 +8,7 @@ import { OramaPackageHit } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import { List, Package } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
+import { isMacLike } from "../utils/os.ts";
 
 interface PackageSearchProps {
   query?: string;
@@ -72,9 +73,7 @@ export function PackageSearch(
   });
 
   useEffect(() => {
-    setMacLike(
-      window.navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i) ? true : false,
-    );
+    setMacLike(isMacLike());
   }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {

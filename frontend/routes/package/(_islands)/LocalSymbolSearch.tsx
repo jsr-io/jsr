@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { JSX } from "preact";
 import { computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   components,
   create,
@@ -10,6 +10,7 @@ import {
   search,
 } from "@orama/orama";
 import { api, path } from "../../../utils/api.ts";
+import { isMacLike } from "../../../utils/os.ts";
 
 export interface LocalSymbolSearchProps {
   scope: string;
@@ -39,6 +40,7 @@ export function LocalSymbolSearch(
   const db = useSignal<undefined | Orama<any>>(undefined);
   const results = useSignal<SearchRecord[]>([]);
   const selectionIdx = useSignal(-1);
+  const [macLike, setMacLike] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -106,7 +108,7 @@ export function LocalSymbolSearch(
 
   useEffect(() => {
     const keyboardHandler = (e: KeyboardEvent) => {
-      if (e.key === "S") {
+      if (((e.metaKey || e.ctrlKey) && e.key === "/")) {
         e.preventDefault();
         (document.querySelector("#symbol-search-input") as HTMLInputElement)
           ?.focus();
@@ -117,6 +119,10 @@ export function LocalSymbolSearch(
       globalThis.removeEventListener("keydown", keyboardHandler);
     };
   });
+
+  useEffect(() => {
+    setMacLike(isMacLike());
+  }, []);
 
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
@@ -156,11 +162,12 @@ export function LocalSymbolSearch(
     }
   }
 
+  const placeholder = `Search for symbols (${macLike ? "⌘/" : "Ctrl+/"})`;
   return (
     <div class="mb-2 flex-none" ref={ref}>
       <input
         type="text"
-        placeholder="Search for symbols"
+        placeholder={placeholder}
         id="symbol-search-input"
         class="block text-sm w-full py-1.5 px-2 input-container input border-cyan-900/30"
         disabled={!db}
