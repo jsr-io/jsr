@@ -460,8 +460,7 @@ pub enum VersionValidateError {
 /// The path must not contain any double slashes, dot segments, or dot dot
 /// segments.
 ///
-/// The path must be less than 100 characters long, including the slash prefix,
-/// due to tarball and windows limitations.
+/// The path must be less than 155 characters long, including the slash prefix.
 ///
 /// The path must not contain any windows reserved characters, like CON, PRN,
 /// AUX, NUL, or COM1.
@@ -483,7 +482,7 @@ pub struct PackagePath {
 impl PackagePath {
   pub fn new(path: String) -> Result<Self, PackagePathValidationError> {
     let len = path.len();
-    if len > 100 {
+    if len > 155 {
       return Err(PackagePathValidationError::TooLong(len));
     }
 
@@ -492,6 +491,7 @@ impl PackagePath {
     }
 
     let mut components = path.split('/').peekable();
+
     let Some("") = components.next() else {
       return Err(PackagePathValidationError::MissingPrefix);
     };
@@ -503,7 +503,11 @@ impl PackagePath {
       }
       valid_char(c)
     };
+
+    let mut last = None;
+
     while let Some(component) = components.next() {
+      last = Some(component);
       if component.is_empty() {
         if components.peek().is_none() {
           return Err(PackagePathValidationError::TrailingSlash);
@@ -538,6 +542,13 @@ impl PackagePath {
           component.to_owned(),
         ));
       }
+    }
+
+    let last = last.unwrap();
+    if last.len() > 95 {
+      return Err(PackagePathValidationError::LastPathComponentTooLong(
+        last.len(),
+      ));
     }
 
     let lower = has_upper.then(|| path.to_ascii_lowercase());
@@ -702,10 +713,13 @@ fn valid_char(c: char) -> Option<PackagePathValidationError> {
   }
 }
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Error, PartialEq)]
 pub enum PackagePathValidationError {
-  #[error("package path must be at most 100 characters long, but is {0} characters long")]
+  #[error("package path must be at most 155 characters long, but is {0} characters long")]
   TooLong(usize),
+
+  #[error("package path must be at most 95 characters long, but is {0} characters long")]
+  LastPathComponentTooLong(usize),
 
   #[error("package path must be prefixed with a slash")]
   MissingPrefix,
@@ -849,6 +863,39 @@ mod tests {
     assert!(ScopedPackageName::new("@scope/bar_bar".to_string()).is_err());
     assert!(ScopedPackageName::new("@scope/".to_string()).is_err());
     assert!(ScopedPackageName::new("@scope/foo/bar".to_string()).is_err());
+  }
+
+  #[test]
+  fn test_package_path_lengths() {
+    fn mock_package_path(
+      path_segments: &[u32],
+    ) -> Result<PackagePath, PackagePathValidationError> {
+      let mut path = String::new();
+      for s in path_segments.iter() {
+        let path_segment =
+          std::iter::repeat("a").take(*s as usize).collect::<String>();
+        path.push_str("/");
+        path.push_str(&path_segment);
+      }
+      PackagePath::new(path)
+    }
+
+    mock_package_path(&[58, 95]).unwrap();
+    assert_eq!(
+      mock_package_path(&[59, 95]).unwrap_err(),
+      PackagePathValidationError::TooLong(156)
+    );
+    assert_eq!(
+      mock_package_path(&[57, 96]).unwrap_err(),
+      PackagePathValidationError::LastPathComponentTooLong(96)
+    );
+    mock_package_path(&[56, 95, 1]).unwrap();
+    mock_package_path(&[30, 94]).unwrap();
+    assert_eq!(
+      mock_package_path(&[1, 96]).unwrap_err(),
+      PackagePathValidationError::LastPathComponentTooLong(96)
+    );
+    mock_package_path(&[96, 57]).unwrap();
   }
 
   #[test]
