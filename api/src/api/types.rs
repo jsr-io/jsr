@@ -364,7 +364,7 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
     }
 
     // You only need to document 80% of your symbols to get all the points.
-    score += ((meta.percentage_documented_symbols / 80.0).floor() * 5.0) as u32;
+    score += ((meta.percentage_documented_symbols / 0.8).floor() * 5.0) as u32;
 
     if meta.all_fast_check {
       score += 5;
