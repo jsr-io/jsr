@@ -80,6 +80,16 @@ export default [
     group: "Reference",
   },
   {
+    title: "Scoring",
+    id: "scoring",
+    group: "Reference",
+  },
+  {
+    title: "Provenance and trust",
+    id: "trust",
+    group: "Reference",
+  },
+  {
     title: "Immutability",
     id: "immutability",
     group: "Reference",

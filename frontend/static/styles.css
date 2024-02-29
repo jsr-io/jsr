@@ -220,7 +220,7 @@ body .ddoc .usage nav label {
 }
 
 body .ddoc > section > nav.py-4 {
-  @apply pt-0;
+  @apply pt-0 top-4;
 }
 
 @layer base {

@@ -73,14 +73,15 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
 
   return (
     <div class="grid grid-cols-1 lg:grid-cols-4 py-2">
-      <div class="col-span-1 top-0 sticky flex flex-col md:pl-0 md:pr-2 max-h-screen py-4 box-border">
+
+      <div class="col-span-1 top-0 md:pl-0 md:pr-2 py-4 box-border">
         <LocalSymbolSearch
           scope={params.scope}
           pkg={params.package}
           version={selectedVersion.version}
         />
         <div
-          class="ddoc w-full flex-1 min-h-0 *:!h-full"
+          class="ddoc w-full lg:min-h-0 lg:*:!h-full"
           dangerouslySetInnerHTML={{ __html: docs.sidepanel }}
         />
       </div>
