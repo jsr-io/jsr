@@ -20,7 +20,7 @@ export function QuotaCard(
   );
 }
 
-export function QuotaUsage(
+function QuotaUsage(
   props: { limit: number; usage: number; hideNumber?: boolean },
 ) {
   let color = "bg-jsr-yellow-400";

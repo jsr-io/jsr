@@ -2,7 +2,6 @@
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { GitHub } from "../../../components/icons/GitHub.tsx";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
-import { QuotaUsage } from "../../../components/QuotaCard.tsx";
 
 interface PackageHeaderProps {
   package: Package;
