@@ -3,6 +3,7 @@ import { FullUser, User } from "../../../utils/api_types.ts";
 import { AccountNav, AccountNavTab } from "./AccountNav.tsx";
 import twas from "$twas";
 import { ComponentChildren } from "preact";
+import { GitHubUserLink } from "../../../islands/GithubUserLink.tsx";
 
 interface AccountLayoutProps {
   user: User | FullUser;
@@ -23,9 +24,12 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
           <h1 class="text-2xl leading-none font-semibold">
             {user.name}
           </h1>
-          <span class="text-xs text-gray-600">
+          <p class="text-xs text-gray-600">
             Created account {twas(new Date(user.createdAt))}
-          </span>
+          </p>
+          <p class="text-xs text-gray-600">
+            <GitHubUserLink user={user} />
+          </p>
         </div>
       </div>
       <div class="md:col-span-4">
