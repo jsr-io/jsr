@@ -41,12 +41,14 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     scaling {
       min_instance_count = var.production ? 1 : 0
-      max_instance_count = 10
+      max_instance_count = 20
     }
+
+    max_instance_request_concurrency = 250
 
     containers {
       image = var.api_image_id
-      args  = ["--cloud_trace", "--api", "--tasks=false"]
+      args  = ["--cloud_trace", "--api", "--tasks=false", "--database_pool_size=3"]
 
       dynamic "env" {
         for_each = local.api_envs
@@ -163,9 +165,13 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
       max_instance_count = 20
     }
 
+    # Do not concurrently process background tasks for optimal performance per
+    # task.
+    max_instance_request_concurrency = 1
+
     containers {
       image = var.api_image_id
-      args  = ["--cloud_trace", "--tasks", "--api=false"]
+      args  = ["--cloud_trace", "--tasks", "--api=false", "--database_pool_size=1"]
 
       dynamic "env" {
         for_each = local.api_envs
@@ -205,10 +211,6 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         }
       }
     }
-
-    # Do not concurrently process background tasks for optimal performance per
-    # task.
-    max_instance_request_concurrency = 1
 
     vpc_access {
       connector = google_vpc_access_connector.default.id

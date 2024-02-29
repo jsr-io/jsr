@@ -89,8 +89,13 @@ const waitlist: MiddlewareHandler<State> = async (req, ctx) => {
       url.pathname.startsWith("/badges/") ||
       url.pathname.startsWith("/login"));
   if (interactive) {
+    if (
+      Deno.env.get("SKIP_WAITLIST") === "1" ||
+      req.headers.has("x-jsr-bypass-waitlist")
+    ) {
+      return await ctx.next();
+    }
     let isWaitlisted = false;
-
     const token = ctx.state.api.token();
     if (token) {
       if (tokensForWaitlistAccepted.has(token)) {

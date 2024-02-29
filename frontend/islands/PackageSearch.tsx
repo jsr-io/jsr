@@ -151,10 +151,12 @@ export function PackageSearch(
         class="flex w-full"
         onSubmit={onSubmit}
       >
+        <label htmlFor="package-search-input" class="sr-only">
+          Search for packages
+        </label>
         <input
           type="text"
           name="search"
-          aria-label="Search for packages"
           class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses}`}
           placeholder="Search for packages"
           value={query}
@@ -162,7 +164,11 @@ export function PackageSearch(
           onKeyUp={onKeyUp}
           onFocus={() => isFocused.value = true}
           autoComplete="off"
-          aria-expanded="false"
+          aria-expanded={showSuggestions}
+          aria-autocomplete="list"
+          aria-controls="package-search-results"
+          role="combobox"
+          id="package-search-input"
         />
 
         <button
@@ -192,7 +198,13 @@ export function PackageSearch(
           </svg>
         </button>
       </form>
-      <div role="listbox" tabindex={query?.length ? 0 : -1} class="relative">
+      <div
+        role="listbox"
+        id="package-search-results"
+        tabindex={query?.length ? 0 : -1}
+        class="relative"
+        aria-label="Search results"
+      >
         <SuggestionList
           showSuggestions={showSuggestions}
           suggestions={suggestions}
@@ -241,6 +253,12 @@ function SuggestionList(
             })}
           </ul>
         )}
+      <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
+        <span class="text-sm text-gray-500">
+          powered by <span class="sr-only">Orama</span>
+        </span>
+        <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+      </div>
     </div>
   );
 }

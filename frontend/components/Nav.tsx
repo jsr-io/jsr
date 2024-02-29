@@ -7,7 +7,7 @@ export interface NavProps {
 
 export function Nav(props: NavProps) {
   return (
-    <nav class="mt-3 border-b border-jsr-cyan-300/30 flex gap-1 flex-col md:flex-row md:max-w-full md:overflow-auto">
+    <nav class="mt-3 md:border-b gap-1 border-jsr-cyan-300/30 flex flex-wrap md:flex-nowrap flex-row max-w-full overflow-auto items-end">
       {props.children}
     </nav>
   );
@@ -22,10 +22,10 @@ export interface NavItemProps {
 export function NavItem(props: NavItemProps) {
   return (
     <a
-      class={`md:px-4 px-2 py-2 text-sm md:text-base leading-none rounded-t-md md:hover:bg-jsr-cyan-100 md:hover:border-b-2 ${
+      class={`md:px-3 px-2 py-2 text-sm md:text-base min-h-10 leading-none rounded-md md:rounded-t-md md:rounded-b-none hover:bg-jsr-cyan-100 flex items-center ${
         props.active
-          ? "bg-jsr-cyan-200 md:bg-transparent border-b-2 border-jsr-cyan-700"
-          : "border-jsr-cyan-400"
+          ? "bg-jsr-cyan-50 md:border-r-1 md:border-t-1 md:border-l-1 md:border-b-0 border-1 border-jsr-cyan-300/30 font-semibold"
+          : ""
       }`}
       href={props.href}
     >

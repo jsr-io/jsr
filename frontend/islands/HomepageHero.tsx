@@ -150,21 +150,20 @@ export function HomepageHero(
       id="particles-js"
     >
       <Head>
-        <script src={asset("/scripts/particles.js")}></script>
+        <script src={asset("/scripts/particles.js")} defer></script>
       </Head>
       <style>{canvasStyle}</style>
       <div class="section-x-inset-xl flex flex-col items-center justify-center gap-12 relative">
         <div class="text-center">
           <h1 class="relative z-10 flex flex-col items-center gap-6 lg:gap-8">
             <span className="sr-only">JSR</span>
-            <div class="h-24 md:h-36">
-              <AnimatedLogo />
-            </div>
+            <AnimatedLogo />
             <div
               class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center"
               style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
             >
-              A registry for modern JavaScript and TypeScript
+              An open-source package registry for modern JavaScript and
+              TypeScript
             </div>
           </h1>
           <div class="flex flex-row gap-4 align-middle justify-center mt-2">

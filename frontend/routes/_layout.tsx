@@ -24,14 +24,14 @@ export default function Layout(
           <Component />
         </div>
       </div>
-      <footer class="text-xs text-center p-4 text-gray-400">
+      <footer class="text-xs text-center p-4 text-gray-500">
         JSR - It is {new Date().toLocaleString("en-ZA", {
           timeZoneName: "short",
           timeZone: "Etc/UTC",
         })} -{" "}
         <a
           href="/docs"
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-cyan-700 hover:text-blue-400 underline"
         >
           Docs
         </a>
