@@ -150,13 +150,6 @@ pub async fn npm_tarball_build_handler(
       }
     }
 
-    // let files: HashMap<_> = db
-    //   .list_package_files(&job.scope, &job.name, &job.version)
-    //   .await?
-    //   .into_iter()
-    //   .map(|f| (f.path, f.))
-    //   .collect();
-
     let dependencies = dependencies
       .into_iter()
       .map(|dep| {
