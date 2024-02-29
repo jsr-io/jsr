@@ -318,7 +318,8 @@ fn all_entrypoints_have_module_doc(
     }
 
     if main_entrypoint
-      .is_some_and(|main_entrypoint| &main_entrypoint == specifier)
+      .as_ref()
+      .is_some_and(|main_entrypoint| main_entrypoint == specifier)
       && has_readme
     {
       continue 'modules;
