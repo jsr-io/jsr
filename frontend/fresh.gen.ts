@@ -25,7 +25,6 @@ import * as $badges_package from "./routes/badges/package.ts";
 import * as $badges_package_score from "./routes/badges/package_score.ts";
 import * as $docs_id_ from "./routes/docs/[...id].tsx";
 import * as $docs_index from "./routes/docs/index.ts";
-import * as $gfm_css from "./routes/gfm.css.ts";
 import * as $go_id_ from "./routes/go/[id].ts";
 import * as $index from "./routes/index.tsx";
 import * as $login from "./routes/login.tsx";
@@ -91,7 +90,6 @@ const manifest = {
     "./routes/badges/package_score.ts": $badges_package_score,
     "./routes/docs/[...id].tsx": $docs_id_,
     "./routes/docs/index.ts": $docs_index,
-    "./routes/gfm.css.ts": $gfm_css,
     "./routes/go/[id].ts": $go_id_,
     "./routes/index.tsx": $index,
     "./routes/login.tsx": $login,
