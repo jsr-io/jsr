@@ -43,6 +43,13 @@ function Logo() {
 export const handler: Handlers<void, State> = {
   async GET(req, ctx) {
     const url = new URL(req.url);
+    if (Deno.env.get("SKIP_WAITLIST") === "1") {
+      return new Response(null, {
+        status: 302,
+        headers: { "Location": "/" },
+      });
+    }
+
     if (url.searchParams.has("accepted")) {
       const user = await ctx.state.userPromise;
       if (user === null) {
