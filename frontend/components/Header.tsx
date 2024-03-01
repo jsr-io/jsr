@@ -52,14 +52,14 @@ export function Header({ user, url }: {
           >
             Browse packages
           </a>
-          <span class="text-gray-200">|</span>
+          <span class="text-gray-200 select-none">|</span>
           <a
             href="/docs"
             class="link-header"
           >
             Docs
           </a>
-          <span class="text-gray-200">|</span>
+          <span class="text-gray-200 select-none">|</span>
           {user
             ? <UserMenu user={user} logoutUrl={logoutUrl} />
             : (

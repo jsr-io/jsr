@@ -61,7 +61,8 @@ export default function Home({ data }: PageProps<Data>) {
             loading="lazy"
             src="/logos/typescript.svg"
             alt="TypeScript logo"
-            class="w-full max-w-16 lg:max-w-36 lg:col-span-2 lg:mx-auto"
+            class="w-full max-w-16 lg:max-w-36 lg:col-span-2 lg:mx-auto select-none"
+            draggable={false}
           />
           <div class="col-span-3 max-w-screen-sm lg:max-w-none">
             <BenefitHeading>
@@ -86,20 +87,23 @@ export default function Home({ data }: PageProps<Data>) {
             <img
               loading="lazy"
               src="/logos/npm.svg"
-              alt="NPM logo"
-              class="w-full max-w-16 lg:max-w-28"
+              alt="npm logo"
+              class="w-full max-w-16 lg:max-w-28 select-none"
+              draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/yarn.svg"
               alt="Yarn logo"
-              class="w-full max-w-16 lg:max-w-28"
+              class="w-full max-w-16 lg:max-w-28 select-none"
+              draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/pnpm.svg"
-              alt="PNPM logo"
-              class="w-full max-w-16 lg:max-w-28"
+              alt="pnpm logo"
+              class="w-full max-w-16 lg:max-w-28 select-none"
+              draggable={false}
             />
           </div>
           <div class="col-span-3 max-w-screen-sm lg:order-1">
@@ -125,25 +129,29 @@ export default function Home({ data }: PageProps<Data>) {
               loading="lazy"
               src="/logos/node.svg"
               alt="Node logo"
-              class="w-full max-w-9 lg:max-w-20"
+              class="w-full max-w-9 lg:max-w-20 select-none"
+              draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/deno.svg"
               alt="Deno logo"
-              class="w-full max-w-10 lg:max-w-20"
+              class="w-full max-w-10 lg:max-w-20 select-none"
+              draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/bun.svg"
               alt="Bun logo"
-              class="w-full max-w-11 lg:max-w-20"
+              class="w-full max-w-11 lg:max-w-20 select-none"
+              draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/cloudflare-workers.svg"
               alt="Cloudflare Workers logo"
-              class="w-full max-w-10 lg:max-w-20"
+              class="w-full max-w-10 lg:max-w-20 select-none"
+              draggable={false}
             />
           </div>
           <div class="col-span-3 max-w-screen-sm lg:max-w-none">
