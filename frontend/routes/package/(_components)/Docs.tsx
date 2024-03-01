@@ -41,8 +41,8 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
                   role="img"
                   class="text-green-600"
                   viewBox="0 0 16 16"
-                  width="18"
-                  height="18"
+                  width="20"
+                  height="20"
                   fill="currentColor"
                   style="display: inline-block; user-select: none; vertical-align: text-bottom;"
                 >
