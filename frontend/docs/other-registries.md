@@ -9,9 +9,8 @@ options.
 
 ## npm
 
-npm, short for Node Package Manager, is the primary and widely recognized
-platform for sharing JavaScript libraries. It was initially developed alongside
-Node.js in the early 2010s.
+npm is the primary and widely recognized platform for sharing JavaScript
+libraries. It was initially developed alongside Node.js in the early 2010s.
 
 JSR is designed to complement npm, not replace it. JSR allows packages to
 reference npm packages using `npm:` specifiers.

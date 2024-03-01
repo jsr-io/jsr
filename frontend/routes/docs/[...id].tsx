@@ -63,7 +63,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
         </nav>
 
         <div class="md:col-span-7 mb-12 md:px-6 lg:px-8 order-1 md:order-2">
-          <h1 class="text-4xl lg:text-5xl text-balance font-medium mb-8 text-gray-900">
+          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-gray-900">
             {data.title}
           </h1>
           <Markdown source={data.content} />

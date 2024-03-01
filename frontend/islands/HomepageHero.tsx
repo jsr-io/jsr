@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PackageSearch } from "./PackageSearch.tsx";
-import { Logo } from "../components/Logo.tsx";
 import { Plus } from "../components/icons/Plus.tsx";
 import { useEffect } from "preact/hooks";
 import { asset, Head } from "$fresh/runtime.ts";
@@ -146,7 +145,7 @@ export function HomepageHero(
   }, []);
   return (
     <div
-      class="bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none"
+      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none"
       id="particles-js"
     >
       <Head>
@@ -159,17 +158,21 @@ export function HomepageHero(
             <span className="sr-only">JSR</span>
             <AnimatedLogo />
             <div
-              class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center"
+              class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-6 max-w-[20em] font-light"
               style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
             >
-              An open-source package registry for modern JavaScript and
-              TypeScript
+              The <b class="font-semibold">open-source package registry</b>{" "}
+              for modern JavaScript and TypeScript
             </div>
           </h1>
-          <div class="flex flex-row gap-4 align-middle justify-center mt-2">
+          <div
+            class="flex flex-row gap-3 items-center justify-center mt-4"
+            style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
+          >
             <a class="underline text-sm relative z-10" href="/docs">
               Docs
             </a>
+            <span class="w-px h-[1em] bg-jsr-cyan-200"></span>
             <a class="underline text-sm relative z-10" href="#why-jsr">
               Why JSR?
             </a>

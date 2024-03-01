@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { batch, computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
 import { IS_BROWSER } from "$fresh/runtime.ts";
@@ -8,6 +8,7 @@ import { OramaPackageHit } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import { List, Package } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
+import { isMacLike } from "../utils/os.ts";
 
 interface PackageSearchProps {
   query?: string;
@@ -36,6 +37,7 @@ export function PackageSearch(
   const showSuggestions = computed(() =>
     isFocused.value && search.value.length > 0
   );
+  const [macLike, setMacLike] = useState(true);
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -54,6 +56,24 @@ export function PackageSearch(
 
     document.addEventListener("click", outsideClick);
     return () => document.removeEventListener("click", outsideClick);
+  }, []);
+
+  useEffect(() => {
+    const keyboardHandler = (e: KeyboardEvent) => {
+      if (((e.metaKey || e.ctrlKey) && e.key === "k")) {
+        e.preventDefault();
+        (document.querySelector("#package-search-input") as HTMLInputElement)
+          ?.focus();
+      }
+    };
+    globalThis.addEventListener("keydown", keyboardHandler);
+    return function cleanup() {
+      globalThis.removeEventListener("keydown", keyboardHandler);
+    };
+  });
+
+  useEffect(() => {
+    setMacLike(isMacLike());
   }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
@@ -144,6 +164,7 @@ export function PackageSearch(
     }
   }
 
+  const placeholder = `Search for packages (${macLike ? "⌘K" : "Ctrl+K"})`;
   return (
     <div ref={ref}>
       <form
@@ -159,7 +180,7 @@ export function PackageSearch(
           type="text"
           name="search"
           class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses}`}
-          placeholder="Search for packages"
+          placeholder={placeholder}
           value={query}
           onInput={onInput}
           onKeyUp={onKeyUp}
@@ -226,11 +247,15 @@ function SuggestionList(
   if (!showSuggestions.value) return null;
 
   return (
-    <div class="absolute bg-white w-full border sibling:bg-red-500 shadow z-40">
+    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
         ? <div class="bg-white text-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
-        ? <div class="bg-white text-gray-500 italic px-4">No results</div>
+        ? (
+          <div class="bg-white text-gray-500 px-4 py-2">
+            No matching results to display
+          </div>
+        )
         : (
           <ul class="divide-y-1">
             {suggestions.value.map((pkg, i) => {

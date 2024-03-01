@@ -2,6 +2,7 @@
 export interface User {
   id: string;
   name: string;
+  githubId: number | null;
   avatarUrl: string;
   updatedAt: string;
   createdAt: string;
@@ -11,7 +12,6 @@ export interface FullUser extends User {
   email: string | null;
   isStaff: boolean;
   isBlocked: boolean;
-  githubId: number | null;
   scopeUsage: number;
   scopeLimit: number;
   inviteCount: number;

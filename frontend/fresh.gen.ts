@@ -42,6 +42,8 @@ import * as $package_source from "./routes/package/source.tsx";
 import * as $package_symbols from "./routes/package/symbols.tsx";
 import * as $package_versions from "./routes/package/versions.tsx";
 import * as $packages from "./routes/packages.tsx";
+import * as $publish_approve from "./routes/publish_approve.tsx";
+import * as $publish_deny from "./routes/publish_deny.tsx";
 import * as $status from "./routes/status.tsx";
 import * as $user_id_ from "./routes/user/[id].tsx";
 import * as $waitlist from "./routes/waitlist.tsx";
@@ -49,8 +51,10 @@ import * as $Authorize from "./islands/Authorize.tsx";
 import * as $CopyButton from "./islands/CopyButton.tsx";
 import * as $DevelopmentLogin from "./islands/DevelopmentLogin.tsx";
 import * as $GitHubActionsLink from "./islands/GitHubActionsLink.tsx";
+import * as $GithubUserLink from "./islands/GithubUserLink.tsx";
 import * as $HomepageHero from "./islands/HomepageHero.tsx";
 import * as $PackageSearch from "./islands/PackageSearch.tsx";
+import * as $PollPublishingTask from "./islands/PollPublishingTask.tsx";
 import * as $PublishingTaskRequeue from "./islands/PublishingTaskRequeue.tsx";
 import * as $UserManageScopeInvite from "./islands/UserManageScopeInvite.tsx";
 import * as $UserMenu from "./islands/UserMenu.tsx";
@@ -107,6 +111,8 @@ const manifest = {
     "./routes/package/symbols.tsx": $package_symbols,
     "./routes/package/versions.tsx": $package_versions,
     "./routes/packages.tsx": $packages,
+    "./routes/publish_approve.tsx": $publish_approve,
+    "./routes/publish_deny.tsx": $publish_deny,
     "./routes/status.tsx": $status,
     "./routes/user/[id].tsx": $user_id_,
     "./routes/waitlist.tsx": $waitlist,
@@ -116,8 +122,10 @@ const manifest = {
     "./islands/CopyButton.tsx": $CopyButton,
     "./islands/DevelopmentLogin.tsx": $DevelopmentLogin,
     "./islands/GitHubActionsLink.tsx": $GitHubActionsLink,
+    "./islands/GithubUserLink.tsx": $GithubUserLink,
     "./islands/HomepageHero.tsx": $HomepageHero,
     "./islands/PackageSearch.tsx": $PackageSearch,
+    "./islands/PollPublishingTask.tsx": $PollPublishingTask,
     "./islands/PublishingTaskRequeue.tsx": $PublishingTaskRequeue,
     "./islands/UserManageScopeInvite.tsx": $UserManageScopeInvite,
     "./islands/UserMenu.tsx": $UserMenu,

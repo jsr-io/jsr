@@ -50,16 +50,25 @@ export function RuntimeCompatIndicator(
                     : "This package works"
                 } with ${name}.`}
               >
+                <div className="sr-only">
+                  {value === undefined
+                    ? "It is unknown whether this package works"
+                    : "This package works"} with {name}
+                </div>
                 <img
                   src={icon}
                   width={w}
                   height={h}
+                  alt=""
                   class={`h-5 ${
                     value === undefined ? "filter grayscale opacity-40" : ""
                   }`}
                 />
                 {value === undefined && (
-                  <div class="absolute inset-0 h-full w-full text-blue-700 text-center leading-5 drop-shadow-md font-bold text-xl select-none">
+                  <div
+                    aria-hidden="true"
+                    class="absolute inset-0 h-full w-full text-blue-700 text-center leading-5 drop-shadow-md font-bold text-xl select-none"
+                  >
                     ?
                   </div>
                 )}
