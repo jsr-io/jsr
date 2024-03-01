@@ -140,6 +140,16 @@ export default function Score(
             </a>.
           </ScoreItem>
           <ScoreItem
+            value={Math.min(data.score.percentageDocumentedSymbols / 0.9, 1)}
+            scoreValue={5}
+            title="Uses TypeScript for most of the files"
+          >
+            At least 90% of the packages' JavaScript or TypeScript files should
+            be TypeScript files. Currently{" "}
+            {(data.score.percentageDocumentedSymbols * 100).toFixed(0)}% of
+            symbols are TypeScript.
+          </ScoreItem>
+          <ScoreItem
             value={data.score.hasDescription}
             scoreValue={1}
             title="Has a description"

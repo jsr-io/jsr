@@ -333,6 +333,7 @@ pub struct ApiPackageScore {
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool,
+  pub typescript_percentage: f32,
 
   // package wide
   pub has_description: bool,
@@ -343,7 +344,7 @@ pub struct ApiPackageScore {
 }
 
 impl ApiPackageScore {
-  pub const MAX_SCORE: u32 = 17;
+  pub const MAX_SCORE: u32 = 22;
 
   pub fn score_percentage(&self) -> u32 {
     (self.total * 100) / Self::MAX_SCORE
@@ -369,6 +370,9 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
     // You only need to document 80% of your symbols to get all the points.
     score += ((meta.percentage_documented_symbols / 0.8).min(1.0) * 5.0).floor()
       as u32;
+
+    // You only need to have 90% of your JS/TS files to get all the points.
+    score += ((meta.typescript_percentage / 0.9).min(1.0) * 5.0).floor() as u32;
 
     if meta.all_fast_check {
       score += 5;
@@ -411,6 +415,7 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
       all_entrypoints_docs: meta.all_entrypoints_docs,
       percentage_documented_symbols: meta.percentage_documented_symbols,
       all_fast_check: meta.all_fast_check,
+      typescript_percentage: meta.typescript_percentage,
       has_description: !package.description.is_empty(),
       at_least_one_runtime_compatible: compatible_runtimes_count >= 1,
       multiple_runtimes_compatible: compatible_runtimes_count >= 2,

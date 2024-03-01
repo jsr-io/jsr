@@ -222,6 +222,38 @@ async fn analyze_package_inner(
     })
     .all(|js| js.fast_check_module().is_some());
 
+  let mut total_js_modules = 0;
+  let mut typescript_modules = 0;
+  for module in graph.modules() {
+    let Some(module) = module.js() else {
+      continue;
+    };
+
+    match module.media_type {
+      MediaType::JavaScript
+      | MediaType::Jsx
+      | MediaType::Mjs
+      | MediaType::Cjs => {
+        total_js_modules += 1;
+      }
+      MediaType::TypeScript
+      | MediaType::Mts
+      | MediaType::Cts
+      | MediaType::Dts
+      | MediaType::Dmts
+      | MediaType::Dcts
+      | MediaType::Tsx => {
+        total_js_modules += 1;
+        ts_modules += 1;
+      }
+      MediaType::Json
+      | MediaType::Wasm
+      | MediaType::TsBuildInfo
+      | MediaType::SourceMap
+      | MediaType::Unknown => {}
+    }
+  }
+
   let doc_nodes =
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)
       .map_err(PublishError::DocError)?;
@@ -245,8 +277,20 @@ async fn analyze_package_inner(
   let (meta, readme_path) = {
     let readme = files.iter().find(|file| file.0.is_readme());
 
+    let typescript_percentange = if total_js_modules == 0 {
+      1.0
+    } else {
+      typescript_modules as f32 / total_js_modules as f32
+    };
+
     (
-      generate_score(main_entrypoint, &doc_nodes, &readme, all_fast_check),
+      generate_score(
+        main_entrypoint,
+        &doc_nodes,
+        &readme,
+        all_fast_check,
+        typescript_percentange,
+      ),
       readme.map(|readme| readme.0.clone()),
     )
   };
@@ -267,6 +311,7 @@ fn generate_score(
   doc_nodes_by_url: &DocNodesByUrl,
   readme: &Option<(&PackagePath, &Vec<u8>)>,
   all_fast_check: bool,
+  typescript_percentage: usize,
 ) -> PackageVersionMeta {
   let main_entrypoint_doc =
     main_entrypoint.as_ref().and_then(|main_entrypoint| {
@@ -302,6 +347,7 @@ fn generate_score(
       doc_nodes_by_url,
     ),
     all_fast_check,
+    typescript_percentage,
   }
 }
 
