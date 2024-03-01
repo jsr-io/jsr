@@ -202,6 +202,7 @@ pub fn get_generate_ctx(
       let mut map = IndexMap::new();
 
       if !runtime_compat.deno.is_some_and(|compat| !compat) {
+        let scoped_name = format!("@{scope}/{package}");
         let import = deno_doc::html::usage_to_md(ctx, doc_nodes, url);
         map.insert(
           "Deno".to_string(),
