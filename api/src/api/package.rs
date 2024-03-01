@@ -266,9 +266,7 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
-    orama_client
-      .upsert_package(&package, &Default::default())
-      .await?;
+    orama_client.upsert_package(&package, &Default::default());
   }
 
   Ok(ApiPackage::from((package, None, Default::default())))
@@ -370,7 +368,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         .update_package_runtime_compat(&scope, &package, &runtime_compat)
         .await?;
       if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta).await?;
+        orama_client.upsert_package(&package, &meta);
       }
       Ok(ApiPackage::from((package, repo, meta)))
     }
@@ -379,7 +377,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         .update_package_is_featured(&scope, &package, is_featured)
         .await?;
       if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta).await?;
+        orama_client.upsert_package(&package, &meta);
       }
       Ok(ApiPackage::from((package, repo, meta)))
     }
@@ -419,7 +417,7 @@ async fn update_description(
     .await?;
 
   if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &meta).await?;
+    orama_client.upsert_package(&package, &meta);
   }
 
   let npm_version_manifest_path =
