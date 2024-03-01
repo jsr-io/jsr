@@ -203,7 +203,8 @@ pub fn get_generate_ctx(
 
       if !runtime_compat.deno.is_some_and(|compat| !compat) {
         let scoped_name = format!("@{scope}/{package}");
-        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, url);
+        let import =
+          deno_doc::html::usage_to_md(ctx, doc_nodes, scoped_name.clone());
         map.insert(
           "Deno".to_string(),
           format!("```\ndeno add {scoped_name}\n```\n{import}"),
