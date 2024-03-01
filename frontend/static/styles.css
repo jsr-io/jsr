@@ -97,7 +97,7 @@
 @layer components {
   .button {
     @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5 rounded-md leading-tight font-medium
-      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2;
+      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2 select-none;
   }
 
   .button-sm {
