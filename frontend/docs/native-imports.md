@@ -54,7 +54,7 @@ constraints in your code, you can use
 to map the `jsr:` scheme to a different prefix.
 
 In **Deno** you can do this by adding a line to the `"imports"` section in your
-`deno.json`:
+`deno.json`. You can do this manually, or by using the `deno add` command:
 
 ```diff
  {
