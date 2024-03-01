@@ -48,7 +48,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
     >
       <div class="mt-4 flex gap-4">
         <input
-          class="block w-full max-w-sm p-1.5 input-container input"
+          class="block w-full max-w-sm px-3 input-container text-sm input"
           type="text"
           name="githubLogin"
           placeholder="GitHub username"
