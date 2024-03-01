@@ -3,31 +3,53 @@ title: Using JSR with Deno
 description: Learn how to use JSR packages with Deno.
 ---
 
-[**Deno**](https://deno.land) is a secure runtime for JavaScript and TypeScript.
+[**Deno**](https://deno.com) is a secure runtime for JavaScript and TypeScript.
+It has native support for JSR imports using either an import map or `jsr:`
+specifiers.
 
-Deno has [native support for JSR](/docs/using-packages#native-jsr-imports). JSR
-packages can be used in Deno by importing them using the `jsr:` scheme:
+## Using import maps
 
-```ts
-import { printProgress } from "jsr:@luca/flag@1";
+Deno supports web standard
+[import maps](https://docs.deno.com/runtime/manual/basics/import_maps), and a
+special `imports` section of the `deno.json` configuration file. You can add JSR
+imports manually to `deno.json`, or you can add them using the `deno add`
+command.
+
+In this example, we add the most recent version of
+[`@luca/flag`](https://jsr.io/@luca/flag) to your project.
+
+```bash
+deno add @luca/flag
 ```
 
-You can also add JSR packages to your `deno.json`'s `"imports"` section to
-simplify your imports:
+After executing this command, you will have an import map entry in `deno.json`
+that looks something like this:
 
 ```json
-// deno.json
 {
   "imports": {
-    "@luca/flag": "jsr:@luca/flag@1"
+    "@luca/flag": "jsr:@luca/flag@^1.0.1"
   }
 }
 ```
 
-You can then import the package using the alias defined in your `deno.json`:
+You can then use the module from code like this:
 
 ```ts
 import { printProgress } from "@luca/flag";
+printProgress();
+```
+
+## Using JSR specifiers
+
+In Deno, you can use packages without an install step by using `jsr:` specifiers
+directly within your source files. In this example, we import the `@luca/flag`
+module directly in our code, without needing an import map entry.
+
+```ts
+import { printProgress } from "jsr:@luca/flag@^1.0.1";
+
+printProgress();
 ```
 
 Learn more about [using JSR packages](/docs/using-packages).

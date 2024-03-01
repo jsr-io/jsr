@@ -202,9 +202,10 @@ pub fn get_generate_ctx(
       let mut map = IndexMap::new();
 
       if !runtime_compat.deno.is_some_and(|compat| !compat) {
+        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, url);
         map.insert(
           "Deno".to_string(),
-          deno_doc::html::usage_to_md(ctx, doc_nodes, url),
+          format!("```\ndeno add {scoped_name}\n```\n{import}"),
         );
       }
 
@@ -214,15 +215,15 @@ pub fn get_generate_ctx(
           deno_doc::html::usage_to_md(ctx, doc_nodes, scoped_name.clone());
         map.insert(
           "npm".to_string(),
-          format!("```\nnpx jsr i {scoped_name}\n```\n{import}"),
+          format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
         );
         map.insert(
           "Yarn".to_string(),
-          format!("```\nyarn dlx jsr i {scoped_name}\n```\n{import}"),
+          format!("```\nyarn dlx jsr add {scoped_name}\n```\n{import}"),
         );
         map.insert(
           "pnpm".to_string(),
-          format!("```\npnpm dlx jsr i {scoped_name}\n```\n{import}"),
+          format!("```\npnpm dlx jsr add {scoped_name}\n```\n{import}"),
         );
       }
 
@@ -232,7 +233,7 @@ pub fn get_generate_ctx(
           deno_doc::html::usage_to_md(ctx, doc_nodes, scoped_name.clone());
         map.insert(
           "Bun".to_string(),
-          format!("```\nbunx jsr i {scoped_name}\n```\n{import}"),
+          format!("```\nbunx jsr add {scoped_name}\n```\n{import}"),
         );
       }
 
