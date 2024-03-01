@@ -86,6 +86,7 @@ impl From<PublishingTask> for ApiPublishingTask {
 pub struct ApiUser {
   pub id: Uuid,
   pub name: String,
+  pub github_id: Option<i64>,
   pub avatar_url: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -96,6 +97,7 @@ impl From<User> for ApiUser {
     Self {
       id: user.id,
       name: user.name,
+      github_id: user.github_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -108,6 +110,7 @@ impl From<UserPublic> for ApiUser {
     Self {
       id: user.id,
       name: user.name,
+      github_id: user.github_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
