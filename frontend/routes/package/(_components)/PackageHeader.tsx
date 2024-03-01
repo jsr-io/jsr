@@ -61,7 +61,7 @@ export function PackageHeader(
                 }`}
                 style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
               >
-                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold p-1 min-w-11">
+                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold p-1 min-w-12">
                   {pkg.score}%
                 </span>
               </div>
