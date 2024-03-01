@@ -28,6 +28,12 @@ export default function PackagePage(
         <title>
           @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`@${params.scope}/${params.package} on JSR${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader
@@ -42,12 +48,12 @@ export default function PackagePage(
         latestVersion={data.package.latestVersion}
       />
 
-      {data.docs
+      {data.docs && data.selectedVersion
         ? (
           <DocsView
             docs={data.docs}
             params={params as unknown as Params}
-            selectedVersion={data.selectedVersion ?? undefined}
+            selectedVersion={data.selectedVersion}
           />
         )
         : (
@@ -76,6 +82,15 @@ export const handler: Handlers<Data, State> = {
       selectedVersion,
       docs,
     } = res;
+
+    if (scopeMember && pkg.latestVersion === null) {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          Location: `/@${pkg.scope}/${pkg.name}/publish`,
+        },
+      });
+    }
 
     return ctx.render({
       package: pkg,

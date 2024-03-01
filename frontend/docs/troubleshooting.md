@@ -55,7 +55,8 @@ package, or [excluding it](/docs/publishing-packages#ignoring-files) in your
 
 Path rules are as follows:
 
-- Less than 160 chars
+- Less than 155 chars
+- The last component (filename) of the path must be less than 95 chars
 - Path must not end in a slash
 - Must not contain a double slash (`//`)
 - Must not contain a `.` or `..` path segment
@@ -171,7 +172,7 @@ match the version of the package being published.
 
 The package being published contains a config file that is either missing an
 `exports` field, or has an `exports` field that is not valid.
-[Learn more about exports](/docs/publishing-oackages#package-metadata).
+[Learn more about exports](/docs/publishing-packages#package-config-file).
 
 You can fix this error by updating the `exports` field of your config file to be
 one of the two valid forms:

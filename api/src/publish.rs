@@ -764,6 +764,7 @@ pub mod tests {
       serde_json::from_slice(&json).unwrap()
     };
     assert_eq!(package_metadata.name, package_name);
+    assert_eq!(package_metadata.latest, Some(version));
     assert_eq!(package_metadata.versions.len(), 1);
   }
 
@@ -1010,6 +1011,17 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "missingConfigFile");
+  }
+
+  #[tokio::test]
+  async fn no_long_paths() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_long_paths");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "invalidPath");
+    assert!(error.message.contains("a_very_long_filename_created_specifically_to_test_the_limitations_of_the_set_path_method_in_the_rust_tar_crate_exceeding_one_hundred_bytes"));
   }
 
   #[tokio::test]

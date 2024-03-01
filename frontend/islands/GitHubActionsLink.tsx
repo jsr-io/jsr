@@ -3,8 +3,8 @@ import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import { FullUser, Package } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
-import { getOrInsertItem } from "../utils/client_cache.ts";
 import { GitHubRepoInput } from "../components/GitHubRepoInput.tsx";
+import { cachedGitHubLogin } from "../utils/github.ts";
 
 export function GitHubActionsLink(
   { pkg, user }: { pkg: Package; user?: FullUser },
@@ -16,21 +16,10 @@ export function GitHubActionsLink(
 
   useEffect(() => {
     if (user) {
-      getOrInsertItem(
-        `gh-login-${user.githubId}`,
-        () =>
-          fetch(`https://api.github.com/user/${user.githubId}`, {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          })
-            .then((r) => r.json())
-            .then((data) => {
-              return data.login;
-            }),
-      ).then((login) => {
-        if (owner.value == "") owner.value = login;
-      })
+      cachedGitHubLogin(user)
+        .then((login) => {
+          if (owner.value == "") owner.value = login;
+        })
         .catch(console.error);
     }
   });

@@ -1,12 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { batch, computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import { OramaPackageHit } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import { List, Package } from "../utils/api_types.ts";
+import { PackageHit } from "../components/PackageHit.tsx";
+import { isMacLike } from "../utils/os.ts";
 
 interface PackageSearchProps {
   query?: string;
@@ -35,6 +37,7 @@ export function PackageSearch(
   const showSuggestions = computed(() =>
     isFocused.value && search.value.length > 0
   );
+  const [macLike, setMacLike] = useState(true);
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -53,6 +56,24 @@ export function PackageSearch(
 
     document.addEventListener("click", outsideClick);
     return () => document.removeEventListener("click", outsideClick);
+  }, []);
+
+  useEffect(() => {
+    const keyboardHandler = (e: KeyboardEvent) => {
+      if (((e.metaKey || e.ctrlKey) && e.key === "k")) {
+        e.preventDefault();
+        (document.querySelector("#package-search-input") as HTMLInputElement)
+          ?.focus();
+      }
+    };
+    globalThis.addEventListener("keydown", keyboardHandler);
+    return function cleanup() {
+      globalThis.removeEventListener("keydown", keyboardHandler);
+    };
+  });
+
+  useEffect(() => {
+    setMacLike(isMacLike());
   }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
@@ -143,6 +164,7 @@ export function PackageSearch(
     }
   }
 
+  const placeholder = `Search for packages (${macLike ? "⌘K" : "Ctrl+K"})`;
   return (
     <div ref={ref}>
       <form
@@ -151,18 +173,24 @@ export function PackageSearch(
         class="flex w-full"
         onSubmit={onSubmit}
       >
+        <label htmlFor="package-search-input" class="sr-only">
+          Search for packages
+        </label>
         <input
           type="text"
           name="search"
-          aria-label="Search for packages"
           class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses}`}
-          placeholder="Search for packages"
+          placeholder={placeholder}
           value={query}
           onInput={onInput}
           onKeyUp={onKeyUp}
           onFocus={() => isFocused.value = true}
           autoComplete="off"
-          aria-expanded="false"
+          aria-expanded={showSuggestions}
+          aria-autocomplete="list"
+          aria-controls="package-search-results"
+          role="combobox"
+          id="package-search-input"
         />
 
         <button
@@ -192,7 +220,13 @@ export function PackageSearch(
           </svg>
         </button>
       </form>
-      <div role="listbox" tabindex={query?.length ? 0 : -1} class="relative">
+      <div
+        role="listbox"
+        id="package-search-results"
+        tabindex={query?.length ? 0 : -1}
+        class="relative"
+        aria-label="Search results"
+      >
         <SuggestionList
           showSuggestions={showSuggestions}
           suggestions={suggestions}
@@ -213,28 +247,28 @@ function SuggestionList(
   if (!showSuggestions.value) return null;
 
   return (
-    <div class="absolute bg-white w-full border sibling:bg-red-500 shadow z-40">
+    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
         ? <div class="bg-white text-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
-        ? <div class="bg-white text-gray-500 italic px-4">No results</div>
+        ? (
+          <div class="bg-white text-gray-500 px-4 py-2">
+            No matching results to display
+          </div>
+        )
         : (
           <ul class="divide-y-1">
             {suggestions.value.map((pkg, i) => {
               const selected = computed(() => selectionIdx.value === i);
+              const hit = PackageHit(pkg);
               return (
                 <li
                   key={pkg.scope + pkg.name}
                   class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
                   aria-selected={selected}
                 >
-                  <a href={`/@${pkg.scope}/${pkg.name}`} class="bg-red-600">
-                    <div class="text-cyan-700 font-semibold">
-                      @{pkg.scope}/{pkg.name}
-                    </div>
-                    <div class="text-sm text-gray-500">
-                      {pkg.description || "-"}
-                    </div>
+                  <a href={hit.href} class="bg-red-600">
+                    {hit.content}
                   </a>
                 </li>
               );
@@ -242,8 +276,10 @@ function SuggestionList(
           </ul>
         )}
       <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
-        <span class="text-sm text-gray-500">powered by</span>
-        <img class="h-4" src="/logos/orama-dark.svg" />
+        <span class="text-sm text-gray-500">
+          powered by <span class="sr-only">Orama</span>
+        </span>
+        <img class="h-4" src="/logos/orama-dark.svg" alt="" />
       </div>
     </div>
   );

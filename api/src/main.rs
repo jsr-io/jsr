@@ -136,10 +136,13 @@ async fn main() {
   };
   setup_tracing("api", export_target).await;
 
-  let database =
-    Database::connect(&config.database_url, 3, Duration::from_secs(5))
-      .await
-      .unwrap();
+  let database = Database::connect(
+    &config.database_url,
+    config.database_pool_size,
+    Duration::from_secs(5),
+  )
+  .await
+  .unwrap();
 
   let gcp_client = gcp::Client::new(config.metadata_strategy);
   let publishing_bucket = BucketWithQueue::new(gcp::Bucket::new(

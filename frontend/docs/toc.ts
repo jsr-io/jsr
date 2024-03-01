@@ -24,6 +24,11 @@ export default [
     group: "Guide",
   },
   {
+    title: "Writing documentation",
+    id: "writing-docs",
+    group: "Guide",
+  },
+  {
     title: "Troubleshooting",
     id: "troubleshooting",
     group: "Guide",
@@ -72,6 +77,16 @@ export default [
   {
     title: 'About "slow types"',
     id: "about-slow-types",
+    group: "Reference",
+  },
+  {
+    title: "Scoring",
+    id: "scoring",
+    group: "Reference",
+  },
+  {
+    title: "Provenance and trust",
+    id: "trust",
     group: "Reference",
   },
   {

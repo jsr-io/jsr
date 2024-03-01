@@ -138,6 +138,10 @@ pub struct Config {
   #[clap(long = "email_from_name", env = "EMAIL_FROM_NAME")]
   /// The name to send emails from.
   pub email_from_name: Option<String>,
+
+  #[clap(long = "database_pool_size", default_value = "3")]
+  /// The size of the database connection pool.
+  pub database_pool_size: u32,
 }
 
 impl std::fmt::Debug for Config {

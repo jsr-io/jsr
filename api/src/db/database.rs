@@ -59,7 +59,7 @@ impl Database {
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(
       UserPublic,
-      r#"SELECT id, name, avatar_url, updated_at, created_at
+      r#"SELECT id, name, avatar_url, github_id, updated_at, created_at
       FROM users
       WHERE id = $1"#,
       id
@@ -673,7 +673,7 @@ impl Database {
       scopes.verify_oidc_actor as "scope_verify_oidc_actor",
       scopes.updated_at as "scope_updated_at",
       scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
@@ -702,6 +702,7 @@ impl Database {
           id: r.user_id,
           name: r.user_name,
           avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -741,7 +742,7 @@ impl Database {
       scopes.updated_at as "scope_updated_at",
       scopes.verify_oidc_actor as "scope_verify_oidc_actor",
       scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
@@ -775,6 +776,7 @@ impl Database {
           id: r.user_id,
           name: r.user_name,
           avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -1210,7 +1212,7 @@ impl Database {
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
     sqlx::query!(
       r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id",
-      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
+      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
       WHERE package_versions.scope = $1 AND package_versions.name = $2
@@ -1239,6 +1241,7 @@ impl Database {
           id: r.user_id.unwrap(),
           name: r.user_name.unwrap(),
           avatar_url: r.user_avatar_url.unwrap(),
+          github_id: r.user_github_id,
           updated_at: r.user_updated_at.unwrap(),
           created_at: r.user_created_at.unwrap(),
         };
@@ -1700,7 +1703,7 @@ impl Database {
   ) -> Result<Vec<(ScopeMember, UserPublic)>> {
     sqlx::query!(
       r#"SELECT scope_members.scope as "scope_member_scope: ScopeName", scope_members.user_id as "scope_member_user_id", scope_members.is_admin as "scope_member_is_admin", scope_members.updated_at as "scope_member_updated_at", scope_members.created_at as "scope_member_created_at",
-        users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
+        users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
       FROM scope_members
       LEFT JOIN users ON scope_members.user_id = users.id
       WHERE scope = $1
@@ -1719,6 +1722,7 @@ impl Database {
         id: r.user_id,
         name: r.user_name,
         avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
         updated_at: r.user_updated_at,
         created_at: r.user_created_at,
       };
@@ -1796,8 +1800,8 @@ impl Database {
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
     sqlx::query!(
       r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.github_id as "target_user_github_id", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
+        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.github_id as "requesting_user_github_id", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
@@ -1816,6 +1820,7 @@ impl Database {
           id: r.target_user_id,
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
+          github_id: r.target_user_github_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -1823,6 +1828,7 @@ impl Database {
           id: r.requesting_user_id,
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
+          github_id: r.requesting_user_github_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -1839,8 +1845,8 @@ impl Database {
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
     sqlx::query!(
       r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.github_id as "target_user_github_id", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
+        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.github_id as "requesting_user_github_id", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
@@ -1859,6 +1865,7 @@ impl Database {
           id: r.target_user_id,
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
+          github_id: r.target_user_github_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -1866,6 +1873,7 @@ impl Database {
           id: r.requesting_user_id,
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
+          github_id: r.requesting_user_github_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -2007,6 +2015,57 @@ impl Database {
     }
   }
 
+  pub async fn transfer_scope<'a>(
+    &self,
+    scope: &ScopeName,
+    is_creator: bool,
+    tx: &mut sqlx::Transaction<'a, sqlx::Postgres>,
+  ) -> Result<Option<ScopeMemberUpdateResult>> {
+    let admins_n = sqlx::query!(
+      r#"SELECT COUNT(user_id) FROM scope_members WHERE scope = $1 AND is_admin = true"#,
+      scope as _,
+    )
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut **tx)
+      .await?;
+    if admins_n == 0 {
+      return Ok(Some(ScopeMemberUpdateResult::TargetIsLastAdmin));
+    }
+
+    let maybe_available_admin_id = sqlx::query!(
+      r#"
+      SELECT user_id
+      FROM (
+        SELECT scope_members.user_id as "user_id", users.scope_limit as "scope_limit", scope_members.created_at as "created_at", (SELECT COUNT(created_at) FROM scopes WHERE creator = users.id) as "scope_usage"
+        FROM scope_members
+        LEFT JOIN users ON scope_members.user_id = users.id
+        WHERE scope_members.scope = $1 AND scope_members.is_admin = true
+      ) AS subquery
+      WHERE "scope_usage" < scope_limit
+      ORDER BY created_at LIMIT 1;
+      "#,
+      scope as _,
+    )
+      .map(|r| r.user_id)
+      .fetch_optional(&mut **tx)
+      .await?;
+    let Some(new_creator_id) = maybe_available_admin_id else {
+      return Ok(Some(ScopeMemberUpdateResult::TargetIsLastTransferableAdmin));
+    };
+
+    if is_creator {
+      let _ = sqlx::query!(
+        r#"UPDATE scopes SET creator = $1 WHERE scope = $2"#,
+        new_creator_id,
+        scope as _,
+      )
+      .execute(&mut **tx)
+      .await?;
+    }
+
+    Ok(None)
+  }
+
   #[instrument(name = "Database::delete_scope_member", skip(self), err)]
   pub async fn update_scope_member_role(
     &self,
@@ -2015,32 +2074,41 @@ impl Database {
     is_admin: bool,
   ) -> Result<ScopeMemberUpdateResult> {
     let mut tx = self.pool.begin().await?;
-    let maybe_scope_member = sqlx::query_as!(
-      ScopeMember,
+    let maybe_scope_member = sqlx::query!(
       r#"UPDATE scope_members
       SET is_admin = $1
       WHERE scope = $2 AND user_id = $3
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at,
+      (SELECT creator FROM scopes WHERE scope = $2) AS "scope_creator!""#,
       is_admin,
       scope as _,
       user_id,
     )
-    .fetch_optional(&mut *tx)
+      .map(|r| {
+        (
+          ScopeMember {
+            scope: r.scope,
+            user_id: r.user_id,
+            is_admin: r.is_admin,
+            updated_at: r.updated_at,
+            created_at: r.created_at,
+          },
+          r.user_id == r.scope_creator
+        )
+      })
+      .fetch_optional(&mut *tx)
     .await?;
-    let Some(scope_member) = maybe_scope_member else {
+
+    let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    let admins = sqlx::query!(
-      r#"SELECT user_id FROM scope_members
-      WHERE scope = $1 AND is_admin = true
-      "#,
-      scope as _,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-    if admins.is_empty() {
-      return Ok(ScopeMemberUpdateResult::TargetIsLastAdmin);
+    if !scope_member.is_admin {
+      if let Some(result) =
+        self.transfer_scope(scope, is_creator, &mut tx).await?
+      {
+        return Ok(result);
+      }
     }
 
     tx.commit().await?;
@@ -2056,29 +2124,35 @@ impl Database {
   ) -> Result<ScopeMemberUpdateResult> {
     let mut tx = self.pool.begin().await?;
 
-    let maybe_scope_member = sqlx::query_as!(
-      ScopeMember,
+    let maybe_scope_member = sqlx::query!(
       r#"DELETE FROM scope_members WHERE scope = $1 AND user_id = $2
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at,
+      (SELECT creator FROM scopes WHERE scope = $1) AS "scope_creator!""#,
       scope as _,
       user_id,
     )
+    .map(|r| {
+      (
+        ScopeMember {
+          scope: r.scope,
+          user_id: r.user_id,
+          is_admin: r.is_admin,
+          updated_at: r.updated_at,
+          created_at: r.created_at,
+        },
+        r.user_id == r.scope_creator
+      )
+    })
     .fetch_optional(&mut *tx)
     .await?;
-    let Some(scope_member) = maybe_scope_member else {
+    let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    let admins = sqlx::query!(
-      r#"SELECT user_id FROM scope_members
-      WHERE scope = $1 AND is_admin = true
-      "#,
-      scope as _,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-    if admins.is_empty() {
-      return Ok(ScopeMemberUpdateResult::TargetIsLastAdmin);
+    if let Some(result) =
+      self.transfer_scope(scope, is_creator, &mut tx).await?
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -2697,6 +2771,7 @@ async fn finalize_package_creation(
 pub enum ScopeMemberUpdateResult {
   Ok(ScopeMember),
   TargetIsLastAdmin,
+  TargetIsLastTransferableAdmin,
   TargetNotMember,
 }
 

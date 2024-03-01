@@ -65,15 +65,17 @@ resource "google_compute_backend_service" "registry_frontend" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
   custom_response_headers = [
-    "x-deno-cache-id: {cdn_cache_id}",
-    "x-deno-cache-status: {cdn_cache_status}",
+    "x-jsr-cache-id: {cdn_cache_id}",
+    "x-jsr-cache-status: {cdn_cache_status}",
   ]
 
   enable_cdn = true
   cdn_policy {
     cache_mode = "USE_ORIGIN_HEADERS"
     cache_key_policy {
-      include_query_string = true
+      include_query_string  = true
+      include_http_headers  = ["x-jsr-bypass-waitlist"]
+      include_named_cookies = ["token"] # segment cache by user
     }
     serve_while_stale = 0        # don't serve stale content
     default_ttl       = 0        # no caching unless specified by the backend

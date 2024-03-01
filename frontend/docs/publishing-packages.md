@@ -125,7 +125,7 @@ import * as express from "npm:express@4";
 You may import JSR packages specified in the `"dependencies"` of a
 `package.json`, ones specified in an import map or `deno.json`, or ones
 specified in source code using `jsr:` specifiers.
-[Learn more about using JSR packages](/docs/using-jsr).
+[Learn more about using JSR packages](/docs/using-packages).
 
 ```json
 // package.json

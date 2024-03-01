@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { FullUser } from "../utils/api_types.ts";
 import { PackageSearch } from "../islands/PackageSearch.tsx";
@@ -32,7 +31,7 @@ export function Header({ user, url }: {
           : (
             <a href="/" class="outline-none focus-visible:ring-2 ring-cyan-700">
               <span className="sr-only">JSR home</span>
-              <Logo class="h-6 flex-none hover:animate-flip-rotate" />
+              <Logo class="h-8 flex-none hover:animate-flip-rotate" />
             </a>
           )}
         <div class="hidden sm:block grow-1 flex-1">

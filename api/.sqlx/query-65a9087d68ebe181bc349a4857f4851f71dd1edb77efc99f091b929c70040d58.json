@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE scope_members\n      SET is_admin = $1\n      WHERE scope = $2 AND user_id = $3\n      RETURNING scope as \"scope: ScopeName\", user_id, is_admin, updated_at, created_at",
+  "query": "UPDATE scope_members\n      SET is_admin = $1\n      WHERE scope = $2 AND user_id = $3\n      RETURNING scope as \"scope: ScopeName\", user_id, is_admin, updated_at, created_at,\n      (SELECT creator FROM scopes WHERE scope = $2) AS \"scope_creator!\"",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,11 @@
         "ordinal": 4,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "scope_creator!",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
@@ -41,8 +46,9 @@
       false,
       false,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "16a5d405b117cadf36af615a1e15837c31a8c595dc9c7a4f503b7e7e0dd07215"
+  "hash": "65a9087d68ebe181bc349a4857f4851f71dd1edb77efc99f091b929c70040d58"
 }

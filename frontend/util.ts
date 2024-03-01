@@ -31,7 +31,7 @@ export interface OramaPackageHit {
   name: string;
   description: string;
   runtimeCompat: RuntimeCompat;
-  score: number;
+  score: number | null;
 }
 
 export interface PaginationData {

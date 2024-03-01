@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT user_id\n      FROM (\n        SELECT scope_members.user_id as \"user_id\", users.scope_limit as \"scope_limit\", scope_members.created_at as \"created_at\", (SELECT COUNT(created_at) FROM scopes WHERE creator = users.id) as \"scope_usage\"\n        FROM scope_members\n        LEFT JOIN users ON scope_members.user_id = users.id\n        WHERE scope_members.scope = $1 AND scope_members.is_admin = true\n      ) AS subquery\n      WHERE \"scope_usage\" < scope_limit\n      ORDER BY created_at LIMIT 1;\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "449c1e1994319f199ae1d296d64b0b60f52b27028c2efb04f66306cf43d68319"
+}
