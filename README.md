@@ -16,15 +16,9 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 **Goals**
 
 - Robust
-  - Avoid using Deno infrastructure in order to prevent circular dependencies
-    between systems.
 - Low maintenance
 - Cheap
 - Open source
-
-**Non-goals**
-
-- Dogfooding Deno
 
 **Implementation details**
 
