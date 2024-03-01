@@ -198,7 +198,7 @@ pub fn get_generate_ctx(
         })
         .clone(),
     }),
-    usage_composer: Some(Rc::new(move |ctx, doc_nodes, url| {
+    usage_composer: Some(Rc::new(move |ctx, doc_nodes, _url| {
       let mut map = IndexMap::new();
 
       if !runtime_compat.deno.is_some_and(|compat| !compat) {
