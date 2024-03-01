@@ -186,7 +186,10 @@ export function HomepageHero(
           />
         </div>
         <div class="flex flex-col items-center gap-4">
-          <a class="button-primary relative z-10 pointer-events-auto" href="/new">
+          <a
+            class="button-primary relative z-10 pointer-events-auto"
+            href="/new"
+          >
             <Plus /> Publish a package
           </a>
         </div>
