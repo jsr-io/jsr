@@ -67,6 +67,14 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
             {data.title}
           </h1>
           <Markdown source={data.content} />
+          <p class="mt-6 text-sm">
+            <a
+              class="link"
+              href={`https://github.com/jsr-io/jsr/blob/main/frontend/docs/${data.id}.md`}
+            >
+              Edit this page on GitHub
+            </a>
+          </p>
         </div>
       </div>
     </div>
