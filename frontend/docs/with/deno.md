@@ -11,9 +11,9 @@ specifiers.
 
 Deno supports web standard
 [import maps](https://docs.deno.com/runtime/manual/basics/import_maps), the
-`deno.json` configuration file can act as an import map with the `"imports"` field.
-You can add JSR imports manually to `deno.json`, or you can add them using the
-`deno add` command.
+`deno.json` configuration file can act as an import map with the `"imports"`
+field. You can add JSR imports manually to `deno.json`, or you can add them
+using the `deno add` command.
 
 In this example, we add the most recent version of
 [`@luca/flag`](https://jsr.io/@luca/flag) to your project.
