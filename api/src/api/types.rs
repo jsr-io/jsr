@@ -364,7 +364,7 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
     }
 
     // You only need to document 80% of your symbols to get all the points.
-    score += ((meta.percentage_documented_symbols + 0.2).min(1.0) * 5.0).floor()
+    score += ((meta.percentage_documented_symbols / 0.8).min(1.0) * 5.0).floor()
       as u32;
 
     if meta.all_fast_check {
@@ -427,7 +427,7 @@ pub struct ApiPackage {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub version_count: u64,
-  pub score: u32,
+  pub score: Option<u32>,
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
 }
@@ -447,7 +447,10 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       updated_at: package.updated_at,
       created_at: package.created_at,
       version_count: package.version_count as u64,
-      score: score.score_percentage(),
+      score: package
+        .latest_version
+        .as_ref()
+        .map(|_| score.score_percentage()),
       latest_version: package.latest_version,
       when_featured: package.when_featured,
     }

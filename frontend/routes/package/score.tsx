@@ -23,8 +23,6 @@ interface Data {
   member: ScopeMember | null;
 }
 
-export const MAX_SCORE = 17;
-
 export default function Score(
   { data, params, state }: PageProps<Data, State>,
 ) {
@@ -68,12 +66,12 @@ export default function Score(
           </div>
           <div
             class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
-              getScoreBgColorClass(data.package.score)
+              getScoreBgColorClass(data.package.score!)
             }`}
             style={`background-image: conic-gradient(transparent, transparent ${data.package.score}%, #e7e8e8 ${data.package.score}%)`}
           >
             <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
-              {data.package.score}%
+              {data.package.score!}%
             </span>
           </div>
           <div class="text-gray-500 text-sm text-center mt-6">
@@ -120,7 +118,9 @@ export default function Score(
             summarizing what is defined in that module.
           </ScoreItem>
           <ScoreItem
-            value={Math.min(1, data.score.percentageDocumentedSymbols + 0.2)}
+            value={Math.floor(
+              Math.min(data.score.percentageDocumentedSymbols / 0.8, 1) * 5,
+            )}
             scoreValue={5}
             title="Has docs for most symbols"
           >
