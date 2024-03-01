@@ -3,21 +3,20 @@ export function Logo(props: { class?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 638 343"
-      fill="none"
+      viewBox="-1.5 -0.5 16 8"
       class={props.class}
       aria-hidden="true"
     >
-      <g fill-rule="evenodd">
-        <path
-          fill="#083344"
-          d="M637.272 49v196h-98v98h-343v-49h-196V98h98V0h343v49h196Z"
-        />
-        <path
-          fill="#F7DF1E"
-          d="M100.101 196h47.171V49h49v196H51.102v-98H100.1v49ZM588.272 98v98h-49v-49h-49v147h-49V98h147ZM294.272 98v49h98v147h-147v-49h98v-49h-98V49h147v49h-98Z"
-        />
-      </g>
+      <path
+        d="M0,2h2v-2h7v1h4v4h-2v2h-7v-1h-4"
+        fill="#083344"
+      />
+      <path
+        d="M1.5,3.5v1h2v-3m4,0h-2v2h2v2h-2m4,0v-3h2v1"
+        fill="none"
+        stroke="#f7df1e"
+        stroke-linecap="square"
+      />
     </svg>
   );
 }
