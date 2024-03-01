@@ -56,7 +56,7 @@ export default function Score(
       <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
         <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
           <div class="flex gap-2 items-center mb-4">
-            <img src="/logo.svg" class="w-16" alt="JSR logo" />
+            <img src="/logo.svg" class="w-16 select-none" alt="JSR logo" />
             <h2 class="text-2xl font-semibold">
               <span class="sr-only">JSR</span> Score
             </h2>

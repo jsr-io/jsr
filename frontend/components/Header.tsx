@@ -22,7 +22,7 @@ export function Header({ user, url }: {
   return (
     <div
       class={`section-x-inset-xl w-full py-4 sm:h-[72px] ${
-        isHomepage ? "absolute z-50 top-0 left-0 right-0 bg-transparent" : ""
+        isHomepage ? "absolute z-50 top-0 left-0 right-0 bg-transparent pointer-events-none" : ""
       }`}
     >
       <div class="flex justify-between items-center text-base md:text-lg flex-wrap gap-4 lg:gap-8 h-full">
@@ -45,7 +45,7 @@ export function Header({ user, url }: {
             />
           )}
         </div>
-        <div class="flex gap-2 sm:gap-4 items-center">
+        <div class="flex gap-2 sm:gap-4 items-center pointer-events-auto">
           <a
             href="/packages"
             class="link-header"
@@ -71,7 +71,7 @@ export function Header({ user, url }: {
         </div>
       </div>
       <div class="mt-4 sm:hidden">
-        {url.pathname !== "/" && (
+        {!isHomepage && (
           <PackageSearch
             query={url.searchParams.get("search") ?? undefined}
             apiKey={apiKey}
