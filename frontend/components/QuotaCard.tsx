@@ -10,7 +10,7 @@ export function QuotaCard(
   },
 ) {
   return (
-    <div class="ring-1 ring-jsr-cyan-950 rounded-md px-4 py-5 flex flex-col justify-between">
+    <div class="border-1.5 border-jsr-cyan-950 rounded-md px-4 py-5 flex flex-col justify-between">
       <div>
         <p class="font-semibold text-gray-900">{props.title}</p>
         <p class="text-gray-600 text-sm">{props.description}</p>
