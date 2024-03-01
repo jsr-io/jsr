@@ -37,8 +37,14 @@ export default function Layout(
           class="text-cyan-700 hover:text-blue-400 underline"
         >
           Docs
+        </a> -{" "}
+        <a
+          href="https://github.com/jsr-io/jsr"
+          class="text-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>GitHub</span>
         </a>
-        {state?.span.isSampled ? `— x-deno-ray: ${state.span.traceId}` : null}
+        {state?.span.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
       </footer>
     </>
   );
