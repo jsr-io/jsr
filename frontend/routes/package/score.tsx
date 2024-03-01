@@ -118,9 +118,7 @@ export default function Score(
             summarizing what is defined in that module.
           </ScoreItem>
           <ScoreItem
-            value={Math.floor(
-              Math.min(data.score.percentageDocumentedSymbols / 0.8, 1) * 5,
-            )}
+            value={Math.min(data.score.percentageDocumentedSymbols / 0.8, 1)}
             scoreValue={5}
             title="Has docs for most symbols"
           >
