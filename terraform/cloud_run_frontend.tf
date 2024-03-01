@@ -5,6 +5,7 @@ locals {
     "CLOUD_TRACE"           = "true"
     "ORAMA_PUBLIC_API_KEY"  = var.orama_public_api_key
     "ORAMA_PUBLIC_INDEX_ID" = var.orama_public_index_id
+    "SKIP_WAITLIST"         = "1"
   }
   frontend_regions = toset([
     "us-central1",          # Iowa
