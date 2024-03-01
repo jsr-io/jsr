@@ -4,50 +4,46 @@ description: JSR is a new modern package registry for JavaScript and TypeScript.
 ---
 
 The JavaScript Registry (**JSR**) is a modern package registry for JavaScript
-and TypeScript. JSR is designed to be fast, simple, and reliable, and work
-across many JavaScript runtimes. It's backwards compatible with npm, and
-natively supports TypeScript. [Learn more about why we built JSR](/docs/why).
+and TypeScript. JSR works with many runtimes (Node, Deno, browsers, and more)
+and is backwards compatible with npm.
+[Learn more about why we built JSR](/docs/why).
 
 ## Using JSR packages
 
-JSR can be used with many tools and runtimes. The easiest way to get started is
-to use **Deno**, which has
+Add a package to your project using one of the commands below. This will add the
+most recent version of [`@luca/flag`](https://jsr.io/@luca/flag) to your
+project.
+
+```bash
+# deno
+deno add @luca/flag
+
+# npm (use any of npx, yarn dlx, pnpm dlx, or bunx)
+npx jsr add @luca/flag
+```
+
+After adding the package, you can import and use it in ES modules like so:
+
+```ts
+import { printProgress } from "@luca/flag";
+
+printProgress();
+```
+
+In Deno, you can optionally use JSR packages without an install step using
+`jsr:` specifiers and Deno's
 [native support for JSR](/docs/using-packages#native-jsr-imports).
 
 ```ts
-// main.ts
 import { printProgress } from "jsr:@luca/flag@1";
 
 printProgress();
 ```
 
-```shell
-deno run main.ts
-```
-
-You can also use JSR with tools that lack native support for JSR through
-[JSR's npm compatibility layer](/docs/npm-compatibility). Any tool that supports
-`node_modules`, like **Node.js**, **Cloudflare Workers**, **Vite**, **Esbuild**,
-**Webpack**, and **Rollup**, can use JSR packages this way.
-
-```shell
-npx jsr add @luca/flag
-```
-
-```ts
-// main.js
-import { printProgress } from "@luca/flag";
-```
-
-```shell
-node main.js
-```
-
-You can find packages on [jsr.io](https://jsr.io). Each package on the JSR site
-also displays documentation, which is automatically generated from the package's
-source code.
-
-Learn more about [using JSR packages](/docs/using-packages).
+You can find more packages on [jsr.io](https://jsr.io). Each package on the JSR
+site also displays documentation, which is automatically generated from the
+package's source code.
+[Learn more about using JSR packages](/docs/using-packages).
 
 ## Publishing JSR packages
 
@@ -55,7 +51,7 @@ JSR packages are published using the `jsr publish` / `deno publish` command. You
 can publish packages from your local machine, or from CI.
 
 First, write your code. JSR packages are written in JavaScript or TypeScript,
-and are published as ESM modules.
+and are published as ES modules.
 
 ```ts
 // mod.ts

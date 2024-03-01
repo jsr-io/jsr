@@ -83,6 +83,15 @@ export const handler: Handlers<Data, State> = {
       docs,
     } = res;
 
+    if (scopeMember && pkg.latestVersion === null) {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          Location: `/@${pkg.scope}/${pkg.name}/publish`,
+        },
+      });
+    }
+
     return ctx.render({
       package: pkg,
       selectedVersion,

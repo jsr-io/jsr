@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PackageSearch } from "./PackageSearch.tsx";
-import { Logo } from "../components/Logo.tsx";
 import { Plus } from "../components/icons/Plus.tsx";
 import { useEffect } from "preact/hooks";
 import { asset, Head } from "$fresh/runtime.ts";
@@ -162,7 +161,7 @@ export function HomepageHero(
               class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-6 max-w-[20em] font-light"
               style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
             >
-              An <b class="font-semibold">open-source package registry</b>{" "}
+              The <b class="font-semibold">open-source package registry</b>{" "}
               for modern JavaScript and TypeScript
             </div>
           </h1>

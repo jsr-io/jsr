@@ -47,7 +47,10 @@ impl OramaClient {
   #[instrument(name = "OramaClient::upsert_package", skip(self))]
   pub fn upsert_package(&self, package: &Package, meta: &PackageVersionMeta) {
     let id = format!("@{}/{}", package.scope, package.name);
-    let score = ApiPackageScore::from((meta, package)).score_percentage();
+    let score = package
+      .latest_version
+      .as_ref()
+      .map(|_| ApiPackageScore::from((meta, package)).score_percentage());
     let body = serde_json::json!({
       "upsert": [
         {

@@ -201,7 +201,7 @@ function DeleteScope({ scope }: { scope: FullScope }) {
       </button>
       {!isEmpty && (
         <p class="mt-4 text-red-600">
-          This scope can not be deleted because it contains packages. Only empty
+          This scope cannot be deleted because it contains packages. Only empty
           scopes can be deleted.
         </p>
       )}

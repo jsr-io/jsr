@@ -2,6 +2,7 @@
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { GitHub } from "../../../components/icons/GitHub.tsx";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
+import { getScoreBgColorClass } from "../../../utils/score_ring_color.ts";
 
 interface PackageHeaderProps {
   package: Package;
@@ -11,12 +12,6 @@ interface PackageHeaderProps {
 export function PackageHeader(
   { package: pkg, selectedVersion }: PackageHeaderProps,
 ) {
-  const scoreColorClass = pkg.score >= 90
-    ? "bg-green-500"
-    : pkg.score >= 60
-    ? "bg-yellow-500"
-    : "bg-red-500";
-
   return (
     <div class="space-y-2.5 mt-0 md:mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
@@ -31,8 +26,11 @@ export function PackageHeader(
             </span>
             {selectedVersion &&
               (
-                <span class="text-lg md:text-xl font-bold">
-                  @{selectedVersion.version}
+                <span class="text-lg md:text-[0.75em] font-bold">
+                  <span class="relative text-[0.85em] -top-[0.175em] font-[800]">
+                    @
+                  </span>
+                  {selectedVersion.version}
                 </span>
               )}
           </h1>
@@ -51,20 +49,24 @@ export function PackageHeader(
           </div>
         </div>
         <div class="flex items-center gap-8">
-          <a
-            href={`/@${pkg.scope}/${pkg.name}/score`}
-            class="flex items-center gap-2 select-none text-sm font-medium"
-          >
-            <span class="max-sm:hidden">Score</span>
-            <div
-              class={`flex w-full max-w-24 items-center justify-center aspect-square rounded-full p-1 ${scoreColorClass}`}
-              style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
+          {pkg.score !== null && (
+            <a
+              href={`/@${pkg.scope}/${pkg.name}/score`}
+              class="flex items-center gap-2 select-none text-sm font-medium"
             >
-              <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold p-1 min-w-11">
-                {pkg.score}%
-              </span>
-            </div>
-          </a>
+              <span class="max-sm:hidden">Score</span>
+              <div
+                class={`flex w-full max-w-24 items-center justify-center aspect-square rounded-full p-1 ${
+                  getScoreBgColorClass(pkg.score)
+                }`}
+                style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
+              >
+                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold p-1 min-w-11">
+                  {pkg.score}%
+                </span>
+              </div>
+            </a>
+          )}
 
           {selectedVersion && pkg.latestVersion !== selectedVersion.version && (
             <a class="button-primary" href={`/@${pkg.scope}/${pkg.name}`}>

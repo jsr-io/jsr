@@ -41,22 +41,21 @@ export default function New(props: PageProps<Data, State>) {
           content="Create a package to publish on JSR."
         />
       </Head>
-      <div class="flex flex-col md:flex-row gap-12 lg:gap-36">
-        <div class="md:w-88 space-y-4 flex-shrink-0">
+      <div class="flex flex-col md:grid md:grid-cols-2 gap-12">
+        <div class="w-full space-y-4 flex-shrink-0">
           <h1 class="mb-8 font-bold text-3xl leading-none">
-            Publishing a package
+            Publish a package
           </h1>
           <p class="text-gray-900 max-w-screen-md">
-            Publish your package to the <b>JSR</b>{" "}
-            registry to share it with the world.
+            Publish your package to the JSR to share it with the world!
           </p>
           <p>
-            <b>JSR</b> natively supports <b>TypeScript</b>{" "}
-            packages. You do not need to compile your package before publishing.
+            <b>JSR natively supports TypeScript</b>{" "}
+            . You do not need to compile your package before publishing.
           </p>
           <p>
-            <b>JSR</b> packages can depend on other <b>JSR</b>{" "}
-            packages, as well as any package from <b>npm</b>.
+            JSR packages can depend on other JSR{" "}
+            packages, as well as any package from npm.
           </p>
         </div>
         <div class="space-y-8">
@@ -65,10 +64,10 @@ export default function New(props: PageProps<Data, State>) {
               <IconFolder class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
-              <p class="font-bold text-xl leading-none">Scope</p>
-              <p class="mt-1 mb-4 text-gray-500">
-                Choose which scope you want to publish your package to. Scopes
-                are namespaces for packages.
+              <h2 class="font-bold text-2xl leading-none">Scope</h2>
+              <p class="mt-2 mb-4 text-gray-500 text-base">
+                Choose which scope your package will be published to. Scopes are
+                namespaces for packages.
               </p>
               {props.state.user
                 ? (
@@ -100,8 +99,8 @@ export default function New(props: PageProps<Data, State>) {
               <IconPackage class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
-              <p class="font-bold text-xl leading-none">Package name</p>
-              <p class="mt-1 mb-4 text-gray-500">
+              <h2 class="font-bold text-2xl leading-none">Package name</h2>
+              <p class="mt-1 mb-4 text-gray-500 text-base">
                 The name of your package must be unique within the scope you
                 selected.
               </p>
