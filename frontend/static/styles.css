@@ -61,6 +61,7 @@
     font-size: 1.125rem;
     font-weight: 400;
     color: theme("colors.jsr-gray.700");
+    overflow-x: hidden;
     @apply opsize-normal;
   }
 
