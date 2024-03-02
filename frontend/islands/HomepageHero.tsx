@@ -110,13 +110,16 @@ const config = {
   retina_detect: true,
 };
 
-const canvasStyle = `.particles-js-canvas-el {
+const canvasStyle = /*css*/ `.particles-js-canvas-el {
 	position: absolute;
 	inset: 0;
 	z-index: 0;
 	animation: fade-in-opacity 1s linear forwards;
 	opacity: 0;
 	transition: opacity 1s linear;
+}
+body {
+	overflow-x: hidden;
 }`;
 
 export function HomepageHero(
