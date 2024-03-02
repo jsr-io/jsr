@@ -1193,7 +1193,7 @@ impl Database {
       .fetch_one(&self.pool)
       .await?;
 
-    let users = sqlx::query!(r#"SELECT COUNT(*) FROM users WHERE users.waitlist_accepted_at IS NOT NULL"#)
+    let users = sqlx::query!(r#"SELECT COUNT(*) FROM users"#)
       .map(|r| r.count.unwrap())
       .fetch_one(&self.pool)
       .await?;
