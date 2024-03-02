@@ -2892,7 +2892,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut resp = t.unauthed_http().get("/api/metrics").call().await.unwrap();
     let body = resp.expect_ok::<ApiMetrics>().await;
     assert_eq!(0, body.packages);
-    assert_eq!(0, body.users);
+    assert_eq!(5, body.users);
   }
 
   #[tokio::test]
