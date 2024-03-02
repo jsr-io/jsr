@@ -13,7 +13,7 @@ Workers**, **Vite**, **Esbuild**, **Webpack**, and **Rollup**.
 With this compatibility layer, all JSR packages can be installed using existing
 npm-compatible package managers like `npm`, `yarn`, and `pnpm`. This allows you
 to use JSR packages in any tool that supports npm packages using `node_modules`.
-WHen using this compatibility layer, you can install JSR packages using
+When using this compatibility layer, you can install JSR packages using
 `npm install` / `yarn add` / `pnpm install` as usual. The JSR packages will be
 downloaded from jsr.io and installed in your `node_modules` directory.
 

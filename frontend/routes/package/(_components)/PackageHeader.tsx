@@ -56,12 +56,12 @@ export function PackageHeader(
             >
               <span class="max-sm:hidden">Score</span>
               <div
-                class={`flex w-full max-w-24 items-center justify-center aspect-square rounded-full p-1 ${
+                class={`flex w-12 h-12 items-center justify-center aspect-square rounded-full p-1 ${
                   getScoreBgColorClass(pkg.score)
                 }`}
                 style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
               >
-                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold p-1 min-w-11">
+                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold">
                   {pkg.score}%
                 </span>
               </div>

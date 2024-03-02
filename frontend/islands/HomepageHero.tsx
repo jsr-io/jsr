@@ -60,7 +60,7 @@ const config = {
     },
     move: {
       enable: true,
-      speed: 0.6,
+      speed: 0.45,
       direction: "top",
       random: false,
       straight: false,
@@ -110,13 +110,16 @@ const config = {
   retina_detect: true,
 };
 
-const canvasStyle = `.particles-js-canvas-el {
+const canvasStyle = /*css*/ `.particles-js-canvas-el {
 	position: absolute;
 	inset: 0;
 	z-index: 0;
 	animation: fade-in-opacity 1s linear forwards;
 	opacity: 0;
 	transition: opacity 1s linear;
+}
+body {
+	overflow-x: hidden;
 }`;
 
 export function HomepageHero(
@@ -158,7 +161,7 @@ export function HomepageHero(
             <span className="sr-only">JSR</span>
             <AnimatedLogo />
             <div
-              class="text-xl text-balance leading-tight sm:text-2xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-6 max-w-[20em] font-light"
+              class="text-2xl text-balance leading-[1.1] sm:text-3xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-5 md:-mt-6 max-w-[20em]"
               style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
             >
               The <b class="font-semibold">open-source package registry</b>{" "}

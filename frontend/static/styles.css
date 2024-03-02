@@ -49,6 +49,7 @@
 
   :root {
     scroll-behavior: smooth;
+    scrollbar-color: theme("colors.jsr-cyan.950") theme("colors.jsr-cyan.50");
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -97,7 +98,7 @@
 @layer components {
   .button {
     @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5 rounded-md leading-tight font-medium
-      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2;
+      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2 select-none;
   }
 
   .button-sm {
@@ -185,7 +186,7 @@ body .ddoc .markdown h3 {
 
 body .ddoc .markdown h4 {
   @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
-} 
+}
 
 body .ddoc a {
   word-wrap: break-word;
@@ -204,11 +205,11 @@ body .ddoc .markdown a:not(.no_color) {
 }
 
 body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
+  @apply bg-jsr-cyan-50 border-y-1.5 border-jsr-cyan-100 border-x-0 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
 }
 
 body .ddoc .usage pre.highlight {
-  @apply bg-white border-jsr-cyan-200;
+  @apply bg-white border-jsr-cyan-200 -mx-4 md:mx-0 border-x-0 md:border-1.5;
 }
 
 body .ddoc .usage nav {
