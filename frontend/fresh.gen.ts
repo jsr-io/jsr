@@ -19,7 +19,6 @@ import * as $admin_index from "./routes/admin/index.tsx";
 import * as $admin_publishingTasks from "./routes/admin/publishingTasks.tsx";
 import * as $admin_scopes from "./routes/admin/scopes.tsx";
 import * as $admin_users from "./routes/admin/users.tsx";
-import * as $admin_waitlist from "./routes/admin/waitlist.tsx";
 import * as $auth from "./routes/auth.tsx";
 import * as $badges_package from "./routes/badges/package.ts";
 import * as $badges_package_score from "./routes/badges/package_score.ts";
@@ -88,7 +87,6 @@ const manifest = {
     "./routes/admin/publishingTasks.tsx": $admin_publishingTasks,
     "./routes/admin/scopes.tsx": $admin_scopes,
     "./routes/admin/users.tsx": $admin_users,
-    "./routes/admin/waitlist.tsx": $admin_waitlist,
     "./routes/auth.tsx": $auth,
     "./routes/badges/package.ts": $badges_package,
     "./routes/badges/package_score.ts": $badges_package_score,
