@@ -748,7 +748,7 @@ impl Database {
       LEFT JOIN users ON scopes.creator = users.id
       CROSS JOIN usage
       WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2
-      ORDER BY scopes.created_at ASC
+      ORDER BY scopes.created_at DESC
       OFFSET $3 LIMIT $4
       "#,
       search,
