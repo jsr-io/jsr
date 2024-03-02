@@ -133,39 +133,6 @@ impl Database {
     Ok((total_users as usize, users))
   }
 
-  #[instrument(name = "Database::list_users_waitlisted", skip(self), err)]
-  pub async fn list_users_waitlisted(
-    &self,
-    start: i64,
-    limit: i64,
-    maybe_search_query: Option<&str>,
-  ) -> Result<(usize, Vec<User>)> {
-    let mut tx = self.pool.begin().await?;
-    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let users =  sqlx::query_as!(
-      User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      FROM users WHERE waitlist_accepted_at IS NULL AND (name ILIKE $1 OR email ILIKE $1) ORDER BY created_at ASC OFFSET $2 LIMIT $3"#,
-      search,
-      start,
-      limit,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-
-    let total_waitlisted = sqlx::query!(
-      r#"SELECT COUNT(created_at) as "count!" FROM users WHERE waitlist_accepted_at IS NULL AND (name ILIKE $1 OR email ILIKE $1);"#,
-      search,
-    )
-    .map(|r| r.count)
-    .fetch_one(&mut *tx)
-    .await?;
-
-    Ok((total_waitlisted as usize, users))
-  }
-
   #[instrument(name = "Database::insert_user", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
     sqlx::query_as!(
@@ -241,21 +208,6 @@ impl Database {
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
       scope_limit,
-      user_id
-    )
-    .fetch_one(&self.pool)
-    .await
-  }
-
-  #[instrument(name = "Database::user_waitlist_accept", skip(self), err)]
-  pub async fn user_waitlist_accept(&self, user_id: Uuid) -> Result<User> {
-    sqlx::query_as!(
-      User,
-      r#"UPDATE users SET waitlist_accepted_at = now() WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
       user_id
     )
     .fetch_one(&self.pool)

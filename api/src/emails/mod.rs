@@ -28,12 +28,6 @@ pub enum EmailArgs<'a> {
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
   },
-  WaitlistAccept {
-    name: Cow<'a, str>,
-    registry_url: Cow<'a, str>,
-    registry_name: Cow<'a, str>,
-    support_email: Cow<'a, str>,
-  },
 }
 
 impl EmailArgs<'_> {
@@ -46,23 +40,18 @@ impl EmailArgs<'_> {
       } => {
         format!("You've been invited to @{scope} on {registry_name}")
       }
-      EmailArgs::WaitlistAccept { registry_name, .. } => {
-        format!("Welcome to {registry_name}",)
-      }
     }
   }
 
   pub fn text_template_filename(&self) -> &'static str {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_TXT,
-      EmailArgs::WaitlistAccept { .. } => WAITLIST_ACCEPT_TXT,
     }
   }
 
   pub fn html_template_filename(&self) -> &'static str {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_HTML,
-      EmailArgs::WaitlistAccept { .. } => WAITLIST_ACCEPT_HTML,
     }
   }
 }
