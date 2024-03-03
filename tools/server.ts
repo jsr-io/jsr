@@ -58,8 +58,9 @@ async function handler(req: Request): Promise<Response> {
         return res;
       }
       if (
-        url.pathname.startsWith("/api") || url.pathname.startsWith("/login") ||
-        url.pathname.startsWith("/logout")
+        url.pathname.startsWith("/api/") || url.pathname === "/login" ||
+        url.pathname === "/login/callback" ||
+        url.pathname === "/logout"
       ) {
         const apiUrl = `${API_SERVER}${url.pathname}${url.search}`;
         const apiRes = await proxy(req, apiUrl);
