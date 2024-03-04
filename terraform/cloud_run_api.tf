@@ -130,6 +130,7 @@ resource "google_compute_backend_service" "registry_api" {
     cache_mode = "USE_ORIGIN_HEADERS"
     cache_key_policy {
       include_query_string = true
+      include_http_headers = ["authorization"]
     }
     serve_while_stale = 600 # 10 minutes
     default_ttl       = 0
