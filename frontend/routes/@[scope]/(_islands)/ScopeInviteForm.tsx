@@ -12,7 +12,7 @@ interface ScopeInviteFormProps {
 export function ScopeInviteForm(props: ScopeInviteFormProps) {
   const submitting = useSignal(false);
   const error = useSignal<string>("");
-  const kind = useSignal<"github" | "email">("github");
+  const kind = useSignal<"github" | "uuid">("github");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const onSubmit = useCallback(
@@ -29,7 +29,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
         path`/scopes/${props.scope}/members`,
         {
           githubLogin: kind === "github" ? inviteValue : undefined,
-          email: kind === "email" ? inviteValue : undefined,
+          uuid: kind === "uuid" ? inviteValue : undefined,
         },
       ).then((res) => {
         submitting.value = false;
@@ -62,7 +62,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
             disabled={submitting}
             onChange={(e) => {
               if (kind.value !== e.currentTarget.value) {
-                kind.value = e.currentTarget.value as "github" | "email";
+                kind.value = e.currentTarget.value as "github" | "uuid";
                 if (inputRef?.current) {
                   inputRef.current.value = "";
                 }
@@ -70,13 +70,13 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
             }}
           >
             <option value="github" selected>GitHub</option>
-            <option value="email">E-Mail</option>
+            <option value="uuid">User ID</option>
           </select>
           <input
             class="inline-block w-full max-w-sm p-1.5 input-container input rounded-l-none"
             type="text"
             name="inviteValue"
-            placeholder={kind.value === "github" ? "GitHub login" : "E-Mail"}
+            placeholder={kind.value === "github" ? "GitHub login" : "User ID"}
             required
             ref={inputRef}
             disabled={submitting}

@@ -241,13 +241,12 @@ async fn invite_member_handler(
         &current_user,
         &github_login,
       )
-        .await?
-        .ok_or(ApiError::UserNotFound)?
-    }
-    ApiAddScopeMemberRequest::Email(email) => db
-      .get_user_by_email(&email)
       .await?
-      .ok_or(ApiError::UserNotFound)?,
+      .ok_or(ApiError::UserNotFound)?
+    }
+    ApiAddScopeMemberRequest::Uuid(id) => {
+      db.get_user(id).await?.ok_or(ApiError::UserNotFound)?
+    }
   };
 
   if db.get_scope_member(&scope, new_user.id).await?.is_some() {

@@ -86,24 +86,6 @@ impl Database {
     .await
   }
 
-  #[instrument(name = "Database::get_user_by_email", skip(self), err)]
-  pub async fn get_user_by_email(
-    &self,
-    email: &str,
-  ) -> Result<Option<User>> {
-    sqlx::query_as!(
-      User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      FROM users
-      WHERE email = $1"#,
-      email
-    )
-    .fetch_optional(&self.pool)
-    .await
-  }
-
   #[instrument(name = "Database::list_users", skip(self), err)]
   pub async fn list_users(
     &self,
