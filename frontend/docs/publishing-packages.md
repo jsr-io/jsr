@@ -271,7 +271,7 @@ similar to npm organizations. Scopes are prefixed with an `@` symbol, and are
 followed by a name. For example, `@luca` is a scope.
 
 You can create a scope at [jsr.io/new](/new). Scopes names must be between 2 and
-20 characters long, and can only contain lowercase letters, numbers, and
+32 characters long, and can only contain lowercase letters, numbers, and
 hyphens. You can only create a scope if the name is not already taken. Scope
 names that are very similar to existing scope names -- for example ones that
 only differ by a hyphen -- are prohibited.
