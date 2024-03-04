@@ -166,11 +166,11 @@ export function PackageSearch(
 
   const placeholder = `Search for packages (${macLike ? "⌘K" : "Ctrl+K"})`;
   return (
-    <div ref={ref}>
+    <div ref={ref} class="pointer-events-auto">
       <form
         action="/packages"
         method="GET"
-        class="flex w-full pointer-events-auto"
+        class="flex w-full"
         onSubmit={onSubmit}
       >
         <label htmlFor="package-search-input" class="sr-only">
