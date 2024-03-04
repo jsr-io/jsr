@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)\n      VALUES ($1, $2, $3, $4, $5, $6)\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
+  "query": "DELETE FROM users\n      WHERE id = $1\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
   "describe": {
     "columns": [
       {
@@ -55,28 +55,18 @@
       },
       {
         "ordinal": 10,
-        "name": "waitlist_accepted_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 11,
         "name": "invite_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "scope_usage!",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Varchar",
-        "Text",
-        "Int8",
-        "Bool",
-        "Bool"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -90,10 +80,9 @@
       false,
       false,
       false,
-      true,
       null,
       null
     ]
   },
-  "hash": "3ac3fa60d3bfc90ac4c58fc27f2732d7c5d4f81cb3a03dc554d0ac628280b34e"
+  "hash": "30d0c1c96fd615e2e318d1795dfff96c509baf89fe1df1d762cc160c2af83de3"
 }
