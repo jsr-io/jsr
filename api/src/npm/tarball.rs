@@ -435,15 +435,6 @@ mod tests {
     Ok(transpiled_files)
   }
 
-  fn get_content_without_source_map(data: &[u8]) -> String {
-    let s = String::from_utf8_lossy(data);
-    if let Some(idx) = s.find("\n//# sourceMappingURL") {
-      s[..idx].to_string()
-    } else {
-      s.to_string()
-    }
-  }
-
   #[tokio::test]
   async fn import_sources_test() -> Result<(), anyhow::Error> {
     let source = r#"import { html } from "npm:lit@^2.2.7";
@@ -463,10 +454,9 @@ await import("npm:lit@^2.2.7");"#;
 await import("lit");"#
       .to_string();
 
-    let foo_js =
-      get_content_without_source_map(tarball_files.get("/foo.js").unwrap());
+    let foo_js = String::from_utf8_lossy(tarball_files.get("/foo.js").unwrap());
     let bar_mjs =
-      get_content_without_source_map(tarball_files.get("/bar.mjs").unwrap());
+      String::from_utf8_lossy(tarball_files.get("/bar.mjs").unwrap());
     assert_eq!(foo_js, expected);
     assert_eq!(bar_mjs, expected);
 
