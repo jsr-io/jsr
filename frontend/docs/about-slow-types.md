@@ -153,7 +153,7 @@ Use ESM syntax instead:
 
 All types in exported functions, classes, variables, and types must be simply
 inferred or explicit. If an expression is too complex to be inferred, it's type
-should be explictly assigned to an intermediate type.
+should be explicitly assigned to an intermediate type.
 
 For example, in the following case the type of the default export is too complex
 to be inferred, so it must be explicitly declared using an intermediate type:

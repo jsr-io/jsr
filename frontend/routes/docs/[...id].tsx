@@ -30,12 +30,13 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
     <div class="mb-20">
       <Head>
         <title>{data.title} - Docs - JSR</title>
+        <meta name="description" content={data.description} />
       </Head>
 
       <div class="grid grid-cols-1 md:grid-cols-10">
         <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
           <div>
-            <p class="text-xl font-semibold">Docs</p>
+            <p class="text-xl font-semibold" id="sidebar">Docs</p>
           </div>
 
           {Array.from(groups.entries()).map(([group, files]) => (
@@ -49,7 +50,7 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
                       class={`${
                         id === data.id
                           ? "px-4 text-cyan-700 border-l-4 border-cyan-400 bg-cyan-100"
-                          : "px-5 "
+                          : "pl-5 pr-4"
                       } py-1.5 block leading-5 hover:text-gray-600 hover:underline`}
                     >
                       {title}
@@ -62,10 +63,21 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
         </nav>
 
         <div class="md:col-span-7 mb-12 md:px-6 lg:px-8 order-1 md:order-2">
-          <h1 class="text-4xl lg:text-5xl text-balance font-medium mb-8 text-gray-900">
+          <p class="text-sm mb-6 -mt-2 md:hidden">
+            <a href="#sidebar" class="link">View table of contents</a>
+          </p>
+          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-gray-900">
             {data.title}
           </h1>
           <Markdown source={data.content} />
+          <p class="mt-6 text-sm">
+            <a
+              class="link"
+              href={`https://github.com/jsr-io/jsr/blob/main/frontend/docs/${data.id}.md`}
+            >
+              Edit this page on GitHub
+            </a>
+          </p>
         </div>
       </div>
     </div>

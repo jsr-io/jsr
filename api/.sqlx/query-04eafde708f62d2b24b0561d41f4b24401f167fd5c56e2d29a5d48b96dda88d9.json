@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT package_versions.scope as \"package_version_scope: ScopeName\", package_versions.name as \"package_version_name: PackageName\", package_versions.version as \"package_version_version: Version\", package_versions.user_id as \"package_version_user_id\", package_versions.readme_path as \"package_version_readme_path: PackagePath\", package_versions.exports as \"package_version_exports: ExportsMap\", package_versions.is_yanked as \"package_version_is_yanked\", package_versions.uses_npm as \"package_version_uses_npm\", package_versions.meta as \"package_version_meta: PackageVersionMeta\", package_versions.updated_at as \"package_version_updated_at\", package_versions.created_at as \"package_version_created_at\", package_versions.rekor_log_id as \"package_version_rekor_log_id\",\n      users.id as \"user_id?\", users.name as \"user_name?\", users.avatar_url as \"user_avatar_url?\", users.updated_at as \"user_updated_at?\", users.created_at as \"user_created_at?\"\n      FROM package_versions\n      LEFT JOIN users ON package_versions.user_id = users.id\n      WHERE package_versions.scope = $1 AND package_versions.name = $2\n      ORDER BY package_versions.version DESC",
+  "query": "SELECT package_versions.scope as \"package_version_scope: ScopeName\", package_versions.name as \"package_version_name: PackageName\", package_versions.version as \"package_version_version: Version\", package_versions.user_id as \"package_version_user_id\", package_versions.readme_path as \"package_version_readme_path: PackagePath\", package_versions.exports as \"package_version_exports: ExportsMap\", package_versions.is_yanked as \"package_version_is_yanked\", package_versions.uses_npm as \"package_version_uses_npm\", package_versions.meta as \"package_version_meta: PackageVersionMeta\", package_versions.updated_at as \"package_version_updated_at\", package_versions.created_at as \"package_version_created_at\", package_versions.rekor_log_id as \"package_version_rekor_log_id\",\n      users.id as \"user_id?\", users.name as \"user_name?\", users.avatar_url as \"user_avatar_url?\", users.github_id as \"user_github_id\", users.updated_at as \"user_updated_at?\", users.created_at as \"user_created_at?\"\n      FROM package_versions\n      LEFT JOIN users ON package_versions.user_id = users.id\n      WHERE package_versions.scope = $1 AND package_versions.name = $2\n      ORDER BY package_versions.version DESC",
   "describe": {
     "columns": [
       {
@@ -80,11 +80,16 @@
       },
       {
         "ordinal": 15,
+        "name": "user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 16,
         "name": "user_updated_at?",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "user_created_at?",
         "type_info": "Timestamptz"
       }
@@ -104,16 +109,17 @@
       false,
       false,
       false,
+      false,
+      false,
+      false,
       true,
       false,
       false,
+      false,
       true,
-      false,
-      false,
-      false,
       false,
       false
     ]
   },
-  "hash": "c318a55a59b024b7ccddc955d719b3b5df437a3d9fc8b4be2303ecbbbb4c283f"
+  "hash": "04eafde708f62d2b24b0561d41f4b24401f167fd5c56e2d29a5d48b96dda88d9"
 }

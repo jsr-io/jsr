@@ -8,7 +8,7 @@ import { Params } from "./PackageNav.tsx";
 interface DocsProps {
   docs: Docs;
   params: Params;
-  selectedVersion?: PackageVersionWithUser;
+  selectedVersion: PackageVersionWithUser;
 }
 
 export function DocsView({ docs, params, selectedVersion }: DocsProps) {
@@ -26,7 +26,7 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
       )}
       <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
 
-      {selectedVersion?.rekorLogId && (
+      {selectedVersion.rekorLogId && (
         <div class="mt-4 border border-gray-400 rounded-md py-1 px-2">
           <div className="items-center">
             <span className="text-sm text-gray-600 mr-1">
@@ -72,19 +72,21 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
   }
 
   return (
-    <div class="flex flex-col lg:flex-row py-2">
-      <div class="lg:top-0 lg:sticky lg:flex lg:flex-col flex-shrink-0 md:pl-0 md:pr-2 lg:max-h-screen lg:py-4 lg:box-border">
+    <div class="grid grid-cols-1 lg:grid-cols-4 py-2">
+      <div class="col-span-1 top-0 md:pl-0 md:pr-2 py-4 lg:sticky lg:max-h-screen box-border">
         <LocalSymbolSearch
           scope={params.scope}
           pkg={params.package}
-          version={params.version}
+          version={selectedVersion.version}
         />
         <div
-          class="ddoc w-full lg:flex-1 lg:min-h-0 lg:*:!h-full"
+          class="ddoc w-full lg:min-h-0 lg:*:!h-full"
           dangerouslySetInnerHTML={{ __html: docs.sidepanel }}
         />
       </div>
-      {content}
+      <div class="col-span-1 lg:col-span-3">
+        {content}
+      </div>
     </div>
   );
 }

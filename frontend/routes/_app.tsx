@@ -15,6 +15,14 @@ export default async function App(
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta property="og:image" content="/images/og-image.webp" />
+        <link
+          rel="preload"
+          href="/fonts/DMSans/DMSans-Variable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="true"
+        />
         <link rel="stylesheet" href={asset("/styles.css")} />
         <link rel="stylesheet" href={asset("/gfm.css")} />
         <link

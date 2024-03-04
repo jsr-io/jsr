@@ -28,6 +28,12 @@ export default function Symbols(
         <title>
           All symbols - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`@${params.scope}/${params.package} on JSR${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader
@@ -46,6 +52,7 @@ export default function Symbols(
       <DocsView
         docs={data.docs}
         params={params as unknown as Params}
+        selectedVersion={data.selectedVersion}
       />
     </div>
   );

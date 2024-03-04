@@ -125,7 +125,7 @@ import * as express from "npm:express@4";
 You may import JSR packages specified in the `"dependencies"` of a
 `package.json`, ones specified in an import map or `deno.json`, or ones
 specified in source code using `jsr:` specifiers.
-[Learn more about using JSR packages](/docs/using-jsr).
+[Learn more about using JSR packages](/docs/using-packages).
 
 ```json
 // package.json
@@ -258,9 +258,9 @@ equivalent to specifying a default entrypoint in the object form.
 }
 ```
 
-You can also use the `includes` and `excludes` options to include and exclude
-files during publishing. If using a `deno.json`, you can use `publish.includes`
-and `publish.excludes` to include and exclude files only for publishing, rather
+You can also use the `include` and `exclude` options to include and exclude
+files during publishing. If using a `deno.json`, you can use `publish.include`
+and `publish.exclude` to include and exclude files only for publishing, rather
 than for all Deno subcommands.
 [Learn more about ignoring files](#ignoring-files).
 

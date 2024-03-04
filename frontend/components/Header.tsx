@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { FullUser } from "../utils/api_types.ts";
 import { PackageSearch } from "../islands/PackageSearch.tsx";
@@ -23,7 +22,9 @@ export function Header({ user, url }: {
   return (
     <div
       class={`section-x-inset-xl w-full py-4 sm:h-[72px] ${
-        isHomepage ? "absolute z-50 top-0 left-0 right-0 bg-transparent" : ""
+        isHomepage
+          ? "absolute z-50 top-0 left-0 right-0 bg-transparent pointer-events-none"
+          : ""
       }`}
     >
       <div class="flex justify-between items-center text-base md:text-lg flex-wrap gap-4 lg:gap-8 h-full">
@@ -32,7 +33,7 @@ export function Header({ user, url }: {
           : (
             <a href="/" class="outline-none focus-visible:ring-2 ring-cyan-700">
               <span className="sr-only">JSR home</span>
-              <Logo class="h-6 flex-none hover:animate-flip-rotate" />
+              <Logo class="h-8 flex-none hover:animate-flip-rotate" />
             </a>
           )}
         <div class="hidden sm:block grow-1 flex-1">
@@ -46,21 +47,21 @@ export function Header({ user, url }: {
             />
           )}
         </div>
-        <div class="flex gap-2 sm:gap-4 items-center">
+        <div class="flex gap-2 sm:gap-4 items-center pointer-events-auto">
           <a
             href="/packages"
             class="link-header"
           >
             Browse packages
           </a>
-          <span class="text-gray-200">|</span>
+          <span class="text-gray-200 select-none">|</span>
           <a
             href="/docs"
             class="link-header"
           >
             Docs
           </a>
-          <span class="text-gray-200 pr-2">|</span>
+          <span class="text-gray-200 select-none">|</span>
           {user
             ? <UserMenu user={user} logoutUrl={logoutUrl} />
             : (
@@ -72,7 +73,7 @@ export function Header({ user, url }: {
         </div>
       </div>
       <div class="mt-4 sm:hidden">
-        {url.pathname !== "/" && (
+        {!isHomepage && (
           <PackageSearch
             query={url.searchParams.get("search") ?? undefined}
             apiKey={apiKey}

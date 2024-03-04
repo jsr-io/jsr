@@ -14,8 +14,6 @@ const BASE_TXT: &str = "base.txt";
 const BASE_HTML: &str = "base.html";
 const SCOPE_INVITE_TXT: &str = "scope_invite.txt";
 const SCOPE_INVITE_HTML: &str = "scope_invite.html";
-const WAITLIST_ACCEPT_TXT: &str = "waitlist_accept.txt";
-const WAITLIST_ACCEPT_HTML: &str = "waitlist_accept.html";
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -24,12 +22,6 @@ pub enum EmailArgs<'a> {
     name: Cow<'a, str>,
     inviter_name: Cow<'a, str>,
     scope: Cow<'a, ScopeName>,
-    registry_url: Cow<'a, str>,
-    registry_name: Cow<'a, str>,
-    support_email: Cow<'a, str>,
-  },
-  WaitlistAccept {
-    name: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
@@ -46,23 +38,18 @@ impl EmailArgs<'_> {
       } => {
         format!("You've been invited to @{scope} on {registry_name}")
       }
-      EmailArgs::WaitlistAccept { registry_name, .. } => {
-        format!("Welcome to {registry_name}",)
-      }
     }
   }
 
   pub fn text_template_filename(&self) -> &'static str {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_TXT,
-      EmailArgs::WaitlistAccept { .. } => WAITLIST_ACCEPT_TXT,
     }
   }
 
   pub fn html_template_filename(&self) -> &'static str {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_HTML,
-      EmailArgs::WaitlistAccept { .. } => WAITLIST_ACCEPT_HTML,
     }
   }
 }
@@ -86,14 +73,6 @@ fn init_handlebars(
   t.register_template_string(
     SCOPE_INVITE_HTML,
     include_str!("./templates/scope_invite.html.hbs"),
-  )?;
-  t.register_template_string(
-    WAITLIST_ACCEPT_TXT,
-    include_str!("./templates/waitlist_accept.txt.hbs"),
-  )?;
-  t.register_template_string(
-    WAITLIST_ACCEPT_HTML,
-    include_str!("./templates/waitlist_accept.html.hbs"),
   )?;
 
   t.set_strict_mode(true);

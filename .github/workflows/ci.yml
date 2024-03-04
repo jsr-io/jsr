@@ -13,6 +13,7 @@ env:
 
 jobs:
   frontend:
+    if: github.event_name != 'push'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -47,6 +48,7 @@ jobs:
 
   test:
     runs-on: ubuntu-22.04
+    if: github.event_name != 'push'
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
@@ -90,7 +92,7 @@ jobs:
         working-directory: api
 
   docker-images:
-    if: github.event_name == 'merge_group' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'merge_group' || github.event_name == 'push'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -155,7 +157,7 @@ jobs:
         run: echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
 
   staging:
-    if: github.event_name == 'merge_group' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-22.04
     needs: docker-images
     environment:
@@ -204,7 +206,7 @@ jobs:
         run: deno task tf:staging:apply
 
   prod:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     needs: docker-images
     environment:

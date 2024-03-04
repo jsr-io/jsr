@@ -1,15 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::analysis::RegistryLoader;
 use crate::buckets::Buckets;
-use crate::emails::EmailArgs;
-use crate::emails::EmailSender;
 use crate::NpmUrl;
-use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
 use routerify::prelude::RequestExt;
 use routerify::Router;
-use std::borrow::Cow;
 use std::sync::Arc;
 use tracing::field;
 use tracing::instrument;
@@ -35,12 +31,7 @@ pub fn admin_router() -> Router<Body, ApiError> {
     .get("/aliases", util::auth(util::json(list_aliases)))
     .post("/aliases", util::auth(util::json(create_alias)))
     .get("/users", util::auth(util::json(list_users)))
-    .get("/users/waitlisted", util::auth(util::json(list_waitlisted)))
     .patch("/users/:user_id", util::auth(util::json(update_user)))
-    .post(
-      "/users/:user_id/waitlist_accept",
-      util::auth(util::json(waitlist_accept_user)),
-    )
     .get("/scopes", util::auth(util::json(list_scopes)))
     .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
     .get(
@@ -110,26 +101,6 @@ pub async fn list_users(req: Request<Body>) -> ApiResult<ApiList<ApiFullUser>> {
   })
 }
 
-#[instrument(name = "GET /api/admin/users/waitlisted", skip(req), err)]
-pub async fn list_waitlisted(
-  req: Request<Body>,
-) -> ApiResult<ApiList<ApiFullUser>> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
-  let db = req.data::<Database>().unwrap();
-  let (start, limit) = pagination(&req);
-  let maybe_search = search(&req);
-
-  let (total_users, users) =
-    db.list_users_waitlisted(start, limit, maybe_search).await?;
-
-  Ok(ApiList {
-    items: users.into_iter().map(|user| user.into()).collect(),
-    total: total_users,
-  })
-}
-
 #[instrument(
   name = "PATCH /api/admin/users/:user_id",
   skip(req),
@@ -168,46 +139,6 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
       msg: "missing 'is_staff', 'is_blocked' or 'scope_limit' parameter".into(),
     })
   }
-}
-
-#[instrument(
-  name = "PATCH /api/admin/users/:user_id/waitlist_accept",
-  skip(req),
-  err,
-  fields(user_id)
-)]
-pub async fn waitlist_accept_user(
-  req: Request<Body>,
-) -> ApiResult<ApiFullUser> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
-  let user_id = req.param_uuid("user_id")?;
-  Span::current().record("user_id", &field::display(&user_id));
-  let db = req.data::<Database>().unwrap();
-  let email_sender = req.data::<Option<EmailSender>>().unwrap();
-  let registry_url = req.data::<RegistryUrl>().unwrap();
-
-  let user = db.get_user(user_id).await?.ok_or(ApiError::UserNotFound)?;
-  if user.waitlist_accepted_at.is_some() {
-    return Ok(user.into());
-  }
-
-  let updated_user = db.user_waitlist_accept(user_id).await?;
-
-  if let Some(email_sender) = email_sender {
-    if let Some(email_addr) = user.email {
-      let email = EmailArgs::WaitlistAccept {
-        name: Cow::Borrowed(&updated_user.name),
-        registry_url: Cow::Borrowed(registry_url.0.as_str()),
-        registry_name: Cow::Borrowed(&email_sender.from_name),
-        support_email: Cow::Borrowed(&email_sender.from),
-      };
-      email_sender.send(email_addr, email).await?;
-    }
-  }
-
-  Ok(updated_user.into())
 }
 
 #[instrument(name = "GET /api/admin/scopes", skip(req), err)]

@@ -9,6 +9,7 @@ use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
 use sha2::Digest;
 use tar::Header;
+use tracing::error;
 use tracing::info;
 use url::Url;
 
@@ -174,8 +175,18 @@ pub fn create_npm_tarball<'a>(
   let mtime = now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
   for (path, content) in transpiled_files.iter() {
-    let mut header = Header::new_gnu();
-    header.set_path(format!("./package{path}")).unwrap();
+    let mut header = Header::new_ustar();
+    header.set_path(format!("./package{path}")).map_err(|e| {
+      // Ideally we never hit this error, because package length should have been checked
+      // when creating PackagePath.
+      // TODO(ry) This is not the ideal way to pass PublishErrors up the stack
+      // because it will become anyhow::Error and wrapped in an NpmTarballError.
+      error!("bad npm tarball path {} {}", path, e);
+      crate::tarball::PublishError::InvalidPath {
+        path: path.to_string(),
+        error: crate::ids::PackagePathValidationError::TooLong(path.len()),
+      }
+    })?;
     header.set_size(content.len() as u64);
     header.set_mode(0o777);
     header.set_mtime(mtime);

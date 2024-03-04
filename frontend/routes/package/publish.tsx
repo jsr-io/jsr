@@ -24,6 +24,12 @@ export default function PackagePage({
         <title>
           Publish instructions - @{params.scope}/{params.package} - JSR
         </title>
+        <meta
+          name="description"
+          content={`@${params.scope}/${params.package} on JSR${
+            data.package.description ? `: ${data.package.description}` : ""
+          }`}
+        />
       </Head>
 
       <PackageHeader package={data.package} />
@@ -55,7 +61,7 @@ export default function PackagePage({
                   config file:
                 </p>
                 <div class="mt-2 -mb-2">
-                  <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block">
+                  <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
                     jsr.json / deno.json
                   </div>
                 </div>
@@ -65,7 +71,7 @@ export default function PackagePage({
                   {"  "}
                   <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"name": "@${data.package.scope}/${data.package.name}",\n`}</span>
                   {"  "}
-                  <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"version": "0.0.1",\n`}</span>
+                  <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"version": "0.1.0",\n`}</span>
                   {"  "}
                   <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`"exports": "./mod.ts"\n`}</span>
                   {`}`}

@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(created_at) as \"count!\" FROM users WHERE waitlist_accepted_at IS NULL AND (name ILIKE $1 OR email ILIKE $1);",
+  "query": "SELECT COUNT(user_id) FROM scope_members WHERE scope = $1 AND is_admin = true",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "count!",
+        "name": "count",
         "type_info": "Int8"
       }
     ],
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "46c5e06ce7a45366b30cddbe2994ad132b62d43df257958a255203b3c83a1673"
+  "hash": "c6346c1fa8d3f9145bdc1de10cc4c7afad9f2e742aba94202bdb35130007e044"
 }

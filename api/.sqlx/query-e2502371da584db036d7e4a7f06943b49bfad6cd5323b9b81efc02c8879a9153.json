@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scopes SET creator = $1 WHERE scope = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e2502371da584db036d7e4a7f06943b49bfad6cd5323b9b81efc02c8879a9153"
+}

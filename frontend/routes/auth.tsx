@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
 import { ComponentChild } from "preact";
@@ -69,6 +68,9 @@ export default function AuthPage({ data }: PageProps<Data>) {
     }`
     : "access";
 
+  const packageNames = publishPermissions.map((perm) =>
+    `@${perm.scope}/${perm.package}`
+  );
   return (
     <div class="pb-8 mb-16">
       <Head>
@@ -91,7 +93,7 @@ export default function AuthPage({ data }: PageProps<Data>) {
         ).map((perm) => <PermissionTile permission={perm} />)}
       </div>
       <p class="mt-8">Only grant authorization to applications you trust.</p>
-      <Authorize code={data.code} />
+      <Authorize code={data.code} packageNames={packageNames} />
     </div>
   );
 }

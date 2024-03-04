@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RuntimeCompat } from "../utils/api_types.ts";
+import type { RuntimeCompat } from "../utils/api_types.ts";
 
 export const RUNTIME_COMPAT_KEYS: [
   key: keyof RuntimeCompat,
@@ -16,10 +16,11 @@ export const RUNTIME_COMPAT_KEYS: [
 ];
 
 export function RuntimeCompatIndicator(
-  { runtimeCompat, labeled, hideUnknown }: {
+  { runtimeCompat, labeled, hideUnknown, compact }: {
     runtimeCompat: RuntimeCompat;
     labeled?: boolean;
     hideUnknown?: boolean;
+    compact?: boolean;
   },
 ) {
   const hasExplicitCompat = Object.values(runtimeCompat).some((v) => v);
@@ -28,8 +29,12 @@ export function RuntimeCompatIndicator(
   return (
     <div class="min-w-content font-semibold flex items-center gap-2">
       {labeled && <div>Works with</div>}
-      <div class="flex items-center gap-1.5">
-        {RUNTIME_COMPAT_KEYS.map(
+      <div
+        class={`flex items-center ${
+          compact ? "*:-mx-1" : "*:mx-0.5"
+        } flex-row-reverse`}
+      >
+        {RUNTIME_COMPAT_KEYS.toReversed().map(
           ([key, name, icon, w, h]) => {
             const value = runtimeCompat[key];
             if (
@@ -45,16 +50,25 @@ export function RuntimeCompatIndicator(
                     : "This package works"
                 } with ${name}.`}
               >
+                <div className="sr-only">
+                  {value === undefined
+                    ? "It is unknown whether this package works"
+                    : "This package works"} with {name}
+                </div>
                 <img
                   src={icon}
                   width={w}
                   height={h}
-                  class={`h-5 ${
+                  alt=""
+                  class={`h-5 select-none ${
                     value === undefined ? "filter grayscale opacity-40" : ""
                   }`}
                 />
                 {value === undefined && (
-                  <div class="absolute inset-0 h-full w-full text-blue-700 text-center leading-5 drop-shadow-md font-bold text-xl select-none">
+                  <div
+                    aria-hidden="true"
+                    class="absolute inset-0 h-full w-full text-blue-700 text-center leading-5 drop-shadow-md font-bold text-xl select-none"
+                  >
                     ?
                   </div>
                 )}

@@ -73,10 +73,10 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
             <option value="uuid">User ID</option>
           </select>
           <input
-            class="inline-block w-full max-w-sm p-1.5 input-container input rounded-l-none"
+            class="inline-block w-full max-w-sm px-3 input-container text-sm input rounded-l-none"
             type="text"
             name="inviteValue"
-            placeholder={kind.value === "github" ? "GitHub login" : "User ID"}
+            placeholder={kind.value === "github" ? "GitHub username" : "User ID"}
             required
             ref={inputRef}
             disabled={submitting}

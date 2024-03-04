@@ -30,7 +30,7 @@ was when npm was originally introduced:
 In addition to these shifting requirements, there are also opportunities to
 improve on the developer experience, performance, reliability, and security of
 npm. JSR was created to address these new requirements and take on these
-opportunites.
+opportunities.
 
 Here are a few reasons why we think you should consider using JSR.
 

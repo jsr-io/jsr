@@ -40,6 +40,9 @@ purpose file hosting service.
 JSR may not be used to distribute images, videos, or other documents that are
 not directly related to JavaScript or TypeScript packages.
 
+Content that is considered illegal based on the laws of the United States of
+America is not permitted on JSR.
+
 ## Examples
 
 - You MAY use JSR to publish a package that provides a JavaScript library for
@@ -62,7 +65,7 @@ not directly related to JavaScript or TypeScript packages.
 ## Reporting violations
 
 If you believe that a package on JSR violates this usage policy, please
-[contact us](mailto:abuse@jsr.io).
+[contact us](mailto:report@jsr.io).
 
 ## Changes to this policy
 

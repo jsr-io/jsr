@@ -19,11 +19,11 @@ import * as $admin_index from "./routes/admin/index.tsx";
 import * as $admin_publishingTasks from "./routes/admin/publishingTasks.tsx";
 import * as $admin_scopes from "./routes/admin/scopes.tsx";
 import * as $admin_users from "./routes/admin/users.tsx";
-import * as $admin_waitlist from "./routes/admin/waitlist.tsx";
 import * as $auth from "./routes/auth.tsx";
+import * as $badges_package from "./routes/badges/package.ts";
+import * as $badges_package_score from "./routes/badges/package_score.ts";
 import * as $docs_id_ from "./routes/docs/[...id].tsx";
 import * as $docs_index from "./routes/docs/index.ts";
-import * as $gfm_css from "./routes/gfm.css.ts";
 import * as $go_id_ from "./routes/go/[id].ts";
 import * as $index from "./routes/index.tsx";
 import * as $login from "./routes/login.tsx";
@@ -40,8 +40,9 @@ import * as $package_settings from "./routes/package/settings.tsx";
 import * as $package_source from "./routes/package/source.tsx";
 import * as $package_symbols from "./routes/package/symbols.tsx";
 import * as $package_versions from "./routes/package/versions.tsx";
-import * as $package_badge from "./routes/package_badge.ts";
 import * as $packages from "./routes/packages.tsx";
+import * as $publish_approve from "./routes/publish_approve.tsx";
+import * as $publish_deny from "./routes/publish_deny.tsx";
 import * as $status from "./routes/status.tsx";
 import * as $user_id_ from "./routes/user/[id].tsx";
 import * as $waitlist from "./routes/waitlist.tsx";
@@ -49,12 +50,13 @@ import * as $Authorize from "./islands/Authorize.tsx";
 import * as $CopyButton from "./islands/CopyButton.tsx";
 import * as $DevelopmentLogin from "./islands/DevelopmentLogin.tsx";
 import * as $GitHubActionsLink from "./islands/GitHubActionsLink.tsx";
+import * as $GithubUserLink from "./islands/GithubUserLink.tsx";
 import * as $HomepageHero from "./islands/HomepageHero.tsx";
 import * as $PackageSearch from "./islands/PackageSearch.tsx";
+import * as $PollPublishingTask from "./islands/PollPublishingTask.tsx";
 import * as $PublishingTaskRequeue from "./islands/PublishingTaskRequeue.tsx";
 import * as $UserManageScopeInvite from "./islands/UserManageScopeInvite.tsx";
 import * as $UserMenu from "./islands/UserMenu.tsx";
-import * as $WorksWith from "./islands/WorksWith.tsx";
 import * as $admin_ScopeEdit from "./islands/admin/ScopeEdit.tsx";
 import * as $admin_UserEdit from "./islands/admin/UserEdit.tsx";
 import * as $new_1 from "./islands/new.tsx";
@@ -84,11 +86,11 @@ const manifest = {
     "./routes/admin/publishingTasks.tsx": $admin_publishingTasks,
     "./routes/admin/scopes.tsx": $admin_scopes,
     "./routes/admin/users.tsx": $admin_users,
-    "./routes/admin/waitlist.tsx": $admin_waitlist,
     "./routes/auth.tsx": $auth,
+    "./routes/badges/package.ts": $badges_package,
+    "./routes/badges/package_score.ts": $badges_package_score,
     "./routes/docs/[...id].tsx": $docs_id_,
     "./routes/docs/index.ts": $docs_index,
-    "./routes/gfm.css.ts": $gfm_css,
     "./routes/go/[id].ts": $go_id_,
     "./routes/index.tsx": $index,
     "./routes/login.tsx": $login,
@@ -105,8 +107,9 @@ const manifest = {
     "./routes/package/source.tsx": $package_source,
     "./routes/package/symbols.tsx": $package_symbols,
     "./routes/package/versions.tsx": $package_versions,
-    "./routes/package_badge.ts": $package_badge,
     "./routes/packages.tsx": $packages,
+    "./routes/publish_approve.tsx": $publish_approve,
+    "./routes/publish_deny.tsx": $publish_deny,
     "./routes/status.tsx": $status,
     "./routes/user/[id].tsx": $user_id_,
     "./routes/waitlist.tsx": $waitlist,
@@ -116,12 +119,13 @@ const manifest = {
     "./islands/CopyButton.tsx": $CopyButton,
     "./islands/DevelopmentLogin.tsx": $DevelopmentLogin,
     "./islands/GitHubActionsLink.tsx": $GitHubActionsLink,
+    "./islands/GithubUserLink.tsx": $GithubUserLink,
     "./islands/HomepageHero.tsx": $HomepageHero,
     "./islands/PackageSearch.tsx": $PackageSearch,
+    "./islands/PollPublishingTask.tsx": $PollPublishingTask,
     "./islands/PublishingTaskRequeue.tsx": $PublishingTaskRequeue,
     "./islands/UserManageScopeInvite.tsx": $UserManageScopeInvite,
     "./islands/UserMenu.tsx": $UserMenu,
-    "./islands/WorksWith.tsx": $WorksWith,
     "./islands/admin/ScopeEdit.tsx": $admin_ScopeEdit,
     "./islands/admin/UserEdit.tsx": $admin_UserEdit,
     "./islands/new.tsx": $new_1,

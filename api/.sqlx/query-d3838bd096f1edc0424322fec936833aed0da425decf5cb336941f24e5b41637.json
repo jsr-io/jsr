@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM scope_members WHERE scope = $1 AND user_id = $2\n      RETURNING scope as \"scope: ScopeName\", user_id, is_admin, updated_at, created_at",
+  "query": "DELETE FROM scope_members WHERE scope = $1 AND user_id = $2\n      RETURNING scope as \"scope: ScopeName\", user_id, is_admin, updated_at, created_at,\n      (SELECT creator FROM scopes WHERE scope = $1) AS \"scope_creator!\"",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,11 @@
         "ordinal": 4,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "scope_creator!",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
@@ -40,8 +45,9 @@
       false,
       false,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "51bb1bac8e6ca327a272d01c350d8e313654736399dc0e6dceb7e2a33cb76c10"
+  "hash": "d3838bd096f1edc0424322fec936833aed0da425decf5cb336941f24e5b41637"
 }

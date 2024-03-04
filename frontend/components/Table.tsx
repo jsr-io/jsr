@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright 2022-2023 the Deno authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
 import { Head } from "$fresh/runtime.ts";
@@ -27,13 +26,13 @@ export function Table(
   return (
     <>
       <div
-        class={`-mx-4 md:mx-0 border-1.5 border-cyan-900/10 ring-1 ring-black ring-opacity-5 sm:rounded overflow-hidden ${
+        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-950 sm:rounded overflow-hidden ${
           class_ ?? ""
         }`}
       >
         <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-cyan-900/10">
-            <thead class="bg-cyan-50">
+          <table class="w-full divide-y divide-jsr-cyan-900/10">
+            <thead class="bg-jsr-cyan-50">
               <TableRow class="children:font-semibold">
                 {columns.map((column, i) => (
                   <TableHead
