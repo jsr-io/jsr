@@ -1884,7 +1884,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let score: ApiPackageScore = resp.expect_ok().await;
-    assert_eq!(score.has_provenance, true);
+    assert!(score.has_provenance);
 
     // Invalid subject.
     update_bundle_subject(
