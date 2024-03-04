@@ -564,7 +564,8 @@ impl PackagePath {
   }
 
   pub fn is_readme(&self) -> bool {
-    let path = std::path::PathBuf::from(&**self);
+    let path =
+      std::path::PathBuf::from(self.lower.as_ref().unwrap_or(&self.path));
     let name = path
       .file_stem()
       .and_then(|name| name.to_str())
@@ -579,7 +580,7 @@ impl PackagePath {
       .unwrap_or_default();
 
     parent == "/"
-      && name == "README"
+      && name == "readme"
       && matches!(extension, "md" | "txt" | "markdown")
   }
 }
@@ -992,6 +993,12 @@ mod tests {
     assert!(PackagePath::try_from("/README.markdown")
       .unwrap()
       .is_readme());
+    assert!(PackagePath::try_from("/readme.md").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.txt").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.markdown")
+      .unwrap()
+      .is_readme());
+    assert!(PackagePath::try_from("/ReAdMe.md").unwrap().is_readme());
 
     // Invalid READMEs
     assert!(!PackagePath::try_from("/foo/README.md").unwrap().is_readme());
