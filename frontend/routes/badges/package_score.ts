@@ -52,6 +52,7 @@ export const handler: Handlers<unknown, State> = {
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
       shieldsUrl.search = url.search;
       shieldsUrl.searchParams.set("url", url.href);
+      shieldsUrl.searchParams.set("logoWidth", "25");
 
       const res = await fetch(shieldsUrl);
 
