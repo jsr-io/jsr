@@ -759,7 +759,7 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
-struct ModuleAnalyzer {
+pub struct ModuleAnalyzer {
   pub analyzer: CapturingModuleAnalyzer,
   pub module_info: RefCell<HashMap<Url, ModuleInfo>>,
 }
