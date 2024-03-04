@@ -57,7 +57,6 @@ import * as $PollPublishingTask from "./islands/PollPublishingTask.tsx";
 import * as $PublishingTaskRequeue from "./islands/PublishingTaskRequeue.tsx";
 import * as $UserManageScopeInvite from "./islands/UserManageScopeInvite.tsx";
 import * as $UserMenu from "./islands/UserMenu.tsx";
-import * as $WorksWith from "./islands/WorksWith.tsx";
 import * as $admin_ScopeEdit from "./islands/admin/ScopeEdit.tsx";
 import * as $admin_UserEdit from "./islands/admin/UserEdit.tsx";
 import * as $new_1 from "./islands/new.tsx";
@@ -127,7 +126,6 @@ const manifest = {
     "./islands/PublishingTaskRequeue.tsx": $PublishingTaskRequeue,
     "./islands/UserManageScopeInvite.tsx": $UserManageScopeInvite,
     "./islands/UserMenu.tsx": $UserMenu,
-    "./islands/WorksWith.tsx": $WorksWith,
     "./islands/admin/ScopeEdit.tsx": $admin_ScopeEdit,
     "./islands/admin/UserEdit.tsx": $admin_UserEdit,
     "./islands/new.tsx": $new_1,
