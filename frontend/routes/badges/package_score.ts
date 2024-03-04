@@ -37,6 +37,7 @@ export const handler: Handlers<unknown, State> = {
             message: `${packageResp.data.score}%`,
             labelColor: "rgb(8,51,68)",
             color: "rgb(247,223,30)",
+            logoWidth: "25",
           }),
           {
             headers: {
@@ -52,7 +53,6 @@ export const handler: Handlers<unknown, State> = {
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
       shieldsUrl.search = url.search;
       shieldsUrl.searchParams.set("url", url.href);
-      shieldsUrl.searchParams.set("logoWidth", "25");
 
       const res = await fetch(shieldsUrl);
 
