@@ -133,7 +133,6 @@ pub struct ApiFullUser {
   pub scope_usage: i32,
   pub scope_limit: i32,
   pub invite_count: u64,
-  pub waitlist_accepted_at: Option<DateTime<Utc>>,
 }
 
 impl From<User> for ApiFullUser {
@@ -151,7 +150,6 @@ impl From<User> for ApiFullUser {
       scope_usage: user.scope_usage as i32,
       scope_limit: user.scope_limit,
       invite_count: user.invite_count as u64,
-      waitlist_accepted_at: user.waitlist_accepted_at,
     }
   }
 }

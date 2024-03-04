@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE users SET is_staff = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
+  "query": "UPDATE users SET is_staff = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
   "describe": {
     "columns": [
       {
@@ -55,16 +55,11 @@
       },
       {
         "ordinal": 10,
-        "name": "waitlist_accepted_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 11,
         "name": "invite_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "scope_usage!",
         "type_info": "Int8"
       }
@@ -86,10 +81,9 @@
       false,
       false,
       false,
-      true,
       null,
       null
     ]
   },
-  "hash": "251f21dce66a9df5f18765ab7a6e5e2b90bd05e0cc08b8b061cea01c50074434"
+  "hash": "f0b1df87f6fab2bd64958ef9ba85f1b32c87df0a959cbf8d4219405112de93f9"
 }

@@ -32,7 +32,6 @@ pub struct User {
   pub scope_usage: i64,
   pub scope_limit: i32,
   pub invite_count: i64,
-  pub waitlist_accepted_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]
