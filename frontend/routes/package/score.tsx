@@ -164,6 +164,14 @@ export default function Score(
             This package is compatible with more than one runtime, and is marked
             as such in the package settings.
           </ScoreItem>
+          <ScoreItem
+            value={data.score.hasProvenance}
+            scoreValue={1}
+            title="Has provenance"
+          >
+            This package is published from a verifiable CI/CD workflow, and has
+            a public transparency log.
+          </ScoreItem>
         </ul>
       </div>
     </div>

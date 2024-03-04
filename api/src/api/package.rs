@@ -1365,6 +1365,7 @@ mod test {
   use crate::api::ApiList;
   use crate::api::ApiMetrics;
   use crate::api::ApiPackage;
+  use crate::api::ApiPackageScore;
   use crate::api::ApiPackageVersion;
   use crate::api::ApiPackageVersionDocs;
   use crate::api::ApiPackageVersionSource;
@@ -1875,6 +1876,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     resp.expect_ok_no_content().await;
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/score")
+      .call()
+      .await
+      .unwrap();
+    let score: ApiPackageScore = resp.expect_ok().await;
+    assert_eq!(score.has_provenance, true);
 
     // Invalid subject.
     update_bundle_subject(
