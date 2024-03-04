@@ -120,10 +120,10 @@ pub fn create_npm_tarball<'a>(
             |specifier: &str,
              range: &PositionRange,
              text_changes: &mut Vec<TextChange>| {
-              if let Some(rewritten) = rewrite_specifier(&specifier) {
+              if let Some(rewritten) = rewrite_specifier(specifier) {
                 text_changes.push(TextChange {
                   new_text: rewritten,
-                  range: to_range(&source, &range),
+                  range: to_range(&source, range),
                 });
               }
             };
@@ -141,7 +141,7 @@ pub fn create_npm_tarball<'a>(
               DependencyDescriptor::Dynamic(dep) => match &dep.argument {
                 deno_graph::DynamicArgument::String(str_arg) => {
                   maybe_rewrite_specifier(
-                    &str_arg,
+                    str_arg,
                     &dep.argument_range,
                     &mut text_changes,
                   );
