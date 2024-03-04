@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      FROM users\n      WHERE github_id = $1",
+  "query": "UPDATE users SET is_blocked = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
   "describe": {
     "columns": [
       {
@@ -55,23 +55,19 @@
       },
       {
         "ordinal": 10,
-        "name": "waitlist_accepted_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 11,
         "name": "invite_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "scope_usage!",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Bool",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -85,10 +81,9 @@
       false,
       false,
       false,
-      true,
       null,
       null
     ]
   },
-  "hash": "284bf0e89d21d4aba193f5d77f4403ed060bdd61ea10a75ab51bd15f4ff19499"
+  "hash": "c0a2d1b1e2f34fe71dfc576a7800300f4c8eb20724e45952aa077dfcfa7e0e0a"
 }
