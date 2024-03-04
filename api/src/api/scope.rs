@@ -243,7 +243,7 @@ async fn invite_member_handler(
       .await?
       .ok_or(ApiError::UserNotFound)?
     }
-    ApiAddScopeMemberRequest::Uuid(id) => {
+    ApiAddScopeMemberRequest::Id(id) => {
       db.get_user(id).await?.ok_or(ApiError::UserNotFound)?
     }
   };

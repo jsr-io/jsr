@@ -12,7 +12,7 @@ interface ScopeInviteFormProps {
 export function ScopeInviteForm(props: ScopeInviteFormProps) {
   const submitting = useSignal(false);
   const error = useSignal<string>("");
-  const kind = useSignal<"github" | "uuid">("github");
+  const kind = useSignal<"github" | "id">("github");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const onSubmit = useCallback(
@@ -29,7 +29,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
         path`/scopes/${props.scope}/members`,
         {
           githubLogin: kind === "github" ? inviteValue : undefined,
-          uuid: kind === "uuid" ? inviteValue : undefined,
+          id: kind === "id" ? inviteValue : undefined,
         },
       ).then((res) => {
         submitting.value = false;
@@ -62,7 +62,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
             disabled={submitting}
             onChange={(e) => {
               if (kind.value !== e.currentTarget.value) {
-                kind.value = e.currentTarget.value as "github" | "uuid";
+                kind.value = e.currentTarget.value as "github" | "id";
                 if (inputRef?.current) {
                   inputRef.current.value = "";
                 }
@@ -70,7 +70,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
             }}
           >
             <option value="github" selected>GitHub</option>
-            <option value="uuid">User ID</option>
+            <option value="id">User ID</option>
           </select>
           <input
             class="inline-block w-full max-w-sm px-3 input-container text-sm input rounded-l-none"
