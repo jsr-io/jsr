@@ -993,6 +993,12 @@ mod tests {
     assert!(PackagePath::try_from("/README.markdown")
       .unwrap()
       .is_readme());
+    assert!(PackagePath::try_from("/readme.md").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.txt").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.markdown")
+      .unwrap()
+      .is_readme());
+    assert!(PackagePath::try_from("/ReAdMe.md").unwrap().is_readme());
 
     // Invalid READMEs
     assert!(!PackagePath::try_from("/foo/README.md").unwrap().is_readme());
