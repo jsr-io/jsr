@@ -101,10 +101,23 @@ pub fn create_npm_tarball<'a>(
       transpiled_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
     } else if let Some(js) = module.js() {
       match js.media_type {
-        deno_ast::MediaType::JavaScript
-        | deno_ast::MediaType::Mjs
-        | deno_ast::MediaType::Dts
-        | deno_ast::MediaType::Dmts => {
+        // We need to transpile js files too, to rewrite import sources
+        // from `npm:*` to bare specifiers, for example.
+        deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
+          let source = sources
+            .get_parsed_source(module.specifier())
+            .expect("parsed source should be here");
+          let source_url = Url::options()
+            .base_url(Some(registry_url))
+            .parse(&format!("./@{scope}/{package}/{version}{path}",))
+            .unwrap();
+          let transpiled = transpile_to_js(source, source_url)
+            .with_context(|| format!("failed to transpile {}", path))?;
+
+          transpiled_files
+            .insert(path.to_owned(), transpiled.as_bytes().to_vec());
+        }
+        deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
           transpiled_files
             .insert(path.to_owned(), js.source.as_bytes().to_vec());
         }
@@ -244,4 +257,164 @@ pub fn create_npm_exports(exports: &ExportsMap) -> IndexMap<String, String> {
     npm_exports.insert(key.clone(), import_path);
   }
   npm_exports
+}
+
+#[cfg(test)]
+mod tests {
+  use std::{collections::HashMap, io::Read};
+
+  use async_tar::Archive;
+  use deno_ast::ModuleSpecifier;
+  use deno_graph::{
+    source::{MemoryLoader, NullFileSystem, Source},
+    BuildOptions, GraphKind, ModuleGraph, WorkspaceMember,
+  };
+  use deno_semver::package::{PackageNv, PackageReqReference};
+  use futures::{AsyncReadExt, StreamExt};
+  use indexmap::IndexMap;
+  use url::Url;
+
+  use crate::{
+    analysis::ModuleAnalyzer,
+    db::{DependencyKind, ExportsMap},
+    ids::{PackageName, ScopeName, Version},
+  };
+
+  use super::{create_npm_tarball, NpmTarballOptions};
+
+  async fn test_npm_tarball(
+    exports: ExportsMap,
+    files: Vec<(&str, &str)>,
+  ) -> Result<HashMap<String, Vec<u8>>, anyhow::Error> {
+    let package = PackageName::new("foo".to_string())?;
+    let scope = ScopeName::new("deno-test".to_string())?;
+    let version = Version::new("1.0.0")?;
+
+    let mut memory_files = vec![];
+    for file in files {
+      let specifier = format!("file://{}", file.0);
+      memory_files.push((
+        specifier.clone(),
+        Source::Module {
+          specifier,
+          maybe_headers: None,
+          content: file.1.to_string(),
+        },
+      ));
+    }
+
+    let mut loader = MemoryLoader::new(memory_files, vec![]);
+    let mut graph = ModuleGraph::new(GraphKind::All);
+    let workspace_members = vec![WorkspaceMember {
+      base: Url::parse("file:///").unwrap(),
+      exports: exports.clone().into_inner(),
+      nv: PackageNv {
+        name: format!("@{}/{}", scope, package),
+        version: version.0.clone(),
+      },
+    }];
+
+    let mut roots: Vec<ModuleSpecifier> = vec![];
+    for ex in exports.iter() {
+      let raw = format!("file://{}", ex.1);
+      let specifier = Url::parse(&raw).unwrap();
+      roots.push(specifier);
+    }
+
+    let module_analyzer = ModuleAnalyzer::default();
+    graph
+      .build(
+        roots,
+        &mut loader,
+        BuildOptions {
+          is_dynamic: false,
+          module_analyzer: Some(&module_analyzer),
+          module_parser: Some(&module_analyzer.analyzer),
+          workspace_members: &workspace_members,
+          file_system: Some(&NullFileSystem),
+          resolver: None,
+          npm_resolver: None,
+          reporter: None,
+          ..Default::default()
+        },
+      )
+      .await;
+
+    let deps: Vec<(DependencyKind, PackageReqReference)> = vec![];
+
+    let npm_tarball = create_npm_tarball(NpmTarballOptions {
+      exports: &exports,
+      package: &package,
+      registry_url: &Url::parse("http://jsr.test").unwrap(),
+      scope: &scope,
+      version: &Version::new("1.0.0").unwrap(),
+      graph: &graph,
+      sources: &module_analyzer.analyzer,
+      dependencies: deps.iter(),
+    })?;
+
+    let mut transpiled_files: HashMap<String, Vec<u8>> = HashMap::new();
+
+    let mut gz_decoder =
+      flate2::bufread::GzDecoder::new(&npm_tarball.tarball[..]);
+    let mut raw = vec![];
+    gz_decoder.read_to_end(&mut raw)?;
+    let mut archive = Archive::new(&raw[..]).entries()?;
+
+    while let Some(res) = archive.next().await {
+      let mut entry = res.unwrap();
+
+      let path = entry.path().unwrap().display().to_string();
+      // For our tests we don't care about the package parent folder
+      let len = "package".to_string().len();
+      let formatted_path = path[len..].to_string();
+
+      let mut buf = vec![];
+      entry.read_to_end(&mut buf).await?;
+      transpiled_files.insert(formatted_path, buf);
+    }
+
+    Ok(transpiled_files)
+  }
+
+  fn get_content_without_source_map(data: &[u8]) -> String {
+    let s = String::from_utf8_lossy(data);
+    if let Some(idx) = s.find("\n//# sourceMappingURL") {
+      s[..idx].to_string()
+    } else {
+      s.to_string()
+    }
+  }
+
+  #[tokio::test]
+  async fn package_json_gen_test() -> Result<(), anyhow::Error> {
+    let files = vec![
+      ("/package.json", ""),
+      (
+        "/foo.js",
+        "import {html} from 'npm:lit@^2.2.7';console.log(html)",
+      ),
+      (
+        "/bar.mjs",
+        "import {html} from 'npm:lit@^2.2.7';console.log(html)",
+      ),
+    ];
+    let exports = ExportsMap::new(IndexMap::from([
+      (".".to_string(), "/foo.js".to_string()),
+      ("./bar".to_string(), "/bar.mjs".to_string()),
+    ]));
+    let tarball_files = test_npm_tarball(exports, files).await?;
+
+    let expected =
+      "import { html } from \"lit\";\nconsole.log(html);".to_string();
+
+    let foo_js =
+      get_content_without_source_map(tarball_files.get("/foo.js").unwrap());
+    let bar_mjs =
+      get_content_without_source_map(tarball_files.get("/bar.mjs").unwrap());
+    assert_eq!(foo_js, expected);
+    assert_eq!(bar_mjs, expected);
+
+    Ok(())
+  }
 }
