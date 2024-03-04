@@ -387,17 +387,12 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn package_json_gen_test() -> Result<(), anyhow::Error> {
+  async fn import_sources_test() -> Result<(), anyhow::Error> {
+    let source = "import {html} from 'npm:lit@^2.2.7';console.log(html)";
     let files = vec![
       ("/package.json", ""),
-      (
-        "/foo.js",
-        "import {html} from 'npm:lit@^2.2.7';console.log(html)",
-      ),
-      (
-        "/bar.mjs",
-        "import {html} from 'npm:lit@^2.2.7';console.log(html)",
-      ),
+      ("/foo.js", source),
+      ("/bar.mjs", source),
     ];
     let exports = ExportsMap::new(IndexMap::from([
       (".".to_string(), "/foo.js".to_string()),
