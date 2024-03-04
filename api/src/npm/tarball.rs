@@ -3,8 +3,14 @@ use std::borrow::Cow;
 
 use anyhow::Context;
 use base64::Engine;
+use deno_ast::apply_text_changes;
+use deno_ast::ParsedSource;
+use deno_ast::TextChange;
+use deno_graph::DefaultModuleAnalyzer;
+use deno_graph::DependencyDescriptor;
 use deno_graph::ModuleGraph;
 use deno_graph::ParsedSourceStore;
+use deno_graph::PositionRange;
 use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
 use sha2::Digest;
@@ -101,21 +107,56 @@ pub fn create_npm_tarball<'a>(
       transpiled_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
     } else if let Some(js) = module.js() {
       match js.media_type {
-        // We need to transpile js files too, to rewrite import sources
+        // We need to rewrite import source in js files too
         // from `npm:*` to bare specifiers, for example.
         deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
           let source = sources
             .get_parsed_source(module.specifier())
             .expect("parsed source should be here");
-          let source_url = Url::options()
-            .base_url(Some(registry_url))
-            .parse(&format!("./@{scope}/{package}/{version}{path}",))
-            .unwrap();
-          let transpiled = transpile_to_js(source, source_url)
-            .with_context(|| format!("failed to transpile {}", path))?;
+
+          let module_info = DefaultModuleAnalyzer::module_info(&source);
+
+          let maybe_rewrite_specifier =
+            |specifier: &str,
+             range: &PositionRange,
+             text_changes: &mut Vec<TextChange>| {
+              if let Some(rewritten) = rewrite_specifier(&specifier) {
+                text_changes.push(TextChange {
+                  new_text: rewritten,
+                  range: to_range(&source, &range),
+                });
+              }
+            };
+
+          let mut text_changes = vec![];
+          for dep in &module_info.dependencies {
+            match dep {
+              DependencyDescriptor::Static(dep) => {
+                maybe_rewrite_specifier(
+                  &dep.specifier,
+                  &dep.specifier_range,
+                  &mut text_changes,
+                );
+              }
+              DependencyDescriptor::Dynamic(dep) => match &dep.argument {
+                deno_graph::DynamicArgument::String(str_arg) => {
+                  maybe_rewrite_specifier(
+                    &str_arg,
+                    &dep.argument_range,
+                    &mut text_changes,
+                  );
+                }
+                deno_graph::DynamicArgument::Template(_) => {}
+                deno_graph::DynamicArgument::Expr => {}
+              },
+            }
+          }
+
+          let rewritten =
+            apply_text_changes(source.text_info().text_str(), text_changes);
 
           transpiled_files
-            .insert(path.to_owned(), transpiled.as_bytes().to_vec());
+            .insert(path.to_owned(), rewritten.as_bytes().to_vec());
         }
         deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
           transpiled_files
@@ -259,6 +300,23 @@ pub fn create_npm_exports(exports: &ExportsMap) -> IndexMap<String, String> {
   npm_exports
 }
 
+fn to_range(
+  parsed_source: &ParsedSource,
+  range: &PositionRange,
+) -> std::ops::Range<usize> {
+  let mut range = range
+    .as_source_range(parsed_source.text_info())
+    .as_byte_range(parsed_source.text_info().range().start);
+  let text = &parsed_source.text_info().text_str()[range.clone()];
+  if text.starts_with('"') || text.starts_with('\'') {
+    range.start += 1;
+  }
+  if text.ends_with('"') || text.ends_with('\'') {
+    range.end -= 1;
+  }
+  range
+}
+
 #[cfg(test)]
 mod tests {
   use std::{collections::HashMap, io::Read};
@@ -388,7 +446,8 @@ mod tests {
 
   #[tokio::test]
   async fn import_sources_test() -> Result<(), anyhow::Error> {
-    let source = "import {html} from 'npm:lit@^2.2.7';console.log(html)";
+    let source = r#"import { html } from "npm:lit@^2.2.7";
+await import("npm:lit@^2.2.7");"#;
     let files = vec![
       ("/package.json", ""),
       ("/foo.js", source),
@@ -400,8 +459,9 @@ mod tests {
     ]));
     let tarball_files = test_npm_tarball(exports, files).await?;
 
-    let expected =
-      "import { html } from \"lit\";\nconsole.log(html);".to_string();
+    let expected = r#"import { html } from "lit";
+await import("lit");"#
+      .to_string();
 
     let foo_js =
       get_content_without_source_map(tarball_files.get("/foo.js").unwrap());
