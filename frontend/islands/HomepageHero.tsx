@@ -155,7 +155,7 @@ export function HomepageHero(
         <script src={asset("/scripts/particles.js")} defer></script>
       </Head>
       <style>{canvasStyle}</style>
-      <div class="section-x-inset-xl flex flex-col items-center justify-center gap-12 relative">
+      <div class="section-x-inset-xl flex flex-col items-center justify-center gap-12 relative pointer-events-none">
         <div class="text-center">
           <h1 class="relative z-10 flex flex-col items-center gap-6 lg:gap-8">
             <span className="sr-only">JSR</span>
@@ -169,7 +169,7 @@ export function HomepageHero(
             </div>
           </h1>
           <div
-            class="flex flex-row gap-3 items-center justify-center mt-4"
+            class="flex flex-row gap-3 items-center justify-center mt-4 pointer-events-auto"
             style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
           >
             <a class="underline text-sm relative z-10" href="/docs">
@@ -189,7 +189,10 @@ export function HomepageHero(
           />
         </div>
         <div class="flex flex-col items-center gap-4">
-          <a class="button-primary relative z-10" href="/new">
+          <a
+            class="button-primary relative z-10 pointer-events-auto"
+            href="/new"
+          >
             <Plus /> Publish a package
           </a>
         </div>

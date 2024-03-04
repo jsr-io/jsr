@@ -37,7 +37,7 @@ export function PackageHeader(
           <div class="flex items-center gap-1">
             {selectedVersion &&
               pkg.latestVersion === selectedVersion?.version && (
-              <div class="chip sm:big-chip bg-jsr-yellow-400">
+              <div class="chip sm:big-chip bg-jsr-yellow-400 select-none">
                 latest
               </div>
             )}

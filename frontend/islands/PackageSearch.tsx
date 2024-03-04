@@ -170,7 +170,7 @@ export function PackageSearch(
       <form
         action="/packages"
         method="GET"
-        class="flex w-full"
+        class="flex w-full pointer-events-auto"
         onSubmit={onSubmit}
       >
         <label htmlFor="package-search-input" class="sr-only">

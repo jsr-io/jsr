@@ -28,7 +28,7 @@ export function UserMenu(
   const prefix = useId();
 
   return (
-    <div class="relative" ref={ref}>
+    <div class="relative select-none" ref={ref}>
       <button
         id={`${prefix}-user-menu`}
         class="flex items-center rounded-full"
