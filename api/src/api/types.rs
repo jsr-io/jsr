@@ -344,7 +344,7 @@ pub struct ApiPackageScore {
 }
 
 impl ApiPackageScore {
-  pub const MAX_SCORE: u32 = 17;
+  pub const MAX_SCORE: u32 = 18;
 
   pub fn score_percentage(&self) -> u32 {
     (self.total * 100) / Self::MAX_SCORE
