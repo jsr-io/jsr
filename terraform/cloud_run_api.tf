@@ -131,6 +131,9 @@ resource "google_compute_backend_service" "registry_api" {
     cache_key_policy {
       include_query_string = true
     }
+    bypass_cache_on_request_headers {
+      header_name = "authorization"
+    }
     serve_while_stale = 600 # 10 minutes
     default_ttl       = 0
     max_ttl           = 31622400 # 1 year

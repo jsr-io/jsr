@@ -7,7 +7,6 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use oauth2::http::HeaderValue;
 use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::de::DeserializeOwned;
@@ -134,14 +133,6 @@ where
     async move {
       let is_anonymous = req.iam().is_anonymous();
       let mut res = handler(req).await?;
-      match res.headers_mut().entry(header::VARY) {
-        header::Entry::Occupied(mut entry) => {
-          entry.append(HeaderValue::from_name(header::AUTHORIZATION));
-        }
-        header::Entry::Vacant(entry) => {
-          entry.insert(HeaderValue::from_name(header::AUTHORIZATION));
-        }
-      }
       if is_anonymous {
         res
           .headers_mut()
