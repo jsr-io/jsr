@@ -33,6 +33,8 @@ interface SearchRecord {
   location: { filename: string; line: number; col: number };
 }
 
+const placeholder = `Search for symbols (${isMacLike ? "⌘/" : "Ctrl+/"})`;
+
 export function LocalSymbolSearch(
   props: LocalSymbolSearchProps,
 ) {
@@ -40,7 +42,6 @@ export function LocalSymbolSearch(
   const db = useSignal<undefined | Orama<any>>(undefined);
   const results = useSignal<SearchRecord[]>([]);
   const selectionIdx = useSignal(-1);
-  const [macLike, setMacLike] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -120,10 +121,6 @@ export function LocalSymbolSearch(
     };
   });
 
-  useEffect(() => {
-    setMacLike(isMacLike());
-  }, []);
-
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
       const searchResult = await search(db.value!, {
@@ -162,7 +159,6 @@ export function LocalSymbolSearch(
     }
   }
 
-  const placeholder = `Search for symbols (${macLike ? "⌘/" : "Ctrl+/"})`;
   return (
     <div class="mb-2 flex-none" ref={ref}>
       <input

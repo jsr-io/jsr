@@ -21,6 +21,8 @@ interface PackageSearchProps {
 // displayed, if there is a more recent pending query.
 const MAX_STALE_RESULT_MS = 200;
 
+const placeholder = `Search for packages (${isMacLike ? "⌘K" : "Ctrl+K"})`;
+
 export function PackageSearch(
   { query, indexId, apiKey, jumbo }: PackageSearchProps,
 ) {
@@ -37,7 +39,6 @@ export function PackageSearch(
   const showSuggestions = computed(() =>
     isFocused.value && search.value.length > 0
   );
-  const [macLike, setMacLike] = useState(true);
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -71,10 +72,6 @@ export function PackageSearch(
       globalThis.removeEventListener("keydown", keyboardHandler);
     };
   });
-
-  useEffect(() => {
-    setMacLike(isMacLike());
-  }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
@@ -164,7 +161,6 @@ export function PackageSearch(
     }
   }
 
-  const placeholder = `Search for packages (${macLike ? "⌘K" : "Ctrl+K"})`;
   return (
     <div ref={ref} class="pointer-events-auto">
       <form
