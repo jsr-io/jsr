@@ -302,6 +302,7 @@ fn generate_score(
       doc_nodes_by_url,
     ),
     all_fast_check,
+    has_provenance: false, // Provenance score is updated after version publish
   }
 }
 

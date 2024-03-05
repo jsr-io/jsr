@@ -243,6 +243,7 @@ pub struct PackageVersionMeta {
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool,
+  pub has_provenance: bool,
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for PackageVersionMeta {

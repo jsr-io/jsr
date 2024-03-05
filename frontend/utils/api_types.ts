@@ -95,6 +95,7 @@ export interface PackageScore {
   allEntrypointsDocs: boolean;
   percentageDocumentedSymbols: number;
   allFastCheck: boolean;
+  hasProvenance: boolean;
 
   // package specific
   hasDescription: boolean;
