@@ -470,7 +470,9 @@ pub enum PublishError {
   #[error("case-insensitive duplicate path '{a}' and '{b}'")]
   CaseInsensitiveDuplicatePath { a: PackagePath, b: PackagePath },
 
-  #[error("missing config file '{0}', is it perhaps excluded from publishing?")]
+  #[error(
+    "missing config file '{0}', is it perhaps excluded from publishing?"
+  )]
   MissingConfigFile(Box<PackagePath>),
 
   #[error("invalid config file '{path}': {error}")]
