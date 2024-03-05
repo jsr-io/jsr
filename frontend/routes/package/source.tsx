@@ -207,5 +207,6 @@ export const handler: Handlers<Data, State> = {
 };
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package/:version((?:\\d+\\.\\d+\\.\\d+.*?)|meta\.json)/:path*",
+  routeOverride:
+    "/@:scope/:package/:version((?:\\d+\\.\\d+\\.\\d+.*?)|meta\.json)/:path*",
 };
