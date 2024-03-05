@@ -133,7 +133,6 @@ pub struct ApiFullUser {
   pub scope_usage: i32,
   pub scope_limit: i32,
   pub invite_count: u64,
-  pub waitlist_accepted_at: Option<DateTime<Utc>>,
 }
 
 impl From<User> for ApiFullUser {
@@ -151,7 +150,6 @@ impl From<User> for ApiFullUser {
       scope_usage: user.scope_usage as i32,
       scope_limit: user.scope_limit,
       invite_count: user.invite_count as u64,
-      waitlist_accepted_at: user.waitlist_accepted_at,
     }
   }
 }
@@ -334,6 +332,7 @@ pub struct ApiPackageScore {
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool,
+  pub has_provenance: bool,
 
   // package wide
   pub has_description: bool,
@@ -347,7 +346,7 @@ impl ApiPackageScore {
   pub const MAX_SCORE: u32 = 17;
 
   pub fn score_percentage(&self) -> u32 {
-    (self.total * 100) / Self::MAX_SCORE
+    u32::min((self.total * 100) / Self::MAX_SCORE, 100)
   }
 }
 
@@ -364,6 +363,10 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
     }
 
     if meta.all_entrypoints_docs {
+      score += 1;
+    }
+
+    if meta.has_provenance {
       score += 1;
     }
 
@@ -412,6 +415,7 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
       all_entrypoints_docs: meta.all_entrypoints_docs,
       percentage_documented_symbols: meta.percentage_documented_symbols,
       all_fast_check: meta.all_fast_check,
+      has_provenance: meta.has_provenance,
       has_description: !package.description.is_empty(),
       at_least_one_runtime_compatible: compatible_runtimes_count >= 1,
       multiple_runtimes_compatible: compatible_runtimes_count >= 2,

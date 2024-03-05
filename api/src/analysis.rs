@@ -302,6 +302,7 @@ fn generate_score(
       doc_nodes_by_url,
     ),
     all_fast_check,
+    has_provenance: false, // Provenance score is updated after version publish
   }
 }
 
@@ -759,7 +760,7 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
-struct ModuleAnalyzer {
+pub struct ModuleAnalyzer {
   pub analyzer: CapturingModuleAnalyzer,
   pub module_info: RefCell<HashMap<Url, ModuleInfo>>,
 }

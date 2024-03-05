@@ -144,7 +144,7 @@ pub enum ScopeNameValidateError {
 }
 
 /// A package name, like 'foo' or 'bar'. The name is not prefixed with an @.
-/// The name must be at least 2 character long, and at most 20 characters long.
+/// The name must be at least 2 character long, and at most 32 characters long.
 /// The name must only contain alphanumeric characters and hyphens.
 /// The name must not start or end with a hyphen.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -156,7 +156,7 @@ impl PackageName {
       return Err(PackageNameValidateError::TooShort);
     }
 
-    if name.len() > 20 {
+    if name.len() > 32 {
       return Err(PackageNameValidateError::TooLong);
     }
 
@@ -259,7 +259,7 @@ pub enum PackageNameValidateError {
   #[error("package name must be at least 2 characters long")]
   TooShort,
 
-  #[error("package name must be at most 20 characters long")]
+  #[error("package name must be at most 32 characters long")]
   TooLong,
 
   #[error("package name must contain only lowercase ascii alphanumeric characters and hyphens")]
@@ -790,8 +790,8 @@ mod tests {
     // Test invalid scope names
     assert!(ScopeName::try_from("").is_err());
     assert!(ScopeName::try_from("f").is_err());
-    assert!(PackageName::try_from("Foo").is_err());
-    assert!(PackageName::try_from("oooF").is_err());
+    assert!(ScopeName::try_from("Foo").is_err());
+    assert!(ScopeName::try_from("oooF").is_err());
     assert!(ScopeName::try_from("very-long-name-is-very-long").is_err());
     assert!(ScopeName::try_from("123").is_err());
     assert!(ScopeName::try_from("1oo").is_err());
@@ -817,13 +817,16 @@ mod tests {
     assert!(PackageName::try_from("foo-123-bar").is_ok());
     assert!(PackageName::try_from("f123").is_ok());
     assert!(PackageName::try_from("foo-bar-baz-qux").is_ok());
+    assert!(PackageName::try_from("very-long-name-is-very-long").is_ok());
 
     // Test invalid package names
     assert!(PackageName::try_from("").is_err());
     assert!(PackageName::try_from("f").is_err());
     assert!(PackageName::try_from("Foo").is_err());
     assert!(PackageName::try_from("oooF").is_err());
-    assert!(PackageName::try_from("very-long-name-is-very-long").is_err());
+    assert!(
+      PackageName::try_from("very-long-name-is-very-very-very-long").is_err()
+    );
     assert!(PackageName::try_from("123").is_err());
     assert!(PackageName::try_from("1oo").is_err());
     assert!(PackageName::try_from("123-foo").is_err());

@@ -44,7 +44,7 @@ impl Database {
   pub async fn get_user(&self, id: Uuid) -> Result<Option<User>> {
     sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       FROM users
@@ -75,7 +75,7 @@ impl Database {
   ) -> Result<Option<User>> {
     sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       FROM users
@@ -107,7 +107,7 @@ impl Database {
     );
     let users = sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL) ORDER BY created_at DESC OFFSET $3 LIMIT $4"#,
@@ -139,7 +139,7 @@ impl Database {
       User,
       r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -163,7 +163,7 @@ impl Database {
     sqlx::query_as!(
       User,
       r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -183,7 +183,7 @@ impl Database {
     sqlx::query_as!(
       User,
       r#"UPDATE users SET is_blocked = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -203,7 +203,7 @@ impl Database {
     sqlx::query_as!(
       User,
       r#"UPDATE users SET scope_limit = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -220,7 +220,7 @@ impl Database {
       User,
       r#"DELETE FROM users
       WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -335,7 +335,7 @@ impl Database {
   ) -> Result<()> {
     sqlx::query!(
       r#"UPDATE package_versions
-      SET rekor_log_id = $1
+      SET rekor_log_id = $1, meta = jsonb_set_lax(meta, '{hasProvenance}', 'true'::jsonb, true)
       WHERE scope = $2 AND name = $3 AND version = $4 AND rekor_log_id IS NULL AND created_at > now() - '2 minute'::interval"#,
       rekor_log_id,
       package_scope as _,

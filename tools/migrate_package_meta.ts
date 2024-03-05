@@ -5,13 +5,9 @@ import type {
   JsDocTagDoc,
 } from "https://deno.land/x/deno_doc@0.115.0/types.d.ts";
 
-const client = new Client({
-  user: "user",
-  password: "password",
-  database: "registry",
-  hostname: "localhost",
-  port: 5432,
-});
+const client = new Client(
+  "postgres://postgres:postgres@127.0.0.1:5432/registry3",
+);
 await client.connect();
 
 const packages = await client.queryObject<
@@ -77,11 +73,9 @@ async function getReadme(
     return null;
   }
 
-  const res = await fetch(
-    `http://jsr.test/@${scope}/${name}/${version}${readme.rows[0].path}`,
+  return await Deno.readTextFile(
+    `./.gcs/modules/@${scope}/${name}/${version}${readme.rows[0].path}`,
   );
-
-  return res.text();
 }
 
 async function getDocNodes(

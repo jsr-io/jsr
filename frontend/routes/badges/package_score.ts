@@ -37,6 +37,7 @@ export const handler: Handlers<unknown, State> = {
             message: `${packageResp.data.score}%`,
             labelColor: "rgb(8,51,68)",
             color: "rgb(247,223,30)",
+            logoWidth: "25",
           }),
           {
             headers: {
