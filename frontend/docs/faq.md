@@ -30,8 +30,6 @@ like `npm`, `yarn`, or `pnpm` with JSR.
 Yes. JSR is open source and licensed under the MIT License. You can find the
 source code on [GitHub](https://github.com/jsr-io/jsr).
 
-> NOTE: The repo will be open sourced as soon as JSR is launched publicly.
-
 ### How is JSR different from npm?
 
 JSR is designed to be a superset of npm, allowing existing tools that use npm to
@@ -110,3 +108,26 @@ us at security@jsr.io.
 
 Please open an issue on the JSR GitHub repository at
 [jsr-io/jsr](https://github.com/jsr-io/jsr).
+
+### Why does JSR ask to "Act on your behalf" when I log in with GitHub?
+
+When signing in with GitHub, GitHub presents you with a screen that asks for
+your permission to authorize JSR. This screen includes a list of resources that
+JSR can access (only your email addresses and public profile information).
+
+This screen also contains the text "Act on your behalf" which suggests that JSR
+can perform arbitrary actions on your behalf. **This is misleading, and not
+true.** JSR can act on your behalf only to read any resources you have granted
+it access to (your email addresses and public profile information). It cannot
+perform arbitrary actions on your behalf.
+
+JSR can not modify your GitHub account, create repositories, create comments, or
+do anything else that would be considered "acting on your behalf". GitHub
+presents this "Act on your behalf" screen to all GitHub Apps, regardless of what
+permissions they actually request.
+
+You can read more about this in
+[the GitHub documentation](https://docs.github.com/en/apps/using-github-apps/authorizing-github-apps#about-github-apps-acting-on-your-behalf)
+and in
+[this discusion thread](https://github.com/orgs/community/discussions/37117) on
+the official GitHub Discussions feedback forum.
