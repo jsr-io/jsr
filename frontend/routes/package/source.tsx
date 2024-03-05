@@ -170,6 +170,10 @@ export const handler: Handlers<Data, State> = {
       });
     }
     let sourcePath = "/" + (ctx.params.path ?? "");
+    if (ctx.params.version === "meta.json" && ctx.params.path === "") {
+      sourcePath = "meta.json";
+      ctx.params.version = "latest";
+    }
     if (ctx.params.version.endsWith("_meta.json") && ctx.params.path === "") {
       sourcePath = ctx.params.version;
       ctx.params.version = ctx.params.version.slice(0, -10);
@@ -203,5 +207,6 @@ export const handler: Handlers<Data, State> = {
 };
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package/:version(\\d+\\.\\d+\\.\\d+.*?)/:path*",
+  routeOverride:
+    "/@:scope/:package/:version((?:\\d+\\.\\d+\\.\\d+.*?)|meta\.json)/:path*",
 };

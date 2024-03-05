@@ -1111,7 +1111,13 @@ pub async fn get_source_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let file = if path == format!("{}_meta.json", version.version) {
+  let file = if path == "meta.json" {
+    let source_file_path = crate::gcs_paths::package_metadata(&scope, &package);
+    buckets
+      .modules_bucket
+      .download(source_file_path.into())
+      .await?
+  } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
       crate::gcs_paths::version_metadata(&scope, &package, &version.version);
     buckets
