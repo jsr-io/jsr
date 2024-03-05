@@ -1,10 +1,50 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { type Config } from "tailwindcss";
+import type { Config, CSSRuleObject } from "tailwindcss/types/config.d.ts";
 import colors from "tailwindcss/colors.js";
+import plugin from "tailwindcss/plugin.js";
+import tailwindPkgJson from "tailwindcss/package.json" with { type: "json" };
+import postcss from "postcss";
 
 export default {
   content: [
     "{routes,islands,components}/**/*.{ts,tsx}",
+  ],
+  corePlugins: {
+    preflight: false,
+  },
+  plugins: [
+    // Tailwindcss applies `height: auto` for img and video tags by default,
+    // so imgs and videos with a height attribute, the most common practice
+    // to resize media in markdown, are broken because height property in CSS
+    // has a higher priority than the attribute on the DOM.
+    //
+    // see also: https://github.com/tailwindlabs/tailwindcss/pull/7742#issuecomment-1061332148 
+    plugin(({ addBase }) => {
+      const preflight = postcss.parse(
+        Deno.readTextFileSync(
+          new URL("./node_modules/tailwindcss/lib/css/preflight.css", import.meta.url)
+        ),
+      );
+
+      preflight.walkRules(/^img,\s*video$/, (rule) => {
+        rule.nodes = rule.nodes.filter((node) =>
+          !(node.type === 'decl' && node.prop === "height" && node.value === "auto")
+        );
+      });
+
+      preflight.append(
+        "img:not([height]):not([class]), video:not([height]):not([class]) {\n" +
+        "  height: auto;\n" +
+        "}",
+      );
+
+      addBase([
+        postcss.comment({
+          text: `! tailwindcss v${tailwindPkgJson.version} | MIT License | https://tailwindcss.com`,
+        }) as unknown as CSSRuleObject,
+        ...preflight.nodes as unknown as CSSRuleObject[],
+      ]);
+    }),
   ],
   theme: {
     fontFamily: {
