@@ -495,7 +495,7 @@ pub mod tests {
     Bytes::from(gz_bytes)
   }
 
-  pub fn create_case_insenstive_mock_tarball() -> Bytes {
+  pub fn create_case_insensitive_mock_tarball() -> Bytes {
     let mut tar_bytes = Vec::new();
     let mut tar = tar::Builder::new(&mut tar_bytes);
     tar
@@ -808,9 +808,9 @@ pub mod tests {
   }
 
   #[tokio::test]
-  async fn case_insentive_duplicate() {
+  async fn case_insensitive_duplicate() {
     let t = TestSetup::new().await;
-    let bytes = create_case_insenstive_mock_tarball();
+    let bytes = create_case_insensitive_mock_tarball();
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();

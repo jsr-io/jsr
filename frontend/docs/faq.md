@@ -129,5 +129,5 @@ permissions they actually request.
 You can read more about this in
 [the GitHub documentation](https://docs.github.com/en/apps/using-github-apps/authorizing-github-apps#about-github-apps-acting-on-your-behalf)
 and in
-[this discusion thread](https://github.com/orgs/community/discussions/37117) on
+[this discussion thread](https://github.com/orgs/community/discussions/37117) on
 the official GitHub Discussions feedback forum.
