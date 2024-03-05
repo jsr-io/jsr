@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { assertStringIncludes } from "./utils/assert.ts";
 import { assertEquals } from "./utils/assert.ts";
 import { JSR_URL } from "./utils/configuration.ts";

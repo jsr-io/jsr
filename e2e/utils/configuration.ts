@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export const JSR_URL: string = Deno.env.get("JSR_URL")!;
 export const JSR_API_URL: string = Deno.env.get("JSR_API_URL")!;
 
