@@ -22,7 +22,10 @@
     "tf:staging:apply": "cd terraform && terraform apply -input=false staging.tfplan",
     "tf:prod:init": "gcloud config set project deno-registry3-prod && cd terraform && terraform init -backend-config bucket=deno-registry3-prod-terraform",
     "tf:prod:plan": "cd terraform && terraform plan -var-file=prod.tfvars -var-file=prod.secret.tfvars -out=prod.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" -var \"frontend_image_id=$FRONTEND_IMAGE_ID\"",
-    "tf:prod:apply": "cd terraform && terraform apply -input=false prod.tfplan"
+    "tf:prod:apply": "cd terraform && terraform apply -input=false prod.tfplan",
+
+    "e2e:staging": "cd e2e && JSR_URL=https://deno-registry-staging.net/ JSR_API_URL=https://api.deno-registry-staging.net/ deno test -A",
+    "e2e:prod": "cd e2e && JSR_URL=https://jsr.io/ JSR_API_URL=https://api.jsr.io/ deno test -A"
   },
   "exclude": ["target/", "api/testdata/", ".gcs/", "frontend/_fresh"],
   "compilerOptions": {
