@@ -3,7 +3,10 @@ title: Configuring JSR
 description: Learn about configuring JSR.
 ---
 
-The JSR config file is a subset of the [`deno.json`](https://docs.deno.com/runtime/manual/getting_started/configuration_file) config file which supports both `.json` and `.jsonc` extensions. You must have either a JSR or a Deno config file to publish a package.
+The JSR config file is a subset of the
+[`deno.json`](https://docs.deno.com/runtime/manual/getting_started/configuration_file)
+config file which supports both `.json` and `.jsonc` extensions. You must have
+either a JSR or a Deno config file to publish a package.
 
 ```json
 // jsr.json / deno.json
@@ -21,7 +24,9 @@ The `name` field is the name of your package, prefixed with a JSR scope.
 
 ### `version`
 
-The `version` field is the version of your package, which must be a valid [SemVer](https://semver.org/) version. You must increment the version of your package every time you publish a new version.
+The `version` field is the version of your package, which must be a valid
+[SemVer](https://semver.org/) version. You must increment the version of your
+package every time you publish a new version.
 [Learn more about package versions](/docs/packages#versions).
 
 ### `exports`
@@ -49,8 +54,8 @@ entrypoint. With this entrypoint can import the `greet.ts` module using
 `import { greet } from "@luca/greet";`.
 
 You can also specify the `exports` field as a single string. This is useful if
-you only have a single entrypoint in your package. It is semantically
-equivalent to specifying a default entrypoint in the object form.
+you only have a single entrypoint in your package. It is semantically equivalent
+to specifying a default entrypoint in the object form.
 
 ```diff
 // deno.json
@@ -74,4 +79,5 @@ than for all Deno subcommands.
 
 ## JSON Schema
 
-A JSON schema file is available for editors to provide autocompletion. The file is versioned and available at: https://jsr.io/schema/config-file.v1.json
+A JSON schema file is available for editors to provide autocompletion. The file
+is versioned and available at: https://jsr.io/schema/config-file.v1.json

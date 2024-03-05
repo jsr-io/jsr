@@ -1,71 +1,71 @@
 {
-    "$id": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "description": "A JSON representation of a JSR configuration file.",
-    "required": [
-        "name",
-        "version",
-        "exports"
-    ],
-    "title": "JSR configuration file Schema",
-    "type": "object",
-    "properties": {
-        "name": {
-            "type": "string",
-            "description": "The name of this JSR package. Must be scoped",
-            "examples": [
-                "@luca/flag"
-            ]
+  "$id": "https://deno.land/x/deno/cli/schemas/config-file.v1.json",
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "description": "A JSON representation of a JSR configuration file.",
+  "required": [
+    "name",
+    "version",
+    "exports"
+  ],
+  "title": "JSR configuration file Schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of this JSR package. Must be scoped",
+      "examples": [
+        "@luca/flag"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "description": "The version of this JSR package.",
+      "examples": [
+        "0.1.0",
+        "1.0.0"
+      ]
+    },
+    "exports": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "The path to the main module of this JSR package.",
+          "examples": [
+            "./mod.ts",
+            "./index.js"
+          ],
+          "pattern": "^\\./.*$"
         },
-        "version": {
-            "type": "string",
-            "description": "The version of this JSR package.",
-            "examples": [
-                "0.1.0",
-                "1.0.0"
-            ]
-        },
-        "exports": {
-            "oneOf": [
-                {
-                    "type": "string",
-                    "description": "The path to the main module of this JSR package.",
-                    "examples": [
-                        "./mod.ts",
-                        "./index.js"
-                    ],
-                    "pattern": "^\\./.*$"
-                },
-                {
-                    "type": "object",
-                    "description": "A map of package exports to files in this JSR package.",
-                    "patternProperties": {
-                        "^\\.(/.*)?$": {
-                            "type": "string",
-                            "pattern": "^\\./.*$"
-                        }
-                    },
-                    "examples": [
-                        {
-                            ".": "./mod.ts"
-                        }
-                    ]
-                }
-            ]
-        },
-        "include": {
-            "type": "array",
-            "description": "List of files, directories or globs that will be included in the published package.",
-            "items": {
-                "type": "string"
+        {
+          "type": "object",
+          "description": "A map of package exports to files in this JSR package.",
+          "patternProperties": {
+            "^\\.(/.*)?$": {
+              "type": "string",
+              "pattern": "^\\./.*$"
             }
-        },
-        "exclude": {
-            "type": "array",
-            "description": "List of files, directories or globs that will be excluded from the published package.",
-            "items": {
-                "type": "string"
+          },
+          "examples": [
+            {
+              ".": "./mod.ts"
             }
+          ]
         }
+      ]
+    },
+    "include": {
+      "type": "array",
+      "description": "List of files, directories or globs that will be included in the published package.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "description": "List of files, directories or globs that will be excluded from the published package.",
+      "items": {
+        "type": "string"
+      }
     }
+  }
 }
