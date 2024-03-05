@@ -402,6 +402,10 @@ correct version number based on the version in your `jsr.json` file.
 
 ## Ignoring files
 
+> :warning: Ignoring files is totally broken right now. Sorry! We're working on
+> it. You can follow progress on this issue:
+> https://github.com/jsr-io/jsr/issues/194
+
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
 root of your package. Additionally, you can specify the `exclude` and `include`
 fields in your `jsr.json` / `deno.json` file to ignore or include specific
