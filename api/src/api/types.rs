@@ -283,8 +283,9 @@ impl From<(ScopeMember, UserPublic)> for ApiScopeMember {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiAddScopeMemberRequest {
-  pub github_login: String,
+pub enum ApiAddScopeMemberRequest {
+  GithubLogin(String),
+  Id(Uuid),
 }
 
 #[derive(Debug, Deserialize)]
