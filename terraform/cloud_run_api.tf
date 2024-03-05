@@ -126,6 +126,8 @@ resource "google_compute_backend_service" "registry_api" {
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
     "X-Robots-Tag: noindex",
+    "access-control-allow-origin: *",
+    "access-control-expose-headers: *",
   ]
 
   enable_cdn = true
