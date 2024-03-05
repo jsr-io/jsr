@@ -170,7 +170,10 @@ export default function Score(
             title="Has provenance"
           >
             This package is published from a verifiable CI/CD workflow, and has
-            a public transparency log.
+            a{" "}
+            <a class="link" href="/docs/trust">
+              public transparency log entry
+            </a>.
           </ScoreItem>
         </ul>
       </div>
