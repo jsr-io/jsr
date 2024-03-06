@@ -18,29 +18,34 @@ export default {
     // to resize media in markdown, are broken because height property in CSS
     // has a higher priority than the attribute on the DOM.
     //
-    // see also: https://github.com/tailwindlabs/tailwindcss/pull/7742#issuecomment-1061332148 
+    // see also: https://github.com/tailwindlabs/tailwindcss/pull/7742#issuecomment-1061332148
     plugin(({ addBase }) => {
       const preflight = postcss.parse(
         Deno.readTextFileSync(
-          new URL("./node_modules/tailwindcss/lib/css/preflight.css", import.meta.url)
+          new URL(
+            "./node_modules/tailwindcss/lib/css/preflight.css",
+            import.meta.url,
+          ),
         ),
       );
 
       preflight.walkRules(/^img,\s*video$/, (rule) => {
         rule.nodes = rule.nodes.filter((node) =>
-          !(node.type === 'decl' && node.prop === "height" && node.value === "auto")
+          !(node.type === "decl" && node.prop === "height" &&
+            node.value === "auto")
         );
       });
 
       preflight.append(
         "img:not([height]):not([class]), video:not([height]):not([class]) {\n" +
-        "  height: auto;\n" +
-        "}",
+          "  height: auto;\n" +
+          "}",
       );
 
       addBase([
         postcss.comment({
-          text: `! tailwindcss v${tailwindPkgJson.version} | MIT License | https://tailwindcss.com`,
+          text:
+            `! tailwindcss v${tailwindPkgJson.version} | MIT License | https://tailwindcss.com`,
         }) as unknown as CSSRuleObject,
         ...preflight.nodes as unknown as CSSRuleObject[],
       ]);
