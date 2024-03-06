@@ -160,8 +160,8 @@ export default function Home({ data }: PageProps<Data>) {
             </BenefitHeading>
             <BenefitText>
               <p>
-                JSR modules can be used in Node.js, Deno, Bun, Cloudflare Workers,
-                and more.
+                JSR modules can be used in Node.js, Deno, Bun, Cloudflare
+                Workers, and more.
               </p>
               <p>
                 Module authors can count on great editor support from strongly

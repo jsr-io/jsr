@@ -42,8 +42,7 @@ printProgress();
 
 You can find more packages on [jsr.io](https://jsr.io). Each package on the JSR
 site also displays documentation, which is automatically generated from the
-package's source code.
-[Learn more about using packages.](/docs/using-packages)
+package's source code. [Learn more about using packages.](/docs/using-packages)
 
 ## Publishing JSR packages
 

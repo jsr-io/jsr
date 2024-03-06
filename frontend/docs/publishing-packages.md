@@ -35,15 +35,15 @@ code must follow these rules to be able to be published to JSR.
 - **`node:` built-ins are supported**: You can import Node.js built-ins using
   the `node:` scheme. For example, you can import the `fs` module using
   `import { readFile } from "node:fs";`. If your package has a `package.json`,
-  you can also import Node.js built-ins with bare specifiers (without the `node:`
-  prefix).
+  you can also import Node.js built-ins with bare specifiers (without the
+  `node:` prefix).
 - **Simple file names**: File names must be Windows and Unix compatible. This
   means that file names cannot contain characters like `*`, `:`, or `?`. You may
   also not have multiple files with the same name, but different casing.
 - **Preferably, no TypeScript "slow types"**: To speed up type checking, support
-  documentation generation, and Node.js compatibility, JSR packages should not use
-  certain TypeScript types in exported functions, classes, or variables. This is
-  enforced by default, but can be opted out of.
+  documentation generation, and Node.js compatibility, JSR packages should not
+  use certain TypeScript types in exported functions, classes, or variables.
+  This is enforced by default, but can be opted out of.
   [Learn more about "slow types."](/docs/about-slow-types)
 - **Valid cross file imports**: All of the relative imports between modules in
   your package must resolve at publish time. The format of supported specifiers

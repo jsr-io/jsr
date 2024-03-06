@@ -4,9 +4,9 @@ description: Learn how to use JSR packages in your projects.
 ---
 
 You can use JSR packages in any runtime that supports ES modules, like Deno,
-Node.js, Bun, Cloudflare Workers, etc. You can also use JSR packages with bundlers
-that support ES modules, such as **Vite**, **esbuild**, **Webpack**, and
-**Rollup**.
+Node.js, Bun, Cloudflare Workers, etc. You can also use JSR packages with
+bundlers that support ES modules, such as **Vite**, **esbuild**, **Webpack**,
+and **Rollup**.
 
 ## Adding a package
 

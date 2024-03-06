@@ -6,8 +6,8 @@ description: Answers to frequently asked questions about JSR.
 ### What is JSR?
 
 JSR is a new package registry for JavaScript. It is a free alternative to npm,
-that is designed to work well with all JavaScript tools and runtimes, like Node.js,
-Deno, Bun, Vite, and more.
+that is designed to work well with all JavaScript tools and runtimes, like
+Node.js, Deno, Bun, Vite, and more.
 
 [Learn more about why we built JSR.](/docs/why)
 

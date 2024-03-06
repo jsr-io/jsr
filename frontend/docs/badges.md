@@ -2,7 +2,8 @@
 description: JSR provides badges for each package that can be used to showcase its latest version or its score.
 ---
 
-JSR provides badges for each package that can be used to showcase its latest version or its score.
+JSR provides badges for each package that can be used to showcase its latest
+version or its score.
 
 ## Version Badge
 
@@ -34,8 +35,8 @@ In HTML documents, the following can be used:
 
 ## JSR Score Badge
 
-The JSR score badge can be used to showcase the JSR score of a package. It is available
-at the following URL:
+The JSR score badge can be used to showcase the JSR score of a package. It is
+available at the following URL:
 
 ```
 https://jsr.io/badges/@<scope>/<package>/score
