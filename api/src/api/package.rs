@@ -2907,8 +2907,21 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut t: TestSetup = TestSetup::new().await;
     let mut resp = t.unauthed_http().get("/api/metrics").call().await.unwrap();
     let body = resp.expect_ok::<ApiMetrics>().await;
+
     assert_eq!(0, body.packages);
+    assert_eq!(0, body.packages_1d);
+    assert_eq!(0, body.packages_7d);
+    assert_eq!(0, body.packages_30d);
+
     assert_eq!(5, body.users);
+    assert_eq!(5, body.users_1d);
+    assert_eq!(5, body.users_7d);
+    assert_eq!(5, body.users_30d);
+
+    assert_eq!(0, body.package_versions);
+    assert_eq!(0, body.package_versions_1d);
+    assert_eq!(0, body.package_versions_7d);
+    assert_eq!(0, body.package_versions_30d);
   }
 
   #[tokio::test]
