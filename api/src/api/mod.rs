@@ -33,7 +33,13 @@ use crate::util::CacheDuration;
 
 pub fn api_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/metrics", util::json(global_metrics_handler))
+    .get(
+      "/metrics",
+      util::cache(
+        CacheDuration::ONE_MINUTE,
+        util::json(global_metrics_handler),
+      ),
+    )
     .middleware(Middleware::pre(util::auth_middleware))
     .scope("/admin", admin_router())
     .scope("/scopes", scope_router())
