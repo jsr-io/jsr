@@ -90,7 +90,7 @@ If you are the last member of a scope, you cannot leave the scope. You can
 
 Scopes can only be deleted if they have no packages. If you want to delete a
 scope, you must first delete all packages in that scope.
-[Learn more about package deletion](/docs/packages#deleting-a-package).
+[Learn more about package deletion.](/docs/packages#deleting-a-package)
 
 Scopes can be deleted by scope admins from the scope settings page.
 
@@ -99,7 +99,7 @@ Scopes can be deleted by scope admins from the scope settings page.
 If you link a package in your scope to a GitHub repository, you can publish
 packages from GitHub Actions without having to configure any secrets or
 authentication.
-[Learn more about publishing from GitHub Actions](/docs/publishing-packages#publishing-from-github-actions).
+[Learn more about publishing from GitHub Actions.](/docs/publishing-packages#publishing-from-github-actions)
 
 Firstly, publishing is permitted only if the GitHub Actions workflow runs in the
 GitHub repository that is linked to the package on JSR.

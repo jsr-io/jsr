@@ -4,9 +4,9 @@ description: Learn how to use JSR packages in your projects.
 ---
 
 You can use JSR packages in any runtime that supports ES modules, like Deno,
-Node, Bun, Cloudflare Workers, etc. You can also use JSR packages with bundlers
-that support ES modules, such as **Vite**, **esbuild**, **Webpack**, and
-**Rollup**.
+Node.js, Bun, Cloudflare Workers, etc. You can also use JSR packages with
+bundlers that support ES modules, such as **Vite**, **esbuild**, **Webpack**,
+and **Rollup**.
 
 ## Adding a package
 
@@ -137,14 +137,14 @@ deno add @luca/cases@^1.0.1
 npx jsr add @luca/cases@^1.0.1
 ```
 
-Learn more about [semantic versioning here](https://semver.org/).
+Learn more about semantic versioning [here](https://semver.org/).
 
 ## Entrypoints
 
 Every package on JSR has one or more entrypoints. An entrypoint is a module that
 can be imported by users of the package. The entrypoint is specified in the
 `exports` field of the package's config file.
-[Learn more about `exports`](/docs/publishing-packages#package-metadata).
+[Learn more about `exports`.](/docs/publishing-packages#package-metadata)
 
 If you don't specify an entrypoint in your import, the runtime will use the
 package's default entrypoint. For example, when you import `jsr:@luca/cases@1`,

@@ -5,8 +5,8 @@ description: Learn how to publish packages to JSR.
 
 You can publish most JavaScript and TypeScript code written using ESM modules as
 a JSR package. JSR packages are published to [jsr.io](/), and can be imported
-from **Deno**, **Node**, and other tools.
-[Learn more about using JSR packages](/docs/using-packages).
+from **Deno**, **Node.js**, and other tools.
+[Learn more about using packages.](/docs/using-packages)
 
 Both code written originally to use `package.json`, and code written originally
 for Deno can be published as a JSR package. JSR supports and encourages
@@ -35,16 +35,16 @@ code must follow these rules to be able to be published to JSR.
 - **`node:` built-ins are supported**: You can import Node.js built-ins using
   the `node:` scheme. For example, you can import the `fs` module using
   `import { readFile } from "node:fs";`. If your package has a `package.json`,
-  you can also import Node built-ins with bare specifiers (without the `node:`
-  prefix).
+  you can also import Node.js built-ins with bare specifiers (without the
+  `node:` prefix).
 - **Simple file names**: File names must be Windows and Unix compatible. This
   means that file names cannot contain characters like `*`, `:`, or `?`. You may
   also not have multiple files with the same name, but different casing.
 - **Preferably, no TypeScript "slow types"**: To speed up type checking, support
-  documentation generation, and node compatibility, JSR packages should not use
-  certain TypeScript types in exported functions, classes, or variables. This is
-  enforced by default, but can be opted out of.
-  [Learn more about "slow types"](/docs/about-slow-types).
+  documentation generation, and Node.js compatibility, JSR packages should not
+  use certain TypeScript types in exported functions, classes, or variables.
+  This is enforced by default, but can be opted out of.
+  [Learn more about "slow types."](/docs/about-slow-types)
 - **Valid cross file imports**: All of the relative imports between modules in
   your package must resolve at publish time. The format of supported specifiers
   depends on whether a `package.json` is in use, and is elaborated below.
@@ -125,7 +125,7 @@ import * as express from "npm:express@4";
 You may import JSR packages specified in the `"dependencies"` of a
 `package.json`, ones specified in an import map or `deno.json`, or ones
 specified in source code using `jsr:` specifiers.
-[Learn more about using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)
 
 ```json
 // package.json
@@ -143,7 +143,7 @@ import * as encoding from "@std/encoding";
 import { camelCase } from "jsr:@luca/cases@1";
 ```
 
-### Importing Node built-ins
+### Importing Node.js built-ins
 
 You may import Node.js built-ins using the `node:` scheme. If a `package.json`
 is present in your package, you may also omit the `node:` scheme.
@@ -188,7 +188,7 @@ When writing TypeScript, you should ensure that your code does not use "slow
 types" that prevent JSR from generating documentation, generating type
 declarations for the npm compatibility layer, and speeding up type checking for
 consumers of your package.
-[Learn more about "slow types"](/docs/about-slow-types).
+[Learn more about "slow types."](/docs/about-slow-types)
 
 > You may temporarily bypass this restriction by publishing with the
 > `--allow-slow-types` flag. This will cause type checking to be significantly
@@ -213,12 +213,12 @@ JSR properties in their `deno.json` to avoid having to create another file.
 ```
 
 The `name` field is the name of your package, prefixed with a JSR scope.
-[Learn more about scope and package names](#creating-a-scope-and-package).
+[Learn more about scope and package names.](#creating-a-scope-and-package)
 
 The `version` field is the version of your package. This field must be a valid
 [SemVer](https://semver.org/) version. You must increment the version of your
 package every time you publish a new version.
-[Learn more about package versions](/docs/packages#versions).
+[Learn more about package versions.](/docs/packages#versions)
 
 The `exports` field tells JSR which modules should be importable by users of
 your package. The `exports` field can either be specified as a single string, or
@@ -262,7 +262,7 @@ You can also use the `include` and `exclude` options to include and exclude
 files during publishing. If using a `deno.json`, you can use `publish.include`
 and `publish.exclude` to include and exclude files only for publishing, rather
 than for all Deno subcommands.
-[Learn more about ignoring files](#ignoring-files).
+[Learn more about ignoring files.](#ignoring-files)
 
 ## Creating a scope and package
 
@@ -275,7 +275,7 @@ You can create a scope at [jsr.io/new](/new). Scopes names must be between 2 and
 hyphens. You can only create a scope if the name is not already taken. Scope
 names that are very similar to existing scope names -- for example ones that
 only differ by a hyphen -- are prohibited.
-[Learn more about scopes](/docs/scopes).
+[Learn more about scopes.](/docs/scopes)
 
 After you have created a scope, you can create a package in that scope. You can
 create a package at [jsr.io/new](/new). Package names must be between 2 and 20
@@ -283,7 +283,7 @@ characters long, and can only contain lowercase letters, numbers, and hyphens.
 You can only create a package if the name is not already taken. Package names
 that are very similar to existing package names -- for example ones that only
 differ by a hyphen -- are prohibited.
-[Learn more about packages](/docs/packages).
+[Learn more about packages.](/docs/packages)
 
 ## Verifying your package
 
@@ -355,7 +355,7 @@ During publishing, both the JSR CLI and the JSR server will run many checks
 against your package to ensure that it is valid. If any of these checks fail,
 the CLI will output an error message. You must fix these errors before you can
 attempt publishing again.
-[Learn more about troubleshooting publishing errors](/docs/troubleshooting#publishing-errors).
+[Learn more about troubleshooting publishing errors.](/docs/troubleshooting#publishing-errors)
 
 ## Publishing from GitHub Actions
 
