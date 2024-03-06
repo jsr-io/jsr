@@ -12,7 +12,7 @@ factors from 4 high level categories:
 
 - **Documentation**: The presence of a README file, module documentation, and
   documentation for public functions and types.
-  [Learn more about writing documentation](/docs/writing-docs).
+  [Learn more about writing documentation.](/docs/writing-docs)
 - **Best practices**: Packages should not use
   [slow types](/docs/about-slow-types), and should be published with
   [package provenance](/docs/trust).

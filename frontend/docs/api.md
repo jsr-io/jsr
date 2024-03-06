@@ -151,7 +151,7 @@ metadata. Instead, retrieve yanked status from the package metadata.
 The npm compatibility registry API is used to download npm compatible tarballs
 for JSR packages, and to retrieve npm compatible package metadata.
 
-[Learn more about the npm compatibility layer](/docs/npm-compatibility).
+[Learn more about the npm compatibility layer.](/docs/npm-compatibility)
 
 The npm compatibility registry API is served from the `https://npm.jsr.io`
 domain.

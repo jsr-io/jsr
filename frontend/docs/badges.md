@@ -1,63 +1,61 @@
 ---
-description: JSR provides a badges for each package that can be used to showcase the package version or JSR score for a package.
+description: JSR provides badges for each package that can be used to showcase its latest version or its score.
 ---
 
-For every package, JSR provides an SVG badge that can be included in READMEs,
-documentation, or other places to showcase the package version or JSR score for
-a package.
+JSR provides badges for each package that can be used to showcase its latest version or its score.
 
 ## Version Badge
 
-The version badge is a simple way to show the version of a package. It is
+The version badge can be used to showcase the version of a package. It is
 available at the following URL:
 
 ```
 https://jsr.io/badges/@<scope>/<package>
 ```
 
-It looks like this:
+Here's how it looks:
 
 [![JSR](https://jsr.io/badges/@luca/flag)](https://jsr.io/@luca/flag)
 
-To include it in a markdown document, copy the following code and replace
-`<scope>` and `<package>` with the scope and package name of the package.
+To include it in a Markdown document, use the following code, replacing
+`<scope>` and `<package>` with the actual scope and name of the package.
 
 ```markdown
-[![](https://jsr.io/badges/@<scope>/<package>)](https://jsr.io/@<scope>/<package>)
+[![JSR](https://jsr.io/badges/@<scope>/<package>)](https://jsr.io/@<scope>/<package>)
 ```
 
-In a HTML document, use the following code:
+In HTML documents, the following can be used:
 
 ```html
 <a href="https://jsr.io/@<scope>/<package>">
-  <img src="https://jsr.io/badges/@<scope>/<package>" alt="">
+  <img src="https://jsr.io/badges/@<scope>/<package>" alt="JSR" />
 </a>
 ```
 
 ## JSR Score Badge
 
-The JSR score badge is a way to show the JSR score of a package. It is available
+The JSR score badge can be used to showcase the JSR score of a package. It is available
 at the following URL:
 
 ```
 https://jsr.io/badges/@<scope>/<package>/score
 ```
 
-It looks like this:
+Here's how it looks:
 
 [![JSR Score](https://jsr.io/badges/@luca/flag/score)](https://jsr.io/@luca/flag)
 
-To include it in a markdown document, copy the following code and replace
-`<scope>` and `<package>` with the scope and package name of the package.
+To include it in a Markdown document, use the following code, replacing
+`<scope>` and `<package>` with the actual scope and name of the package.
 
 ```markdown
-[![](https://jsr.io/badges/@<scope>/<package>/score)](https://jsr.io/@<scope>/<package>)
+[![JSR Score](https://jsr.io/badges/@<scope>/<package>/score)](https://jsr.io/@<scope>/<package>)
 ```
 
-In a HTML document, use the following code:
+In HTML documents, the following can be used:
 
 ```html
 <a href="https://jsr.io/@<scope>/<package>">
-  <img src="https://jsr.io/badges/@<scope>/<package>/score" alt="">
+  <img src="https://jsr.io/badges/@<scope>/<package>/score" alt="JSR Score" />
 </a>
 ```

@@ -46,7 +46,7 @@ version number in your config file before publishing a new version.
 
 You can't delete a package version after it has been published. However, you can
 publish a new version of your package and yank the old version.
-[Learn more about yanking](/docs/packages#yanking-versions).
+[Learn more about yanking.](/docs/packages#yanking-versions)
 
 Note that yanking does not remove the contents of the package version from the
 registry. It only superficially hides the version from users in some places.

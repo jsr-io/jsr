@@ -5,7 +5,7 @@ description:
   guide to learn how.
 ---
 
-> **NOTE:** This guide is for Deno users only. If you are using JSR with Node or
+> **NOTE:** This guide is for Deno users only. If you are using JSR with Node.js or
 > in a different runtime environment, this information does not pertain to you.
 
 For package authors currently hosting modules on

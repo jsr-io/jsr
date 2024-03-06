@@ -6,10 +6,10 @@ description: Answers to frequently asked questions about JSR.
 ### What is JSR?
 
 JSR is a new package registry for JavaScript. It is a free alternative to npm,
-that is designed to work well with all JavaScript tools and runtimes, like Node,
+that is designed to work well with all JavaScript tools and runtimes, like Node.js,
 Deno, Bun, Vite, and more.
 
-[Learn more about "Why JSR?".](/docs/why)
+[Learn more about why we built JSR.](/docs/why)
 
 ### How do I use JSR?
 
@@ -41,7 +41,7 @@ seamlessly work with JSR. JSR is designed to be better than npm:
 - No need for build steps, which leads to better user experience for package
   publishers
 - Secure, token-less publishing for resistance against supply chain attacks
-- and more... [Learn more about "Why JSR?".](/docs/why)
+- and more... [Learn more about why we built JSR.](/docs/why)
 
 ### How is JSR funded? / Do I have to pay for JSR?
 
@@ -57,14 +57,14 @@ foreseeable future - JSR is designed to be very cheap to run.
 ### Can I delete a package from JSR?
 
 Source code published to JSR can not be deleted.
-[Learn more about immutability](/docs/immutability).
+[Learn more about immutability.](/docs/immutability)
 
 You can "yank" a version of a package, which will hide the version from the
 default view, but it will still be available to users who depend on it.
-[Learn more about yanking](/docs/packages#yanking-versions).
+[Learn more about yanking.](/docs/packages#yanking-versions)
 
 You may delete a package if it has no published versions.
-[Learn more about deleting empty packages](/docs/packages#deleting-a-package).
+[Learn more about deleting empty packages.](/docs/packages#deleting-a-package)
 
 ### Why are there quotas for scopes and package versions on JSR?
 

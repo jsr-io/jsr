@@ -6,7 +6,7 @@ description:
   JavaScript runtimes, and to be fast, simple, and secure.
 ---
 
-The incredible success of Node has been driven in large part by the success of
+The incredible success of Node.js has been driven in large part by the success of
 [npm](https://www.npmjs.com/). With 2 million (going on 3 million) packages, npm
 is likely the most successful package manager and registry in history. The
 JavaScript community should look on this accomplishment with pride.
@@ -18,9 +18,9 @@ was when npm was originally introduced:
   adopted
   [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
   as the module format of choice, superseding CommonJS.
-- **There are more JavaScript runtimes than just Node and browsers**. With the
+- **There are more JavaScript runtimes than just Node.js and browsers**. With the
   emergence of Deno, Bun, workerd, and other new JavaScript environments, a
-  Node-centric package registry no longer makes sense for the entire JS
+  Node.js-centric package registry no longer makes sense for the entire JS
   ecosystem.
 - **TypeScript has emerged as a de facto standard**. TypeScript, as a superset
   of JavaScript and test bed for the latest ECMAScript features, has emerged as
@@ -41,9 +41,9 @@ published directly to JSR. Platforms (like Deno) that
 [natively support TypeScript](/docs/using-packages#native-jsr-imports) can use
 these files directly.
 
-For other environments (like Node) that lack native TypeScript support, JSR will
+For other environments (like Node.js) that lack native TypeScript support, JSR will
 transpile your source code to JavaScript, and distribute your modules with
-`.d.ts` files to support TypeScript tooling for Node projects. No additional
+`.d.ts` files to support TypeScript tooling for Node.js projects. No additional
 configuration or build steps are required on the side of module authors.
 
 JSR will also generate reference documentation for your packages from TypeScript
@@ -62,7 +62,7 @@ community in this direction. For this reason, JSR was designed for ESM only.
 The goal of JSR is to work everywhere JavaScript works, and to provide a
 runtime-agnostic registry for JavaScript and TypeScript code. Today, JSR works
 with Deno and other npm environments that populate a `node_modules`. This means
-that Node, Bun, Cloudflare Workers, and other projects that manage dependencies
+that Node.js, Bun, Cloudflare Workers, and other projects that manage dependencies
 with a `package.json` can interoperate with JSR as well.
 
 We intend to expand our support of bundlers and other runtimes as time goes on,
@@ -89,7 +89,7 @@ including but not limited to:
 - Automatic API documentation generation from source code
 - Zero-config
   [publishing from GitHub Actions](/docs/publishing-packages#publishing-from-github-actions)
-- Automatic inclusion of `.d.ts` files for Node/npm distribution
+- Automatic inclusion of `.d.ts` files for Node.js/npm distribution
 - Automated guidance on TypeScript best practices that will keep your code
   loading as fast as possible.
 - Much more
