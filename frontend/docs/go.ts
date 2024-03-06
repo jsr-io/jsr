@@ -4,6 +4,13 @@
 
 const staticRedirects = new Map([
   ["moderator", "https://forms.gle/MWLEi7Qj4cjvXoLb8"],
+  ["use", "/docs/using-packages"],
+  ["publish", "/docs/publishing-packages"],
+  ["deno", "/docs/with/deno"],
+  ["node", "/docs/with/node"],
+  ["cfw", "/docs/with/cloudflare-workers"],
+  ["vite", "/docs/with/vite"],
+  ["nextjs", "/docs/with/nextjs"],
   ["invalid-path", "/docs/troubleshooting#invalidpath"],
   [
     "case-insensitive-duplicate-path",
