@@ -700,7 +700,19 @@ pub struct ApiStats {
 #[serde(rename_all = "camelCase")]
 pub struct ApiMetrics {
   pub packages: usize,
+  pub packages_1d: usize,
+  pub packages_7d: usize,
+  pub packages_30d: usize,
+
   pub users: usize,
+  pub users_1d: usize,
+  pub users_7d: usize,
+  pub users_30d: usize,
+
+  pub package_versions: usize,
+  pub package_versions_1d: usize,
+  pub package_versions_7d: usize,
+  pub package_versions_30d: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
