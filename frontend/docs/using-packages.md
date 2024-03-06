@@ -12,17 +12,17 @@ that support ES modules, such as **Vite**, **esbuild**, **Webpack**, and
 
 You can add a JSR package to your project using any of the commands below - the
 example below will add the most recent version of
-[`@luca/flag`](https://jsr.io/@luca/flag) to your project.
+[`@luca/cases`](https://jsr.io/@luca/cases) to your project.
 
 ```bash
 # deno
-deno add @luca/flag
+deno add @luca/cases
 
 # npm (one of the below, depending on your package manager)
-npx jsr add @luca/flag
-yarn dlx jsr add @luca/flag
-pnpm dlx jsr add @luca/flag
-bunx jsr add @luca/flag
+npx jsr add @luca/cases
+yarn dlx jsr add @luca/cases
+pnpm dlx jsr add @luca/cases
+bunx jsr add @luca/cases
 ```
 
 If you're using Deno, the `deno add` command will add an
@@ -33,7 +33,7 @@ something like this:
 ```json
 {
   "imports": {
-    "@luca/flag": "jsr:@luca/flag@^1.0.1"
+    "@luca/cases": "jsr:@luca/cases@^1.0.1"
   }
 }
 ```
@@ -49,7 +49,7 @@ dependency entry that looks something like this:
 ```json
 {
   "dependencies": {
-    "@luca/flag": "npm:@jsr/luca__flag@^1.0.1"
+    "@luca/cases": "npm:@jsr/luca__cases@^1.0.1"
   }
 }
 ```
@@ -68,21 +68,21 @@ Once your package has been added, you can use it in your ES module code the same
 way across runtimes:
 
 ```ts
-import { printProgress } from "@luca/flag";
+import { camelCase } from "@luca/cases";
 
-printProgress();
+camelCase("hello world"); // "helloWorld"
 ```
 
 ### Importing with `jsr:` specifiers
 
 In Deno, you can use packages without an install step by using `jsr:` specifiers
-directly within your source files. In this example, we import the `@luca/flag`
+directly within your source files. In this example, we import the `@luca/cases`
 module directly in our code, without needing an import map entry.
 
 ```ts
-import { printProgress } from "jsr:@luca/flag@^1.0.1";
+import { camelCase } from "jsr:@luca/cases@^1.0.1";
 
-printProgress();
+camelCase("hello world"); // "helloWorld"
 ```
 
 Here the `jsr:` specifier is followed by the package scope, the package name, a
@@ -100,30 +100,30 @@ version:
 
 ```bash
 # deno
-deno add @luca/flag@1
+deno add @luca/cases@1
 
 # npm (and npm-like systems)
-npx jsr add @luca/flag@1
+npx jsr add @luca/cases@1
 ```
 
 If you want to use a specific minor version, you can specify the minor version:
 
 ```bash
 # deno
-deno add @luca/flag@1.0
+deno add @luca/cases@1.0
 
 # npm (and npm-like systems)
-npx jsr add @luca/flag@1.0
+npx jsr add @luca/cases@1.0
 ```
 
 If you want to use a specific patch version, you can specify the patch version:
 
 ```bash
 # deno
-deno add @luca/flag@1.0.1
+deno add @luca/cases@1.0.1
 
 # npm (and npm-like systems)
-npx jsr add @luca/flag@1.0.1
+npx jsr add @luca/cases@1.0.1
 ```
 
 If you want to use at least a specific patch version, but do want to allow\
@@ -131,10 +131,10 @@ updates, you can specify the patch version with a `^` prefix:
 
 ```bash
 # deno
-deno add @luca/flag@^1.0.1
+deno add @luca/cases@^1.0.1
 
 # npm (and npm-like systems)
-npx jsr add @luca/flag@^1.0.1
+npx jsr add @luca/cases@^1.0.1
 ```
 
 Learn more about [semantic versioning here](https://semver.org/).
@@ -147,8 +147,8 @@ can be imported by users of the package. The entrypoint is specified in the
 [Learn more about `exports`](/docs/publishing-packages#package-metadata).
 
 If you don't specify an entrypoint in your import, the runtime will use the
-package's default entrypoint. For example, when you import `jsr:@luca/flag@1`,
-you import the default entrypoint of the `@luca/flag` package.
+package's default entrypoint. For example, when you import `jsr:@luca/cases@1`,
+you import the default entrypoint of the `@luca/cases` package.
 
 You can also import other entrypoints from a package. To do this, specify the
 entrypoint after the version constraint:

@@ -140,7 +140,7 @@ specified in source code using `jsr:` specifiers.
 // mod.ts
 import * as encoding from "@std/encoding";
 
-import { printProgress } from "jsr:@luca/flag@1";
+import { camelCase } from "jsr:@luca/cases@1";
 ```
 
 ### Importing Node built-ins

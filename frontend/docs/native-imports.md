@@ -22,30 +22,30 @@ installed. Instead, you can import them using the `jsr:` scheme in your import
 specifier, and the tool will automatically download and cache the package on
 first run.
 
-For example, to import the [`@luca/flag`](/@luca/flag) package:
+For example, to import the [`@luca/cases`](/@luca/cases) package:
 
 ```ts
-import { printProgress } from "jsr:@luca/flag";
+import { camelCase } from "jsr:@luca/cases";
 ```
 
 This will automatically download and cache the latest version of the
-`@luca/flag` package.
+`@luca/cases` package.
 
 You can also specify version constraints in the import specifier, to import a
 specific version of a package:
 
 ```ts
 // Import a specific patch version
-import { printProgress } from "jsr:@luca/flag@1.0.0";
+import { camelCase } from "jsr:@luca/cases@1.0.0";
 
 // Import the latest version in a major version range
-import { printProgress } from "jsr:@luca/flag@1";
+import { camelCase } from "jsr:@luca/cases@1";
 
 // Import the latest version compatible with a specific version (>= 1.2.3 and < 2.0.0)
-import { printProgress } from "jsr:@luca/flag@^1.2.3";
+import { camelCase } from "jsr:@luca/cases@^1.2.3";
 
 // Import the latest version in a minor version range, greater than the specific version (>= 1.2.3 and < 1.3.0)
-import { printProgress } from "jsr:@luca/flag@~1.2.3";
+import { camelCase } from "jsr:@luca/cases@~1.2.3";
 ```
 
 If you'd like to import packages without having to write the `jsr:` and version
@@ -59,7 +59,7 @@ In **Deno** you can do this by adding a line to the `"imports"` section in your
 ```diff
  {
    "imports": {
-+    "@luca/flag": "jsr:@luca/flag@1"
++    "@luca/cases": "jsr:@luca/cases@1"
    }
  }
 ```
@@ -67,7 +67,7 @@ In **Deno** you can do this by adding a line to the `"imports"` section in your
 You can then import packages using the alias defined in the `deno.json`:
 
 ```ts
-import { printProgress } from "@luca/flag";
+import { camelCase } from "@luca/cases";
 ```
 
 ## Implementing native `jsr:` imports in tools
