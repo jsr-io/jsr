@@ -1141,22 +1141,21 @@ impl Database {
   #[instrument(name = "Database::metrics", skip(self), err)]
   pub async fn metrics(&self) -> Result<ApiMetrics> {
     let packages = sqlx::query!(r#"
-      SELECT 
+      SELECT
         COUNT(DISTINCT (packages.name, packages.scope)) AS count_total,
         COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '1 day' THEN (packages.name, packages.scope) END) AS count_1d,
         COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '7 day' THEN (packages.name, packages.scope) END) AS count_7d,
         COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '30 day' THEN (packages.name, packages.scope) END) AS count_30d
-      FROM packages 
-      LEFT JOIN 
+      FROM packages
+      LEFT JOIN
         package_versions ON packages.name = package_versions.name AND packages.scope = package_versions.scope
-      WHERE 
+      WHERE
         package_versions.name IS NOT NULL
     "#)
       .fetch_one(&self.pool)
       .await?;
 
-    let users = 
-      sqlx::query!(r#"
+    let users = sqlx::query!(r#"
       SELECT
         COUNT(*) AS count_total,
         COUNT(CASE WHEN created_at >= NOW() - INTERVAL '1 DAY' THEN 1 END) AS count_1d,
@@ -1186,16 +1185,32 @@ impl Database {
       packages_1d: packages.count_1d.unwrap().try_into().unwrap(),
       packages_7d: packages.count_7d.unwrap().try_into().unwrap(),
       packages_30d: packages.count_30d.unwrap().try_into().unwrap(),
-    
+
       users: users.count_total.unwrap().try_into().unwrap(),
       users_1d: users.count_1d.unwrap().try_into().unwrap(),
       users_7d: users.count_7d.unwrap().try_into().unwrap(),
       users_30d: users.count_30d.unwrap().try_into().unwrap(),
 
-      package_versions: package_versions.count_total.unwrap().try_into().unwrap(),
-      package_versions_1d: package_versions.count_1d.unwrap().try_into().unwrap(),
-      package_versions_7d: package_versions.count_7d.unwrap().try_into().unwrap(),
-      package_versions_30d: package_versions.count_30d.unwrap().try_into().unwrap(),
+      package_versions: package_versions
+        .count_total
+        .unwrap()
+        .try_into()
+        .unwrap(),
+      package_versions_1d: package_versions
+        .count_1d
+        .unwrap()
+        .try_into()
+        .unwrap(),
+      package_versions_7d: package_versions
+        .count_7d
+        .unwrap()
+        .try_into()
+        .unwrap(),
+      package_versions_30d: package_versions
+        .count_30d
+        .unwrap()
+        .try_into()
+        .unwrap(),
     })
   }
 
