@@ -1,9 +1,9 @@
 ---
-description: JSR provides badges for each package that can be used to showcase its latest version or its score.
+description: JSR provides badges for each package that can be used to showcase its latest version or its JSR score.
 ---
 
 JSR provides badges for each package that can be used to showcase its latest
-version or its score.
+version or its JSR score.
 
 ## Version Badge
 
@@ -29,7 +29,7 @@ In HTML documents, the following can be used:
 
 ```html
 <a href="https://jsr.io/@<scope>/<package>">
-  <img src="https://jsr.io/badges/@<scope>/<package>" alt="JSR" />
+  <img src="https://jsr.io/badges/@<scope>/<package>" alt="" />
 </a>
 ```
 
@@ -57,6 +57,6 @@ In HTML documents, the following can be used:
 
 ```html
 <a href="https://jsr.io/@<scope>/<package>">
-  <img src="https://jsr.io/badges/@<scope>/<package>/score" alt="JSR Score" />
+  <img src="https://jsr.io/badges/@<scope>/<package>/score" alt="" />
 </a>
 ```
