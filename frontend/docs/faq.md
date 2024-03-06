@@ -79,17 +79,7 @@ We disallow name squatting on JSR. We define name squatting as the act of
 registering a scope / package name with no intention of using it, or to prevent
 someone with a legitimate use from using it (e.g. to sell it to them).
 
-If you believe a scope or package name is being squatted, please reach out to us
-at help@jsr.io. We will investigate and take appropriate action.
-
-Additionally we reserve the right to reclaim scope and package names that
-violate copyright, trademark, or other laws.
-
-We will be reasonable in our enforcement of this policy. We understand that
-sometimes people reserve names with the intention of using them, but then never
-get around to it. We will always reach out to the current scope owner to hear
-their side of the story, and come to a reasonable resolution for all parties
-involved.
+[Learn more about the JSR usage policy](/docs/usage-policy).
 
 ### How do I report a security vulnerability in JSR?
 
