@@ -193,10 +193,14 @@ body .ddoc a {
 }
 
 body .ddoc .markdown pre {
-  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 p-6 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
+  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 rounded-none md:rounded-md md:border-1.5;
+  
+  div {
+    @apply p-6 -mx-6 md:mx-0;
+  }
 }
 
-body .ddoc .markdown :not(pre) > code {
+body .ddoc .markdown :not(pre > div) > code {
   @apply bg-slate-50 border-slate-300 rounded-md;
 }
 
@@ -209,7 +213,11 @@ body .ddoc .usage {
 }
 
 body .ddoc .usage pre.highlight {
-  @apply bg-white border-jsr-cyan-200 -mx-4 md:mx-0 border-x-0 md:border-1.5;
+  @apply bg-white border-jsr-cyan-200 border-x-0 md:border-1.5;
+  
+  div {
+    @apply -mx-4 md:mx-0;
+  }
 }
 
 body .ddoc .usage nav {
