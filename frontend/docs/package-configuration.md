@@ -1,9 +1,12 @@
 ---
-title: Configuring JSR
-description: Learn about configuring JSR.
+description: JSR packages are configured using a jsr.json file.
 ---
 
-The JSR config file should be named `jsr.json`, and supports both `.json` and `.jsonc` extensions. When using Deno, all configuration JSR related configuration properties can instead be placed in the [`deno.json`](https://docs.deno.com/runtime/manual/getting_started/configuration_file). To publish a package, either a `jsr.json`, or `deno.json` file must be present in the package.
+JSR packages need to contain a configuration file that specifies the name,
+version, and exports of a package. This file should be named `jsr.json` or
+`jsr.jsonc`. When using Deno, all properties of the `jsr.json` configuration
+file can instead be placed in the
+[`deno.json`](https://docs.deno.com/runtime/manual/getting_started/configuration_file).
 
 ```json
 // jsr.json / deno.json

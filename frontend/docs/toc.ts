@@ -65,8 +65,8 @@ export default [
     group: "Reference",
   },
   {
-    title: "`jsr.json` configuration file",
-    id: "configuration",
+    title: "`jsr.json` file",
+    id: "package-configuration",
     group: "Reference",
   },
   {
