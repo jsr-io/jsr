@@ -58,8 +58,9 @@ export default function Versions(
     });
     if (version.yanked) continue;
     if (
-      latestVersionInReleaseTrack[releaseTrack] === undefined ||
-      lt(latestVersionInReleaseTrack[releaseTrack], semver)
+      semver.prerelease.length === 0 &&
+      (latestVersionInReleaseTrack[releaseTrack] === undefined ||
+        lt(latestVersionInReleaseTrack[releaseTrack], semver))
     ) {
       latestVersionInReleaseTrack[releaseTrack] = semver;
     }
