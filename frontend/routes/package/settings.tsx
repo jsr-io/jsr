@@ -36,6 +36,7 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
       <PackageNav
         currentTab="Settings"
         versionCount={data.package.versionCount}
+        canPublish={true}
         canEdit={true}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
