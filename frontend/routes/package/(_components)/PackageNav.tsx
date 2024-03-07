@@ -63,13 +63,13 @@ export function PackageNav(
         </span>
       </NavItem>
       {(latestVersion || params.version) && (
-            <NavItem
-              href={`${versionedBase}/dependencies`}
-              active={currentTab === "Dependencies"}
-            >
-              Dependencies
-            </NavItem>
-          )}
+        <NavItem
+          href={`${versionedBase}/dependencies`}
+          active={currentTab === "Dependencies"}
+        >
+          Dependencies
+        </NavItem>
+      )}
       {versionCount > 0 && (
         <NavItem
           href={`${base}/dependents`}
