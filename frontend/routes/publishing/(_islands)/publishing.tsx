@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { computed, Signal, useSignalEffect } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import { api, path } from "../../../utils/api.ts";

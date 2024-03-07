@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { computed, Signal } from "@preact/signals";
 import { VersionPublishStatus } from "./publishing.tsx";
 
