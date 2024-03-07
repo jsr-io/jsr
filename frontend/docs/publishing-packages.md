@@ -438,7 +438,7 @@ case, you can un-ignore the `dist/` directory by using a negation in the
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./dist/mod.ts",
-  // use publish.exclude in a deno.json
+  // use "publish": { "exclude": [...] } in a deno.json
   "exclude": ["!dist"]
 }
 ```
