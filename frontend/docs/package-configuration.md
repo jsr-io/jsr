@@ -71,6 +71,10 @@ to specifying a default entrypoint in the object form.
 
 ### `include` and `exclude`
 
+> :warning: Ignoring files is totally broken right now. Sorry! We're working on
+> it. You can follow progress on this issue:
+> https://github.com/jsr-io/jsr/issues/194
+
 You can also use the `include` and `exclude` options to include and exclude
 files during publishing. When using a `deno.json`, you can use `publish.include`
 and `publish.exclude` to include and exclude files only for publishing, rather
