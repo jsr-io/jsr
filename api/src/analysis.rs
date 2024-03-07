@@ -179,7 +179,7 @@ async fn analyze_package_inner(
   });
 
   let inner = capturing_resolver.0.into_inner().unwrap();
-  for err in inner.errors {
+  if let Some(err) = inner.errors.into_iter().next() {
     return Err(err);
   }
 
