@@ -65,6 +65,11 @@ export default [
     group: "Reference",
   },
   {
+    title: "`jsr.json` file",
+    id: "package-configuration",
+    group: "Reference",
+  },
+  {
     title: "`jsr:` imports",
     id: "native-imports",
     group: "Reference",

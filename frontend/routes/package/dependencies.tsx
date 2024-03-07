@@ -25,6 +25,7 @@ export default function Deps(
   { data, params, state, url }: PageProps<Data, State>,
 ) {
   const isStaff = state.user?.isStaff || false;
+  const canPublish = data.member !== null || isStaff;
   const canEdit = data.member?.isAdmin || isStaff;
 
   const deps: Record<string, { link: string; constraints: Set<string> }> = {};
@@ -64,6 +65,7 @@ export default function Deps(
       <PackageNav
         currentTab="Dependencies"
         versionCount={data.package.versionCount}
+        canPublish={canPublish}
         canEdit={canEdit}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

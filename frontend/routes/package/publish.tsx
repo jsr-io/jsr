@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type { FullUser, Package } from "../../utils/api_types.ts";
+import type { FullUser, Package, ScopeMember } from "../../utils/api_types.ts";
 import { State } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
@@ -11,6 +11,7 @@ import { GitHub } from "../../components/icons/GitHub.tsx";
 
 interface Data {
   package: Package;
+  member?: ScopeMember | null;
 }
 
 export default function PackagePage({
@@ -18,6 +19,9 @@ export default function PackagePage({
   params,
   state,
 }: PageProps<Data, State>) {
+  const isStaff = state.user?.isStaff || false;
+  const canEdit = data.member?.isAdmin || isStaff;
+
   return (
     <div class="mb-20">
       <Head>
@@ -37,6 +41,7 @@ export default function PackagePage({
       <PackageNav
         currentTab="Publish"
         versionCount={data.package.versionCount}
+        canPublish={true}
         canEdit={true}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -145,6 +150,7 @@ export default function PackagePage({
             </p>
             <GitHubActions
               pkg={data.package}
+              canEdit={canEdit}
               user={state.user ?? undefined}
             />
           </div>
@@ -154,7 +160,11 @@ export default function PackagePage({
   );
 }
 
-function GitHubActions({ pkg, user }: { pkg: Package; user?: FullUser }) {
+function GitHubActions({ pkg, canEdit, user }: {
+  pkg: Package;
+  canEdit: boolean;
+  user?: FullUser;
+}) {
   if (!pkg.githubRepository) {
     return (
       <>
@@ -176,7 +186,13 @@ function GitHubActions({ pkg, user }: { pkg: Package; user?: FullUser }) {
             </code>{" "}
             in your action.
           </p>
-          <GitHubActionsLink pkg={pkg} user={user} />
+
+          {canEdit ? <GitHubActionsLink pkg={pkg} user={user} /> : (
+            <p>
+              Ask an admin of this scope to link the repository in the package
+              settings.
+            </p>
+          )}
         </div>
       </>
     );
@@ -254,12 +270,12 @@ export const handler: Handlers<Data, State> = {
     const { pkg, scopeMember } = data;
 
     const isStaff = user?.isStaff || false;
-    const canEdit = scopeMember?.isAdmin || isStaff;
-
-    if (!canEdit) return ctx.renderNotFound();
+    const canPublish = scopeMember !== null || isStaff;
+    if (!canPublish) return ctx.renderNotFound();
 
     return ctx.render({
       package: pkg,
+      member: scopeMember,
     });
   },
 };

@@ -28,6 +28,7 @@ export default function PackageListPage(
   { data, state }: PageProps<Data, State>,
 ) {
   const isStaff = state.user?.isStaff || false;
+  const canPublish = data.member !== null || isStaff;
   const canEdit = data.member?.isAdmin || isStaff;
 
   return (
@@ -43,6 +44,7 @@ export default function PackageListPage(
         <PackageNav
           currentTab="Versions"
           versionCount={data.package.versionCount}
+          canPublish={canPublish}
           canEdit={canEdit}
           params={{ scope: data.package.scope, package: data.package.name }}
           latestVersion={data.package.latestVersion}

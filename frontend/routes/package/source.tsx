@@ -27,6 +27,7 @@ export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
 ) {
   const isStaff = state.user?.isStaff || false;
+  const canPublish = data.member !== null || isStaff;
   const canEdit = data.member?.isAdmin || isStaff;
 
   const sourceRoot =
@@ -56,6 +57,7 @@ export default function PackagePage(
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
+        canPublish={canPublish}
         canEdit={canEdit}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

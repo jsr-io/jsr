@@ -651,6 +651,34 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn success_dynamic_import() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("dynamic_import")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed {task:?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 2);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_name, "chalk");
+    assert_eq!(dependencies[1].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[1].dependency_name, "express");
+  }
+
+  #[tokio::test]
   async fn not_allowed() {
     let mut t = TestSetup::new().await;
 
@@ -938,7 +966,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1");
+    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1\n    at file:///mod.ts:1:8");
   }
 
   #[tokio::test]

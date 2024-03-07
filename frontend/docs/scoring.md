@@ -28,5 +28,5 @@ score. Each of these factors is weighted differently. You can find the exact
 factors and weights in the "Score" tab of the package page.
 
 Currently you do not need to complete all factors to get a 100% score. The exact
-wheights and factors are subject to change as we learn more about what makes a
+weights and factors are subject to change as we learn more about what makes a
 good package.

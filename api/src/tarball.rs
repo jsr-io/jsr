@@ -501,7 +501,7 @@ pub enum PublishError {
     invalid_exports: String,
   },
 
-  #[error("failed to build module graph: {0}")]
+  #[error("failed to build module graph: {}", .0.to_string_with_range())]
   GraphError(ModuleGraphError),
 
   #[error("failed to generate documentation: {0:?}")]
