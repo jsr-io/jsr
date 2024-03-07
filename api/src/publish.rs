@@ -966,7 +966,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1");
+    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1\n    at file:///mod.ts:1:8");
   }
 
   #[tokio::test]
