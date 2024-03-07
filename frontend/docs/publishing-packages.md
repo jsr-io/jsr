@@ -350,47 +350,54 @@ correct version number based on the version in your `jsr.json` file.
 `jsr publish` will not attempt to publish if the version specified in your
 `jsr.json` file is already published to JSR.
 
-## Ignoring files
+## Filtering files
 
 > :warning: Ignoring files is totally broken right now. Sorry! We're working on
 > it. You can follow progress on this issue:
 > https://github.com/jsr-io/jsr/issues/194
 
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
-root of your package. Additionally, you can specify the `exclude` and `include`
-fields in your `jsr.json` / `deno.json` file to ignore or include specific
-files.
+root of your package. Additionally, you can specify the `include` and `exclude`
+fields in your `jsr.json` / `deno.json` file to include, ignore, or un-gitignore
+specific files.
 
-For example, you may have a package that has a `.gitignore` file with the
-following contents:
-
-```gitignore
-.DS_Store
-dist/
-```
-
-In this case any files in the `dist/` directory, and any files named `.DS_Store`
-will be ignored when publishing.
-
-This may however be inconvenient if you want to publish the `dist/` directory,
-because you have `"exports"` pointing to it (or a subdirectory of it). In this
-case, you can use the `include` field in your `jsr.json` / `deno.json` file to
-include the `dist/` directory anyway.
+For example, to only selectively include certain files, you can specify a glob
+that matches all files by using the `include` option:
 
 ```json
 // jsr.json
 {
   "name": "@luca/greet",
   "version": "1.0.0",
-  "exports": "./dist/mod.ts",
-  "include": ["dist/**"]
+  "exports": "./src/mod.ts",
+  "include": [
+    "LICENSE",
+    "README.md",
+    "src/**/*.ts"
+  ]
 }
 ```
 
-In this case, the `dist/` directory will be included when publishing, even
-though it is listed in the `.gitignore` file.
+You may also exclude certain files via the `exclude` option:
 
-When using Deno, the `exclude` and `include` options in `deno.json` are used for
+```json
+// jsr.json
+{
+  "name": "@luca/greet",
+  "version": "1.0.0",
+  "exports": "./src/mod.ts",
+  "include": [
+    "LICENSE",
+    "README.md",
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/tests"
+  ]
+}
+```
+
+When using Deno, the `include` and `exclude` options in `deno.json` are used for
 many other Deno subcommands as well, such as `deno test` and `deno bundle`. You
 can use `publish.include` and `publish.exclude` in your `deno.json` file to
 specify options that only apply to `deno publish`.
@@ -402,21 +409,39 @@ specify options that only apply to `deno publish`.
   "version": "1.0.0",
   "exports": "./dist/mod.ts",
   "publish": {
-    "include": ["dist/**"]
+    "include": ["src"],
+    "exclude": ["src/tests"]
   }
 }
 ```
 
-To ignore all files, and only selectively include certain files, you can specify
-a glob that matches all files in the `exclude` option:
+### Un-gitignoring files
 
-```json
+You may have a package that has a `.gitignore` file with the following contents:
+
+```gitignore
+.env
+dist/
+```
+
+In this case any files in the `dist/` directory, and any files named `.env` will
+be ignored when publishing.
+
+This may however be inconvenient if you want to publish the `dist/` directory,
+because you have `"exports"` pointing to it (or a subdirectory of it). In this
+case, you can un-ignore the `dist/` directory by using a negation in the
+`exclude` field in your `jsr.json` / `deno.json` file.
+
+```jsonc
 // jsr.json
 {
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./dist/mod.ts",
-  "include": ["dist/**"],
-  "exclude": ["**"]
+  // use publish.exclude in a deno.json
+  "exclude": ["!dist"]
 }
 ```
+
+In this case, the `dist/` directory will be included when publishing, even
+though it is listed in the `.gitignore` file.
