@@ -1,5 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use anyhow::Context;
 use base64::Engine;
@@ -12,6 +14,8 @@ use deno_graph::ModuleGraph;
 use deno_graph::ParsedSourceStore;
 use deno_graph::PositionRange;
 use deno_semver::package::PackageReqReference;
+use futures::StreamExt;
+use futures::TryStreamExt;
 use indexmap::IndexMap;
 use sha2::Digest;
 use tar::Header;
@@ -19,9 +23,11 @@ use tracing::error;
 use tracing::info;
 use url::Url;
 
+use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
+use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
@@ -32,6 +38,7 @@ use crate::npm::types::NpmMappedJsrPackageName;
 use crate::npm::types::NpmPackageJson;
 
 use super::emit::transpile_to_js;
+use super::NPM_TARBALL_REVISION;
 
 pub struct NpmTarball {
   /// The gzipped tarball contents.
@@ -40,6 +47,14 @@ pub struct NpmTarball {
   pub sha1: String,
   /// The base64 encoded sha512 hash of the gzipped tarball.
   pub sha512: String,
+}
+
+pub enum NpmTarballFiles<'a> {
+  WithBytes(&'a HashMap<PackagePath, Vec<u8>>),
+  FromBucket {
+    files: &'a HashSet<PackagePath>,
+    modules_bucket: &'a BucketWithQueue,
+  },
 }
 
 pub struct NpmTarballOptions<
@@ -53,10 +68,11 @@ pub struct NpmTarballOptions<
   pub package: &'a PackageName,
   pub version: &'a Version,
   pub exports: &'a ExportsMap,
+  pub files: NpmTarballFiles<'a>,
   pub dependencies: Deps,
 }
 
-pub fn create_npm_tarball<'a>(
+pub async fn create_npm_tarball<'a>(
   opts: NpmTarballOptions<
     'a,
     impl Iterator<Item = &'a (DependencyKind, PackageReqReference)>,
@@ -70,6 +86,7 @@ pub fn create_npm_tarball<'a>(
     package,
     version,
     exports,
+    files,
     dependencies,
   } = opts;
 
@@ -93,9 +110,11 @@ pub fn create_npm_tarball<'a>(
     exports: npm_exports,
     dependencies: npm_dependencies,
     homepage,
+    revision: NPM_TARBALL_REVISION,
   };
 
-  let mut transpiled_files = IndexMap::new();
+  let mut transpiled_files = HashSet::new();
+  let mut package_files = IndexMap::new();
 
   for module in graph.modules() {
     if module.specifier().scheme() != "file" {
@@ -104,7 +123,7 @@ pub fn create_npm_tarball<'a>(
     let path = module.specifier().path();
 
     if let Some(json) = module.json() {
-      transpiled_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
+      package_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
     } else if let Some(js) = module.js() {
       match js.media_type {
         // We need to rewrite import source in js files too
@@ -155,12 +174,10 @@ pub fn create_npm_tarball<'a>(
           let rewritten =
             apply_text_changes(source.text_info().text_str(), text_changes);
 
-          transpiled_files
-            .insert(path.to_owned(), rewritten.as_bytes().to_vec());
+          package_files.insert(path.to_owned(), rewritten.as_bytes().to_vec());
         }
         deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
-          transpiled_files
-            .insert(path.to_owned(), js.source.as_bytes().to_vec());
+          package_files.insert(path.to_owned(), js.source.as_bytes().to_vec());
         }
         deno_ast::MediaType::Jsx
         | deno_ast::MediaType::TypeScript
@@ -178,8 +195,8 @@ pub fn create_npm_tarball<'a>(
 
           let rewritten_path = rewrite_extension(path, Extension::Js)
             .unwrap_or_else(|| path.to_owned());
-          transpiled_files
-            .insert(rewritten_path, transpiled.as_bytes().to_vec());
+          transpiled_files.insert(path.to_owned());
+          package_files.insert(rewritten_path, transpiled.as_bytes().to_vec());
         }
         _ => {}
       }
@@ -207,16 +224,60 @@ pub fn create_npm_tarball<'a>(
 
           let rewritten_path = rewrite_extension(path, Extension::Dts)
             .unwrap_or_else(|| path.to_owned());
-          transpiled_files.insert(rewritten_path, dts.text.as_bytes().to_vec());
+          package_files.insert(rewritten_path, dts.text.as_bytes().to_vec());
         }
       }
     }
   }
 
   let pkg_json_str = serde_json::to_string_pretty(&pkg_json)?;
-  transpiled_files.insert("/package.json".to_string(), pkg_json_str.into());
+  package_files.insert("/package.json".to_string(), pkg_json_str.into());
 
-  transpiled_files.sort_keys();
+  match files {
+    NpmTarballFiles::WithBytes(files) => {
+      for (path, content) in files.iter() {
+        if !package_files.contains_key(&**path)
+          && !transpiled_files.contains(&**path)
+        {
+          package_files.insert(path.to_string(), content.clone());
+        }
+      }
+    }
+    NpmTarballFiles::FromBucket {
+      files,
+      modules_bucket,
+    } => {
+      let mut paths_to_download = vec![];
+      for path in files.iter() {
+        if !package_files.contains_key(&**path)
+          && !transpiled_files.contains(&**path)
+        {
+          paths_to_download.push(path);
+        }
+      }
+
+      let downloads = futures::stream::iter(paths_to_download.into_iter())
+        .map(|path| {
+          let gcs_path =
+            crate::gcs_paths::file_path(scope, package, version, &path).into();
+          async move {
+            let bytes = modules_bucket
+              .download(gcs_path)
+              .await?
+              .ok_or_else(|| anyhow::anyhow!("file missing on GCS: {path}"))?;
+            Ok::<_, anyhow::Error>((path, bytes))
+          }
+        })
+        .buffer_unordered(64);
+
+      let downloaded_files = downloads.try_collect::<Vec<_>>().await?;
+      for (path, content) in downloaded_files {
+        package_files.insert(path.to_string(), content.to_vec());
+      }
+    }
+  }
+
+  package_files.sort_keys();
 
   let mut tar_gz_bytes = Vec::new();
   let mut gz_encoder = flate2::write::GzEncoder::new(
@@ -228,7 +289,7 @@ pub fn create_npm_tarball<'a>(
   let now = std::time::SystemTime::now();
   let mtime = now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
-  for (path, content) in transpiled_files.iter() {
+  for (path, content) in package_files.iter() {
     let mut header = Header::new_ustar();
     header.set_path(format!("./package{path}")).map_err(|e| {
       // Ideally we never hit this error, because package length should have been checked
@@ -319,25 +380,36 @@ fn to_range(
 
 #[cfg(test)]
 mod tests {
-  use std::{collections::HashMap, io::Read};
+  use std::collections::HashMap;
+  use std::io::Read;
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
-  use deno_graph::{
-    source::{MemoryLoader, NullFileSystem, Source},
-    BuildOptions, GraphKind, ModuleGraph, WorkspaceMember,
-  };
-  use deno_semver::package::{PackageNv, PackageReqReference};
-  use futures::{AsyncReadExt, StreamExt};
+  use deno_graph::source::MemoryLoader;
+  use deno_graph::source::NullFileSystem;
+  use deno_graph::source::Source;
+  use deno_graph::BuildFastCheckTypeGraphOptions;
+  use deno_graph::BuildOptions;
+  use deno_graph::GraphKind;
+  use deno_graph::ModuleGraph;
+  use deno_graph::WorkspaceFastCheckOption;
+  use deno_graph::WorkspaceMember;
+  use deno_semver::package::PackageNv;
+  use deno_semver::package::PackageReqReference;
+  use futures::AsyncReadExt;
+  use futures::StreamExt;
   use indexmap::IndexMap;
   use url::Url;
 
-  use crate::{
-    analysis::ModuleAnalyzer,
-    db::{DependencyKind, ExportsMap},
-    ids::{PackageName, ScopeName, Version},
-  };
+  use crate::analysis::ModuleAnalyzer;
+  use crate::db::DependencyKind;
+  use crate::db::ExportsMap;
+  use crate::ids::PackageName;
+  use crate::ids::PackagePath;
+  use crate::ids::ScopeName;
+  use crate::ids::Version;
 
+  use super::NpmTarballFiles;
   use super::{create_npm_tarball, NpmTarballOptions};
 
   async fn test_npm_tarball(
@@ -349,7 +421,7 @@ mod tests {
     let version = Version::new("1.0.0")?;
 
     let mut memory_files = vec![];
-    for file in files {
+    for file in &files {
       let specifier = format!("file://{}", file.0);
       memory_files.push((
         specifier.clone(),
@@ -397,8 +469,30 @@ mod tests {
         },
       )
       .await;
+    graph.valid()?;
+    graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
+      fast_check_cache: Default::default(),
+      fast_check_dts: true,
+      jsr_url_provider: None,
+      module_parser: Some(&module_analyzer.analyzer),
+      resolver: None,
+      npm_resolver: None,
+      workspace_fast_check: WorkspaceFastCheckOption::Enabled(
+        &workspace_members,
+      ),
+    });
 
     let deps: Vec<(DependencyKind, PackageReqReference)> = vec![];
+
+    let files = files
+      .iter()
+      .map(|(path, content)| {
+        (
+          PackagePath::new(path.to_string()).unwrap(),
+          content.as_bytes().to_vec(),
+        )
+      })
+      .collect::<HashMap<_, _>>();
 
     let npm_tarball = create_npm_tarball(NpmTarballOptions {
       exports: &exports,
@@ -408,8 +502,10 @@ mod tests {
       version: &Version::new("1.0.0").unwrap(),
       graph: &graph,
       sources: &module_analyzer.analyzer,
+      files: NpmTarballFiles::WithBytes(&files),
       dependencies: deps.iter(),
-    })?;
+    })
+    .await?;
 
     let mut transpiled_files: HashMap<String, Vec<u8>> = HashMap::new();
 
@@ -459,6 +555,31 @@ await import("lit");"#
       String::from_utf8_lossy(tarball_files.get("/bar.mjs").unwrap());
     assert_eq!(foo_js, expected);
     assert_eq!(bar_mjs, expected);
+
+    Ok(())
+  }
+
+  #[tokio::test]
+  async fn extra_files_test() -> Result<(), anyhow::Error> {
+    let files = vec![
+      ("/package.json", ""),
+      ("/foo.ts", "export const foo: string = 'bar';"),
+      ("/bar.json", "console.log('foo');"),
+      ("/foo.d.ts", "// unrelated content"),
+      ("/data.txt", "this is data"),
+    ];
+    let exports = ExportsMap::new(IndexMap::from([
+      ("./foo".to_string(), "/foo.ts".to_string()),
+      ("./bar".to_string(), "/bar.json".to_string()),
+    ]));
+    let tarball_files = test_npm_tarball(exports, files).await?;
+
+    tarball_files.get("/foo.js").unwrap();
+    let dts = tarball_files.get("/foo.d.ts").unwrap();
+    println!("{}", String::from_utf8_lossy(dts));
+    assert_eq!(dts, b"export declare const foo: string;\n");
+    tarball_files.get("/bar.json").unwrap();
+    tarball_files.get("/data.txt").unwrap();
 
     Ok(())
   }

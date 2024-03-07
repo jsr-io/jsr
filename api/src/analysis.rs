@@ -53,6 +53,7 @@ use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::create_npm_tarball;
 use crate::npm::NpmTarball;
+use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
 use crate::tarball::PublishError;
 
@@ -248,8 +249,10 @@ async fn analyze_package_inner(
     package: &name,
     version: &version,
     exports: &exports,
+    files: NpmTarballFiles::WithBytes(&files),
     dependencies: dependencies.iter(),
   })
+  .await
   .map_err(PublishError::NpmTarballError)?;
 
   let (meta, readme_path) = {
@@ -666,8 +669,13 @@ async fn rebuild_npm_tarball_inner(
     package: &name,
     version: &version,
     exports: &exports,
+    files: NpmTarballFiles::FromBucket {
+      files: &files,
+      modules_bucket: &modules_bucket,
+    },
     dependencies: dependencies.iter(),
-  })?;
+  })
+  .await?;
 
   Ok(npm_tarball)
 }
