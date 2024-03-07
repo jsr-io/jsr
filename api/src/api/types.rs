@@ -579,6 +579,7 @@ pub struct ApiPackageVersion {
 pub struct ApiPackageVersionDocs {
   pub version: ApiPackageVersion,
   pub css: Cow<'static, str>,
+  pub script: Cow<'static, str>,
   pub breadcrumbs: Option<String>,
   pub sidepanel: Option<String>,
   pub main: String,
