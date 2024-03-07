@@ -47,4 +47,4 @@ application at `http://localhost:3000/`. You can then visit
 $ next dev
 ```
 
-[Learn more about using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)

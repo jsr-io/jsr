@@ -52,7 +52,7 @@ import { printProgress } from "jsr:@luca/flag@^1.0.1";
 printProgress();
 ```
 
-Learn more about [using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)
 
 ## Additional tooling
 
@@ -63,7 +63,7 @@ Deno provides a variety of additional tools to help manage JSR packages.
 The `deno publish` command can be used to publish JSR packages. Packages can be
 published from a local machine, or from CI.
 
-Learn more about [publishing JSR packages](/docs/publishing-packages).
+[Learn more about publishing packages.](/docs/publishing-packages)
 
 ### Documentation linting and preview
 

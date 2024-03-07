@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT\n        COUNT(DISTINCT (packages.name, packages.scope)) AS count_total,\n        COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '1 day' THEN (packages.name, packages.scope) END) AS count_1d,\n        COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '7 day' THEN (packages.name, packages.scope) END) AS count_7d,\n        COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '30 day' THEN (packages.name, packages.scope) END) AS count_30d\n      FROM packages\n      LEFT JOIN\n        package_versions ON packages.name = package_versions.name AND packages.scope = package_versions.scope\n      WHERE\n        package_versions.name IS NOT NULL\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count_total",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "count_1d",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "count_7d",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "count_30d",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9a14cc7c3769771cf6fa9cef2c8e1bdcd0a39e8cf099aae1e97e092e59ea921e"
+}

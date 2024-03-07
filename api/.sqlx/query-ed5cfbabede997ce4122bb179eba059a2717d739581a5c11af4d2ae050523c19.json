@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT\n        COUNT(*) AS count_total,\n        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '1 DAY' THEN 1 END) AS count_1d,\n        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 DAY' THEN 1 END) AS count_7d,\n        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 DAY' THEN 1 END) AS count_30d\n      FROM\n        users;\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count_total",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "count_1d",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "count_7d",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "count_30d",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "ed5cfbabede997ce4122bb179eba059a2717d739581a5c11af4d2ae050523c19"
+}

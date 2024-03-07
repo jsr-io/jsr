@@ -47,4 +47,4 @@ it.
 $ vite
 ```
 
-[Learn more about using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)

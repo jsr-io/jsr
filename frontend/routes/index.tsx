@@ -128,7 +128,7 @@ export default function Home({ data }: PageProps<Data>) {
             <img
               loading="lazy"
               src="/logos/node.svg"
-              alt="Node logo"
+              alt="Node.js logo"
               class="w-full max-w-9 lg:max-w-20 select-none"
               draggable={false}
             />
@@ -160,8 +160,8 @@ export default function Home({ data }: PageProps<Data>) {
             </BenefitHeading>
             <BenefitText>
               <p>
-                JSR modules can be used in Node, Deno, Bun, Cloudflare Workers,
-                and more.
+                JSR modules can be used in Node.js, Deno, Bun, Cloudflare
+                Workers, and more.
               </p>
               <p>
                 Module authors can count on great editor support from strongly

@@ -1,11 +1,11 @@
 ---
-description: JSR uses TypeScript types to generate docs and improve node compat. "Slow types" can get in the way of this.
+description: JSR uses TypeScript types to generate documentation and improve Node.js compatibility. "Slow types" can get in the way of this.
 ---
 
 In many of its features, JSR analyzes source code, and in particular TypeScript
 types in the source code. This is done to generate documentation, generate type
 declarations for the npm compatibility layer, and to speed up type checking of
-projects using JSR packages in Deno.
+Deno projects using packages from JSR.
 
 For these features to work, the TypeScript source must not export any functions,
 classes, interfaces, or variables, or type aliases, that are themselves or

@@ -6,11 +6,11 @@ description: Packages are collections of JavaScript or TypeScript code published
 Packages are the core of JSR. Packages are collections of JavaScript or
 TypeScript code published by an author to the JSR site. Packages can be imported
 by other users using `jsr:` imports.
-[Learn more about using JSR](/docs/using-packages).
+[Learn more about using JSR.](/docs/using-packages)
 
 Packages are contained by scopes. Scopes are collections of packages published
 by an author to the JSR site. Scopes are similar to npm organizations or GitHub
-accounts. [Learn more about scopes](/docs/scopes).
+accounts. [Learn more about scopes.](/docs/scopes)
 
 Packages have a name. Package names are unique within a scope - no two packages
 in the same scope can have the same name. Package names must be between 2 and 20
@@ -43,7 +43,7 @@ repository, one must be an admin of the repository on GitHub.
 
 Linking a GitHub repository also enables tokenless publishing from GitHub
 Actions using OIDC.
-[Learn more about publishing from GitHub Actions](/docs/publishing-packages#publishing-from-github-actions).
+[Learn more about publishing from GitHub Actions.](/docs/publishing-packages#publishing-from-github-actions)
 
 ## Deleting a package
 
@@ -52,7 +52,7 @@ admins can delete a package.
 
 Packages can only be deleted if they have no published versions. If a package
 has published versions, it can not be deleted.
-[Learn more about registry immutability](/docs/immutability).
+[Learn more about registry immutability.](/docs/immutability)
 
 ## Versions
 
@@ -60,10 +60,10 @@ Code in a package is published as a version. A version is a snapshot of the
 package's code at a point in time. Versions are immutable - once a version is
 published, it cannot be changed or deleted. This ensures that packages are
 reliable and that users can trust that a package will not change out from under
-them. [Learn more about registry immutability](/docs/immutability).
+them. [Learn more about registry immutability.](/docs/immutability)
 
 Versions are published using the `jsr publish` or `deno publish` command.
-[Learn more about publishing packages](/docs/publishing-packages).
+[Learn more about publishing packages.](/docs/publishing-packages)
 
 Versions must be valid [SemVer](https://semver.org/) versions. We recommend that
 packages follow semantic versioning policies. These work as follows:

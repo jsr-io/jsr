@@ -37,4 +37,4 @@ Running this code will print a red "Hello, world!" text to your terminal.
 $ node main.js
 ```
 
-[Learn more about using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)
