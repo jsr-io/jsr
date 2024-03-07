@@ -3,7 +3,7 @@ export function Logo(props: { class?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 13 7"
+      viewBox="0 0 13 7"
       class={props.class}
       aria-hidden="true"
     >
