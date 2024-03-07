@@ -2,7 +2,7 @@
 import { api, path } from "../utils/api.ts";
 
 export default function Authorize(
-  props: { code: string; packageNames: string[] },
+  props: { code: string; authorizedVersions: string[] },
 ) {
   const approve = async () => {
     const res = await api.post(
@@ -10,16 +10,18 @@ export default function Authorize(
       null,
     );
 
-    let encodedParams = props.packageNames.length === 1
-      ? "packageName=" + encodeURIComponent(props.packageNames[0]) +
-        "&noOfPackages=" + encodeURIComponent(1)
-      : "packageName=" + encodeURIComponent("") +
-        "&noOfPackages=" + encodeURIComponent(props.packageNames.length);
-
-    encodedParams += encodeURIComponent("&date" + new Date().toISOString());
+    const url = new URL("/publishing", location.href);
+    for (const name of props.authorizedVersions) {
+      url.searchParams.append("v", name);
+    }
+    url.searchParams.set("date", new Date().toISOString());
 
     if (res.ok) {
-      window.location.href = "/publish-approve?" + encodedParams;
+      if (props.authorizedVersions.length > 0) {
+        window.location.href = url.href;
+      } else {
+        window.location.href = "/";
+      }
     } else {
       console.error(res);
     }
@@ -31,7 +33,11 @@ export default function Authorize(
       null,
     );
     if (res.ok) {
-      window.location.href = "/publish-deny";
+      if (props.authorizedVersions.length > 0) {
+        window.location.href = "/publishing/deny";
+      } else {
+        window.location.href = "/";
+      }
     } else {
       console.error(res);
     }
