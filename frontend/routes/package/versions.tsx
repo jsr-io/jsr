@@ -31,6 +31,7 @@ export default function Versions(
   { data, params, state }: PageProps<Data, State>,
 ) {
   const isStaff = state.user?.isStaff || false;
+  const canPublish = data.member !== null || isStaff;
   const canEdit = data.member?.isAdmin || isStaff;
 
   const latestVersionInReleaseTrack: Record<string, SemVer> = {};
@@ -113,8 +114,9 @@ export default function Versions(
       <PackageNav
         currentTab="Versions"
         params={params as unknown as Params}
-        versionCount={data.package.versionCount}
+        canPublish={canPublish}
         canEdit={canEdit}
+        versionCount={data.package.versionCount}
         latestVersion={data.package.latestVersion}
       />
 

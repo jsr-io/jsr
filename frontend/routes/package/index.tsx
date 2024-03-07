@@ -20,6 +20,7 @@ export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
 ) {
   const isStaff = state.user?.isStaff || false;
+  const canPublish = data.member !== null || isStaff;
   const canEdit = data.member?.isAdmin || isStaff;
 
   return (
@@ -43,6 +44,7 @@ export default function PackagePage(
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
+        canPublish={canPublish}
         canEdit={canEdit}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -58,7 +60,10 @@ export default function PackagePage(
         )
         : (
           <div class="mt-8 text-gray-500 text-center">
-            This package has not published any versions yet.
+            This package has not published{" "}
+            {data.package.versionCount > 0
+              ? "a stable release"
+              : "any versions"} yet.
           </div>
         )}
     </div>
@@ -83,7 +88,7 @@ export const handler: Handlers<Data, State> = {
       docs,
     } = res;
 
-    if (scopeMember && pkg.latestVersion === null) {
+    if (scopeMember && pkg.versionCount === 0) {
       return new Response(null, {
         status: 303,
         headers: {

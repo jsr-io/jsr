@@ -21,6 +21,7 @@ interface Data {
 
 export default function File({ data, params, state }: PageProps<Data, State>) {
   const isStaff = state.user?.isStaff || false;
+  const canPublish = data.member !== null || isStaff;
   const canEdit = data.member?.isAdmin || isStaff;
 
   return (
@@ -46,6 +47,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
+        canPublish={canPublish}
         canEdit={canEdit}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

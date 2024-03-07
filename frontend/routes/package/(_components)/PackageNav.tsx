@@ -19,10 +19,11 @@ type Tab =
   | "Settings";
 
 export function PackageNav(
-  { currentTab, params, canEdit, versionCount, latestVersion }: {
+  { currentTab, params, canPublish, canEdit, versionCount, latestVersion }: {
     currentTab: Tab;
     params: Params;
     versionCount: number;
+    canPublish: boolean;
     canEdit: boolean;
     latestVersion: string | null;
   },
@@ -37,7 +38,7 @@ export function PackageNav(
           Overview
         </NavItem>
       )}
-      {versionCount > 0 && (
+      {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/doc`}
           active={currentTab === "Symbols"}
@@ -45,7 +46,7 @@ export function PackageNav(
           Symbols
         </NavItem>
       )}
-      {versionCount > 0 && latestVersion && (
+      {(latestVersion || params.version) && (
         <NavItem
           href={`${base}/${params.version || latestVersion}`}
           active={currentTab === "Files"}
@@ -61,14 +62,14 @@ export function PackageNav(
           </span>
         </span>
       </NavItem>
-      {versionCount > 0 && (
-        <NavItem
-          href={`${versionedBase}/dependencies`}
-          active={currentTab === "Dependencies"}
-        >
-          Dependencies
-        </NavItem>
-      )}
+      {(latestVersion || params.version) && (
+            <NavItem
+              href={`${versionedBase}/dependencies`}
+              active={currentTab === "Dependencies"}
+            >
+              Dependencies
+            </NavItem>
+          )}
       {versionCount > 0 && (
         <NavItem
           href={`${base}/dependents`}
@@ -85,22 +86,23 @@ export function PackageNav(
           Score
         </NavItem>
       )}
+      {canPublish &&
+        (
+          <NavItem
+            href={`${base}/publish`}
+            active={currentTab === "Publish"}
+          >
+            Publish
+          </NavItem>
+        )}
       {canEdit &&
         (
-          <>
-            <NavItem
-              href={`${base}/publish`}
-              active={currentTab === "Publish"}
-            >
-              Publish
-            </NavItem>
-            <NavItem
-              href={`${base}/settings`}
-              active={currentTab === "Settings"}
-            >
-              Settings
-            </NavItem>
-          </>
+          <NavItem
+            href={`${base}/settings`}
+            active={currentTab === "Settings"}
+          >
+            Settings
+          </NavItem>
         )}
     </Nav>
   );
