@@ -392,6 +392,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npx jsr publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 This workflow will run every time you push to the `main` branch of your
