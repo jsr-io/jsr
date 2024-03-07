@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { Handlers, RouteConfig } from "$fresh/server.ts";
-import { State } from "../util.ts";
+import { State } from "../../util.ts";
 import { Head } from "$fresh/runtime.ts";
 
 export default function PublishDeniedPage() {
@@ -28,5 +28,3 @@ export const handler: Handlers<unknown, State> = {
     );
   },
 };
-
-export const config: RouteConfig = { routeOverride: "/publish-deny" };
