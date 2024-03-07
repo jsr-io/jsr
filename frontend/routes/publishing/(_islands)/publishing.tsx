@@ -48,7 +48,7 @@ export function PackagePublishStatus(props: {
       }
     })().catch((e) => console.error("polling error", scope, name, version, e));
 
-    (() => cancel = true);
+    return () => (cancel = true);
   }, [props.name, props.version, props.date]);
 
   const { loading, task } = props.status.value;
