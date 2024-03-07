@@ -9,8 +9,6 @@ import { Package, Scope } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
 import twas from "$twas";
-import { ChevronDown } from "../components/icons/ChevronDown.tsx";
-import { QuotaCard } from "../components/QuotaCard.tsx";
 
 interface IconColorProps {
   done: Signal<unknown>;

@@ -17,8 +17,6 @@ export function OverallStatus(
     props.packages.every((p) => p.status.value.task?.status === "success")
   );
 
-  useSignalEffect;
-
   return (
     <div
       class={`border-2 py-1 px-4 mt-4 ${
