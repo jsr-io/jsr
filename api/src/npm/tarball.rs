@@ -259,7 +259,7 @@ pub async fn create_npm_tarball<'a>(
       let downloads = futures::stream::iter(paths_to_download.into_iter())
         .map(|path| {
           let gcs_path =
-            crate::gcs_paths::file_path(scope, package, version, &path).into();
+            crate::gcs_paths::file_path(scope, package, version, path).into();
           async move {
             let bytes = modules_bucket
               .download(gcs_path)
