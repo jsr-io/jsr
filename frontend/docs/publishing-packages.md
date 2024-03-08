@@ -420,7 +420,7 @@ specify options that only apply to `deno publish`.
 }
 ```
 
-### Un-gitignoring files
+### Un-gitignoring files when not using "include"
 
 You may have a package that has a `.gitignore` file with the following contents:
 
