@@ -376,9 +376,6 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       let package = db
         .update_package_is_featured(&scope, &package, is_featured)
         .await?;
-      if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta);
-      }
       Ok(ApiPackage::from((package, repo, meta)))
     }
   }
@@ -643,6 +640,7 @@ pub async fn version_publish_handler(
   let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -739,9 +737,15 @@ pub async fn version_publish_handler(
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
     let span = Span::current();
-    let fut =
-      publish_task(publishing_task.id, buckets.clone(), registry, npm_url, db)
-        .instrument(span);
+    let fut = publish_task(
+      publishing_task.id,
+      buckets.clone(),
+      registry,
+      npm_url,
+      db,
+      orama_client,
+    )
+    .instrument(span);
     tokio::spawn(fut);
   }
 
@@ -768,6 +772,7 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
   iam.check_publish_access(&scope, &package, &version).await?;
@@ -777,6 +782,14 @@ pub async fn version_provenance_statements_handler(
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
+
+  if let Some(orama_client) = orama_client {
+    let (package, _, meta) = db
+      .get_package(&scope, &package)
+      .await?
+      .ok_or_else(|| ApiError::InternalServerError)?;
+    orama_client.upsert_package(&package, &meta);
+  }
 
   Ok(
     Response::builder()
