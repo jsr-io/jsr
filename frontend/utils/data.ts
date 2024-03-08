@@ -117,6 +117,7 @@ export async function packageDataWithDocs(
     docs: pkgDocsResp
       ? ({
         css: pkgDocsResp.data.css,
+        script: pkgDocsResp.data.script,
         breadcrumbs: pkgDocsResp.data.breadcrumbs,
         sidepanel: pkgDocsResp.data.sidepanel,
         main: pkgDocsResp.data.main,

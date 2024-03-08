@@ -138,6 +138,7 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocs {
   version: PackageVersionWithUser;
   css: string;
+  script: string;
   breadcrumbs: string | null;
   sidepanel: string | null;
   main: string;
