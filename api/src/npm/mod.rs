@@ -21,11 +21,12 @@ use crate::npm::types::NpmPackageInfo;
 
 pub use self::tarball::create_npm_tarball;
 pub use self::tarball::NpmTarball;
+pub use self::tarball::NpmTarballFiles;
 pub use self::tarball::NpmTarballOptions;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 
-pub const NPM_TARBALL_REVISION: u32 = 6;
+pub const NPM_TARBALL_REVISION: u32 = 7;
 
 pub async fn generate_npm_version_manifest<'a>(
   db: &Database,

@@ -74,4 +74,7 @@ pub struct NpmPackageJson<'a> {
   pub module_type: String,
   pub dependencies: IndexMap<String, String>,
   pub exports: IndexMap<String, String>,
+
+  #[serde(rename = "_jsr_revision")]
+  pub revision: u32,
 }
