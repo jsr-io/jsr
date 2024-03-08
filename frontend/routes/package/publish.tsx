@@ -8,10 +8,12 @@ import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { GitHub } from "../../components/icons/GitHub.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
+import { ScopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
-  member?: ScopeMember | null;
+  iam: ScopeIAM;
 }
 
 export default function PackagePage({
@@ -19,9 +21,6 @@ export default function PackagePage({
   params,
   state,
 }: PageProps<Data, State>) {
-  const isStaff = state.user?.isStaff || false;
-  const canEdit = data.member?.isAdmin || isStaff;
-
   return (
     <div class="mb-20">
       <Head>
@@ -41,8 +40,7 @@ export default function PackagePage({
       <PackageNav
         currentTab="Publish"
         versionCount={data.package.versionCount}
-        canPublish={true}
-        canEdit={true}
+        iam={data.iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
@@ -150,7 +148,7 @@ export default function PackagePage({
             </p>
             <GitHubActions
               pkg={data.package}
-              canEdit={canEdit}
+              canEdit={data.iam.canWrite}
               user={state.user ?? undefined}
             />
           </div>
@@ -269,13 +267,12 @@ export const handler: Handlers<Data, State> = {
 
     const { pkg, scopeMember } = data;
 
-    const isStaff = user?.isStaff || false;
-    const canPublish = scopeMember !== null || isStaff;
-    if (!canPublish) return ctx.renderNotFound();
+    const iam = scopeIAM(ctx.state, scopeMember, user);
+    if (!iam.canWrite) return ctx.renderNotFound();
 
     return ctx.render({
       package: pkg,
-      member: scopeMember,
+      iam,
     });
   },
 };

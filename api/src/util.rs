@@ -7,6 +7,7 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use oauth2::http::HeaderName;
 use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::de::DeserializeOwned;
@@ -148,13 +149,13 @@ where
 #[instrument(name = "auth", skip(req), err, fields(token.kind, user.id, repo.id))]
 pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
   let db = req.data::<Database>().unwrap();
-  let token = extract_token(&req);
+  let token = extract_token_and_sudo(&req);
 
   let span = Span::current();
 
   let iam_info =
     match token {
-      Some(AuthorizationToken::Bearer(token)) => {
+      Some((AuthorizationToken::Bearer(token), sudo)) => {
         span.record("token.kind", &field::display("bearer"));
         if let Some(token) = db.get_token(&crate::token::hash(token)).await? {
           if let Some(expires_at) = token.expires_at {
@@ -170,12 +171,12 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
             return Err(ApiError::Blocked);
           }
 
-          IamInfo::from((token, user))
+          IamInfo::from((token, user, sudo))
         } else {
           return Err(ApiError::InvalidBearerToken);
         }
       }
-      Some(AuthorizationToken::GithubOIDC(token)) => {
+      Some((AuthorizationToken::GithubOIDC(token), _)) => {
         span.record("token.kind", &field::display("githuboidc"));
 
         let claims = verify_oidc_token(token).await?;
@@ -206,25 +207,42 @@ enum AuthorizationToken<'s> {
   GithubOIDC(&'s str),
 }
 
-fn extract_token(req: &Request<Body>) -> Option<AuthorizationToken> {
+const X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
+
+fn extract_token_and_sudo(
+  req: &Request<Body>,
+) -> Option<(AuthorizationToken, bool)> {
   let headers = req.headers();
 
+  let mut sudo = headers
+    .get(X_JSR_SUDO)
+    .map(|v| v == "true")
+    .unwrap_or(false);
+
   for cookie in headers.get_all(COOKIE) {
+    let mut return_val = Option::<AuthorizationToken>::None;
     if let Ok(cookie) = cookie.to_str() {
       for cookie in cookie.split(';') {
         if let Some(token) = cookie.trim().strip_prefix("token=") {
-          return Some(AuthorizationToken::Bearer(token));
+          return_val = Some(AuthorizationToken::Bearer(token));
+        }
+        if cookie.trim() == "sudo=1" {
+          sudo = true;
         }
       }
+    }
+    if let Some(token) = return_val {
+      return Some((token, sudo));
     }
   }
 
   if let Some(auth) = headers.get(header::AUTHORIZATION) {
     if let Ok(auth) = auth.to_str() {
       if let Some(token) = auth.strip_prefix("Bearer ") {
-        return Some(AuthorizationToken::Bearer(token));
-      } else if let Some(token) = auth.strip_prefix("githuboidc ") {
-        return Some(AuthorizationToken::GithubOIDC(token));
+        return Some((AuthorizationToken::Bearer(token), sudo));
+      }
+      if let Some(token) = auth.strip_prefix("githuboidc ") {
+        return Some((AuthorizationToken::GithubOIDC(token), sudo));
       }
     }
   }

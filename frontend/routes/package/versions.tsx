@@ -19,6 +19,7 @@ import { Head } from "$fresh/runtime.ts";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
 import { Check } from "../../components/icons/Check.tsx";
 import { Pending } from "../../components/icons/Pending.tsx";
+import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -27,12 +28,12 @@ interface Data {
   member: ScopeMember | null;
 }
 
-export default function Versions(
-  { data, params, state }: PageProps<Data, State>,
-) {
-  const isStaff = state.user?.isStaff || false;
-  const canPublish = data.member !== null || isStaff;
-  const canEdit = data.member?.isAdmin || isStaff;
+export default function Versions({
+  data,
+  params,
+  state,
+}: PageProps<Data, State>) {
+  const iam = scopeIAM(state, data.member);
 
   const latestVersionInReleaseTrack: Record<string, SemVer> = {};
 
@@ -114,8 +115,7 @@ export default function Versions(
       <PackageNav
         currentTab="Versions"
         params={params as unknown as Params}
-        canPublish={canPublish}
-        canEdit={canEdit}
+        iam={iam}
         versionCount={data.package.versionCount}
         latestVersion={data.package.latestVersion}
       />
@@ -140,8 +140,7 @@ export default function Versions(
                 tasks={version.tasks}
                 releaseTrack={version.releaseTrack}
                 isLatestInReleaseTrack={isLatestInReleaseTrack}
-                canEdit={canEdit}
-                isStaff={isStaff}
+                iam={iam}
               />
             );
           })}
@@ -171,25 +170,21 @@ const statusVerb: Record<PublishingTaskStatus, string> = {
   "processing": "is processing",
 };
 
-function Version(
-  {
-    semver,
-    version,
-    tasks,
-    releaseTrack,
-    isLatestInReleaseTrack,
-    canEdit,
-    isStaff,
-  }: {
-    semver: SemVer;
-    version: PackageVersionWithUser | null;
-    tasks: PublishingTask[];
-    releaseTrack: string;
-    isLatestInReleaseTrack: boolean;
-    canEdit: boolean;
-    isStaff: boolean;
-  },
-) {
+function Version({
+  semver,
+  version,
+  tasks,
+  releaseTrack,
+  isLatestInReleaseTrack,
+  iam,
+}: {
+  semver: SemVer;
+  version: PackageVersionWithUser | null;
+  tasks: PublishingTask[];
+  releaseTrack: string;
+  isLatestInReleaseTrack: boolean;
+  iam: ScopeIAM;
+}) {
   const isPublished = version !== null;
   const isFailed = tasks.length > 0 && tasks[0].status === "failure";
 
@@ -269,7 +264,7 @@ function Version(
             )}
           </div>
         </div>
-        {isPublished && canEdit && (
+        {isPublished && iam.canAdmin && (
           <form method="POST" class="z-20">
             <input type="hidden" name="version" value={version.version} />
             <button

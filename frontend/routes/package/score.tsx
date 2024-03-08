@@ -16,6 +16,7 @@ import { Check } from "../../components/icons/Check.tsx";
 import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -26,9 +27,7 @@ interface Data {
 export default function Score(
   { data, params, state }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canPublish = data.member !== null || isStaff;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
@@ -49,8 +48,7 @@ export default function Score(
       <PackageNav
         currentTab="Score"
         versionCount={data.package.versionCount}
-        canPublish={canPublish}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />

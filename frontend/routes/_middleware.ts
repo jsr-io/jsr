@@ -35,9 +35,14 @@ const auth: MiddlewareHandler<State> = async (req, ctx) => {
   const interactive =
     (ctx.destination === "route" || ctx.destination === "notFound") &&
     !(url.pathname === "/gfm.css" || url.pathname === "/_frsh/client.js.map");
-  const token = getCookies(req.headers).token;
+  const { token, sudo } = getCookies(req.headers);
   if (interactive) {
-    ctx.state.api = new API(API_ROOT, { token, span: ctx.state.span });
+    ctx.state.sudo = sudo === "1";
+    ctx.state.api = new API(API_ROOT, {
+      token,
+      sudo: ctx.state.sudo,
+      span: ctx.state.span,
+    });
     if (ctx.state.api.hasToken()) {
       ctx.state.userPromise = (async () => {
         const userResp = await ctx.state.api.get<FullUser>(path`/user`);

@@ -8,6 +8,7 @@ import { packageDataWithDocs } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -19,9 +20,7 @@ interface Data {
 export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canPublish = data.member !== null || isStaff;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
@@ -44,8 +43,7 @@ export default function PackagePage(
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
-        canPublish={canPublish}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />

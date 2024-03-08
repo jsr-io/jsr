@@ -10,10 +10,12 @@ import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageDescriptionEditor } from "./(_islands)/PackageDescriptionEditor.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
+import { ScopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
-  isStaff: boolean;
+  iam: ScopeIAM;
 }
 
 export default function Settings({ data, params }: PageProps<Data, State>) {
@@ -36,8 +38,7 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
       <PackageNav
         currentTab="Settings"
         versionCount={data.package.versionCount}
-        canPublish={true}
-        canEdit={true}
+        iam={data.iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
@@ -50,12 +51,12 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
 
       <DeletePackage hasVersions={data.package.versionCount > 0} />
 
-      {data.isStaff && (
+      {data.iam.isStaff && (
         <div class="border-t pt-8 mt-12">
-          <h2 class="text-xl font-sans font-bold">Admin area</h2>
+          <h2 class="text-xl font-sans font-bold">Staff area</h2>
 
           <p class="mt-2 text-gray-600 max-w-3xl">
-            The GitHub repository is shown publicly on the package page.
+            Feature a package on the homepage.
           </p>
 
           <form method="POST">
@@ -235,12 +236,11 @@ export const handler: Handlers<Data, State> = {
 
     const { pkg, scopeMember } = data;
 
-    const isStaff = user?.isStaff || false;
-    const canEdit = scopeMember?.isAdmin || isStaff;
+    const iam = scopeIAM(ctx.state, scopeMember, user);
 
-    if (!canEdit) return ctx.renderNotFound();
+    if (!iam.canAdmin) return ctx.renderNotFound();
 
-    return ctx.render({ package: pkg, isStaff });
+    return ctx.render({ package: pkg, iam });
   },
   async POST(req, ctx) {
     const {

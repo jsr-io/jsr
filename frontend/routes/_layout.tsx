@@ -18,7 +18,7 @@ export default function Layout(
         >
           Skip to main content
         </a>
-        <Header user={state.user} url={url} />
+        <Header user={state.user} sudo={state.sudo} url={url} />
         <div
           class="section-x-inset-xl py-4 md:py-6 focus-visible:ring-0 focus-visible:outline-none"
           id="main-content"
