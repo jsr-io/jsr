@@ -297,7 +297,7 @@ pub fn generate_docs_html(
         .collect::<Vec<_>>();
 
       let partitions_by_kind =
-        deno_doc::html::namespace::partition_nodes_by_kind(
+        deno_doc::html::partition::partition_nodes_by_kind(
           &all_doc_nodes,
           true,
         );
@@ -375,7 +375,7 @@ pub fn generate_docs_html(
       }
 
       let partitions_for_main_entrypoint =
-        deno_doc::html::get_partitions_for_main_entrypoint(
+        deno_doc::html::partition::get_partitions_for_main_entrypoint(
           &ctx,
           doc_nodes_by_url,
         );
@@ -409,11 +409,12 @@ pub fn generate_docs_html(
         .context("doc nodes missing for specifier")?;
 
       let short_path = ctx.url_to_short_path(&specifier);
-      let partitions_for_nodes = deno_doc::html::get_partitions_for_file(
-        &ctx,
-        doc_nodes,
-        Cow::Borrowed(&short_path),
-      );
+      let partitions_for_nodes =
+        deno_doc::html::partition::get_partitions_for_file(
+          &ctx,
+          doc_nodes,
+          Cow::Borrowed(&short_path),
+        );
 
       let render_ctx = deno_doc::html::RenderContext::new(
         &ctx,
@@ -462,11 +463,12 @@ pub fn generate_docs_html(
         .map(|v| &**v)
         .context("doc nodes missing for specifier")?;
       let short_path = ctx.url_to_short_path(&specifier);
-      let partitions_for_nodes = deno_doc::html::get_partitions_for_file(
-        &ctx,
-        doc_nodes,
-        Cow::Borrowed(&short_path),
-      );
+      let partitions_for_nodes =
+        deno_doc::html::partition::get_partitions_for_file(
+          &ctx,
+          doc_nodes,
+          Cow::Borrowed(&short_path),
+        );
 
       let Some((breadcrumbs_ctx, sidepanel_ctx, symbol_group_ctx)) =
         deno_doc::html::generate_symbol_page(
