@@ -370,11 +370,14 @@ that matches all files by using the `include` option:
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./src/mod.ts",
-  "include": [
-    "LICENSE",
-    "README.md",
-    "src/**/*.ts"
-  ]
+  // note: this will be collapsed down to just include in the future
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "src/**/*.ts"
+    ]
+  }
 }
 ```
 
@@ -386,14 +389,16 @@ You may also exclude certain files via the `exclude` option:
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./src/mod.ts",
-  "include": [
-    "LICENSE",
-    "README.md",
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "src/tests"
-  ]
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/tests"
+    ]
+  }
 }
 ```
 
@@ -438,8 +443,9 @@ case, you can un-ignore the `dist/` directory by using a negation in the
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./dist/mod.ts",
-  // use "publish": { "exclude": [...] } in a deno.json
-  "exclude": ["!dist"]
+  "publish": {
+    "exclude": ["!dist"]
+  }
 }
 ```
 
