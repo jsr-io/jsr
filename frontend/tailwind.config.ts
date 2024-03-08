@@ -182,7 +182,7 @@ function rewritePreflight() {
       );
       preflight.insertAfter(
         rule,
-        "img:not(.markdown img), video:not(.markdown video) { height: auto; }",
+        "img:where(:not(.markdown img)), video:where(:not(.markdown video)) { height: auto; }",
       );
     });
 
