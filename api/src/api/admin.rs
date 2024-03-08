@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::analysis::RegistryLoader;
 use crate::buckets::Buckets;
+use crate::orama::OramaClient;
 use crate::NpmUrl;
 use hyper::Body;
 use hyper::Request;
@@ -255,6 +256,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task_id).unwrap();
@@ -265,8 +267,15 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
     let span = Span::current();
-    let fut = publish_task(publishing_task_id, buckets, registry, npm_url, db)
-      .instrument(span);
+    let fut = publish_task(
+      publishing_task_id,
+      buckets,
+      registry,
+      npm_url,
+      db,
+      orama_client,
+    )
+    .instrument(span);
     tokio::spawn(fut);
   }
 

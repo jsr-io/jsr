@@ -26,6 +26,7 @@ use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::orama::OramaClient;
 use crate::tarball::process_tarball;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
@@ -53,21 +54,35 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
-  publish_task(publishing_task_id, buckets, registry, npm_url, db).await?;
+  publish_task(
+    publishing_task_id,
+    buckets,
+    registry,
+    npm_url,
+    db,
+    orama_client,
+  )
+  .await?;
 
   Ok(())
 }
 
-#[instrument(name = "publish_task", skip(buckets, db, registry), err)]
+#[instrument(
+  name = "publish_task",
+  skip(buckets, db, registry, orama_client),
+  err
+)]
 pub async fn publish_task(
   publish_id: Uuid,
   buckets: Buckets,
   registry: Arc<dyn RegistryLoader>,
   npm_url: Url,
   db: Database,
+  orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
   let mut publishing_task = db
     .get_publishing_task(publish_id)
@@ -117,8 +132,19 @@ pub async fn publish_task(
           )
           .await?;
       }
-      PublishingTaskStatus::Failure | PublishingTaskStatus::Success => {
-        return Ok(())
+      PublishingTaskStatus::Failure => return Ok(()),
+      PublishingTaskStatus::Success => {
+        if let Some(orama_client) = orama_client {
+          let (package, _, meta) = db
+            .get_package(
+              &publishing_task.package_scope,
+              &publishing_task.package_name,
+            )
+            .await?
+            .ok_or_else(|| ApiError::InternalServerError)?;
+          orama_client.upsert_package(&package, &meta);
+        }
+        return Ok(());
       }
     }
   }
@@ -472,9 +498,16 @@ pub mod tests {
       .await
       .unwrap();
 
-    publish_task(task.id, t.buckets(), t.registry(), t.npm_url(), t.db())
-      .await
-      .unwrap();
+    publish_task(
+      task.id,
+      t.buckets(),
+      t.registry(),
+      t.npm_url(),
+      t.db(),
+      None,
+    )
+    .await
+    .unwrap();
     t.db().get_publishing_task(task.id).await.unwrap().unwrap()
   }
 
