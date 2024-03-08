@@ -145,6 +145,7 @@ async fn generate_access_token(
 
   db.upsert_github_identity(github_identity).await?;
 
+  let name = gh_user.name.unwrap_or(gh_user.login);
   let gh_email = match gh_user.email.as_ref() {
     Some(email) => Some(email.clone()), // Email address from public profile.
     None => gh
@@ -156,28 +157,22 @@ async fn generate_access_token(
       .next(),
   };
 
-  let user_id = match db.get_user_by_github_id(gh_user.id).await? {
-    Some(db_user) => db_user.id,
-    None => {
-      let name = gh_user.name.unwrap_or(gh_user.login);
-      let user = NewUser {
-        name: name.as_str(),
-        email: gh_email.as_deref(),
-        avatar_url: gh_user.avatar_url.as_str(),
-        github_id: Some(gh_user.id),
-        is_blocked: false,
-        is_staff: false,
-      };
-
-      db.insert_user(user).await?.id
-    }
+  let new_user = NewUser {
+    name: name.as_str(),
+    email: gh_email.as_deref(),
+    avatar_url: gh_user.avatar_url.as_str(),
+    github_id: Some(gh_user.id),
+    is_blocked: false,
+    is_staff: false,
   };
+
+  let db_user = db.upsert_user_by_github_id(new_user).await?;
 
   let expires_at = Utc::now() + Duration::days(7);
 
   let token_string = crate::token::create_token(
     db,
-    user_id,
+    db_user.id,
     TokenType::Web,
     None,
     Some(expires_at),
