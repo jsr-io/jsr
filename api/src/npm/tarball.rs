@@ -433,6 +433,11 @@ mod tests {
       ));
     }
 
+    memory_files.push((
+      "npm:lit@^2.2.7".to_owned(),
+      Source::External("npm:lit@^2.2.7".to_owned()),
+    ));
+
     let mut loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
     let workspace_members = vec![WorkspaceMember {
