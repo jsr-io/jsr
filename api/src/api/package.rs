@@ -1008,6 +1008,7 @@ pub async fn get_docs_handler(
 
   Ok(ApiPackageVersionDocs {
     css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     breadcrumbs: docs.breadcrumbs,
     sidepanel: docs.sidepanel,
     main: docs.main,

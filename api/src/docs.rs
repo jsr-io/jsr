@@ -198,13 +198,12 @@ pub fn get_generate_ctx(
         })
         .clone(),
     }),
-    usage_composer: Some(Rc::new(move |ctx, doc_nodes, _url| {
+    usage_composer: Some(Rc::new(move |ctx, doc_nodes, url| {
       let mut map = IndexMap::new();
+      let scoped_name = format!("@{scope}/{package}");
 
       if !runtime_compat.deno.is_some_and(|compat| !compat) {
-        let scoped_name = format!("@{scope}/{package}");
-        let import =
-          deno_doc::html::usage_to_md(ctx, doc_nodes, scoped_name.clone());
+        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
         map.insert(
           "Deno".to_string(),
           format!("```\ndeno add {scoped_name}\n```\n{import}"),
@@ -212,9 +211,7 @@ pub fn get_generate_ctx(
       }
 
       if !runtime_compat.node.is_some_and(|compat| !compat) {
-        let scoped_name = format!("@{scope}/{package}");
-        let import =
-          deno_doc::html::usage_to_md(ctx, doc_nodes, scoped_name.clone());
+        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
         map.insert(
           "npm".to_string(),
           format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
@@ -230,9 +227,7 @@ pub fn get_generate_ctx(
       }
 
       if !runtime_compat.bun.is_some_and(|compat| !compat) {
-        let scoped_name = format!("@{scope}/{package}");
-        let import =
-          deno_doc::html::usage_to_md(ctx, doc_nodes, scoped_name.clone());
+        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
         map.insert(
           "Bun".to_string(),
           format!("```\nbunx jsr add {scoped_name}\n```\n{import}"),
@@ -295,13 +290,14 @@ pub fn generate_docs_html(
         .flat_map(|(specifier, nodes)| {
           nodes.iter().map(|node| DocNodeWithContext {
             origin: Some(Cow::Owned(ctx.url_to_short_path(specifier))),
+            ns_qualifiers: Rc::new(vec![]),
             doc_node: node,
           })
         })
         .collect::<Vec<_>>();
 
       let partitions_by_kind =
-        deno_doc::html::namespace::partition_nodes_by_kind(
+        deno_doc::html::partition::partition_nodes_by_kind(
           &all_doc_nodes,
           true,
         );
@@ -358,28 +354,28 @@ pub fn generate_docs_html(
           )
         })
         .unwrap_or_default();
-      if index_module_doc.docs.is_none() {
-        index_module_doc.docs = Some(
-          readme
-            .as_ref()
-            .map(|readme| {
-              deno_doc::html::jsdoc::markdown_to_html(
-                &render_ctx,
-                readme,
-                false,
-                true,
-              )
-            })
-            .unwrap_or(deno_doc::html::jsdoc::Markdown {
-              html: r#"<div style="font-style: italic;">No docs found.</div>"#
-                .to_string(),
-              toc: None,
-            }),
-        );
+      if index_module_doc.sections.docs.is_none() {
+        let markdown = readme
+          .as_ref()
+          .map(|readme| {
+            deno_doc::html::jsdoc::markdown_to_html(
+              &render_ctx,
+              readme,
+              false,
+              true,
+            )
+          })
+          .unwrap_or(deno_doc::html::jsdoc::Markdown {
+            html: r#"<div style="font-style: italic;">No docs found.</div>"#
+              .to_string(),
+            toc: None,
+          });
+        index_module_doc.sections.docs = Some(markdown.html);
+        index_module_doc.toc = markdown.toc;
       }
 
       let partitions_for_main_entrypoint =
-        deno_doc::html::get_partitions_for_main_entrypoint(
+        deno_doc::html::partition::get_partitions_for_main_entrypoint(
           &ctx,
           doc_nodes_by_url,
         );
@@ -413,11 +409,12 @@ pub fn generate_docs_html(
         .context("doc nodes missing for specifier")?;
 
       let short_path = ctx.url_to_short_path(&specifier);
-      let partitions_for_nodes = deno_doc::html::get_partitions_for_file(
-        &ctx,
-        doc_nodes,
-        Cow::Borrowed(&short_path),
-      );
+      let partitions_for_nodes =
+        deno_doc::html::partition::get_partitions_for_file(
+          &ctx,
+          doc_nodes,
+          Cow::Borrowed(&short_path),
+        );
 
       let render_ctx = deno_doc::html::RenderContext::new(
         &ctx,
@@ -466,11 +463,12 @@ pub fn generate_docs_html(
         .map(|v| &**v)
         .context("doc nodes missing for specifier")?;
       let short_path = ctx.url_to_short_path(&specifier);
-      let partitions_for_nodes = deno_doc::html::get_partitions_for_file(
-        &ctx,
-        doc_nodes,
-        Cow::Borrowed(&short_path),
-      );
+      let partitions_for_nodes =
+        deno_doc::html::partition::get_partitions_for_file(
+          &ctx,
+          doc_nodes,
+          Cow::Borrowed(&short_path),
+        );
 
       let Some((breadcrumbs_ctx, sidepanel_ctx, symbol_group_ctx)) =
         deno_doc::html::generate_symbol_page(
@@ -625,14 +623,9 @@ impl HrefResolver for DocResolver {
     current_file: Option<&ShortPath>,
   ) -> Option<String> {
     Some(format!(
-      "jsr:@{}/{}@{}{}",
+      "@{}/{}{}",
       self.scope,
       self.package,
-      if self.version.0.major > 0 {
-        self.version.0.major.to_string()
-      } else {
-        format!("0.{}", self.version.0.minor)
-      },
       if let Some(current_file) = current_file {
         if current_file.as_str() == "." {
           ""

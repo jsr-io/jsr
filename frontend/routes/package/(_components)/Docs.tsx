@@ -16,6 +16,7 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
     <div class="flex-1 min-w-0 px-2 lg:px-6 py-4">
       <Head>
         <style dangerouslySetInnerHTML={{ __html: docs.css }} />
+        <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
       </Head>
 
       {docs.breadcrumbs && (
