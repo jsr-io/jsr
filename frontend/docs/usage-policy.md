@@ -114,7 +114,7 @@ buy a scope name from you, please report this to us at
 [help@jsr.io](mailto:help@jsr.io).
 
 It is ok to offer a user a small gratuity after a scope name has exchanged
-hands, such as some stickers or a T-shirt, but this occuring must never be a
+hands, such as some stickers or a T-shirt, but this occurring must never be a
 condition of the scope name transfer.
 
 ### Trademark and copyright
