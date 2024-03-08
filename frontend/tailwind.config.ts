@@ -180,6 +180,10 @@ function rewritePreflight() {
         !(node.type === "decl" && node.prop === "height" &&
           node.value === "auto")
       );
+      preflight.insertAfter(
+        rule,
+        "img:not(.markdown img), video:not(.markdown video) { height: auto; }",
+      );
     });
 
     addBase([
