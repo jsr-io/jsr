@@ -83,7 +83,7 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
           version={selectedVersion.version}
         />
         <div
-          class="ddoc w-full lg:min-h-0 lg:*:!h-full"
+          class="ddoc w-full lg:*:max-h-[calc(100vh-75px)]"
           dangerouslySetInnerHTML={{ __html: docs.sidepanel }}
         />
       </div>
