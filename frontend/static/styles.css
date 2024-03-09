@@ -232,6 +232,19 @@ body .ddoc > section > nav.py-4 {
   @apply pt-0 top-4;
 }
 
+body .ddoc .markdown tr:nth-child(2n) {
+  @apply bg-slate-50;
+}
+
+body .ddoc .markdown th,
+body .ddoc .markdown td  {
+  @apply border-1.5 border-slate-300;
+}
+
+body .ddoc .markdown th {
+  @apply py-1.5;
+}
+
 /* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */
 .score-ring-red {
   @apply bg-red-500;
