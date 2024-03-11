@@ -129,7 +129,7 @@ export default {
         "fade-in-late": "fade-in-late 1s ease-in",
         "scroll-x": "scroll-x 10s linear infinite",
         "scroll-y": "scroll-y 10s linear infinite",
-        "rotate-180": "rotate-180 0.3s ease-in-out",
+        "rotate-180": "rotate-180 0.4s cubic-bezier(0.67,-0.33,0.28,1.28)",
       },
       keyframes: {
         "fade-in": {
