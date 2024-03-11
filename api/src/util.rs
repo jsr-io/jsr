@@ -207,7 +207,7 @@ enum AuthorizationToken<'s> {
   GithubOIDC(&'s str),
 }
 
-const X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
+static X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
 
 fn extract_token_and_sudo(
   req: &Request<Body>,
@@ -215,7 +215,7 @@ fn extract_token_and_sudo(
   let headers = req.headers();
 
   let mut sudo = headers
-    .get(X_JSR_SUDO)
+    .get(&X_JSR_SUDO)
     .map(|v| v == "true")
     .unwrap_or(false);
 
