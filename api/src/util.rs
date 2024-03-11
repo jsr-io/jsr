@@ -717,6 +717,7 @@ pub mod test {
     body: Body,
     headers: HeaderMap,
     token: Option<&'s str>,
+    sudo: bool,
   }
 
   impl<'s> TestHttpCall<'s> {
@@ -733,12 +734,19 @@ pub mod test {
         body: Body::empty(),
         headers: HeaderMap::default(),
         token,
+        sudo: false,
       }
     }
 
     /// overwrite the default user token for authentication
     pub fn token(mut self, token: Option<&'s str>) -> Self {
       self.token = token;
+      self
+    }
+
+    /// overwrite the default user token for authentication
+    pub fn sudo(mut self, sudo: bool) -> Self {
+      self.sudo = sudo;
       self
     }
 
@@ -771,6 +779,11 @@ pub mod test {
       if let Some(token) = self.token {
         req = req
           .header(hyper::header::AUTHORIZATION, &format!("Bearer {}", token));
+      }
+
+      if self.sudo {
+        req = req
+          .header(hyper::header::HeaderName::from_static("x-jsr-sudo"), "true");
       }
 
       let req = req.body(self.body).unwrap();
