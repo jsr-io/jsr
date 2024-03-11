@@ -154,6 +154,33 @@ impl Database {
     .await
   }
 
+  #[instrument(name = "Database::upsert_user_by_github_id", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
+  pub async fn upsert_user_by_github_id(
+    &self,
+    new_user: NewUser<'_>,
+  ) -> Result<User> {
+    assert!(new_user.github_id.is_some(), "github_id is required");
+    sqlx::query_as!(
+      User,
+      r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT(github_id) DO UPDATE
+      SET name = $1, email = $2, avatar_url = $3
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+      "#,
+      new_user.name,
+      new_user.email,
+      new_user.avatar_url,
+      new_user.github_id,
+      new_user.is_blocked,
+      new_user.is_staff
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::user_set_staff", skip(self), err)]
   pub async fn user_set_staff(
     &self,
