@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Nav, NavItem } from "../../../components/Nav.tsx";
+import { ScopeIAM } from "../../../utils/iam.ts";
 
 export interface Params {
   scope: string;
@@ -19,12 +20,11 @@ type Tab =
   | "Settings";
 
 export function PackageNav(
-  { currentTab, params, canPublish, canEdit, versionCount, latestVersion }: {
+  { currentTab, params, iam, versionCount, latestVersion }: {
     currentTab: Tab;
     params: Params;
     versionCount: number;
-    canPublish: boolean;
-    canEdit: boolean;
+    iam: ScopeIAM;
     latestVersion: string | null;
   },
 ) {
@@ -33,7 +33,7 @@ export function PackageNav(
 
   return (
     <Nav>
-      {((canEdit && versionCount > 0) || !canEdit) && (
+      {((iam.canWrite && versionCount > 0) || !iam.canWrite) && (
         <NavItem href={versionedBase} active={currentTab === "Index"}>
           Overview
         </NavItem>
@@ -86,7 +86,7 @@ export function PackageNav(
           Score
         </NavItem>
       )}
-      {canPublish &&
+      {iam.canWrite &&
         (
           <NavItem
             href={`${base}/publish`}
@@ -95,7 +95,7 @@ export function PackageNav(
             Publish
           </NavItem>
         )}
-      {canEdit &&
+      {iam.canAdmin &&
         (
           <NavItem
             href={`${base}/settings`}

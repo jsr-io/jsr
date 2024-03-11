@@ -10,18 +10,16 @@ import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { Check } from "../../../components/icons/Check.tsx";
+import { ScopeIAM, scopeIAM } from "../../../utils/iam.ts";
 
 interface Data {
   scope: FullScope;
-  scopeMember: ScopeMember | null;
+  iam: ScopeIAM;
 }
 
 export default function ScopeSettingsPage(
   { params, data, state }: PageProps<Data, State>,
 ) {
-  const isAdmin = (data.scopeMember?.user.id === state.user!.id &&
-    data.scopeMember.isAdmin) || state.user!.isStaff;
-
   return (
     <div class="mb-20">
       <Head>
@@ -30,7 +28,7 @@ export default function ScopeSettingsPage(
         </title>
       </Head>
       <ScopeHeader scope={data.scope} />
-      <ScopeNav active="Settings" isAdmin={isAdmin} scope={data.scope.scope} />
+      <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
       <ScopeQuotas scope={data.scope} user={state.user!} />
       <GitHubActionsSecurity scope={data.scope} />
       <DeleteScope scope={data.scope} />
@@ -216,12 +214,14 @@ export const handler: Handlers<Data, State> = {
       scopeDataWithMember(ctx.state, ctx.params.scope),
     ]);
     if (user instanceof Response) return user;
-    if (data === null || (data.scopeMember === null && !user?.isStaff)) {
-      return ctx.renderNotFound();
-    }
+    if (data === null) return ctx.renderNotFound();
+
+    const iam = scopeIAM(ctx.state, data?.scopeMember, user);
+    if (!iam.canAdmin) return ctx.renderNotFound();
+
     return ctx.render({
       scope: data.scope as FullScope,
-      scopeMember: data.scopeMember,
+      iam,
     });
   },
   async POST(req, ctx) {

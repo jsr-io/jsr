@@ -129,7 +129,8 @@ resource "google_compute_backend_service" "registry_api" {
   cdn_policy {
     cache_mode = "USE_ORIGIN_HEADERS"
     cache_key_policy {
-      include_query_string = true
+      include_query_string  = true
+      include_named_cookies = ["token"] # segment cache by user
     }
     bypass_cache_on_request_headers {
       header_name = "authorization"

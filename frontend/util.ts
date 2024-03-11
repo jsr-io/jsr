@@ -9,6 +9,7 @@ export interface State {
   span: TraceSpan;
   userPromise: Promise<FullUser | null | Response>;
   user: FullUser | null;
+  sudo: boolean;
 }
 
 export interface Docs {

@@ -1,12 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Nav, NavItem } from "../../../components/Nav.tsx";
+import { ScopeIAM } from "../../../utils/iam.ts";
 
 export type ScopeNavTab = "Packages" | "Members" | "Settings";
 
 export interface ScopeNavProps {
   scope: string;
   active: ScopeNavTab;
-  isAdmin: boolean;
+  iam: ScopeIAM;
 }
 
 export function ScopeNav(props: ScopeNavProps) {
@@ -22,7 +23,7 @@ export function ScopeNav(props: ScopeNavProps) {
       >
         Members
       </NavItem>
-      {props.isAdmin && (
+      {props.iam.canAdmin && (
         <NavItem
           href={`${baseUrl}/~/settings`}
           active={props.active === "Settings"}

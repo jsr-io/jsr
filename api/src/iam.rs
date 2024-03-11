@@ -21,6 +21,7 @@ pub struct IamHandler<'s> {
   principal: Principal,
   permissions: Option<Permissions>,
   interactive: bool,
+  sudo: bool,
 }
 
 impl<'s> IamHandler<'s> {
@@ -39,7 +40,7 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff => Ok(()),
+      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
         self
           .db
@@ -64,7 +65,7 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff => Ok(()),
+      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
         let scope_member = self
           .db
@@ -93,7 +94,7 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff => Ok(()),
+      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
         let scope_member = self
           .db
@@ -142,7 +143,7 @@ impl<'s> IamHandler<'s> {
       PublishAccessRestriction { tarball_hash: None }
     };
     match &self.principal {
-      Principal::User(user) if user.is_staff => {
+      Principal::User(user) if user.is_staff && self.sudo => {
         Ok((access_restriction, Some(user.id)))
       }
       Principal::User(user) => {
@@ -243,6 +244,9 @@ pub struct IamInfo {
   /// Whether the request comes from an interactive system (web portal), or via
   /// an automated system (GitHub Actions / cli with device token).
   pub interactive: bool,
+  /// Whether the request is being made with sudo privileges, which allows
+  /// staff users to bypass some access restrictions.
+  pub sudo: bool,
 }
 
 impl IamInfo {
@@ -251,17 +255,19 @@ impl IamInfo {
       principal: Principal::Anonymous,
       permissions: None,
       interactive: false,
+      sudo: false,
     }
   }
 }
 
-impl From<(Token, User)> for IamInfo {
-  fn from((token, user): (Token, User)) -> Self {
+impl From<(Token, User, bool)> for IamInfo {
+  fn from((token, user, sudo): (Token, User, bool)) -> Self {
     assert_eq!(token.user_id, user.id);
     IamInfo {
       principal: Principal::User(user),
       permissions: token.permissions,
       interactive: token.r#type == TokenType::Web,
+      sudo,
     }
   }
 }
@@ -274,6 +280,7 @@ impl From<(i64, GithubOidcTokenAud, Option<User>)> for IamInfo {
       principal: Principal::GitHubActions { repo_id, user },
       permissions: Some(aud.permissions),
       interactive: false,
+      sudo: false,
     }
   }
 }
@@ -289,12 +296,14 @@ impl ReqIamExt for Request<Body> {
       principal,
       permissions,
       interactive,
+      sudo,
     } = self.context().unwrap();
     IamHandler {
       db,
       principal,
       permissions,
       interactive,
+      sudo,
     }
   }
 }

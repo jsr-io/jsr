@@ -13,6 +13,7 @@ import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { Head } from "$fresh/runtime.ts";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data extends PaginationData {
   package: Package;
@@ -23,9 +24,7 @@ interface Data extends PaginationData {
 export default function Dep(
   { data, params, state, url }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canPublish = data.member !== null || isStaff;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
@@ -46,8 +45,7 @@ export default function Dep(
       <PackageNav
         currentTab="Dependents"
         versionCount={data.package.versionCount}
-        canPublish={canPublish}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />

@@ -17,6 +17,7 @@ import { ScopePendingInvite } from "./(_components)/ScopePendingInvite.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { ListDisplay } from "../../components/List.tsx";
 import { PackageHit } from "../../components/PackageHit.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data extends PaginationData {
   scope: Scope | FullScope;
@@ -28,8 +29,7 @@ interface Data extends PaginationData {
 export default function ScopePackagesPage(
   { params, data, url, state }: PageProps<Data, State>,
 ) {
-  const isAdmin = data.scopeMember?.user.id === state.user?.id &&
-      data.scopeMember?.isAdmin || state.user?.isStaff || false;
+  const iam = scopeIAM(state, data.scopeMember);
 
   return (
     <div class="mb-20">
@@ -43,7 +43,7 @@ export default function ScopePackagesPage(
         />
       </Head>
       <ScopeHeader scope={data.scope} />
-      <ScopeNav active="Packages" isAdmin={isAdmin} scope={data.scope.scope} />
+      <ScopeNav active="Packages" iam={iam} scope={data.scope.scope} />
       <ScopePendingInvite userInvites={data.userInvites} scope={params.scope} />
       <ListDisplay
         pagination={data}
