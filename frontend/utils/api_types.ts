@@ -15,7 +15,6 @@ export interface FullUser extends User {
   scopeUsage: number;
   scopeLimit: number;
   inviteCount: number;
-  waitlistAcceptedAt: string | null;
 }
 
 export interface Scope {
@@ -96,6 +95,7 @@ export interface PackageScore {
   allEntrypointsDocs: boolean;
   percentageDocumentedSymbols: number;
   allFastCheck: boolean;
+  hasProvenance: boolean;
 
   // package specific
   hasDescription: boolean;
@@ -138,6 +138,7 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocs {
   version: PackageVersionWithUser;
   css: string;
+  script: string;
   breadcrumbs: string | null;
   sidepanel: string | null;
   main: string;

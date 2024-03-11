@@ -35,9 +35,14 @@ const auth: MiddlewareHandler<State> = async (req, ctx) => {
   const interactive =
     (ctx.destination === "route" || ctx.destination === "notFound") &&
     !(url.pathname === "/gfm.css" || url.pathname === "/_frsh/client.js.map");
-  const token = getCookies(req.headers).token;
+  const { token, sudo } = getCookies(req.headers);
   if (interactive) {
-    ctx.state.api = new API(API_ROOT, { token, span: ctx.state.span });
+    ctx.state.sudo = sudo === "1";
+    ctx.state.api = new API(API_ROOT, {
+      token,
+      sudo: ctx.state.sudo,
+      span: ctx.state.span,
+    });
     if (ctx.state.api.hasToken()) {
       ctx.state.userPromise = (async () => {
         const userResp = await ctx.state.api.get<FullUser>(path`/user`);
@@ -79,52 +84,4 @@ const auth: MiddlewareHandler<State> = async (req, ctx) => {
   return await ctx.next();
 };
 
-const tokensForWaitlistAccepted = new Set<string>();
-
-const waitlist: MiddlewareHandler<State> = async (req, ctx) => {
-  const url = new URL(req.url);
-  const interactive =
-    (ctx.destination === "route" || ctx.destination === "notFound") &&
-    !(url.pathname === "/gfm.css" || url.pathname === "/_frsh/client.js.map" ||
-      url.pathname.startsWith("/badges/") ||
-      url.pathname.startsWith("/login"));
-  if (interactive) {
-    if (
-      Deno.env.get("SKIP_WAITLIST") === "1" ||
-      req.headers.has("x-jsr-bypass-waitlist")
-    ) {
-      return await ctx.next();
-    }
-    let isWaitlisted = false;
-    const token = ctx.state.api.token();
-    if (token) {
-      if (tokensForWaitlistAccepted.has(token)) {
-        isWaitlisted = true;
-      } else {
-        const user = await ctx.state.userPromise;
-        if (user instanceof Response) throw user;
-        if (user && user.waitlistAcceptedAt) {
-          isWaitlisted = true;
-          tokensForWaitlistAccepted.add(token);
-        }
-      }
-    }
-
-    if (!isWaitlisted && url.pathname !== "/waitlist") {
-      return new Response("", {
-        status: 303,
-        headers: { Location: "/waitlist" },
-      });
-    }
-
-    if (isWaitlisted && url.pathname === "/waitlist") {
-      return new Response("", {
-        status: 303,
-        headers: { Location: "/" },
-      });
-    }
-  }
-  return await ctx.next();
-};
-
-export const handler: MiddlewareHandler<State>[] = [tracing, auth, waitlist];
+export const handler: MiddlewareHandler<State>[] = [tracing, auth];

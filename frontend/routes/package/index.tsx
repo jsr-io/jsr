@@ -8,6 +8,7 @@ import { packageDataWithDocs } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -19,8 +20,7 @@ interface Data {
 export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
@@ -43,7 +43,7 @@ export default function PackagePage(
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
@@ -58,7 +58,10 @@ export default function PackagePage(
         )
         : (
           <div class="mt-8 text-gray-500 text-center">
-            This package has not published any versions yet.
+            This package has not published{" "}
+            {data.package.versionCount > 0
+              ? "a stable release"
+              : "any versions"} yet.
           </div>
         )}
     </div>
@@ -83,7 +86,7 @@ export const handler: Handlers<Data, State> = {
       docs,
     } = res;
 
-    if (scopeMember && pkg.latestVersion === null) {
+    if (scopeMember && pkg.versionCount === 0) {
       return new Response(null, {
         status: 303,
         headers: {

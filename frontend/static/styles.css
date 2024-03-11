@@ -49,6 +49,7 @@
 
   :root {
     scroll-behavior: smooth;
+    scrollbar-color: theme("colors.jsr-cyan.950") theme("colors.jsr-cyan.50");
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -97,7 +98,7 @@
 @layer components {
   .button {
     @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5 rounded-md leading-tight font-medium
-      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2;
+      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2 select-none;
   }
 
   .button-sm {
@@ -169,7 +170,7 @@ body .ddoc #sidepanel a:active {
   background-color: theme("colors.cyan.200");
 }
 
-/* !important seems necessary for taking precendent over current ddoc styling */
+/* !important seems necessary for taking precedent over current ddoc styling */
 
 body .ddoc .markdown h1 {
   @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
@@ -185,14 +186,22 @@ body .ddoc .markdown h3 {
 
 body .ddoc .markdown h4 {
   @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
-} 
+}
 
 body .ddoc a {
   word-wrap: break-word;
 }
 
 body .ddoc .markdown pre {
-  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 p-6 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
+  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
+  
+  & > code:first-child {
+    @apply p-6;
+  
+    &.flex {
+      display: flex;
+    }
+  }
 }
 
 body .ddoc .markdown :not(pre) > code {
@@ -204,11 +213,11 @@ body .ddoc .markdown a:not(.no_color) {
 }
 
 body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
+  @apply bg-jsr-cyan-50 border-y-1.5 border-jsr-cyan-100 border-x-0 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
 }
 
 body .ddoc .usage pre.highlight {
-  @apply bg-white border-jsr-cyan-200;
+  @apply bg-white border-jsr-cyan-200 -mx-4 md:mx-0 border-x-0 md:border-1.5;
 }
 
 body .ddoc .usage nav {
@@ -221,6 +230,19 @@ body .ddoc .usage nav label {
 
 body .ddoc > section > nav.py-4 {
   @apply pt-0 top-4;
+}
+
+body .ddoc .markdown tr:nth-child(2n) {
+  @apply bg-slate-50;
+}
+
+body .ddoc .markdown th,
+body .ddoc .markdown td  {
+  @apply border-1.5 border-slate-300;
+}
+
+body .ddoc .markdown th {
+  @apply py-1.5;
 }
 
 /* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */

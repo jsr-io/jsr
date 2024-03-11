@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type { FullUser, Package } from "../../utils/api_types.ts";
+import type { FullUser, Package, ScopeMember } from "../../utils/api_types.ts";
 import { State } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
@@ -8,9 +8,12 @@ import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { GitHub } from "../../components/icons/GitHub.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
+import { ScopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
+  iam: ScopeIAM;
 }
 
 export default function PackagePage({
@@ -37,7 +40,7 @@ export default function PackagePage({
       <PackageNav
         currentTab="Publish"
         versionCount={data.package.versionCount}
-        canEdit={true}
+        iam={data.iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
@@ -61,7 +64,7 @@ export default function PackagePage({
                   config file:
                 </p>
                 <div class="mt-2 -mb-2">
-                  <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block">
+                  <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
                     jsr.json / deno.json
                   </div>
                 </div>
@@ -145,6 +148,7 @@ export default function PackagePage({
             </p>
             <GitHubActions
               pkg={data.package}
+              canEdit={data.iam.canWrite}
               user={state.user ?? undefined}
             />
           </div>
@@ -154,7 +158,11 @@ export default function PackagePage({
   );
 }
 
-function GitHubActions({ pkg, user }: { pkg: Package; user?: FullUser }) {
+function GitHubActions({ pkg, canEdit, user }: {
+  pkg: Package;
+  canEdit: boolean;
+  user?: FullUser;
+}) {
   if (!pkg.githubRepository) {
     return (
       <>
@@ -176,7 +184,13 @@ function GitHubActions({ pkg, user }: { pkg: Package; user?: FullUser }) {
             </code>{" "}
             in your action.
           </p>
-          <GitHubActionsLink pkg={pkg} user={user} />
+
+          {canEdit ? <GitHubActionsLink pkg={pkg} user={user} /> : (
+            <p>
+              Ask an admin of this scope to link the repository in the package
+              settings.
+            </p>
+          )}
         </div>
       </>
     );
@@ -253,13 +267,12 @@ export const handler: Handlers<Data, State> = {
 
     const { pkg, scopeMember } = data;
 
-    const isStaff = user?.isStaff || false;
-    const canEdit = scopeMember?.isAdmin || isStaff;
-
-    if (!canEdit) return ctx.renderNotFound();
+    const iam = scopeIAM(ctx.state, scopeMember, user);
+    if (!iam.canWrite) return ctx.renderNotFound();
 
     return ctx.render({
       package: pkg,
+      iam,
     });
   },
 };

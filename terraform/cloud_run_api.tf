@@ -129,7 +129,11 @@ resource "google_compute_backend_service" "registry_api" {
   cdn_policy {
     cache_mode = "USE_ORIGIN_HEADERS"
     cache_key_policy {
-      include_query_string = true
+      include_query_string  = true
+      include_named_cookies = ["token"] # segment cache by user
+    }
+    bypass_cache_on_request_headers {
+      header_name = "authorization"
     }
     serve_while_stale = 600 # 10 minutes
     default_ttl       = 0
@@ -155,7 +159,7 @@ resource "google_cloud_run_service_iam_member" "api_public_policy" {
 resource "google_cloud_run_v2_service" "registry_api_tasks" {
   name     = "registry-api-tasks"
   location = "us-central1"
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY" # only acessed by Cloud Tasks
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY" # only accessed by Cloud Tasks
 
   template {
     service_account = google_service_account.registry_api.email

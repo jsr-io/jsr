@@ -205,6 +205,9 @@ jobs:
       - name: terraform apply
         run: deno task tf:staging:apply
 
+      - name: Run e2e tests
+        run: deno task e2e:staging
+
   prod:
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
@@ -253,3 +256,6 @@ jobs:
 
       - name: terraform apply
         run: deno task tf:prod:apply
+
+      - name: Run e2e tests
+        run: deno task e2e:prod

@@ -49,4 +49,4 @@ Cloudflare Worker. You can then visit `http://localhost:8787` to see the result.
 $ wrangler dev
 ```
 
-[Learn more about using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)

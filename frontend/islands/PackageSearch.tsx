@@ -8,7 +8,7 @@ import { OramaPackageHit } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import { List, Package } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
-import { isMacLike } from "../utils/os.ts";
+import { useMacLike } from "../utils/os.ts";
 
 interface PackageSearchProps {
   query?: string;
@@ -37,7 +37,7 @@ export function PackageSearch(
   const showSuggestions = computed(() =>
     isFocused.value && search.value.length > 0
   );
-  const [macLike, setMacLike] = useState(true);
+  const macLike = useMacLike();
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -71,10 +71,6 @@ export function PackageSearch(
       globalThis.removeEventListener("keydown", keyboardHandler);
     };
   });
-
-  useEffect(() => {
-    setMacLike(isMacLike());
-  }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
@@ -164,9 +160,11 @@ export function PackageSearch(
     }
   }
 
-  const placeholder = `Search for packages (${macLike ? "⌘K" : "Ctrl+K"})`;
+  const placeholder = `Search for packages${
+    macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
+  }`;
   return (
-    <div ref={ref}>
+    <div ref={ref} class="pointer-events-auto">
       <form
         action="/packages"
         method="GET"

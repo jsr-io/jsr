@@ -19,6 +19,8 @@ import {
 } from "../../../utils/api_types.ts";
 import { scopeData } from "../../../utils/data.ts";
 import { TrashCan } from "../../../components/icons/TrashCan.tsx";
+import { scopeIAM } from "../../../utils/iam.ts";
+import { ScopeIAM } from "../../../utils/iam.ts";
 
 interface Data {
   scope: Scope | FullScope;
@@ -30,13 +32,12 @@ interface Data {
 export default function ScopeMembersPage(
   { params, data, state, url }: PageProps<Data, State>,
 ) {
-  const isAdmin = data.scopeMember?.user.id === state.user?.id &&
-      data.scopeMember?.isAdmin || state.user?.isStaff || false;
+  const iam = scopeIAM(state, data.scopeMember);
 
   const hasOneAdmin =
     data.members.filter((member) => member.isAdmin).length === 1;
 
-  const isLastAdmin = isAdmin && hasOneAdmin;
+  const isLastAdmin = (data.scopeMember?.isAdmin || false) && hasOneAdmin;
 
   const inviteUrl = url.href;
 
@@ -48,7 +49,7 @@ export default function ScopeMembersPage(
         </title>
       </Head>
       <ScopeHeader scope={data.scope} />
-      <ScopeNav active="Members" isAdmin={isAdmin} scope={data.scope.scope} />
+      <ScopeNav active="Members" iam={iam} scope={data.scope.scope} />
       <ScopePendingInvite
         userInvites={data.invites.filter((i) =>
           i.targetUser.id === state.user?.id
@@ -60,7 +61,7 @@ export default function ScopeMembersPage(
         columns={[
           { title: "Name", class: "w-auto" },
           { title: "Role", class: "w-0" },
-          ...(isAdmin
+          ...(iam.canAdmin
             ? [{ title: "", class: "w-0", align: "right" as const }]
             : []),
         ]}
@@ -70,18 +71,22 @@ export default function ScopeMembersPage(
           <MemberItem
             member={member}
             isLastAdmin={hasOneAdmin && member.isAdmin}
-            canEdit={isAdmin}
+            iam={iam}
           />
         ))}
         {data.invites.map((invite) => (
-          <InviteItem invite={invite} inviteUrl={inviteUrl} canEdit={isAdmin} />
+          <InviteItem
+            invite={invite}
+            inviteUrl={inviteUrl}
+            iam={iam}
+          />
         ))}
       </Table>
-      {isAdmin && <MemberInvite scope={data.scope.scope} />}
+      {iam.canAdmin && <MemberInvite scope={data.scope.scope} />}
       {data.scopeMember && (
         <MemberLeave
           userId={data.scopeMember.user.id}
-          isAdmin={isAdmin}
+          isAdmin={data.scopeMember.isAdmin}
           isLastAdmin={isLastAdmin}
         />
       )}
@@ -92,23 +97,23 @@ export default function ScopeMembersPage(
 interface MemberItemProps {
   isLastAdmin: boolean;
   member: ScopeMember;
-  canEdit: boolean;
+  iam: ScopeIAM;
 }
 
 export function MemberItem(props: MemberItemProps) {
-  const { member, canEdit } = props;
+  const { member, iam } = props;
   return (
     <TableRow key={member.user.id}>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-jsr-cyan-400 hover:underline"
           href={`/user/${member.user.id}`}
         >
           {member.user.name}
         </a>
       </TableData>
       <TableData>
-        {canEdit
+        {iam.canAdmin
           ? (
             <ScopeMemberRole
               scope={member.scope}
@@ -121,7 +126,7 @@ export function MemberItem(props: MemberItemProps) {
           ? "Admin"
           : "Member"}
       </TableData>
-      {canEdit && (
+      {iam.canAdmin && (
         <TableData>
           <div class="flex gap-2 justify-end">
             <form method="POST" class="contents">
@@ -148,16 +153,16 @@ export function MemberItem(props: MemberItemProps) {
 interface InviteItemProps {
   invite: ScopeInvite;
   inviteUrl: string;
-  canEdit: boolean;
+  iam: ScopeIAM;
 }
 
 export function InviteItem(props: InviteItemProps) {
-  const { invite, canEdit } = props;
+  const { invite, iam } = props;
   return (
     <TableRow key={invite.targetUser.id} class="striped">
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-jsr-cyan-400 hover:underline"
           href={`/user/${invite.targetUser.id}`}
         >
           {invite.targetUser.name}
@@ -166,7 +171,7 @@ export function InviteItem(props: InviteItemProps) {
       <TableData>
         Invited
       </TableData>
-      {canEdit && (
+      {iam.canAdmin && (
         <TableData>
           <div class="flex justify-end gap-4">
             <CopyButton text={props.inviteUrl} title="Copy invite URL" />
@@ -190,7 +195,7 @@ export function InviteItem(props: InviteItemProps) {
 
 function MemberInvite({ scope }: { scope: string }) {
   return (
-    <div class="max-w-3xl border-t pt-8 mt-8">
+    <div class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-8">
       <h2 class="text-lg font-semibold">Invite member</h2>
       <p class="mt-2 text-gray-600">
         Inviting users to this scope grants them access to publish all packages
@@ -206,7 +211,10 @@ function MemberLeave(
   props: { userId: string; isAdmin: boolean; isLastAdmin: boolean },
 ) {
   return (
-    <form method="POST" class="max-w-3xl border-t pt-8 mt-12">
+    <form
+      method="POST"
+      class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-12"
+    >
       <h2 class="text-lg font-semibold">Leave scope</h2>
       <p class="mt-2 text-gray-600">
         Leaving this scope will revoke your access to all packages in this
@@ -214,8 +222,17 @@ function MemberLeave(
         scope{props.isAdmin && " or manage members"}.
       </p>
       <input type="hidden" name="userId" value={props.userId} />
+      {props.isLastAdmin && (
+        <div class="mt-6 border-1 rounded-md border-red-300 bg-red-50 p-6 text-red-600">
+          <span class="font-bold text-xl">Warning</span>
+          <p>
+            You are the last admin in this scope. You must promote another
+            member to admin before leaving.
+          </p>
+        </div>
+      )}
       <button
-        class="button-danger mt-4"
+        class="button-danger mt-6"
         type="submit"
         name="action"
         value="deleteMember"
@@ -223,12 +240,6 @@ function MemberLeave(
       >
         Leave
       </button>
-      {props.isLastAdmin && (
-        <p class="mt-2 text-red-600">
-          You are the last admin in this scope. You must promote another member
-          to admin before leaving.
-        </p>
-      )}
     </form>
   );
 }

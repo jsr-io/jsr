@@ -32,7 +32,6 @@ pub struct User {
   pub scope_usage: i64,
   pub scope_limit: i32,
   pub invite_count: i64,
-  pub waitlist_accepted_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]
@@ -244,6 +243,7 @@ pub struct PackageVersionMeta {
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool,
+  pub has_provenance: bool,
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for PackageVersionMeta {

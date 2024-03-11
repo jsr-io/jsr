@@ -3,9 +3,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use deno_ast::LineAndColumnDisplay;
 use deno_ast::MediaType;
+use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
@@ -13,13 +15,15 @@ use deno_doc::DocNodeKind;
 use deno_graph::source::load_data_url;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
+use deno_graph::source::ResolutionMode;
+use deno_graph::source::ResolveError;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
 use deno_graph::CapturingModuleAnalyzer;
 use deno_graph::GraphKind;
 use deno_graph::ModuleInfo;
-use deno_graph::ModuleSpecifier;
 use deno_graph::ParsedSourceStore;
+use deno_graph::Range;
 use deno_graph::WorkspaceFastCheckOption;
 use deno_graph::WorkspaceMember;
 use deno_semver::jsr::JsrPackageReqReference;
@@ -49,6 +53,7 @@ use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::create_npm_tarball;
 use crate::npm::NpmTarball;
+use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
 use crate::tarball::PublishError;
 
@@ -137,6 +142,7 @@ async fn analyze_package_inner(
   let url_provider = RegistryJsrUrlProvider {
     registry: registry.as_ref(),
   };
+  let capturing_resolver = DependencyCapturingResolver::default();
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
   let diagnostics = graph
     .build(
@@ -153,7 +159,7 @@ async fn analyze_package_inner(
         // todo: use the data in the package for the file system
         file_system: Some(&NullFileSystem),
         jsr_url_provider: Some(&url_provider),
-        resolver: None,
+        resolver: Some(&capturing_resolver),
         npm_resolver: None,
         module_parser: Some(&module_analyzer.analyzer),
         reporter: None,
@@ -172,6 +178,13 @@ async fn analyze_package_inner(
     npm_resolver: Default::default(),
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
   });
+
+  let inner = capturing_resolver.0.into_inner().unwrap();
+  if let Some(err) = inner.errors.into_iter().next() {
+    return Err(err);
+  }
+
+  let dependencies = inner.dependencies;
 
   for module in graph.modules() {
     // Check for global type augementation.
@@ -228,8 +241,6 @@ async fn analyze_package_inner(
 
   let module_graph_1 = module_analyzer.take_module_graph_1();
 
-  let dependencies = analyze_dependencies(&module_graph_1)?;
-
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
     sources: &module_analyzer.analyzer,
@@ -238,8 +249,10 @@ async fn analyze_package_inner(
     package: &name,
     version: &version,
     exports: &exports,
+    files: NpmTarballFiles::WithBytes(&files),
     dependencies: dependencies.iter(),
   })
+  .await
   .map_err(PublishError::NpmTarballError)?;
 
   let (meta, readme_path) = {
@@ -302,6 +315,7 @@ fn generate_score(
       doc_nodes_by_url,
     ),
     all_fast_check,
+    has_provenance: false, // Provenance score is updated after version publish
   }
 }
 
@@ -359,36 +373,62 @@ fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
   (documented_symbols as f32) / (total_symbols as f32)
 }
 
-fn analyze_dependencies(
-  module_graph_1: &HashMap<String, ModuleInfo>,
-) -> Result<HashSet<(DependencyKind, PackageReqReference)>, PublishError> {
-  let mut dependencies = HashSet::new();
-  for info in module_graph_1.values() {
-    for dep in &info.dependencies {
-      let Some(d) = dep.as_static() else {
-        continue;
-      };
-      if d.specifier.starts_with("jsr:") {
-        let req = JsrPackageReqReference::from_str(&d.specifier)
-          .map_err(PublishError::InvalidJsrSpecifier)?;
+#[derive(Debug, Default)]
+struct DependencyCapturingResolver(Mutex<DependencyCapturingResolverInner>);
 
-        if req.req().version_req.version_text() == "*" {
-          return Err(PublishError::JsrMissingConstraint(req));
-        }
-        dependencies.insert((DependencyKind::Jsr, req.into_inner()));
-      }
-      if d.specifier.starts_with("npm:") {
-        let req = NpmPackageReqReference::from_str(&d.specifier)
-          .map_err(PublishError::InvalidNpmSpecifier)?;
+#[derive(Debug, Default)]
+struct DependencyCapturingResolverInner {
+  dependencies: HashSet<(DependencyKind, PackageReqReference)>,
+  errors: Vec<PublishError>,
+}
 
-        if req.req().version_req.version_text() == "*" {
-          return Err(PublishError::NpmMissingConstraint(req));
+impl deno_graph::source::Resolver for DependencyCapturingResolver {
+  fn resolve(
+    &self,
+    specifier_text: &str,
+    referrer_range: &Range,
+    _mode: ResolutionMode,
+  ) -> Result<ModuleSpecifier, ResolveError> {
+    let specifier =
+      deno_graph::resolve_import(specifier_text, &referrer_range.specifier)?;
+    if referrer_range.specifier.scheme() == "file" {
+      let mut inner = self.0.lock().unwrap();
+      if specifier.scheme() == "jsr" {
+        let res = JsrPackageReqReference::from_str(specifier.as_str());
+        match res {
+          Ok(req) => {
+            if req.req().version_req.version_text() == "*" {
+              inner.errors.push(PublishError::JsrMissingConstraint(req));
+            } else {
+              inner
+                .dependencies
+                .insert((DependencyKind::Jsr, req.into_inner()));
+            }
+          }
+          Err(err) => {
+            inner.errors.push(PublishError::InvalidJsrSpecifier(err));
+          }
         }
-        dependencies.insert((DependencyKind::Npm, req.into_inner()));
+      } else if specifier.scheme() == "npm" {
+        let res = NpmPackageReqReference::from_str(specifier.as_str());
+        match res {
+          Ok(req) => {
+            if req.req().version_req.version_text() == "*" {
+              inner.errors.push(PublishError::NpmMissingConstraint(req));
+            } else {
+              inner
+                .dependencies
+                .insert((DependencyKind::Npm, req.into_inner()));
+            }
+          }
+          Err(err) => {
+            inner.errors.push(PublishError::InvalidNpmSpecifier(err));
+          }
+        }
       }
     }
+    Ok(specifier)
   }
-  Ok(dependencies)
 }
 
 struct RegistryJsrUrlProvider<'a> {
@@ -629,8 +669,13 @@ async fn rebuild_npm_tarball_inner(
     package: &name,
     version: &version,
     exports: &exports,
+    files: NpmTarballFiles::FromBucket {
+      files: &files,
+      modules_bucket: &modules_bucket,
+    },
     dependencies: dependencies.iter(),
-  })?;
+  })
+  .await?;
 
   Ok(npm_tarball)
 }
@@ -759,7 +804,7 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
-struct ModuleAnalyzer {
+pub struct ModuleAnalyzer {
   pub analyzer: CapturingModuleAnalyzer,
   pub module_info: RefCell<HashMap<Url, ModuleInfo>>,
 }
@@ -783,7 +828,7 @@ impl ModuleAnalyzer {
 impl deno_graph::ModuleAnalyzer for ModuleAnalyzer {
   fn analyze(
     &self,
-    specifier: &deno_ast::ModuleSpecifier,
+    specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
   ) -> Result<ModuleInfo, deno_ast::ParseDiagnostic> {

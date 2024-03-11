@@ -16,6 +16,7 @@ import { Check } from "../../components/icons/Check.tsx";
 import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -26,8 +27,7 @@ interface Data {
 export default function Score(
   { data, params, state }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
@@ -48,124 +48,162 @@ export default function Score(
       <PackageNav
         currentTab="Score"
         versionCount={data.package.versionCount}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
-        <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
-          <div class="flex gap-2 items-center mb-4">
-            <img src="/logo.svg" class="w-16" />
-            <h2 class="text-2xl font-semibold">
-              <span class="sr-only">JSR</span> Score
-            </h2>
+      {data.package.score
+        ? (
+          <ScoreInfo
+            scope={data.package.scope}
+            name={data.package.name}
+            scorePercentage={data.package.score}
+            score={data.score}
+          />
+        )
+        : (
+          <div class="mt-8 text-gray-500 text-center">
+            No score is available for this package, because it does not have a
+            stable release.
           </div>
-          <div class="mb-6">
-            @{data.package.scope}/{data.package.name}
-          </div>
-          <div
-            class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
-              getScoreBgColorClass(data.package.score!)
-            }`}
-            style={`background-image: conic-gradient(transparent, transparent ${data.package.score}%, #e7e8e8 ${data.package.score}%)`}
-          >
-            <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
-              {data.package.score!}%
-            </span>
-          </div>
-          <div class="text-gray-500 text-sm text-center mt-6">
-            The JSR score is a measure of the overall quality of a package,
-            based on a number of factors such as documentation and runtime
-            compatibility.
-          </div>
-        </div>
+        )}
+    </div>
+  );
+}
 
-        <ul class="flex flex-col divide-jsr-cyan-100 divide-y-1 md:col-span-2 w-full">
-          <ScoreItem
-            value={data.score.hasReadme}
-            scoreValue={2}
-            title="Has a readme or module doc"
-          >
-            The package should have a README.md in the root of the repository or
-            a{" "}
-            <a class="link" href="/docs/writing-docs#module-documentation">
-              module doc
-            </a>{" "}
-            in the main entrypoint of the package.
-          </ScoreItem>
-          <ScoreItem
-            value={data.score.hasReadmeExamples}
-            scoreValue={1}
-            title="Has examples in the readme or module doc"
-          >
-            The README or{" "}
-            <a class="link" href="/docs/writing-docs#module-documentation">
-              module doc
-            </a>{" "}
-            of the main entrypoint should have an example of how to use the
-            package, in the form of a code block.
-          </ScoreItem>
-          <ScoreItem
-            value={data.score.allEntrypointsDocs}
-            scoreValue={1}
-            title="Has module docs in all entrypoints"
-          >
-            Every entrypoint of the package should have a{" "}
-            <a class="link" href="/docs/writing-docs#module-documentation">
-              module doc
-            </a>{" "}
-            summarizing what is defined in that module.
-          </ScoreItem>
-          <ScoreItem
-            value={Math.min(data.score.percentageDocumentedSymbols / 0.8, 1)}
-            scoreValue={5}
-            title="Has docs for most symbols"
-          >
-            At least 80% of the packages' symbols should have{" "}
-            <a class="link" href="/docs/writing-docs#symbol-documentation">
-              symbol documentation
-            </a>. Currently{" "}
-            {(data.score.percentageDocumentedSymbols * 100).toFixed(0)}% of
-            symbols are documented.
-          </ScoreItem>
-          <ScoreItem
-            value={data.score.allFastCheck}
-            scoreValue={5}
-            title="No slow types are used"
-          >
-            This package uses no{" "}
-            <a class="link" href="/docs/about-slow-types">
-              slow types
-            </a>.
-          </ScoreItem>
-          <ScoreItem
-            value={data.score.hasDescription}
-            scoreValue={1}
-            title="Has a description"
-          >
-            The package has a description set in the package settings to help
-            users find this package via search.
-          </ScoreItem>
-          <ScoreItem
-            value={data.score.atLeastOneRuntimeCompatible}
-            scoreValue={1}
-            title="At least one runtime is marked as compatible"
-          >
-            This package marks at least one runtime as "compatible" in the
-            package settings to aid users in understanding where they can use
-            this package.
-          </ScoreItem>
-          <ScoreItem
-            value={data.score.multipleRuntimesCompatible}
-            scoreValue={1}
-            title="At least two runtimes are marked as compatible"
-          >
-            This package is compatible with more than one runtime, and is marked
-            as such in the package settings.
-          </ScoreItem>
-        </ul>
+function ScoreInfo(props: {
+  scope: string;
+  name: string;
+  scorePercentage: number;
+  score: PackageScore;
+}) {
+  const { scope, name, scorePercentage, score } = props;
+
+  return (
+    <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
+      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
+        <div class="flex gap-2 items-center mb-4">
+          <img src="/logo.svg" class="w-16 select-none" alt="JSR logo" />
+          <h2 class="text-2xl font-semibold">
+            <span class="sr-only">JSR</span> Score
+          </h2>
+        </div>
+        <div class="mb-6">
+          @{scope}/{name}
+        </div>
+        <div
+          class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
+            getScoreBgColorClass(scorePercentage)
+          }`}
+          style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, #e7e8e8 ${scorePercentage}%)`}
+        >
+          <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
+            {scorePercentage}%
+          </span>
+        </div>
+        <div class="text-gray-500 text-sm text-center mt-6">
+          The JSR score is a measure of the overall quality of a package, based
+          on a number of factors such as documentation and runtime
+          compatibility.
+        </div>
       </div>
+
+      <ul class="flex flex-col divide-jsr-cyan-100 divide-y-1 md:col-span-2 w-full">
+        <ScoreItem
+          value={score.hasReadme}
+          scoreValue={2}
+          title="Has a readme or module doc"
+        >
+          The package should have a README.md in the root of the repository or a
+          {" "}
+          <a class="link" href="/docs/writing-docs#module-documentation">
+            module doc
+          </a>{" "}
+          in the main entrypoint of the package.
+        </ScoreItem>
+        <ScoreItem
+          value={score.hasReadmeExamples}
+          scoreValue={1}
+          title="Has examples in the readme or module doc"
+        >
+          The README or{" "}
+          <a class="link" href="/docs/writing-docs#module-documentation">
+            module doc
+          </a>{" "}
+          of the main entrypoint should have an example of how to use the
+          package, in the form of a code block.
+        </ScoreItem>
+        <ScoreItem
+          value={score.allEntrypointsDocs}
+          scoreValue={1}
+          title="Has module docs in all entrypoints"
+        >
+          Every entrypoint of the package should have a{" "}
+          <a class="link" href="/docs/writing-docs#module-documentation">
+            module doc
+          </a>{" "}
+          summarizing what is defined in that module.
+        </ScoreItem>
+        <ScoreItem
+          value={Math.min(score.percentageDocumentedSymbols / 0.8, 1)}
+          scoreValue={5}
+          title="Has docs for most symbols"
+        >
+          At least 80% of the packages' symbols should have{" "}
+          <a class="link" href="/docs/writing-docs#symbol-documentation">
+            symbol documentation
+          </a>. Currently{" "}
+          {(score.percentageDocumentedSymbols * 100).toFixed(0)}% of symbols are
+          documented.
+        </ScoreItem>
+        <ScoreItem
+          value={score.allFastCheck}
+          scoreValue={5}
+          title="No slow types are used"
+        >
+          This package uses no{" "}
+          <a class="link" href="/docs/about-slow-types">
+            slow types
+          </a>.
+        </ScoreItem>
+        <ScoreItem
+          value={score.hasDescription}
+          scoreValue={1}
+          title="Has a description"
+        >
+          The package has a description set in the package settings to help
+          users find this package via search.
+        </ScoreItem>
+        <ScoreItem
+          value={score.atLeastOneRuntimeCompatible}
+          scoreValue={1}
+          title="At least one runtime is marked as compatible"
+        >
+          This package marks at least one runtime as "compatible" in the package
+          settings to aid users in understanding where they can use this
+          package.
+        </ScoreItem>
+        <ScoreItem
+          value={score.multipleRuntimesCompatible}
+          scoreValue={1}
+          title="At least two runtimes are marked as compatible"
+        >
+          This package is compatible with more than one runtime, and is marked
+          as such in the package settings.
+        </ScoreItem>
+        <ScoreItem
+          value={score.hasProvenance}
+          scoreValue={1}
+          title="Has provenance"
+        >
+          This package is published from a verifiable CI/CD workflow, and has a
+          {" "}
+          <a class="link" href="/docs/trust">
+            public transparency log entry
+          </a>.
+        </ScoreItem>
+      </ul>
     </div>
   );
 }
@@ -227,6 +265,13 @@ export const handler: Handlers<Data, State> = {
       ),
     ]);
     if (res === null) return ctx.renderNotFound();
+
+    if (res.pkg.versionCount < 1) {
+      return new Response("", {
+        status: 303,
+        headers: { Location: `/@${ctx.params.scope}/${ctx.params.package}` },
+      });
+    }
 
     // TODO: handle errors gracefully
     if (!scoreResp.ok) throw scoreResp;

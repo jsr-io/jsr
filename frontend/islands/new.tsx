@@ -9,8 +9,6 @@ import { Package, Scope } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
 import twas from "$twas";
-import { ChevronDown } from "../components/icons/ChevronDown.tsx";
-import { QuotaCard } from "../components/QuotaCard.tsx";
 
 interface IconColorProps {
   done: Signal<unknown>;
@@ -225,8 +223,8 @@ export function PackageName(
   const message = useComputed(() => {
     if (error.value) return error.value;
     if (name.value.length === 0) return "";
-    if (name.value.length > 20) {
-      return "Package name cannot be longer than 20 characters.";
+    if (name.value.length > 32) {
+      return "Package name cannot be longer than 32 characters.";
     }
     if (!/^[a-z0-9\-]+$/.test(name.value)) {
       return "Package name can only contain lowercase letters, numbers, and hyphens.";

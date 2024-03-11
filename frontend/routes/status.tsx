@@ -17,6 +17,7 @@ import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
 import { Pending } from "../components/icons/Pending.tsx";
 import { Check } from "../components/icons/Check.tsx";
 import { ErrorIcon } from "../components/icons/Error.tsx";
+import { scopeIAM } from "../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -27,8 +28,7 @@ interface Data {
 export default function PackageListPage(
   { data, state }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-24 space-y-16">
@@ -43,7 +43,7 @@ export default function PackageListPage(
         <PackageNav
           currentTab="Versions"
           versionCount={data.package.versionCount}
-          canEdit={canEdit}
+          iam={iam}
           params={{ scope: data.package.scope, package: data.package.name }}
           latestVersion={data.package.latestVersion}
         />
@@ -107,7 +107,7 @@ export default function PackageListPage(
             </p>
           )}
 
-          {isStaff && (
+          {iam.isStaff && (
             <PublishingTaskRequeue publishingTask={data.publishingTask} />
           )}
         </div>

@@ -65,6 +65,11 @@ export default [
     group: "Reference",
   },
   {
+    title: "`jsr.json` file",
+    id: "package-configuration",
+    group: "Reference",
+  },
+  {
     title: "`jsr:` imports",
     id: "native-imports",
     group: "Reference",
@@ -84,9 +89,15 @@ export default [
     id: "scoring",
     group: "Reference",
   },
+
   {
     title: "Provenance and trust",
     id: "trust",
+    group: "Reference",
+  },
+  {
+    title: "Badges",
+    id: "badges",
     group: "Reference",
   },
   {

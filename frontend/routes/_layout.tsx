@@ -18,7 +18,7 @@ export default function Layout(
         >
           Skip to main content
         </a>
-        <Header user={state.user} url={url} />
+        <Header user={state.user} sudo={state.sudo} url={url} />
         <div
           class="section-x-inset-xl py-4 md:py-6 focus-visible:ring-0 focus-visible:outline-none"
           id="main-content"
@@ -37,8 +37,15 @@ export default function Layout(
           class="text-cyan-700 hover:text-blue-400 underline"
         >
           Docs
+        </a>{" "}
+        -{" "}
+        <a
+          href="https://github.com/jsr-io/jsr"
+          class="text-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>GitHub</span>
         </a>
-        {state?.span.isSampled ? `— x-deno-ray: ${state.span.traceId}` : null}
+        {state?.span.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
       </footer>
     </>
   );

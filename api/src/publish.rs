@@ -26,6 +26,7 @@ use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::orama::OramaClient;
 use crate::tarball::process_tarball;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
@@ -53,21 +54,35 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
-  publish_task(publishing_task_id, buckets, registry, npm_url, db).await?;
+  publish_task(
+    publishing_task_id,
+    buckets,
+    registry,
+    npm_url,
+    db,
+    orama_client,
+  )
+  .await?;
 
   Ok(())
 }
 
-#[instrument(name = "publish_task", skip(buckets, db, registry), err)]
+#[instrument(
+  name = "publish_task",
+  skip(buckets, db, registry, orama_client),
+  err
+)]
 pub async fn publish_task(
   publish_id: Uuid,
   buckets: Buckets,
   registry: Arc<dyn RegistryLoader>,
   npm_url: Url,
   db: Database,
+  orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
   let mut publishing_task = db
     .get_publishing_task(publish_id)
@@ -117,8 +132,19 @@ pub async fn publish_task(
           )
           .await?;
       }
-      PublishingTaskStatus::Failure | PublishingTaskStatus::Success => {
-        return Ok(())
+      PublishingTaskStatus::Failure => return Ok(()),
+      PublishingTaskStatus::Success => {
+        if let Some(orama_client) = orama_client {
+          let (package, _, meta) = db
+            .get_package(
+              &publishing_task.package_scope,
+              &publishing_task.package_name,
+            )
+            .await?
+            .ok_or_else(|| ApiError::InternalServerError)?;
+          orama_client.upsert_package(&package, &meta);
+        }
+        return Ok(());
       }
     }
   }
@@ -472,9 +498,16 @@ pub mod tests {
       .await
       .unwrap();
 
-    publish_task(task.id, t.buckets(), t.registry(), t.npm_url(), t.db())
-      .await
-      .unwrap();
+    publish_task(
+      task.id,
+      t.buckets(),
+      t.registry(),
+      t.npm_url(),
+      t.db(),
+      None,
+    )
+    .await
+    .unwrap();
     t.db().get_publishing_task(task.id).await.unwrap().unwrap()
   }
 
@@ -495,7 +528,7 @@ pub mod tests {
     Bytes::from(gz_bytes)
   }
 
-  pub fn create_case_insenstive_mock_tarball() -> Bytes {
+  pub fn create_case_insensitive_mock_tarball() -> Bytes {
     let mut tar_bytes = Vec::new();
     let mut tar = tar::Builder::new(&mut tar_bytes);
     tar
@@ -648,6 +681,34 @@ pub mod tests {
       PublishingTaskStatus::Success,
       "publishing task failed {task:?}"
     );
+  }
+
+  #[tokio::test]
+  async fn success_dynamic_import() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("dynamic_import")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed {task:?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 2);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_name, "chalk");
+    assert_eq!(dependencies[1].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[1].dependency_name, "express");
   }
 
   #[tokio::test]
@@ -808,9 +869,9 @@ pub mod tests {
   }
 
   #[tokio::test]
-  async fn case_insentive_duplicate() {
+  async fn case_insensitive_duplicate() {
     let t = TestSetup::new().await;
-    let bytes = create_case_insenstive_mock_tarball();
+    let bytes = create_case_insensitive_mock_tarball();
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
@@ -938,7 +999,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1");
+    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1\n    at file:///mod.ts:1:8");
   }
 
   #[tokio::test]

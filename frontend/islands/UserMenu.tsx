@@ -9,9 +9,14 @@ const SHARED_ITEM_CLASSES =
 const DEFAULT_ITEM_CLASSES =
   "hover:bg-jsr-yellow-300 focus-visible:bg-jsr-yellow-200 ring-jsr-yellow-700";
 
-export function UserMenu(
-  { user, logoutUrl }: { user: FullUser; logoutUrl: string },
-) {
+const SUDO_CONFIRMATION =
+  "Are you sure you want to enable sudo mode? Sudo mode will be enabled for 5 minutes.";
+
+export function UserMenu({ user, sudo, logoutUrl }: {
+  user: FullUser;
+  sudo: boolean;
+  logoutUrl: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -28,7 +33,7 @@ export function UserMenu(
   const prefix = useId();
 
   return (
-    <div class="relative" ref={ref}>
+    <div class="relative select-none" ref={ref}>
       <button
         id={`${prefix}-user-menu`}
         class="flex items-center rounded-full"
@@ -71,6 +76,23 @@ export function UserMenu(
               </span>
               <IconArrowRight class="w-4 h-4" />
             </a>
+          )}
+          {user.isStaff && (
+            <button
+              onClick={() => {
+                if (sudo) {
+                  document.cookie = "sudo=;max-age=0;path=/";
+                  location.reload();
+                } else if (confirm(SUDO_CONFIRMATION)) {
+                  document.cookie = "sudo=1;max-age=300;path=/";
+                  location.reload();
+                }
+              }}
+              tabIndex={open ? undefined : -1}
+              class="bg-red-600 hover:bg-red-400 text-white text-sm py-1 px-3 flex justify-between items-center gap-3 rounded-full mt-2"
+            >
+              {sudo ? "Disable" : "Enable"} Sudo Mode
+            </button>
           )}
         </div>
         <div class="divide-y divide-slate-200 border-t">

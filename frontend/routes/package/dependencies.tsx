@@ -13,6 +13,7 @@ import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { Head } from "$fresh/runtime.ts";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -24,8 +25,7 @@ interface Data {
 export default function Deps(
   { data, params, state, url }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   const deps: Record<string, { link: string; constraints: Set<string> }> = {};
 
@@ -64,7 +64,7 @@ export default function Deps(
       <PackageNav
         currentTab="Dependencies"
         versionCount={data.package.versionCount}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />

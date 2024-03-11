@@ -219,7 +219,7 @@ async fn invite_member_handler(
   let scope = req.param_scope()?;
   Span::current().record("scope", &field::display(&scope));
 
-  let ApiAddScopeMemberRequest { github_login } = decode_json(&mut req).await?;
+  let invite = decode_json::<ApiAddScopeMemberRequest>(&mut req).await?;
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?.to_owned();
@@ -232,14 +232,21 @@ async fn invite_member_handler(
   let iam = req.iam();
   iam.check_scope_admin_access(&scope).await?;
 
-  let new_user = lookup_user_by_github_login(
-    db,
-    github_oauth2_client,
-    &current_user,
-    &github_login,
-  )
-  .await?
-  .ok_or(ApiError::UserNotFound)?;
+  let new_user = match invite {
+    ApiAddScopeMemberRequest::GithubLogin(github_login) => {
+      lookup_user_by_github_login(
+        db,
+        github_oauth2_client,
+        &current_user,
+        &github_login,
+      )
+      .await?
+      .ok_or(ApiError::UserNotFound)?
+    }
+    ApiAddScopeMemberRequest::Id(id) => {
+      db.get_user(id).await?.ok_or(ApiError::UserNotFound)?
+    }
+  };
 
   if db.get_scope_member(&scope, new_user.id).await?.is_some() {
     return Err(ApiError::AlreadyScopeMember);
@@ -612,6 +619,7 @@ pub mod tests {
   async fn add_member(
     t: &mut TestSetup,
     token: String,
+    sudo: bool,
     github_login: String,
   ) -> Response<Body> {
     let body = json!({ "githubLogin": github_login });
@@ -619,6 +627,7 @@ pub mod tests {
       .post("/api/scopes/scope1/members")
       .body_json(body)
       .token(Some(&token))
+      .sudo(sudo)
       .call()
       .await
       .unwrap()
@@ -654,7 +663,7 @@ pub mod tests {
     // user1 (admin) adds themselves
     let github_login = t.user1.github_name.clone();
     let token = t.user1.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "alreadyScopeMember")
       .await;
@@ -662,7 +671,7 @@ pub mod tests {
     // user1 (admin) adds user2
     let github_login = t.user2.github_name.clone();
     let token = t.user1.token.clone();
-    let mut resp = add_member(&mut t, token, github_login).await;
+    let mut resp = add_member(&mut t, token, false, github_login).await;
     let invite: ApiScopeInvite = resp.expect_ok().await;
     assert_eq!(invite.scope.to_string(), "scope1");
     assert_eq!(invite.target_user.id, t.user2.user.id);
@@ -692,7 +701,7 @@ pub mod tests {
     // user1 (admin) adds user2 again
     let github_login = t.user2.github_name.clone();
     let token = t.user1.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "alreadyScopeMember")
       .await;
@@ -730,7 +739,7 @@ pub mod tests {
     // user2 (member) adds themselves
     let github_login = t.user2.github_name.clone();
     let token = t.user2.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -738,7 +747,7 @@ pub mod tests {
     // user2 (member) adds user3
     let github_login = t.user3.github_name.clone();
     let token = t.user2.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -779,7 +788,7 @@ pub mod tests {
     // user3 adds user2 (member)
     let github_login = t.user2.github_name.clone();
     let token = t.user3.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -787,7 +796,7 @@ pub mod tests {
     // user3 adds user3
     let github_login = t.user2.github_name.clone();
     let token = t.user3.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -798,7 +807,8 @@ pub mod tests {
 
   #[tokio::test]
   async fn scope_members_add_as_staff() {
-    // - staff adds user
+    // - staff adds user (no sudo)
+    // - staff adds user (sudo)
 
     let mut t = TestSetup::new().await;
 
@@ -813,10 +823,18 @@ pub mod tests {
     assert!(members[0].is_admin);
     assert_eq!(members[0].user.id, t.user1.user.id);
 
-    // admin adds user2
+    // staff adds user2 without sudo
     let github_login = t.user2.github_name.clone();
     let token = t.staff_user.token.clone();
-    add_member(&mut t, token, github_login)
+    add_member(&mut t, token, false, github_login)
+      .await
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+
+    // staff adds user2
+    let github_login = t.user2.github_name.clone();
+    let token = t.staff_user.token.clone();
+    add_member(&mut t, token, true, github_login)
       .await
       .expect_ok::<ApiScopeInvite>()
       .await;
@@ -834,6 +852,7 @@ pub mod tests {
   async fn update_member_permission(
     t: &mut TestSetup,
     token: String,
+    sudo: bool,
     user_id: Uuid,
     is_admin: bool,
   ) -> Response<Body> {
@@ -842,6 +861,7 @@ pub mod tests {
       .patch(format!("/api/scopes/scope1/members/{}", user_id))
       .body_json(body)
       .token(Some(&token))
+      .sudo(sudo)
       .call()
       .await
       .unwrap()
@@ -880,7 +900,7 @@ pub mod tests {
     // user1 (admin) upgrades themselves
     let user_id = t.user1.user.id;
     let token = t.user1.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, true)
+    let member = update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -889,7 +909,7 @@ pub mod tests {
     // user1 (admin) upgrades user2 (member)
     let user_id = t.user2.user.id;
     let token = t.user1.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, true)
+    let member = update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -898,7 +918,7 @@ pub mod tests {
     // user1 (admin) upgrades user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.user1.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::NOT_FOUND, "scopeMemberNotFound")
       .await;
@@ -945,7 +965,7 @@ pub mod tests {
     // user1 (admin) downgrades user2 (member)
     let user_id = t.user2.user.id;
     let token = t.user1.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, false)
+    let member = update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -954,7 +974,7 @@ pub mod tests {
     // user2 (admin) downgrades user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.user1.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::NOT_FOUND, "scopeMemberNotFound")
       .await;
@@ -962,7 +982,7 @@ pub mod tests {
     // user1 (admin) downgrades themselves
     let user_id = t.user1.user.id;
     let token = t.user1.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "scopeMustHaveAdmin")
       .await;
@@ -1006,7 +1026,7 @@ pub mod tests {
     // user1 (admin) downgrades themselves
     let user_id = t.user1.user.id;
     let token = t.user1.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, false)
+    let member = update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -1051,7 +1071,7 @@ pub mod tests {
     // user1 (admin) downgrades user2 (admin)
     let user_id = t.user2.user.id;
     let token = t.user1.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, false)
+    let member = update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -1098,7 +1118,7 @@ pub mod tests {
     // user2 (member) upgrades user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.user2.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1106,7 +1126,7 @@ pub mod tests {
     // user2 (member) upgrades themselves
     let user_id = t.user2.user.id;
     let token = t.user2.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1114,7 +1134,7 @@ pub mod tests {
     // user2 (member) upgrades user3 (user)
     let user_id = t.user3.user.id;
     let token = t.user2.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1160,7 +1180,7 @@ pub mod tests {
     // user2 (member) downgrades user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.user2.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1168,7 +1188,7 @@ pub mod tests {
     // user2 (member) downgrades themselves
     let user_id = t.user2.user.id;
     let token = t.user2.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1176,7 +1196,7 @@ pub mod tests {
     // user2 (member) downgrades user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.user2.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1222,7 +1242,7 @@ pub mod tests {
     // user3 (user) upgrades user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1230,7 +1250,7 @@ pub mod tests {
     // user3 (user) upgrades user2 (member)
     let user_id = t.user2.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1238,7 +1258,7 @@ pub mod tests {
     // user3 (user) upgrades themselves
     let user_id = t.user3.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1246,7 +1266,7 @@ pub mod tests {
     // user3 (user) upgrades admin_user (not scope member)
     let user_id = t.staff_user.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, false, user_id, true)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1292,7 +1312,7 @@ pub mod tests {
     // user3 (user) downgrades user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1300,7 +1320,7 @@ pub mod tests {
     // user3 (user) upgrades user2 (member)
     let user_id = t.user2.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1308,7 +1328,7 @@ pub mod tests {
     // user3 (user) upgrades themselves
     let user_id = t.user3.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1316,7 +1336,7 @@ pub mod tests {
     // user3 (user) upgrades admin_user (not scope member)
     let user_id = t.staff_user.user.id;
     let token = t.user3.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, false, user_id, false)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1331,9 +1351,9 @@ pub mod tests {
 
   #[tokio::test]
   async fn scope_member_upgrade_permission_as_staff() {
-    // - staff upgrades admin
-    // - staff upgrades member
-    // - staff upgrades user
+    // - staff upgrades admin (sudo)
+    // - staff upgrades member (sudo)
+    // - staff upgrades user (sudo)
 
     let mut t = TestSetup::new().await;
 
@@ -1359,10 +1379,18 @@ pub mod tests {
     assert!(!members[1].is_admin);
     assert_eq!(members[1].user.id, t.user2.user.id);
 
+    // staff upgrades user1 (admin) without sudo
+    let user_id = t.user1.user.id;
+    let token = t.staff_user.token.clone();
+    update_member_permission(&mut t, token, false, user_id, true)
+      .await
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+
     // staff upgrades user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.staff_user.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, true)
+    let member = update_member_permission(&mut t, token, true, user_id, true)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -1371,7 +1399,7 @@ pub mod tests {
     // staff upgrades user2 (member)
     let user_id = t.user2.user.id;
     let token = t.staff_user.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, true)
+    let member = update_member_permission(&mut t, token, true, user_id, true)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -1380,7 +1408,7 @@ pub mod tests {
     // staff upgrades user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.staff_user.token.clone();
-    update_member_permission(&mut t, token, user_id, true)
+    update_member_permission(&mut t, token, true, user_id, true)
       .await
       .expect_err_code(StatusCode::NOT_FOUND, "scopeMemberNotFound")
       .await;
@@ -1395,9 +1423,9 @@ pub mod tests {
 
   #[tokio::test]
   async fn scope_member_downgrade_permission_as_staff() {
-    // - staff downgrades admin
-    // - staff downgrades member
-    // - staff downgrades user
+    // - staff downgrades admin (sudo)
+    // - staff downgrades member (sudo)
+    // - staff downgrades user (sudo)
 
     let mut t = TestSetup::new().await;
 
@@ -1426,7 +1454,7 @@ pub mod tests {
     // staff downgrades user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.staff_user.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, true, user_id, false)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "scopeMustHaveAdmin")
       .await;
@@ -1434,7 +1462,7 @@ pub mod tests {
     // staff downgrades user2 (member)
     let user_id = t.user2.user.id;
     let token = t.staff_user.token.clone();
-    let member = update_member_permission(&mut t, token, user_id, false)
+    let member = update_member_permission(&mut t, token, true, user_id, false)
       .await
       .expect_ok::<ApiScopeMember>()
       .await;
@@ -1443,7 +1471,7 @@ pub mod tests {
     // staff downgrades user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.staff_user.token.clone();
-    update_member_permission(&mut t, token, user_id, false)
+    update_member_permission(&mut t, token, true, user_id, false)
       .await
       .expect_err_code(StatusCode::NOT_FOUND, "scopeMemberNotFound")
       .await;
@@ -1452,11 +1480,13 @@ pub mod tests {
   async fn remove_member(
     t: &mut TestSetup,
     token: String,
+    sudo: bool,
     user_id: Uuid,
   ) -> Response<Body> {
     t.http()
       .delete(format!("/api/scopes/scope1/members/{}", user_id))
       .token(Some(&token))
+      .sudo(sudo)
       .call()
       .await
       .unwrap()
@@ -1495,7 +1525,7 @@ pub mod tests {
     // user1 (admin) removes themselves
     let user_id = t.user1.user.id;
     let token = t.user1.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "scopeMustHaveAdmin")
       .await;
@@ -1503,13 +1533,13 @@ pub mod tests {
     // user1 (admin) removes user2 (member)
     let user_id = t.user2.user.id;
     let token = t.user1.token.clone();
-    let resp = remove_member(&mut t, token, user_id).await;
+    let resp = remove_member(&mut t, token, false, user_id).await;
     assert!(resp.status().is_success());
 
     // user1 (owner) removes user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.user1.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::NOT_FOUND, "scopeMemberNotFound")
       .await;
@@ -1550,7 +1580,7 @@ pub mod tests {
     // user1 (admin) removes themselves
     let user_id = t.user1.user.id;
     let token = t.user1.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_ok_no_content()
       .await;
@@ -1592,7 +1622,7 @@ pub mod tests {
     // user1 (admin) removes user2 (admin)
     let user_id = t.user2.user.id;
     let token = t.user1.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_ok_no_content()
       .await;
@@ -1636,7 +1666,7 @@ pub mod tests {
     // user2 (member) removes user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.user2.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1644,7 +1674,7 @@ pub mod tests {
     // user2 (member) removes user3 (not scope member)
     let user_id = t.user3.user.id;
     let token = t.user2.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
       .await;
@@ -1652,7 +1682,7 @@ pub mod tests {
     // user2 (member) removes themselves
     let user_id = t.user2.user.id;
     let token = t.user2.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_ok_no_content()
       .await;
@@ -1695,7 +1725,7 @@ pub mod tests {
     // user3 (not scope owner) removes user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.user3.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1703,7 +1733,7 @@ pub mod tests {
     // user3 (not scope owner) removes user2 (member)
     let user_id = t.user2.user.id;
     let token = t.user3.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1711,7 +1741,7 @@ pub mod tests {
     // user3 (not scope owner) removes themselves
     let user_id = t.user3.user.id;
     let token = t.user3.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
       .await;
@@ -1724,10 +1754,11 @@ pub mod tests {
 
   #[tokio::test]
   async fn scope_members_remove_as_staff() {
-    // - staff removes admin (not-last)
-    // - staff removes admin (last)
-    // - staff removes member
-    // - staff removes user
+    // - staff removes admin (not-last) (not sudo)
+    // - staff removes admin (not-last) (sudo)
+    // - staff removes admin (last) (sudo)
+    // - staff removes member (sudo)
+    // - staff removes user (sudo)
 
     let mut t = TestSetup::new().await;
 
@@ -1764,10 +1795,18 @@ pub mod tests {
     assert!(!members[2].is_admin);
     assert_eq!(members[2].user.id, t.user3.user.id);
 
+    // admin_user (staff) removes user1 (admin) without sudo
+    let user_id = t.user1.user.id;
+    let token = t.staff_user.token.clone();
+    remove_member(&mut t, token, false, user_id)
+      .await
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeMember")
+      .await;
+
     // admin_user (staff) removes user1 (admin)
     let user_id = t.user1.user.id;
     let token = t.staff_user.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, true, user_id)
       .await
       .expect_ok_no_content()
       .await;
@@ -1775,7 +1814,7 @@ pub mod tests {
     // admin_user (staff) removes user2 (admin)
     let user_id = t.user2.user.id;
     let token = t.staff_user.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, true, user_id)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "scopeMustHaveAdmin")
       .await;
@@ -1783,7 +1822,7 @@ pub mod tests {
     // admin_user (staff) removes user3 (member)
     let user_id = t.user3.user.id;
     let token = t.staff_user.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, true, user_id)
       .await
       .expect_ok_no_content()
       .await;
@@ -1791,7 +1830,7 @@ pub mod tests {
     // admin_user (staff) removes admin_user (not scope member)
     let user_id = t.staff_user.user.id;
     let token = t.staff_user.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, true, user_id)
       .await
       .expect_err_code(StatusCode::NOT_FOUND, "scopeMemberNotFound")
       .await;
@@ -1973,7 +2012,7 @@ pub mod tests {
 
     let user_id = t.user1.user.id;
     let token = t.user1.token.clone();
-    remove_member(&mut t, token, user_id)
+    remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "noScopeOwnerAvailable")
       .await;

@@ -21,9 +21,7 @@ import { Counter } from "k6/metrics";
 const cached = new Counter("cached");
 
 export default function () {
-  const res = http.get("https://jsr.io", {
-    headers: { "x-jsr-bypass-waitlist": "1" },
-  });
+  const res = http.get("https://jsr.io");
   cached.add(1, { cache: res.headers["X-Jsr-Cache-Status"] });
   check(res, {
     "is status 200": (r) => r.status === 200,

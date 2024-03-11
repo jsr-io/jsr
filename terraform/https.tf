@@ -270,13 +270,16 @@ resource "google_compute_url_map" "frontend_https" {
       priority = 2
       service  = google_compute_backend_service.registry_api.self_link
       match_rules {
-        prefix_match = "/api"
+        prefix_match = "/api/"
       }
       match_rules {
-        prefix_match = "/login"
+        full_path_match = "/login"
       }
       match_rules {
-        prefix_match = "/logout"
+        full_path_match = "/login/callback"
+      }
+      match_rules {
+        full_path_match = "/logout"
       }
     }
   }

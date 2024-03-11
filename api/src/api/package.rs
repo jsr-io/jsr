@@ -376,9 +376,6 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       let package = db
         .update_package_is_featured(&scope, &package, is_featured)
         .await?;
-      if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta);
-      }
       Ok(ApiPackage::from((package, repo, meta)))
     }
   }
@@ -643,6 +640,7 @@ pub async fn version_publish_handler(
   let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -739,9 +737,15 @@ pub async fn version_publish_handler(
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
     let span = Span::current();
-    let fut =
-      publish_task(publishing_task.id, buckets.clone(), registry, npm_url, db)
-        .instrument(span);
+    let fut = publish_task(
+      publishing_task.id,
+      buckets.clone(),
+      registry,
+      npm_url,
+      db,
+      orama_client,
+    )
+    .instrument(span);
     tokio::spawn(fut);
   }
 
@@ -768,6 +772,7 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
+  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
   iam.check_publish_access(&scope, &package, &version).await?;
@@ -777,6 +782,14 @@ pub async fn version_provenance_statements_handler(
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
+
+  if let Some(orama_client) = orama_client {
+    let (package, _, meta) = db
+      .get_package(&scope, &package)
+      .await?
+      .ok_or_else(|| ApiError::InternalServerError)?;
+    orama_client.upsert_package(&package, &meta);
+  }
 
   Ok(
     Response::builder()
@@ -993,8 +1006,21 @@ pub async fn get_docs_handler(
   })?
   .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
+  const FIXED_SCRIPT: &str = r#"
+document.addEventListener("click", (e) => {
+  let el = e.target;
+  do {
+    if (el instanceof HTMLButtonElement && el.dataset["copy"]) {
+      navigator?.clipboard?.writeText(el.dataset["copy"]);
+      return;
+    }
+  } while (el = el.parentElement);
+});
+  "#;
+
   Ok(ApiPackageVersionDocs {
     css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+    script: Cow::Borrowed(FIXED_SCRIPT),
     breadcrumbs: docs.breadcrumbs,
     sidepanel: docs.sidepanel,
     main: docs.main,
@@ -1111,7 +1137,13 @@ pub async fn get_source_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let file = if path == format!("{}_meta.json", version.version) {
+  let file = if path == "meta.json" {
+    let source_file_path = crate::gcs_paths::package_metadata(&scope, &package);
+    buckets
+      .modules_bucket
+      .download(source_file_path.into())
+      .await?
+  } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
       crate::gcs_paths::version_metadata(&scope, &package, &version.version);
     buckets
@@ -1365,6 +1397,7 @@ mod test {
   use crate::api::ApiList;
   use crate::api::ApiMetrics;
   use crate::api::ApiPackage;
+  use crate::api::ApiPackageScore;
   use crate::api::ApiPackageVersion;
   use crate::api::ApiPackageVersionDocs;
   use crate::api::ApiPackageVersionSource;
@@ -1875,6 +1908,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     resp.expect_ok_no_content().await;
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/score")
+      .call()
+      .await
+      .unwrap();
+    let score: ApiPackageScore = resp.expect_ok().await;
+    assert!(score.has_provenance);
 
     // Invalid subject.
     update_bundle_subject(
@@ -2891,8 +2933,21 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let mut t: TestSetup = TestSetup::new().await;
     let mut resp = t.unauthed_http().get("/api/metrics").call().await.unwrap();
     let body = resp.expect_ok::<ApiMetrics>().await;
+
     assert_eq!(0, body.packages);
-    assert_eq!(0, body.users);
+    assert_eq!(0, body.packages_1d);
+    assert_eq!(0, body.packages_7d);
+    assert_eq!(0, body.packages_30d);
+
+    assert_eq!(5, body.users);
+    assert_eq!(5, body.users_1d);
+    assert_eq!(5, body.users_7d);
+    assert_eq!(5, body.users_30d);
+
+    assert_eq!(0, body.package_versions);
+    assert_eq!(0, body.package_versions_1d);
+    assert_eq!(0, body.package_versions_7d);
+    assert_eq!(0, body.package_versions_30d);
   }
 
   #[tokio::test]

@@ -5,8 +5,8 @@ description: Learn how to publish packages to JSR.
 
 You can publish most JavaScript and TypeScript code written using ESM modules as
 a JSR package. JSR packages are published to [jsr.io](/), and can be imported
-from **Deno**, **Node**, and other tools.
-[Learn more about using JSR packages](/docs/using-packages).
+from **Deno**, **Node.js**, and other tools.
+[Learn more about using packages.](/docs/using-packages)
 
 Both code written originally to use `package.json`, and code written originally
 for Deno can be published as a JSR package. JSR supports and encourages
@@ -35,16 +35,16 @@ code must follow these rules to be able to be published to JSR.
 - **`node:` built-ins are supported**: You can import Node.js built-ins using
   the `node:` scheme. For example, you can import the `fs` module using
   `import { readFile } from "node:fs";`. If your package has a `package.json`,
-  you can also import Node built-ins with bare specifiers (without the `node:`
-  prefix).
+  you can also import Node.js built-ins with bare specifiers (without the
+  `node:` prefix).
 - **Simple file names**: File names must be Windows and Unix compatible. This
   means that file names cannot contain characters like `*`, `:`, or `?`. You may
   also not have multiple files with the same name, but different casing.
 - **Preferably, no TypeScript "slow types"**: To speed up type checking, support
-  documentation generation, and node compatibility, JSR packages should not use
-  certain TypeScript types in exported functions, classes, or variables. This is
-  enforced by default, but can be opted out of.
-  [Learn more about "slow types"](/docs/about-slow-types).
+  documentation generation, and Node.js compatibility, JSR packages should not
+  use certain TypeScript types in exported functions, classes, or variables.
+  This is enforced by default, but can be opted out of.
+  [Learn more about "slow types."](/docs/about-slow-types)
 - **Valid cross file imports**: All of the relative imports between modules in
   your package must resolve at publish time. The format of supported specifiers
   depends on whether a `package.json` is in use, and is elaborated below.
@@ -125,7 +125,7 @@ import * as express from "npm:express@4";
 You may import JSR packages specified in the `"dependencies"` of a
 `package.json`, ones specified in an import map or `deno.json`, or ones
 specified in source code using `jsr:` specifiers.
-[Learn more about using JSR packages](/docs/using-packages).
+[Learn more about using packages.](/docs/using-packages)
 
 ```json
 // package.json
@@ -140,10 +140,10 @@ specified in source code using `jsr:` specifiers.
 // mod.ts
 import * as encoding from "@std/encoding";
 
-import { printProgress } from "jsr:@luca/flag@1";
+import { camelCase } from "jsr:@luca/cases@1";
 ```
 
-### Importing Node built-ins
+### Importing Node.js built-ins
 
 You may import Node.js built-ins using the `node:` scheme. If a `package.json`
 is present in your package, you may also omit the `node:` scheme.
@@ -188,7 +188,7 @@ When writing TypeScript, you should ensure that your code does not use "slow
 types" that prevent JSR from generating documentation, generating type
 declarations for the npm compatibility layer, and speeding up type checking for
 consumers of your package.
-[Learn more about "slow types"](/docs/about-slow-types).
+[Learn more about "slow types."](/docs/about-slow-types)
 
 > You may temporarily bypass this restriction by publishing with the
 > `--allow-slow-types` flag. This will cause type checking to be significantly
@@ -212,57 +212,7 @@ JSR properties in their `deno.json` to avoid having to create another file.
 }
 ```
 
-The `name` field is the name of your package, prefixed with a JSR scope.
-[Learn more about scope and package names](#creating-a-scope-and-package).
-
-The `version` field is the version of your package. This field must be a valid
-[SemVer](https://semver.org/) version. You must increment the version of your
-package every time you publish a new version.
-[Learn more about package versions](/docs/packages#versions).
-
-The `exports` field tells JSR which modules should be importable by users of
-your package. The `exports` field can either be specified as a single string, or
-as an object mapping entrypoint names to paths in your package.
-
-```json
-// jsr.json / deno.json
-{
-  "name": "@luca/greet",
-  "version": "1.0.0",
-  "exports": {
-    ".": "./mod.ts",
-    "./greet": "./greet.ts"
-  }
-}
-```
-
-In the above example, the `exports` field is an object. The `.` entrypoint is
-the default entrypoint for the package. The `./greet` entrypoint is a named
-entrypoint. With this entrypoint can import the `greet.ts` module using
-`import { greet } from "@luca/greet/greet";` and the `mod.ts` module using
-`import { greet } from "@luca/greet";`.
-
-You can also specify the `exports` field as a single string. This is useful if
-you only have a single entrypoint in your package. This is semantically
-equivalent to specifying a default entrypoint in the object form.
-
-```diff
-// deno.json
-{
-  "name": "@luca/greet",
-  "version": "1.0.0",
-- "exports": {
--   ".": "./mod.ts"
-- }
-+ "exports": "./mod.ts"
-}
-```
-
-You can also use the `includes` and `excludes` options to include and exclude
-files during publishing. If using a `deno.json`, you can use `publish.includes`
-and `publish.excludes` to include and exclude files only for publishing, rather
-than for all Deno subcommands.
-[Learn more about ignoring files](#ignoring-files).
+Read more about the [configuring JSR packages.](/docs/package-configuration)
 
 ## Creating a scope and package
 
@@ -271,11 +221,11 @@ similar to npm organizations. Scopes are prefixed with an `@` symbol, and are
 followed by a name. For example, `@luca` is a scope.
 
 You can create a scope at [jsr.io/new](/new). Scopes names must be between 2 and
-20 characters long, and can only contain lowercase letters, numbers, and
+32 characters long, and can only contain lowercase letters, numbers, and
 hyphens. You can only create a scope if the name is not already taken. Scope
 names that are very similar to existing scope names -- for example ones that
 only differ by a hyphen -- are prohibited.
-[Learn more about scopes](/docs/scopes).
+[Learn more about scopes.](/docs/scopes)
 
 After you have created a scope, you can create a package in that scope. You can
 create a package at [jsr.io/new](/new). Package names must be between 2 and 20
@@ -283,7 +233,7 @@ characters long, and can only contain lowercase letters, numbers, and hyphens.
 You can only create a package if the name is not already taken. Package names
 that are very similar to existing package names -- for example ones that only
 differ by a hyphen -- are prohibited.
-[Learn more about packages](/docs/packages).
+[Learn more about packages.](/docs/packages)
 
 ## Verifying your package
 
@@ -355,7 +305,7 @@ During publishing, both the JSR CLI and the JSR server will run many checks
 against your package to ensure that it is valid. If any of these checks fail,
 the CLI will output an error message. You must fix these errors before you can
 attempt publishing again.
-[Learn more about troubleshooting publishing errors](/docs/troubleshooting#publishing-errors).
+[Learn more about troubleshooting publishing errors.](/docs/troubleshooting#publishing-errors)
 
 ## Publishing from GitHub Actions
 
@@ -400,43 +350,55 @@ correct version number based on the version in your `jsr.json` file.
 `jsr publish` will not attempt to publish if the version specified in your
 `jsr.json` file is already published to JSR.
 
-## Ignoring files
+## Filtering files
 
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
-root of your package. Additionally, you can specify the `exclude` and `include`
-fields in your `jsr.json` / `deno.json` file to ignore or include specific
-files.
+root of your package. Additionally, you can specify the `include` and `exclude`
+fields in your `jsr.json` / `deno.json` file to include, ignore, or un-gitignore
+specific files.
 
-For example, you may have a package that has a `.gitignore` file with the
-following contents:
-
-```gitignore
-.DS_Store
-dist/
-```
-
-In this case any files in the `dist/` directory, and any files named `.DS_Store`
-will be ignored when publishing.
-
-This may however be inconvenient if you want to publish the `dist/` directory,
-because you have `"exports"` pointing to it (or a subdirectory of it). In this
-case, you can use the `include` field in your `jsr.json` / `deno.json` file to
-include the `dist/` directory anyway.
+For example, to only selectively include certain files, you can specify a glob
+that matches all files by using the `include` option:
 
 ```json
 // jsr.json
 {
   "name": "@luca/greet",
   "version": "1.0.0",
-  "exports": "./dist/mod.ts",
-  "include": ["dist/**"]
+  "exports": "./src/mod.ts",
+  // note: this will be collapsed down to just include in the future
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "src/**/*.ts"
+    ]
+  }
 }
 ```
 
-In this case, the `dist/` directory will be included when publishing, even
-though it is listed in the `.gitignore` file.
+You may also exclude certain files via the `exclude` option:
 
-When using Deno, the `exclude` and `include` options in `deno.json` are used for
+```json
+// jsr.json
+{
+  "name": "@luca/greet",
+  "version": "1.0.0",
+  "exports": "./src/mod.ts",
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/tests"
+    ]
+  }
+}
+```
+
+When using Deno, the `include` and `exclude` options in `deno.json` are used for
 many other Deno subcommands as well, such as `deno test` and `deno bundle`. You
 can use `publish.include` and `publish.exclude` in your `deno.json` file to
 specify options that only apply to `deno publish`.
@@ -448,21 +410,40 @@ specify options that only apply to `deno publish`.
   "version": "1.0.0",
   "exports": "./dist/mod.ts",
   "publish": {
-    "include": ["dist/**"]
+    "include": ["src"],
+    "exclude": ["src/tests"]
   }
 }
 ```
 
-To ignore all files, and only selectively include certain files, you can specify
-a glob that matches all files in the `exclude` option:
+### Un-gitignoring files when not using "include"
 
-```json
+You may have a package that has a `.gitignore` file with the following contents:
+
+```gitignore
+.env
+dist/
+```
+
+In this case any files in the `dist/` directory, and any files named `.env` will
+be ignored when publishing.
+
+This may however be inconvenient if you want to publish the `dist/` directory,
+because you have `"exports"` pointing to it (or a subdirectory of it). In this
+case, you can un-ignore the `dist/` directory by using a negation in the
+`exclude` field in your `jsr.json` / `deno.json` file.
+
+```jsonc
 // jsr.json
 {
   "name": "@luca/greet",
   "version": "1.0.0",
   "exports": "./dist/mod.ts",
-  "include": ["dist/**"],
-  "exclude": ["**"]
+  "publish": {
+    "exclude": ["!dist"]
+  }
 }
 ```
+
+In this case, the `dist/` directory will be included when publishing, even
+though it is listed in the `.gitignore` file.

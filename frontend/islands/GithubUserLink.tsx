@@ -21,5 +21,5 @@ export function GitHubUserLink({ user }: { user?: User }) {
 
   return login.value == ""
     ? <span>loading...</span>
-    : <a class="link" href={"https://github.com/" + login.value}>Github</a>;
+    : <a class="link" href={"https://github.com/" + login.value}>GitHub</a>;
 }

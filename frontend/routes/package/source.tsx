@@ -14,6 +14,7 @@ import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { Folder } from "../../components/icons/Folder.tsx";
 import { Source as SourceIcon } from "../../components/icons/Source.tsx";
 import { ListDisplay } from "../../components/List.tsx";
+import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
   package: Package;
@@ -26,8 +27,7 @@ interface Data {
 export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
 ) {
-  const isStaff = state.user?.isStaff || false;
-  const canEdit = data.member?.isAdmin || isStaff;
+  const iam = scopeIAM(state, data.member);
 
   const sourceRoot =
     `/@${params.scope}/${params.package}/${data.selectedVersion.version}`;
@@ -56,7 +56,7 @@ export default function PackagePage(
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
-        canEdit={canEdit}
+        iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
@@ -170,6 +170,10 @@ export const handler: Handlers<Data, State> = {
       });
     }
     let sourcePath = "/" + (ctx.params.path ?? "");
+    if (ctx.params.version === "meta.json" && ctx.params.path === "") {
+      sourcePath = "meta.json";
+      ctx.params.version = "latest";
+    }
     if (ctx.params.version.endsWith("_meta.json") && ctx.params.path === "") {
       sourcePath = ctx.params.version;
       ctx.params.version = ctx.params.version.slice(0, -10);
@@ -203,5 +207,6 @@ export const handler: Handlers<Data, State> = {
 };
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package/:version(\\d+\\.\\d+\\.\\d+.*?)/:path*",
+  routeOverride:
+    "/@:scope/:package/:version((?:\\d+\\.\\d+\\.\\d+.*?)|meta\.json)/:path*",
 };

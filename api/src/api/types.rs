@@ -133,7 +133,6 @@ pub struct ApiFullUser {
   pub scope_usage: i32,
   pub scope_limit: i32,
   pub invite_count: u64,
-  pub waitlist_accepted_at: Option<DateTime<Utc>>,
 }
 
 impl From<User> for ApiFullUser {
@@ -151,7 +150,6 @@ impl From<User> for ApiFullUser {
       scope_usage: user.scope_usage as i32,
       scope_limit: user.scope_limit,
       invite_count: user.invite_count as u64,
-      waitlist_accepted_at: user.waitlist_accepted_at,
     }
   }
 }
@@ -285,8 +283,9 @@ impl From<(ScopeMember, UserPublic)> for ApiScopeMember {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiAddScopeMemberRequest {
-  pub github_login: String,
+pub enum ApiAddScopeMemberRequest {
+  GithubLogin(String),
+  Id(Uuid),
 }
 
 #[derive(Debug, Deserialize)]
@@ -333,6 +332,7 @@ pub struct ApiPackageScore {
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool,
+  pub has_provenance: bool,
 
   // package wide
   pub has_description: bool,
@@ -346,7 +346,7 @@ impl ApiPackageScore {
   pub const MAX_SCORE: u32 = 17;
 
   pub fn score_percentage(&self) -> u32 {
-    (self.total * 100) / Self::MAX_SCORE
+    u32::min((self.total * 100) / Self::MAX_SCORE, 100)
   }
 }
 
@@ -363,6 +363,10 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
     }
 
     if meta.all_entrypoints_docs {
+      score += 1;
+    }
+
+    if meta.has_provenance {
       score += 1;
     }
 
@@ -411,6 +415,7 @@ impl From<(&PackageVersionMeta, &Package)> for ApiPackageScore {
       all_entrypoints_docs: meta.all_entrypoints_docs,
       percentage_documented_symbols: meta.percentage_documented_symbols,
       all_fast_check: meta.all_fast_check,
+      has_provenance: meta.has_provenance,
       has_description: !package.description.is_empty(),
       at_least_one_runtime_compatible: compatible_runtimes_count >= 1,
       multiple_runtimes_compatible: compatible_runtimes_count >= 2,
@@ -574,6 +579,7 @@ pub struct ApiPackageVersion {
 pub struct ApiPackageVersionDocs {
   pub version: ApiPackageVersion,
   pub css: Cow<'static, str>,
+  pub script: Cow<'static, str>,
   pub breadcrumbs: Option<String>,
   pub sidepanel: Option<String>,
   pub main: String,
@@ -695,7 +701,19 @@ pub struct ApiStats {
 #[serde(rename_all = "camelCase")]
 pub struct ApiMetrics {
   pub packages: usize,
+  pub packages_1d: usize,
+  pub packages_7d: usize,
+  pub packages_30d: usize,
+
   pub users: usize,
+  pub users_1d: usize,
+  pub users_7d: usize,
+  pub users_30d: usize,
+
+  pub package_versions: usize,
+  pub package_versions_1d: usize,
+  pub package_versions_7d: usize,
+  pub package_versions_30d: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

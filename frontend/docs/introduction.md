@@ -4,30 +4,30 @@ description: JSR is a new modern package registry for JavaScript and TypeScript.
 ---
 
 The JavaScript Registry (**JSR**) is a modern package registry for JavaScript
-and TypeScript. JSR works with many runtimes (Node, Deno, browsers, and more)
+and TypeScript. JSR works with many runtimes (Node.js, Deno, browsers, and more)
 and is backwards compatible with npm.
-[Learn more about why we built JSR](/docs/why).
+[Learn more about why we built JSR.](/docs/why)
 
 ## Using JSR packages
 
 Add a package to your project using one of the commands below. This will add the
-most recent version of [`@luca/flag`](https://jsr.io/@luca/flag) to your
+most recent version of [`@luca/cases`](https://jsr.io/@luca/cases) to your
 project.
 
 ```bash
 # deno
-deno add @luca/flag
+deno add @luca/cases
 
 # npm (use any of npx, yarn dlx, pnpm dlx, or bunx)
-npx jsr add @luca/flag
+npx jsr add @luca/cases
 ```
 
 After adding the package, you can import and use it in ES modules like so:
 
 ```ts
-import { printProgress } from "@luca/flag";
+import { camelCase } from "@luca/cases";
 
-printProgress();
+camelCase("hello world"); // "helloWorld"
 ```
 
 In Deno, you can optionally use JSR packages without an install step using
@@ -35,15 +35,14 @@ In Deno, you can optionally use JSR packages without an install step using
 [native support for JSR](/docs/using-packages#native-jsr-imports).
 
 ```ts
-import { printProgress } from "jsr:@luca/flag@1";
+import { camelCase } from "jsr:@luca/cases@1";
 
-printProgress();
+camelCase("hello world"); // "helloWorld"
 ```
 
 You can find more packages on [jsr.io](https://jsr.io). Each package on the JSR
 site also displays documentation, which is automatically generated from the
-package's source code.
-[Learn more about using JSR packages](/docs/using-packages).
+package's source code. [Learn more about using packages.](/docs/using-packages)
 
 ## Publishing JSR packages
 
@@ -98,4 +97,4 @@ Successfully published @luca/greet@1.0.0
 Visit https://jsr.io/@luca/greet@1.0.0 for details
 ```
 
-Learn more about [publishing JSR packages](/docs/publishing-packages).
+[Learn more about publishing packages.](/docs/publishing-packages)

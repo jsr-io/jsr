@@ -116,27 +116,6 @@ making changes to the API.
 You can view the registry at `http://jsr.test`. The API can be found at
 `http://api.jsr.test`.
 
-### Accepting waitlisted users to the local dev environment
-
-**Important:** before proceeding, go to `jsr.test` in your browser, and sign up
-for the waitlist. You'll need to authorize the application via OAuth before
-proceeding.
-
-Once you're signed up for the waitlist:
-
-1. Run `psql`, and a new
-   [postgres shell](https://www.postgresql.org/docs/6.4/app-psql.htm#:~:text=psql%20is%20a%20character%2Dbased,is%20a%20Postgres%20client%20application.)
-   will open from where you can interact with databases. (NOTE: if `psql` alone
-   does not work, try `psql registry`, or `psql DATABASE_URL`, but replacing
-   `DATABASE_URL` with the value of your .env variable of that same name.)
-2. Connect to the database by entering `\c registry` (unnecessary if you ran
-   `psql registry` above), and hitting Enter
-3. Enter the following query: `UPDATE users SET waitlist_accepted_at = now();`
-   which will accept all pending users. Execute the query by pressing Enter.
-4. Exit the psql shell by typing `exit` and pressing Enter.
-
-All users are now invited and can browse `http://jsr.test`.
-
 ### Publishing a package to the local dev environment
 
 1. Create a new directory with a `deno.json`

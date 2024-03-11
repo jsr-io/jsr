@@ -60,7 +60,7 @@ export function RuntimeCompatIndicator(
                   width={w}
                   height={h}
                   alt=""
-                  class={`h-5 ${
+                  class={`h-5 select-none ${
                     value === undefined ? "filter grayscale opacity-40" : ""
                   }`}
                 />

@@ -25,7 +25,8 @@
     "@orama/orama": "npm:@orama/orama@^2",
     "@oramacloud/client": "npm:@oramacloud/client@^1",
     "tailwindcss": "npm:tailwindcss@3.4",
-    "tailwindcss/": "npm:/tailwindcss@3.4/"
+    "tailwindcss/": "npm:/tailwindcss@3.4/",
+    "postcss": "npm:postcss@8.4"
   },
   "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "preact" },
   "exclude": ["_fresh/", "**/_fresh/*"]

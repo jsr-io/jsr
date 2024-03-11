@@ -9,10 +9,12 @@ export interface State {
   span: TraceSpan;
   userPromise: Promise<FullUser | null | Response>;
   user: FullUser | null;
+  sudo: boolean;
 }
 
 export interface Docs {
   css: string;
+  script: string;
   // null only on index page
   breadcrumbs: string | null;
   // null only on all symbols page

@@ -144,7 +144,7 @@ pub enum ScopeNameValidateError {
 }
 
 /// A package name, like 'foo' or 'bar'. The name is not prefixed with an @.
-/// The name must be at least 2 character long, and at most 20 characters long.
+/// The name must be at least 2 character long, and at most 32 characters long.
 /// The name must only contain alphanumeric characters and hyphens.
 /// The name must not start or end with a hyphen.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -156,7 +156,7 @@ impl PackageName {
       return Err(PackageNameValidateError::TooShort);
     }
 
-    if name.len() > 20 {
+    if name.len() > 32 {
       return Err(PackageNameValidateError::TooLong);
     }
 
@@ -259,7 +259,7 @@ pub enum PackageNameValidateError {
   #[error("package name must be at least 2 characters long")]
   TooShort,
 
-  #[error("package name must be at most 20 characters long")]
+  #[error("package name must be at most 32 characters long")]
   TooLong,
 
   #[error("package name must contain only lowercase ascii alphanumeric characters and hyphens")]
@@ -564,7 +564,8 @@ impl PackagePath {
   }
 
   pub fn is_readme(&self) -> bool {
-    let path = std::path::PathBuf::from(&**self);
+    let path =
+      std::path::PathBuf::from(self.lower.as_ref().unwrap_or(&self.path));
     let name = path
       .file_stem()
       .and_then(|name| name.to_str())
@@ -579,7 +580,7 @@ impl PackagePath {
       .unwrap_or_default();
 
     parent == "/"
-      && name == "README"
+      && name == "readme"
       && matches!(extension, "md" | "txt" | "markdown")
   }
 }
@@ -789,8 +790,8 @@ mod tests {
     // Test invalid scope names
     assert!(ScopeName::try_from("").is_err());
     assert!(ScopeName::try_from("f").is_err());
-    assert!(PackageName::try_from("Foo").is_err());
-    assert!(PackageName::try_from("oooF").is_err());
+    assert!(ScopeName::try_from("Foo").is_err());
+    assert!(ScopeName::try_from("oooF").is_err());
     assert!(ScopeName::try_from("very-long-name-is-very-long").is_err());
     assert!(ScopeName::try_from("123").is_err());
     assert!(ScopeName::try_from("1oo").is_err());
@@ -816,13 +817,16 @@ mod tests {
     assert!(PackageName::try_from("foo-123-bar").is_ok());
     assert!(PackageName::try_from("f123").is_ok());
     assert!(PackageName::try_from("foo-bar-baz-qux").is_ok());
+    assert!(PackageName::try_from("very-long-name-is-very-long").is_ok());
 
     // Test invalid package names
     assert!(PackageName::try_from("").is_err());
     assert!(PackageName::try_from("f").is_err());
     assert!(PackageName::try_from("Foo").is_err());
     assert!(PackageName::try_from("oooF").is_err());
-    assert!(PackageName::try_from("very-long-name-is-very-long").is_err());
+    assert!(
+      PackageName::try_from("very-long-name-is-very-very-very-long").is_err()
+    );
     assert!(PackageName::try_from("123").is_err());
     assert!(PackageName::try_from("1oo").is_err());
     assert!(PackageName::try_from("123-foo").is_err());
@@ -992,6 +996,12 @@ mod tests {
     assert!(PackagePath::try_from("/README.markdown")
       .unwrap()
       .is_readme());
+    assert!(PackagePath::try_from("/readme.md").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.txt").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.markdown")
+      .unwrap()
+      .is_readme());
+    assert!(PackagePath::try_from("/ReAdMe.md").unwrap().is_readme());
 
     // Invalid READMEs
     assert!(!PackagePath::try_from("/foo/README.md").unwrap().is_readme());

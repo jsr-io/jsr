@@ -22,7 +22,7 @@ pub struct ApiErrorStruct {
 /// error variant has a "code" (e.g `publishPayloadTooLarge`), "message" (a
 /// human readable description of the error), and a "status code" (the HTTP
 /// status code associated with the error). All three of these fields are
-/// publically visible to users, and thus should not contain any sensitive
+/// publicly visible to users, and thus should not contain any sensitive
 /// information.
 ///
 /// The variant name (e.g `NotFound`) will be used as both the variant name, and

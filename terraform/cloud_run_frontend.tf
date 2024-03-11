@@ -5,7 +5,6 @@ locals {
     "CLOUD_TRACE"           = "true"
     "ORAMA_PUBLIC_API_KEY"  = var.orama_public_api_key
     "ORAMA_PUBLIC_INDEX_ID" = var.orama_public_index_id
-    "SKIP_WAITLIST"         = "1"
   }
   frontend_regions = toset([
     "us-central1",          # Iowa
@@ -75,7 +74,6 @@ resource "google_compute_backend_service" "registry_frontend" {
     cache_mode = "USE_ORIGIN_HEADERS"
     cache_key_policy {
       include_query_string  = true
-      include_http_headers  = ["x-jsr-bypass-waitlist"]
       include_named_cookies = ["token"] # segment cache by user
     }
     serve_while_stale = 0        # don't serve stale content

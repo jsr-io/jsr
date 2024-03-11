@@ -134,7 +134,7 @@ pub fn verify(
   let (_, pem) = parse_x509_pem(FULCIO_CERT)?;
   let (_, fulcio) = parse_x509_certificate(&pem.contents)?;
 
-  // Verify that the signing certifcate is signed by
+  // Verify that the signing certificate is signed by
   // the certificate chain.
   let issuer_pub_key = fulcio.public_key();
   x509.verify_signature(Some(issuer_pub_key))?;

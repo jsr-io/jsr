@@ -17,7 +17,7 @@ resource "google_iam_workload_identity_pool_provider" "github_actions" {
     "attribute.repository"  = "assertion.repository"
     "attribute.environment" = "assertion.environment"
   }
-  attribute_condition = "assertion.repository == 'jsr-io/jsr'"
+  attribute_condition = "assertion.repository == 'jsr-io/jsr' && assertion.environment == '${var.production ? "prod" : "staging"}'"
 }
 
 resource "google_service_account" "github_actions" {

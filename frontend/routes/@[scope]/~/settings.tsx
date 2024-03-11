@@ -10,18 +10,16 @@ import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { Check } from "../../../components/icons/Check.tsx";
+import { ScopeIAM, scopeIAM } from "../../../utils/iam.ts";
 
 interface Data {
   scope: FullScope;
-  scopeMember: ScopeMember | null;
+  iam: ScopeIAM;
 }
 
 export default function ScopeSettingsPage(
   { params, data, state }: PageProps<Data, State>,
 ) {
-  const isAdmin = (data.scopeMember?.user.id === state.user!.id &&
-    data.scopeMember.isAdmin) || state.user!.isStaff;
-
   return (
     <div class="mb-20">
       <Head>
@@ -30,7 +28,7 @@ export default function ScopeSettingsPage(
         </title>
       </Head>
       <ScopeHeader scope={data.scope} />
-      <ScopeNav active="Settings" isAdmin={isAdmin} scope={data.scope.scope} />
+      <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
       <ScopeQuotas scope={data.scope} user={state.user!} />
       <GitHubActionsSecurity scope={data.scope} />
       <DeleteScope scope={data.scope} />
@@ -49,7 +47,7 @@ Reason: `;
 
   return (
     <div class="mt-8">
-      <h2 class="text-lg font-semibold">Quotas</h2>
+      <h2 class="text-lg sm:text-xl font-semibold">Quotas</h2>
       <div class="flex flex-col gap-8">
         <p class="text-gray-600 max-w-2xl">
           Scopes have certain quotas to help prevent abuse. We are happy to
@@ -95,7 +93,7 @@ Reason: `;
 function GitHubActionsSecurity({ scope }: { scope: FullScope }) {
   return (
     <div class="mb-12 mt-12">
-      <h2 class="text-lg font-semibold">GitHub Actions security</h2>
+      <h2 class="text-lg sm:text-xl font-semibold">GitHub Actions security</h2>
       <p class="mt-2 text-gray-600 max-w-2xl">
         GitHub Actions can be used to publish packages to JSR without having to
         set up authentication tokens. Publishing is permitted only if the
@@ -157,8 +155,8 @@ interface CardButtonProps {
 function CardButton(props: CardButtonProps) {
   return (
     <button
-      class={`grid text-left rounded-xl p-6 group focus-visible:bg-jsr-yellow-50/30 hover:bg-jsr-yellow-50/30 focus-visible:ring-2 ring-jsr-yellow-400 outline-none active:bg-gray-300 ring-2 ${
-        props.selected ? "ring-jsr-yellow-400" : "ring-jsr-gray-300/50"
+      class={`grid text-left rounded-xl p-6 group focus-visible:bg-jsr-yellow-50/30 hover:bg-jsr-yellow-50/30 focus-visible:ring-2 outline-none active:bg-gray-100 ring-2 ${
+        props.selected ? "ring-jsr-yellow-400" : "ring-jsr-gray-100/50"
       }`}
       type={props.type}
       name={props.name}
@@ -169,11 +167,11 @@ function CardButton(props: CardButtonProps) {
         <div
           class={`-mt-2 -mr-2 h-6 w-6 rounded-full flex-shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700 ${
             props.selected
-              ? "border-2 border-gray-900 bg-gray-900 text-white"
+              ? "border-1.5 border-jsr-cyan-950 bg-jsr-cyan-950 text-jsr-yellow"
               : "border"
           }`}
         >
-          {props.selected && <Check />}
+          {props.selected && <Check class="stroke-2 size-9" />}
         </div>
       </div>
       <p class="mt-2 w-5/6 text-gray-600 text-sm">{props.description}</p>
@@ -216,12 +214,14 @@ export const handler: Handlers<Data, State> = {
       scopeDataWithMember(ctx.state, ctx.params.scope),
     ]);
     if (user instanceof Response) return user;
-    if (data === null || (data.scopeMember === null && !user?.isStaff)) {
-      return ctx.renderNotFound();
-    }
+    if (data === null) return ctx.renderNotFound();
+
+    const iam = scopeIAM(ctx.state, data?.scopeMember, user);
+    if (!iam.canAdmin) return ctx.renderNotFound();
+
     return ctx.render({
       scope: data.scope as FullScope,
-      scopeMember: data.scopeMember,
+      iam,
     });
   },
   async POST(req, ctx) {

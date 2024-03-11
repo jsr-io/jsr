@@ -44,7 +44,7 @@ impl Database {
   pub async fn get_user(&self, id: Uuid) -> Result<Option<User>> {
     sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       FROM users
@@ -75,7 +75,7 @@ impl Database {
   ) -> Result<Option<User>> {
     sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       FROM users
@@ -107,7 +107,7 @@ impl Database {
     );
     let users = sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL) ORDER BY created_at DESC OFFSET $3 LIMIT $4"#,
@@ -133,46 +133,40 @@ impl Database {
     Ok((total_users as usize, users))
   }
 
-  #[instrument(name = "Database::list_users_waitlisted", skip(self), err)]
-  pub async fn list_users_waitlisted(
-    &self,
-    start: i64,
-    limit: i64,
-    maybe_search_query: Option<&str>,
-  ) -> Result<(usize, Vec<User>)> {
-    let mut tx = self.pool.begin().await?;
-    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let users =  sqlx::query_as!(
-      User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      FROM users WHERE waitlist_accepted_at IS NULL AND (name ILIKE $1 OR email ILIKE $1) ORDER BY created_at ASC OFFSET $2 LIMIT $3"#,
-      search,
-      start,
-      limit,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-
-    let total_waitlisted = sqlx::query!(
-      r#"SELECT COUNT(created_at) as "count!" FROM users WHERE waitlist_accepted_at IS NULL AND (name ILIKE $1 OR email ILIKE $1);"#,
-      search,
-    )
-    .map(|r| r.count)
-    .fetch_one(&mut *tx)
-    .await?;
-
-    Ok((total_waitlisted as usize, users))
-  }
-
   #[instrument(name = "Database::insert_user", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
     sqlx::query_as!(
       User,
       r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+      "#,
+      new_user.name,
+      new_user.email,
+      new_user.avatar_url,
+      new_user.github_id,
+      new_user.is_blocked,
+      new_user.is_staff
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::upsert_user_by_github_id", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
+  pub async fn upsert_user_by_github_id(
+    &self,
+    new_user: NewUser<'_>,
+  ) -> Result<User> {
+    assert!(new_user.github_id.is_some(), "github_id is required");
+    sqlx::query_as!(
+      User,
+      r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT(github_id) DO UPDATE
+      SET name = $1, email = $2, avatar_url = $3
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -196,7 +190,7 @@ impl Database {
     sqlx::query_as!(
       User,
       r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -216,7 +210,7 @@ impl Database {
     sqlx::query_as!(
       User,
       r#"UPDATE users SET is_blocked = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -236,26 +230,11 @@ impl Database {
     sqlx::query_as!(
       User,
       r#"UPDATE users SET scope_limit = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
       scope_limit,
-      user_id
-    )
-    .fetch_one(&self.pool)
-    .await
-  }
-
-  #[instrument(name = "Database::user_waitlist_accept", skip(self), err)]
-  pub async fn user_waitlist_accept(&self, user_id: Uuid) -> Result<User> {
-    sqlx::query_as!(
-      User,
-      r#"UPDATE users SET waitlist_accepted_at = now() WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
-      "#,
       user_id
     )
     .fetch_one(&self.pool)
@@ -268,7 +247,7 @@ impl Database {
       User,
       r#"DELETE FROM users
       WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit, waitlist_accepted_at,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
       "#,
@@ -383,7 +362,7 @@ impl Database {
   ) -> Result<()> {
     sqlx::query!(
       r#"UPDATE package_versions
-      SET rekor_log_id = $1
+      SET rekor_log_id = $1, meta = jsonb_set_lax(meta, '{hasProvenance}', 'true'::jsonb, true)
       WHERE scope = $2 AND name = $3 AND version = $4 AND rekor_log_id IS NULL AND created_at > now() - '2 minute'::interval"#,
       rekor_log_id,
       package_scope as _,
@@ -748,7 +727,7 @@ impl Database {
       LEFT JOIN users ON scopes.creator = users.id
       CROSS JOIN usage
       WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2
-      ORDER BY scopes.created_at ASC
+      ORDER BY scopes.created_at DESC
       OFFSET $3 LIMIT $4
       "#,
       search,
@@ -1188,19 +1167,77 @@ impl Database {
 
   #[instrument(name = "Database::metrics", skip(self), err)]
   pub async fn metrics(&self) -> Result<ApiMetrics> {
-    let packages = sqlx::query!(r#"SELECT COUNT(DISTINCT (packages.name, packages.scope)) FROM packages LEFT JOIN package_versions ON packages.name = package_versions.name AND packages.scope = package_versions.scope WHERE package_versions.name IS NOT NULL"#)
-      .map(|r| r.count.unwrap())
+    let packages = sqlx::query!(r#"
+      SELECT
+        COUNT(DISTINCT (packages.name, packages.scope)) AS count_total,
+        COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '1 day' THEN (packages.name, packages.scope) END) AS count_1d,
+        COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '7 day' THEN (packages.name, packages.scope) END) AS count_7d,
+        COUNT(DISTINCT CASE WHEN package_versions.created_at >= NOW() - INTERVAL '30 day' THEN (packages.name, packages.scope) END) AS count_30d
+      FROM packages
+      LEFT JOIN
+        package_versions ON packages.name = package_versions.name AND packages.scope = package_versions.scope
+      WHERE
+        package_versions.name IS NOT NULL
+    "#)
       .fetch_one(&self.pool)
       .await?;
 
-    let users = sqlx::query!(r#"SELECT COUNT(*) FROM users WHERE users.waitlist_accepted_at IS NOT NULL"#)
-      .map(|r| r.count.unwrap())
+    let users = sqlx::query!(r#"
+      SELECT
+        COUNT(*) AS count_total,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '1 DAY' THEN 1 END) AS count_1d,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 DAY' THEN 1 END) AS count_7d,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 DAY' THEN 1 END) AS count_30d
+      FROM
+        users;
+      "#)
       .fetch_one(&self.pool)
       .await?;
+
+    let package_versions =
+      sqlx::query!(r#"
+      SELECT
+        COUNT(*) AS count_total,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '1 DAY' THEN 1 END) AS count_1d,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 DAY' THEN 1 END) AS count_7d,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 DAY' THEN 1 END) AS count_30d
+      FROM
+        package_versions;
+      "#)
+        .fetch_one(&self.pool)
+        .await?;
 
     Ok(ApiMetrics {
-      packages: packages.try_into().unwrap(),
-      users: users.try_into().unwrap(),
+      packages: packages.count_total.unwrap().try_into().unwrap(),
+      packages_1d: packages.count_1d.unwrap().try_into().unwrap(),
+      packages_7d: packages.count_7d.unwrap().try_into().unwrap(),
+      packages_30d: packages.count_30d.unwrap().try_into().unwrap(),
+
+      users: users.count_total.unwrap().try_into().unwrap(),
+      users_1d: users.count_1d.unwrap().try_into().unwrap(),
+      users_7d: users.count_7d.unwrap().try_into().unwrap(),
+      users_30d: users.count_30d.unwrap().try_into().unwrap(),
+
+      package_versions: package_versions
+        .count_total
+        .unwrap()
+        .try_into()
+        .unwrap(),
+      package_versions_1d: package_versions
+        .count_1d
+        .unwrap()
+        .try_into()
+        .unwrap(),
+      package_versions_7d: package_versions
+        .count_7d
+        .unwrap()
+        .try_into()
+        .unwrap(),
+      package_versions_30d: package_versions
+        .count_30d
+        .unwrap()
+        .try_into()
+        .unwrap(),
     })
   }
 

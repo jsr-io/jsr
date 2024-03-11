@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Nav, NavItem } from "../../../components/Nav.tsx";
+import { ScopeIAM } from "../../../utils/iam.ts";
 
 export interface Params {
   scope: string;
@@ -19,11 +20,11 @@ type Tab =
   | "Settings";
 
 export function PackageNav(
-  { currentTab, params, canEdit, versionCount, latestVersion }: {
+  { currentTab, params, iam, versionCount, latestVersion }: {
     currentTab: Tab;
     params: Params;
     versionCount: number;
-    canEdit: boolean;
+    iam: ScopeIAM;
     latestVersion: string | null;
   },
 ) {
@@ -32,12 +33,12 @@ export function PackageNav(
 
   return (
     <Nav>
-      {((canEdit && versionCount > 0) || !canEdit) && (
+      {((iam.canWrite && versionCount > 0) || !iam.canWrite) && (
         <NavItem href={versionedBase} active={currentTab === "Index"}>
           Overview
         </NavItem>
       )}
-      {versionCount > 0 && (
+      {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/doc`}
           active={currentTab === "Symbols"}
@@ -45,7 +46,7 @@ export function PackageNav(
           Symbols
         </NavItem>
       )}
-      {versionCount > 0 && latestVersion && (
+      {(latestVersion || params.version) && (
         <NavItem
           href={`${base}/${params.version || latestVersion}`}
           active={currentTab === "Files"}
@@ -61,7 +62,7 @@ export function PackageNav(
           </span>
         </span>
       </NavItem>
-      {versionCount > 0 && (
+      {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/dependencies`}
           active={currentTab === "Dependencies"}
@@ -85,22 +86,23 @@ export function PackageNav(
           Score
         </NavItem>
       )}
-      {canEdit &&
+      {iam.canWrite &&
         (
-          <>
-            <NavItem
-              href={`${base}/publish`}
-              active={currentTab === "Publish"}
-            >
-              Publish
-            </NavItem>
-            <NavItem
-              href={`${base}/settings`}
-              active={currentTab === "Settings"}
-            >
-              Settings
-            </NavItem>
-          </>
+          <NavItem
+            href={`${base}/publish`}
+            active={currentTab === "Publish"}
+          >
+            Publish
+          </NavItem>
+        )}
+      {iam.canAdmin &&
+        (
+          <NavItem
+            href={`${base}/settings`}
+            active={currentTab === "Settings"}
+          >
+            Settings
+          </NavItem>
         )}
     </Nav>
   );

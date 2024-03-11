@@ -62,6 +62,7 @@ export function path(
 
 interface APIOptions {
   token?: string | null;
+  sudo?: boolean;
   span?: TraceSpan | null;
 }
 
@@ -73,11 +74,13 @@ interface RequestOptions {
 export class API {
   #apiRoot: string;
   #token: string | null;
+  #sudo: boolean;
   #span: TraceSpan | null;
 
-  constructor(apiRoot: string, { token, span }: APIOptions = {}) {
+  constructor(apiRoot: string, { token, sudo, span }: APIOptions = {}) {
     this.#apiRoot = apiRoot;
     this.#token = token ?? null;
+    this.#sudo = sudo ?? false;
     this.#span = span ?? null;
   }
 
@@ -162,6 +165,9 @@ export class API {
     const headers = new Headers();
     if (this.#token && !req.anonymous) {
       headers.append("Authorization", `Bearer ${this.#token}`);
+    }
+    if (this.#sudo && !req.anonymous) {
+      headers.append("x-jsr-sudo", "true");
     }
     if (req.body) {
       headers.append("Content-Type", "application/json");

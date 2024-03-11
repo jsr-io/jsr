@@ -470,7 +470,9 @@ pub enum PublishError {
   #[error("case-insensitive duplicate path '{a}' and '{b}'")]
   CaseInsensitiveDuplicatePath { a: PackagePath, b: PackagePath },
 
-  #[error("missing config file '{0}'")]
+  #[error(
+    "missing config file '{0}', is it perhaps excluded from publishing?"
+  )]
   MissingConfigFile(Box<PackagePath>),
 
   #[error("invalid config file '{path}': {error}")]
@@ -499,7 +501,7 @@ pub enum PublishError {
     invalid_exports: String,
   },
 
-  #[error("failed to build module graph: {0}")]
+  #[error("failed to build module graph: {}", .0.to_string_with_range())]
   GraphError(ModuleGraphError),
 
   #[error("failed to generate documentation: {0:?}")]
