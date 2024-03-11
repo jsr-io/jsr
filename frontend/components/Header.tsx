@@ -41,7 +41,7 @@ export function Header({ user, sudo, url }: {
               class="outline-none focus-visible:ring-2 ring-cyan-700"
             >
               <span className="sr-only">JSR home</span>
-              <Logo class="h-8 flex-none hover:animate-flip-rotate" />
+              <Logo size="medium" class="flex-none hover:animate-flip-rotate" />
             </a>
           )}
           <div class="hidden sm:block grow-1 flex-1">
