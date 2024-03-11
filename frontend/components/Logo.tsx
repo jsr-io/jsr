@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 const height = 7;
-const width = 13;
 
 /** number of pixels each blocks spans */
 const sizes = {
@@ -13,16 +12,13 @@ const sizes = {
 export function Logo(
   props: { class?: string; size: keyof typeof sizes },
 ) {
-  const ratio = sizes[props.size];
-
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`0 0 13 ${height}`}
       class={props.class}
       aria-hidden="true"
-      width={width * ratio}
-      height={height * ratio}
+      height={height * sizes[props.size]}
     >
       <path
         d="M0,2h2v-2h7v1h4v4h-2v2h-7v-1h-4"
