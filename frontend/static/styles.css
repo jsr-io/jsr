@@ -197,6 +197,10 @@ body .ddoc .markdown pre {
   
   & > code:first-child {
     @apply p-6 flex;
+  
+    &.flex {
+      display: flex;
+    }
   }
 }
 
@@ -214,10 +218,6 @@ body .ddoc .usage {
 
 body .ddoc .usage pre.highlight {
   @apply bg-white border-jsr-cyan-200 -mx-4 md:mx-0 border-x-0 md:border-1.5;
-  
-  & > code:first-child {
-  
-  }
 }
 
 body .ddoc .usage nav {
