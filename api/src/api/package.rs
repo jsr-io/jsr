@@ -1006,9 +1006,21 @@ pub async fn get_docs_handler(
   })?
   .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
+  const FIXED_SCRIPT: &str = r#"
+document.addEventListener("click", (e) => {
+  let el = e.target;
+  do {
+    if (el instanceof HTMLButtonElement && el.dataset["copy"]) {
+      navigator?.clipboard?.writeText(el.dataset["copy"]);
+      return;
+    }
+  } while (el = el.parentElement);
+});
+  "#;
+
   Ok(ApiPackageVersionDocs {
     css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+    script: Cow::Borrowed(FIXED_SCRIPT),
     breadcrumbs: docs.breadcrumbs,
     sidepanel: docs.sidepanel,
     main: docs.main,
