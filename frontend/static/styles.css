@@ -196,7 +196,7 @@ body .ddoc .markdown pre {
   @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
   
   & > code:first-child {
-    @apply p-6 flex;
+    @apply p-6;
   
     &.flex {
       display: flex;
