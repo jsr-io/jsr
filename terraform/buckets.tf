@@ -63,6 +63,8 @@ resource "google_compute_backend_bucket" "modules" {
     "Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; sandbox; form-action 'none';",
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
+    "access-control-allow-origin: *",
+    "access-control-expose-headers: *",
   ]
   cdn_policy {
     cache_mode         = "USE_ORIGIN_HEADERS"

@@ -123,6 +123,8 @@ resource "google_compute_backend_service" "registry_api" {
   custom_response_headers = [
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
+    "access-control-allow-origin: *",
+    "access-control-expose-headers: *",
   ]
 
   enable_cdn = true
