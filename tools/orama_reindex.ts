@@ -50,7 +50,7 @@ await fetch(`${ORAMA_URL}/${index}/notify`, {
     authorization: `Bearer ${auth}`,
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({"upsert": entries}),
+  body: JSON.stringify({ "upsert": entries }),
 });
 
 // deploy the index

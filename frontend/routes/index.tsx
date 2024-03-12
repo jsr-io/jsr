@@ -13,7 +13,7 @@ interface Data {
   stats: Stats;
 }
 
-export default function Home({data}: PageProps<Data>) {
+export default function Home({ data }: PageProps<Data>) {
   return (
     <div class="flex flex-col">
       <Head>
@@ -183,7 +183,7 @@ export default function Home({data}: PageProps<Data>) {
   );
 }
 
-function BenefitContainer({children}: { children: ComponentChildren }) {
+function BenefitContainer({ children }: { children: ComponentChildren }) {
   return (
     <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-cyan-900/10 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
       {children}
@@ -191,7 +191,7 @@ function BenefitContainer({children}: { children: ComponentChildren }) {
   );
 }
 
-function BenefitHeading({children}: { children: ComponentChildren }) {
+function BenefitHeading({ children }: { children: ComponentChildren }) {
   return (
     <h3 class="text-3xl font-light md:text-4xl lg:text-5xl mb-6 text-balance">
       {children}
@@ -199,7 +199,7 @@ function BenefitHeading({children}: { children: ComponentChildren }) {
   );
 }
 
-function BenefitText({children}: { children: ComponentChildren }) {
+function BenefitText({ children }: { children: ComponentChildren }) {
   return (
     <div class="text-xl space-y-4 md:text-2xl lg:text-[1.75rem] lg:leading-snug text-jsr-gray-400">
       {children}
@@ -232,10 +232,10 @@ export const handler: Handlers<Data, State> = {
       anonymous: true,
     });
     if (!statsResp.ok) throw statsResp; // gracefully handle this
-    return ctx.render({stats: statsResp.data}, {
+    return ctx.render({ stats: statsResp.data }, {
       headers: ctx.state.api.hasToken()
         ? undefined
-        : {"Cache-Control": "public, s-maxage=60"},
+        : { "Cache-Control": "public, s-maxage=60" },
     });
   },
 };
