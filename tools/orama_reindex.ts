@@ -2,8 +2,8 @@
 import type { List, Package } from "../frontend/utils/api_types.ts";
 import type { OramaPackageHit } from "../frontend/util.ts";
 
-const index = Deno.env.get("ORAMA_INDEX_ID");
-const auth = Deno.env.get("ORAMA_PRIVATE_API_KEY");
+const index = Deno.env.get("ORAMA_PACKAGE_INDEX_ID");
+const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");
 const jsr_url = Deno.env.get("JSR_URL");
 
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
@@ -50,7 +50,7 @@ await fetch(`${ORAMA_URL}/${index}/notify`, {
     authorization: `Bearer ${auth}`,
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({ "upsert": entries }),
+  body: JSON.stringify({"upsert": entries}),
 });
 
 // deploy the index

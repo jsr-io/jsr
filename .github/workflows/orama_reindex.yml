@@ -21,7 +21,7 @@ jobs:
       - uses: denoland/setup-deno@v1
       - name: Deploy
         env:
-          ORAMA_INDEX_ID: ${{ secrets.ORAMA_INDEX_ID }}
-          ORAMA_PRIVATE_API_KEY: ${{ secrets.ORAMA_PRIVATE_API_KEY }}
+          ORAMA_PACKAGE_INDEX_ID: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
+          ORAMA_PACKAGE_PRIVATE_API_KEY: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
           JSR_URL: ${{ vars.ENVIRONMENT_URL }}
         run: deno task tools:orama:reindex

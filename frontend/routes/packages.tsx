@@ -13,7 +13,10 @@ interface Data extends PaginationData {
   query: string;
 }
 
-export default function PackageListPage({ data, url }: PageProps<Data>) {
+export default function PackageListPage({
+  data,
+  url,
+}: PageProps<Data>) {
   return (
     <div class="mb-24 space-y-16">
       <Head>
@@ -48,8 +51,8 @@ export default function PackageListPage({ data, url }: PageProps<Data>) {
   );
 }
 
-const apiKey = Deno.env.get("ORAMA_PUBLIC_API_KEY");
-const indexId = Deno.env.get("ORAMA_PUBLIC_INDEX_ID");
+const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
+const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
 
 export const handler: Handlers<Data, State> = {
   async GET(req, ctx) {

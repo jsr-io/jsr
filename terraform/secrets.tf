@@ -23,27 +23,27 @@ resource "google_secret_manager_secret_version" "postmark_token" {
   secret_data = var.postmark_token
 }
 
-resource "google_secret_manager_secret" "orama_private_api_key" {
+resource "google_secret_manager_secret" "orama_package_private_api_key" {
   secret_id = "orama-private-api-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_private_api_key" {
-  secret      = google_secret_manager_secret.orama_private_api_key.id
-  secret_data = var.orama_private_api_key
+resource "google_secret_manager_secret_version" "orama_package_private_api_key" {
+  secret      = google_secret_manager_secret.orama_package_private_api_key.id
+  secret_data = var.orama_package_private_api_key
 }
 
-resource "google_secret_manager_secret" "orama_index_id" {
+resource "google_secret_manager_secret" "orama_package_index_id" {
   secret_id = "orama-index-id"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_index_id" {
-  secret      = google_secret_manager_secret.orama_index_id.id
-  secret_data = var.orama_index_id
+resource "google_secret_manager_secret_version" "orama_package_index_id" {
+  secret      = google_secret_manager_secret.orama_package_index_id.id
+  secret_data = var.orama_package_index_id
 }
 
