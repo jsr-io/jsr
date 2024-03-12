@@ -24,7 +24,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
   const iam = scopeIAM(state, data.member);
 
   return (
-    <div class="mb-20">
+    <div>
       <Head>
         <title>
           {params.entrypoint || "index"} - @{params.scope}/{params.package}{" "}

@@ -23,7 +23,7 @@ export default function PackagePage(
   const iam = scopeIAM(state, data.member);
 
   return (
-    <div class="mb-20">
+    <div>
       <Head>
         <title>
           @{params.scope}/{params.package} - JSR
@@ -54,6 +54,7 @@ export default function PackagePage(
             docs={data.docs}
             params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            showProvenanceBadge
           />
         )
         : (
