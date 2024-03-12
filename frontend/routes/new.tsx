@@ -121,7 +121,7 @@ export default function New(props: PageProps<Data, State>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(_req, ctx) {
     let newPackage = undefined;
     const scopesResp =
       await (ctx.state.api.hasToken()
@@ -129,7 +129,7 @@ export const handler: Handlers<Data, State> = {
         : Promise.resolve(null));
     if (scopesResp && !scopesResp.ok) throw scopesResp; // gracefully handle this
     const scopes = scopesResp?.data.map((scope) => scope.scope) ?? [];
-    const url = new URL(req.url);
+    const url = ctx.url;
     let scope = "";
     let initialScope;
     if (url.searchParams.has("scope")) {

@@ -43,7 +43,7 @@ export const handler: Handlers<unknown, State> = {
         );
       }
     } else {
-      const url = new URL(req.url);
+      const url = ctx.url;
       url.protocol = "https:";
 
       const shieldsUrl = new URL("https://img.shields.io/endpoint");

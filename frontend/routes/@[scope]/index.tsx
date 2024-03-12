@@ -56,8 +56,8 @@ export default function ScopePackagesPage(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
+  async GET(_req, ctx) {
+    const url = ctx.url;
     const page = +(url.searchParams.get("page") || 1);
     // Default to large enough to display all of @std.
     const limit = +(url.searchParams.get("limit") || 50);
