@@ -147,6 +147,14 @@ impl<'s> IamHandler<'s> {
         Ok((access_restriction, Some(user.id)))
       }
       Principal::User(user) => {
+        let scope = self
+          .db
+          .get_scope(scope_)
+          .await?
+          .ok_or(ApiError::ScopeNotFound)?;
+        if scope.require_publishing_from_ci {
+          return Err(ApiError::ScopeRequiresPublishingFromCI);
+        }
         self
           .db
           .get_scope_member(scope_, user.id)

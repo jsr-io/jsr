@@ -222,6 +222,8 @@ pub struct ApiFullScope {
   pub created_at: DateTime<Utc>,
   pub quotas: ApiScopeQuotas,
   pub gh_actions_verify_actor: bool,
+  #[serde(rename = "requirePublishingFromCI")]
+  pub require_publishing_from_ci: bool,
 }
 
 impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
@@ -241,6 +243,7 @@ impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
         publish_attempts_per_week_limit: scope.publish_attempts_per_week_limit,
       },
       gh_actions_verify_actor: scope.verify_oidc_actor,
+      require_publishing_from_ci: scope.require_publishing_from_ci,
     }
   }
 }
@@ -685,8 +688,11 @@ pub struct ApiAdminUpdateScopeRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiUpdateScopeRequest {
-  pub gh_actions_verify_actor: Option<bool>,
+pub enum ApiUpdateScopeRequest {
+  #[serde(rename = "ghActionsVerifyActor")]
+  GhActionsVerifyActor(bool),
+  #[serde(rename = "requirePublishingFromCI")]
+  RequirePublishingFromCI(bool),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

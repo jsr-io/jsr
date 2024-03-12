@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          updated_at,\n          created_at\n\n      ",
+  "query": "SELECT\n      scopes.scope as \"scope: ScopeName\",\n      scopes.creator,\n      scopes.package_limit,\n      scopes.new_package_per_week_limit,\n      scopes.publish_attempts_per_week_limit,\n      scopes.verify_oidc_actor,\n      scopes.require_publishing_from_ci,\n      scopes.updated_at,\n      scopes.created_at\n      FROM scopes\n      LEFT JOIN scope_members ON scope_members.scope = scopes.scope\n      WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -35,19 +35,23 @@
       },
       {
         "ordinal": 6,
+        "name": "require_publishing_from_ci",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Bool",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -58,8 +62,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "bb690e0d8d30cc5493c9554e084c7b56951da6ba9bcb2d53145b60333b3ca204"
+  "hash": "353d93cde6d9eace115c2753931d4d706f9ac9c599db7ffa1e06ad6fc944faea"
 }

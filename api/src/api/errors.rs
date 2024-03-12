@@ -168,6 +168,10 @@ errors!(
     status: FORBIDDEN,
     "The actor that this request was authenticated for is not authorized as a scope member for this scope.",
   },
+  ScopeRequiresPublishingFromCI {
+    status: FORBIDDEN,
+    "This scope requires that all packages must be published from CI.",
+  },
   InvalidBearerToken {
     status: UNAUTHORIZED,
     "The provided bearer token is invalid.",

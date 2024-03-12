@@ -130,32 +130,33 @@ async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   let scope = req.param_scope()?;
   Span::current().record("scope", &field::display(&scope));
 
-  let ApiUpdateScopeRequest {
-    gh_actions_verify_actor,
-  } = decode_json(&mut req).await?;
+  let update_req: ApiUpdateScopeRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
 
-  let iam = req.iam();
-  iam.check_scope_write_access(&scope).await?;
-
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
-  let mut updated_scope = None;
-  if let Some(gh_actions_verify_actor) = gh_actions_verify_actor {
-    updated_scope = Some(
-      db.scope_set_verify_oidc_actor(&scope, gh_actions_verify_actor)
-        .await?,
-    );
-  }
+  let iam = req.iam();
 
-  if let Some(updated_scope) = updated_scope {
-    Ok(updated_scope.into())
-  } else {
-    Err(ApiError::MalformedRequest {
-      msg: "missing 'gh_actions_verify_actor' parameter".into(),
-    })
-  }
+  let updated_scope = match update_req {
+    ApiUpdateScopeRequest::GhActionsVerifyActor(gh_actions_verify_actor) => {
+      iam.check_scope_admin_access(&scope).await?;
+      db.scope_set_verify_oidc_actor(&scope, gh_actions_verify_actor)
+        .await?
+    }
+    ApiUpdateScopeRequest::RequirePublishingFromCI(
+      require_publishing_from_ci,
+    ) => {
+      iam.check_scope_admin_access(&scope).await?;
+      db.scope_set_require_publishing_from_ci(
+        &scope,
+        require_publishing_from_ci,
+      )
+      .await?
+    }
+  };
+
+  Ok(updated_scope.into())
 }
 
 #[instrument(name = "DELETE /api/scopes/:scope", skip(req), err, fields(scop))]
