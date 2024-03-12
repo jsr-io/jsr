@@ -107,7 +107,7 @@ resource "google_compute_url_map" "frontend_https" {
 
     # Immediately punch Googlebot through to the frontend.
     route_rules {
-      priority = 0
+      priority = 1
       service  = google_compute_backend_service.registry_frontend.self_link
 
       match_rules {
@@ -119,7 +119,7 @@ resource "google_compute_url_map" "frontend_https" {
     }
 
     route_rules {
-      priority = 1
+      priority = 2
       service  = google_compute_backend_bucket.modules.self_link
 
       # HEAD requests with no Accept header, and no Sec-Fetch-Dest header
@@ -283,7 +283,7 @@ resource "google_compute_url_map" "frontend_https" {
     }
 
     route_rules {
-      priority = 2
+      priority = 3
       service  = google_compute_backend_service.registry_api.self_link
       match_rules {
         prefix_match = "/api/"
