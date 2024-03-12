@@ -18,14 +18,6 @@ Deno.test("[GET /, accept/html, no Sec-Fetch-Dest] should return html 200", asyn
   await assertHtml(response);
 });
 
-Deno.test("[GET /, from: googlebot] should return html 200", async () => {
-  // Make sure Googlebot always sees the HTML.
-  const response = await fetch(JSR_URL, {
-    headers: { "from": "googlebot(at)googlebot.com" },
-  });
-  await assertHtml(response);
-});
-
 Deno.test("[GET /, accept/html, Sec-Fetch-Dest: document] should return html 200", async () => {
   // This is how modern browsers send the request.
   const response = await fetch(JSR_URL, {
@@ -38,6 +30,14 @@ Deno.test("[GET /@luca/flag/1.0.0_meta.json, accept/html, no Sec-Fetch-Dest] sho
   // IE11 case for the meta.json file.
   const response = await fetch(`${JSR_URL}/@luca/flag/1.0.0_meta.json`, {
     headers: { "accept": "text/html" },
+  });
+  await assertHtml(response);
+});
+
+Deno.test("[GET /@luca/flag/1.0.0_meta.json, from: googlebot] should return html 200", async () => {
+  // Make sure Googlebot always sees the HTML.
+  const response = await fetch(JSR_URL, {
+    headers: { "from": "googlebot(at)googlebot.com" },
   });
   await assertHtml(response);
 });
