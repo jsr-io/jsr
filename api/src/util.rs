@@ -617,7 +617,7 @@ pub mod test {
         user.id,
         crate::db::TokenType::Web,
         None,
-        Some(chrono::Utc::now() + chrono::Duration::days(7)),
+        Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
         None,
       )
       .await

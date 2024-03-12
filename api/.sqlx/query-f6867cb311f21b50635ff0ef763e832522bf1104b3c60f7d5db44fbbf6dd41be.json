@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n          scope as \"scope: ScopeName\",\n          updated_at,\n          (SELECT updated_at FROM packages WHERE scope = scope ORDER BY updated_At DESC LIMIT 1) as \"latest_package_created_at\"\n        FROM scopes\n        ORDER BY scope ASC\n        LIMIT 50000\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "latest_package_created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "f6867cb311f21b50635ff0ef763e832522bf1104b3c60f7d5db44fbbf6dd41be"
+}

@@ -58,7 +58,11 @@ async function handler(req: Request): Promise<Response> {
         return res;
       }
       if (
-        url.pathname.startsWith("/api/") || url.pathname === "/login" ||
+        url.pathname.startsWith("/api/") ||
+        url.pathname === "/sitemap.xml" ||
+        url.pathname === "/sitemap-scopes.xml" ||
+        url.pathname === "/sitemap-packages.xml" ||
+        url.pathname === "/login" ||
         url.pathname === "/login/callback" ||
         url.pathname === "/logout"
       ) {

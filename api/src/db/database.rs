@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use chrono::DateTime;
 use chrono::Utc;
 use sqlx::migrate;
 use sqlx::postgres::PgPoolOptions;
@@ -2742,6 +2743,49 @@ impl Database {
     )
     .map(|r| {
       (r.scope, r.name, r.version)
+    })
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  pub async fn list_all_scopes_for_sitemap(
+    &self,
+  ) -> Result<Vec<(ScopeName, DateTime<Utc>, Option<DateTime<Utc>>)>> {
+    sqlx::query!(
+      r#"
+        SELECT
+          scope as "scope: ScopeName",
+          updated_at,
+          (SELECT updated_at FROM packages WHERE scope = scope ORDER BY updated_At DESC LIMIT 1) as "latest_package_created_at"
+        FROM scopes
+        ORDER BY scope ASC
+        LIMIT 50000
+      "#
+    )
+    .map(|r| (r.scope, r.updated_at, r.latest_package_created_at))
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  pub async fn list_all_packages_for_sitemap(
+    &self,
+  ) -> Result<Vec<(ScopeName, PackageName, DateTime<Utc>, DateTime<Utc>)>> {
+    sqlx::query!(
+      r#"SELECT
+        scope as "scope: ScopeName", name as "name: PackageName", updated_at,
+        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at!"
+      FROM packages
+      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL
+      ORDER BY scope ASC, name ASC
+      LIMIT 50000"#
+    )
+    .map(|r| {
+      (
+        r.scope,
+        r.name,
+        r.updated_at,
+        r.latest_version_updated_at,
+      )
     })
     .fetch_all(&self.pool)
     .await
