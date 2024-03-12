@@ -259,3 +259,10 @@ jobs:
 
       - name: Run e2e tests
         run: deno task e2e:prod
+
+      - name: Reindex orama docs search
+        env:
+          ORAMA_INDEX_ID: ${{ secrets.ORAMA_INDEX_ID }}
+          ORAMA_PRIVATE_API_KEY: ${{ secrets.ORAMA_PRIVATE_API_KEY }}
+        run: deno task tools:orama:docs_reindex
+

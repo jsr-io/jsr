@@ -10,7 +10,8 @@
     "lint:frontend": "cd frontend && deno lint && deno check main.ts",
     "lint:license": "deno run --allow-read jsr:@kt3k/license-checker@3.2.11/main -q",
     "lint:license:fix": "deno run --allow-read --allow-write jsr:@kt3k/license-checker@3.2.11/main -q --inject",
-    "tools:orama:reindex": "deno run --allow-env --allow-net tools/orama_reindex.ts",
+    "tools:orama:package_reindex": "deno run --allow-env --allow-net tools/orama_package_reindex.ts",
+    "tools:orama:docs_reindex": "deno run --allow-env --allow-net --allow-read tools/orama_docs_reindex.ts",
     "tools:deno_symbols": "deno run --allow-run --allow-read --allow-env --allow-net --allow-write tools/generate_global_symbols.ts",
     "tools:web_symbols": "deno run --allow-write tools/generate_web_symbols.ts",
 
@@ -27,9 +28,19 @@
     "e2e:staging": "cd e2e && JSR_URL=https://deno-registry-staging.net/ JSR_API_URL=https://api.deno-registry-staging.net/ deno test -A",
     "e2e:prod": "cd e2e && JSR_URL=https://jsr.io/ JSR_API_URL=https://api.jsr.io/ deno test -A"
   },
-  "exclude": ["target/", "api/testdata/", ".gcs/", "frontend/_fresh"],
+  "exclude": [
+    "target/",
+    "api/testdata/",
+    ".gcs/",
+    "frontend/_fresh"
+  ],
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "npm:preact"
+  },
+  "imports": {
+    "@deno/gfm": "jsr:@deno/gfm@^0.8.0",
+    "github-slugger": "npm:github-slugger@^2.0",
+    "std/": "https://deno.land/std@0.219.0/"
   }
 }
