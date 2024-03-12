@@ -26,7 +26,7 @@ export default function Symbol(
   const iam = scopeIAM(state, data.member);
 
   return (
-    <div class="mb-20">
+    <div>
       <Head>
         <title>
           {/* TODO: print symbol kind here (function / class / etc) */}

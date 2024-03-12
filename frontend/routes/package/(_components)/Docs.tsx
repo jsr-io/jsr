@@ -9,11 +9,14 @@ interface DocsProps {
   docs: Docs;
   params: Params;
   selectedVersion: PackageVersionWithUser;
+  showProvenanceBadge?: boolean;
 }
 
-export function DocsView({ docs, params, selectedVersion }: DocsProps) {
+export function DocsView(
+  { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
+) {
   const content = (
-    <div class="flex-1 min-w-0 px-2 lg:px-6 py-4">
+    <div class="flex-1 min-w-0 px-2 lg:px-6 pt-4">
       <Head>
         <style dangerouslySetInnerHTML={{ __html: docs.css }} />
         <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
@@ -27,8 +30,8 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
       )}
       <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
 
-      {selectedVersion.rekorLogId && (
-        <div class="mt-12 border-2 border-jsr-cyan-500 max-w-xl rounded-md py-4 px-6">
+      {showProvenanceBadge && selectedVersion.rekorLogId && (
+        <div class="mt-8 mb-8 border-2 border-jsr-cyan-500 max-w-xl rounded-md py-4 px-6">
           <div class="flex flex-row items-end justify-between">
             <div className="items-center">
               <span className="text-sm text-jsr-gray-300">
@@ -75,15 +78,15 @@ export function DocsView({ docs, params, selectedVersion }: DocsProps) {
   }
 
   return (
-    <div class="grid grid-cols-1 lg:grid-cols-4 py-2">
-      <div class="col-span-1 top-0 md:pl-0 md:pr-2 py-4 lg:sticky lg:max-h-screen box-border">
+    <div class="grid grid-cols-1 lg:grid-cols-4 pt-2">
+      <div class="col-span-1 top-0 md:pl-0 md:pr-2 pt-4 lg:sticky lg:max-h-screen box-border">
         <LocalSymbolSearch
           scope={params.scope}
           pkg={params.package}
           version={selectedVersion.version}
         />
         <div
-          class="ddoc w-full lg:*:max-h-[calc(100vh-75px)]"
+          class="ddoc w-full lg:*:max-h-[calc(100vh-55px)] b-0"
           dangerouslySetInnerHTML={{ __html: docs.sidepanel }}
         />
       </div>
