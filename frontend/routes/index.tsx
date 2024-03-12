@@ -8,6 +8,7 @@ import { ListPanel } from "../components/ListPanel.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
 import { HomepageHero } from "../islands/HomepageHero.tsx";
+import { Logo } from "../components/Logo.tsx";
 
 interface Data {
   stats: Stats;
@@ -47,11 +48,10 @@ export default function Home({ data }: PageProps<Data>) {
         class="font-semibold text-5xl md:text-7xl lg:text-center mt-16 md:mt-24 lg:mt-48 lg:mb-16"
         id="why-jsr"
       >
-        Why{" "}
-        <img
-          src="/logo.svg"
-          class="inline w-auto h-[1em] relative -top-[0.0375em] mr-3"
-          alt="JSR"
+        Why{"  "}
+        <Logo
+          size="large"
+          class="inline w-auto relative mr-3"
         />?
       </h2>
 
