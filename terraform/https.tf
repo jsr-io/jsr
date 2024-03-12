@@ -105,9 +105,37 @@ resource "google_compute_url_map" "frontend_https" {
     name            = "root"
     default_service = google_compute_backend_service.registry_frontend.self_link
 
-    # Immediately punch Googlebot through to the frontend.
+    # API requests are proxied to the API backend service.
     route_rules {
       priority = 1
+      service  = google_compute_backend_service.registry_api.self_link
+      match_rules {
+        prefix_match = "/api/"
+      }
+      match_rules {
+        full_path_match = "/sitemap.xml"
+      }
+      match_rules {
+        full_path_match = "/sitemap-scopes.xml"
+      }
+      match_rules {
+        full_path_match = "/sitemap-packages.xml"
+      }
+      match_rules {
+        full_path_match = "/login"
+      }
+      match_rules {
+        full_path_match = "/login/callback"
+      }
+      match_rules {
+        full_path_match = "/logout"
+      }
+    }
+
+
+    # Punch Googlebot through to the frontend.
+    route_rules {
+      priority = 2
       service  = google_compute_backend_service.registry_frontend.self_link
 
       match_rules {
@@ -119,7 +147,7 @@ resource "google_compute_url_map" "frontend_https" {
     }
 
     route_rules {
-      priority = 2
+      priority = 3
       service  = google_compute_backend_bucket.modules.self_link
 
       # HEAD requests with no Accept header, and no Sec-Fetch-Dest header
@@ -279,23 +307,6 @@ resource "google_compute_url_map" "frontend_https" {
           header_name = "Sec-Fetch-Site"
           exact_match = "same-origin"
         }
-      }
-    }
-
-    route_rules {
-      priority = 3
-      service  = google_compute_backend_service.registry_api.self_link
-      match_rules {
-        prefix_match = "/api/"
-      }
-      match_rules {
-        full_path_match = "/login"
-      }
-      match_rules {
-        full_path_match = "/login/callback"
-      }
-      match_rules {
-        full_path_match = "/logout"
       }
     }
   }

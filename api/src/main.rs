@@ -18,6 +18,7 @@ mod npm;
 mod orama;
 mod provenance;
 mod publish;
+mod sitemap;
 mod tarball;
 mod task_queue;
 mod tasks;
@@ -36,22 +37,26 @@ use crate::buckets::BucketWithQueue;
 use crate::buckets::Buckets;
 use crate::config::Config;
 use crate::db::Database;
+use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
+use crate::gcp::Queue;
 use crate::orama::OramaClient;
+use crate::sitemap::packages_sitemap_handler;
+use crate::sitemap::scopes_sitemap_handler;
+use crate::sitemap::sitemap_index_handler;
+use crate::tasks::tasks_router;
+use crate::tasks::NpmTarballBuildQueue;
 use crate::traced_router::TracedRouterService;
 use crate::tracing::setup_tracing;
 use crate::tracing::TracingExportTarget;
+
 use clap::Parser;
-use emails::EmailSender;
-use gcp::Queue;
 use hyper::Body;
 use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tasks::tasks_router;
-use tasks::NpmTarballBuildQueue;
 use url::Url;
 
 pub struct MainRouterOptions {
@@ -105,6 +110,9 @@ pub(crate) fn main_router(
   let builder = if expose_api {
     builder
       .scope("/api", api_router())
+      .get("/sitemap.xml", sitemap_index_handler)
+      .get("/sitemap-scopes.xml", scopes_sitemap_handler)
+      .get("/sitemap-packages.xml", packages_sitemap_handler)
       .get("/login", auth::login_handler)
       .get("/login/callback", auth::login_callback_handler)
       .get("/logout", auth::logout_handler)
