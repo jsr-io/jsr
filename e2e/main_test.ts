@@ -18,6 +18,14 @@ Deno.test("[GET /, accept/html, no Sec-Fetch-Dest] should return html 200", asyn
   await assertHtml(response);
 });
 
+Deno.test("[GET /, from: googlebot] should return html 200", async () => {
+  // Make sure Googlebot always sees the HTML.
+  const response = await fetch(JSR_URL, {
+    headers: { "from": "googlebot(at)googlebot.com" },
+  });
+  await assertHtml(response);
+});
+
 Deno.test("[GET /, accept/html, Sec-Fetch-Dest: document] should return html 200", async () => {
   // This is how modern browsers send the request.
   const response = await fetch(JSR_URL, {
