@@ -37,11 +37,11 @@ export function ListPanel(
                 }`}
                 href={entry.href}
               >
-                <span class="block w-full truncate group-hover:text-jsr-cyan-800 pr-4 group-hover:underline">
+                <span class="block group-hover:text-jsr-cyan-800 pr-4 mr-auto group-hover:underline whitespace-nowrap">
                   {entry.value}
                 </span>
                 {entry.label && (
-                  <div class="chip bg-jsr-cyan-200">
+                  <div class="chip bg-jsr-cyan-200 truncate">
                     {entry.label}
                   </div>
                 )}
