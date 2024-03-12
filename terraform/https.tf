@@ -105,6 +105,19 @@ resource "google_compute_url_map" "frontend_https" {
     name            = "root"
     default_service = google_compute_backend_service.registry_frontend.self_link
 
+    # Immediately punch Googlebot through to the frontend.
+    route_rules {
+      priority = 0
+      service  = google_compute_backend_service.registry_frontend.self_link
+
+      match_rules {
+        header_matches {
+          header_name  = "from"
+          prefix_match = "googlebot(at)googlebot.com"
+        }
+      }
+    }
+
     route_rules {
       priority = 1
       service  = google_compute_backend_bucket.modules.self_link
@@ -126,11 +139,6 @@ resource "google_compute_url_map" "frontend_https" {
           invert_match  = true
           present_match = true
         }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
-        }
       }
       # HEAD requests with no Accept header, and Sec-Fetch-Dest: empty
       match_rules {
@@ -147,11 +155,6 @@ resource "google_compute_url_map" "frontend_https" {
         header_matches {
           header_name = "Sec-Fetch-Dest"
           exact_match = "empty"
-        }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
         }
       }
       # HEAD requests with no Accept header, and Sec-Fetch-Dest: image, and
@@ -175,11 +178,6 @@ resource "google_compute_url_map" "frontend_https" {
           header_name = "Sec-Fetch-Site"
           exact_match = "same-origin"
         }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
-        }
       }
       # HEAD requests with no Accept header, and Sec-Fetch-Dest: video, and
       # Sec-Fetch-Site: same-origin
@@ -202,11 +200,6 @@ resource "google_compute_url_map" "frontend_https" {
           header_name = "Sec-Fetch-Site"
           exact_match = "same-origin"
         }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
-        }
       }
       # GET requests with no Accept header, and no Sec-Fetch-Dest header
       match_rules {
@@ -225,11 +218,6 @@ resource "google_compute_url_map" "frontend_https" {
           invert_match  = true
           present_match = true
         }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
-        }
       }
       # GET requests with no Accept header, and Sec-Fetch-Dest: empty
       match_rules {
@@ -246,11 +234,6 @@ resource "google_compute_url_map" "frontend_https" {
         header_matches {
           header_name = "Sec-Fetch-Dest"
           exact_match = "empty"
-        }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
         }
       }
       # GET requests with no Accept header, and Sec-Fetch-Dest: image, and
@@ -274,11 +257,6 @@ resource "google_compute_url_map" "frontend_https" {
           header_name = "Sec-Fetch-Site"
           exact_match = "same-origin"
         }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
-        }
       }
       # GET requests with no Accept header, and Sec-Fetch-Dest: video, and
       # Sec-Fetch-Site: same-origin
@@ -300,11 +278,6 @@ resource "google_compute_url_map" "frontend_https" {
         header_matches {
           header_name = "Sec-Fetch-Site"
           exact_match = "same-origin"
-        }
-        header_matches {
-          header_name  = "from"
-          invert_match = true
-          prefix_match = "googlebot(at)googlebot.com"
         }
       }
     }
