@@ -224,3 +224,9 @@ The package being published contains a module that references an npm specifier
 that is not valid. npm specifiers must be in the form
 `npm:<name>@<version>/<path>` or `npm:/<name>@<version>/<path>`. You can fix
 this error by updating the module to reference a valid npm specifier.
+
+### `actorNotAuthorized`
+
+The package is being published from an environment that does not have permission
+to do so. Either the user is not a member of the scope or you need to
+change your GitHub Actions security settings on the scope.
