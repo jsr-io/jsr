@@ -1659,6 +1659,18 @@ components:
       required:
         - isAdmin
 
+    GitHubRepository:
+      type: object
+      properties:
+        owner:
+          type: string
+          description: The GitHub user / organization of the repository.
+          example: denoland
+        name:
+          type: string
+          description: The GitHub repository name.
+          example: deno
+
     PackageName:
       type: string
       pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
@@ -1684,6 +1696,8 @@ components:
           type: string
           format: date-time
           description: The date and time when the package was last updated.
+        githubRepository:
+          $ref: "#/components/schemas/GitHubRepository"
       required:
         - scope
         - name
