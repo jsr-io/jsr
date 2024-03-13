@@ -24,7 +24,7 @@ resource "google_secret_manager_secret_version" "postmark_token" {
 }
 
 resource "google_secret_manager_secret" "orama_package_private_api_key" {
-  secret_id = "orama-private-api-key"
+  secret_id = "orama-package-private-api-key"
   replication {
     auto {}
   }
@@ -36,7 +36,7 @@ resource "google_secret_manager_secret_version" "orama_package_private_api_key" 
 }
 
 resource "google_secret_manager_secret" "orama_package_index_id" {
-  secret_id = "orama-index-id"
+  secret_id = "orama-package-index-id"
   replication {
     auto {}
   }
