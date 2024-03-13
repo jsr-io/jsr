@@ -6,7 +6,11 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import { Logo } from "./Logo.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
 
-export function Header({ user, sudo, url }: {
+export function Header({
+  user,
+  sudo,
+  url,
+}: {
   user: FullUser | null;
   sudo: boolean;
   url: URL;
@@ -15,8 +19,8 @@ export function Header({ user, sudo, url }: {
   const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const apiKey = Deno.env.get("ORAMA_PUBLIC_API_KEY");
-  const indexId = Deno.env.get("ORAMA_PUBLIC_INDEX_ID");
+  const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
+  const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
 
   const isHomepage = url.pathname === "/";
 

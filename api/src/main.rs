@@ -203,17 +203,18 @@ async fn main() {
     ),
   );
 
-  let orama_client =
-    if let Some(orama_private_api_key) = config.orama_private_api_key {
-      Some(OramaClient::new(
-        orama_private_api_key,
-        config
-          .orama_index_id
-          .expect("orama_private_api_key was provided but no orama_index_id"),
-      ))
-    } else {
-      None
-    };
+  let orama_client = if let Some(orama_package_private_api_key) =
+    config.orama_package_private_api_key
+  {
+    Some(OramaClient::new(
+      orama_package_private_api_key,
+      config
+        .orama_package_index_id
+        .expect("orama_package_private_api_key was provided but no orama_package_index_id"),
+    ))
+  } else {
+    None
+  };
 
   let email_sender = config.postmark_token.map(|token| {
     EmailSender::new(
