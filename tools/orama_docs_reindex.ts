@@ -5,8 +5,8 @@ import { stripSplitBySections } from "@deno/gfm";
 import { extract } from "std/front_matter/yaml.ts";
 import GitHubSlugger from "github-slugger";
 
-const index = Deno.env.get("ORAMA_INDEX_ID");
-const auth = Deno.env.get("ORAMA_PRIVATE_API_KEY");
+const index = Deno.env.get("ORAMA_DOCS_INDEX_ID");
+const auth = Deno.env.get("ORAMA_DOCS_PRIVATE_API_KEY");
 
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
 
