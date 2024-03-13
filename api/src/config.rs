@@ -65,13 +65,16 @@ pub struct Config {
   /// The GitHub Client Secret
   pub github_client_secret: String,
 
-  #[clap(long = "orama_index_id", env = "ORAMA_INDEX_ID")]
+  #[clap(long = "orama_package_index_id", env = "ORAMA_PACKAGE_INDEX_ID")]
   /// The GitHub Client ID
-  pub orama_index_id: Option<String>,
+  pub orama_package_index_id: Option<String>,
 
-  #[clap(long = "orama_private_api_key", env = "ORAMA_PRIVATE_API_KEY")]
+  #[clap(
+    long = "orama_package_private_api_key",
+    env = "ORAMA_PACKAGE_PRIVATE_API_KEY"
+  )]
   /// The GitHub Client Secret
-  pub orama_private_api_key: Option<String>,
+  pub orama_package_private_api_key: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
   /// OTLP endpoint to send traces to.

@@ -1,10 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
   frontend_envs = {
-    "API_ROOT"              = "https://${local.api_domain}"
-    "CLOUD_TRACE"           = "true"
-    "ORAMA_PUBLIC_API_KEY"  = var.orama_public_api_key
-    "ORAMA_PUBLIC_INDEX_ID" = var.orama_public_index_id
+    "API_ROOT"                      = "https://${local.api_domain}"
+    "CLOUD_TRACE"                   = "true"
+    "ORAMA_PACKAGE_PUBLIC_API_KEY"  = var.orama_package_public_api_key
+    "ORAMA_PACKAGE_PUBLIC_INDEX_ID" = var.orama_package_public_index_id
   }
   frontend_regions = toset([
     "us-central1",          # Iowa
