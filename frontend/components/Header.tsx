@@ -5,22 +5,35 @@ import { PackageSearch } from "../islands/PackageSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
 import { Logo } from "./Logo.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
+import { SearchKind } from "../util.ts";
 
 export function Header({
   user,
   sudo,
   url,
+  searchKind = "packages",
 }: {
   user: FullUser | null;
   sudo: boolean;
   url: URL;
+  searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-  const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
+  const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+
+  const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
+  const oramaDocsIndexId = Deno.env.get("ORAMA_DOCS_PUBLIC_INDEX_ID");
+
+  const oramaApiKey = searchKind === "packages"
+    ? oramaPackageApiKey
+    : oramaDocsApiKey;
+  const oramaIndexId = searchKind === "packages"
+    ? oramaPackageIndexId
+    : oramaDocsIndexId;
 
   const isHomepage = url.pathname === "/";
 
@@ -54,8 +67,9 @@ export function Header({
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
-                apiKey={apiKey}
-                indexId={indexId}
+                apiKey={oramaApiKey}
+                indexId={oramaIndexId}
+                kind={searchKind}
               />
             )}
           </div>
@@ -88,8 +102,9 @@ export function Header({
           {!isHomepage && (
             <PackageSearch
               query={url.searchParams.get("search") ?? undefined}
-              apiKey={apiKey}
-              indexId={indexId}
+              apiKey={oramaApiKey}
+              indexId={oramaIndexId}
+              kind={searchKind}
             />
           )}
         </div>

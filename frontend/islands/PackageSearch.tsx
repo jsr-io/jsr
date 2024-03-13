@@ -1,20 +1,22 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { batch, computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
 import { IS_BROWSER } from "$fresh/runtime.ts";
-import { OramaPackageHit } from "../util.ts";
+import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import { List, Package } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
+import type { ListDisplayItem } from "../components/List.tsx";
 
 interface PackageSearchProps {
   query?: string;
   indexId?: string;
   apiKey?: string;
   jumbo?: boolean;
+  kind?: SearchKind;
 }
 
 // The maximum time between a query and the result for that query being
@@ -22,9 +24,11 @@ interface PackageSearchProps {
 const MAX_STALE_RESULT_MS = 200;
 
 export function PackageSearch(
-  { query, indexId, apiKey, jumbo }: PackageSearchProps,
+  { query, indexId, apiKey, jumbo, kind = "packages" }: PackageSearchProps,
 ) {
-  const suggestions = useSignal<OramaPackageHit[] | Package[] | null>(null);
+  const suggestions = useSignal<
+    OramaPackageHit[] | Package[] | OramaDocsHit[] | null
+  >(null);
   const searchNRef = useRef({ started: 0, displayed: 0 });
   const abort = useRef<AbortController | null>(null);
   const selectionIdx = useSignal(-1);
@@ -62,7 +66,7 @@ export function PackageSearch(
     const keyboardHandler = (e: KeyboardEvent) => {
       if (((e.metaKey || e.ctrlKey) && e.key === "k")) {
         e.preventDefault();
-        (document.querySelector("#package-search-input") as HTMLInputElement)
+        (document.querySelector("#global-search-input") as HTMLInputElement)
           ?.focus();
       }
     };
@@ -104,7 +108,7 @@ export function PackageSearch(
               selectionIdx.value = -1;
               suggestions.value = res?.hits.map((hit) => hit.document) ?? [];
             });
-          } else {
+          } else if (kind === "packages") {
             const res = await api.get<List<Package>>(path`/packages`, {
               query: value,
               limit: 5,
@@ -122,6 +126,8 @@ export function PackageSearch(
             } else {
               throw res;
             }
+          } else {
+            suggestions.value = [];
           }
         } catch (_e) {
           if (abort.current?.signal.aborted) return;
@@ -154,25 +160,47 @@ export function PackageSearch(
       const item = suggestions.value[selectionIdx.value];
       if (item !== undefined) {
         e.preventDefault();
-        location.href =
-          new URL(`/@${item.scope}/${item.name}`, location.origin).href;
+
+        if (kind === "packages") {
+          location.href = new URL(
+            `/@${(item as (OramaPackageHit | Package)).scope}/${
+              (item as (OramaPackageHit | Package)).name
+            }`,
+            location.origin,
+          ).href;
+        } else {
+          location.href = new URL(
+            `/docs/${(item as OramaDocsHit).path}${
+              (item as OramaDocsHit).slug
+                ? `#${(item as OramaDocsHit).slug}`
+                : ""
+            }`,
+            location.origin,
+          ).href;
+        }
       }
+    }
+
+    if (kind === "docs") {
+      e.preventDefault();
     }
   }
 
-  const placeholder = `Search for packages${
-    macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
-  }`;
+  const kindPlaceholder = kind === "packages"
+    ? "Search for packages"
+    : "Search for documentation";
+  const placeholder = kindPlaceholder +
+    (macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : "");
   return (
     <div ref={ref} class="pointer-events-auto">
       <form
-        action="/packages"
+        action={kind === "packages" ? "/packages" : ""}
         method="GET"
         class="flex w-full"
         onSubmit={onSubmit}
       >
-        <label htmlFor="package-search-input" class="sr-only">
-          Search for packages
+        <label htmlFor="global-search-input" class="sr-only">
+          {kindPlaceholder}
         </label>
         <input
           type="text"
@@ -188,7 +216,7 @@ export function PackageSearch(
           aria-autocomplete="list"
           aria-controls="package-search-results"
           role="combobox"
-          id="package-search-input"
+          id="global-search-input"
         />
 
         <button
@@ -220,7 +248,7 @@ export function PackageSearch(
       </form>
       <div
         role="listbox"
-        id="package-search-results"
+        id="global-search-results"
         tabindex={query?.length ? 0 : -1}
         class="relative"
         aria-label="Search results"
@@ -229,6 +257,7 @@ export function PackageSearch(
           showSuggestions={showSuggestions}
           suggestions={suggestions}
           selectionIdx={selectionIdx}
+          kind={kind}
         />
       </div>
     </div>
@@ -236,10 +265,13 @@ export function PackageSearch(
 }
 
 function SuggestionList(
-  { suggestions, selectionIdx, showSuggestions }: {
-    suggestions: Signal<OramaPackageHit[] | Package[] | null>;
+  { suggestions, selectionIdx, showSuggestions, kind }: {
+    suggestions: Signal<
+      (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
+    >;
     showSuggestions: Signal<boolean>;
     selectionIdx: Signal<number>;
+    kind: SearchKind;
   },
 ) {
   if (!showSuggestions.value) return null;
@@ -256,12 +288,15 @@ function SuggestionList(
         )
         : (
           <ul class="divide-y-1">
-            {suggestions.value.map((pkg, i) => {
+            {suggestions.value.map((rawHit, i) => {
               const selected = computed(() => selectionIdx.value === i);
-              const hit = PackageHit(pkg);
+              const hit = kind === "packages"
+                ? PackageHit(rawHit as (OramaPackageHit | Package))
+                : DocsHit(rawHit as OramaDocsHit);
+
               return (
                 <li
-                  key={pkg.scope + pkg.name}
+                  key={i}
                   class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
                   aria-selected={selected}
                 >
@@ -281,4 +316,29 @@ function SuggestionList(
       </div>
     </div>
   );
+}
+
+export interface OramaDocsHit {
+  path: string;
+  header: string;
+  slug: string;
+  content: string;
+}
+
+function DocsHit(hit: OramaDocsHit): ListDisplayItem {
+  return {
+    href: `/docs/${hit.path}${hit.slug ? `#${hit.slug}` : ""}`,
+    content: (
+      <div class="grow-1 w-full space-y-1">
+        {hit.header && (
+          <div class="text-cyan-700 font-semibold">
+            {hit.header}
+          </div>
+        )}
+        <div class="text-sm text-gray-600 line-clamp-2">
+          {hit.content}
+        </div>
+      </div>
+    ),
+  };
 }

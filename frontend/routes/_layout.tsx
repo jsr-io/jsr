@@ -18,7 +18,12 @@ export default function Layout(
         >
           Skip to main content
         </a>
-        <Header user={state.user} sudo={state.sudo} url={url} />
+        <Header
+          user={state.user}
+          sudo={state.sudo}
+          searchKind={state.searchKind}
+          url={url}
+        />
         <div
           class="section-x-inset-xl pt-4 md:pt-6 focus-visible:ring-0 focus-visible:outline-none"
           id="main-content"

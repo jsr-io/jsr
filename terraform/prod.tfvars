@@ -3,5 +3,7 @@ domain_name                   = "jsr.io"
 email_from_name               = "JSR"
 orama_package_public_api_key  = "rdpUADH0pFZIEx9xLyLIkPGTP4ypc9Wq"
 orama_package_public_index_id = "jsr-j7uqzz"
+orama_docs_public_api_key     = "q9ikYsh66FPVJHEGydHhyxsIfBSpwCjp"
+orama_docs_public_index_id    = "jsr-docs-hgtqb6"
 github_client_id              = "Iv1.c0627603fa450ec3"
 production                    = true

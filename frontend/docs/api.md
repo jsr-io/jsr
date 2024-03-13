@@ -1,5 +1,5 @@
 ---
-name: API
+title: API
 description: JSR uses a simple HTTP + JSON API to interact with the registry and download packages.
 ---
 

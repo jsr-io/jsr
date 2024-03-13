@@ -10,7 +10,10 @@ export interface State {
   userPromise: Promise<FullUser | null | Response>;
   user: FullUser | null;
   sudo: boolean;
+  searchKind?: SearchKind;
 }
+
+export type SearchKind = "packages" | "docs";
 
 export interface Docs {
   css: string;

@@ -5,7 +5,7 @@ import { State } from "../util.ts";
 
 export default async function App(
   _req: Request,
-  { Component, state, url }: PageProps<undefined, State>,
+  { Component, state }: PageProps<undefined, State>,
 ) {
   const user = await state.userPromise;
   if (user instanceof Response) return user;
