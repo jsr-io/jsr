@@ -126,7 +126,9 @@ async fn get_handler(req: Request<Body>) -> ApiResult<ApiScopeOrFullScope> {
 }
 
 #[instrument(name = "PATCH /api/scopes/:scope", skip(req), err, fields(scope))]
-async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
+async fn update_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiScopeOrFullScope> {
   let scope = req.param_scope()?;
   Span::current().record("scope", &field::display(&scope));
 
@@ -156,7 +158,15 @@ async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
     }
   };
 
-  Ok(updated_scope.into())
+  let user = db
+    .get_user_public(updated_scope.creator)
+    .await?
+    .ok_or(ApiError::ScopeNotFound)?;
+  let usage = db.get_scope_usage(&updated_scope.scope).await?;
+  
+  Ok(ApiScopeOrFullScope::Full(
+    (updated_scope, usage, user).into(),
+  ))
 }
 
 #[instrument(name = "DELETE /api/scopes/:scope", skip(req), err, fields(scop))]
@@ -604,6 +614,108 @@ pub mod tests {
     resp
       .expect_err_code(StatusCode::BAD_REQUEST, "scopeLimitReached")
       .await;
+  }
+
+  #[tokio::test]
+  async fn scope_update_gh_oidc_settings() {
+    let mut t = TestSetup::new().await;
+
+    t.db()
+      .add_user_to_scope(NewScopeMember {
+        scope: &t.scope.scope,
+        user_id: t.user2.user.id,
+        is_admin: false,
+      })
+      .await
+      .unwrap();
+
+    let path = format!("/api/scopes/{}", t.scope.scope);
+    let token = t.user2.token.clone();
+    let mut resp = t
+      .http()
+      .patch(&path)
+      .body_json(json!({ "ghActionsVerifyActor": true }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
+      .await;
+
+    let token = t.user1.token.clone();
+    let mut resp = t
+      .http()
+      .patch(&path)
+      .body_json(json!({ "ghActionsVerifyActor": true }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap();
+    let scope = resp.expect_ok::<ApiFullScope>().await;
+    assert_eq!(scope.gh_actions_verify_actor, true);
+
+    let mut resp = t
+      .http()
+      .patch(&path)
+      .body_json(json!({ "ghActionsVerifyActor": false }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap();
+    let scope = resp.expect_ok::<ApiFullScope>().await;
+    assert_eq!(scope.gh_actions_verify_actor, false);
+  }
+
+  #[tokio::test]
+  async fn scope_update_require_publishing_from_ci() {
+    let mut t = TestSetup::new().await;
+
+    t.db()
+      .add_user_to_scope(NewScopeMember {
+        scope: &t.scope.scope,
+        user_id: t.user2.user.id,
+        is_admin: false,
+      })
+      .await
+      .unwrap();
+
+    let path = format!("/api/scopes/{}", t.scope.scope);
+    let token = t.user2.token.clone();
+    let mut resp = t
+      .http()
+      .patch(&path)
+      .body_json(json!({ "requirePublishingFromCI": true }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
+      .await;
+
+    let token = t.user1.token.clone();
+    let mut resp = t
+      .http()
+      .patch(&path)
+      .body_json(json!({ "requirePublishingFromCI": true }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap();
+    let scope = resp.expect_ok::<ApiFullScope>().await;
+    assert_eq!(scope.require_publishing_from_ci, true);
+
+    let mut resp = t
+      .http()
+      .patch(&path)
+      .body_json(json!({ "requirePublishingFromCI": false }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap();
+    let scope = resp.expect_ok::<ApiFullScope>().await;
+    assert_eq!(scope.require_publishing_from_ci, false);
   }
 
   async fn list_members(t: &mut TestSetup) -> Vec<ApiScopeMember> {
