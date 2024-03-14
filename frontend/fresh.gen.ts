@@ -52,7 +52,7 @@ import * as $DevelopmentLogin from "./islands/DevelopmentLogin.tsx";
 import * as $GitHubActionsLink from "./islands/GitHubActionsLink.tsx";
 import * as $GithubUserLink from "./islands/GithubUserLink.tsx";
 import * as $HomepageHero from "./islands/HomepageHero.tsx";
-import * as $PackageSearch from "./islands/PackageSearch.tsx";
+import * as $PackageSearch from "./islands/GlobalSearch.tsx";
 import * as $PublishingTaskRequeue from "./islands/PublishingTaskRequeue.tsx";
 import * as $UserManageScopeInvite from "./islands/UserManageScopeInvite.tsx";
 import * as $UserMenu from "./islands/UserMenu.tsx";

@@ -23,7 +23,7 @@ interface PackageSearchProps {
 // displayed, if there is a more recent pending query.
 const MAX_STALE_RESULT_MS = 200;
 
-export function PackageSearch(
+export function GlobalSearch(
   { query, indexId, apiKey, jumbo, kind = "packages" }: PackageSearchProps,
 ) {
   const suggestions = useSignal<

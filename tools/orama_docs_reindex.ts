@@ -4,7 +4,7 @@ import { pooledMap } from "std/async/pool.ts";
 import { stripSplitBySections } from "@deno/gfm";
 import { extract } from "std/front_matter/yaml.ts";
 import GitHubSlugger from "github-slugger";
-import type { OramaDocsHit } from "../frontend/islands/PackageSearch.tsx";
+import type { OramaDocsHit } from "../frontend/islands/GlobalSearch.tsx";
 
 const index = Deno.env.get("ORAMA_DOCS_INDEX_ID");
 const auth = Deno.env.get("ORAMA_DOCS_PRIVATE_API_KEY");

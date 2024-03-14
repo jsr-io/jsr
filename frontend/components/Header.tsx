@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { FullUser } from "../utils/api_types.ts";
-import { PackageSearch } from "../islands/PackageSearch.tsx";
+import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
 import { Logo } from "./Logo.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
@@ -63,7 +63,7 @@ export function Header({
           )}
           <div class="hidden sm:block grow-1 flex-1">
             {!isHomepage && (
-              <PackageSearch
+              <GlobalSearch
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
@@ -74,12 +74,23 @@ export function Header({
             )}
           </div>
           <div class="flex gap-2 sm:gap-4 items-center pointer-events-auto">
-            <a
-              href="/packages"
-              class="link-header"
-            >
-              Browse packages
-            </a>
+            {searchKind === "docs"
+              ? (
+                <a
+                  href="/"
+                  class="link-header"
+                >
+                  JSR Home
+                </a>
+              )
+              : (
+                <a
+                  href="/packages"
+                  className="link-header"
+                >
+                  Browse packages
+                </a>
+              )}
             <span class="text-gray-200 select-none">|</span>
             <a
               href="/docs"
@@ -100,7 +111,7 @@ export function Header({
         </div>
         <div class="mt-4 sm:hidden">
           {!isHomepage && (
-            <PackageSearch
+            <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
               apiKey={oramaApiKey}
               indexId={oramaIndexId}
