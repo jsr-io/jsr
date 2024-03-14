@@ -321,6 +321,7 @@ function SuggestionList(
 export interface OramaDocsHit {
   path: string;
   header: string;
+  headerParts: string[];
   slug: string;
   content: string;
 }
@@ -331,8 +332,13 @@ function DocsHit(hit: OramaDocsHit): ListDisplayItem {
     content: (
       <div class="grow-1 w-full space-y-1">
         {hit.header && (
-          <div class="text-cyan-700 font-semibold">
-            {hit.header}
+          <div class="font-semibold space-x-1">
+            {hit.headerParts.map((part, i) => (
+              <>
+                {i !== 0 && <span>{">"}</span>}
+                <span className="text-cyan-700">{part}</span>
+              </>
+            ))}
           </div>
         )}
         <div class="text-sm text-gray-600 line-clamp-2">

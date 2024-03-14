@@ -42,16 +42,30 @@ const results = pooledMap(
       sections[0].header === "" && sections[0].content !== "" && attrs.title
     ) {
       sections[0].header = attrs.title;
+      sections[0].depth = 1;
     } else if (sections[0].content === "") {
       sections.shift();
     }
 
-    return sections.map((section) => ({
-      path: entry.path.slice(path.length, -3),
-      header: section.header,
-      slug: slugger.slug(section.header),
-      content: section.content,
-    } satisfies OramaDocsHit));
+    return sections.map((section, i) => {
+      const headerParts: string[] = [section.header];
+
+      let currentDepth = section.depth;
+      for (let j = i; currentDepth > 1 && j >= 0; j--) {
+        if (sections[j].depth < currentDepth) {
+          headerParts.unshift(sections[j].header);
+          currentDepth = sections[j].depth;
+        }
+      }
+
+      return {
+        path: entry.path.slice(path.length, -3),
+        header: section.header,
+        headerParts,
+        slug: slugger.slug(section.header),
+        content: section.content,
+      } satisfies OramaDocsHit;
+    });
   },
 );
 
