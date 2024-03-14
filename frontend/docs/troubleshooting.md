@@ -213,10 +213,8 @@ If you think this is a bug, please contact support at
 The package being published contains a module that references a JSR specifier
 that is not valid. JSR specifiers must be in the form
 `jsr:@<scope>/<name>@<version>/<path>` or
-`jsr:/@<scope>/<name>@<version>/<path>`
-
-. You can fix this error by updating the module to reference a valid JSR
-specifier.
+`jsr:/@<scope>/<name>@<version>/<path>`. You can fix this error by updating the
+module to reference a valid JSR specifier.
 
 ### `invalidNpmSpecifier`
 
@@ -227,6 +225,29 @@ this error by updating the module to reference a valid npm specifier.
 
 ### `actorNotAuthorized`
 
-The package is being published from an environment that does not have permission
-to do so. Either the user is not a member of the scope or you need to
-change your GitHub Actions security settings on the scope.
+The package is being published with an access token that does not have
+permission to publish to the scope.
+
+This can happen when publishing from GitHub Actions, if the GitHub repository
+being published from is not linked to the package you are trying to publish. You
+can fix this error by linking the GitHub repository to the package you are
+trying to publish in the package settings.
+
+If you are not publishing from GitHub Actions, you can fix this error by using
+an access token that has permission to publish to the scope.
+
+### `actorNotScopeMember`
+
+The package is being published with an access token corresponding to a user that
+is not a member of the scope.
+
+This can happen when publishing from GitHub Actions if the user that invoked the
+Actions workflow is not a member of the scope, if
+[publishing is restricted to scope members (default)](/docs/scopes#github-actions-publishing-security).
+You can fix this by adding the user to the scope, or by changing the GitHub
+Actions security settings on the scope to not require the publishing user to be
+a member of the scope.
+
+If you are not publishing from GitHub Actions, you can fix this error by
+authenticating as a user that is a member of the scope, or by adding the user to
+the scope with at least the "member" role.
