@@ -25,7 +25,7 @@ interface Data {
   content: string;
 }
 
-export default function PackagePage({ data }: PageProps<Data, State>) {
+export default function Page({ data }: PageProps<Data, State>) {
   return (
     <div class="mb-20">
       <Head>
