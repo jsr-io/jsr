@@ -1498,6 +1498,9 @@ components:
         ghActionsVerifyActor:
           type: boolean
           description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
+        requirePublishingFromCI:
+          type: boolean
+          description: Whether to require publishing from a CI environment. This disables publishing from a local environment.
         createdAt:
           type: string
           format: date-time
@@ -1520,13 +1523,21 @@ components:
         - name
 
     UpdateScopeRequest:
-      type: object
-      properties:
-        ghActionsVerifyActor:
-          type: boolean
-          description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
-      required:
-        - ghActionsVerifyActor
+      oneOf:
+        - type: object
+          properties:
+            ghActionsVerifyActor:
+              type: boolean
+              description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
+          required:
+            - ghActionsVerifyActor
+        - type: object
+          properties:
+            requirePublishingFromCI:
+              type: boolean
+              description: Whether to require publishing from a CI environment. This disables publishing from a local environment.
+          required:
+            - requirePublishingFromCI
 
     ScopeMember:
       type: object
@@ -1688,6 +1699,8 @@ components:
           type: string
           description: The description of the package.
           example: A module for formatting strings.
+        runtimeCompat:
+          $ref: "#/components/schemas/RuntimeCompat"
         createdAt:
           type: string
           format: date-time
@@ -1742,6 +1755,36 @@ components:
                 - repo
           required:
             - githubRepository
+        - type: object
+          properties:
+            runtimeCompat:
+              $ref: "#/components/schemas/RuntimeCompat"
+          required:
+            - runtimeCompat
+
+    RuntimeCompat:
+      type: object
+      properties:
+        browser:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with web browsers.
+        deno:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with Deno.
+        node:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with Node.js.
+        workerd:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with workerd.
+        bun:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with Bun.
 
     Version:
       type: string

@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH ins_scope AS (\n            INSERT INTO scopes (scope, creator) VALUES ($1, $2)\n            RETURNING\n            scope,\n            creator,\n            package_limit,\n            new_package_per_week_limit,\n            publish_attempts_per_week_limit,\n            verify_oidc_actor,\n            require_publishing_from_ci,\n            updated_at,\n            created_at\n        ),\n        ins_member AS (\n            INSERT INTO scope_members (scope, user_id, is_admin)\n            VALUES ($1, $2, true)\n        )\n        SELECT\n        scope as \"scope: ScopeName\",\n        creator,\n        package_limit,\n        new_package_per_week_limit,\n        publish_attempts_per_week_limit,\n        verify_oidc_actor,\n        require_publishing_from_ci,\n        updated_at,\n        created_at\n        FROM ins_scope\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "creator",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "package_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "new_package_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "publish_attempts_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "verify_oidc_actor",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "require_publishing_from_ci",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "133923c61b4021d34fb89119a11e045f29210264531695165d20e0e978a37069"
+}

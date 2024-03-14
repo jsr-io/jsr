@@ -152,6 +152,7 @@ pub struct Scope {
   pub new_package_per_week_limit: i32,
   pub publish_attempts_per_week_limit: i32,
   pub verify_oidc_actor: bool,
+  pub require_publishing_from_ci: bool,
 }
 
 #[derive(Debug)]

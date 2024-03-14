@@ -31,6 +31,7 @@ export default function ScopeSettingsPage(
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
       <ScopeQuotas scope={data.scope} user={state.user!} />
       <GitHubActionsSecurity scope={data.scope} />
+      <RequirePublishingFromCI scope={data.scope} />
       <DeleteScope scope={data.scope} />
     </div>
   );
@@ -143,6 +144,57 @@ function GitHubActionsSecurity({ scope }: { scope: FullScope }) {
   );
 }
 
+function RequirePublishingFromCI({ scope }: { scope: FullScope }) {
+  return (
+    <div class="mb-12 mt-12">
+      <h2 class="text-lg sm:text-xl font-semibold">
+        Require Publishing from CI
+      </h2>
+      <p class="mt-2 text-gray-600 max-w-2xl">
+        Requiring publishing from CI ensures that all new versions for packages
+        in this scope are published from a GitHub Actions workflow. This
+        disables the ability to publish with the{" "}
+        <span class="font-mono">jsr publish</span>{" "}
+        command from a local development environment.
+      </p>
+
+      <p class="mt-4 text-gray-600 max-w-2xl">
+        This setting is currently{" "}
+        <span class="font-semibold">
+          {scope.requirePublishingFromCI ? "enabled" : "disabled"}
+        </span>. {scope.requirePublishingFromCI
+          ? (
+            "All new versions for packages in this scope are required to be published from a GitHub Actions workflow."
+          )
+          : (
+            "New versions can be published from CI, or from a local development environment."
+          )}
+      </p>
+      <form
+        class="mt-8 max-w-4xl"
+        method="POST"
+      >
+        <input
+          type="hidden"
+          name="value"
+          value={String(!scope.requirePublishingFromCI)}
+        />
+        <button
+          name="action"
+          value="requirePublishingFromCI"
+          class={scope.requirePublishingFromCI
+            ? "button-danger"
+            : "button-primary"}
+          type="submit"
+        >
+          {scope.requirePublishingFromCI ? "Disable" : "Enable"}{" "}
+          requiring publishing from CI
+        </button>
+      </form>
+    </div>
+  );
+}
+
 interface CardButtonProps {
   title: ComponentChildren;
   description: ComponentChildren;
@@ -237,6 +289,21 @@ export const handler: Handlers<Data, State> = {
         const res = await ctx.state.api.patch(
           path`/scopes/${scope}`,
           { ghActionsVerifyActor: enableGhActionsVerifyActor },
+        );
+        if (!res.ok) {
+          if (res.code === "scopeNotFound") return ctx.renderNotFound();
+          throw res; // graceful handle errors
+        }
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/~/settings` },
+        });
+      }
+      case "requirePublishingFromCI": {
+        const value = form.get("value") === "true";
+        const res = await ctx.state.api.patch(
+          path`/scopes/${scope}`,
+          { requirePublishingFromCI: value },
         );
         if (!res.ok) {
           if (res.code === "scopeNotFound") return ctx.renderNotFound();

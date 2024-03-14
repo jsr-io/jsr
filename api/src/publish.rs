@@ -738,6 +738,33 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn only_from_ci() {
+    let mut t = TestSetup::new().await;
+
+    let data = create_mock_tarball("ok");
+
+    t.db()
+      .scope_set_require_publishing_from_ci(&t.scope.scope, true)
+      .await
+      .unwrap();
+
+    let token = t.user2.token.clone();
+
+    let mut resp: hyper::Response<Body> = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "scopeRequiresPublishingFromCi")
+      .await;
+  }
+
+  #[tokio::test]
   async fn success() {
     let t = TestSetup::new().await;
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
