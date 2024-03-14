@@ -163,7 +163,7 @@ async fn update_handler(
     .await?
     .ok_or(ApiError::ScopeNotFound)?;
   let usage = db.get_scope_usage(&updated_scope.scope).await?;
-  
+
   Ok(ApiScopeOrFullScope::Full(
     (updated_scope, usage, user).into(),
   ))
@@ -653,7 +653,7 @@ pub mod tests {
       .await
       .unwrap();
     let scope = resp.expect_ok::<ApiFullScope>().await;
-    assert_eq!(scope.gh_actions_verify_actor, true);
+    assert!(scope.gh_actions_verify_actor);
 
     let mut resp = t
       .http()
@@ -664,7 +664,7 @@ pub mod tests {
       .await
       .unwrap();
     let scope = resp.expect_ok::<ApiFullScope>().await;
-    assert_eq!(scope.gh_actions_verify_actor, false);
+    assert!(!scope.gh_actions_verify_actor);
   }
 
   #[tokio::test]
@@ -704,7 +704,7 @@ pub mod tests {
       .await
       .unwrap();
     let scope = resp.expect_ok::<ApiFullScope>().await;
-    assert_eq!(scope.require_publishing_from_ci, true);
+    assert!(scope.require_publishing_from_ci);
 
     let mut resp = t
       .http()
@@ -715,7 +715,7 @@ pub mod tests {
       .await
       .unwrap();
     let scope = resp.expect_ok::<ApiFullScope>().await;
-    assert_eq!(scope.require_publishing_from_ci, false);
+    assert!(!scope.require_publishing_from_ci);
   }
 
   async fn list_members(t: &mut TestSetup) -> Vec<ApiScopeMember> {
