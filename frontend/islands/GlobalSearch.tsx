@@ -3,6 +3,7 @@ import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
+import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
@@ -11,7 +12,7 @@ import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 
-interface PackageSearchProps {
+interface GlobalSearchProps {
   query?: string;
   indexId?: string;
   apiKey?: string;
@@ -24,12 +25,21 @@ interface PackageSearchProps {
 const MAX_STALE_RESULT_MS = 200;
 
 export function GlobalSearch(
-  { query, indexId, apiKey, jumbo, kind = "packages" }: PackageSearchProps,
+  {
+    query,
+    indexId,
+    apiKey,
+    jumbo,
+    kind = "packages",
+  }: GlobalSearchProps,
 ) {
   const suggestions = useSignal<
     OramaPackageHit[] | Package[] | OramaDocsHit[] | null
   >(null);
-  const searchNRef = useRef({ started: 0, displayed: 0 });
+  const searchNRef = useRef({
+    started: 0,
+    displayed: 0,
+  });
   const abort = useRef<AbortController | null>(null);
   const selectionIdx = useSignal(-1);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,7 +49,7 @@ export function GlobalSearch(
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
-    isFocused.value && search.value.length > 0
+    isFocused.value && search.value.length > 0,
   );
   const macLike = useMacLike();
 
@@ -98,11 +108,13 @@ export function GlobalSearch(
               term: value,
               limit: 5,
               mode: "fulltext",
-            }, { abortController: abort.current! });
+            }, {abortController: abort.current!});
             if (
               abort.current?.signal.aborted ||
               searchNRef.current.displayed > searchN
-            ) return;
+            ) {
+              return;
+            }
             searchNRef.current.displayed = searchN;
             batch(() => {
               selectionIdx.value = -1;
@@ -117,7 +129,9 @@ export function GlobalSearch(
               if (
                 abort.current?.signal.aborted ||
                 searchNRef.current.displayed > searchN
-              ) return;
+              ) {
+                return;
+              }
               searchNRef.current.displayed = searchN;
               batch(() => {
                 selectionIdx.value = -1;
@@ -258,6 +272,7 @@ export function GlobalSearch(
           suggestions={suggestions}
           selectionIdx={selectionIdx}
           kind={kind}
+          input={search}
         />
       </div>
     </div>
@@ -265,13 +280,20 @@ export function GlobalSearch(
 }
 
 function SuggestionList(
-  { suggestions, selectionIdx, showSuggestions, kind }: {
+  {
+    suggestions,
+    selectionIdx,
+    showSuggestions,
+    kind,
+    input,
+  }: {
     suggestions: Signal<
       (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
     >;
     showSuggestions: Signal<boolean>;
     selectionIdx: Signal<number>;
     kind: SearchKind;
+    input: Signal<string>;
   },
 ) {
   if (!showSuggestions.value) return null;
@@ -281,33 +303,33 @@ function SuggestionList(
       {suggestions.value === null
         ? <div class="bg-white text-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
-        ? (
-          <div class="bg-white text-gray-500 px-4 py-2">
-            No matching results to display
-          </div>
-        )
-        : (
-          <ul class="divide-y-1">
-            {suggestions.value.map((rawHit, i) => {
-              const selected = computed(() => selectionIdx.value === i);
-              const hit = kind === "packages"
-                ? PackageHit(rawHit as (OramaPackageHit | Package))
-                : DocsHit(rawHit as OramaDocsHit);
+          ? (
+            <div class="bg-white text-gray-500 px-4 py-2">
+              No matching results to display
+            </div>
+          )
+          : (
+            <ul class="divide-y-1">
+              {suggestions.value.map((rawHit, i) => {
+                const selected = computed(() => selectionIdx.value === i);
+                const hit = kind === "packages"
+                  ? PackageHit(rawHit as (OramaPackageHit | Package))
+                  : DocsHit(rawHit as OramaDocsHit, input);
 
-              return (
-                <li
-                  key={i}
-                  class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
-                  aria-selected={selected}
-                >
-                  <a href={hit.href} class="bg-red-600">
-                    {hit.content}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                return (
+                  <li
+                    key={i}
+                    class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
+                    aria-selected={selected}
+                  >
+                    <a href={hit.href} class="bg-red-600">
+                      {hit.content}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
       <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
         <span class="text-sm text-gray-500">
           powered by <span class="sr-only">Orama</span>
@@ -326,7 +348,9 @@ export interface OramaDocsHit {
   content: string;
 }
 
-function DocsHit(hit: OramaDocsHit): ListDisplayItem {
+function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
+  const highlighter = new Highlight();
+
   return {
     href: `/docs/${hit.path}${hit.slug ? `#${hit.slug}` : ""}`,
     content: (
@@ -336,14 +360,24 @@ function DocsHit(hit: OramaDocsHit): ListDisplayItem {
             {hit.headerParts.map((part, i) => (
               <>
                 {i !== 0 && <span>{">"}</span>}
-                <span className="text-cyan-700">{part}</span>
+                <span
+                  class="text-cyan-700"
+                  dangerouslySetInnerHTML={{
+                    __html: highlighter.highlight(part, input.value)
+                      .HTML,
+                  }}
+                />
               </>
             ))}
           </div>
         )}
-        <div class="text-sm text-gray-600 line-clamp-2">
-          {hit.content}
-        </div>
+        <div
+          class="text-sm text-gray-600"
+          dangerouslySetInnerHTML={{
+            __html: highlighter.highlight(hit.content, input.value)
+              .trim(100),
+          }}
+        />
       </div>
     ),
   };
