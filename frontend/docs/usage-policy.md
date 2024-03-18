@@ -93,9 +93,9 @@ generic, please reach out to us at [help@jsr.io](mailto:help@jsr.io).
 
 ### Scope name squatting
 
-JSR disallows name squatting of scope names. We define name squatting as the act of
-registering a scope / package name with no intention of using it, or to prevent
-someone with a legitimate use from using it (e.g. to sell it to them).
+JSR disallows name squatting of scope names. We define name squatting as the act
+of registering a scope / package name with no intention of using it, or to
+prevent someone with a legitimate use from using it (e.g. to sell it to them).
 
 We will be reasonable in our enforcement of name squatting policies. We
 understand that sometimes people reserve names with the intention of using them,
