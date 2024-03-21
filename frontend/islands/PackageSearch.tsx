@@ -161,7 +161,7 @@ export function PackageSearch(
   }
 
   const placeholder = `Search for packages${
-    macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
+    macLike !== undefined ? ` (${macLike ? "⌘K" : "Ctrl+K"})` : ""
   }`;
   return (
     <div ref={ref} class="pointer-events-auto">
