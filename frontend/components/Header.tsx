@@ -91,13 +91,17 @@ export function Header({
                   Browse packages
                 </a>
               )}
-            <span class="text-gray-200 select-none">|</span>
-            <a
-              href="/docs"
-              class="link-header"
-            >
-              Docs
-            </a>
+            {searchKind !== "docs" && (
+              <>
+                <span class="text-gray-200 select-none">|</span>
+                <a
+                  href="/docs"
+                  class="link-header"
+                >
+                  Docs
+                </a>
+              </>
+            )}
             <span class="text-gray-200 select-none">|</span>
             {user
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
