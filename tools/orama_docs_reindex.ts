@@ -43,13 +43,13 @@ const results = pooledMap(
     const slugger = new GitHubSlugger();
 
     const sections = stripSplitBySections(body);
-    if (
-      sections[0].header === "" && sections[0].content !== "" && attrs.title
-    ) {
+    if (sections[0].header === "" && sections[0].content !== "") {
       sections[0].header = attrs.title ?? entry.title;
       sections[0].depth = 1;
-    } else if (sections[0].content === "") {
-      sections.shift();
+    } else if (sections[0].header === "" && sections[0].content === "") {
+      sections[0].header = attrs.title ?? entry.title;
+      sections[0].content = attrs.description;
+      sections[0].depth = 1;
     }
 
     return sections.map((section, i) => {
