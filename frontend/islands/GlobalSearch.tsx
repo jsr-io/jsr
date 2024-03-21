@@ -49,7 +49,7 @@ export function GlobalSearch(
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
-    isFocused.value && search.value.length > 0,
+    isFocused.value && search.value.length > 0
   );
   const macLike = useMacLike();
 
@@ -108,7 +108,7 @@ export function GlobalSearch(
               term: value,
               limit: 5,
               mode: "fulltext",
-            }, {abortController: abort.current!});
+            }, { abortController: abort.current! });
             if (
               abort.current?.signal.aborted ||
               searchNRef.current.displayed > searchN
@@ -303,33 +303,33 @@ function SuggestionList(
       {suggestions.value === null
         ? <div class="bg-white text-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
-          ? (
-            <div class="bg-white text-gray-500 px-4 py-2">
-              No matching results to display
-            </div>
-          )
-          : (
-            <ul class="divide-y-1">
-              {suggestions.value.map((rawHit, i) => {
-                const selected = computed(() => selectionIdx.value === i);
-                const hit = kind === "packages"
-                  ? PackageHit(rawHit as (OramaPackageHit | Package))
-                  : DocsHit(rawHit as OramaDocsHit, input);
+        ? (
+          <div class="bg-white text-gray-500 px-4 py-2">
+            No matching results to display
+          </div>
+        )
+        : (
+          <ul class="divide-y-1">
+            {suggestions.value.map((rawHit, i) => {
+              const selected = computed(() => selectionIdx.value === i);
+              const hit = kind === "packages"
+                ? PackageHit(rawHit as (OramaPackageHit | Package))
+                : DocsHit(rawHit as OramaDocsHit, input);
 
-                return (
-                  <li
-                    key={i}
-                    class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
-                    aria-selected={selected}
-                  >
-                    <a href={hit.href} class="bg-red-600">
-                      {hit.content}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+              return (
+                <li
+                  key={i}
+                  class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
+                  aria-selected={selected}
+                >
+                  <a href={hit.href} class="bg-red-600">
+                    {hit.content}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
         <span class="text-sm text-gray-500">
           powered by <span class="sr-only">Orama</span>
