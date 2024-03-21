@@ -150,8 +150,8 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
+  async GET(_req, ctx) {
+    const url = ctx.url;
     const code = url.searchParams.get("code") ?? "";
     const [user, authorizationResp] = await Promise.all([
       ctx.state.userPromise,

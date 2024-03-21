@@ -85,8 +85,8 @@ function PackageListItem(props: {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
+  async GET(_req, ctx) {
+    const url = ctx.url;
 
     const authorizedVersions = url.searchParams.getAll("v");
     const date = url.searchParams.get("date");

@@ -12,7 +12,7 @@ export const tracer = new Tracer();
 
 const tracing: MiddlewareHandler<State> = async (req, ctx) => {
   ctx.state.span = tracer.spanForRequest(req, ctx.destination);
-  const url = new URL(req.url);
+  const url = ctx.url;
   const attributes: Record<string, string | bigint> = {
     "http.url": url.href,
     "http.method": req.method,
@@ -31,7 +31,7 @@ const tracing: MiddlewareHandler<State> = async (req, ctx) => {
 };
 
 const auth: MiddlewareHandler<State> = async (req, ctx) => {
-  const url = new URL(req.url);
+  const url = ctx.url;
   const interactive =
     (ctx.destination === "route" || ctx.destination === "notFound") &&
     !(url.pathname === "/gfm.css" || url.pathname === "/_frsh/client.js.map");
