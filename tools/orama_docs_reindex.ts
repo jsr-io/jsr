@@ -1,10 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { walk } from "std/fs/walk.ts";
 import { pooledMap } from "std/async/pool.ts";
 import { stripSplitBySections } from "@deno/gfm";
 import { extract } from "std/front_matter/yaml.ts";
 import GitHubSlugger from "github-slugger";
 import type { OramaDocsHit } from "../frontend/islands/GlobalSearch.tsx";
+import TOC from "../frontend/docs/toc.ts";
+import { join } from "std/path/mod.ts";
 
 const index = Deno.env.get("ORAMA_DOCS_INDEX_ID");
 const auth = Deno.env.get("ORAMA_DOCS_PRIVATE_API_KEY");
@@ -12,7 +13,7 @@ const auth = Deno.env.get("ORAMA_DOCS_PRIVATE_API_KEY");
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
 
 // Clear the index
-await fetch(`${ORAMA_URL}/${index}/snapshot`, {
+const resp1 = await fetch(`${ORAMA_URL}/${index}/snapshot`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth}`,
@@ -20,17 +21,21 @@ await fetch(`${ORAMA_URL}/${index}/snapshot`, {
   },
   body: JSON.stringify([]),
 });
+if (!resp1.ok) {
+  throw new Error(
+    `Failed to clear index: ${resp1.status} ${await resp1.text()}`,
+  );
+}
 
 // fill the index
 const path = "frontend/docs/";
 const results = pooledMap(
   10,
-  walk(path, {
-    includeDirs: false,
-    exts: ["md"],
-  }),
+  TOC,
   async (entry) => {
-    const file = await Deno.readTextFile(entry.path);
+    const file = await Deno.readTextFile(
+      join(path, entry.id + ".md"),
+    );
     const {
       body,
       attrs,
@@ -41,7 +46,7 @@ const results = pooledMap(
     if (
       sections[0].header === "" && sections[0].content !== "" && attrs.title
     ) {
-      sections[0].header = attrs.title;
+      sections[0].header = attrs.title ?? entry.title;
       sections[0].depth = 1;
     } else if (sections[0].content === "") {
       sections.shift();
@@ -59,7 +64,7 @@ const results = pooledMap(
       }
 
       return {
-        path: entry.path.slice(path.length, -3),
+        path: entry.id,
         header: section.header,
         headerParts,
         slug: slugger.slug(section.header),
@@ -71,7 +76,7 @@ const results = pooledMap(
 
 const entries = (await Array.fromAsync(results)).flat();
 
-await fetch(`${ORAMA_URL}/${index}/notify`, {
+const resp2 = await fetch(`${ORAMA_URL}/${index}/notify`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth}`,
@@ -79,12 +84,22 @@ await fetch(`${ORAMA_URL}/${index}/notify`, {
   },
   body: JSON.stringify({ "upsert": entries }),
 });
+if (!resp2.ok) {
+  throw new Error(
+    `Failed to upsert index: ${resp2.status} ${await resp2.text()}`,
+  );
+}
 
 // deploy the index
-await fetch(`${ORAMA_URL}/${index}/deploy`, {
+const resp3 = await fetch(`${ORAMA_URL}/${index}/deploy`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth}`,
     "Content-Type": "application/json",
   },
 });
+if (!resp3.ok) {
+  throw new Error(
+    `Failed to deploy index: ${resp3.status} ${await resp3.text()}`,
+  );
+}
