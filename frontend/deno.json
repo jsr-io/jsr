@@ -10,7 +10,7 @@
   },
   "lint": { "rules": { "tags": ["fresh", "recommended"] } },
   "imports": {
-    "$fresh/": "https://deno.land/x/fresh@1.6.5/",
+    "$fresh/": "https://deno.land/x/fresh@1.6.6/",
     "preact": "https://esm.sh/preact@10.19.2",
     "preact/": "https://esm.sh/preact@10.19.2/",
     "preact-render-to-string": "https://esm.sh/*preact-render-to-string@6.3.1",
@@ -25,7 +25,6 @@
     "@orama/orama": "npm:@orama/orama@^2",
     "@oramacloud/client": "npm:@oramacloud/client@^1",
     "tailwindcss": "npm:tailwindcss@3.4",
-    "tailwindcss/": "npm:/tailwindcss@3.4/",
     "postcss": "npm:postcss@8.4"
   },
   "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "preact" },
