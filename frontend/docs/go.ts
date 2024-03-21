@@ -11,6 +11,10 @@ const staticRedirects = new Map([
   ["cfw", "/docs/with/cloudflare-workers"],
   ["vite", "/docs/with/vite"],
   ["nextjs", "/docs/with/nextjs"],
+  [
+    "excluded-module",
+    "/docs/publishing-packages#excluded-module-publish-error",
+  ],
   ["invalid-path", "/docs/troubleshooting#invalidpath"],
   [
     "case-insensitive-duplicate-path",
@@ -18,10 +22,6 @@ const staticRedirects = new Map([
   ],
   ["unsupported-file-type", "/docs/troubleshooting#invalidentrytype"],
   ["invalid-external-import", "/docs/troubleshooting#invalidexternalimport"],
-  [
-    "excluded-module",
-    "/docs/publishing-packages#excluded-module-publish-error",
-  ],
   ["slow-type", "/docs/about-slow-types"],
 ]);
 
