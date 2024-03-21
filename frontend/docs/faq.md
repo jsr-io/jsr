@@ -121,3 +121,16 @@ You can read more about this in
 and in
 [this discussion thread](https://github.com/orgs/community/discussions/37117) on
 the official GitHub Discussions feedback forum.
+
+## Can I filter packages by compatible runtime in the search?
+
+Yes! You can filter the package search to only return packages that are
+compatible with one or more runtimes, by using the `runtime` filter in the
+search query.
+
+To filter for packages that are compatible with Deno, you can use the query
+`runtime:deno`. To filter for packages that are compatible with Node.js, you can
+use the query `runtime:node`. You can also combine these filters, for example
+`runtime:deno runtime:browsers` will return packages that are compatible with
+both Deno and web browsers. The possible values for the `runtime` filter are
+`deno`, `node`, `browsers`, `workerd` (Cloudflare Workers), and `bun`.

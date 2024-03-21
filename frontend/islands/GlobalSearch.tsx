@@ -11,6 +11,7 @@ import { List, Package } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
+import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
 
 interface GlobalSearchProps {
   query?: string;
@@ -104,8 +105,12 @@ export function GlobalSearch(
       (async () => {
         try {
           if (orama) {
+            let query = value;
+            let where: undefined | Record<string, boolean | string> = undefined;
+            if (kind === "packages") ({ where, query } = processFilter(value));
             const res = await orama.search({
-              term: value,
+              term: query,
+              where,
               limit: 5,
               mode: "fulltext",
             }, { abortController: abort.current! });
@@ -219,7 +224,7 @@ export function GlobalSearch(
         <input
           type="text"
           name="search"
-          class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses}`}
+          class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses} relative`}
           placeholder={placeholder}
           value={query}
           onInput={onInput}
@@ -380,5 +385,31 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
         />
       </div>
     ),
+  };
+}
+
+export function processFilter(
+  search: string,
+): { query: string; where: Record<string, boolean | string> | undefined } {
+  const filters: [string, boolean | string][] = [];
+  let query = "";
+  for (const part of search.split(" ")) {
+    // TODO: enable filtering by scope - currently not supported by Orama?
+    // if (part.startsWith("scope:")) {
+    //   filters.push(["scope", part.slice(6)]);
+    // } else
+    if (part.startsWith("runtime:")) {
+      const runtime = part.slice(8);
+      if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
+        filters.push([`runtimeCompat.${runtime}`, true]);
+      }
+    } else {
+      query += part + " ";
+    }
+  }
+  const where = Object.fromEntries(filters);
+  return {
+    query: query.trim(),
+    where: filters.length === 0 ? undefined : where,
   };
 }

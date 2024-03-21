@@ -7,6 +7,7 @@ import type { List, Package } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
+import { processFilter } from "../islands/GlobalSearch.tsx";
 
 interface Data extends PaginationData {
   packages: OramaPackageHit[] | Package[];
@@ -57,7 +58,7 @@ const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
 export const handler: Handlers<Data, State> = {
   async GET(req, ctx) {
     const reqUrl = new URL(req.url);
-    const query = reqUrl.searchParams.get("search") || "";
+    const search = reqUrl.searchParams.get("search") || "";
     const page = +(reqUrl.searchParams.get("page") || 1);
     const limit = +(reqUrl.searchParams.get("limit") || 20);
 
@@ -69,8 +70,11 @@ export const handler: Handlers<Data, State> = {
         api_key: apiKey,
       });
 
+      const { query, where } = processFilter(search);
+
       const res = await orama.search({
         term: query,
+        where,
         limit,
         offset: (page - 1) * limit,
         mode: "fulltext",
@@ -82,7 +86,7 @@ export const handler: Handlers<Data, State> = {
       const packagesResp = await ctx.state.api.get<List<Package>>(
         path`/packages`,
         {
-          query,
+          search,
           page,
           limit,
         },
@@ -95,7 +99,7 @@ export const handler: Handlers<Data, State> = {
 
     return ctx.render({
       packages,
-      query,
+      query: search,
       page,
       limit,
       total,
