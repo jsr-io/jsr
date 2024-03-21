@@ -18,6 +18,10 @@ const staticRedirects = new Map([
   ],
   ["unsupported-file-type", "/docs/troubleshooting#invalidentrytype"],
   ["invalid-external-import", "/docs/troubleshooting#invalidexternalimport"],
+  [
+    "excluded-module",
+    "/docs/publishing-packages#excluded-module-publish-error",
+  ],
   ["slow-type", "/docs/about-slow-types"],
 ]);
 
