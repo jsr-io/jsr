@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n      scope as \"scope: ScopeName\",\n      creator,\n      package_limit,\n      new_package_per_week_limit,\n      publish_attempts_per_week_limit,\n      verify_oidc_actor,\n      updated_at,\n      created_at\n      FROM scopes WHERE creator = $1\n      ORDER BY scope ASC",
+  "query": "SELECT\n      scope as \"scope: ScopeName\",\n      creator,\n      package_limit,\n      new_package_per_week_limit,\n      publish_attempts_per_week_limit,\n      verify_oidc_actor,\n      require_publishing_from_ci,\n      updated_at,\n      created_at\n      FROM scopes WHERE creator = $1\n      ORDER BY scope ASC",
   "describe": {
     "columns": [
       {
@@ -35,11 +35,16 @@
       },
       {
         "ordinal": 6,
+        "name": "require_publishing_from_ci",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -57,8 +62,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "0081413e982d6e65fc9138dd083134941816dc31e103a020a5375186cbd91a0f"
+  "hash": "49430df890473cb2dd99a3461ec495a4b51eac2aa95df8b9d2f057668e704e79"
 }

@@ -111,3 +111,12 @@ on JSR. This option is enabled by default.
 You can disable this option in the scope settings page to allow publishing from
 any GitHub Actions workflow in the linked GitHub repository, regardless of the
 user that triggered the workflow.
+
+## Requiring publishing from CI
+
+As a scope admin you can require that all package versions are published from a
+CI environment (GitHub Actions). Enabling this option will prevent users from
+publishing package versions from their local development environment. All
+package versions must be published with an OIDC token from a CI environment.
+
+You can enable this option in the scope settings page.

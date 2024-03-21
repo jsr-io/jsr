@@ -204,7 +204,7 @@ export function GlobalSearch(
     ? "Search for packages"
     : "Search for documentation";
   const placeholder = kindPlaceholder +
-    (macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : "");
+    (macLike !== undefined ? ` (${macLike ? "⌘K" : "Ctrl+K"})` : "");
   return (
     <div ref={ref} class="pointer-events-auto">
       <form

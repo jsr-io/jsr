@@ -27,6 +27,7 @@ export interface FullScope extends Scope {
   creator: User;
   quotas: ScopeQuota;
   ghActionsVerifyActor: boolean;
+  requirePublishingFromCI: boolean;
 }
 
 export interface ScopeQuota {
