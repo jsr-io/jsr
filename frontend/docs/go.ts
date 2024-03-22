@@ -13,7 +13,7 @@ const staticRedirects = new Map([
   ["nextjs", "/docs/with/nextjs"],
   [
     "excluded-module",
-    "/docs/publishing-packages#excluded-module-publish-error",
+    "/docs/troubleshooting#excluded-module-error",
   ],
   ["invalid-path", "/docs/troubleshooting#invalidpath"],
   [
