@@ -447,17 +447,3 @@ case, you can un-ignore the `dist/` directory by using a negation in the
 
 In this case, the `dist/` directory will be included when publishing, even
 though it is listed in the `.gitignore` file.
-
-### Excluded module publish error
-
-After filtering files, you may encounter an `excluded-module` error saying that
-a module in the package's module graph was excluded from publishing.
-
-This may occur when you've accidentally excluded a module that is used in the
-published code (for example, writing `"exclude": ["**/*.ts"]` and then trying to
-publish a package with a `mod.ts` export). In this scenario, publishing is
-preventing you from accidentally publishing a package that won't work.
-
-To fix the issue, ensure the module is not excluded in `exclude` and/or
-`publish.exclude` in the config file or don't reference it in any code used by
-your package's exports.

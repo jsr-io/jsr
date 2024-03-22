@@ -251,3 +251,26 @@ a member of the scope.
 If you are not publishing from GitHub Actions, you can fix this error by
 authenticating as a user that is a member of the scope, or by adding the user to
 the scope with at least the "member" role.
+
+## Excluded module error
+
+After filtering files, you may encounter an `excluded-module` error saying that
+a module in the package's module graph was excluded from publishing.
+
+This may occur when you've accidentally excluded a module that is used in the
+published code (for example, writing `"exclude": ["**/*.ts"]` and then trying to
+publish a package with a `mod.ts` export). In this scenario, JSR is preventing
+you from accidentally publishing a package that won't work.
+
+To fix the issue, ensure the module mentioned in the error message is not
+excluded in `exclude` and/or `publish.exclude` in the config file, or don't
+reference it in any code used by your package's exports.
+
+You can find all files that are being included in the package by running the
+following command in your package directory:
+
+```sh
+npx jsr publish --dry-run
+# or
+deno publish --dry-run
+```
