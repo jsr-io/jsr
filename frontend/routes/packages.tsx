@@ -7,7 +7,7 @@ import type { List, Package } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
-import { processFilter } from "../islands/GlobalSearch.tsx";
+import { processFilter } from "../islands/PackageSearch.tsx";
 
 interface Data extends PaginationData {
   packages: OramaPackageHit[] | Package[];
