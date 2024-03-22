@@ -17,6 +17,7 @@ import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
+import { Logo } from "../../components/Logo.tsx";
 
 interface Data {
   package: Package;
@@ -84,9 +85,9 @@ function ScoreInfo(props: {
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
       <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
         <div class="flex gap-2 items-center mb-4">
-          <img src="/logo.svg" class="w-16 select-none" alt="JSR logo" />
           <h2 class="text-2xl font-semibold">
-            <span class="sr-only">JSR</span> Score
+            <Logo size="medium" class="inline mr-2" />
+            Score
           </h2>
         </div>
         <div class="mb-6">
