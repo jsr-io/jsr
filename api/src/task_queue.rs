@@ -84,9 +84,7 @@ impl<T: RestartableTask> DynamicTaskQueue<T> {
         break;
       }
     }
-    let Some(oldest_start) = self.starts.front() else {
-      return None;
-    };
+    let oldest_start = self.starts.front()?;
     let newest_start = self.starts.back().unwrap();
 
     let left_to_start_this_second = (self.max_starts_per_second as u32)
