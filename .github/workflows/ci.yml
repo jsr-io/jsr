@@ -208,6 +208,13 @@ jobs:
       - name: Run e2e tests
         run: deno task e2e:staging
 
+      - name: Reindex orama docs search
+        env:
+          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
+          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+        run: deno task tools:orama:docs_reindex
+
+
   prod:
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
