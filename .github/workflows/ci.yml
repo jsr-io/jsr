@@ -214,7 +214,6 @@ jobs:
           ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
         run: deno task tools:orama:docs_reindex
 
-
   prod:
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
