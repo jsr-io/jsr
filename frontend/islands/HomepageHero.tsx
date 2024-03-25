@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { PackageSearch } from "./PackageSearch.tsx";
+import { GlobalSearch } from "./GlobalSearch.tsx";
 import { Plus } from "../components/icons/Plus.tsx";
 import { useEffect } from "preact/hooks";
 import { asset, Head } from "$fresh/runtime.ts";
@@ -182,7 +182,7 @@ export function HomepageHero(
           </div>
         </div>
         <div class="w-full md:w-3/4 relative z-20">
-          <PackageSearch
+          <GlobalSearch
             apiKey={apiKey}
             indexId={indexId}
             jumbo={true}
