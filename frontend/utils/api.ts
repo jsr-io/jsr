@@ -209,7 +209,7 @@ export class API {
             code: err.code,
             message: err.message,
             traceId,
-             response: resp,
+            response: resp,
           };
         } catch {
           result = {

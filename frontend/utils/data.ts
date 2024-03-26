@@ -104,7 +104,7 @@ export async function packageDataWithDocs(
         status: 307,
         headers: {
           "location": searchParams.get("symbol")!,
-        }
+        },
       });
     }
 

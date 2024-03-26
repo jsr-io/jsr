@@ -82,7 +82,7 @@ export const handler: Handlers<Data, State> = {
     if (res instanceof Response) {
       return res;
     }
-    
+
     const {
       pkg,
       scopeMember,
