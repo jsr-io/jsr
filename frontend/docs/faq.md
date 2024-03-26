@@ -134,3 +134,8 @@ use the query `runtime:node`. You can also combine these filters, for example
 `runtime:deno runtime:browsers` will return packages that are compatible with
 both Deno and web browsers. The possible values for the `runtime` filter are
 `deno`, `node`, `browsers`, `workerd` (Cloudflare Workers), and `bun`.
+
+## Can I filter packages by scope in the search?
+
+Yes! You can specify `scope:` in the search query to filter packages by scope.
+To only return packages in the `std` scope, you can use the query `scope:std`.

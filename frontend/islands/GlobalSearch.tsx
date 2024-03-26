@@ -394,11 +394,9 @@ export function processFilter(
   const filters: [string, boolean | string][] = [];
   let query = "";
   for (const part of search.split(" ")) {
-    // TODO: enable filtering by scope - currently not supported by Orama?
-    // if (part.startsWith("scope:")) {
-    //   filters.push(["scope", part.slice(6)]);
-    // } else
-    if (part.startsWith("runtime:")) {
+    if (part.startsWith("scope:")) {
+      filters.push(["scope", part.slice(6)]);
+    } else if (part.startsWith("runtime:")) {
       const runtime = part.slice(8);
       if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
         filters.push([`runtimeCompat.${runtime}`, true]);
