@@ -5,16 +5,22 @@ use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
 use deno_ast::ModuleSpecifier;
+use deno_doc::function::FunctionDef;
+use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::qualify_drilldown_name;
+use deno_doc::html::sidepanels::SidepanelCtx;
 use deno_doc::html::DocNodeWithContext;
+use deno_doc::html::GenerateCtx;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::DocNode;
+use deno_doc::DocNodeKind;
 use deno_doc::Location;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
-use std::borrow::Cow;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::OnceLock;
 use tracing::instrument;
 use url::Url;
@@ -65,6 +71,13 @@ pub enum DocsRequest {
   Symbol(ModuleSpecifier, String),
 }
 
+#[derive(Debug)]
+pub enum GeneratedDocsOutput {
+  Docs(GeneratedDocs),
+  Redirect(String),
+}
+
+#[derive(Debug)]
 pub struct GeneratedDocs {
   pub breadcrumbs: Option<String>,
   pub sidepanel: Option<String>,
@@ -118,7 +131,7 @@ fn get_url_rewriter(
   base: String,
   is_readme: bool,
 ) -> deno_doc::html::comrak_adapters::URLRewriter {
-  std::sync::Arc::new(move |current_specifier, url| {
+  Arc::new(move |current_specifier, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
     }
@@ -153,8 +166,8 @@ fn get_url_rewriter(
     registry_url
   )
 )]
-pub fn get_generate_ctx(
-  doc_nodes_by_url: &DocNodesByUrl,
+pub fn get_generate_ctx<'a, 'ctx>(
+  doc_nodes_by_url: &'a DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
   scope: ScopeName,
@@ -164,10 +177,10 @@ pub fn get_generate_ctx(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
-) -> deno_doc::html::GenerateCtx {
+) -> GenerateCtx<'ctx> {
   let url_rewriter_base = format!("/@{scope}/{package}/{version}");
 
-  deno_doc::html::GenerateCtx {
+  GenerateCtx {
     package_name: None,
     common_ancestor: None,
     main_entrypoint,
@@ -251,7 +264,7 @@ pub fn get_generate_ctx(
   err
 )]
 pub fn generate_docs_html(
-  doc_nodes_by_url: &DocNodesByUrl,
+  doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
   req: DocsRequest,
@@ -262,9 +275,9 @@ pub fn generate_docs_html(
   readme: Option<String>,
   runtime_compat: RuntimeCompat,
   registry_url: String,
-) -> Result<Option<GeneratedDocs>, anyhow::Error> {
+) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
   let ctx = get_generate_ctx(
-    doc_nodes_by_url,
+    &doc_nodes_by_url,
     main_entrypoint,
     rewrite_map,
     scope,
@@ -276,6 +289,8 @@ pub fn generate_docs_html(
     registry_url,
   );
 
+  let doc_nodes_by_url = ctx.doc_nodes_by_url_add_context(doc_nodes_by_url);
+
   match req {
     DocsRequest::AllSymbols => {
       let render_ctx = deno_doc::html::RenderContext::new(
@@ -286,14 +301,9 @@ pub fn generate_docs_html(
       );
 
       let all_doc_nodes = doc_nodes_by_url
-        .iter()
-        .flat_map(|(specifier, nodes)| {
-          nodes.iter().map(|node| DocNodeWithContext {
-            origin: Some(Cow::Owned(ctx.url_to_short_path(specifier))),
-            ns_qualifiers: Rc::new(vec![]),
-            doc_node: node,
-          })
-        })
+        .values()
+        .flatten()
+        .cloned()
         .collect::<Vec<_>>();
 
       let partitions_by_kind =
@@ -323,11 +333,11 @@ pub fn generate_docs_html(
         )
         .context("failed to all symbols list")?;
 
-      Ok(Some(GeneratedDocs {
+      Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
         sidepanel: None,
         main,
-      }))
+      })))
     }
     DocsRequest::Index => {
       let doc_nodes = ctx
@@ -350,7 +360,7 @@ pub fn generate_docs_html(
           deno_doc::html::jsdoc::ModuleDocCtx::new(
             &render_ctx,
             main_entrypoint,
-            doc_nodes_by_url,
+            &doc_nodes_by_url,
           )
         })
         .unwrap_or_default();
@@ -377,12 +387,12 @@ pub fn generate_docs_html(
       let partitions_for_main_entrypoint =
         deno_doc::html::partition::get_partitions_for_main_entrypoint(
           &ctx,
-          doc_nodes_by_url,
+          &doc_nodes_by_url,
         );
       let index_sidepanel = deno_doc::html::sidepanels::IndexSidepanelCtx::new(
         &ctx,
         ctx.main_entrypoint.as_ref(),
-        doc_nodes_by_url,
+        &doc_nodes_by_url,
         partitions_for_main_entrypoint,
         None,
       );
@@ -396,11 +406,11 @@ pub fn generate_docs_html(
         .render("module_doc", &index_module_doc)
         .context("failed to render index module doc")?;
 
-      Ok(Some(GeneratedDocs {
+      Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
         sidepanel: Some(sidepanel),
         main,
-      }))
+      })))
     }
     DocsRequest::File(specifier) => {
       let doc_nodes = doc_nodes_by_url
@@ -410,11 +420,7 @@ pub fn generate_docs_html(
 
       let short_path = ctx.url_to_short_path(&specifier);
       let partitions_for_nodes =
-        deno_doc::html::partition::get_partitions_for_file(
-          &ctx,
-          doc_nodes,
-          Cow::Borrowed(&short_path),
-        );
+        deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes);
 
       let render_ctx = deno_doc::html::RenderContext::new(
         &ctx,
@@ -426,7 +432,7 @@ pub fn generate_docs_html(
       let module_doc = deno_doc::html::jsdoc::ModuleDocCtx::new(
         &render_ctx,
         &specifier,
-        doc_nodes_by_url,
+        &doc_nodes_by_url,
       );
 
       let breadcrumbs = ctx
@@ -437,7 +443,7 @@ pub fn generate_docs_html(
       let sidepanel = deno_doc::html::sidepanels::IndexSidepanelCtx::new(
         &ctx,
         Some(&specifier),
-        doc_nodes_by_url,
+        &doc_nodes_by_url,
         partitions_for_nodes,
         Some(&short_path),
       );
@@ -451,11 +457,11 @@ pub fn generate_docs_html(
         .render("module_doc", &module_doc)
         .context("failed to render module doc")?;
 
-      Ok(Some(GeneratedDocs {
+      Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
         sidepanel: Some(sidepanel),
         main,
-      }))
+      })))
     }
     DocsRequest::Symbol(specifier, symbol) => {
       let doc_nodes = doc_nodes_by_url
@@ -464,47 +470,248 @@ pub fn generate_docs_html(
         .context("doc nodes missing for specifier")?;
       let short_path = ctx.url_to_short_path(&specifier);
       let partitions_for_nodes =
-        deno_doc::html::partition::get_partitions_for_file(
-          &ctx,
-          doc_nodes,
-          Cow::Borrowed(&short_path),
-        );
+        deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes);
 
-      let Some((breadcrumbs_ctx, sidepanel_ctx, symbol_group_ctx)) =
-        deno_doc::html::generate_symbol_page(
-          &ctx,
-          &specifier,
-          &short_path,
-          &partitions_for_nodes,
-          doc_nodes,
-          &symbol,
-        )
-      else {
+      let Some(symbol_page) = generate_symbol_page(
+        &ctx,
+        &specifier,
+        &short_path,
+        &partitions_for_nodes,
+        doc_nodes,
+        &symbol,
+      ) else {
         return Ok(None);
       };
 
-      let breadcrumbs = ctx
-        .hbs
-        .render("breadcrumbs", &breadcrumbs_ctx)
-        .context("failed to render breadcrumbs")?;
+      match symbol_page {
+        SymbolPage::Symbol {
+          breadcrumbs_ctx,
+          sidepanel_ctx,
+          symbol_group_ctx,
+        } => {
+          let breadcrumbs = ctx
+            .hbs
+            .render("breadcrumbs", &breadcrumbs_ctx)
+            .context("failed to render breadcrumbs")?;
 
-      let sidepanel = ctx
-        .hbs
-        .render("sidepanel", &sidepanel_ctx)
-        .context("failed to render sidepanel")?;
+          let sidepanel = ctx
+            .hbs
+            .render("sidepanel", &sidepanel_ctx)
+            .context("failed to render sidepanel")?;
 
-      let main = ctx
-        .hbs
-        .render("symbol_group", &symbol_group_ctx)
-        .context("failed to render symbol group")?;
+          let main = ctx
+            .hbs
+            .render("symbol_group", &symbol_group_ctx)
+            .context("failed to render symbol group")?;
 
-      Ok(Some(GeneratedDocs {
-        breadcrumbs: Some(breadcrumbs),
-        sidepanel: Some(sidepanel),
-        main,
-      }))
+          Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
+            breadcrumbs: Some(breadcrumbs),
+            sidepanel: Some(sidepanel),
+            main,
+          })))
+        }
+        SymbolPage::Redirect { href, .. } => {
+          Ok(Some(GeneratedDocsOutput::Redirect(href)))
+        }
+      }
     }
   }
+}
+
+fn generate_symbol_page(
+  ctx: &GenerateCtx,
+  current_specifier: &ModuleSpecifier,
+  short_path: &ShortPath,
+  partitions_for_nodes: &IndexMap<String, Vec<DocNodeWithContext>>,
+  doc_nodes_for_module: &[DocNodeWithContext],
+  name: &str,
+) -> Option<SymbolPage> {
+  let mut name_parts = name.split('.').peekable();
+  let mut doc_nodes = doc_nodes_for_module.to_vec();
+  let mut namespace_paths = vec![];
+
+  let doc_nodes = loop {
+    let next_part = name_parts.next()?;
+    let nodes = doc_nodes
+      .iter()
+      .filter(|node| {
+        !(matches!(node.kind, DocNodeKind::ModuleDoc | DocNodeKind::Import)
+          || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
+          && node.get_name() == next_part
+      })
+      .cloned()
+      .collect::<Vec<_>>();
+
+    if name_parts.peek().is_some() {
+      let drilldown_node = if let Some(class_node) =
+        nodes.iter().find(|node| node.kind == DocNodeKind::Class)
+      {
+        let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
+        let mut is_static = true;
+
+        if drilldown_parts[0] == "prototype" {
+          if drilldown_parts.len() == 1 {
+            return Some(SymbolPage::Redirect {
+              current_symbol: name.to_string(),
+              href: name.rsplit_once('.').unwrap().0.to_string(),
+            });
+          } else {
+            is_static = false;
+            drilldown_parts.remove(0);
+          }
+        }
+
+        let drilldown_name = drilldown_parts.join(".");
+
+        let class = class_node.class_def.as_ref().unwrap();
+        class
+          .methods
+          .iter()
+          .find_map(|method| {
+            if method.name == drilldown_name && method.is_static == is_static {
+              Some(class_node.create_child(Arc::new(DocNode::function(
+                qualify_drilldown_name(
+                  class_node.get_name(),
+                  &method.name,
+                  method.is_static,
+                ),
+                method.location.clone(),
+                class_node.declaration_kind,
+                method.js_doc.clone(),
+                method.function_def.clone(),
+              ))))
+            } else {
+              None
+            }
+          })
+          .or_else(|| {
+            class.properties.iter().find_map(|property| {
+              if property.name == drilldown_name
+                && property.is_static == is_static
+              {
+                Some(class_node.create_child(Arc::new(DocNode::variable(
+                  qualify_drilldown_name(
+                    class_node.get_name(),
+                    &property.name,
+                    property.is_static,
+                  ),
+                  property.location.clone(),
+                  class_node.declaration_kind,
+                  property.js_doc.clone(),
+                  deno_doc::variable::VariableDef {
+                    ts_type: property.ts_type.clone(),
+                    kind: deno_ast::swc::ast::VarDeclKind::Const,
+                  },
+                ))))
+              } else {
+                None
+              }
+            })
+          })
+      } else if let Some(class_node) = nodes
+        .iter()
+        .find(|node| node.kind == DocNodeKind::Interface)
+      {
+        let drilldown_name = name_parts.clone().collect::<Vec<_>>().join(".");
+
+        let interface = class_node.interface_def.as_ref().unwrap();
+
+        interface
+          .methods
+          .iter()
+          .find_map(|method| {
+            if method.name == drilldown_name {
+              Some(class_node.create_child(Arc::new(DocNode::function(
+                qualify_drilldown_name(name, &method.name, false),
+                method.location.clone(),
+                doc_nodes[0].declaration_kind,
+                method.js_doc.clone(),
+                FunctionDef {
+                  def_name: None,
+                  params: method.params.clone(),
+                  return_type: method.return_type.clone(),
+                  has_body: false,
+                  is_async: false,
+                  is_generator: false,
+                  type_params: method.type_params.clone(),
+                  decorators: vec![],
+                },
+              ))))
+            } else {
+              None
+            }
+          })
+          .or_else(|| {
+            interface.properties.iter().find_map(|property| {
+              if property.name == drilldown_name {
+                Some(class_node.create_child(Arc::new(DocNode::variable(
+                  qualify_drilldown_name(name, &property.name, false),
+                  property.location.clone(),
+                  doc_nodes[0].declaration_kind,
+                  property.js_doc.clone(),
+                  deno_doc::variable::VariableDef {
+                    ts_type: property.ts_type.clone(),
+                    kind: deno_ast::swc::ast::VarDeclKind::Const,
+                  },
+                ))))
+              } else {
+                None
+              }
+            })
+          })
+      } else {
+        None
+      };
+
+      if let Some(drilldown_node) = drilldown_node {
+        break vec![drilldown_node];
+      }
+    }
+
+    if name_parts.peek().is_none() {
+      break nodes;
+    }
+
+    if let Some(namespace_node) = nodes
+      .iter()
+      .find(|node| matches!(node.kind, DocNodeKind::Namespace))
+    {
+      namespace_paths.push(next_part);
+
+      let namespace = namespace_node.namespace_def.as_ref().unwrap();
+      doc_nodes = namespace
+        .elements
+        .iter()
+        .map(|element| namespace_node.create_child(element.clone()))
+        .collect();
+    } else {
+      return None;
+    }
+  };
+
+  if doc_nodes.is_empty() {
+    return None;
+  }
+
+  let sidepanel_ctx =
+    SidepanelCtx::new(ctx, partitions_for_nodes, short_path, name);
+
+  let (breadcrumbs_ctx, symbol_group_ctx) =
+    deno_doc::html::pages::render_symbol_page(
+      ctx,
+      doc_nodes_for_module,
+      current_specifier,
+      short_path,
+      &namespace_paths,
+      name,
+      &doc_nodes,
+    );
+
+  Some(SymbolPage::Symbol {
+    breadcrumbs_ctx,
+    sidepanel_ctx,
+    symbol_group_ctx,
+  })
 }
 
 struct DocResolver {

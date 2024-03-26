@@ -77,6 +77,9 @@ export const handler: Handlers<Data, State> = {
       },
     );
     if (!res) return ctx.renderNotFound();
+    if (res instanceof Response) {
+      return res;
+    }
 
     const {
       pkg,

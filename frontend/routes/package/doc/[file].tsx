@@ -70,6 +70,9 @@ export const handler: Handlers<Data, State> = {
       { entrypoint: ctx.params.entrypoint },
     );
     if (!res) return ctx.renderNotFound();
+    if (res instanceof Response) {
+      return res;
+    }
 
     const {
       pkg,

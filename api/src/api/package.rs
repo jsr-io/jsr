@@ -11,6 +11,7 @@ use comrak::adapters::SyntaxHighlighterAdapter;
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
+use hyper::header;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
@@ -39,9 +40,9 @@ use crate::db::NewPublishingTask;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
-use crate::docs::generate_docs_html;
 use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
+use crate::docs::GeneratedDocsOutput;
 use crate::gcp;
 use crate::gcp::GcsUploadOptions;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
@@ -58,6 +59,7 @@ use crate::tarball::gcs_tarball_path;
 use crate::util;
 use crate::util::decode_json;
 use crate::util::pagination;
+use crate::util::respond_json;
 use crate::util::search;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
@@ -120,7 +122,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
+      util::cache(CacheDuration::ONE_MINUTE, get_docs_handler),
     )
     .get(
       "/:package/versions/:version/docs/search",
@@ -879,9 +881,7 @@ pub async fn version_update_handler(
   err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_handler(
-  req: Request<Body>,
-) -> ApiResult<ApiPackageVersionDocs> {
+pub async fn get_docs_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -987,8 +987,8 @@ pub async fn get_docs_handler(
     (None, None) => DocsRequest::Index,
   };
 
-  let docs = generate_docs_html(
-    &doc_nodes,
+  let docs = crate::docs::generate_docs_html(
+    doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
     req,
@@ -1006,7 +1006,9 @@ pub async fn get_docs_handler(
   })?
   .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
-  const FIXED_SCRIPT: &str = r#"
+  match docs {
+    GeneratedDocsOutput::Docs(docs) => {
+      const FIXED_SCRIPT: &str = r#"
 document.addEventListener("click", (e) => {
   let el = e.target;
   do {
@@ -1018,14 +1020,26 @@ document.addEventListener("click", (e) => {
 });
   "#;
 
-  Ok(ApiPackageVersionDocs {
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-    script: Cow::Borrowed(FIXED_SCRIPT),
-    breadcrumbs: docs.breadcrumbs,
-    sidepanel: docs.sidepanel,
-    main: docs.main,
-    version: ApiPackageVersion::from(version),
-  })
+      Ok(respond_json(
+        &ApiPackageVersionDocs {
+          css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+          script: Cow::Borrowed(FIXED_SCRIPT),
+          breadcrumbs: docs.breadcrumbs,
+          sidepanel: docs.sidepanel,
+          main: docs.main,
+          version: ApiPackageVersion::from(version),
+        },
+        StatusCode::OK,
+      ))
+    }
+    GeneratedDocsOutput::Redirect(href) => Ok(
+      Response::builder()
+        .status(StatusCode::TEMPORARY_REDIRECT)
+        .header(header::LOCATION, format!("?symbol={href}"))
+        .body(Body::empty())
+        .unwrap(),
+    ),
+  }
 }
 
 #[instrument(
@@ -1081,20 +1095,22 @@ pub async fn get_docs_search_handler(
   let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap();
   let registry_url = registry.registry_url().to_string();
 
-  let search_index = deno_doc::html::generate_search_index(
-    &crate::docs::get_generate_ctx(
-      &doc_nodes,
-      docs_info.main_entrypoint,
-      docs_info.rewrite_map,
-      scope.clone(),
-      package_name.clone(),
-      version.version.clone(),
-      version_or_latest == VersionOrLatest::Latest,
-      false,
-      package.runtime_compat,
-      registry_url,
-    ),
+  let ctx = crate::docs::get_generate_ctx(
     &doc_nodes,
+    docs_info.main_entrypoint,
+    docs_info.rewrite_map,
+    scope.clone(),
+    package_name.clone(),
+    version.version.clone(),
+    version_or_latest == VersionOrLatest::Latest,
+    false,
+    package.runtime_compat,
+    registry_url,
+  );
+
+  let search_index = deno_doc::html::generate_search_index(
+    &ctx,
+    &ctx.doc_nodes_by_url_add_context(doc_nodes),
   );
 
   Ok(search_index)

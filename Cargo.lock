@@ -894,9 +894,9 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.117.0"
+version = "0.118.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d19ad371429c147b91368a36eee07ea6f8abd7e774cc123d15fb6cbea06555"
+checksum = "30e08d1112341c4426e4bae706f007b471866ba2a6699e9baeaa1710f874d24a"
 dependencies = [
  "ammonia",
  "anyhow",
@@ -914,8 +914,10 @@ dependencies = [
  "serde",
  "serde_json",
  "termcolor",
+ "tree-sitter-bash",
  "tree-sitter-css",
  "tree-sitter-highlight",
+ "tree-sitter-html",
  "tree-sitter-javascript",
  "tree-sitter-json",
  "tree-sitter-md",
@@ -4750,6 +4752,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-bash"
+version = "0.20.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57da2032c37eb2ce29fd18df7d3b94355fec8d6d854d8f80934955df542b5906"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
 name = "tree-sitter-css"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4767,6 +4779,16 @@ checksum = "042342584c5a7a0b833d9fc4e2bdab3f9868ddc6c4b339a1e01451c6720868bc"
 dependencies = [
  "regex",
  "thiserror",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-html"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "017822b6bd42843c4bd67fabb834f61ce23254e866282dd93871350fd6b7fa1d"
+dependencies = [
+ "cc",
  "tree-sitter",
 ]
 

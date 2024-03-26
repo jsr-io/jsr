@@ -91,11 +91,23 @@ export async function packageDataWithDocs(
         version || "latest"
       }/docs`,
       docs,
+      { noRedirect: true },
     ) as Promise<APIResponse<PackageVersionDocs> | null>,
   ]);
   if (data === null) return null;
 
   if (pkgDocsResp && !pkgDocsResp.ok) {
+    if (pkgDocsResp.status === 307) {
+      const location = pkgDocsResp.response!.headers.get("location")!;
+      const searchParams = new URLSearchParams(location);
+      return new Response(null, {
+        status: 307,
+        headers: {
+          "location": searchParams.get("symbol")!,
+        }
+      });
+    }
+
     if (pkgDocsResp.code === "packageVersionNotFound") {
       if (!version) {
         pkgDocsResp = null; // no versions published yet, or all yanked
