@@ -73,6 +73,20 @@ import { camelCase } from "@luca/cases";
 camelCase("hello world"); // "helloWorld"
 ```
 
+### Global Configurations
+
+npm:
+
+```sh
+$ npm config set @jsr:registry=https://npm.jsr.io
+```
+
+bun:
+
+```sh
+$ echo '[install.scopes]\n"@jsr" = "https://npm.jsr.io"' > $HOME/.bunfig.toml
+```
+
 ### Importing with `jsr:` specifiers
 
 In Deno, you can use packages without an install step by using `jsr:` specifiers
