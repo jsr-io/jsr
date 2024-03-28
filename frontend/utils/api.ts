@@ -19,6 +19,7 @@ export interface APIResponseOK<T> {
   ok: true;
   data: T;
   traceId: string | null;
+  response: Response | null;
 }
 
 export interface APIResponseError {
@@ -27,6 +28,7 @@ export interface APIResponseError {
   code: string;
   message: string;
   traceId: string | null;
+  response: Response | null;
 }
 
 type APIPath = string & { __apiPath: never };
@@ -186,10 +188,10 @@ export class API {
       const traceId = resp.headers.get("x-deno-ray");
       if (resp.status === 200) {
         const data = await resp.json();
-        result = { ok: true, data, traceId };
+        result = { ok: true, data, traceId, response: resp };
       } else if (resp.status === 204) {
         await resp.body?.cancel();
-        result = { ok: true, data: null as RespT, traceId };
+        result = { ok: true, data: null as RespT, traceId, response: resp };
       } else {
         const body = await resp.text();
         try {
@@ -200,6 +202,7 @@ export class API {
             code: err.code,
             message: err.message,
             traceId,
+            response: resp,
           };
         } catch {
           result = {
@@ -208,6 +211,7 @@ export class API {
             code: "invalidResponse",
             message: `Failed to decode response. Body: ${body}`,
             traceId,
+            response: resp,
           };
         }
       }
@@ -219,6 +223,7 @@ export class API {
         code: "networkError",
         message: `Failed to make API call for ${req.path}`,
         traceId: null,
+        response: null,
       };
     }
     const end = new Date();

@@ -578,14 +578,20 @@ pub struct ApiPackageVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiPackageVersionDocs {
-  pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
-  pub script: Cow<'static, str>,
-  pub breadcrumbs: Option<String>,
-  pub sidepanel: Option<String>,
-  pub main: String,
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[allow(clippy::large_enum_variant)]
+pub enum ApiPackageVersionDocs {
+  Content {
+    version: ApiPackageVersion,
+    css: Cow<'static, str>,
+    script: Cow<'static, str>,
+    breadcrumbs: Option<String>,
+    sidepanel: Option<String>,
+    main: String,
+  },
+  Redirect {
+    symbol: String,
+  },
 }
 
 impl From<PackageVersion> for ApiPackageVersion {
