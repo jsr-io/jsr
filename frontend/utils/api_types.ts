@@ -136,13 +136,17 @@ export interface PackageVersionWithUser extends PackageVersion {
   user?: User;
 }
 
-export interface PackageVersionDocs {
+export interface PackageVersionDocsContent {
   version: PackageVersionWithUser;
   css: string;
   script: string;
   breadcrumbs: string | null;
   sidepanel: string | null;
   main: string;
+}
+
+export interface PackageVersionDocsRedirect {
+  redirect: string;
 }
 
 export interface SourceDirEntry {

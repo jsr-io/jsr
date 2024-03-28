@@ -622,7 +622,7 @@ fn generate_symbol_page(
           .find_map(|method| {
             if method.name == drilldown_name {
               Some(class_node.create_child(Arc::new(DocNode::function(
-                qualify_drilldown_name(name, &method.name, false),
+                qualify_drilldown_name(name, &method.name, true),
                 method.location.clone(),
                 doc_nodes[0].declaration_kind,
                 method.js_doc.clone(),
@@ -645,7 +645,7 @@ fn generate_symbol_page(
             interface.properties.iter().find_map(|property| {
               if property.name == drilldown_name {
                 Some(class_node.create_child(Arc::new(DocNode::variable(
-                  qualify_drilldown_name(name, &property.name, false),
+                  qualify_drilldown_name(name, &property.name, true),
                   property.location.clone(),
                   doc_nodes[0].declaration_kind,
                   property.js_doc.clone(),

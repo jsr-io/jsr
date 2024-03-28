@@ -4,7 +4,8 @@ import { APIResponse, path } from "./api.ts";
 import {
   FullScope,
   Package,
-  PackageVersionDocs,
+  PackageVersionDocsContent,
+  PackageVersionDocsRedirect,
   PackageVersionSource,
   PackageVersionWithUser,
   Scope,
@@ -86,28 +87,18 @@ export async function packageDataWithDocs(
 ) {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
-    state.api.get<PackageVersionDocs>(
+    state.api.get<PackageVersionDocsContent | PackageVersionDocsRedirect>(
       path`/scopes/${scope}/packages/${pkg}/versions/${
         version || "latest"
       }/docs`,
       docs,
-      { noRedirect: true },
-    ) as Promise<APIResponse<PackageVersionDocs> | null>,
+    ) as Promise<
+      APIResponse<PackageVersionDocsContent | PackageVersionDocsRedirect> | null
+    >,
   ]);
   if (data === null) return null;
 
   if (pkgDocsResp && !pkgDocsResp.ok) {
-    if (pkgDocsResp.status === 307) {
-      const location = pkgDocsResp.response!.headers.get("location")!;
-      const searchParams = new URLSearchParams(location);
-      return new Response(null, {
-        status: 307,
-        headers: {
-          "location": searchParams.get("symbol")!,
-        },
-      });
-    }
-
     if (pkgDocsResp.code === "packageVersionNotFound") {
       if (!version) {
         pkgDocsResp = null; // no versions published yet, or all yanked
@@ -120,6 +111,10 @@ export async function packageDataWithDocs(
       if (pkgDocsResp.code === "entrypointOrSymbolNotFound") return null;
       throw pkgDocsResp;
     }
+  }
+
+  if (pkgDocsResp?.data.redirect) {
+    return pkgDocsResp?.data;
   }
 
   return {

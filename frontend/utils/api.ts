@@ -11,7 +11,6 @@ export interface APIRequest<T> {
   body?: T;
   signal?: AbortSignal;
   anonymous?: boolean;
-  noRedirect?: boolean;
 }
 
 export type APIResponse<T> = APIResponseOK<T> | APIResponseError;
@@ -72,7 +71,6 @@ interface APIOptions {
 interface RequestOptions {
   signal?: AbortSignal;
   anonymous?: boolean;
-  noRedirect?: boolean;
 }
 
 export class API {
@@ -107,7 +105,6 @@ export class API {
       query,
       signal: opts?.signal,
       anonymous: opts?.anonymous,
-      noRedirect: opts?.noRedirect,
     });
   }
 
@@ -124,7 +121,6 @@ export class API {
       body,
       signal: opts?.signal,
       anonymous: opts?.anonymous,
-      noRedirect: opts?.noRedirect,
     });
   }
 
@@ -141,7 +137,6 @@ export class API {
       body,
       signal: opts?.signal,
       anonymous: opts?.anonymous,
-      noRedirect: opts?.noRedirect,
     });
   }
 
@@ -156,7 +151,6 @@ export class API {
       query,
       signal: opts?.signal,
       anonymous: opts?.anonymous,
-      noRedirect: opts?.noRedirect,
     });
   }
 
@@ -190,7 +184,6 @@ export class API {
         headers,
         body: req.body ? JSON.stringify(req.body) : undefined,
         signal: req.signal,
-        redirect: req.noRedirect ? "manual" : "follow",
       });
       const traceId = resp.headers.get("x-deno-ray");
       if (resp.status === 200) {

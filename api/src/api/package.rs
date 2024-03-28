@@ -11,7 +11,6 @@ use comrak::adapters::SyntaxHighlighterAdapter;
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
-use hyper::header;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
@@ -59,7 +58,6 @@ use crate::tarball::gcs_tarball_path;
 use crate::util;
 use crate::util::decode_json;
 use crate::util::pagination;
-use crate::util::respond_json;
 use crate::util::search;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
@@ -122,7 +120,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, get_docs_handler),
+      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
     )
     .get(
       "/:package/versions/:version/docs/search",
@@ -881,7 +879,9 @@ pub async fn version_update_handler(
   err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
+pub async fn get_docs_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageVersionDocs> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1020,25 +1020,20 @@ document.addEventListener("click", (e) => {
 });
   "#;
 
-      Ok(respond_json(
-        &ApiPackageVersionDocs {
-          css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-          script: Cow::Borrowed(FIXED_SCRIPT),
-          breadcrumbs: docs.breadcrumbs,
-          sidepanel: docs.sidepanel,
-          main: docs.main,
-          version: ApiPackageVersion::from(version),
-        },
-        StatusCode::OK,
-      ))
+      Ok(ApiPackageVersionDocs::Content {
+        css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+        script: Cow::Borrowed(FIXED_SCRIPT),
+        breadcrumbs: docs.breadcrumbs,
+        sidepanel: docs.sidepanel,
+        main: docs.main,
+        version: ApiPackageVersion::from(version),
+      })
     }
-    GeneratedDocsOutput::Redirect(href) => Ok(
-      Response::builder()
-        .status(StatusCode::TEMPORARY_REDIRECT)
-        .header(header::LOCATION, format!("?symbol={href}"))
-        .body(Body::empty())
-        .unwrap(),
-    ),
+    GeneratedDocsOutput::Redirect(href) => {
+      Ok(ApiPackageVersionDocs::Redirect {
+        redirect: format!("?symbol={href}"),
+      })
+    }
   }
 }
 
@@ -2424,10 +2419,22 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let docs: ApiPackageVersionDocs = resp.expect_ok().await;
-    assert_eq!(docs.version.version, task.package_version);
-    assert!(docs.css.contains("{max-width:"), "{}", docs.css);
-    assert!(docs.breadcrumbs.is_none(), "{:?}", docs.breadcrumbs);
-    assert!(docs.sidepanel.is_some(), "{:?}", docs.sidepanel);
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script,
+        breadcrumbs,
+        sidepanel,
+        main,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
+        assert!(sidepanel.is_some(), "{:?}", sidepanel)
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
 
     // all_symbols page
     let mut resp = t
@@ -2437,14 +2444,26 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let docs: ApiPackageVersionDocs = resp.expect_ok().await;
-    assert_eq!(docs.version.version, task.package_version);
-    assert!(docs.css.contains("{max-width:"), "{}", docs.css);
-    assert!(
-      docs.breadcrumbs.as_ref().unwrap().contains("all symbols"),
-      "{:?}",
-      docs.breadcrumbs
-    );
-    assert!(docs.sidepanel.is_none(), "{:?}", docs.sidepanel);
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script,
+        breadcrumbs,
+        sidepanel,
+        main,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(
+          breadcrumbs.as_ref().unwrap().contains("all symbols"),
+          "{:?}",
+          breadcrumbs
+        );
+        assert!(sidepanel.is_none(), "{:?}", sidepanel);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
 
     // symbol page
     let mut resp = t
@@ -2454,14 +2473,26 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let docs: ApiPackageVersionDocs = resp.expect_ok().await;
-    assert_eq!(docs.version.version, task.package_version);
-    assert!(docs.css.contains("{max-width:"), "{}", docs.css);
-    assert!(
-      docs.breadcrumbs.as_ref().unwrap().contains("hello"),
-      "{:?}",
-      docs.breadcrumbs
-    );
-    assert!(docs.sidepanel.is_some(), "{:?}", docs.sidepanel);
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script,
+        breadcrumbs,
+        sidepanel,
+        main,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(
+          breadcrumbs.as_ref().unwrap().contains("hello"),
+          "{:?}",
+          breadcrumbs
+        );
+        assert!(sidepanel.is_some(), "{:?}", sidepanel);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
 
     // search
     let mut resp = t
