@@ -2421,10 +2421,10 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
-        script,
+        script: _,
         breadcrumbs,
         sidepanel,
-        main,
+        main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
@@ -2446,10 +2446,10 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
-        script,
+        script: _,
         breadcrumbs,
         sidepanel,
-        main,
+        main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
@@ -2475,10 +2475,10 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
-        script,
+        script: _,
         breadcrumbs,
         sidepanel,
-        main,
+        main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
