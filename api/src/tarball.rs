@@ -34,6 +34,7 @@ use crate::analysis::RegistryLoader;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
 use crate::db::ExportsMap;
+use crate::db::NpmBinEntries;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
 use crate::gcp::GcsError;
@@ -71,6 +72,8 @@ pub struct NpmTarballInfo {
   pub sha512: String,
   /// The size of the tarball in bytes.
   pub size: u64,
+  /// The bin field from the package.json. Empty if there is no bin field.
+  pub bin: NpmBinEntries,
 }
 
 #[instrument(
@@ -302,6 +305,7 @@ pub async fn process_tarball(
     sha1: npm_tarball.sha1,
     sha512: npm_tarball.sha512,
     size: npm_tarball.tarball.len() as u64,
+    bin: npm_tarball.bin,
   };
 
   let npm_tarball_path = npm_tarball_path(

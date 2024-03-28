@@ -363,6 +363,7 @@ async fn create_package_version_and_finalize_publishing_task() {
     sha1: "",
     sha512: "",
     size: 0,
+    bin: &NpmBinEntries::mock(),
   };
 
   let task = db
@@ -376,7 +377,7 @@ async fn create_package_version_and_finalize_publishing_task() {
         readme_path: None,
         uses_npm: true,
         exports: &ExportsMap::mock(),
-        meta: Default::default(),
+        meta: PackageVersionMeta::default(),
       },
       &package_files,
       &package_version_dependencies,

@@ -1,0 +1,1 @@
+ALTER TABLE npm_tarballs ADD COLUMN bin jsonb NOT NULL DEFAULT '{}';

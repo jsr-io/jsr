@@ -602,6 +602,10 @@ impl ExportsMap {
   pub fn into_inner(self) -> IndexMap<String, String> {
     self.0
   }
+
+  pub fn get(&self, key: &str) -> Option<&String> {
+    self.0.get(key)
+  }
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for ExportsMap {
@@ -692,6 +696,7 @@ pub struct NpmTarball {
   pub sha1: String,
   pub sha512: String,
   pub size: i32,
+  pub bin: NpmBinEntries,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -705,6 +710,55 @@ pub struct NewNpmTarball<'s> {
   pub sha1: &'s str,
   pub sha512: &'s str,
   pub size: i32,
+  pub bin: &'s NpmBinEntries,
+}
+
+#[derive(Debug, Clone)]
+pub struct NpmBinEntries(IndexMap<String, String>);
+
+impl NpmBinEntries {
+  pub fn new(bins: IndexMap<String, String>) -> Self {
+    Self(bins)
+  }
+
+  #[cfg(test)]
+  pub fn mock() -> Self {
+    Self::new(IndexMap::new())
+  }
+
+  pub fn into_inner(self) -> IndexMap<String, String> {
+    self.0
+  }
+}
+
+impl sqlx::Decode<'_, sqlx::Postgres> for NpmBinEntries {
+  fn decode(
+    value: sqlx::postgres::PgValueRef<'_>,
+  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+    let s: sqlx::types::Json<IndexMap<String, String>> =
+      sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
+    Ok(NpmBinEntries(s.0))
+  }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for NpmBinEntries {
+  fn encode_by_ref(
+    &self,
+    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
+  ) -> sqlx::encode::IsNull {
+    <sqlx::types::Json<&IndexMap<String, String>> as sqlx::Encode<
+      '_,
+      sqlx::Postgres,
+    >>::encode_by_ref(&sqlx::types::Json(&self.0), buf)
+  }
+}
+
+impl sqlx::Type<sqlx::Postgres> for NpmBinEntries {
+  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
+    <sqlx::types::Json<IndexMap<String, String>> as sqlx::Type<
+      sqlx::Postgres,
+    >>::type_info()
+  }
 }
 
 /// Keys reference https://runtime-keys.proposal.wintercg.org/.

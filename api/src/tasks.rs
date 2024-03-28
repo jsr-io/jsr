@@ -146,6 +146,7 @@ pub async fn npm_tarball_build_handler(
       size: npm_tarball.tarball.len() as i32,
       sha1: &npm_tarball.sha1,
       sha512: &npm_tarball.sha512,
+      bin: &npm_tarball.bin,
     };
 
     let npm_tarball_path = gcs_paths::npm_tarball_path(

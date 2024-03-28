@@ -1439,8 +1439,8 @@ impl Database {
     }
 
     sqlx::query!(
-      r#"INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+      r#"INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size, bin)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
       new_npm_tarball.scope as _,
       new_npm_tarball.name as _,
       new_npm_tarball.version as _,
@@ -1448,6 +1448,7 @@ impl Database {
       new_npm_tarball.sha1,
       new_npm_tarball.sha512,
       new_npm_tarball.size,
+      new_npm_tarball.bin as _,
     )
     .execute(&mut *tx)
     .await?;
@@ -1614,16 +1615,17 @@ impl Database {
   ) -> Result<NpmTarball> {
     sqlx::query_as!(
       NpmTarball,
-      r#"INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at"#,
+      r#"INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size, bin)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, bin as "bin: NpmBinEntries", updated_at, created_at"#,
       new_npm_tarball.scope as _,
       new_npm_tarball.name as _,
       new_npm_tarball.version as _,
       new_npm_tarball.revision,
       new_npm_tarball.sha1,
       new_npm_tarball.sha512,
-      new_npm_tarball.size
+      new_npm_tarball.size,
+      new_npm_tarball.bin as _
     )
     .fetch_one(&self.pool)
     .await
@@ -2725,7 +2727,7 @@ impl Database {
   ) -> Result<Option<NpmTarball>> {
     sqlx::query_as!(
       NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, bin as "bin: NpmBinEntries", updated_at, created_at
       FROM npm_tarballs
       WHERE scope = $1 AND name = $2 AND version = $3
       ORDER BY revision DESC
@@ -2752,7 +2754,7 @@ impl Database {
   ) -> Result<Option<NpmTarball>> {
     sqlx::query_as!(
       NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, bin as "bin: NpmBinEntries", updated_at, created_at
       FROM npm_tarballs
       WHERE scope = $1 AND name = $2 AND version = $3 AND revision = $4
       LIMIT 1"#,
