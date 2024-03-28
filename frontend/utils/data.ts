@@ -5,8 +5,6 @@ import {
   FullScope,
   Package,
   PackageVersionDocs,
-  PackageVersionDocsContent,
-  PackageVersionDocsRedirect,
   PackageVersionSource,
   PackageVersionWithUser,
   Scope,
