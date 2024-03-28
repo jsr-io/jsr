@@ -1030,9 +1030,7 @@ document.addEventListener("click", (e) => {
       })
     }
     GeneratedDocsOutput::Redirect(href) => {
-      Ok(ApiPackageVersionDocs::Redirect {
-        redirect: format!("?symbol={href}"),
-      })
+      Ok(ApiPackageVersionDocs::Redirect { symbol: href })
     }
   }
 }

@@ -79,11 +79,10 @@ export const handler: Handlers<Data, State> = {
     if (!res) return ctx.renderNotFound();
 
     if (res.redirect) {
-      const searchParams = new URLSearchParams(res.redirect);
       return new Response(null, {
         status: 307,
         headers: {
-          "location": searchParams.get("symbol")!,
+          "location": res.redirect.symbol,
         },
       });
     }

@@ -146,8 +146,12 @@ export interface PackageVersionDocsContent {
 }
 
 export interface PackageVersionDocsRedirect {
-  redirect: string;
+  symbol: string;
 }
+
+export type PackageVersionDocs = { "content": PackageVersionDocsContent } | {
+  "redirect": PackageVersionDocsRedirect;
+};
 
 export interface SourceDirEntry {
   name: string;

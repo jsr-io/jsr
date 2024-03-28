@@ -578,7 +578,7 @@ pub struct ApiPackageVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", untagged)]
+#[serde(rename_all = "camelCase")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiPackageVersionDocs {
   Content {
@@ -590,7 +590,7 @@ pub enum ApiPackageVersionDocs {
     main: String,
   },
   Redirect {
-    redirect: String,
+    symbol: String,
   },
 }
 

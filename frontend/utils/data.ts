@@ -4,6 +4,7 @@ import { APIResponse, path } from "./api.ts";
 import {
   FullScope,
   Package,
+  PackageVersionDocs,
   PackageVersionDocsContent,
   PackageVersionDocsRedirect,
   PackageVersionSource,
@@ -87,13 +88,13 @@ export async function packageDataWithDocs(
 ) {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
-    state.api.get<PackageVersionDocsContent | PackageVersionDocsRedirect>(
+    state.api.get<PackageVersionDocs>(
       path`/scopes/${scope}/packages/${pkg}/versions/${
         version || "latest"
       }/docs`,
       docs,
     ) as Promise<
-      APIResponse<PackageVersionDocsContent | PackageVersionDocsRedirect> | null
+      APIResponse<PackageVersionDocs> | null
     >,
   ]);
   if (data === null) return null;
@@ -119,15 +120,15 @@ export async function packageDataWithDocs(
 
   return {
     ...data,
-    selectedVersion: pkgDocsResp?.data.version ?? null,
+    selectedVersion: pkgDocsResp?.data.content.version ?? null,
     selectedVersionIsLatestUnyanked: !version && pkgDocsResp !== null,
     docs: pkgDocsResp
       ? ({
-        css: pkgDocsResp.data.css,
-        script: pkgDocsResp.data.script,
-        breadcrumbs: pkgDocsResp.data.breadcrumbs,
-        sidepanel: pkgDocsResp.data.sidepanel,
-        main: pkgDocsResp.data.main,
+        css: pkgDocsResp.data.content.css,
+        script: pkgDocsResp.data.content.script,
+        breadcrumbs: pkgDocsResp.data.content.breadcrumbs,
+        sidepanel: pkgDocsResp.data.content.sidepanel,
+        main: pkgDocsResp.data.content.main,
       } satisfies Docs)
       : null,
   };
