@@ -137,6 +137,7 @@ export interface PackageVersionWithUser extends PackageVersion {
 }
 
 export interface PackageVersionDocsContent {
+  kind: "content";
   version: PackageVersionWithUser;
   css: string;
   script: string;
@@ -146,12 +147,13 @@ export interface PackageVersionDocsContent {
 }
 
 export interface PackageVersionDocsRedirect {
+  kind: "redirect";
   symbol: string;
 }
 
-export type PackageVersionDocs = { "content": PackageVersionDocsContent } | {
-  "redirect": PackageVersionDocsRedirect;
-};
+export type PackageVersionDocs =
+  | PackageVersionDocsContent
+  | PackageVersionDocsRedirect;
 
 export interface SourceDirEntry {
   name: string;

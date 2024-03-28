@@ -5,6 +5,7 @@ import {
   FullScope,
   Package,
   PackageVersionDocs,
+  PackageVersionDocsRedirect,
   PackageVersionSource,
   PackageVersionWithUser,
   Scope,
@@ -15,7 +16,7 @@ export async function packageData(
   state: State,
   scope: string,
   pkg: string,
-) {
+): Promise<PackageData | null> {
   let [pkgResp, scopeMemberResp] = await Promise.all([
     state.api.get<Package>(path`/scopes/${scope}/packages/${pkg}`),
     state.api.hasToken()
@@ -40,6 +41,11 @@ export async function packageData(
     pkg: pkgResp.data,
     scopeMember: scopeMemberResp?.data ?? null,
   };
+}
+
+export interface PackageData {
+  pkg: Package;
+  scopeMember: ScopeMember | null;
 }
 
 export async function packageDataWithVersion(
@@ -83,7 +89,7 @@ export async function packageDataWithDocs(
   pkg: string,
   version: string | undefined,
   docs: { all_symbols: "true" } | { entrypoint?: string; symbol?: string },
-) {
+): Promise<PackageVersionDocsRedirect | DocsData | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
     state.api.get<PackageVersionDocs>(
@@ -91,9 +97,7 @@ export async function packageDataWithDocs(
         version || "latest"
       }/docs`,
       docs,
-    ) as Promise<
-      APIResponse<PackageVersionDocs> | null
-    >,
+    ) as Promise<APIResponse<PackageVersionDocs> | null>,
   ]);
   if (data === null) return null;
 
@@ -112,24 +116,38 @@ export async function packageDataWithDocs(
     }
   }
 
-  if (pkgDocsResp?.data.redirect) {
-    return pkgDocsResp?.data;
+  if (pkgDocsResp === null) {
+    return {
+      ...data,
+      kind: "content",
+      selectedVersion: null,
+      selectedVersionIsLatestUnyanked: false,
+      docs: null,
+    };
+  } else if (pkgDocsResp?.data.kind == "redirect") {
+    return pkgDocsResp!.data;
+  } else {
+    return {
+      ...data,
+      kind: "content",
+      selectedVersion: pkgDocsResp!.data.version,
+      selectedVersionIsLatestUnyanked: !version,
+      docs: {
+        css: pkgDocsResp.data.css,
+        script: pkgDocsResp.data.script,
+        breadcrumbs: pkgDocsResp.data.breadcrumbs,
+        sidepanel: pkgDocsResp.data.sidepanel,
+        main: pkgDocsResp.data.main,
+      },
+    };
   }
+}
 
-  return {
-    ...data,
-    selectedVersion: pkgDocsResp?.data.content.version ?? null,
-    selectedVersionIsLatestUnyanked: !version && pkgDocsResp !== null,
-    docs: pkgDocsResp
-      ? ({
-        css: pkgDocsResp.data.content.css,
-        script: pkgDocsResp.data.content.script,
-        breadcrumbs: pkgDocsResp.data.content.breadcrumbs,
-        sidepanel: pkgDocsResp.data.content.sidepanel,
-        main: pkgDocsResp.data.content.main,
-      } satisfies Docs)
-      : null,
-  };
+export interface DocsData extends PackageData {
+  kind: "content";
+  selectedVersion: PackageVersionWithUser | null;
+  selectedVersionIsLatestUnyanked: boolean;
+  docs: Docs | null;
 }
 
 export async function packageDataWithSource(

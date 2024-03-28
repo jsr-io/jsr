@@ -7,7 +7,7 @@ import type {
 } from "../../../utils/api_types.ts";
 import { Docs, State } from "../../../util.ts";
 import { ScopeMember } from "../../../utils/api_types.ts";
-import { packageDataWithDocs } from "../../../utils/data.ts";
+import { DocsData, packageDataWithDocs } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
 import { DocsView } from "../(_components)/Docs.tsx";
@@ -78,11 +78,11 @@ export const handler: Handlers<Data, State> = {
     );
     if (!res) return ctx.renderNotFound();
 
-    if (res.redirect) {
+    if (res.kind === "redirect") {
       return new Response(null, {
         status: 307,
         headers: {
-          "location": res.redirect.symbol,
+          "location": res.symbol,
         },
       });
     }
@@ -92,7 +92,7 @@ export const handler: Handlers<Data, State> = {
       scopeMember,
       selectedVersion,
       docs,
-    } = res;
+    } = res as DocsData;
     if (selectedVersion === null) {
       return new Response(null, {
         status: 302,

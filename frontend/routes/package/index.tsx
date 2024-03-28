@@ -4,7 +4,7 @@ import type { Package, PackageVersionWithUser } from "../../utils/api_types.ts";
 import { Docs, State } from "../../util.ts";
 import { ScopeMember } from "../../utils/api_types.ts";
 import { Head } from "$fresh/src/runtime/head.ts";
-import { packageDataWithDocs } from "../../utils/data.ts";
+import { DocsData, packageDataWithDocs } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
@@ -88,7 +88,7 @@ export const handler: Handlers<Data, State> = {
       scopeMember,
       selectedVersion,
       docs,
-    } = res;
+    } = res as DocsData;
 
     if (scopeMember && pkg.versionCount === 0) {
       return new Response(null, {
