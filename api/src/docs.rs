@@ -522,7 +522,7 @@ fn generate_symbol_page(
   ctx: &GenerateCtx,
   current_specifier: &ModuleSpecifier,
   short_path: &ShortPath,
-  partitions_for_nodes: &IndexMap<String, Vec<DocNodeWithContext>>,
+  partitions_for_nodes: &deno_doc::html::partition::Partition,
   doc_nodes_for_module: &[DocNodeWithContext],
   name: &str,
 ) -> Option<SymbolPage> {
