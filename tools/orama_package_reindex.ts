@@ -54,7 +54,7 @@ const res2 = await fetch(`${ORAMA_URL}/${index}/notify`, {
     authorization: `Bearer ${auth}`,
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({"upsert": entries}),
+  body: JSON.stringify({ "upsert": entries }),
 });
 if (res2.status !== 200) {
   console.log(await res2.text());

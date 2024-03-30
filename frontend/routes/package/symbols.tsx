@@ -4,7 +4,7 @@ import { Head } from "$fresh/runtime.ts";
 import type { Package, PackageVersionWithUser } from "../../utils/api_types.ts";
 import { Docs, State } from "../../util.ts";
 import { ScopeMember } from "../../utils/api_types.ts";
-import { packageDataWithDocs } from "../../utils/data.ts";
+import { DocsData, packageDataWithDocs } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
@@ -68,13 +68,16 @@ export const handler: Handlers<Data, State> = {
       { all_symbols: "true" },
     );
     if (!res) return ctx.renderNotFound();
+    if (res instanceof Response) {
+      return res;
+    }
 
     const {
       pkg,
       scopeMember,
       selectedVersion,
       docs,
-    } = res;
+    } = res as DocsData;
     if (selectedVersion === null || docs === null) {
       return new Response(null, {
         status: 302,
