@@ -13,7 +13,7 @@ different tool, you can
 packages.
 
 > Would you like to add native support for JSR to your tool? Check out
-> [the guide for implementing native `jsr:` support](#implementing-in-tools).
+> [the guide for implementing native `jsr:` support](#implementing-native-jsr-imports-in-tools).
 
 ## Installing and importing JSR packages
 
