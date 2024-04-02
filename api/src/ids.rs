@@ -29,10 +29,6 @@ impl ScopeName {
       return Err(ScopeNameValidateError::InvalidCharacters);
     }
 
-    if name.starts_with(|c: char| c.is_ascii_digit()) {
-      return Err(ScopeNameValidateError::LeadingDigit);
-    }
-
     if name.starts_with('-') || name.ends_with('-') {
       return Err(ScopeNameValidateError::LeadingOrTrailingHyphens);
     }
@@ -133,9 +129,6 @@ pub enum ScopeNameValidateError {
   #[error("scope name must contain only lowercase ascii alphanumeric characters and hyphens")]
   InvalidCharacters,
 
-  #[error("scope name must not start with a digit")]
-  LeadingDigit,
-
   #[error("scope name must not start or end with a hyphen")]
   LeadingOrTrailingHyphens,
 
@@ -165,10 +158,6 @@ impl PackageName {
       .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
     {
       return Err(PackageNameValidateError::InvalidCharacters);
-    }
-
-    if name.starts_with(|c: char| c.is_ascii_digit()) {
-      return Err(PackageNameValidateError::LeadingDigit);
     }
 
     if name.starts_with('-') || name.ends_with('-') {
@@ -264,9 +253,6 @@ pub enum PackageNameValidateError {
 
   #[error("package name must contain only lowercase ascii alphanumeric characters and hyphens")]
   InvalidCharacters,
-
-  #[error("package name must not start with a digit")]
-  LeadingDigit,
 
   #[error("package name must not start or end with a hyphen")]
   LeadingOrTrailingHyphens,
