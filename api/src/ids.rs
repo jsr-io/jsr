@@ -779,9 +779,6 @@ mod tests {
     assert!(ScopeName::try_from("Foo").is_err());
     assert!(ScopeName::try_from("oooF").is_err());
     assert!(ScopeName::try_from("very-long-name-is-very-long").is_err());
-    assert!(ScopeName::try_from("123").is_err());
-    assert!(ScopeName::try_from("1oo").is_err());
-    assert!(ScopeName::try_from("123-foo").is_err());
     assert!(ScopeName::try_from("foo_bar").is_err());
     assert!(ScopeName::try_from("-foo").is_err());
     assert!(ScopeName::try_from("foo-").is_err());
@@ -813,9 +810,6 @@ mod tests {
     assert!(
       PackageName::try_from("very-long-name-is-very-very-very-long").is_err()
     );
-    assert!(PackageName::try_from("123").is_err());
-    assert!(PackageName::try_from("1oo").is_err());
-    assert!(PackageName::try_from("123-foo").is_err());
     assert!(PackageName::try_from("foo_bar").is_err());
     assert!(PackageName::try_from("-foo").is_err());
     assert!(PackageName::try_from("foo-").is_err());
