@@ -57,6 +57,12 @@ export function AnimatedLogo() {
           transform-box:fill-box;opacity:1
         }
 
+        @media (prefers-reduced-motion) {
+          #jsr-logo rect {
+            animation-duration: 0s !important;
+          }
+        }
+
         @keyframes jsr_logo_square_slide_in_up {
           0%,60% {transform:translateY(2px)}
           100% {transform:translateY(0)}
