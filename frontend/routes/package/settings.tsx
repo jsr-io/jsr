@@ -191,7 +191,7 @@ function DeletePackage(props: { hasVersions: boolean }) {
 
       {props.hasVersions && (
         <p class="mt-2 text-red-600">
-          This package can not be deleted because it has published versions.
+          This package cannot be deleted because it has published versions.
           Only empty packages can be deleted.
         </p>
       )}
