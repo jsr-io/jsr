@@ -8,11 +8,11 @@ use base64::Engine;
 use deno_ast::apply_text_changes;
 use deno_ast::ParsedSource;
 use deno_ast::TextChange;
-use deno_graph::DefaultModuleAnalyzer;
 use deno_graph::DependencyDescriptor;
 use deno_graph::ModuleGraph;
 use deno_graph::ParsedSourceStore;
 use deno_graph::PositionRange;
+use deno_graph::{DefaultModuleAnalyzer, ModuleAnalyzer};
 use deno_semver::package::PackageReqReference;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -133,7 +133,13 @@ pub async fn create_npm_tarball<'a>(
             .get_parsed_source(module.specifier())
             .expect("parsed source should be here");
 
-          let module_info = DefaultModuleAnalyzer::module_info(&source);
+          let analyzer = DefaultModuleAnalyzer;
+
+          let module_info = analyzer.analyze(
+            module.specifier(),
+            source.text_info().text(),
+            js.media_type,
+          )?;
 
           let maybe_rewrite_specifier =
             |specifier: &str,
