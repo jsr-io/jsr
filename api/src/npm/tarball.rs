@@ -465,10 +465,9 @@ mod tests {
         &mut loader,
         BuildOptions {
           is_dynamic: false,
-          module_analyzer: Some(&module_analyzer),
-          module_parser: Some(&module_analyzer.analyzer),
+          module_analyzer: &module_analyzer,
           workspace_members: &workspace_members,
-          file_system: Some(&NullFileSystem),
+          file_system: &NullFileSystem,
           resolver: None,
           npm_resolver: None,
           reporter: None,
