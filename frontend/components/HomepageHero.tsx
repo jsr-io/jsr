@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { asset, Head } from "$fresh/runtime.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { HomepageHeroParticles } from "../islands/HomepageHeroParticles.tsx";
