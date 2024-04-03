@@ -7,7 +7,7 @@ import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
-import { HomepageHero } from "../islands/HomepageHero.tsx";
+import { HomepageHero } from "../components/HomepageHero.tsx";
 
 interface Data {
   stats: Stats;
