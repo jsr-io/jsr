@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use chrono::DateTime;
 use chrono::Utc;
 use sqlx::migrate;
 use sqlx::postgres::PgPoolOptions;
@@ -568,6 +569,7 @@ impl Database {
             new_package_per_week_limit,
             publish_attempts_per_week_limit,
             verify_oidc_actor,
+            require_publishing_from_ci,
             updated_at,
             created_at
         ),
@@ -582,6 +584,7 @@ impl Database {
         new_package_per_week_limit,
         publish_attempts_per_week_limit,
         verify_oidc_actor,
+        require_publishing_from_ci,
         updated_at,
         created_at
         FROM ins_scope
@@ -650,6 +653,7 @@ impl Database {
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
       scopes.publish_attempts_per_week_limit as "scope_publish_attempts_per_week_limit",
       scopes.verify_oidc_actor as "scope_verify_oidc_actor",
+      scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.updated_at as "scope_updated_at",
       scopes.created_at as "scope_created_at",
       users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
@@ -671,6 +675,7 @@ impl Database {
           new_package_per_week_limit: r.scope_new_package_per_week_limit,
           publish_attempts_per_week_limit: r.scope_publish_attempts_per_week_limit,
           verify_oidc_actor: r.scope_verify_oidc_actor,
+          require_publishing_from_ci: r.scope_require_publishing_from_ci,
         };
         let usage = ScopeUsage {
           package: r.usage_package.unwrap().try_into().unwrap(),
@@ -720,6 +725,7 @@ impl Database {
       scopes.publish_attempts_per_week_limit as "scope_publish_attempts_per_week_limit",
       scopes.updated_at as "scope_updated_at",
       scopes.verify_oidc_actor as "scope_verify_oidc_actor",
+      scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.created_at as "scope_created_at",
       users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
@@ -745,6 +751,7 @@ impl Database {
           new_package_per_week_limit: r.scope_new_package_per_week_limit,
           publish_attempts_per_week_limit: r.scope_publish_attempts_per_week_limit,
           verify_oidc_actor: r.scope_verify_oidc_actor,
+          require_publishing_from_ci: r.scope_require_publishing_from_ci,
         };
         let usage = ScopeUsage {
           package: r.usage_package.unwrap().try_into().unwrap(),
@@ -792,6 +799,7 @@ impl Database {
       new_package_per_week_limit,
       publish_attempts_per_week_limit,
       verify_oidc_actor,
+      require_publishing_from_ci,
       updated_at,
       created_at
       FROM scopes WHERE creator = $1
@@ -813,6 +821,7 @@ impl Database {
       new_package_per_week_limit,
       publish_attempts_per_week_limit,
       verify_oidc_actor,
+      require_publishing_from_ci,
       updated_at,
       created_at
       FROM scopes WHERE scope = $1"#,
@@ -859,11 +868,45 @@ impl Database {
           new_package_per_week_limit,
           publish_attempts_per_week_limit,
           verify_oidc_actor,
+          require_publishing_from_ci,
           updated_at,
           created_at
 
       "#,
       verify_oidc_actor,
+      scope as _
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::scope_set_require_publishing_from_ci",
+    skip(self),
+    err
+  )]
+  pub async fn scope_set_require_publishing_from_ci(
+    &self,
+    scope: &ScopeName,
+    require_publishing_from_ci: bool,
+  ) -> Result<Scope> {
+    sqlx::query_as!(
+      Scope,
+      r#"
+        UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
+        RETURNING
+          scope as "scope: ScopeName",
+          creator,
+          package_limit,
+          new_package_per_week_limit,
+          publish_attempts_per_week_limit,
+          verify_oidc_actor,
+          require_publishing_from_ci,
+          updated_at,
+          created_at
+
+      "#,
+      require_publishing_from_ci,
       scope as _
     )
     .fetch_one(&self.pool)
@@ -1783,6 +1826,7 @@ impl Database {
       scopes.new_package_per_week_limit,
       scopes.publish_attempts_per_week_limit,
       scopes.verify_oidc_actor,
+      scopes.require_publishing_from_ci,
       scopes.updated_at,
       scopes.created_at
       FROM scopes
@@ -2742,6 +2786,49 @@ impl Database {
     )
     .map(|r| {
       (r.scope, r.name, r.version)
+    })
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  pub async fn list_all_scopes_for_sitemap(
+    &self,
+  ) -> Result<Vec<(ScopeName, DateTime<Utc>, Option<DateTime<Utc>>)>> {
+    sqlx::query!(
+      r#"
+        SELECT
+          scope as "scope: ScopeName",
+          updated_at,
+          (SELECT updated_at FROM packages WHERE scope = scope ORDER BY updated_At DESC LIMIT 1) as "latest_package_created_at"
+        FROM scopes
+        ORDER BY scope ASC
+        LIMIT 50000
+      "#
+    )
+    .map(|r| (r.scope, r.updated_at, r.latest_package_created_at))
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  pub async fn list_all_packages_for_sitemap(
+    &self,
+  ) -> Result<Vec<(ScopeName, PackageName, DateTime<Utc>, DateTime<Utc>)>> {
+    sqlx::query!(
+      r#"SELECT
+        scope as "scope: ScopeName", name as "name: PackageName", updated_at,
+        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at!"
+      FROM packages
+      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL
+      ORDER BY scope ASC, name ASC
+      LIMIT 50000"#
+    )
+    .map(|r| {
+      (
+        r.scope,
+        r.name,
+        r.updated_at,
+        r.latest_version_updated_at,
+      )
     })
     .fetch_all(&self.pool)
     .await

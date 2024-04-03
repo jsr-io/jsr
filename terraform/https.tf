@@ -80,6 +80,9 @@ resource "google_compute_url_map" "frontend_https" {
   #  - they have a 'Sec-Fetch-Dest' header with value 'image' or 'video' and
   #    a 'Sec-Fetch-Site' with value 'same-origin'
   #
+  # Additionally, any requests originating from the Googlebot user agent are
+  # punched through to the frontend service, never to the modules bucket.
+  # 
   # These restrictions are in place to prevent users from accessing hosted files
   # in navigation requests, while allowing access to them (even cross-site) when
   # using `fetch`. We disallow loading resources directly from `<img>` and
@@ -102,11 +105,52 @@ resource "google_compute_url_map" "frontend_https" {
     name            = "root"
     default_service = google_compute_backend_service.registry_frontend.self_link
 
+    # API requests are proxied to the API backend service.
     route_rules {
       priority = 1
+      service  = google_compute_backend_service.registry_api.self_link
+      match_rules {
+        prefix_match = "/api/"
+      }
+      match_rules {
+        full_path_match = "/sitemap.xml"
+      }
+      match_rules {
+        full_path_match = "/sitemap-scopes.xml"
+      }
+      match_rules {
+        full_path_match = "/sitemap-packages.xml"
+      }
+      match_rules {
+        full_path_match = "/login"
+      }
+      match_rules {
+        full_path_match = "/login/callback"
+      }
+      match_rules {
+        full_path_match = "/logout"
+      }
+    }
+
+
+    # Punch Googlebot through to the frontend.
+    route_rules {
+      priority = 2
+      service  = google_compute_backend_service.registry_frontend.self_link
+
+      match_rules {
+        header_matches {
+          header_name  = "from"
+          prefix_match = "googlebot(at)googlebot.com"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 3
       service  = google_compute_backend_bucket.modules.self_link
 
-      # HEAD requests with no Accept header, and no Sec-Fetch-Dest header, or
+      # HEAD requests with no Accept header, and no Sec-Fetch-Dest header
       match_rules {
         prefix_match = "/@"
         header_matches {
@@ -263,23 +307,6 @@ resource "google_compute_url_map" "frontend_https" {
           header_name = "Sec-Fetch-Site"
           exact_match = "same-origin"
         }
-      }
-    }
-
-    route_rules {
-      priority = 2
-      service  = google_compute_backend_service.registry_api.self_link
-      match_rules {
-        prefix_match = "/api/"
-      }
-      match_rules {
-        full_path_match = "/login"
-      }
-      match_rules {
-        full_path_match = "/login/callback"
-      }
-      match_rules {
-        full_path_match = "/logout"
       }
     }
   }

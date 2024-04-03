@@ -1498,6 +1498,9 @@ components:
         ghActionsVerifyActor:
           type: boolean
           description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
+        requirePublishingFromCI:
+          type: boolean
+          description: Whether to require publishing from a CI environment. This disables publishing from a local environment.
         createdAt:
           type: string
           format: date-time
@@ -1520,13 +1523,21 @@ components:
         - name
 
     UpdateScopeRequest:
-      type: object
-      properties:
-        ghActionsVerifyActor:
-          type: boolean
-          description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
-      required:
-        - ghActionsVerifyActor
+      oneOf:
+        - type: object
+          properties:
+            ghActionsVerifyActor:
+              type: boolean
+              description: Whether to verify the actor of a GitHub Actions run when authenticating publishing with a GitHub Actions OIDC token.
+          required:
+            - ghActionsVerifyActor
+        - type: object
+          properties:
+            requirePublishingFromCI:
+              type: boolean
+              description: Whether to require publishing from a CI environment. This disables publishing from a local environment.
+          required:
+            - requirePublishingFromCI
 
     ScopeMember:
       type: object
@@ -1659,6 +1670,18 @@ components:
       required:
         - isAdmin
 
+    GitHubRepository:
+      type: object
+      properties:
+        owner:
+          type: string
+          description: The GitHub user / organization of the repository.
+          example: denoland
+        name:
+          type: string
+          description: The GitHub repository name.
+          example: deno
+
     PackageName:
       type: string
       pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
@@ -1676,6 +1699,8 @@ components:
           type: string
           description: The description of the package.
           example: A module for formatting strings.
+        runtimeCompat:
+          $ref: "#/components/schemas/RuntimeCompat"
         createdAt:
           type: string
           format: date-time
@@ -1684,6 +1709,8 @@ components:
           type: string
           format: date-time
           description: The date and time when the package was last updated.
+        githubRepository:
+          $ref: "#/components/schemas/GitHubRepository"
       required:
         - scope
         - name
@@ -1728,6 +1755,36 @@ components:
                 - repo
           required:
             - githubRepository
+        - type: object
+          properties:
+            runtimeCompat:
+              $ref: "#/components/schemas/RuntimeCompat"
+          required:
+            - runtimeCompat
+
+    RuntimeCompat:
+      type: object
+      properties:
+        browser:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with web browsers.
+        deno:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with Deno.
+        node:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with Node.js.
+        workerd:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with workerd.
+        bun:
+          type: boolean
+          nullable: true
+          description: Whether the package is compatible with Bun.
 
     Version:
       type: string

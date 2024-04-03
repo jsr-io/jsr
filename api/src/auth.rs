@@ -61,7 +61,7 @@ fn new_github_identity_from_oauth_response(
   let refresh_token_expires_at = res
     .extra_fields()
     .refresh_token_expires_in
-    .map(|s| now + Duration::seconds(s));
+    .map(|s| now + Duration::try_seconds(s).unwrap());
 
   NewGithubIdentity {
     github_id: 0,
@@ -78,7 +78,7 @@ pub async fn access_token(
   github_oauth2_client: &GithubOauth2Client,
   ghid: &mut NewGithubIdentity,
 ) -> Result<String, anyhow::Error> {
-  let now = Utc::now() + Duration::seconds(30);
+  let now = Utc::now() + Duration::try_seconds(30).unwrap();
 
   // If access token is present, and is expired, attempt to refresh it.
   if ghid.access_token.is_some()
@@ -168,7 +168,7 @@ async fn generate_access_token(
 
   let db_user = db.upsert_user_by_github_id(new_user).await?;
 
-  let expires_at = Utc::now() + Duration::days(7);
+  let expires_at = Utc::now() + Duration::try_days(7).unwrap();
 
   let token_string = crate::token::create_token(
     db,

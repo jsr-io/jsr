@@ -2,14 +2,14 @@
 import type { List, Package } from "../frontend/utils/api_types.ts";
 import type { OramaPackageHit } from "../frontend/util.ts";
 
-const index = Deno.env.get("ORAMA_INDEX_ID");
-const auth = Deno.env.get("ORAMA_PRIVATE_API_KEY");
+const index = Deno.env.get("ORAMA_PACKAGE_INDEX_ID");
+const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");
 const jsr_url = Deno.env.get("JSR_URL");
 
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
 
 // Clear the index
-await fetch(`${ORAMA_URL}/${index}/snapshot`, {
+const res = await fetch(`${ORAMA_URL}/${index}/snapshot`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth}`,
@@ -17,6 +17,10 @@ await fetch(`${ORAMA_URL}/${index}/snapshot`, {
   },
   body: JSON.stringify([]),
 });
+if (res.status !== 200) {
+  console.log(await res.text());
+  throw res;
+}
 
 // fill the index
 let packages: Package[] = [];
@@ -44,7 +48,7 @@ const entries: OramaPackageHit[] = packages.map((entry) => ({
   id: `@${entry.scope}/${entry.name}`,
 }));
 
-await fetch(`${ORAMA_URL}/${index}/notify`, {
+const res2 = await fetch(`${ORAMA_URL}/${index}/notify`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth}`,
@@ -52,12 +56,20 @@ await fetch(`${ORAMA_URL}/${index}/notify`, {
   },
   body: JSON.stringify({ "upsert": entries }),
 });
+if (res2.status !== 200) {
+  console.log(await res2.text());
+  throw res2;
+}
 
 // deploy the index
-await fetch(`${ORAMA_URL}/${index}/deploy`, {
+const res3 = await fetch(`${ORAMA_URL}/${index}/deploy`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth}`,
     "Content-Type": "application/json",
   },
 });
+if (res3.status !== 200) {
+  console.log(await res3.text());
+  throw res3;
+}

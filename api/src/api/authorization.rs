@@ -57,7 +57,7 @@ async fn create_authorization(
   let code = create_authorization_code();
   let exchange_token = create_exchange_token();
 
-  let expires_at = Utc::now() + chrono::Duration::minutes(10);
+  let expires_at = Utc::now() + chrono::Duration::try_minutes(10).unwrap();
 
   let new_authorization = NewAuthorization {
     exchange_token: &exchange_token,
@@ -147,7 +147,7 @@ async fn exchange_authorization(
 
   let user = db.get_user(user_id).await?.ok_or(ApiError::UserNotFound)?;
 
-  let expires_at = Utc::now() + chrono::Duration::hours(1);
+  let expires_at = Utc::now() + chrono::Duration::try_hours(1).unwrap();
 
   let token = create_token(
     db,

@@ -4,7 +4,7 @@ import type { Package, PackageVersionWithUser } from "../../utils/api_types.ts";
 import { Docs, State } from "../../util.ts";
 import { ScopeMember } from "../../utils/api_types.ts";
 import { Head } from "$fresh/src/runtime/head.ts";
-import { packageDataWithDocs } from "../../utils/data.ts";
+import { DocsData, packageDataWithDocs } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
@@ -23,7 +23,7 @@ export default function PackagePage(
   const iam = scopeIAM(state, data.member);
 
   return (
-    <div class="mb-20">
+    <div>
       <Head>
         <title>
           @{params.scope}/{params.package} - JSR
@@ -54,6 +54,7 @@ export default function PackagePage(
             docs={data.docs}
             params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            showProvenanceBadge
           />
         )
         : (
@@ -78,13 +79,16 @@ export const handler: Handlers<Data, State> = {
       {},
     );
     if (res === null) return ctx.renderNotFound();
+    if (res instanceof Response) {
+      return res;
+    }
 
     const {
       pkg,
       scopeMember,
       selectedVersion,
       docs,
-    } = res;
+    } = res as DocsData;
 
     if (scopeMember && pkg.versionCount === 0) {
       return new Response(null, {

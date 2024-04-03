@@ -12,7 +12,7 @@ const groups = new Map<string, { id: string; title: string }[]>();
 for (const group of groupsNames) {
   groups.set(group, []);
 }
-const files = new Map<string, string>();
+export const files = new Map<string, string>();
 for (const { id, title, group } of TOC) {
   groups.get(group)!.push({ id, title });
   files.set(id, title);
@@ -25,7 +25,7 @@ interface Data {
   content: string;
 }
 
-export default function PackagePage({ data }: PageProps<Data, State>) {
+export default function Page({ data }: PageProps<Data, State>) {
   return (
     <div class="mb-20">
       <Head>
@@ -86,6 +86,8 @@ export default function PackagePage({ data }: PageProps<Data, State>) {
 
 export const handler: Handlers<Data, State> = {
   async GET(_, ctx) {
+    ctx.state.searchKind = "docs";
+
     const { id } = ctx.params;
     if (!files.has(id)) return ctx.renderNotFound();
 

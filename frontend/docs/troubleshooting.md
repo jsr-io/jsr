@@ -213,10 +213,8 @@ If you think this is a bug, please contact support at
 The package being published contains a module that references a JSR specifier
 that is not valid. JSR specifiers must be in the form
 `jsr:@<scope>/<name>@<version>/<path>` or
-`jsr:/@<scope>/<name>@<version>/<path>`
-
-. You can fix this error by updating the module to reference a valid JSR
-specifier.
+`jsr:/@<scope>/<name>@<version>/<path>`. You can fix this error by updating the
+module to reference a valid JSR specifier.
 
 ### `invalidNpmSpecifier`
 
@@ -224,3 +222,55 @@ The package being published contains a module that references an npm specifier
 that is not valid. npm specifiers must be in the form
 `npm:<name>@<version>/<path>` or `npm:/<name>@<version>/<path>`. You can fix
 this error by updating the module to reference a valid npm specifier.
+
+### `actorNotAuthorized`
+
+The package is being published with an access token that does not have
+permission to publish to the scope.
+
+This can happen when publishing from GitHub Actions, if the GitHub repository
+being published from is not linked to the package you are trying to publish. You
+can fix this error by linking the GitHub repository to the package you are
+trying to publish in the package settings.
+
+If you are not publishing from GitHub Actions, you can fix this error by using
+an access token that has permission to publish to the scope.
+
+### `actorNotScopeMember`
+
+The package is being published with an access token corresponding to a user that
+is not a member of the scope.
+
+This can happen when publishing from GitHub Actions if the user that invoked the
+Actions workflow is not a member of the scope, if
+[publishing is restricted to scope members (default)](/docs/scopes#github-actions-publishing-security).
+You can fix this by adding the user to the scope, or by changing the GitHub
+Actions security settings on the scope to not require the publishing user to be
+a member of the scope.
+
+If you are not publishing from GitHub Actions, you can fix this error by
+authenticating as a user that is a member of the scope, or by adding the user to
+the scope with at least the "member" role.
+
+## Excluded module error
+
+After filtering files, you may encounter an `excluded-module` error saying that
+a module in the package's module graph was excluded from publishing.
+
+This may occur when you've accidentally excluded a module that is used in the
+published code (for example, writing `"exclude": ["**/*.ts"]` and then trying to
+publish a package with a `mod.ts` export). In this scenario, JSR is preventing
+you from accidentally publishing a package that won't work.
+
+To fix the issue, ensure the module mentioned in the error message is not
+excluded in `exclude` and/or `publish.exclude` in the config file, or don't
+reference it in any code used by your package's exports.
+
+You can find all files that are being included in the package by running the
+following command in your package directory:
+
+```sh
+npx jsr publish --dry-run
+# or
+deno publish --dry-run
+```

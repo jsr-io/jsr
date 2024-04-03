@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH ins_scope AS (\n            INSERT INTO scopes (scope, creator) VALUES ($1, $2)\n            RETURNING\n            scope,\n            creator,\n            package_limit,\n            new_package_per_week_limit,\n            publish_attempts_per_week_limit,\n            verify_oidc_actor,\n            updated_at,\n            created_at\n        ),\n        ins_member AS (\n            INSERT INTO scope_members (scope, user_id, is_admin)\n            VALUES ($1, $2, true)\n        )\n        SELECT\n        scope as \"scope: ScopeName\",\n        creator,\n        package_limit,\n        new_package_per_week_limit,\n        publish_attempts_per_week_limit,\n        verify_oidc_actor,\n        updated_at,\n        created_at\n        FROM ins_scope\n        ",
+  "query": "SELECT\n      scope as \"scope: ScopeName\",\n      creator,\n      package_limit,\n      new_package_per_week_limit,\n      publish_attempts_per_week_limit,\n      verify_oidc_actor,\n      require_publishing_from_ci,\n      updated_at,\n      created_at\n      FROM scopes WHERE scope = $1",
   "describe": {
     "columns": [
       {
@@ -35,19 +35,23 @@
       },
       {
         "ordinal": 6,
+        "name": "require_publishing_from_ci",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -58,8 +62,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "3c7b98747d1ca93eaa85759dbe0dec946f708979f5c0c028e38c4db14ff06e67"
+  "hash": "500d0cd93fa62096e30d12d646afd18f9880a4b033ea3bf79e989e9f6cb1260e"
 }

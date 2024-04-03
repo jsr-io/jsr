@@ -17,14 +17,28 @@ in the same scope can have the same name. Package names must be between 2 and 20
 characters long, and can only contain lowercase letters, numbers, and hyphens.
 They cannot start with a hyphen or digit.
 
+Packages can be created at [jsr.io/new](/new). Packages are always created in a
+scope, so a scope must be created before creating a package.
+
+## Description
+
 Packages can have a description. The description is a short blurb about the
 package that is displayed on the package page and in search results.
 Descriptions should summarize what the package does for potential users. The
 description can be up to 250 characters long. The description can be updated
 from the "Settings" tab on the package page.
 
-Packages can be created at [jsr.io/new](/new). Packages are always created in a
-scope, so a scope must be created before creating a package.
+## Runtime Compatibility
+
+Packages can specify which runtimes they are compatible with. This is useful for
+package consumers, who can see at a glance which runtimes a package supports.
+This information is displayed on the package page and in search results. For
+each of the 5 supported runtimes that compatibility can be specified for (Deno,
+Node.js, Cloudflare Workers, Bun, and web browsers) a package can specify a
+support level of "Supported", "Unsupported", or "Unknown support". Unknown
+support means that the package author does not know if the package is compatible
+with the runtime. The compatibility can be updated from the "Settings" tab on
+the package page.
 
 ## Linked GitHub repository
 

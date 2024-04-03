@@ -222,6 +222,8 @@ pub struct ApiFullScope {
   pub created_at: DateTime<Utc>,
   pub quotas: ApiScopeQuotas,
   pub gh_actions_verify_actor: bool,
+  #[serde(rename = "requirePublishingFromCI")]
+  pub require_publishing_from_ci: bool,
 }
 
 impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
@@ -241,6 +243,7 @@ impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
         publish_attempts_per_week_limit: scope.publish_attempts_per_week_limit,
       },
       gh_actions_verify_actor: scope.verify_oidc_actor,
+      require_publishing_from_ci: scope.require_publishing_from_ci,
     }
   }
 }
@@ -575,14 +578,20 @@ pub struct ApiPackageVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiPackageVersionDocs {
-  pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
-  pub script: Cow<'static, str>,
-  pub breadcrumbs: Option<String>,
-  pub sidepanel: Option<String>,
-  pub main: String,
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[allow(clippy::large_enum_variant)]
+pub enum ApiPackageVersionDocs {
+  Content {
+    version: ApiPackageVersion,
+    css: Cow<'static, str>,
+    script: Cow<'static, str>,
+    breadcrumbs: Option<String>,
+    sidepanel: Option<String>,
+    main: String,
+  },
+  Redirect {
+    symbol: String,
+  },
 }
 
 impl From<PackageVersion> for ApiPackageVersion {
@@ -685,8 +694,11 @@ pub struct ApiAdminUpdateScopeRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiUpdateScopeRequest {
-  pub gh_actions_verify_actor: Option<bool>,
+pub enum ApiUpdateScopeRequest {
+  #[serde(rename = "ghActionsVerifyActor")]
+  GhActionsVerifyActor(bool),
+  #[serde(rename = "requirePublishingFromCI")]
+  RequirePublishingFromCI(bool),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

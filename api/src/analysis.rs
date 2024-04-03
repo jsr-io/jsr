@@ -879,6 +879,7 @@ impl RegistryLoader for GcsRegistryLoader {
     &self.registry_url
   }
 
+  #[allow(clippy::blocks_in_conditions)] // https://github.com/tokio-rs/tracing/issues/2876
   #[tracing::instrument(
     name = "GcsRegistryLoader::load_package_meta",
     skip(self),
@@ -897,6 +898,7 @@ impl RegistryLoader for GcsRegistryLoader {
     Ok(Some(meta))
   }
 
+  #[allow(clippy::blocks_in_conditions)] // https://github.com/tokio-rs/tracing/issues/2876
   #[tracing::instrument(
     name = "GcsRegistryLoader::load_version_meta",
     skip(self),

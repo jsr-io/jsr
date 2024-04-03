@@ -8,9 +8,16 @@
     "preview": "deno run -A main.ts",
     "update": "deno run -A -r https://fresh.deno.dev/update ."
   },
-  "lint": { "rules": { "tags": ["fresh", "recommended"] } },
+  "lint": {
+    "rules": {
+      "tags": [
+        "fresh",
+        "recommended"
+      ]
+    }
+  },
   "imports": {
-    "$fresh/": "https://deno.land/x/fresh@1.6.5/",
+    "$fresh/": "https://deno.land/x/fresh@1.6.6/",
     "preact": "https://esm.sh/preact@10.19.2",
     "preact/": "https://esm.sh/preact@10.19.2/",
     "preact-render-to-string": "https://esm.sh/*preact-render-to-string@6.3.1",
@@ -23,11 +30,17 @@
     "$marked-smartypants": "https://esm.sh/marked-smartypants@1.0.1",
     "$tabler_icons/": "https://deno.land/x/tabler_icons_tsx@0.0.5/tsx/",
     "@orama/orama": "npm:@orama/orama@^2",
+    "@orama/highlight": "npm:@orama/highlight@^0.1",
     "@oramacloud/client": "npm:@oramacloud/client@^1",
     "tailwindcss": "npm:tailwindcss@3.4",
-    "tailwindcss/": "npm:/tailwindcss@3.4/",
     "postcss": "npm:postcss@8.4"
   },
-  "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "preact" },
-  "exclude": ["_fresh/", "**/_fresh/*"]
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
+  "exclude": [
+    "_fresh/",
+    "**/_fresh/*"
+  ]
 }

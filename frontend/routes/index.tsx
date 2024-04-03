@@ -7,7 +7,7 @@ import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
 import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
-import { HomepageHero } from "../islands/HomepageHero.tsx";
+import { HomepageHero } from "../components/HomepageHero.tsx";
 import { Logo } from "../components/Logo.tsx";
 
 interface Data {
@@ -29,8 +29,8 @@ export default function Home({ data }: PageProps<Data>) {
       </Head>
 
       <HomepageHero
-        apiKey={Deno.env.get("ORAMA_PUBLIC_API_KEY")}
-        indexId={Deno.env.get("ORAMA_PUBLIC_INDEX_ID")}
+        apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
+        indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
       />
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <ListPanel title="Featured Packages">

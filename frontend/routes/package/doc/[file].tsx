@@ -7,7 +7,7 @@ import type {
 } from "../../../utils/api_types.ts";
 import { Docs, State } from "../../../util.ts";
 import { ScopeMember } from "../../../utils/api_types.ts";
-import { packageDataWithDocs } from "../../../utils/data.ts";
+import { DocsData, packageDataWithDocs } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
 import { DocsView } from "../(_components)/Docs.tsx";
@@ -24,7 +24,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
   const iam = scopeIAM(state, data.member);
 
   return (
-    <div class="mb-20">
+    <div>
       <Head>
         <title>
           {params.entrypoint || "index"} - @{params.scope}/{params.package}{" "}
@@ -76,7 +76,7 @@ export const handler: Handlers<Data, State> = {
       scopeMember,
       selectedVersion,
       docs,
-    } = res;
+    } = res as DocsData;
     if (selectedVersion === null) {
       return new Response(null, {
         status: 302,

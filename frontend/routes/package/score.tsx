@@ -163,7 +163,7 @@ function ScoreInfo(props: {
           scoreValue={5}
           title="No slow types are used"
         >
-          This package uses no{" "}
+          The package should not use{" "}
           <a class="link" href="/docs/about-slow-types">
             slow types
           </a>.
@@ -173,33 +173,33 @@ function ScoreInfo(props: {
           scoreValue={1}
           title="Has a description"
         >
-          The package has a description set in the package settings to help
-          users find this package via search.
+          The package should have a description set in the package settings to
+          help users find this package via search.
         </ScoreItem>
         <ScoreItem
           value={score.atLeastOneRuntimeCompatible}
           scoreValue={1}
           title="At least one runtime is marked as compatible"
         >
-          This package marks at least one runtime as "compatible" in the package
-          settings to aid users in understanding where they can use this
-          package.
+          The package should be marked with at least one runtime as "compatible"
+          in the package settings to aid users in understanding where they can
+          use this package.
         </ScoreItem>
         <ScoreItem
           value={score.multipleRuntimesCompatible}
           scoreValue={1}
           title="At least two runtimes are marked as compatible"
         >
-          This package is compatible with more than one runtime, and is marked
-          as such in the package settings.
+          The package should be compatible with more than one runtime, and be
+          marked as such in the package settings.
         </ScoreItem>
         <ScoreItem
           value={score.hasProvenance}
           scoreValue={1}
           title="Has provenance"
         >
-          This package is published from a verifiable CI/CD workflow, and has a
-          {" "}
+          The package should be published from a verifiable CI/CD workflow, and
+          have a{" "}
           <a class="link" href="/docs/trust">
             public transparency log entry
           </a>.

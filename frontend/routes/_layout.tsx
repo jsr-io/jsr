@@ -18,16 +18,24 @@ export default function Layout(
         >
           Skip to main content
         </a>
-        <Header user={state.user} sudo={state.sudo} url={url} />
+        <Header
+          user={state.user}
+          sudo={state.sudo}
+          searchKind={state.searchKind}
+          url={url}
+        />
         <div
-          class="section-x-inset-xl py-4 md:py-6 focus-visible:ring-0 focus-visible:outline-none"
+          class="section-x-inset-xl pt-4 md:pt-6 focus-visible:ring-0 focus-visible:outline-none"
           id="main-content"
           tabIndex={-1}
         >
           <Component />
         </div>
       </div>
-      <footer class="text-xs text-center p-4 text-gray-500">
+      <footer
+        id="footer"
+        class="text-xs text-center mt-4 md:mt-6 p-4 text-gray-500"
+      >
         JSR - It is {new Date().toLocaleString("en-ZA", {
           timeZoneName: "short",
           timeZone: "Etc/UTC",

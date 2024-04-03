@@ -49,7 +49,7 @@
 
   :root {
     scroll-behavior: smooth;
-    scrollbar-color: theme("colors.jsr-cyan.950") theme("colors.jsr-cyan.50");
+    scrollbar-color: theme("colors.jsr-cyan.200") theme("colors.jsr-cyan.50");
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -170,6 +170,11 @@ body .ddoc #sidepanel a:active {
   background-color: theme("colors.cyan.200");
 }
 
+body .ddoc #sidepanel {
+  @apply pb-4;
+  height: unset !important;
+}
+
 /* !important seems necessary for taking precedent over current ddoc styling */
 
 body .ddoc .markdown h1 {
@@ -229,7 +234,21 @@ body .ddoc .usage nav label {
 }
 
 body .ddoc > section > nav.py-4 {
-  @apply pt-0 top-4;
+  @apply pt-0 pb-0;
+}
+
+body .ddoc > section > nav.py-4 > ul {
+  padding: 1rem 0;
+  scrollbar-width: thin;
+}
+
+body .ddoc #module_doc, body .ddoc main {
+  @apply pb-8;
+}
+
+/** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
+body:has(.ddoc) #footer {
+  display: none;
 }
 
 body .ddoc .markdown tr:nth-child(2n) {

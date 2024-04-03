@@ -15,8 +15,8 @@ locals {
 
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
-    # ORAMA_PRIVATE_API_KEY is defined inline, because it comes from Secrets Manager
-    # ORAMA_INDEX_ID is defined inline, because it comes from Secrets Manager
+    # ORAMA_PACKAGE_PRIVATE_API_KEY is defined inline, because it comes from Secrets Manager
+    # ORAMA_PACKAGE_INDEX_ID is defined inline, because it comes from Secrets Manager
 
     "REGISTRY_URL" = "https://${var.domain_name}"
     "NPM_URL"      = "https://${local.npm_domain}"
@@ -48,7 +48,9 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     containers {
       image = var.api_image_id
-      args  = ["--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"]
+      args = [
+        "--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"
+      ]
 
       dynamic "env" {
         for_each = local.api_envs
@@ -79,20 +81,20 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
-        name = "ORAMA_PRIVATE_API_KEY"
+        name = "ORAMA_PACKAGE_PRIVATE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_private_api_key.id
+            secret  = google_secret_manager_secret.orama_package_private_api_key.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_INDEX_ID"
+        name = "ORAMA_PACKAGE_INDEX_ID"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_index_id.id
+            secret  = google_secret_manager_secret.orama_package_index_id.id
             version = "latest"
           }
         }
@@ -123,6 +125,7 @@ resource "google_compute_backend_service" "registry_api" {
   custom_response_headers = [
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
+    "X-Robots-Tag: noindex",
   ]
 
   enable_cdn = true
@@ -175,7 +178,9 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
 
     containers {
       image = var.api_image_id
-      args  = ["--cloud_trace", "--tasks", "--api=false", "--database_pool_size=1"]
+      args = [
+        "--cloud_trace", "--tasks", "--api=false", "--database_pool_size=1"
+      ]
 
       dynamic "env" {
         for_each = local.api_envs
@@ -196,20 +201,20 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
       }
 
       env {
-        name = "ORAMA_PRIVATE_API_KEY"
+        name = "ORAMA_PACKAGE_PRIVATE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_private_api_key.id
+            secret  = google_secret_manager_secret.orama_package_private_api_key.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_INDEX_ID"
+        name = "ORAMA_PACKAGE_INDEX_ID"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_index_id.id
+            secret  = google_secret_manager_secret.orama_package_index_id.id
             version = "latest"
           }
         }
@@ -273,14 +278,14 @@ resource "google_secret_manager_secret_iam_member" "postmark_token" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_private_api_key" {
-  secret_id = google_secret_manager_secret.orama_private_api_key.id
+resource "google_secret_manager_secret_iam_member" "orama_package_private_api_key" {
+  secret_id = google_secret_manager_secret.orama_package_private_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_index_id" {
-  secret_id = google_secret_manager_secret.orama_index_id.id
+resource "google_secret_manager_secret_iam_member" "orama_package_index_id" {
+  secret_id = google_secret_manager_secret.orama_package_index_id.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

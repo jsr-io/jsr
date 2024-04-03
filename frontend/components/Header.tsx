@@ -1,22 +1,39 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { FullUser } from "../utils/api_types.ts";
-import { PackageSearch } from "../islands/PackageSearch.tsx";
+import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
 import { Logo } from "./Logo.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
+import { SearchKind } from "../util.ts";
 
-export function Header({ user, sudo, url }: {
+export function Header({
+  user,
+  sudo,
+  url,
+  searchKind = "packages",
+}: {
   user: FullUser | null;
   sudo: boolean;
   url: URL;
+  searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const apiKey = Deno.env.get("ORAMA_PUBLIC_API_KEY");
-  const indexId = Deno.env.get("ORAMA_PUBLIC_INDEX_ID");
+  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
+  const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+
+  const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
+  const oramaDocsIndexId = Deno.env.get("ORAMA_DOCS_PUBLIC_INDEX_ID");
+
+  const oramaApiKey = searchKind === "packages"
+    ? oramaPackageApiKey
+    : oramaDocsApiKey;
+  const oramaIndexId = searchKind === "packages"
+    ? oramaPackageIndexId
+    : oramaDocsIndexId;
 
   const isHomepage = url.pathname === "/";
 
@@ -46,29 +63,45 @@ export function Header({ user, sudo, url }: {
           )}
           <div class="hidden sm:block grow-1 flex-1">
             {!isHomepage && (
-              <PackageSearch
+              <GlobalSearch
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
-                apiKey={apiKey}
-                indexId={indexId}
+                apiKey={oramaApiKey}
+                indexId={oramaIndexId}
+                kind={searchKind}
               />
             )}
           </div>
           <div class="flex gap-2 sm:gap-4 items-center pointer-events-auto">
-            <a
-              href="/packages"
-              class="link-header"
-            >
-              Browse packages
-            </a>
-            <span class="text-gray-200 select-none">|</span>
-            <a
-              href="/docs"
-              class="link-header"
-            >
-              Docs
-            </a>
+            {searchKind === "docs"
+              ? (
+                <a
+                  href="/"
+                  class="link-header"
+                >
+                  JSR Home
+                </a>
+              )
+              : (
+                <a
+                  href="/packages"
+                  className="link-header"
+                >
+                  Browse packages
+                </a>
+              )}
+            {searchKind !== "docs" && (
+              <>
+                <span class="text-gray-200 select-none">|</span>
+                <a
+                  href="/docs"
+                  class="link-header"
+                >
+                  Docs
+                </a>
+              </>
+            )}
             <span class="text-gray-200 select-none">|</span>
             {user
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
@@ -82,10 +115,11 @@ export function Header({ user, sudo, url }: {
         </div>
         <div class="mt-4 sm:hidden">
           {!isHomepage && (
-            <PackageSearch
+            <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
-              apiKey={apiKey}
-              indexId={indexId}
+              apiKey={oramaApiKey}
+              indexId={oramaIndexId}
+              kind={searchKind}
             />
           )}
         </div>

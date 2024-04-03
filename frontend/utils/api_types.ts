@@ -27,6 +27,7 @@ export interface FullScope extends Scope {
   creator: User;
   quotas: ScopeQuota;
   ghActionsVerifyActor: boolean;
+  requirePublishingFromCI: boolean;
 }
 
 export interface ScopeQuota {
@@ -135,7 +136,8 @@ export interface PackageVersionWithUser extends PackageVersion {
   user?: User;
 }
 
-export interface PackageVersionDocs {
+export interface PackageVersionDocsContent {
+  kind: "content";
   version: PackageVersionWithUser;
   css: string;
   script: string;
@@ -143,6 +145,15 @@ export interface PackageVersionDocs {
   sidepanel: string | null;
   main: string;
 }
+
+export interface PackageVersionDocsRedirect {
+  kind: "redirect";
+  symbol: string;
+}
+
+export type PackageVersionDocs =
+  | PackageVersionDocsContent
+  | PackageVersionDocsRedirect;
 
 export interface SourceDirEntry {
   name: string;
