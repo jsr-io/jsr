@@ -24,7 +24,10 @@ export function Markdown(
     mediaBaseUrl: mediaBaseURL,
   });
   return (
-    <div
+    <main
+      data-color-mode="auto"
+      data-light-theme="light"
+      data-dark-theme="dark"
       class="markdown-body"
       dangerouslySetInnerHTML={{ __html: html }}
     />

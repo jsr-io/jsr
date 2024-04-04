@@ -224,7 +224,7 @@ export function GlobalSearch(
         <input
           type="text"
           name="search"
-          class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses} relative`}
+          class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses} relative dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500`}
           placeholder={placeholder}
           value={query}
           onInput={onInput}
@@ -240,7 +240,7 @@ export function GlobalSearch(
 
         <button
           type="submit"
-          class="button bg-cyan-950 text-white px-4 rounded-l-none hover:bg-cyan-800 focus-visible:bg-cyan-800 outline-cyan-600 transition-colors duration-150"
+          class="button bg-cyan-950 text-white px-4 rounded-l-none hover:bg-cyan-800 focus-visible:bg-cyan-800 outline-cyan-600 transition-colors duration-150 dark:bg-cyan-900 dark:text-white dark:hover:bg-cyan-800 dark:focus-visible:bg-cyan-800 dark:outline-cyan-600"
           onMouseDown={() => {
             btnSubmit.value = true;
           }}
@@ -255,7 +255,7 @@ export function GlobalSearch(
             stroke-width={2.5}
             aria-label="search"
             stroke="currentColor"
-            class="w-4 h-4"
+            class="size-4"
           >
             <path
               strokeLinecap="round"
@@ -304,12 +304,12 @@ function SuggestionList(
   if (!showSuggestions.value) return null;
 
   return (
-    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
+    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5 dark:bg-gray-800 dark:border-gray-700">
       {suggestions.value === null
-        ? <div class="bg-white text-gray-500 px-4">...</div>
+        ? <div class="bg-white text-gray-500 px-4 dark:bg-gray-800 dark:text-gray-500">...</div>
         : suggestions.value?.length === 0
         ? (
-          <div class="bg-white text-gray-500 px-4 py-2">
+          <div class="bg-white text-gray-500 px-4 py-2 dark:bg-gray-800 dark:text-gray-500">
             No matching results to display
           </div>
         )
@@ -324,7 +324,7 @@ function SuggestionList(
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
+                  class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100 dark:hover:bg-gray-700 dark:aria-[selected=true]:bg-cyan-700"
                   aria-selected={selected}
                 >
                   <a href={hit.href} class="bg-red-600">
@@ -335,8 +335,8 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
-        <span class="text-sm text-gray-500">
+      <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1 dark:bg-gray-700">
+        <span class="text-sm text-gray-500 dark:text-gray-400">
           powered by <span class="sr-only">Orama</span>
         </span>
         <img class="h-4" src="/logos/orama-dark.svg" alt="" />
@@ -377,7 +377,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
           </div>
         )}
         <div
-          class="text-sm text-gray-600"
+          class="text-sm text-gray-600 dark:text-gray-400"
           dangerouslySetInnerHTML={{
             __html: highlighter.highlight(hit.content, input.value)
               .trim(100),

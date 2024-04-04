@@ -61,7 +61,7 @@ export default function New(props: PageProps<Data, State>) {
         <div class="space-y-8">
           <div class="flex items-start gap-4">
             <IconCircle done={scope}>
-              <IconFolder class="h-5 w-5" />
+              <IconFolder class="size-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Scope</h2>
@@ -96,7 +96,7 @@ export default function New(props: PageProps<Data, State>) {
           </div>
           <div class="flex items-start gap-4">
             <IconCircle done={name}>
-              <IconPackage class="h-5 w-5" />
+              <IconPackage class="size-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Package name</h2>
