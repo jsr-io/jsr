@@ -9,9 +9,8 @@ can have multiple members.
 
 Scopes on JSR are similar to npm organizations. Scopes are prefixed with an `@`
 symbol. Scope names must be between 2 and 20 characters long, and can only
-contain lowercase letters, numbers, and hyphens. They cannot start with an
-hyphen or digit. Scope names are globally unique - no two scopes can have the
-same name.
+contain lowercase letters, numbers, and hyphens. They cannot start with a
+hyphen. Scope names are globally unique - no two scopes can have the same name.
 
 You can create a scope at [jsr.io/new](/new).
 

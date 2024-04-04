@@ -8,10 +8,10 @@ use base64::Engine;
 use deno_ast::apply_text_changes;
 use deno_ast::ParsedSource;
 use deno_ast::TextChange;
-use deno_graph::DefaultModuleAnalyzer;
 use deno_graph::DependencyDescriptor;
 use deno_graph::ModuleGraph;
 use deno_graph::ParsedSourceStore;
+use deno_graph::ParserModuleAnalyzer;
 use deno_graph::PositionRange;
 use deno_semver::package::PackageReqReference;
 use futures::StreamExt;
@@ -133,7 +133,7 @@ pub async fn create_npm_tarball<'a>(
             .get_parsed_source(module.specifier())
             .expect("parsed source should be here");
 
-          let module_info = DefaultModuleAnalyzer::module_info(&source);
+          let module_info = ParserModuleAnalyzer::module_info(&source);
 
           let maybe_rewrite_specifier =
             |specifier: &str,
@@ -463,10 +463,9 @@ mod tests {
         &mut loader,
         BuildOptions {
           is_dynamic: false,
-          module_analyzer: Some(&module_analyzer),
-          module_parser: Some(&module_analyzer.analyzer),
+          module_analyzer: &module_analyzer,
           workspace_members: &workspace_members,
-          file_system: Some(&NullFileSystem),
+          file_system: &NullFileSystem,
           resolver: None,
           npm_resolver: None,
           reporter: None,
