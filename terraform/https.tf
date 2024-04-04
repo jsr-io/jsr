@@ -65,7 +65,7 @@ resource "google_compute_url_map" "frontend_https" {
     name = "npm"
 
     path_rule {
-      paths = ["/"]
+      paths = ["/", "/-/ping"]
       route_action {
         url_rewrite {
           path_prefix_rewrite = "/root.json"
