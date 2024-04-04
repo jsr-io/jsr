@@ -90,6 +90,10 @@ resource "google_compute_backend_service" "registry_frontend" {
       group = google_compute_region_network_endpoint_group.registry_frontend[backend.key].id
     }
   }
+
+  lifecycle {
+    ignore_changes = [cdn_policy[0].client_ttl, cdn_policy[0].max_ttl]
+  }
 }
 
 resource "google_cloud_run_service_iam_member" "frontend_public_policy" {
