@@ -1,7 +1,7 @@
 {
-  "rust-analyzer.cargo.features": [],
   "deno.enable": true,
-  "deno.config": "./frontend2/deno.json",
+  "deno.lint": true,
+  "editor.defaultFormatter": "denoland.vscode-deno",
   "[typescriptreact]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
@@ -14,11 +14,7 @@
   "[javascript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
-  "[markdown]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
-  "[terraform]": {
-    "editor.defaultFormatter": "hashicorp.terraform"
-  },
-  "css.customData": [".vscode/tailwind.json"]
+  "css.customData": [
+    ".vscode/tailwind.json"
+  ]
 }
