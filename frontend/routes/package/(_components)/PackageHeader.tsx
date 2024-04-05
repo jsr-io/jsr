@@ -5,6 +5,7 @@ import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicat
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
 import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
+import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "$twas";
 
 interface PackageHeaderProps {
@@ -21,10 +22,13 @@ export function PackageHeader(
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
             <WarningTriangle class="text-jsr-yellow-400 flex-none" />
-            <span class="font-semibold">
-              You are on {selectedVersion.version}, but the latest version is
-              {" "}
-              {pkg.latestVersion}.{" "}
+            <span class="font-medium">
+              This release is{" "}
+              <span class="bold">
+                {selectedVersion.newerVersionsCount} version{selectedVersion.newerVersionsCount > 1 && "s"} behind{" "}
+                {pkg.latestVersion}
+              </span>{" "}
+              — the latest version of @{pkg.scope}/{pkg.name}.
               <a
                 class="link font-medium whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
@@ -62,11 +66,13 @@ export function PackageHeader(
                 )}
 
               {selectedVersion?.rekorLogId && (
-                <CheckmarkStamp class="stroke-green-500 size-6" />
+                <Tooltip tooltip="Built and signed on GitHub Actions">
+                  <CheckmarkStamp class="stroke-green-500 size-6" />
+                </Tooltip>
               )}
             </h1>
 
-            <div class="space-y-2">
+            <div class="flex items-center gap-2">
               {selectedVersion &&
                 pkg.latestVersion === selectedVersion?.version && (
                 <div class="chip sm:big-chip bg-jsr-yellow-400 select-none">
@@ -99,20 +105,20 @@ export function PackageHeader(
           )}
         </div>
 
-        <div class="flex items-end flex-col gap-4 text-right pb-4">
-          <div class="flex gap-8 items-between">
-            <div class="space-y-1 text-sm font-bold">
+        <div class="flex md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
+          <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
+            <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1 text-sm font-bold">
               <div>Works With</div>
               <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
             </div>
 
             {pkg.score !== null && (
               <a
-                class="block space-y-1 text-sm font-bold"
+                class="flex flex-row md:flex-col items-baseline md:items-end gap-2 md:gap-1 text-sm font-bold"
                 href={`/@${pkg.scope}/${pkg.name}/score`}
               >
                 <div>JSR Score</div>
-                <div class={`text-xl ${getScoreTextColorClass(pkg.score)}`}>
+                <div class={`md:text-xl ${getScoreTextColorClass(pkg.score)}`}>
                   {pkg.score}%
                 </div>
               </a>
@@ -121,7 +127,7 @@ export function PackageHeader(
 
           <div>
             {selectedVersion?.createdAt && (
-              <div class="space-y-1 text-sm font-bold">
+              <div class="flex flex-row md:flex-col gap-2 md:gap-1 text-sm font-bold">
                 <div>Published</div>
                 <div
                   class="font-normal"

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE package_versions\n      SET is_yanked = $4\n      WHERE scope = $1 AND name = $2 AND version = $3\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id",
+  "query": "INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)\n      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%' \n        AND pv.is_yanked = false) as \"newer_versions_count!\"",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,11 @@
         "ordinal": 11,
         "name": "rekor_log_id",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "newer_versions_count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -69,7 +74,11 @@
         "Text",
         "Text",
         "Text",
-        "Bool"
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -84,8 +93,9 @@
       false,
       false,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "92e4033d0a82242fbf61c4c7fe716c78bb364d62c460aec1f36aaf66cba69afb"
+  "hash": "47e5a593181b18d95c8db1d4fdc79bf88965488b43f3b72becaefec2aea64ba2"
 }

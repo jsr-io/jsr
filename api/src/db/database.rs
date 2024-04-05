@@ -1155,7 +1155,14 @@ impl Database {
 
     let updated = sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      (SELECT COUNT(*)
+        FROM package_versions AS pv
+        WHERE pv.scope = package_versions.scope
+        AND pv.name = package_versions.name
+        AND pv.version > package_versions.version
+        AND pv.version NOT LIKE '%-%' 
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
@@ -1292,6 +1299,13 @@ impl Database {
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
     sqlx::query!(
       r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id",
+      (SELECT COUNT(*)
+        FROM package_versions AS pv
+        WHERE pv.scope = package_versions.scope
+        AND pv.name = package_versions.name
+        AND pv.version > package_versions.version
+        AND pv.version NOT LIKE '%-%' 
+        AND pv.is_yanked = false) as "package_version_newer_versions_count!",
       users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
@@ -1310,6 +1324,7 @@ impl Database {
         is_yanked: r.package_version_is_yanked,
         readme_path: r.package_version_readme_path,
         uses_npm: r.package_version_uses_npm,
+        newer_versions_count: r.package_version_newer_versions_count,
         meta: r.package_version_meta,
         updated_at: r.package_version_updated_at,
         created_at: r.package_version_created_at,
@@ -1349,7 +1364,14 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      (SELECT COUNT(*)
+        FROM package_versions AS pv
+        WHERE pv.scope = package_versions.scope
+        AND pv.name = package_versions.name
+        AND pv.version > package_versions.version
+        AND pv.version NOT LIKE '%-%' 
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
@@ -1370,7 +1392,14 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      (SELECT COUNT(*)
+        FROM package_versions AS pv
+        WHERE pv.scope = package_versions.scope
+        AND pv.name = package_versions.name
+        AND pv.version > package_versions.version
+        AND pv.version NOT LIKE '%-%' 
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
@@ -1477,7 +1506,14 @@ impl Database {
       PackageVersion,
       r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id"#,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      (SELECT COUNT(*)
+        FROM package_versions AS pv
+        WHERE pv.scope = package_versions.scope
+        AND pv.name = package_versions.name
+        AND pv.version > package_versions.version
+        AND pv.version NOT LIKE '%-%' 
+        AND pv.is_yanked = false) as "newer_versions_count!""#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -1504,7 +1540,14 @@ impl Database {
       r#"UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id"#,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      (SELECT COUNT(*)
+        FROM package_versions AS pv
+        WHERE pv.scope = package_versions.scope
+        AND pv.name = package_versions.name
+        AND pv.version > package_versions.version
+        AND pv.version NOT LIKE '%-%' 
+        AND pv.is_yanked = false) as "newer_versions_count!""#,
       scope as _,
       name as _,
       version as _,
