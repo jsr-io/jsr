@@ -17,11 +17,10 @@
   "exclude": [
     "**/_fresh/*"
   ],
-  "nodeModulesDir": true,
   "imports": {
-    "@fresh/core": "jsr:@marvinh-test/fresh@^2.0.0-prealpha.15",
-    "$fresh": "jsr:@marvinh-test/fresh@^2.0.0-prealpha.15",
-    "@fresh/plugin-tailwind": "jsr:@marvinh-test/fresh-tailwind@^0.0.2",
+    "@fresh/core": "jsr:@marvinh-test/fresh@^2.0.0-prealpha.16",
+    "$fresh": "jsr:@marvinh-test/fresh@^2.0.0-prealpha.16",
+    "@fresh/plugin-tailwind": "jsr:@marvinh-test/fresh-tailwind@^0.0.3",
     "preact": "npm:preact@^10.20.1",
     "@preact/signals": "npm:@preact/signals@^1.2.3",
     "tailwindcss": "npm:tailwindcss@3.4.1",

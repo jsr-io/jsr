@@ -86,4 +86,4 @@ const auth: Middleware<State> = async (ctx) => {
   return await ctx.next();
 };
 
-export const handler: Middleware<State>[] = auth;
+export const handler: Middleware<State>[] = [tracing, auth];
