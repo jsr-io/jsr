@@ -7,6 +7,7 @@ import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
 import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "$twas";
+import { parse } from "$std/semver/mod.ts";
 
 interface PackageHeaderProps {
   package: Package;
@@ -16,26 +17,46 @@ interface PackageHeaderProps {
 export function PackageHeader(
   { package: pkg, selectedVersion }: PackageHeaderProps,
 ) {
+  const runtimeCompat = (
+    <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
+  );
+  const isPrerelease = selectedVersion &&
+    parse(selectedVersion.version).prerelease.length !== 0;
+
   return (
     <div class="space-y-6 mt-0 md:mt-4">
-      {selectedVersion && pkg.latestVersion !== selectedVersion.version && (
+      {selectedVersion && pkg.latestVersion &&
+        pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
             <WarningTriangle class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
               This release is{" "}
-              <span class="bold">
-                {selectedVersion.newerVersionsCount}{" "}
-                version{selectedVersion.newerVersionsCount > 1 && "s"} behind
-                {" "}
-                {pkg.latestVersion}
-              </span>{" "}
-              — the latest version of @{pkg.scope}/{pkg.name}.{" "}
+              {isPrerelease && selectedVersion.newerVersionsCount == 0
+                ? (
+                  <>
+                    a pre-release — the latest stable version of @{pkg
+                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                  </>
+                )
+                : (
+                  <>
+                    <span class="bold">
+                      {selectedVersion.newerVersionsCount}{" "}
+                      version{selectedVersion.newerVersionsCount > 1 && "s"}
+                      {" "}
+                      behind {pkg.latestVersion}
+                    </span>{" "}
+                    — the latest version of @{pkg.scope}/{pkg.name}.
+                  </>
+                )}{" "}
               <a
                 class="link font-medium whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
-                Jump to latest
+                Jump to latest{" "}
+                {isPrerelease && selectedVersion.newerVersionsCount == 0 &&
+                  "stable"}
               </a>
             </span>
           </div>
@@ -109,10 +130,13 @@ export function PackageHeader(
 
         <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
-            <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1 text-sm font-bold">
-              <div>Works with</div>
-              <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
-            </div>
+            {runtimeCompat &&
+              (
+                <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1 text-sm font-bold">
+                  <div>Works with</div>
+                  {runtimeCompat}
+                </div>
+              )}
 
             {pkg.score !== null && (
               <a
