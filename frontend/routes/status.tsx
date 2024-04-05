@@ -84,7 +84,7 @@ export default function PackageListPage(
           </div>
 
           {data.publishingTask.error && (
-            <div class="bg-red-100 rounded border-2 border-red-200 py-1.5 px-3 flex justify-between gap-3">
+            <div class="bg-red-100 rounded border-2 border-red-200 py-1.5 px-3 flex justify-between gap-3 dark:bg-red-500 dark:border-red-600 dark:text-white">
               <div class="space-y-1.5">
                 <div class="font-bold text-xl">
                   {data.publishingTask.error.code}

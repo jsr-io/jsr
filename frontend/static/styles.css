@@ -110,7 +110,7 @@
     @apply button border-1.5 border-cyan-900 hover:border-cyan-600 bg-jsr-yellow text-cyan-950
       font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-cyan-700
       outline-offset-2 disabled:bg-gray-100 disabled:text-gray-300 shadow-accent-sm disabled:shadow-transparent
-    disabled:border-gray-300 active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+      disabled:border-gray-300 active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
   }
 
   .button-danger {
@@ -120,8 +120,14 @@
   }
 
   .chip {
-    @apply inline-block py-1 px-2.5 rounded-full whitespace-nowrap
-      leading-none font-semibold text-sm;
+    @apply inline-block
+      py-1
+      px-2.5
+      rounded-full
+      whitespace-nowrap
+      leading-none
+      font-semibold
+      text-sm;
   }
 
   .big-chip {
@@ -134,12 +140,23 @@
   }
 
   .link {
-    @apply text-jsr-cyan-700 hover:text-jsr-cyan-600 underline
-      outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm;
+    @apply text-jsr-cyan-700
+      hover:text-jsr-cyan-600
+      underline
+      outline-none
+      focus-visible:ring-2
+      ring-jsr-cyan-700
+      ring-offset-2
+      rounded-sm
+      dark:text-jsr-cyan-300
+      dark:hover:text-jsr-cyan-200;
   }
 
   .link-header {
-    @apply link opsize-sm font-medium hover:underline-offset-2;
+    @apply link
+      opsize-sm
+      font-medium
+      hover:underline-offset-2;
   }
 
   .input-container {
@@ -163,6 +180,13 @@
       no-repeat;
     background-position: center right 0.5rem;
   }
+}
+
+body {
+  @apply bg-white
+    text-jsr-gray-700
+    dark:bg-jsr-gray-900
+    dark:text-jsr-gray-100;
 }
 
 body .ddoc #sidepanel a:hover,
@@ -198,7 +222,17 @@ body .ddoc a {
 }
 
 body .ddoc .markdown pre {
-  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
+  @apply bg-slate-50
+    border-t-1.5
+    border-b-1.5
+    border-slate-300
+    -mx-6
+    rounded-none
+    md:rounded-md
+    md:border-1.5
+    md:mx-0
+    dark:bg-slate-900
+    dark:border-slate-700;
   
   & > code:first-child {
     @apply p-6;
@@ -210,7 +244,12 @@ body .ddoc .markdown pre {
 }
 
 body .ddoc .markdown :not(pre) > code {
-  @apply bg-slate-50 border-slate-300 rounded-md;
+  @apply bg-slate-50
+  border-slate-300
+  rounded-md
+  dark:bg-slate-900
+  dark:border-slate-700
+  dark:text-slate-100;
 }
 
 body .ddoc .markdown a:not(.no_color) {
