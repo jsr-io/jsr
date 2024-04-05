@@ -107,7 +107,7 @@ export function PackageHeader(
           )}
         </div>
 
-        <div class="flex md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
+        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
             <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1 text-sm font-bold">
               <div>Works with</div>
