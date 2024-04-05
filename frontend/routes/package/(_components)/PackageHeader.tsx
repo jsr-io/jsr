@@ -103,7 +103,7 @@ export function PackageHeader(
           </div>
 
           {pkg.description && (
-            <p class="text-gray-600 max-w-3xl">{pkg.description}</p>
+            <p class="text-gray-600 max-w-3xl !mb-8">{pkg.description}</p>
           )}
         </div>
 
