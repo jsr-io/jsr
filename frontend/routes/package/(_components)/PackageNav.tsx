@@ -32,7 +32,7 @@ export function PackageNav(
   const versionedBase = `${base}${params.version ? `@${params.version}` : ""}`;
 
   return (
-    <Nav>
+    <Nav noTopMargin>
       {((iam.canWrite && versionCount > 0) || !iam.canWrite) && (
         <NavItem href={versionedBase} active={currentTab === "Index"}>
           Overview

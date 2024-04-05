@@ -218,6 +218,7 @@ pub struct PackageVersion {
   pub is_yanked: bool,
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
+  pub newer_versions_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
   pub updated_at: DateTime<Utc>,

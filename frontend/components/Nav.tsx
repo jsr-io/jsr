@@ -3,11 +3,16 @@ import { ComponentChildren } from "preact";
 
 export interface NavProps {
   children?: ComponentChildren;
+  noTopMargin?: boolean;
 }
 
 export function Nav(props: NavProps) {
   return (
-    <nav class="mt-3 md:border-b border-jsr-cyan-300/30 flex flex-wrap md:flex-nowrap flex-row max-w-full overflow-auto items-end">
+    <nav
+      class={`${
+        props.noTopMargin ? "" : "mt-3"
+      } md:border-b border-jsr-cyan-300/30 flex flex-wrap md:flex-nowrap flex-row max-w-full overflow-auto items-end`}
+    >
       {props.children}
     </nav>
   );

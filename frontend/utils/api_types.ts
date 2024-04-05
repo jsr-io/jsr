@@ -126,6 +126,7 @@ export interface PackageVersion {
   version: string;
   yanked: boolean;
   usesNpm: boolean;
+  newerVersionsCount: number;
   rekorLogId: string | null;
   readmePath: string;
   updatedAt: string;

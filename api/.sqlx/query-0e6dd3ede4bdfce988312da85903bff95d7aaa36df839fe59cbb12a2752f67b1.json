@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id\n      FROM package_versions\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
+  "query": "SELECT scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%' \n        AND pv.is_yanked = false) as \"newer_versions_count!\"\n      FROM package_versions\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,11 @@
         "ordinal": 11,
         "name": "rekor_log_id",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "newer_versions_count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -79,8 +84,9 @@
       false,
       false,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "6bcee848fcbb540b0c59c0755643352a37352bff3bfd7c7a3dc338bf83248408"
+  "hash": "0e6dd3ede4bdfce988312da85903bff95d7aaa36df839fe59cbb12a2752f67b1"
 }
