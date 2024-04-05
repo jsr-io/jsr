@@ -30,7 +30,7 @@ export function PackageHeader(
                 {" "}
                 {pkg.latestVersion}
               </span>{" "}
-              — the latest version of @{pkg.scope}/{pkg.name}.
+              — the latest version of @{pkg.scope}/{pkg.name}.{" "}
               <a
                 class="link font-medium whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
@@ -42,8 +42,8 @@ export function PackageHeader(
         </div>
       )}
 
-      <div class="flex flex-wrap items-start justify-between gap-6">
-        <div class="space-y-3.5">
+      <div class="flex flex-col md:flex-row items-start justify-between gap-6">
+        <div class="space-y-3.5 flex-shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
               <span>
@@ -103,14 +103,14 @@ export function PackageHeader(
           </div>
 
           {pkg.description && (
-            <p class="text-gray-600 max-w-3xl !mb-8">{pkg.description}</p>
+            <p class="text-gray-600 max-w-3xl md:!mb-8">{pkg.description}</p>
           )}
         </div>
 
         <div class="flex md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
             <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1 text-sm font-bold">
-              <div>Works With</div>
+              <div>Works with</div>
               <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
             </div>
 
