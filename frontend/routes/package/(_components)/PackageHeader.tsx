@@ -25,7 +25,9 @@ export function PackageHeader(
             <span class="font-medium">
               This release is{" "}
               <span class="bold">
-                {selectedVersion.newerVersionsCount} version{selectedVersion.newerVersionsCount > 1 && "s"} behind{" "}
+                {selectedVersion.newerVersionsCount}{" "}
+                version{selectedVersion.newerVersionsCount > 1 && "s"} behind
+                {" "}
                 {pkg.latestVersion}
               </span>{" "}
               — the latest version of @{pkg.scope}/{pkg.name}.
