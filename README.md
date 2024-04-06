@@ -13,9 +13,7 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 ## Project Information
 
-
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jsr-io/jsr/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jsr-io/jsr)
-
 
 **Goals**
 
