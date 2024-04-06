@@ -34,7 +34,7 @@ export default function Page({ data }: PageProps<Data, State>) {
       </Head>
 
       <div class="grid grid-cols-1 md:grid-cols-10">
-        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
+        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0 dark:border-cyan-200 dark:border-slate-800">
           <div>
             <p class="text-xl font-semibold" id="sidebar">Docs</p>
           </div>

@@ -105,11 +105,6 @@ export default {
           950: "#3B0306",
         },
       },
-      textShadow: {
-        sm: '0 1px 2px var(--tw-shadow-color)',
-        DEFAULT: '0 2px 4px var(--tw-shadow-color)',
-        lg: '0 8px 16px var(--tw-shadow-color)',
-      },
       spacing: {
         1.75: "0.4375rem",
         4.5: "1.125rem",

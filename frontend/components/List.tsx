@@ -21,7 +21,7 @@ export function ListDisplay(
     <div class="mt-8 border-1.5 border-jsr-cyan-950 rounded overflow-hidden">
       {title &&
         (
-          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-300 bg-slate-100 leading-none">
+          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-300 bg-slate-100 leading-none dark:bg-slate-900">
             <span class="font-semibold">{title}</span>
             <div />
           </div>
@@ -72,7 +72,7 @@ function Pagination(
 
   return (
     <nav
-      class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-white px-4 py-3 sm:px-6"
+      class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-white px-4 py-3 sm:px-6 dark:bg-slate-900"
       aria-label="Pagination"
     >
       <Head>
@@ -88,7 +88,7 @@ function Pagination(
       </Head>
 
       <div class="hidden sm:block">
-        <p class="text-sm text-gray-700">
+        <p class="text-sm text-gray-700 dark:text-gray-300">
           {start + itemsCount === 0 ? "No results found" : (
             <>
               Showing <span class="font-semibold">{start + 1}</span> to{" "}
@@ -104,7 +104,7 @@ function Pagination(
           ? (
             <a
               href={prevURL.pathname + prevURL.search}
-              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none"
+              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none dark:text-gray-300 dark:hover:bg-gray-800 dark:bg-gray-900"
             >
               Previous
             </a>
@@ -114,7 +114,7 @@ function Pagination(
           ? (
             <a
               href={nextURL.pathname + nextURL.search}
-              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none"
+              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none dark:text-gray-300 dark:hover:bg-gray-800 dark:bg-gray-900"
             >
               Next
             </a>

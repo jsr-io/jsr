@@ -37,7 +37,7 @@ export function PackageHeader(
           <div class="flex items-center gap-1">
             {selectedVersion &&
               pkg.latestVersion === selectedVersion?.version && (
-              <div class="chip sm:big-chip bg-jsr-yellow-400 select-none">
+              <div class="chip sm:big-chip bg-jsr-yellow-400 select-none dark:bg-jsr-yellow-500 text-black dark:text-white">
                 latest
               </div>
             )}
@@ -61,7 +61,7 @@ export function PackageHeader(
                 }`}
                 style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
               >
-                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold">
+                <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center font-bold dark:bg-black">
                   {pkg.score}%
                 </span>
               </div>
@@ -76,7 +76,9 @@ export function PackageHeader(
         </div>
       </div>
       {pkg.description && (
-        <p class="text-gray-600 max-w-3xl">{pkg.description}</p>
+        <p class="text-gray-600 max-w-3xl dark:text-gray-400">
+          {pkg.description}
+          </p>
       )}
       {pkg.githubRepository && (
         <a

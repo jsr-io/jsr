@@ -236,7 +236,7 @@ function DeleteScope({ scope }: { scope: FullScope }) {
   return (
     <form class="mb-8 mt-8" method="POST">
       <h2 class="text-lg font-semibold">Delete scope</h2>
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
         Deleting the scope will immediately allow other users to claim the scope
         and publish packages to it. This action cannot be undone.
       </p>

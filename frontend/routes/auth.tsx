@@ -28,7 +28,7 @@ export default function AuthPage({ data }: PageProps<Data>) {
           </title>
         </Head>
         <h1 class="text-lg font-semibold">Authorization</h1>
-        <p class="mt-2 text-gray-600 max-w-3xl">
+        <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
           To authorize a request, enter the code shown in the application.
         </p>
         <form action="/auth" method="GET" class="mt-8">

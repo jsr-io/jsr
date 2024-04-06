@@ -55,7 +55,7 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
         <div class="border-t pt-8 mt-12">
           <h2 class="text-xl font-sans font-bold">Staff area</h2>
 
-          <p class="mt-2 text-gray-600 max-w-3xl">
+          <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
             Feature a package on the homepage.
           </p>
 
@@ -73,11 +73,11 @@ function GitHubRepository(props: { package: Package }) {
     <div class="border-t pt-8 mt-12">
       <h2 class="text-xl font-sans font-bold">GitHub Repository</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
         The GitHub repository is shown publicly on the package page.
       </p>
 
-      <p class="mt-2 mb-4 text-gray-600 max-w-3xl">
+      <p class="mt-2 mb-4 text-gray-600 max-w-3xl dark:text-gray-400">
         Specifying a GitHub repository also enables securely publishing from
         GitHub Actions using OIDC — no need to specify tokens or secrets.{" "}
         <a
@@ -102,7 +102,7 @@ function DescriptionEditor(props: { description: string }) {
     <form class="mt-8" method="POST">
       <h2 class="text-xl font-sans font-bold">Description</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
         The package description is shown on the package page and in search
         results.
       </p>
@@ -119,7 +119,7 @@ function RuntimeCompatEditor(props: { runtimeCompat: RuntimeCompat }) {
     <form class="border-t pt-8 mt-12" method="POST">
       <h2 class="text-xl font-sans font-bold">Runtime Compat</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
         Set which packages this package is compatible with. This information is
         shown on the package page and in search results.
       </p>
@@ -173,7 +173,7 @@ function DeletePackage(props: { hasVersions: boolean }) {
     <form class="border-t pt-8 mt-12" method="POST">
       <h2 class="text-xl font-sans font-bold">Delete package</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-gray-600 max-w-3xl dark:text-gray-400">
         A package can only be deleted if it has no published versions.
         <br />
         This action cannot be undone.

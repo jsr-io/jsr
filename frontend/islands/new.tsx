@@ -18,7 +18,7 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-0 text-black";
+    return "bg-jsr-gray-0 text-black dark:bg-gray-800 dark:text-white";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>

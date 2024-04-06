@@ -25,7 +25,7 @@ export function HomepageHero(
 ) {
   return (
     <div
-      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none"
+      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none  dark:before:from-slate-900"
       id="particles-js"
     >
       <HomepageHeroParticles />
@@ -39,16 +39,14 @@ export function HomepageHero(
             <span className="sr-only">JSR</span>
             <AnimatedLogo />
             <div
-              class="text-2xl text-balance leading-[1.1] sm:text-3xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-5 md:-mt-6 max-w-[20em]"
-              style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
+              class="text-2xl text-balance leading-[1.1] sm:text-3xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-5 md:-mt-6 max-w-[20em] superShadow"
             >
               The <b class="font-semibold">open-source package registry</b>{" "}
               for modern JavaScript and TypeScript
             </div>
           </h1>
           <div
-            class="flex flex-row gap-3 items-center justify-center mt-4 pointer-events-auto"
-            style="text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;"
+            class="flex flex-row gap-3 items-center justify-center mt-4 pointer-events-auto superShadow"
           >
             <a class="underline text-sm relative z-10" href="/docs">
               Docs

@@ -61,8 +61,11 @@
   body {
     font-size: 1.125rem;
     font-weight: 400;
-    color: theme("colors.jsr-gray.700");
-    @apply opsize-normal;
+    @apply opsize-normal
+      bg-white
+      text-jsr-gray-700
+      dark:bg-jsr-gray-900
+      dark:text-jsr-gray-100;
   }
 
   h1,
@@ -97,26 +100,86 @@
 
 @layer components {
   .button {
-    @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5 rounded-md leading-tight font-medium
-      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2 select-none;
+    @apply text-jsr-gray-700
+      inline-flex
+      items-center
+      gap-2
+      py-2.5
+      px-4.5
+      rounded-md
+      leading-tight
+      font-medium
+      whitespace-nowrap
+      hover:cursor-pointer
+      disabled:cursor-not-allowed
+      focus:outline-4
+      focus:outline-offset-2
+      select-none;
   }
 
   .button-sm {
-    @apply gap-2 py-2 px-4.5 rounded-md text-sm leading-tight font-medium whitespace-nowrap
-      hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2;
+    @apply gap-2
+      py-2
+      px-4.5
+      rounded-md
+      text-sm
+      leading-tight
+      font-medium
+      whitespace-nowrap
+      hover:cursor-pointer
+      disabled:cursor-not-allowed
+      focus:outline-4
+      focus:outline-offset-2;
   }
 
   .button-primary {
-    @apply button border-1.5 border-cyan-900 hover:border-cyan-600 bg-jsr-yellow text-cyan-950
-      font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-cyan-700
-      outline-offset-2 disabled:bg-gray-100 disabled:text-gray-300 shadow-accent-sm disabled:shadow-transparent
-      disabled:border-gray-300 active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+    @apply button
+      border-1.5
+      border-cyan-900
+      hover:border-cyan-600
+      bg-jsr-yellow
+      text-cyan-950
+      font-bold
+      hover:bg-jsr-yellow-300
+      transition-all
+      duration-75
+      ease-in-out
+      focus:bg-jsr-yellow-300
+      outline-cyan-700
+      outline-offset-2
+      disabled:bg-gray-100
+      disabled:text-gray-300
+      shadow-accent-sm
+      disabled:shadow-transparent
+      disabled:border-gray-300
+      active:shadow-accent-sm-close
+      active:translate-x-[3px]
+      active:translate-y-[4px]
+      dark:bg-jsr-yellow
+      dark:text-cyan-950
+      dark:hover:bg-jsr-yellow-300
+      dark:disabled:bg-jsr-gray-100
+      dark:disabled:text-jsr-gray-300;
   }
 
   .button-danger {
-    @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-gray-100
-    outline-red-600 disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent disabled:border-red-300
-    transition-all duration-75 active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+    @apply button
+      border-1.5
+      border-red-950
+      bg-red-500
+      text-white
+      hover:bg-red-700
+      disabled:bg-gray-100
+      outline-red-600
+      disabled:text-red-300
+      shadow-accent-sm
+      disabled:shadow-transparent
+      disabled:border-red-300
+      transition-all
+      duration-75
+      active:shadow-accent-sm-close
+      active:translate-x-[3px]
+      active:translate-y-[4px];
   }
 
   .chip {
@@ -131,12 +194,23 @@
   }
 
   .big-chip {
-    @apply inline-block py-1.5 px-2.5 rounded-full whitespace-nowrap
-      leading-none font-semibold text-base;
+    @apply inline-block
+      py-1.5
+      px-2.5
+      rounded-full
+      whitespace-nowrap
+      leading-none
+      font-semibold
+      text-base;
   }
 
   .section-x-inset-xl {
-    @apply max-w-screen-xl mx-auto px-4 md:px-8 lg:px-10 xl:px-14;
+    @apply max-w-screen-xl
+      mx-auto
+      px-4
+      md:px-8
+      lg:px-10
+      xl:px-14;
   }
 
   .link {
@@ -160,10 +234,15 @@
   }
 
   .input-container {
-    @apply bg-white rounded-md leading-snug
+    @apply bg-white
+      rounded-md
+      leading-snug
       border-1.5 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500
-      has-[input:disabled,select:disabled]:text-jsr-gray-300 has-[input:disabled,select:disabled]:cursor-not-allowed
-      has-[input:disabled,select:disabled]:bg-jsr-gray-100;
+      has-[input:disabled,select:disabled]:text-jsr-gray-300
+      has-[input:disabled,select:disabled]:cursor-not-allowed
+      has-[input:disabled,select:disabled]:bg-jsr-gray-100
+      dark:bg-jsr-gray-800
+      dark:border-jsr-cyan-700/30;
   }
 
   .input {
@@ -180,13 +259,6 @@
       no-repeat;
     background-position: center right 0.5rem;
   }
-}
-
-body {
-  @apply bg-white
-    text-jsr-gray-700
-    dark:bg-jsr-gray-900
-    dark:text-jsr-gray-100;
 }
 
 body .ddoc #sidepanel a:hover,
@@ -257,19 +329,38 @@ body .ddoc .markdown a:not(.no_color) {
 }
 
 body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-y-1.5 border-jsr-cyan-100 border-x-0 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
+  @apply bg-jsr-cyan-50
+    border-y-1.5
+    border-jsr-cyan-100
+    border-x-0
+    -mx-6
+    md:mx-0
+    rounded-none
+    md:rounded-lg
+    md:border-1.5
+    dark:bg-jsr-gray-900;
 }
 
 body .ddoc .usage pre.highlight {
-  @apply bg-white border-jsr-cyan-200 -mx-4 md:mx-0 border-x-0 md:border-1.5;
+  @apply bg-white
+    border-jsr-cyan-200
+    -mx-4
+    md:mx-0
+    border-x-0
+    md:border-1.5
+    dark:bg-jsr-gray-900
 }
 
 body .ddoc .usage nav {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-900/10;
+  @apply bg-jsr-cyan-50
+  border-jsr-cyan-900/10
+  dark:bg-jsr-gray-900;
 }
 
 body .ddoc .usage nav label {
-  @apply md:hover:bg-jsr-cyan-200 border-jsr-cyan-900/20;
+  @apply md:hover:bg-jsr-cyan-200
+  border-jsr-cyan-900/20
+  dark:hover:bg-jsr-gray-800;
 }
 
 body .ddoc > section > nav.py-4 {
@@ -291,12 +382,15 @@ body:has(.ddoc) #footer {
 }
 
 body .ddoc .markdown tr:nth-child(2n) {
-  @apply bg-slate-50;
+  @apply bg-slate-50
+  dark:bg-slate-900;
 }
 
 body .ddoc .markdown th,
 body .ddoc .markdown td  {
-  @apply border-1.5 border-slate-300;
+  @apply border-1.5
+    border-slate-300
+    dark:border-slate-700;
 }
 
 body .ddoc .markdown th {
@@ -305,15 +399,18 @@ body .ddoc .markdown th {
 
 /* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */
 .score-ring-red {
-  @apply bg-red-500;
+  @apply bg-red-500
+  dark:bg-red-400;
 }
 
 .score-ring-yellow {
-  @apply bg-yellow-500;
+  @apply bg-yellow-500
+  dark:bg-yellow-400;
 }
 
 .score-ring-green {
-  @apply bg-green-500;
+  @apply bg-green-500
+  dark:bg-green-400;
 }
 
 @layer base {
@@ -328,5 +425,16 @@ body .ddoc .markdown th {
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
     --bgColor-muted: theme(colors.slate.50);
+  }
+}
+
+
+.superShadow {
+  text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .superShadow {
+    text-shadow: 0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em black, 0 0 0.5em black;
   }
 }
