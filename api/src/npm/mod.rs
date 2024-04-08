@@ -2,6 +2,8 @@
 mod emit;
 mod specifiers;
 mod tarball;
+#[cfg(test)]
+mod tests;
 mod types;
 
 use chrono::SecondsFormat;

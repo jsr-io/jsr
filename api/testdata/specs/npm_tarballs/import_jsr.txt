@@ -1,0 +1,73 @@
+# foo.js
+import { html } from "jsr:@luca/flag@1";
+await import("jsr:@luca/flag@1")
+
+# bar.mjs
+import { html } from "jsr:@luca/flag@1";
+await import("jsr:@luca/flag@1")
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs"
+  }
+}
+
+# http://jsr.test/@luca/flag/meta.json
+{
+  "scope": "luca",
+  "name": "flag",
+  "latest": "1.0.0",
+  "versions": {
+    "1.0.0": {}
+  }
+}
+
+# http://jsr.test/@luca/flag/1.0.0_meta.json
+{
+  "manifest": {
+  },
+  "exports": {
+    ".": "./main.ts"
+  }
+}
+
+# http://jsr.test/@luca/flag/1.0.0/main.ts
+<external>
+
+# output
+== /bar.mjs ==
+import { html } from "@jsr/luca__flag";
+await import("@jsr/luca__flag")
+
+== /foo.js ==
+import { html } from "@jsr/luca__flag";
+await import("@jsr/luca__flag")
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs"
+  },
+  "_jsr_revision": 7
+}
+

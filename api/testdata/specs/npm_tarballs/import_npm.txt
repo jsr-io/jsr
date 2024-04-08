@@ -1,0 +1,54 @@
+# foo.js
+import { html } from "npm:lit@^2.2.7";
+await import("npm:lit@^2.2.7")
+
+# bar.mjs
+import { html } from "npm:lit@^2.2.7";
+await import("npm:lit@^2.2.7")
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs"
+  }
+}
+
+# npm:lit@^2.2.7
+<external>
+
+# output
+== /bar.mjs ==
+import { html } from "lit";
+await import("lit")
+
+== /foo.js ==
+import { html } from "lit";
+await import("lit")
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs"
+  },
+  "_jsr_revision": 7
+}
+

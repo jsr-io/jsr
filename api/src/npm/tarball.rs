@@ -381,10 +381,12 @@ fn to_range(
 #[cfg(test)]
 mod tests {
   use std::collections::HashMap;
+  use std::fmt::Write;
   use std::io::Read;
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
+  use deno_graph::source::JsrUrlProvider;
   use deno_graph::source::MemoryLoader;
   use deno_graph::source::NullFileSystem;
   use deno_graph::source::Source;
@@ -398,45 +400,72 @@ mod tests {
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
-  use indexmap::IndexMap;
+  use once_cell::sync::Lazy;
   use url::Url;
 
   use crate::analysis::ModuleAnalyzer;
   use crate::db::DependencyKind;
-  use crate::db::ExportsMap;
-  use crate::ids::PackageName;
   use crate::ids::PackagePath;
-  use crate::ids::ScopeName;
-  use crate::ids::Version;
+  use crate::npm::tests::helpers;
+  use crate::npm::tests::helpers::Spec;
+  use crate::tarball::exports_map_from_json;
 
+  use super::create_npm_tarball;
   use super::NpmTarballFiles;
-  use super::{create_npm_tarball, NpmTarballOptions};
+  use super::NpmTarballOptions;
+
+  pub static DEFAULT_JSR_TEST_URL: Lazy<Url> =
+    Lazy::new(|| Url::parse("http://jsr.test").unwrap());
+
+  struct JsrTestUrlProvider;
+
+  impl JsrUrlProvider for JsrTestUrlProvider {
+    fn url(&self) -> &Url {
+      &DEFAULT_JSR_TEST_URL
+    }
+  }
 
   async fn test_npm_tarball(
-    exports: ExportsMap,
-    files: Vec<(&str, &str)>,
-  ) -> Result<HashMap<String, Vec<u8>>, anyhow::Error> {
-    let package = PackageName::new("foo".to_string())?;
-    let scope = ScopeName::new("deno-test".to_string())?;
-    let version = Version::new("1.0.0")?;
+    spec_path: &Path,
+    mut spec: Spec,
+  ) -> Result<(), anyhow::Error> {
+    let scope = spec.jsr_json.name.scope.clone();
+    let package = spec.jsr_json.name.package.clone();
+    let version = spec.jsr_json.version.clone();
 
+    let exports = match exports_map_from_json(spec.jsr_json.exports.clone()) {
+      Ok(exports) => exports,
+      Err(e) => {
+        return Err(anyhow::anyhow!("failed to parse exports: {}", e));
+      }
+    };
+
+    let mut files = HashMap::new();
     let mut memory_files = vec![];
-    for file in &files {
-      let specifier = format!("file://{}", file.0);
-      memory_files.push((
-        specifier.clone(),
-        Source::Module {
-          specifier,
-          maybe_headers: None,
-          content: file.1.to_string(),
-        },
-      ));
+    for file in &spec.files {
+      let specifier = file.url();
+      if file.text.trim() == "<external>" {
+        memory_files.push((
+          specifier.to_string(),
+          Source::External(specifier.to_string()),
+        ));
+      } else {
+        memory_files.push((
+          specifier.to_string(),
+          Source::Module {
+            specifier: specifier.to_string(),
+            maybe_headers: None,
+            content: file.text.to_string(),
+          },
+        ));
+      }
+      if specifier.scheme() == "file" {
+        files.insert(
+          PackagePath::new(specifier.path().to_string()).unwrap(),
+          file.text.as_bytes().to_vec(),
+        );
+      }
     }
-
-    memory_files.push((
-      "npm:lit@^2.2.7".to_owned(),
-      Source::External("npm:lit@^2.2.7".to_owned()),
-    ));
 
     let mut loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
@@ -451,7 +480,7 @@ mod tests {
 
     let mut roots: Vec<ModuleSpecifier> = vec![];
     for ex in exports.iter() {
-      let raw = format!("file://{}", ex.1);
+      let raw = format!("file://{}", ex.1.strip_prefix(".").unwrap());
       let specifier = Url::parse(&raw).unwrap();
       roots.push(specifier);
     }
@@ -469,6 +498,7 @@ mod tests {
           resolver: None,
           npm_resolver: None,
           reporter: None,
+          jsr_url_provider: &JsrTestUrlProvider,
           ..Default::default()
         },
       )
@@ -477,7 +507,7 @@ mod tests {
     graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
-      jsr_url_provider: None,
+      jsr_url_provider: Some(&JsrTestUrlProvider),
       module_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,
@@ -488,22 +518,12 @@ mod tests {
 
     let deps: Vec<(DependencyKind, PackageReqReference)> = vec![];
 
-    let files = files
-      .iter()
-      .map(|(path, content)| {
-        (
-          PackagePath::new(path.to_string()).unwrap(),
-          content.as_bytes().to_vec(),
-        )
-      })
-      .collect::<HashMap<_, _>>();
-
     let npm_tarball = create_npm_tarball(NpmTarballOptions {
       exports: &exports,
       package: &package,
       registry_url: &Url::parse("http://jsr.test").unwrap(),
       scope: &scope,
-      version: &Version::new("1.0.0").unwrap(),
+      version: &version,
       graph: &graph,
       sources: &module_analyzer.analyzer,
       files: NpmTarballFiles::WithBytes(&files),
@@ -511,7 +531,7 @@ mod tests {
     })
     .await?;
 
-    let mut transpiled_files: HashMap<String, Vec<u8>> = HashMap::new();
+    let mut transpiled_files: Vec<(String, Vec<u8>)> = Vec::new();
 
     let mut gz_decoder =
       flate2::bufread::GzDecoder::new(&npm_tarball.tarball[..]);
@@ -529,62 +549,45 @@ mod tests {
 
       let mut buf = vec![];
       entry.read_to_end(&mut buf).await?;
-      transpiled_files.insert(formatted_path, buf);
+      transpiled_files.push((formatted_path, buf));
     }
 
-    Ok(transpiled_files)
-  }
+    transpiled_files.sort_by(|a, b| a.0.cmp(&b.0));
 
-  #[tokio::test]
-  async fn import_sources_test() -> Result<(), anyhow::Error> {
-    let source = r#"import { html } from "npm:lit@^2.2.7";
-await import("npm:lit@^2.2.7");"#;
-    let files = vec![
-      ("/package.json", ""),
-      ("/foo.js", source),
-      ("/bar.mjs", source),
-    ];
-    let exports = ExportsMap::new(IndexMap::from([
-      (".".to_string(), "/foo.js".to_string()),
-      ("./bar".to_string(), "/bar.mjs".to_string()),
-    ]));
-    let tarball_files = test_npm_tarball(exports, files).await?;
+    let mut output = String::new();
+    for (path, content) in transpiled_files {
+      let content = String::from_utf8_lossy(&content);
+      write!(
+        &mut output,
+        "== {path} ==\n{}\n{}",
+        content,
+        if content.ends_with('\n') { "" } else { "\n" }
+      )?;
+    }
 
-    let expected = r#"import { html } from "lit";
-await import("lit");"#
-      .to_string();
-
-    let foo_js = String::from_utf8_lossy(tarball_files.get("/foo.js").unwrap());
-    let bar_mjs =
-      String::from_utf8_lossy(tarball_files.get("/bar.mjs").unwrap());
-    assert_eq!(foo_js, expected);
-    assert_eq!(bar_mjs, expected);
+    if std::env::var("UPDATE").is_ok() {
+      spec.output_file.text = output.clone();
+      std::fs::write(spec_path, spec.emit())?;
+    } else {
+      assert_eq!(
+        output, spec.output_file.text,
+        "Output not identical for {spec_path:?}, run with UPDATE=1 to update",
+      );
+    }
 
     Ok(())
   }
 
+  use std::path::Path;
+
   #[tokio::test]
-  async fn extra_files_test() -> Result<(), anyhow::Error> {
-    let files = vec![
-      ("/package.json", ""),
-      ("/foo.ts", "export const foo: string = 'bar';"),
-      ("/bar.json", "console.log('foo');"),
-      ("/foo.d.ts", "// unrelated content"),
-      ("/data.txt", "this is data"),
-    ];
-    let exports = ExportsMap::new(IndexMap::from([
-      ("./foo".to_string(), "/foo.ts".to_string()),
-      ("./bar".to_string(), "/bar.json".to_string()),
-    ]));
-    let tarball_files = test_npm_tarball(exports, files).await?;
-
-    tarball_files.get("/foo.js").unwrap();
-    let dts = tarball_files.get("/foo.d.ts").unwrap();
-    println!("{}", String::from_utf8_lossy(dts));
-    assert_eq!(dts, b"export declare const foo: string;\n");
-    tarball_files.get("/bar.json").unwrap();
-    tarball_files.get("/data.txt").unwrap();
-
-    Ok(())
+  async fn test_npm_tarballs() {
+    let specs =
+      helpers::get_specs_in_dir(Path::new("testdata/specs/npm_tarballs"));
+    for (path, spec) in specs {
+      test_npm_tarball(&path, spec)
+        .await
+        .expect(&format!("failed to test npm tarball {}", path.display()));
+    }
   }
 }
