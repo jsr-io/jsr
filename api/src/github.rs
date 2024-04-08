@@ -108,25 +108,6 @@ impl GitHubUserClient {
     let repo: Repository = res.json().await?;
     Ok(Some(repo))
   }
-
-  #[instrument(name = "GitHubUserClient::get_repo_by_id", skip(self), err)]
-  pub async fn get_repo_by_id(
-    &self,
-    id: i64,
-  ) -> Result<Option<Repository>, anyhow::Error> {
-    let res = self.request(&format!("/repos/{id}")).await?;
-    let status = res.status();
-    if status == StatusCode::NOT_FOUND {
-      return Ok(None);
-    } else if !status.is_success() {
-      let response = res.text().await?;
-      return Err(anyhow::anyhow!(
-        "failed to get repository '{id}' (status {status}): {response}",
-      ));
-    }
-    let repo: Repository = res.json().await?;
-    Ok(Some(repo))
-  }
 }
 
 #[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
