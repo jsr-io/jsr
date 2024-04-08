@@ -128,9 +128,6 @@ jobs:
       - name: Set up docker buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Copy Cargo.lock
-        run: cp Cargo.lock api/Cargo.lock
-
       - name: Build and push api docker image
         uses: docker/build-push-action@v5
         id: api_push
