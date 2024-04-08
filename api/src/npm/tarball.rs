@@ -480,7 +480,7 @@ mod tests {
 
     let mut roots: Vec<ModuleSpecifier> = vec![];
     for ex in exports.iter() {
-      let raw = format!("file://{}", ex.1.strip_prefix(".").unwrap());
+      let raw = format!("file://{}", ex.1.strip_prefix('.').unwrap());
       let specifier = Url::parse(&raw).unwrap();
       roots.push(specifier);
     }
@@ -587,7 +587,7 @@ mod tests {
     for (path, spec) in specs {
       test_npm_tarball(&path, spec)
         .await
-        .expect(&format!("failed to test npm tarball {}", path.display()));
+        .unwrap_or_else(|_| panic!("failed to test npm tarball {path:?}"));
     }
   }
 }
