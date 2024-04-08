@@ -27,6 +27,7 @@ use deno_ast::swc::visit::VisitMutWith;
 use deno_ast::swc_codegen_config;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMapConfig;
+use deno_ast::SourceMapOption;
 use url::Url;
 
 use super::specifiers::rewrite_specifier;
@@ -38,8 +39,7 @@ pub fn transpile_to_js(
   source_url: Url,
 ) -> Result<String, anyhow::Error> {
   let emit_options = deno_ast::EmitOptions {
-    source_map: false,
-    inline_source_map: true,
+    source_map: SourceMapOption::Inline,
     inline_sources: true,
 
     // FIXME: JSX?
@@ -99,7 +99,7 @@ pub fn transpile_to_js(
         .build_source_map_with_config(&src_map_buf, None, source_map_config)
         .to_writer(&mut buf)?;
 
-      if emit_options.inline_source_map {
+      if emit_options.source_map == SourceMapOption::Inline {
         if !src.ends_with('\n') {
           src.push('\n');
         }

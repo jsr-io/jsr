@@ -126,6 +126,7 @@ export interface PackageVersion {
   version: string;
   yanked: boolean;
   usesNpm: boolean;
+  newerVersionsCount: number;
   rekorLogId: string | null;
   readmePath: string;
   updatedAt: string;
@@ -136,7 +137,8 @@ export interface PackageVersionWithUser extends PackageVersion {
   user?: User;
 }
 
-export interface PackageVersionDocs {
+export interface PackageVersionDocsContent {
+  kind: "content";
   version: PackageVersionWithUser;
   css: string;
   script: string;
@@ -144,6 +146,15 @@ export interface PackageVersionDocs {
   sidepanel: string | null;
   main: string;
 }
+
+export interface PackageVersionDocsRedirect {
+  kind: "redirect";
+  symbol: string;
+}
+
+export type PackageVersionDocs =
+  | PackageVersionDocsContent
+  | PackageVersionDocsRedirect;
 
 export interface SourceDirEntry {
   name: string;

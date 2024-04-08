@@ -2,7 +2,7 @@
 export function GitHub(props: { class?: string }) {
   return (
     <svg
-      class={`h-6 w-6 ${props.class ?? ""}`}
+      class={`size-6 ${props.class ?? ""}`}
       fill="currentColor"
       viewBox="0 0 24 24"
     >

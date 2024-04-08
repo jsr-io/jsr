@@ -62,7 +62,18 @@ resource "google_compute_url_map" "frontend_https" {
   }
 
   path_matcher {
-    name            = "npm"
+    name = "npm"
+
+    path_rule {
+      paths = ["/", "/-/ping"]
+      route_action {
+        url_rewrite {
+          path_prefix_rewrite = "/root.json"
+        }
+      }
+      service = google_compute_backend_bucket.npm.self_link
+    }
+
     default_service = google_compute_backend_bucket.npm.self_link
   }
 

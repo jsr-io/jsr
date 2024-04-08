@@ -147,6 +147,10 @@ resource "google_compute_backend_service" "registry_api" {
   backend {
     group = google_compute_region_network_endpoint_group.registry_api.id
   }
+
+  lifecycle {
+    ignore_changes = [cdn_policy[0].client_ttl, cdn_policy[0].max_ttl]
+  }
 }
 
 resource "google_cloud_run_service_iam_member" "api_public_policy" {

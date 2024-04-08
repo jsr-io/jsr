@@ -571,6 +571,7 @@ pub struct ApiPackageVersion {
   pub version: Version,
   pub yanked: bool,
   pub uses_npm: bool,
+  pub newer_versions_count: i64,
   pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
@@ -578,14 +579,20 @@ pub struct ApiPackageVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiPackageVersionDocs {
-  pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
-  pub script: Cow<'static, str>,
-  pub breadcrumbs: Option<String>,
-  pub sidepanel: Option<String>,
-  pub main: String,
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[allow(clippy::large_enum_variant)]
+pub enum ApiPackageVersionDocs {
+  Content {
+    version: ApiPackageVersion,
+    css: Cow<'static, str>,
+    script: Cow<'static, str>,
+    breadcrumbs: Option<String>,
+    sidepanel: Option<String>,
+    main: String,
+  },
+  Redirect {
+    symbol: String,
+  },
 }
 
 impl From<PackageVersion> for ApiPackageVersion {
@@ -596,6 +603,7 @@ impl From<PackageVersion> for ApiPackageVersion {
       version: value.version,
       yanked: value.is_yanked,
       uses_npm: value.uses_npm,
+      newer_versions_count: value.newer_versions_count,
       rekor_log_id: value.rekor_log_id,
       readme_path: value.readme_path,
       updated_at: value.updated_at,
@@ -643,6 +651,8 @@ pub struct ApiPackageVersionWithUser {
   pub user: Option<ApiUser>,
   pub yanked: bool,
   pub uses_npm: bool,
+  pub newer_versions_count: i64,
+  pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -663,6 +673,8 @@ impl From<(PackageVersion, Option<UserPublic>)> for ApiPackageVersionWithUser {
       user: user.map(|user| user.into()),
       yanked: package_version.is_yanked,
       uses_npm: package_version.uses_npm,
+      newer_versions_count: package_version.newer_versions_count,
+      rekor_log_id: package_version.rekor_log_id,
       readme_path: package_version.readme_path,
       updated_at: package_version.updated_at,
       created_at: package_version.created_at,

@@ -15,7 +15,7 @@ accounts. [Learn more about scopes.](/docs/scopes)
 Packages have a name. Package names are unique within a scope - no two packages
 in the same scope can have the same name. Package names must be between 2 and 20
 characters long, and can only contain lowercase letters, numbers, and hyphens.
-They cannot start with a hyphen or digit.
+They cannot start with a hyphen.
 
 Packages can be created at [jsr.io/new](/new). Packages are always created in a
 scope, so a scope must be created before creating a package.

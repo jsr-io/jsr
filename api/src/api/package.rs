@@ -39,9 +39,9 @@ use crate::db::NewPublishingTask;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
-use crate::docs::generate_docs_html;
 use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
+use crate::docs::GeneratedDocsOutput;
 use crate::gcp;
 use crate::gcp::GcsUploadOptions;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
@@ -460,7 +460,14 @@ async fn update_github_repository(
 
   let repo = github_u2s_client
     .get_repo(&req.owner, &req.name)
-    .await?
+    .await
+    .map_err(|err| {
+      if err.to_string().contains("SAML enforcement") {
+        ApiError::GithubSamlEnforcement
+      } else {
+        err.into()
+      }
+    })?
     .ok_or(ApiError::GithubRepositoryNotFound)?;
 
   if repo.visibility != "public" {
@@ -987,8 +994,8 @@ pub async fn get_docs_handler(
     (None, None) => DocsRequest::Index,
   };
 
-  let docs = generate_docs_html(
-    &doc_nodes,
+  let docs = crate::docs::generate_docs_html(
+    doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
     req,
@@ -1006,7 +1013,9 @@ pub async fn get_docs_handler(
   })?
   .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
-  const FIXED_SCRIPT: &str = r#"
+  match docs {
+    GeneratedDocsOutput::Docs(docs) => {
+      const FIXED_SCRIPT: &str = r#"
 document.addEventListener("click", (e) => {
   let el = e.target;
   do {
@@ -1018,14 +1027,19 @@ document.addEventListener("click", (e) => {
 });
   "#;
 
-  Ok(ApiPackageVersionDocs {
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-    script: Cow::Borrowed(FIXED_SCRIPT),
-    breadcrumbs: docs.breadcrumbs,
-    sidepanel: docs.sidepanel,
-    main: docs.main,
-    version: ApiPackageVersion::from(version),
-  })
+      Ok(ApiPackageVersionDocs::Content {
+        css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+        script: Cow::Borrowed(FIXED_SCRIPT),
+        breadcrumbs: docs.breadcrumbs,
+        sidepanel: docs.sidepanel,
+        main: docs.main,
+        version: ApiPackageVersion::from(version),
+      })
+    }
+    GeneratedDocsOutput::Redirect(href) => {
+      Ok(ApiPackageVersionDocs::Redirect { symbol: href })
+    }
+  }
 }
 
 #[instrument(
@@ -1081,20 +1095,22 @@ pub async fn get_docs_search_handler(
   let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap();
   let registry_url = registry.registry_url().to_string();
 
-  let search_index = deno_doc::html::generate_search_index(
-    &crate::docs::get_generate_ctx(
-      &doc_nodes,
-      docs_info.main_entrypoint,
-      docs_info.rewrite_map,
-      scope.clone(),
-      package_name.clone(),
-      version.version.clone(),
-      version_or_latest == VersionOrLatest::Latest,
-      false,
-      package.runtime_compat,
-      registry_url,
-    ),
+  let ctx = crate::docs::get_generate_ctx(
     &doc_nodes,
+    docs_info.main_entrypoint,
+    docs_info.rewrite_map,
+    scope.clone(),
+    package_name.clone(),
+    version.version.clone(),
+    version_or_latest == VersionOrLatest::Latest,
+    false,
+    package.runtime_compat,
+    registry_url,
+  );
+
+  let search_index = deno_doc::html::generate_search_index(
+    &ctx,
+    &ctx.doc_nodes_by_url_add_context(doc_nodes),
   );
 
   Ok(search_index)
@@ -2408,10 +2424,22 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let docs: ApiPackageVersionDocs = resp.expect_ok().await;
-    assert_eq!(docs.version.version, task.package_version);
-    assert!(docs.css.contains("{max-width:"), "{}", docs.css);
-    assert!(docs.breadcrumbs.is_none(), "{:?}", docs.breadcrumbs);
-    assert!(docs.sidepanel.is_some(), "{:?}", docs.sidepanel);
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script: _,
+        breadcrumbs,
+        sidepanel,
+        main: _,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
+        assert!(sidepanel.is_some(), "{:?}", sidepanel)
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
 
     // all_symbols page
     let mut resp = t
@@ -2421,14 +2449,26 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let docs: ApiPackageVersionDocs = resp.expect_ok().await;
-    assert_eq!(docs.version.version, task.package_version);
-    assert!(docs.css.contains("{max-width:"), "{}", docs.css);
-    assert!(
-      docs.breadcrumbs.as_ref().unwrap().contains("all symbols"),
-      "{:?}",
-      docs.breadcrumbs
-    );
-    assert!(docs.sidepanel.is_none(), "{:?}", docs.sidepanel);
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script: _,
+        breadcrumbs,
+        sidepanel,
+        main: _,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(
+          breadcrumbs.as_ref().unwrap().contains("all symbols"),
+          "{:?}",
+          breadcrumbs
+        );
+        assert!(sidepanel.is_none(), "{:?}", sidepanel);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
 
     // symbol page
     let mut resp = t
@@ -2438,14 +2478,26 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let docs: ApiPackageVersionDocs = resp.expect_ok().await;
-    assert_eq!(docs.version.version, task.package_version);
-    assert!(docs.css.contains("{max-width:"), "{}", docs.css);
-    assert!(
-      docs.breadcrumbs.as_ref().unwrap().contains("hello"),
-      "{:?}",
-      docs.breadcrumbs
-    );
-    assert!(docs.sidepanel.is_some(), "{:?}", docs.sidepanel);
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script: _,
+        breadcrumbs,
+        sidepanel,
+        main: _,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(
+          breadcrumbs.as_ref().unwrap().contains("hello"),
+          "{:?}",
+          breadcrumbs
+        );
+        assert!(sidepanel.is_some(), "{:?}", sidepanel);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
 
     // search
     let mut resp = t

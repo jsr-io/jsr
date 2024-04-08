@@ -79,7 +79,7 @@ export function DocsView(
 
   return (
     <div class="grid grid-cols-1 lg:grid-cols-4 pt-2">
-      <div class="col-span-1 top-0 md:pl-0 md:pr-2 pt-4 lg:sticky lg:max-h-screen box-border">
+      <div class="col-span-1 top-0 md:pl-0 md:pr-2 pt-4 lg:sticky lg:max-h-screen box-border z-20">
         <LocalSymbolSearch
           scope={params.scope}
           pkg={params.package}

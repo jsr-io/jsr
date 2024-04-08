@@ -4,11 +4,16 @@ import { NavMenu } from "../islands/NavMenu.tsx";
 
 export interface NavProps {
   children?: ComponentChildren;
+  noTopMargin?: boolean;
 }
 
 export function Nav(props: NavProps) {
   return (
-    <nav class="mt-3 md:border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-hidden items-end">
+    <nav
+      class={`${
+        props.noTopMargin ? "" : "mt-3"
+      } mt-3 md:border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-hidden items-end`}
+    >
       <ul id="nav-items" class="flex flex-row">
         {props.children}
       </ul>
