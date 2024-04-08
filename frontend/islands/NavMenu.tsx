@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import IconDots from "$tabler_icons/dots.tsx";
 
