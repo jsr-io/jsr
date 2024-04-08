@@ -1,0 +1,60 @@
+# foo.ts
+export const foo: string = 'bar';
+
+# bar.json
+console.log('foo');
+
+# foo.d.ts
+// unrelated content is overwritten
+
+# data.txt
+this is data
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": {
+    "./foo": "./foo.ts",
+    "./bar": "./bar.json"
+  }
+}
+
+# output
+== /bar.json ==
+console.log('foo');
+
+== /data.txt ==
+this is data
+
+== /foo.d.ts ==
+export declare const foo: string;
+
+== /foo.js ==
+export const foo = 'bar';
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImh0dHA6Ly9qc3IudGVzdC9Ac2NvcGUvZm9vLzEuMC4wL2Zvby50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJleHBvcnQgY29uc3QgZm9vOiBzdHJpbmcgPSAnYmFyJztcbiJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLE1BQU0sTUFBYyxNQUFNIn0=
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": {
+    "./foo": "./foo.ts",
+    "./bar": "./bar.json"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.json"
+  },
+  "_jsr_revision": 7
+}
+

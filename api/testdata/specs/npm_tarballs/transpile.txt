@@ -1,0 +1,56 @@
+# main.ts
+export const foo: string = 'foo';
+export const bar = "bar" as const;
+
+export interface Foo {
+  foo: string;
+}
+
+export function bar(): string {
+  return 'bar';
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./main.ts"
+}
+
+# output
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./main.ts"
+}
+
+== /main.d.ts ==
+export declare const foo: string;
+export declare const bar: "bar";
+export interface Foo {
+  foo: string;
+}
+export declare function bar(): string;
+
+== /main.js ==
+export const foo = 'foo';
+export const bar = "bar";
+export function bar() {
+  return 'bar';
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImh0dHA6Ly9qc3IudGVzdC9Ac2NvcGUvZm9vLzEuMC4wL21haW4udHMiXSwic291cmNlc0NvbnRlbnQiOlsiZXhwb3J0IGNvbnN0IGZvbzogc3RyaW5nID0gJ2Zvbyc7XG5leHBvcnQgY29uc3QgYmFyID0gXCJiYXJcIiBhcyBjb25zdDtcblxuZXhwb3J0IGludGVyZmFjZSBGb28ge1xuICBmb286IHN0cmluZztcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIGJhcigpOiBzdHJpbmcge1xuICByZXR1cm4gJ2Jhcic7XG59XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxNQUFNLE1BQWMsTUFBTTtBQUNqQyxPQUFPLE1BQU0sTUFBTSxNQUFlO0FBTWxDLE9BQU8sU0FBUztFQUNkLE9BQU87QUFDVCJ9
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": "./main.js"
+  },
+  "_jsr_revision": 7
+}
+
