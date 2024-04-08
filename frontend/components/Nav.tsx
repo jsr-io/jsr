@@ -12,7 +12,7 @@ export function Nav(props: NavProps) {
     <nav
       class={`${
         props.noTopMargin ? "" : "mt-3"
-      } mt-3 md:border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-hidden items-end`}
+      } md:border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-hidden items-end`}
     >
       <ul id="nav-items" class="flex flex-row">
         {props.children}
