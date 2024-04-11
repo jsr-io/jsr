@@ -32,6 +32,7 @@ export interface Foo {
   foo: string;
 }
 export declare function bar(): string;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIm1haW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxjQUFNLEtBQUssTUFBTSxDQUFTO0FBQ2pDLE9BQU8sY0FBTSxLQUFNLE1BQWU7QUFFbEMsaUJBQWlCO0VBQ2YsS0FBSyxNQUFNOztBQUdiLE9BQU8saUJBQVMsT0FBTyxNQUFNIn0=
 
 == /main.js ==
 export const foo = 'foo';
@@ -39,7 +40,19 @@ export const bar = "bar";
 export function bar() {
   return 'bar';
 }
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImh0dHA6Ly9qc3IudGVzdC9Ac2NvcGUvZm9vLzEuMC4wL21haW4udHMiXSwic291cmNlc0NvbnRlbnQiOlsiZXhwb3J0IGNvbnN0IGZvbzogc3RyaW5nID0gJ2Zvbyc7XG5leHBvcnQgY29uc3QgYmFyID0gXCJiYXJcIiBhcyBjb25zdDtcblxuZXhwb3J0IGludGVyZmFjZSBGb28ge1xuICBmb286IHN0cmluZztcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIGJhcigpOiBzdHJpbmcge1xuICByZXR1cm4gJ2Jhcic7XG59XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxNQUFNLE1BQWMsTUFBTTtBQUNqQyxPQUFPLE1BQU0sTUFBTSxNQUFlO0FBTWxDLE9BQU8sU0FBUztFQUNkLE9BQU87QUFDVCJ9
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIm1haW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxNQUFNLE1BQWMsTUFBTTtBQUNqQyxPQUFPLE1BQU0sTUFBTSxNQUFlO0FBTWxDLE9BQU8sU0FBUztFQUNkLE9BQU87QUFDVCJ9
+
+== /main.ts ==
+export const foo: string = 'foo';
+export const bar = "bar" as const;
+
+export interface Foo {
+  foo: string;
+}
+
+export function bar(): string {
+  return 'bar';
+}
 
 == /package.json ==
 {
@@ -49,8 +62,11 @@ export function bar() {
   "type": "module",
   "dependencies": {},
   "exports": {
-    ".": "./main.js"
+    ".": {
+      "types": "./main.d.ts",
+      "default": "./main.js"
+    }
   },
-  "_jsr_revision": 7
+  "_jsr_revision": 0
 }
 

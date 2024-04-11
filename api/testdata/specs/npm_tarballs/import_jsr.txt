@@ -1,8 +1,19 @@
 # foo.js
+/// <reference types="./fizz.d.ts" />
 import { html } from "jsr:@luca/flag@1";
 await import("jsr:@luca/flag@1")
 
 # bar.mjs
+/// <reference types="./fizz.d.ts" />
+import { html } from "jsr:@luca/flag@1";
+await import("jsr:@luca/flag@1")
+
+# baz.ts
+import { html } from "jsr:@luca/flag@1";
+html();
+await import("jsr:@luca/flag@1")
+
+# fizz.d.ts
 import { html } from "jsr:@luca/flag@1";
 await import("jsr:@luca/flag@1")
 
@@ -12,7 +23,9 @@ await import("jsr:@luca/flag@1")
   "version": "0.0.1",
   "exports": {
     "./foo": "./foo.js",
-    "./bar": "./bar.mjs"
+    "./bar": "./bar.mjs",
+    "./baz": "./baz.ts",
+    "./fizz": "./fizz.d.ts"
   }
 }
 
@@ -40,10 +53,31 @@ await import("jsr:@luca/flag@1")
 
 # output
 == /bar.mjs ==
+
+import { html } from "@jsr/luca__flag";
+await import("@jsr/luca__flag")
+
+== /baz.d.ts ==
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
+
+== /baz.js ==
+import { html } from "@jsr/luca__flag";
+html();
+await import("@jsr/luca__flag");
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhei50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLElBQUksMEJBQTJCO0FBQ3hDO0FBQ0EsTUFBTSxNQUFNLENBQUMifQ==
+
+== /baz.ts ==
+import { html } from "@jsr/luca__flag";
+html();
+await import("@jsr/luca__flag")
+
+== /fizz.d.ts ==
 import { html } from "@jsr/luca__flag";
 await import("@jsr/luca__flag")
 
 == /foo.js ==
+
 import { html } from "@jsr/luca__flag";
 await import("@jsr/luca__flag")
 
@@ -53,7 +87,9 @@ await import("@jsr/luca__flag")
   "version": "0.0.1",
   "exports": {
     "./foo": "./foo.js",
-    "./bar": "./bar.mjs"
+    "./bar": "./bar.mjs",
+    "./baz": "./baz.ts",
+    "./fizz": "./fizz.d.ts"
   }
 }
 
@@ -65,9 +101,22 @@ await import("@jsr/luca__flag")
   "type": "module",
   "dependencies": {},
   "exports": {
-    "./foo": "./foo.js",
-    "./bar": "./bar.mjs"
+    "./foo": {
+      "types": "./fizz.d.ts",
+      "default": "./foo.js"
+    },
+    "./bar": {
+      "types": "./fizz.d.ts",
+      "default": "./bar.mjs"
+    },
+    "./baz": {
+      "types": "./baz.d.ts",
+      "default": "./baz.js"
+    },
+    "./fizz": {
+      "default": "./fizz.d.ts"
+    }
   },
-  "_jsr_revision": 7
+  "_jsr_revision": 0
 }
 

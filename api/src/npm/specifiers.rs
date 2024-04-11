@@ -1,12 +1,105 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
+use std::collections::HashMap;
+
+use deno_ast::ModuleSpecifier;
+use deno_graph::Dependency;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
+use indexmap::IndexMap;
 
 use crate::ids::ScopedPackageName;
 
 use super::NpmMappedJsrPackageName;
 
-pub fn rewrite_specifier(specifier: &str) -> Option<String> {
+#[derive(Clone, Copy)]
+pub enum RewriteKind {
+  Source,
+  Declaration,
+}
+
+#[derive(Clone, Copy)]
+pub struct SpecifierRewriter<'a> {
+  pub base_specifier: &'a ModuleSpecifier,
+  pub source_rewrites: &'a HashMap<&'a ModuleSpecifier, ModuleSpecifier>,
+  pub declaration_rewrites: &'a HashMap<&'a ModuleSpecifier, ModuleSpecifier>,
+  pub dependencies: &'a IndexMap<String, Dependency>,
+}
+
+impl<'a> SpecifierRewriter<'a> {
+  pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
+    let dep = self.dependencies.get(specifier)?;
+
+    let specifier = match kind {
+      RewriteKind::Source => dep.get_code(),
+      RewriteKind::Declaration => dep.get_type().or_else(|| dep.get_code()),
+    }?;
+
+    let rewrites = match kind {
+      RewriteKind::Source => self.source_rewrites,
+      RewriteKind::Declaration => self.declaration_rewrites,
+    };
+
+    let resolved_specifier = follow_specifier(specifier, rewrites)?;
+
+    if let Some(specifier) =
+      rewrite_npm_and_jsr_specifier(resolved_specifier.as_str())
+    {
+      return Some(specifier);
+    };
+
+    if resolved_specifier == specifier {
+      // No need to rewrite if the specifier is the same as the resolved
+      // specifier.
+      return None;
+    }
+
+    let new_specifier = if resolved_specifier.scheme() == "file" {
+      relative_import_specifier(self.base_specifier, resolved_specifier)
+    } else {
+      resolved_specifier.to_string()
+    };
+
+    Some(new_specifier)
+  }
+}
+
+fn relative_import_specifier(
+  base_specifier: &ModuleSpecifier,
+  specifier: &ModuleSpecifier,
+) -> String {
+  let relative = base_specifier.make_relative(&specifier).unwrap();
+  if relative.is_empty() {
+    format!("./{}", specifier.path_segments().unwrap().last().unwrap())
+  } else if relative.starts_with("../") {
+    relative.to_string()
+  } else {
+    format!("./{}", relative)
+  }
+}
+
+fn follow_specifier<'a>(
+  specifier: &'a ModuleSpecifier,
+  remapped_specifiers: &'a HashMap<&ModuleSpecifier, ModuleSpecifier>,
+) -> Option<&'a ModuleSpecifier> {
+  let mut redirects = 0;
+  let mut types_specifier = specifier;
+  loop {
+    // avoid infinite loops
+    if redirects > 10 {
+      return None;
+    }
+    if let Some(rewritten) = remapped_specifiers.get(&types_specifier) {
+      types_specifier = rewritten;
+    } else {
+      break;
+    }
+    redirects += 1;
+  }
+  Some(types_specifier)
+}
+
+pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
   if let Ok(jsr) = JsrPackageReqReference::from_str(specifier) {
     let req = jsr.into_inner();
     let jsr_name = ScopedPackageName::new(req.req.name).ok()?;
@@ -38,8 +131,6 @@ pub fn rewrite_specifier(specifier: &str) -> Option<String> {
       }
     );
     Some(rewritten)
-  } else if specifier.starts_with("./") || specifier.starts_with("../") {
-    rewrite_extension(specifier, Extension::Js)
   } else {
     None
   }
@@ -51,19 +142,36 @@ pub enum Extension {
   Dts,
 }
 
-pub fn rewrite_extension(path: &str, new_ext: Extension) -> Option<String> {
+pub fn rewrite_file_specifier_extension(
+  specifier: &ModuleSpecifier,
+  new_extension: Extension,
+) -> Option<ModuleSpecifier> {
+  assert_eq!(specifier.scheme(), "file");
+  let path = specifier.path();
+  let rewritten_path = rewrite_path_extension(path, new_extension)?;
+  Some(ModuleSpecifier::parse(&format!("file://{}", rewritten_path)).unwrap())
+}
+
+pub fn rewrite_path_extension(
+  path: &str,
+  new_extension: Extension,
+) -> Option<String> {
   let (basename, name) = path.rsplit_once('/')?;
-  if name.ends_with(".d.ts") {
+  let (name, ext) = if let Some(name) = name.strip_suffix(".d.ts") {
+    (name, "d.ts")
+  } else if let Some(name) = name.strip_suffix(".d.mts") {
+    (name, "d.mts")
+  } else {
+    name.rsplit_once('.')?
+  };
+  let new_ext = match new_extension {
+    Extension::Js => "js",
+    Extension::Dts => "d.ts",
+  };
+  if ext == new_ext {
     return None;
   }
-  let (name, ext) = name.rsplit_once('.')?;
-  match new_ext {
-    Extension::Js => match ext {
-      "ts" | "tsx" | "jsx" => Some(format!("{}/{}.js", basename, name)),
-      _ => None,
-    },
-    Extension::Dts => Some(format!("{}/{}.d.ts", basename, name)),
-  }
+  Some(format!("{}/{}.{}", basename, name, new_ext))
 }
 
 #[cfg(test)]
@@ -73,68 +181,94 @@ mod tests {
   #[test]
   fn test_rewrite_specifier_jsr() {
     assert_eq!(
-      rewrite_specifier("jsr:@std/fs"),
+      rewrite_npm_and_jsr_specifier("jsr:@std/fs"),
       Some("@jsr/std__fs".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("jsr:@std/fs/file_server"),
+      rewrite_npm_and_jsr_specifier("jsr:@std/fs/file_server"),
       Some("@jsr/std__fs/file_server".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("jsr:@std/fs@0.0.1"),
+      rewrite_npm_and_jsr_specifier("jsr:@std/fs@0.0.1"),
       Some("@jsr/std__fs".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("jsr:@std/fs@0.0.1/file_server"),
+      rewrite_npm_and_jsr_specifier("jsr:@std/fs@0.0.1/file_server"),
       Some("@jsr/std__fs/file_server".to_owned())
     );
   }
 
   #[test]
   fn test_rewrite_specifier_npm() {
-    assert_eq!(rewrite_specifier("npm:@std/fs"), Some("@std/fs".to_owned()));
     assert_eq!(
-      rewrite_specifier("npm:@std/fs/file_server"),
-      Some("@std/fs/file_server".to_owned())
-    );
-    assert_eq!(
-      rewrite_specifier("npm:@std/fs@0.0.1"),
+      rewrite_npm_and_jsr_specifier("npm:@std/fs"),
       Some("@std/fs".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("npm:@std/fs@0.0.1/file_server"),
+      rewrite_npm_and_jsr_specifier("npm:@std/fs/file_server"),
       Some("@std/fs/file_server".to_owned())
     );
-    assert_eq!(rewrite_specifier("npm:express"), Some("express".to_owned()));
     assert_eq!(
-      rewrite_specifier("npm:express/file_server"),
-      Some("express/file_server".to_owned())
+      rewrite_npm_and_jsr_specifier("npm:@std/fs@0.0.1"),
+      Some("@std/fs".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("npm:express@0.0.1"),
+      rewrite_npm_and_jsr_specifier("npm:@std/fs@0.0.1/file_server"),
+      Some("@std/fs/file_server".to_owned())
+    );
+    assert_eq!(
+      rewrite_npm_and_jsr_specifier("npm:express"),
       Some("express".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("npm:express@0.0.1/file_server"),
+      rewrite_npm_and_jsr_specifier("npm:express/file_server"),
+      Some("express/file_server".to_owned())
+    );
+    assert_eq!(
+      rewrite_npm_and_jsr_specifier("npm:express@0.0.1"),
+      Some("express".to_owned())
+    );
+    assert_eq!(
+      rewrite_npm_and_jsr_specifier("npm:express@0.0.1/file_server"),
       Some("express/file_server".to_owned())
     );
   }
 
   #[test]
-  fn test_rewrite_specifier_relative() {
+  fn test_rewrite_path_extension() {
     assert_eq!(
-      rewrite_specifier("./foo/bar.ts"),
-      Some("./foo/bar.js".to_owned())
+      rewrite_path_extension("foo/bar.ts", Extension::Js),
+      Some("foo/bar.js".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("../foo.tsx"),
-      Some("../foo.js".to_owned())
+      rewrite_path_extension("foo/bar.ts", Extension::Dts),
+      Some("foo/bar.d.ts".to_owned())
     );
     assert_eq!(
-      rewrite_specifier("../foo.jsx"),
-      Some("../foo.js".to_owned())
+      rewrite_path_extension("foo/bar.d.ts", Extension::Js),
+      Some("foo/bar.js".to_owned())
     );
-    assert_eq!(rewrite_specifier("./foo.js"), None);
-    assert_eq!(rewrite_specifier("./foo.d.ts"), None);
+    assert_eq!(rewrite_path_extension("foo/bar.d.ts", Extension::Dts), None);
+    assert_eq!(
+      rewrite_path_extension("foo/bar.d.mts", Extension::Js),
+      Some("foo/bar.js".to_owned())
+    );
+    assert_eq!(
+      rewrite_path_extension("foo/bar.d.mts", Extension::Dts),
+      Some("foo/bar.d.ts".to_owned())
+    );
+    assert_eq!(rewrite_path_extension("foo/bar.js", Extension::Js), None);
+    assert_eq!(
+      rewrite_path_extension("foo/bar.js", Extension::Dts),
+      Some("foo/bar.d.ts".to_owned())
+    );
+    assert_eq!(
+      rewrite_path_extension("foo/bar.jsx", Extension::Js),
+      Some("foo/bar.js".to_owned())
+    );
+    assert_eq!(
+      rewrite_path_extension("foo/bar.jsx", Extension::Dts),
+      Some("foo/bar.d.ts".to_owned())
+    );
   }
 }
