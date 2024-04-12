@@ -74,6 +74,8 @@ export default function Page({ data }: PageProps<Data, State>) {
             <a
               class="link"
               href={`https://github.com/jsr-io/jsr/blob/main/frontend/docs/${data.id}.md`}
+              target="_blank"
+              rel="noopener noreferrer"
             >
               Edit this page on GitHub
             </a>

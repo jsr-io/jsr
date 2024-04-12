@@ -113,6 +113,8 @@ export function PackageHeader(
                 <a
                   class="chip sm:big-chip bg-jsr-gray-0 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   <GitHub class="text-black !size-4" />
                   <span>
