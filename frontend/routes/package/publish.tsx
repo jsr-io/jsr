@@ -82,7 +82,12 @@ export default function PackagePage({
                 </pre>
                 <p>
                   The version must be in{" "}
-                  <a href="https://semver.org" class="link">
+                  <a
+                    href="https://semver.org"
+                    class="link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     SemVer
                   </a>{" "}
                   format.
@@ -204,6 +209,8 @@ function GitHubActions({ pkg, canEdit, user }: {
         <a
           href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
           class="link"
+          target="_blank"
+          rel="noopener noreferrer"
         >
           {pkg.githubRepository.owner}/{pkg.githubRepository.name}
         </a>
@@ -212,6 +219,8 @@ function GitHubActions({ pkg, canEdit, user }: {
         <a
           href="https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect"
           class="hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
         >
           OIDC
         </a>
