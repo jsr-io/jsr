@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::rc::Rc;
 
-use base64::Engine;
+use deno_ast::emit;
 use deno_ast::fold_program;
 use deno_ast::swc::ast::CallExpr;
 use deno_ast::swc::ast::Callee;
@@ -13,20 +12,15 @@ use deno_ast::swc::ast::Lit;
 use deno_ast::swc::ast::Module;
 use deno_ast::swc::ast::NamedExport;
 use deno_ast::swc::ast::Str;
-use deno_ast::swc::codegen::text_writer::JsWriter;
-use deno_ast::swc::codegen::Node;
-use deno_ast::swc::common::FileName;
 use deno_ast::swc::common::Globals;
 use deno_ast::swc::common::Mark;
-use deno_ast::swc::common::SourceMap;
 use deno_ast::swc::visit::as_folder;
 use deno_ast::swc::visit::noop_visit_mut_type;
 use deno_ast::swc::visit::FoldWith;
 use deno_ast::swc::visit::VisitMut;
 use deno_ast::swc::visit::VisitMutWith;
-use deno_ast::swc_codegen_config;
 use deno_ast::ParsedSource;
-use deno_ast::SourceMapConfig;
+use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
 use url::Url;
 
@@ -38,21 +32,18 @@ pub fn transpile_to_js(
   source: ParsedSource,
   source_url: Url,
 ) -> Result<String, anyhow::Error> {
-  let emit_options = deno_ast::EmitOptions {
-    source_map: SourceMapOption::Inline,
-    inline_sources: true,
-
+  let transpile_options = deno_ast::TranspileOptions {
     // FIXME: JSX?
     ..Default::default()
   };
-
-  let source_map = Rc::new(SourceMap::default());
-  let source_map_config = SourceMapConfig {
-    inline_sources: emit_options.inline_sources,
+  let emit_options = deno_ast::EmitOptions {
+    source_map: SourceMapOption::Inline,
+    inline_sources: true,
+    keep_comments: true,
   };
-  let file_name = FileName::Url(source_url);
-  source_map
-    .new_source_file(file_name, source.text_info().text_str().to_string());
+
+  let source_map =
+    SourceMap::single(source_url, source.text_info().text_str().to_string());
 
   let mut folder = as_folder(NpmImportTransform);
   let program = source.program_ref().clone().fold_with(&mut folder);
@@ -66,51 +57,16 @@ pub fn transpile_to_js(
     let top_level_mark = Mark::fresh(Mark::root());
     let program = fold_program(
       program,
-      &emit_options,
-      source_map.clone(),
+      &transpile_options,
+      &source_map,
       &comments,
       top_level_mark,
       source.diagnostics(),
     )?;
 
-    let mut src_map_buf = vec![];
-    let mut buf = vec![];
-    {
-      let mut writer = Box::new(JsWriter::new(
-        source_map.clone(),
-        "\n",
-        &mut buf,
-        Some(&mut src_map_buf),
-      ));
-      writer.set_indent_str("  "); // two spaces
+    let emitted = emit(&program, &comments, &source_map, &emit_options)?;
 
-      let mut emitter = deno_ast::swc::codegen::Emitter {
-        cfg: swc_codegen_config(),
-        comments: Some(&comments),
-        cm: source_map.clone(),
-        wr: writer,
-      };
-      program.emit_with(&mut emitter)?;
-    }
-    let mut src = String::from_utf8(buf)?;
-    {
-      let mut buf = Vec::new();
-      source_map
-        .build_source_map_with_config(&src_map_buf, None, source_map_config)
-        .to_writer(&mut buf)?;
-
-      if emit_options.source_map == SourceMapOption::Inline {
-        if !src.ends_with('\n') {
-          src.push('\n');
-        }
-        src.push_str("//# sourceMappingURL=data:application/json;base64,");
-        base64::prelude::BASE64_STANDARD.encode_string(buf, &mut src);
-      } else {
-        unimplemented!("inline_source_map must be true");
-      }
-    }
-
-    Ok(src)
+    Ok(emitted.text)
   })
 }
 
