@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use deno_ast::swc::ast::CallExpr;
 use deno_ast::swc::ast::Callee;
 use deno_ast::swc::ast::ExportAll;
