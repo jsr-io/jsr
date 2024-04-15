@@ -235,7 +235,7 @@ pub async fn create_npm_tarball<'a>(
             &comments,
             &source_map,
             &EmitOptions {
-              source_map: deno_ast::SourceMapOption::Inline,
+              source_map: deno_ast::SourceMapOption::None,
               inline_sources: true,
               keep_comments: true,
             },
