@@ -271,4 +271,36 @@ mod tests {
       Some("foo/bar.d.ts".to_owned())
     );
   }
+
+  #[test]
+  fn test_relative_import_specifier() {
+    assert_eq!(
+      relative_import_specifier(
+        &ModuleSpecifier::parse("file:///a/b/c.ts").unwrap(),
+        &ModuleSpecifier::parse("file:///a/b/d.ts").unwrap(),
+      ),
+      "./d.ts",
+    );
+    assert_eq!(
+      relative_import_specifier(
+        &ModuleSpecifier::parse("file:///a/b/c.ts").unwrap(),
+        &ModuleSpecifier::parse("file:///a/d.ts").unwrap(),
+      ),
+      "../d.ts",
+    );
+    assert_eq!(
+      relative_import_specifier(
+        &ModuleSpecifier::parse("file:///a/b/c.ts").unwrap(),
+        &ModuleSpecifier::parse("file:///a/b/c.ts").unwrap(),
+      ),
+      "./c.ts",
+    );
+    assert_eq!(
+      relative_import_specifier(
+        &ModuleSpecifier::parse("file:///a/b/c.ts").unwrap(),
+        &ModuleSpecifier::parse("file:///a/b/c/d.ts").unwrap(),
+      ),
+      "./c/d.ts",
+    );
+  }
 }
