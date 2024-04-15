@@ -78,8 +78,8 @@ deno_semver = "0.5.2"
 flate2 = "1"
 thiserror = "1"
 async-tar = "0.4.2"
-deno_graph = "0.70.0"
-deno_ast = "0.35.0"
+deno_graph = "0.71.2"
+deno_ast = "0.36.1"
 deno_doc = { version = "0.123.0", features = ["tree-sitter"] }
 comrak = { version = "0.20.0", default-features = false }
 async-trait = "0.1.73"

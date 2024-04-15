@@ -6,7 +6,10 @@ use std::collections::HashSet;
 use anyhow::Context;
 use base64::Engine;
 use deno_ast::apply_text_changes;
+use deno_ast::emit;
+use deno_ast::EmitOptions;
 use deno_ast::ParsedSource;
+use deno_ast::SourceMap;
 use deno_ast::TextChange;
 use deno_graph::DependencyDescriptor;
 use deno_graph::ModuleGraph;
@@ -224,7 +227,20 @@ pub async fn create_npm_tarball<'a>(
 
           let rewritten_path = rewrite_extension(path, Extension::Dts)
             .unwrap_or_else(|| path.to_owned());
-          package_files.insert(rewritten_path, dts.text.as_bytes().to_vec());
+          let comments = dts.comments.as_single_threaded();
+          let source_map =
+            SourceMap::single(js.specifier.clone(), (*js.source).to_owned());
+          let emitted = emit(
+            &dts.program,
+            &comments,
+            &source_map,
+            &EmitOptions {
+              source_map: deno_ast::SourceMapOption::None,
+              inline_sources: true,
+              keep_comments: true,
+            },
+          )?;
+          package_files.insert(rewritten_path, emitted.text.into_bytes());
         }
       }
     }
