@@ -36,6 +36,8 @@ use crate::ids::Version;
 
 use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
+use super::specifiers::follow_specifier;
+use super::specifiers::relative_import_specifier;
 use super::specifiers::rewrite_file_specifier_extension;
 use super::specifiers::Extension;
 use super::specifiers::RewriteKind;
@@ -370,7 +372,7 @@ pub async fn create_npm_tarball<'a>(
   })
 }
 
-fn rewrite_specifiers<'a>(
+fn rewrite_specifiers(
   source_text_info: &SourceTextInfo,
   module_info: &ModuleInfo,
   specifier_rewriter: SpecifierRewriter,
@@ -417,8 +419,7 @@ fn rewrite_specifiers<'a>(
       }
       DependencyDescriptor::Dynamic(desc) => match &desc.argument {
         deno_graph::DynamicArgument::String(specifier) => {
-          if let Some(specifier) = specifier_rewriter.rewrite(&specifier, kind)
-          {
+          if let Some(specifier) = specifier_rewriter.rewrite(specifier, kind) {
             add_text_change(&mut text_changes, specifier, &desc.argument_range);
           }
         }
@@ -565,38 +566,6 @@ pub fn create_npm_exports(
     npm_exports.insert(key.clone(), conditions);
   }
   npm_exports
-}
-
-fn relative_import_specifier(base_specifier: &Url, specifier: &Url) -> String {
-  let relative = base_specifier.make_relative(&specifier).unwrap();
-  if relative.is_empty() {
-    format!("./{}", specifier.path_segments().unwrap().last().unwrap())
-  } else if relative.starts_with("../") {
-    relative.to_string()
-  } else {
-    format!("./{}", relative)
-  }
-}
-
-fn follow_specifier<'a>(
-  specifier: &'a Url,
-  remapped_specifiers: &'a HashMap<&Url, Url>,
-) -> Option<&'a Url> {
-  let mut redirects = 0;
-  let mut types_specifier = specifier;
-  loop {
-    // avoid infinite loops
-    if redirects > 10 {
-      return None;
-    }
-    if let Some(rewritten) = remapped_specifiers.get(&types_specifier) {
-      types_specifier = rewritten;
-    } else {
-      break;
-    }
-    redirects += 1;
-  }
-  Some(types_specifier)
 }
 
 #[cfg(test)]

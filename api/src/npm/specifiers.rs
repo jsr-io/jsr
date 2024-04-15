@@ -64,11 +64,11 @@ impl<'a> SpecifierRewriter<'a> {
   }
 }
 
-fn relative_import_specifier(
+pub fn relative_import_specifier(
   base_specifier: &ModuleSpecifier,
   specifier: &ModuleSpecifier,
 ) -> String {
-  let relative = base_specifier.make_relative(&specifier).unwrap();
+  let relative = base_specifier.make_relative(specifier).unwrap();
   if relative.is_empty() {
     format!("./{}", specifier.path_segments().unwrap().last().unwrap())
   } else if relative.starts_with("../") {
@@ -78,7 +78,7 @@ fn relative_import_specifier(
   }
 }
 
-fn follow_specifier<'a>(
+pub fn follow_specifier<'a>(
   specifier: &'a ModuleSpecifier,
   remapped_specifiers: &'a HashMap<&ModuleSpecifier, ModuleSpecifier>,
 ) -> Option<&'a ModuleSpecifier> {

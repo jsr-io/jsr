@@ -31,7 +31,7 @@ impl<'a> VisitMut for ImportRewriteTransformer<'a> {
 
     if let Some(remapped) = self
       .specifier_rewriter
-      .rewrite(&node.src.value.as_str(), self.kind)
+      .rewrite(node.src.value.as_str(), self.kind)
     {
       node.src = Box::new(remapped.into());
     }
@@ -43,7 +43,7 @@ impl<'a> VisitMut for ImportRewriteTransformer<'a> {
     if let Some(src) = &node.src {
       if let Some(remapped) = self
         .specifier_rewriter
-        .rewrite(&src.value.as_str(), self.kind)
+        .rewrite(src.value.as_str(), self.kind)
       {
         node.src = Some(Box::new(remapped.into()));
       }
@@ -55,7 +55,7 @@ impl<'a> VisitMut for ImportRewriteTransformer<'a> {
 
     if let Some(remapped) = self
       .specifier_rewriter
-      .rewrite(&node.src.value.as_str(), self.kind)
+      .rewrite(node.src.value.as_str(), self.kind)
     {
       node.src = Box::new(remapped.into());
     }
@@ -66,7 +66,7 @@ impl<'a> VisitMut for ImportRewriteTransformer<'a> {
 
     if let Some(remapped) = self
       .specifier_rewriter
-      .rewrite(&n.arg.value.as_str(), RewriteKind::Declaration)
+      .rewrite(n.arg.value.as_str(), RewriteKind::Declaration)
     {
       n.arg = remapped.into();
     }

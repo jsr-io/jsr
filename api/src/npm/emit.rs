@@ -17,9 +17,9 @@ use crate::npm::import_transform::ImportRewriteTransformer;
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
 
-pub fn transpile_to_js<'a>(
+pub fn transpile_to_js(
   source: &ParsedSource,
-  specifier_rewriter: SpecifierRewriter<'a>,
+  specifier_rewriter: SpecifierRewriter,
 ) -> Result<String, anyhow::Error> {
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Inline,
@@ -68,10 +68,10 @@ pub fn transpile_to_js<'a>(
   Ok(emitted.text)
 }
 
-pub fn transpile_to_dts<'a>(
+pub fn transpile_to_dts(
   source: &ParsedSource,
   fast_check_module: &FastCheckTypeModule,
-  specifier_rewriter: SpecifierRewriter<'a>,
+  specifier_rewriter: SpecifierRewriter,
 ) -> Result<String, anyhow::Error> {
   let dts = fast_check_module.dts.as_ref().unwrap();
 
