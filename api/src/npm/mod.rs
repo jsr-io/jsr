@@ -1,11 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+mod emit;
+mod import_transform;
 mod specifiers;
 mod tarball;
 #[cfg(test)]
 mod tests;
 mod types;
-mod import_transform;
-mod emit;
 
 use chrono::SecondsFormat;
 use deno_semver::package::PackageReq;
