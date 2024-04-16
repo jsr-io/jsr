@@ -447,3 +447,39 @@ case, you can un-ignore the `dist/` directory by using a negation in the
 
 In this case, the `dist/` directory will be included when publishing, even
 though it is listed in the `.gitignore` file.
+
+## Publishing command line interfaces (CLIs)
+
+JSR supports publishing of command-line interfaces (CLIs) as part of a package.
+This allows package users to execute your CLI from the command line using
+`deno run`, `npx`, `yarn dlx`, and similar tools.
+
+Unlike npm, JSR does not have a special field in the `jsr.json` / `deno.json` to
+specify bin entrypoints. Instead, include the bin entrypoints in the `exports`
+field. If your package only has a single bin entrypoint and no other
+entrypoints, you can specify it as the default entrypoint in the `exports`
+field.
+
+```json
+// jsr.json
+{
+  "name": "@luca/greet",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./cli.ts"
+  }
+}
+```
+
+Deno users will be able to use this CLI with `deno run`, as they can with any
+remote package: `deno run jsr:@luca/greet`. If the bin is instead specified in a
+non-default exports, they can still call it: `deno run jsr:@luca/greet/bin`.
+
+For users using [JSR's npm compatibility layer](/docs/npm-compatibility), a
+`bin` field is added to the `package.json` in the generated npm compatible
+tarball. JSR will put all files specified in the `exports` in this field that
+contain a [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix)#Examples). JSR
+will automatically determine a binary name based on the package name and exports
+key (`<PACKAGE_NAME>-<EXPORT_KEY>`, except for the root `.` export, where the
+key is just `<PACKAGE_NAME>`). A package author can override the binary name by
+specifying a `// @jsrBin=<BIN_NAME>` comment in the relevant JS/TS file.

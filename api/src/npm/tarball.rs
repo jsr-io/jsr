@@ -29,6 +29,7 @@ use url::Url;
 use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
+use crate::db::NpmBinEntries;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
@@ -50,6 +51,9 @@ pub struct NpmTarball {
   pub sha1: String,
   /// The base64 encoded sha512 hash of the gzipped tarball.
   pub sha512: String,
+  /// The bin field from the package.json. This is used to create the bin field
+  /// in the package version manifest.
+  pub bin: NpmBinEntries,
 }
 
 pub enum NpmTarballFiles<'a> {
@@ -95,24 +99,27 @@ pub async fn create_npm_tarball<'a>(
 
   let npm_package_id = NpmMappedJsrPackageName { scope, package };
 
-  let npm_exports = create_npm_exports(exports);
-
-  let npm_dependencies =
-    create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
-
   let homepage = Url::options()
     .base_url(Some(registry_url))
     .parse(&format!("./@{scope}/{package}",))
     .unwrap()
     .to_string();
 
+  let npm_exports = create_npm_exports(exports);
+
+  let npm_dependencies =
+    create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
+
+  let npm_bin = create_npm_bin(package, exports, sources);
+
   let pkg_json = NpmPackageJson {
     name: npm_package_id,
     version: version.clone(),
+    homepage,
     module_type: "module".to_string(),
     exports: npm_exports,
     dependencies: npm_dependencies,
-    homepage,
+    bin: npm_bin.clone(),
     revision: NPM_TARBALL_REVISION,
   };
 
@@ -337,6 +344,7 @@ pub async fn create_npm_tarball<'a>(
     tarball: tar_gz_bytes,
     sha1,
     sha512,
+    bin: NpmBinEntries::new(npm_bin),
   })
 }
 
@@ -375,6 +383,50 @@ pub fn create_npm_exports(exports: &ExportsMap) -> IndexMap<String, String> {
     npm_exports.insert(key.clone(), import_path);
   }
   npm_exports
+}
+
+pub fn create_npm_bin(
+  package_name: &PackageName,
+  exports: &ExportsMap,
+  sources: &dyn ParsedSourceStore,
+) -> IndexMap<String, String> {
+  let mut npm_bin = IndexMap::new();
+  for (key, path) in exports.iter() {
+    let Ok(url) = format!("file://{}", &path[1..]).parse() else {
+      continue;
+    };
+    let Some(source) = sources.get_parsed_source(&url) else {
+      continue;
+    };
+    if source.module().shebang.is_none() {
+      continue;
+    }
+
+    let bin_name = source
+      .comments()
+      .leading_map()
+      .iter()
+      .flat_map(|entry| entry.1.iter())
+      .find_map(|comment| {
+        if let Some(name) = comment.text.trim().strip_prefix("@jsrBin=") {
+          Some(name.to_string())
+        } else {
+          None
+        }
+      })
+      .unwrap_or_else(|| {
+        if key == "." {
+          package_name.to_string()
+        } else {
+          format!("{}-{}", package_name, key[2..].replace("/", "-"))
+        }
+      });
+
+    let import_path =
+      rewrite_specifier(path).unwrap_or_else(|| path.to_owned());
+    npm_bin.insert(bin_name, import_path);
+  }
+  npm_bin
 }
 
 fn to_range(

@@ -28,7 +28,7 @@ pub use self::tarball::NpmTarballOptions;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 
-pub const NPM_TARBALL_REVISION: u32 = 7;
+pub const NPM_TARBALL_REVISION: u32 = 8;
 
 pub async fn generate_npm_version_manifest<'a>(
   db: &Database,
@@ -126,6 +126,7 @@ pub async fn generate_npm_version_manifest<'a>(
         integrity: format!("sha512-{}", npm_tarball.sha512),
       },
       dependencies: npm_dependencies,
+      bin: npm_tarball.bin.into_inner(),
     };
 
     out

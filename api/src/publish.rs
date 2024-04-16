@@ -330,6 +330,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
     sha1: &npm_tarball_info.sha1,
     sha512: &npm_tarball_info.sha512,
     size: npm_tarball_info.size as i32,
+    bin: &npm_tarball_info.bin,
   };
 
   *publishing_task = db

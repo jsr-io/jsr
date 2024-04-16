@@ -51,6 +51,8 @@ pub struct NpmVersionInfo<'a> {
   pub description: String,
   pub dist: NpmDistInfo,
   pub dependencies: IndexMap<String, String>,
+  #[serde(skip_serializing_if = "IndexMap::is_empty")]
+  pub bin: IndexMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -74,6 +76,9 @@ pub struct NpmPackageJson<'a> {
   pub module_type: String,
   pub dependencies: IndexMap<String, String>,
   pub exports: IndexMap<String, String>,
+
+  #[serde(skip_serializing_if = "IndexMap::is_empty")]
+  pub bin: IndexMap<String, String>,
 
   #[serde(rename = "_jsr_revision")]
   pub revision: u32,
