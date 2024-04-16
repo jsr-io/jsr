@@ -22,10 +22,6 @@ pub struct ImportRewriteTransformer<'a> {
 }
 
 impl<'a> VisitMut for ImportRewriteTransformer<'a> {
-  fn visit_mut_module(&mut self, module: &mut Module) {
-    module.visit_mut_children_with(self);
-  }
-
   fn visit_mut_import_decl(&mut self, node: &mut ImportDecl) {
     node.visit_mut_children_with(self);
 

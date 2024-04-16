@@ -195,10 +195,8 @@ pub async fn create_npm_tarball<'a>(
           specifier_rewriter,
           RewriteKind::Source,
         );
-        package_files.insert(
-          js.specifier.path().to_owned(),
-          rewritten.as_bytes().to_vec(),
-        );
+        package_files
+          .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
       }
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
@@ -211,10 +209,8 @@ pub async fn create_npm_tarball<'a>(
           specifier_rewriter,
           RewriteKind::Declaration,
         );
-        package_files.insert(
-          js.specifier.path().to_owned(),
-          rewritten.as_bytes().to_vec(),
-        );
+        package_files
+          .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
       }
       deno_ast::MediaType::Jsx => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
@@ -235,10 +231,8 @@ pub async fn create_npm_tarball<'a>(
           specifier_rewriter,
           RewriteKind::Source,
         );
-        package_files.insert(
-          js.specifier.path().to_owned(),
-          rewritten.as_bytes().to_vec(),
-        );
+        package_files
+          .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
 
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let source =
