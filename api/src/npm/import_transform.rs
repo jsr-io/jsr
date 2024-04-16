@@ -6,7 +6,6 @@ use deno_ast::swc::ast::Expr;
 use deno_ast::swc::ast::ExprOrSpread;
 use deno_ast::swc::ast::ImportDecl;
 use deno_ast::swc::ast::Lit;
-use deno_ast::swc::ast::Module;
 use deno_ast::swc::ast::NamedExport;
 use deno_ast::swc::ast::Str;
 use deno_ast::swc::ast::TsImportType;
