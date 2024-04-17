@@ -12,8 +12,6 @@ use deno_ast::swc::ast::Lit;
 use deno_ast::swc::ast::Module;
 use deno_ast::swc::ast::NamedExport;
 use deno_ast::swc::ast::Str;
-use deno_ast::swc::common::Globals;
-use deno_ast::swc::common::Mark;
 use deno_ast::swc::visit::as_folder;
 use deno_ast::swc::visit::noop_visit_mut_type;
 use deno_ast::swc::visit::FoldWith;
@@ -45,22 +43,22 @@ pub fn transpile_to_js(
   let source_map =
     SourceMap::single(source_url, source.text_info().text_str().to_string());
 
-  let mut folder = as_folder(NpmImportTransform);
-  let program = source.program_ref().clone().fold_with(&mut folder);
-
   // needs to align with what's done internally in source map
   assert_eq!(1, source.text_info().range().start.as_byte_pos().0);
   // we need the comments to be mutable, so make it single threaded
   let comments = source.comments().as_single_threaded();
-  let globals = Globals::new();
-  deno_ast::swc::common::GLOBALS.set(&globals, || {
-    let top_level_mark = Mark::fresh(Mark::root());
+  source.globals().with(|marks| {
+    let mut folder = as_folder(NpmImportTransform);
+    // todo(dsherret): this shouldn't clone the entire program. Probably we
+    // should add a way to run `transpile` with custom folders
+    let program = source.program_ref().clone().fold_with(&mut folder);
+
     let program = fold_program(
       program,
       &transpile_options,
       &source_map,
       &comments,
-      top_level_mark,
+      marks,
       source.diagnostics(),
     )?;
 
