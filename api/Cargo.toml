@@ -100,3 +100,6 @@ sitemap-rs = "0.2.1"
 [dev-dependencies]
 flate2 = "1"
 deno_semver = "0.5.1"
+
+[patch.crates-io]
+deno_graph = { path = "../../../denoland/deno_graph" }
