@@ -58,7 +58,7 @@ export function Header({
               class="outline-none focus-visible:ring-2 ring-cyan-700"
             >
               <span className="sr-only">JSR home</span>
-              <Logo class="h-8 flex-none hover:animate-flip-rotate" />
+              <Logo class="flex-none hover:animate-flip-rotate" size="medium" />
             </a>
           )}
           <div class="hidden sm:block grow-1 flex-1">

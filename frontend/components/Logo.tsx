@@ -1,5 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-export function Logo(props: { class?: string }) {
+const height = 7;
+
+/** number of pixels each blocks spans */
+const sizes = {
+  small: 4,
+  medium: 5,
+  large: 9,
+} as const;
+
+export function Logo(props: { class?: string; size: keyof typeof sizes }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -7,6 +16,7 @@ export function Logo(props: { class?: string }) {
       fill="none"
       class={props.class}
       aria-hidden="true"
+      height={height * sizes[props.size]}
     >
       <g fill-rule="evenodd">
         <path
