@@ -1,0 +1,69 @@
+# foo.ts
+export { add } from "./bar.ts";
+
+# bar.ts
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./foo.ts"
+  }
+}
+
+# output
+== /bar.d.ts ==
+export declare function add(a: number, b: number): number;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhci50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLGlCQUFTLElBQUksR0FBRyxNQUFNLEVBQUUsR0FBRyxNQUFNLEdBQUcsTUFBTSJ9
+
+== /bar.js ==
+export function add(a, b) {
+  return a + b;
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhci50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLFNBQVMsSUFBSSxDQUFTLEVBQUUsQ0FBUztFQUN0QyxPQUFPLElBQUk7QUFDYiJ9
+
+== /bar.ts ==
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+== /foo.d.ts ==
+export { add } from "./bar.d.ts";
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLEdBQUcscUJBQW1CIn0=
+
+== /foo.js ==
+export { add } from "./bar.js";
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLEdBQUcsbUJBQW1CIn0=
+
+== /foo.ts ==
+export { add } from "./bar.js";
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./foo.ts"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./foo.d.ts",
+      "default": "./foo.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+

@@ -242,7 +242,7 @@ async fn analyze_package_inner(
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
-    sources: &module_analyzer.analyzer,
+    analyzer: &module_analyzer.analyzer,
     registry_url: registry.registry_url(),
     scope: &scope,
     package: &name,
@@ -661,7 +661,7 @@ async fn rebuild_npm_tarball_inner(
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
-    sources: &module_analyzer.analyzer,
+    analyzer: &module_analyzer.analyzer,
     registry_url: registry.registry_url(),
     scope: &scope,
     package: &name,
