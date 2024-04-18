@@ -155,7 +155,9 @@ async fn analyze_package_inner(
     )
     .await;
   assert!(diagnostics.is_empty());
-  graph.valid().map_err(PublishError::GraphError)?;
+  graph
+    .valid()
+    .map_err(|e| PublishError::GraphError(Box::new(e)))?;
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: None,
     fast_check_dts: true,

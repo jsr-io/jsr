@@ -307,7 +307,7 @@ pub async fn process_tarball(
 
           if !version.exports.contains_key(&exports_key) {
             return Err(PublishError::InvalidJsrDependencySubPath {
-              req: req.clone(),
+              req: Box::new(req.clone()),
               resolved_version: version.version.clone(),
               exports_key,
             });
@@ -556,7 +556,7 @@ pub enum PublishError {
   },
 
   #[error("failed to build module graph: {}", .0.to_string_with_range())]
-  GraphError(ModuleGraphError),
+  GraphError(Box<ModuleGraphError>),
 
   #[error("failed to generate documentation: {0:?}")]
   DocError(anyhow::Error),
@@ -584,7 +584,7 @@ pub enum PublishError {
 
   #[error("invalid 'jsr:' dependency subpath: '{req}', resolved to {resolved_version}, has no export '{exports_key}'")]
   InvalidJsrDependencySubPath {
-    req: PackageReqReference,
+    req: Box<PackageReqReference>,
     resolved_version: Version,
     exports_key: String,
   },
