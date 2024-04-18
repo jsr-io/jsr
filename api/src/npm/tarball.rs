@@ -765,7 +765,7 @@ mod tests {
     for (path, spec) in specs {
       test_npm_tarball(&path, spec)
         .await
-        .unwrap_or_else(|_| panic!("failed to test npm tarball {path:?}"));
+        .unwrap_or_else(|e| panic!("failed to test npm tarball {path:?}: {e}"));
     }
   }
 }
