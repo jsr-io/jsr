@@ -31,5 +31,7 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 # copy the build artifact from the build stage
 COPY --from=build /registry_api/target/release/registry_api .
 
+ENV RUST_BACKTRACE=1
+
 # set the startup command to run your binary
 ENTRYPOINT ["./registry_api"]

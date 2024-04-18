@@ -39,6 +39,14 @@ resource "google_storage_bucket" "npm" {
   }
 }
 
+resource "google_storage_bucket_object" "npm_root_json" {
+  bucket        = google_storage_bucket.npm.name
+  cache_control = "public, max-age=0, no-cache"
+  content       = "{}"
+  content_type  = "application/json"
+  name          = "root.json"
+}
+
 resource "google_storage_bucket_object" "npm_404_txt" {
   bucket        = google_storage_bucket.npm.name
   cache_control = "public, max-age=0, no-cache"
@@ -65,12 +73,17 @@ resource "google_compute_backend_bucket" "modules" {
     "x-jsr-cache-status: {cdn_cache_status}",
     "X-Robots-Tag: noindex",
   ]
+
   cdn_policy {
     cache_mode         = "USE_ORIGIN_HEADERS"
     default_ttl        = 0        # no caching unless specified by the backend
     max_ttl            = 31622400 # 1 year
     serve_while_stale  = 0        # no caching unless specified by the backend
     request_coalescing = true
+  }
+
+  lifecycle {
+    ignore_changes = [cdn_policy[0].client_ttl, cdn_policy[0].max_ttl]
   }
 }
 
@@ -99,5 +112,9 @@ resource "google_compute_backend_bucket" "npm" {
     max_ttl            = 31622400 # 1 year
     serve_while_stale  = 0        # no caching unless specified by the backend
     request_coalescing = true
+  }
+
+  lifecycle {
+    ignore_changes = [cdn_policy[0].client_ttl, cdn_policy[0].max_ttl]
   }
 }

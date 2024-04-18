@@ -586,7 +586,7 @@ pub struct ConfigFile {
   pub exports: Option<serde_json::Value>,
 }
 
-fn exports_map_from_json(
+pub fn exports_map_from_json(
   exports: Option<serde_json::Value>,
 ) -> Result<ExportsMap, String> {
   fn has_extension(value: &str) -> bool {

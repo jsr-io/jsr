@@ -107,7 +107,7 @@ export function Header({
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
               : (
                 <a href={loginUrl} class="link flex items-center gap-2">
-                  <GitHub class="h-5 w-5 flex-none" />
+                  <GitHub class="size-5 flex-none" />
                   Sign in
                 </a>
               )}

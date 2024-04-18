@@ -1,0 +1,65 @@
+# index.js
+/// <reference types="./index.d.ts" />
+/** @type {import("./foo.ts").Num} */
+export const a = 1;
+
+# index.d.ts
+export const a: import("./foo.ts").Num;
+
+# foo.ts
+export type Num = number;
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+
+# output
+== /foo.d.ts ==
+export type Num = number;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxZQUFZLE1BQU0sTUFBTSJ9
+
+== /foo.js ==
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
+
+== /foo.ts ==
+export type Num = number;
+
+== /index.d.ts ==
+export const a: import("./foo.d.ts").Num;
+
+== /index.js ==
+
+/** @type {import("./foo.d.ts").Num} */
+export const a = 1;
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+

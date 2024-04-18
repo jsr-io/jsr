@@ -57,6 +57,9 @@ jobs:
         uses: dsherret/rust-toolchain-file@v1
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            api
 
       - name: Setup postgres for tests
         run: docker-compose up -d
@@ -124,9 +127,6 @@ jobs:
 
       - name: Set up docker buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Copy Cargo.lock
-        run: cp Cargo.lock api/Cargo.lock
 
       - name: Build and push api docker image
         uses: docker/build-push-action@v5

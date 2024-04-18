@@ -65,6 +65,14 @@ pub struct NpmPackageInfo<'a> {
 }
 
 #[derive(Debug, Serialize)]
+pub struct NpmExportConditions {
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub types: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub default: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct NpmPackageJson<'a> {
   pub name: NpmMappedJsrPackageName<'a>,
   pub version: Version,
@@ -73,7 +81,7 @@ pub struct NpmPackageJson<'a> {
   #[serde(rename = "type")]
   pub module_type: String,
   pub dependencies: IndexMap<String, String>,
-  pub exports: IndexMap<String, String>,
+  pub exports: IndexMap<String, NpmExportConditions>,
 
   #[serde(rename = "_jsr_revision")]
   pub revision: u32,

@@ -1,0 +1,122 @@
+# foo.js
+/// <reference types="./fizz.d.ts" />
+import { html } from "jsr:@luca/flag@1";
+await import("jsr:@luca/flag@1")
+
+# bar.mjs
+/// <reference types="./fizz.d.ts" />
+import { html } from "jsr:@luca/flag@1";
+await import("jsr:@luca/flag@1")
+
+# baz.ts
+import { html } from "jsr:@luca/flag@1";
+html();
+await import("jsr:@luca/flag@1")
+
+# fizz.d.ts
+import { html } from "jsr:@luca/flag@1";
+await import("jsr:@luca/flag@1")
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs",
+    "./baz": "./baz.ts",
+    "./fizz": "./fizz.d.ts"
+  }
+}
+
+# http://jsr.test/@luca/flag/meta.json
+{
+  "scope": "luca",
+  "name": "flag",
+  "latest": "1.0.0",
+  "versions": {
+    "1.0.0": {}
+  }
+}
+
+# http://jsr.test/@luca/flag/1.0.0_meta.json
+{
+  "manifest": {
+  },
+  "exports": {
+    ".": "./main.ts"
+  }
+}
+
+# http://jsr.test/@luca/flag/1.0.0/main.ts
+<external>
+
+# output
+== /bar.mjs ==
+
+import { html } from "@jsr/luca__flag";
+await import("@jsr/luca__flag")
+
+== /baz.d.ts ==
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
+
+== /baz.js ==
+import { html } from "@jsr/luca__flag";
+html();
+await import("@jsr/luca__flag");
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhei50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLElBQUksMEJBQTJCO0FBQ3hDO0FBQ0EsTUFBTSxNQUFNLENBQUMifQ==
+
+== /baz.ts ==
+import { html } from "@jsr/luca__flag";
+html();
+await import("@jsr/luca__flag")
+
+== /fizz.d.ts ==
+import { html } from "@jsr/luca__flag";
+await import("@jsr/luca__flag")
+
+== /foo.js ==
+
+import { html } from "@jsr/luca__flag";
+await import("@jsr/luca__flag")
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs",
+    "./baz": "./baz.ts",
+    "./fizz": "./fizz.d.ts"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    "./foo": {
+      "types": "./fizz.d.ts",
+      "default": "./foo.js"
+    },
+    "./bar": {
+      "types": "./fizz.d.ts",
+      "default": "./bar.mjs"
+    },
+    "./baz": {
+      "types": "./baz.d.ts",
+      "default": "./baz.js"
+    },
+    "./fizz": {
+      "default": "./fizz.d.ts"
+    }
+  },
+  "_jsr_revision": 0
+}
+

@@ -31,8 +31,8 @@ export const handler: Handlers<unknown, State> = {
               new URL("../../static/logo.svg", import.meta.url),
             ),
             message: packageResp.data.latestVersion,
-            labelColor: "rgb(8,51,68)",
-            color: "rgb(247,223,30)",
+            labelColor: "rgb(247,223,30)",
+            color: "rgb(8,51,68)",
             logoWidth: "25",
           }),
           {

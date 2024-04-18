@@ -16,9 +16,8 @@ export const RUNTIME_COMPAT_KEYS: [
 ];
 
 export function RuntimeCompatIndicator(
-  { runtimeCompat, labeled, hideUnknown, compact }: {
+  { runtimeCompat, hideUnknown, compact }: {
     runtimeCompat: RuntimeCompat;
-    labeled?: boolean;
     hideUnknown?: boolean;
     compact?: boolean;
   },
@@ -27,8 +26,7 @@ export function RuntimeCompatIndicator(
   if (!hasExplicitCompat) return null;
 
   return (
-    <div class="min-w-content font-semibold flex items-center gap-2">
-      {labeled && <div>Works with</div>}
+    <div class="min-w-content font-semibold select-none">
       <div
         class={`flex items-center ${
           compact ? "*:-mx-1" : "*:mx-0.5"

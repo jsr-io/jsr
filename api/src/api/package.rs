@@ -460,7 +460,14 @@ async fn update_github_repository(
 
   let repo = github_u2s_client
     .get_repo(&req.owner, &req.name)
-    .await?
+    .await
+    .map_err(|err| {
+      if err.to_string().contains("SAML enforcement") {
+        ApiError::GithubSamlEnforcement
+      } else {
+        err.into()
+      }
+    })?
     .ok_or(ApiError::GithubRepositoryNotFound)?;
 
   if repo.visibility != "public" {

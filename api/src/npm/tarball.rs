@@ -3,16 +3,19 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use anyhow::Context;
 use base64::Engine;
 use deno_ast::apply_text_changes;
-use deno_ast::ParsedSource;
+use deno_ast::SourceTextInfo;
 use deno_ast::TextChange;
-use deno_graph::DefaultModuleAnalyzer;
+use deno_graph::CapturingModuleAnalyzer;
 use deno_graph::DependencyDescriptor;
+use deno_graph::ModuleAnalyzer;
 use deno_graph::ModuleGraph;
+use deno_graph::ModuleInfo;
+use deno_graph::ModuleSpecifier;
 use deno_graph::ParsedSourceStore;
 use deno_graph::PositionRange;
+use deno_graph::Resolution;
 use deno_semver::package::PackageReqReference;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -20,7 +23,6 @@ use indexmap::IndexMap;
 use sha2::Digest;
 use tar::Header;
 use tracing::error;
-use tracing::info;
 use url::Url;
 
 use crate::buckets::BucketWithQueue;
@@ -31,13 +33,18 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
-use crate::npm::specifiers::rewrite_extension;
-use crate::npm::specifiers::rewrite_specifier;
-use crate::npm::specifiers::Extension;
-use crate::npm::types::NpmMappedJsrPackageName;
-use crate::npm::types::NpmPackageJson;
 
+use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
+use super::specifiers::follow_specifier;
+use super::specifiers::relative_import_specifier;
+use super::specifiers::rewrite_file_specifier_extension;
+use super::specifiers::Extension;
+use super::specifiers::RewriteKind;
+use super::specifiers::SpecifierRewriter;
+use super::types::NpmExportConditions;
+use super::types::NpmMappedJsrPackageName;
+use super::types::NpmPackageJson;
 use super::NPM_TARBALL_REVISION;
 
 pub struct NpmTarball {
@@ -62,7 +69,7 @@ pub struct NpmTarballOptions<
   Deps: Iterator<Item = &'a (DependencyKind, PackageReqReference)>,
 > {
   pub graph: &'a ModuleGraph,
-  pub sources: &'a dyn ParsedSourceStore,
+  pub analyzer: &'a CapturingModuleAnalyzer,
   pub registry_url: &'a Url,
   pub scope: &'a ScopeName,
   pub package: &'a PackageName,
@@ -80,7 +87,7 @@ pub async fn create_npm_tarball<'a>(
 ) -> Result<NpmTarball, anyhow::Error> {
   let NpmTarballOptions {
     graph,
-    sources,
+    analyzer: sources,
     registry_url,
     scope,
     package,
@@ -92,8 +99,6 @@ pub async fn create_npm_tarball<'a>(
 
   let npm_package_id = NpmMappedJsrPackageName { scope, package };
 
-  let npm_exports = create_npm_exports(exports);
-
   let npm_dependencies =
     create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
 
@@ -103,142 +108,161 @@ pub async fn create_npm_tarball<'a>(
     .unwrap()
     .to_string();
 
-  let pkg_json = NpmPackageJson {
-    name: npm_package_id,
-    version: version.clone(),
-    module_type: "module".to_string(),
-    exports: npm_exports,
-    dependencies: npm_dependencies,
-    homepage,
-    revision: NPM_TARBALL_REVISION,
-  };
-
-  let mut transpiled_files = HashSet::new();
   let mut package_files = IndexMap::new();
+  let mut to_be_rewritten = vec![];
+
+  // Mapping of original specifiers in the module graph to where one can find
+  // the source code or declarations for that module in the tarball, if it
+  // differs from the original specifier.
+  let mut source_rewrites = HashMap::<&ModuleSpecifier, ModuleSpecifier>::new();
+  let mut declaration_rewrites =
+    HashMap::<&ModuleSpecifier, ModuleSpecifier>::new();
 
   for module in graph.modules() {
     if module.specifier().scheme() != "file" {
       continue;
     };
-    let path = module.specifier().path();
 
-    if let Some(json) = module.json() {
-      package_files.insert(path.to_owned(), json.source.as_bytes().to_vec());
-    } else if let Some(js) = module.js() {
-      match js.media_type {
-        // We need to rewrite import source in js files too
-        // from `npm:*` to bare specifiers, for example.
-        deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
-          let source = sources
-            .get_parsed_source(module.specifier())
-            .expect("parsed source should be here");
+    let Some(js) = module.js() else { continue };
 
-          let module_info = DefaultModuleAnalyzer::module_info(&source);
-
-          let maybe_rewrite_specifier =
-            |specifier: &str,
-             range: &PositionRange,
-             text_changes: &mut Vec<TextChange>| {
-              if let Some(rewritten) = rewrite_specifier(specifier) {
-                text_changes.push(TextChange {
-                  new_text: rewritten,
-                  range: to_range(&source, range),
-                });
-              }
-            };
-
-          let mut text_changes = vec![];
-          for dep in &module_info.dependencies {
-            match dep {
-              DependencyDescriptor::Static(dep) => {
-                maybe_rewrite_specifier(
-                  &dep.specifier,
-                  &dep.specifier_range,
-                  &mut text_changes,
-                );
-              }
-              DependencyDescriptor::Dynamic(dep) => match &dep.argument {
-                deno_graph::DynamicArgument::String(str_arg) => {
-                  maybe_rewrite_specifier(
-                    str_arg,
-                    &dep.argument_range,
-                    &mut text_changes,
-                  );
-                }
-                deno_graph::DynamicArgument::Template(_) => {}
-                deno_graph::DynamicArgument::Expr => {}
-              },
-            }
+    match js.media_type {
+      deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
+        if let Some(types_dep) = &js.maybe_types_dependency {
+          if let Resolution::Ok(resolved) = &types_dep.dependency {
+            declaration_rewrites
+              .insert(module.specifier(), resolved.specifier.clone());
           }
-
-          let rewritten =
-            apply_text_changes(source.text_info().text_str(), text_changes);
-
-          package_files.insert(path.to_owned(), rewritten.as_bytes().to_vec());
-        }
-        deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
-          package_files.insert(path.to_owned(), js.source.as_bytes().to_vec());
-        }
-        deno_ast::MediaType::Jsx
-        | deno_ast::MediaType::TypeScript
-        | deno_ast::MediaType::Mts
-        | deno_ast::MediaType::Tsx => {
-          let source = sources
-            .get_parsed_source(module.specifier())
-            .expect("parsed source should be here");
-          let source_url = Url::options()
-            .base_url(Some(registry_url))
-            .parse(&format!("./@{scope}/{package}/{version}{path}",))
-            .unwrap();
-          let transpiled = transpile_to_js(source, source_url)
-            .with_context(|| format!("failed to transpile {}", path))?;
-
-          let rewritten_path = rewrite_extension(path, Extension::Js)
-            .unwrap_or_else(|| path.to_owned());
-          transpiled_files.insert(path.to_owned());
-          package_files.insert(rewritten_path, transpiled.as_bytes().to_vec());
-        }
-        _ => {}
-      }
-
-      // Dts files
-      if let Some(fsm) = js.fast_check_module() {
-        if let Some(dts) = &fsm.dts {
-          if !dts.diagnostics.is_empty() {
-            let message = dts
-              .diagnostics
-              .iter()
-              .map(|d| match d.range() {
-                Some(range) => {
-                  format!("{}, at {}@{}", d, range.specifier, range.range.start)
-                }
-                None => format!("{}, at {}", d, d.specifier()),
-              })
-              .collect::<Vec<_>>()
-              .join(", ");
-            info!(
-              "Npm dts generation @{}/{}@{}: {}",
-              scope, package, version, message
-            );
-          }
-
-          let rewritten_path = rewrite_extension(path, Extension::Dts)
-            .unwrap_or_else(|| path.to_owned());
-          package_files.insert(rewritten_path, dts.text.as_bytes().to_vec());
         }
       }
+      deno_ast::MediaType::Jsx => {
+        let source_specifier =
+          rewrite_file_specifier_extension(module.specifier(), Extension::Js);
+        if let Some(source_specifier) = source_specifier {
+          source_rewrites.insert(module.specifier(), source_specifier);
+        }
+
+        if let Some(types_dep) = &js.maybe_types_dependency {
+          if let Resolution::Ok(resolved) = &types_dep.dependency {
+            declaration_rewrites
+              .insert(module.specifier(), resolved.specifier.clone());
+          }
+        }
+      }
+      deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
+        // no extra work needed for these, as they can not have type dependencies
+      }
+      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+        let source_specifier =
+          rewrite_file_specifier_extension(module.specifier(), Extension::Js);
+        if let Some(source_specifier) = source_specifier {
+          source_rewrites.insert(module.specifier(), source_specifier);
+        }
+
+        if js.fast_check_module().is_some() {
+          let declaration_specifier = rewrite_file_specifier_extension(
+            module.specifier(),
+            Extension::Dts,
+          );
+          if let Some(declaration_specifier) = declaration_specifier {
+            declaration_rewrites
+              .insert(module.specifier(), declaration_specifier);
+          }
+        }
+      }
+      _ => {}
     }
+
+    to_be_rewritten.push(js);
   }
 
-  let pkg_json_str = serde_json::to_string_pretty(&pkg_json)?;
-  package_files.insert("/package.json".to_string(), pkg_json_str.into());
+  for js in to_be_rewritten {
+    let specifier_rewriter = SpecifierRewriter {
+      base_specifier: &js.specifier,
+      source_rewrites: &source_rewrites,
+      declaration_rewrites: &declaration_rewrites,
+      dependencies: &js.dependencies,
+    };
+
+    match js.media_type {
+      deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
+        let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
+        let module_info = sources
+          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .unwrap();
+        let rewritten = rewrite_specifiers(
+          parsed_source.text_info(),
+          &module_info,
+          specifier_rewriter,
+          RewriteKind::Source,
+        );
+        package_files
+          .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
+      }
+      deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
+        let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
+        let module_info = sources
+          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .unwrap();
+        let rewritten = rewrite_specifiers(
+          parsed_source.text_info(),
+          &module_info,
+          specifier_rewriter,
+          RewriteKind::Declaration,
+        );
+        package_files
+          .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
+      }
+      deno_ast::MediaType::Jsx => {
+        let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
+        let source =
+          transpile_to_js(&parsed_source, specifier_rewriter).unwrap();
+        let source_target = source_rewrites.get(&js.specifier).unwrap();
+        package_files
+          .insert(source_target.path().to_owned(), source.into_bytes());
+      }
+      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+        let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
+        let module_info = sources
+          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .unwrap();
+        let rewritten = rewrite_specifiers(
+          parsed_source.text_info(),
+          &module_info,
+          specifier_rewriter,
+          RewriteKind::Source,
+        );
+        package_files
+          .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
+
+        let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
+        let source =
+          transpile_to_js(&parsed_source, specifier_rewriter).unwrap();
+        let source_target = source_rewrites.get(&js.specifier).unwrap();
+        package_files
+          .insert(source_target.path().to_owned(), source.into_bytes());
+
+        if let Some(fast_check_module) = js.fast_check_module() {
+          let declaration = transpile_to_dts(
+            &parsed_source,
+            fast_check_module,
+            specifier_rewriter,
+          )?;
+          let declaration_target =
+            declaration_rewrites.get(&js.specifier).unwrap();
+          package_files.insert(
+            declaration_target.path().to_owned(),
+            declaration.into_bytes(),
+          );
+        }
+      }
+      _ => {}
+    }
+  }
 
   match files {
     NpmTarballFiles::WithBytes(files) => {
       for (path, content) in files.iter() {
-        if !package_files.contains_key(&**path)
-          && !transpiled_files.contains(&**path)
-        {
+        if !package_files.contains_key(&**path) {
           package_files.insert(path.to_string(), content.clone());
         }
       }
@@ -249,9 +273,7 @@ pub async fn create_npm_tarball<'a>(
     } => {
       let mut paths_to_download = vec![];
       for path in files.iter() {
-        if !package_files.contains_key(&**path)
-          && !transpiled_files.contains(&**path)
-        {
+        if !package_files.contains_key(&**path) {
           paths_to_download.push(path);
         }
       }
@@ -276,6 +298,26 @@ pub async fn create_npm_tarball<'a>(
       }
     }
   }
+
+  let npm_exports = create_npm_exports(
+    exports,
+    &package_files,
+    &source_rewrites,
+    &declaration_rewrites,
+  );
+
+  let pkg_json = NpmPackageJson {
+    name: npm_package_id,
+    version: version.clone(),
+    module_type: "module".to_string(),
+    exports: npm_exports,
+    dependencies: npm_dependencies,
+    homepage,
+    revision: NPM_TARBALL_REVISION,
+  };
+
+  let pkg_json_str = serde_json::to_string_pretty(&pkg_json)?;
+  package_files.insert("/package.json".to_string(), pkg_json_str.into());
 
   package_files.sort_keys();
 
@@ -324,6 +366,123 @@ pub async fn create_npm_tarball<'a>(
   })
 }
 
+fn rewrite_specifiers(
+  source_text_info: &SourceTextInfo,
+  module_info: &ModuleInfo,
+  specifier_rewriter: SpecifierRewriter,
+  kind: RewriteKind,
+) -> String {
+  let mut text_changes = vec![];
+
+  let add_text_change = |text_changes: &mut Vec<TextChange>,
+                         new_specifier: String,
+                         range: &PositionRange| {
+    let start_pos = source_text_info.range().start;
+    let mut start = range
+      .start
+      .as_source_pos(source_text_info)
+      .as_byte_index(start_pos);
+    let mut end = range
+      .end
+      .as_source_pos(source_text_info)
+      .as_byte_index(start_pos);
+
+    let to_be_replaced = &source_text_info.text_str()[start..end];
+    if to_be_replaced.starts_with('\'')
+      || to_be_replaced.starts_with('"')
+      || to_be_replaced.starts_with('`')
+    {
+      start += 1;
+      end -= 1;
+    }
+
+    text_changes.push(TextChange {
+      new_text: new_specifier,
+      range: start..end,
+    });
+  };
+
+  for desc in &module_info.dependencies {
+    match desc {
+      DependencyDescriptor::Static(desc) => {
+        if let Some(specifier) =
+          specifier_rewriter.rewrite(&desc.specifier, kind)
+        {
+          add_text_change(&mut text_changes, specifier, &desc.specifier_range);
+        }
+      }
+      DependencyDescriptor::Dynamic(desc) => match &desc.argument {
+        deno_graph::DynamicArgument::String(specifier) => {
+          if let Some(specifier) = specifier_rewriter.rewrite(specifier, kind) {
+            add_text_change(&mut text_changes, specifier, &desc.argument_range);
+          }
+        }
+        deno_graph::DynamicArgument::Template(_) => {}
+        deno_graph::DynamicArgument::Expr => {}
+      },
+    }
+  }
+
+  for ts_ref in &module_info.ts_references {
+    match ts_ref {
+      deno_graph::TypeScriptReference::Path(s) => {
+        if let Some(specifier) =
+          specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+        {
+          add_text_change(&mut text_changes, specifier, &s.range);
+        }
+      }
+      deno_graph::TypeScriptReference::Types(s) => {
+        match kind {
+          RewriteKind::Source => {
+            // Type reference comments in JS are a Deno specific concept, and
+            // are thus not relevant for the tarball. We remove them.
+
+            let start_pos = source_text_info.range().start;
+            let start = s.range.start.as_source_pos(source_text_info);
+            let start = source_text_info.line_and_column_index(start);
+
+            let line_start = source_text_info.line_start(start.line_index);
+            let line_end = source_text_info.line_end(start.line_index);
+            let line_text = source_text_info.line_text(start.line_index);
+
+            let before = line_text[..start.column_index].to_string();
+
+            let index = before.rfind("///").expect("should have ///");
+            let comment_start = line_start + index;
+            let comment_end = line_end;
+
+            let range = comment_start.as_byte_index(start_pos)
+              ..comment_end.as_byte_index(start_pos);
+
+            text_changes.push(TextChange {
+              new_text: "".to_string(),
+              range,
+            });
+          }
+          RewriteKind::Declaration => {
+            if let Some(specifier) =
+              specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+            {
+              add_text_change(&mut text_changes, specifier, &s.range);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  for s in &module_info.jsdoc_imports {
+    if let Some(specifier) =
+      specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+    {
+      add_text_change(&mut text_changes, specifier, &s.range);
+    }
+  }
+
+  apply_text_changes(source_text_info.text_str(), text_changes)
+}
+
 pub fn create_npm_dependencies<'a>(
   dependencies: impl Iterator<Item = Cow<'a, (DependencyKind, PackageReqReference)>>,
 ) -> Result<IndexMap<String, String>, anyhow::Error> {
@@ -350,41 +509,68 @@ pub fn create_npm_dependencies<'a>(
   Ok(npm_dependencies)
 }
 
-pub fn create_npm_exports(exports: &ExportsMap) -> IndexMap<String, String> {
+pub fn create_npm_exports(
+  exports: &ExportsMap,
+  package_files: &IndexMap<String, Vec<u8>>,
+  source_rewrites: &HashMap<&ModuleSpecifier, ModuleSpecifier>,
+  declaration_rewrites: &HashMap<&ModuleSpecifier, ModuleSpecifier>,
+) -> IndexMap<String, NpmExportConditions> {
+  let package_json_specifier =
+    ModuleSpecifier::parse("file:///package.json").unwrap();
+
   let mut npm_exports = IndexMap::new();
   for (key, path) in exports.iter() {
-    // TODO: insert types exports here also
-    let import_path =
-      rewrite_specifier(path).unwrap_or_else(|| path.to_owned());
-    npm_exports.insert(key.clone(), import_path);
+    let mut conditions = NpmExportConditions {
+      types: None,
+      default: None,
+    };
+
+    let specifier = ModuleSpecifier::parse(&format!(
+      "file:///{}",
+      path.trim_start_matches('.').trim_start_matches('/')
+    ))
+    .unwrap();
+
+    if let Some(source_specifier) =
+      follow_specifier(&specifier, source_rewrites)
+    {
+      if source_specifier.scheme() == "file"
+        && package_files.contains_key(source_specifier.path())
+      {
+        let new_specifier =
+          relative_import_specifier(&package_json_specifier, source_specifier);
+        conditions.default = Some(new_specifier);
+      }
+    }
+
+    if let Some(types_specifier) =
+      follow_specifier(&specifier, declaration_rewrites)
+    {
+      if types_specifier.scheme() == "file"
+        && package_files.contains_key(types_specifier.path())
+      {
+        let new_specifier =
+          relative_import_specifier(&package_json_specifier, types_specifier);
+        if conditions.default.as_ref() != Some(&new_specifier) {
+          conditions.types = Some(new_specifier);
+        }
+      }
+    }
+
+    npm_exports.insert(key.clone(), conditions);
   }
   npm_exports
-}
-
-fn to_range(
-  parsed_source: &ParsedSource,
-  range: &PositionRange,
-) -> std::ops::Range<usize> {
-  let mut range = range
-    .as_source_range(parsed_source.text_info())
-    .as_byte_range(parsed_source.text_info().range().start);
-  let text = &parsed_source.text_info().text_str()[range.clone()];
-  if text.starts_with('"') || text.starts_with('\'') {
-    range.start += 1;
-  }
-  if text.ends_with('"') || text.ends_with('\'') {
-    range.end -= 1;
-  }
-  range
 }
 
 #[cfg(test)]
 mod tests {
   use std::collections::HashMap;
+  use std::fmt::Write;
   use std::io::Read;
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
+  use deno_graph::source::JsrUrlProvider;
   use deno_graph::source::MemoryLoader;
   use deno_graph::source::NullFileSystem;
   use deno_graph::source::Source;
@@ -398,45 +584,73 @@ mod tests {
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
-  use indexmap::IndexMap;
+  use once_cell::sync::Lazy;
   use url::Url;
 
   use crate::analysis::ModuleAnalyzer;
   use crate::db::DependencyKind;
-  use crate::db::ExportsMap;
-  use crate::ids::PackageName;
   use crate::ids::PackagePath;
-  use crate::ids::ScopeName;
-  use crate::ids::Version;
+  use crate::npm::tests::helpers;
+  use crate::npm::tests::helpers::Spec;
+  use crate::npm::NPM_TARBALL_REVISION;
+  use crate::tarball::exports_map_from_json;
 
+  use super::create_npm_tarball;
   use super::NpmTarballFiles;
-  use super::{create_npm_tarball, NpmTarballOptions};
+  use super::NpmTarballOptions;
+
+  pub static DEFAULT_JSR_TEST_URL: Lazy<Url> =
+    Lazy::new(|| Url::parse("http://jsr.test").unwrap());
+
+  struct JsrTestUrlProvider;
+
+  impl JsrUrlProvider for JsrTestUrlProvider {
+    fn url(&self) -> &Url {
+      &DEFAULT_JSR_TEST_URL
+    }
+  }
 
   async fn test_npm_tarball(
-    exports: ExportsMap,
-    files: Vec<(&str, &str)>,
-  ) -> Result<HashMap<String, Vec<u8>>, anyhow::Error> {
-    let package = PackageName::new("foo".to_string())?;
-    let scope = ScopeName::new("deno-test".to_string())?;
-    let version = Version::new("1.0.0")?;
+    spec_path: &Path,
+    mut spec: Spec,
+  ) -> Result<(), anyhow::Error> {
+    let scope = spec.jsr_json.name.scope.clone();
+    let package = spec.jsr_json.name.package.clone();
+    let version = spec.jsr_json.version.clone();
 
+    let exports = match exports_map_from_json(spec.jsr_json.exports.clone()) {
+      Ok(exports) => exports,
+      Err(e) => {
+        return Err(anyhow::anyhow!("failed to parse exports: {}", e));
+      }
+    };
+
+    let mut files = HashMap::new();
     let mut memory_files = vec![];
-    for file in &files {
-      let specifier = format!("file://{}", file.0);
-      memory_files.push((
-        specifier.clone(),
-        Source::Module {
-          specifier,
-          maybe_headers: None,
-          content: file.1.to_string(),
-        },
-      ));
+    for file in &spec.files {
+      let specifier = file.url();
+      if file.text.trim() == "<external>" {
+        memory_files.push((
+          specifier.to_string(),
+          Source::External(specifier.to_string()),
+        ));
+      } else {
+        memory_files.push((
+          specifier.to_string(),
+          Source::Module {
+            specifier: specifier.to_string(),
+            maybe_headers: None,
+            content: file.text.to_string(),
+          },
+        ));
+      }
+      if specifier.scheme() == "file" {
+        files.insert(
+          PackagePath::new(specifier.path().to_string()).unwrap(),
+          file.text.as_bytes().to_vec(),
+        );
+      }
     }
-
-    memory_files.push((
-      "npm:lit@^2.2.7".to_owned(),
-      Source::External("npm:lit@^2.2.7".to_owned()),
-    ));
 
     let mut loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
@@ -451,7 +665,7 @@ mod tests {
 
     let mut roots: Vec<ModuleSpecifier> = vec![];
     for ex in exports.iter() {
-      let raw = format!("file://{}", ex.1);
+      let raw = format!("file://{}", ex.1.strip_prefix('.').unwrap());
       let specifier = Url::parse(&raw).unwrap();
       roots.push(specifier);
     }
@@ -463,13 +677,13 @@ mod tests {
         &mut loader,
         BuildOptions {
           is_dynamic: false,
-          module_analyzer: Some(&module_analyzer),
-          module_parser: Some(&module_analyzer.analyzer),
+          module_analyzer: &module_analyzer,
           workspace_members: &workspace_members,
-          file_system: Some(&NullFileSystem),
+          file_system: &NullFileSystem,
           resolver: None,
           npm_resolver: None,
           reporter: None,
+          jsr_url_provider: &JsrTestUrlProvider,
           ..Default::default()
         },
       )
@@ -478,7 +692,7 @@ mod tests {
     graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
-      jsr_url_provider: None,
+      jsr_url_provider: Some(&JsrTestUrlProvider),
       module_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,
@@ -489,30 +703,20 @@ mod tests {
 
     let deps: Vec<(DependencyKind, PackageReqReference)> = vec![];
 
-    let files = files
-      .iter()
-      .map(|(path, content)| {
-        (
-          PackagePath::new(path.to_string()).unwrap(),
-          content.as_bytes().to_vec(),
-        )
-      })
-      .collect::<HashMap<_, _>>();
-
     let npm_tarball = create_npm_tarball(NpmTarballOptions {
       exports: &exports,
       package: &package,
       registry_url: &Url::parse("http://jsr.test").unwrap(),
       scope: &scope,
-      version: &Version::new("1.0.0").unwrap(),
+      version: &version,
       graph: &graph,
-      sources: &module_analyzer.analyzer,
+      analyzer: &module_analyzer.analyzer,
       files: NpmTarballFiles::WithBytes(&files),
       dependencies: deps.iter(),
     })
     .await?;
 
-    let mut transpiled_files: HashMap<String, Vec<u8>> = HashMap::new();
+    let mut transpiled_files: Vec<(String, Vec<u8>)> = Vec::new();
 
     let mut gz_decoder =
       flate2::bufread::GzDecoder::new(&npm_tarball.tarball[..]);
@@ -530,62 +734,49 @@ mod tests {
 
       let mut buf = vec![];
       entry.read_to_end(&mut buf).await?;
-      transpiled_files.insert(formatted_path, buf);
+      transpiled_files.push((formatted_path, buf));
     }
 
-    Ok(transpiled_files)
-  }
+    transpiled_files.sort_by(|a, b| a.0.cmp(&b.0));
 
-  #[tokio::test]
-  async fn import_sources_test() -> Result<(), anyhow::Error> {
-    let source = r#"import { html } from "npm:lit@^2.2.7";
-await import("npm:lit@^2.2.7");"#;
-    let files = vec![
-      ("/package.json", ""),
-      ("/foo.js", source),
-      ("/bar.mjs", source),
-    ];
-    let exports = ExportsMap::new(IndexMap::from([
-      (".".to_string(), "/foo.js".to_string()),
-      ("./bar".to_string(), "/bar.mjs".to_string()),
-    ]));
-    let tarball_files = test_npm_tarball(exports, files).await?;
+    let mut output = String::new();
+    for (path, content) in transpiled_files {
+      let content = String::from_utf8_lossy(&content);
+      let content = content.replace(
+        &format!("\"_jsr_revision\": {NPM_TARBALL_REVISION}"),
+        "\"_jsr_revision\": 0",
+      );
+      write!(
+        &mut output,
+        "== {path} ==\n{}\n{}",
+        content,
+        if content.ends_with('\n') { "" } else { "\n" }
+      )?;
+    }
 
-    let expected = r#"import { html } from "lit";
-await import("lit");"#
-      .to_string();
-
-    let foo_js = String::from_utf8_lossy(tarball_files.get("/foo.js").unwrap());
-    let bar_mjs =
-      String::from_utf8_lossy(tarball_files.get("/bar.mjs").unwrap());
-    assert_eq!(foo_js, expected);
-    assert_eq!(bar_mjs, expected);
-
-    Ok(())
-  }
-
-  #[tokio::test]
-  async fn extra_files_test() -> Result<(), anyhow::Error> {
-    let files = vec![
-      ("/package.json", ""),
-      ("/foo.ts", "export const foo: string = 'bar';"),
-      ("/bar.json", "console.log('foo');"),
-      ("/foo.d.ts", "// unrelated content"),
-      ("/data.txt", "this is data"),
-    ];
-    let exports = ExportsMap::new(IndexMap::from([
-      ("./foo".to_string(), "/foo.ts".to_string()),
-      ("./bar".to_string(), "/bar.json".to_string()),
-    ]));
-    let tarball_files = test_npm_tarball(exports, files).await?;
-
-    tarball_files.get("/foo.js").unwrap();
-    let dts = tarball_files.get("/foo.d.ts").unwrap();
-    println!("{}", String::from_utf8_lossy(dts));
-    assert_eq!(dts, b"export declare const foo: string;\n");
-    tarball_files.get("/bar.json").unwrap();
-    tarball_files.get("/data.txt").unwrap();
+    if std::env::var("UPDATE").is_ok() {
+      spec.output_file.text = output.clone();
+      std::fs::write(spec_path, spec.emit())?;
+    } else {
+      assert_eq!(
+        output, spec.output_file.text,
+        "Output not identical for {spec_path:?}, run with UPDATE=1 to update",
+      );
+    }
 
     Ok(())
+  }
+
+  use std::path::Path;
+
+  #[tokio::test]
+  async fn test_npm_tarballs() {
+    let specs =
+      helpers::get_specs_in_dir(Path::new("testdata/specs/npm_tarballs"));
+    for (path, spec) in specs {
+      test_npm_tarball(&path, spec)
+        .await
+        .unwrap_or_else(|_| panic!("failed to test npm tarball {path:?}"));
+    }
   }
 }

@@ -148,8 +148,8 @@ function CreateScope(
     if (!/^[a-z0-9\-]+$/.test(newScope.value)) {
       return "Scope name can only contain lowercase letters, numbers, and hyphens.";
     }
-    if (!/^[a-z]/.test(newScope.value)) {
-      return "Scope name must start with a letter.";
+    if (/^-/.test(newScope.value)) {
+      return "Scope name must start with a letter or number.";
     }
     return "";
   });
@@ -229,8 +229,8 @@ export function PackageName(
     if (!/^[a-z0-9\-]+$/.test(name.value)) {
       return "Package name can only contain lowercase letters, numbers, and hyphens.";
     }
-    if (!/^[a-z]/.test(name.value)) {
-      return "Package name must start with a letter.";
+    if (/^-/.test(name.value)) {
+      return "Package name must start with a letter or number.";
     }
     return "";
   });

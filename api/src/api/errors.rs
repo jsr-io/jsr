@@ -132,6 +132,10 @@ errors!(
     status: NOT_FOUND,
     "The requested scope invite was not found.",
   },
+  GithubSamlEnforcement {
+    status: BAD_REQUEST,
+    "To access this repository, GitHub requires SAML SSO. Please follow this guide to be able to link this repository to JSR: https://docs.github.com/en/enterprise-cloud@latest/apps/using-github-apps/saml-and-github-apps",
+  },
   GithubRepositoryNotFound {
     status: NOT_FOUND,
     "The requested GitHub repository was not found. Make sure the repository exists and is public.",

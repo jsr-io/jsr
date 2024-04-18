@@ -277,6 +277,18 @@ body .ddoc .markdown th {
   @apply bg-green-500;
 }
 
+.score-text-red {
+  @apply text-red-500;
+}
+
+.score-text-yellow {
+  @apply text-yellow-500;
+}
+
+.score-text-green {
+  @apply text-green-500;
+}
+
 @layer base {
   /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
   :root {

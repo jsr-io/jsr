@@ -153,15 +153,14 @@ async fn analyze_package_inner(
       },
       BuildOptions {
         is_dynamic: false,
-        module_analyzer: Some(&module_analyzer),
+        module_analyzer: &module_analyzer,
         workspace_members: &workspace_members,
         imports: Default::default(),
         // todo: use the data in the package for the file system
-        file_system: Some(&NullFileSystem),
-        jsr_url_provider: Some(&url_provider),
+        file_system: &NullFileSystem,
+        jsr_url_provider: &url_provider,
         resolver: Some(&capturing_resolver),
         npm_resolver: None,
-        module_parser: Some(&module_analyzer.analyzer),
         reporter: None,
         executor: Default::default(),
       },
@@ -243,7 +242,7 @@ async fn analyze_package_inner(
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
-    sources: &module_analyzer.analyzer,
+    analyzer: &module_analyzer.analyzer,
     registry_url: registry.registry_url(),
     scope: &scope,
     package: &name,
@@ -635,15 +634,14 @@ async fn rebuild_npm_tarball_inner(
       },
       BuildOptions {
         is_dynamic: false,
-        module_analyzer: Some(&module_analyzer),
+        module_analyzer: &module_analyzer,
         workspace_members: &workspace_members,
         imports: Default::default(),
         // todo: use the data in the package for the file system
-        file_system: Some(&NullFileSystem),
-        jsr_url_provider: Some(&url_provider),
+        file_system: &NullFileSystem,
+        jsr_url_provider: &url_provider,
         resolver: Default::default(),
         npm_resolver: Default::default(),
-        module_parser: Some(&module_analyzer.analyzer),
         reporter: Default::default(),
         executor: Default::default(),
       },
@@ -663,7 +661,7 @@ async fn rebuild_npm_tarball_inner(
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
-    sources: &module_analyzer.analyzer,
+    analyzer: &module_analyzer.analyzer,
     registry_url: registry.registry_url(),
     scope: &scope,
     package: &name,
