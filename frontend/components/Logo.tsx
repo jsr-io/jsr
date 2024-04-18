@@ -26,10 +26,16 @@ export function Logo(
           fill="#083344"
         />
         <path
-          d="M1.5,3.5v1h2v-3m4,0h-2v2h2v2h-2m4,0v-3h2v1"
-          fill="none"
-          stroke="#f7df1e"
-          stroke-linecap="square"
+          d="M1,3h1v1h1v-3h1v4h-3"
+          fill="#f7df1e"
+        />
+        <path
+          d="M5,1h3v1h-2v1h2v3h-3v-1h2v-1h-2"
+          fill="#f7df1e"
+        />
+        <path
+          d="M9,2h3v2h-1v-1h-1v3h-1"
+          fill="#f7df1e"
         />
       </svg>
     </>
