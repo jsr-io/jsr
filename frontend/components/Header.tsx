@@ -3,9 +3,10 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import { Logo } from "./Logo.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
 import { SearchKind } from "../util.ts";
+import { HeaderLogo } from "../islands/HeaderLogo.tsx";
+import { Logo } from "./Logo.tsx";
 
 export function Header({
   user,
@@ -57,8 +58,7 @@ export function Header({
               href="/"
               class="outline-none focus-visible:ring-2 ring-cyan-700"
             >
-              <span className="sr-only">JSR home</span>
-              <Logo size="medium" class="flex-none hover:animate-flip-rotate" />
+              <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
           <div class="hidden sm:block grow-1 flex-1">
