@@ -102,4 +102,4 @@ flate2 = "1"
 deno_semver = "0.5.1"
 
 [patch.crates-io]
-deno_graph = { path = "../../../denoland/deno_graph" }
+deno_graph = { git = "https://github.com/denoland/deno_graph", rev = "d179f32b6879770119a00e408d9452567f0bbee8" }
