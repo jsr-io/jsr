@@ -1,8 +1,8 @@
-<svg width="100%" height="100%" viewBox="0 0 637 637" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
-  <g transform="matrix(1,0,0,1,-0.272,147)">
-    <path d="M637.272,49L637.272,245L539.272,245L539.272,343L196.272,343L196.272,294L0.272,294L0.272,98L98.272,98L98.272,0L441.272,0L441.272,49L637.272,49Z" style="fill:rgb(8,51,68);"/>
-  </g>
-  <g transform="matrix(1,0,0,1,-0.272,147)">
-    <path d="M98.272,196L147.272,196L147.272,49L196.272,49L196.272,245L49.274,245L49.274,147L98.272,147L98.272,196ZM588.272,98L588.272,196L539.272,196L539.272,147L490.272,147L490.272,294L441.272,294L441.272,98L588.272,98ZM294.272,98L294.272,147L392.272,147L392.272,294L245.272,294L245.272,245L343.272,245L343.272,196L245.272,196L245.272,49L392.272,49L392.272,98L294.272,98Z" style="fill:rgb(247,223,30);"/>
+<svg width="100%" height="100%" viewBox="0 -3 13 13" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0,2h2v-2h7v1h4v4h-2v2h-7v-1h-4" fill="#083344" />
+  <g fill="#f7df1e" >
+    <path d="M1,3h1v1h1v-3h1v4h-3" />
+    <path d="M5,1h3v1h-2v1h2v3h-3v-1h2v-1h-2" />
+    <path d="M9,2h3v2h-1v-1h-1v3h-1" />
   </g>
 </svg>
