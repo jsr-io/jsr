@@ -139,3 +139,7 @@ both Deno and web browsers. The possible values for the `runtime` filter are
 
 Yes! You can specify `scope:` in the search query to filter packages by scope.
 To only return packages in the `std` scope, you can use the query `scope:std`.
+
+## Is "JSR" an initialism for "JavaScript Registry"?
+
+Yes.
