@@ -300,7 +300,7 @@ pub async fn process_tarball(
               ".".to_owned()
             } else {
               format!("./{}", sub_path)
-            } 
+            }
           } else {
             ".".to_owned()
           };
