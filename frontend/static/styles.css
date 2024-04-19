@@ -139,7 +139,7 @@
   }
 
   .link-header {
-    @apply link opsize-sm font-medium hover:underline-offset-2;
+    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700 underline-offset-2;
   }
 
   .input-container {

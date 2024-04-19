@@ -40,7 +40,7 @@ export function RuntimeCompatIndicator(
             ) return null;
             return (
               <div
-                class="relative h-5"
+                class="relative h-4 md:h-5"
                 style={`aspect-ratio: ${w} / ${h}`}
                 title={`${
                   value === undefined
@@ -58,14 +58,14 @@ export function RuntimeCompatIndicator(
                   width={w}
                   height={h}
                   alt=""
-                  class={`h-5 select-none ${
+                  class={`h-4 md:h-5 select-none ${
                     value === undefined ? "filter grayscale opacity-40" : ""
                   }`}
                 />
                 {value === undefined && (
                   <div
                     aria-hidden="true"
-                    class="absolute inset-0 h-full w-full text-blue-700 text-center leading-5 drop-shadow-md font-bold text-xl select-none"
+                    class="absolute inset-0 h-full w-full text-jsr-cyan-600 text-center leading-4 md:leading-5 drop-shadow-md font-bold text-md md:text-xl select-none"
                   >
                     ?
                   </div>
