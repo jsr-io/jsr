@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
@@ -43,6 +42,7 @@ use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcs_paths::docs_v1_path;
 use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
+use crate::ids::CaseInsensitivePackagePath;
 use crate::ids::PackagePath;
 use crate::ids::PackagePathValidationError;
 use crate::ids::ScopedPackageName;
@@ -102,6 +102,7 @@ pub async fn process_tarball(
     .map_err(PublishError::UntarError)?;
 
   let mut files = HashMap::new();
+  let mut case_insensitive_paths = HashSet::<CaseInsensitivePackagePath>::new();
   let mut file_infos = Vec::new();
   let mut total_file_size = 0;
 
@@ -165,16 +166,18 @@ pub async fn process_tarball(
     let hash = sha2::Sha256::digest(&bytes);
     let hash = format!("sha256-{:x}", hash);
 
-    match files.entry(path.clone()) {
-      Entry::Occupied(entry) => {
-        return Err(PublishError::CaseInsensitiveDuplicatePath {
-          a: path,
-          b: entry.key().clone(),
-        });
-      }
-      Entry::Vacant(entry) => {
-        entry.insert(bytes);
-      }
+    // check for case-insensitive duplicate paths
+    let case_insensitive_path = path.case_insensitive();
+    if let Some(existing) = case_insensitive_paths.get(&case_insensitive_path) {
+      return Err(PublishError::CaseInsensitiveDuplicatePath {
+        a: path.clone(),
+        b: existing.clone().into_inner().into_owned(),
+      });
+    }
+    case_insensitive_paths.insert(case_insensitive_path.to_owned());
+
+    if files.insert(path.clone(), bytes).is_some() {
+      unreachable!("duplicate path: {:?}", path);
     }
 
     let file_info = FileInfo { path, hash, size };

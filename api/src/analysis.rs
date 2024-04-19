@@ -218,7 +218,9 @@ async fn analyze_package_inner(
   .map_err(PublishError::NpmTarballError)?;
 
   let (meta, readme_path) = {
-    let readme = files.iter().find(|file| file.0.is_readme());
+    let readme = files
+      .iter()
+      .find(|file| file.0.case_insensitive().is_readme());
 
     (
       generate_score(main_entrypoint, &doc_nodes, &readme, all_fast_check),

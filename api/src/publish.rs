@@ -906,6 +906,33 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn case_insensitive_exports_reference() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(
+      &t,
+      create_mock_tarball("case_insensitive_exports_reference"),
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileExportsInvalid");
+  }
+
+  #[tokio::test]
+  async fn case_insensitive_dep_reference() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(
+      &t,
+      create_mock_tarball("case_insensitive_dep_reference"),
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(error.message, "failed to build module graph: Module not found \"file:///Youtube.tsx\".\n    at file:///mod.ts:1:8");
+  }
+
+  #[tokio::test]
   async fn no_exports() {
     let t = TestSetup::new().await;
     let task =
