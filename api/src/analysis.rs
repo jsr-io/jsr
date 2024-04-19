@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use deno_ast::swc::common::comments::CommentKind;
 use deno_ast::LineAndColumnDisplay;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
@@ -757,7 +758,7 @@ fn check_for_banned_syntax(
 
 static TRIPLE_SLASH_RE: Lazy<Regex> = Lazy::new(|| {
   Regex::new(
-    r#"/\s+<reference\s+(no-default-lib\s*=\s*"true"|lib\s*=\s*("[^"]+"|'[^']+'))\s*/>"#,
+    r#"^/\s+<reference\s+(no-default-lib\s*=\s*"true"|lib\s*=\s*("[^"]+"|'[^']+'))\s*/>\s*$"#,
   )
   .unwrap()
 });
@@ -765,19 +766,22 @@ static TRIPLE_SLASH_RE: Lazy<Regex> = Lazy::new(|| {
 fn check_for_banned_triple_slash_directives(
   parsed_source: &ParsedSource,
 ) -> Result<(), PublishError> {
-  let comments = parsed_source.comments().leading_map();
-  for (_pos, comments) in comments.iter() {
-    for comment in comments {
-      if TRIPLE_SLASH_RE.is_match(&comment.text) {
-        let lc = parsed_source
-          .text_info()
-          .line_and_column_display(comment.range().start);
-        return Err(PublishError::BannedTripleSlashDirectives {
-          specifier: parsed_source.specifier().to_string(),
-          line: lc.line_number,
-          column: lc.column_number,
-        });
-      }
+  let Some(comments) = parsed_source.get_leading_comments() else {
+    return Ok(());
+  };
+  for comment in comments {
+    if comment.kind != CommentKind::Line {
+      continue;
+    }
+    if TRIPLE_SLASH_RE.is_match(&comment.text) {
+      let lc = parsed_source
+        .text_info()
+        .line_and_column_display(comment.range().start);
+      return Err(PublishError::BannedTripleSlashDirectives {
+        specifier: parsed_source.specifier().to_string(),
+        line: lc.line_number,
+        column: lc.column_number,
+      });
     }
   }
   Ok(())
@@ -845,6 +849,18 @@ mod tests {
       matches!(err, super::PublishError::BannedTripleSlashDirectives { .. }),
       "{err:?}",
     );
+
+    let x = parse("   //  /   <reference   lib = \'dom\'/>");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
+
+    let x = parse("   ///   <reference   lib = \'dom\'/>  asdasd");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
+
+    let x = parse("   //some text here/   <reference   lib = \'dom\'/>");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
+
+    let x = parse("/** /   <reference   lib = \'dom\'/> */");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
   }
 
   #[test]
