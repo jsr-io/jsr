@@ -570,7 +570,6 @@ mod tests {
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
-  use deno_graph::source::JsrUrlProvider;
   use deno_graph::source::MemoryLoader;
   use deno_graph::source::NullFileSystem;
   use deno_graph::source::Source;
@@ -584,10 +583,10 @@ mod tests {
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
-  use once_cell::sync::Lazy;
   use url::Url;
 
   use crate::analysis::ModuleAnalyzer;
+  use crate::analysis::PassthroughJsrUrlProvider;
   use crate::db::DependencyKind;
   use crate::ids::PackagePath;
   use crate::npm::tests::helpers;
@@ -598,17 +597,6 @@ mod tests {
   use super::create_npm_tarball;
   use super::NpmTarballFiles;
   use super::NpmTarballOptions;
-
-  pub static DEFAULT_JSR_TEST_URL: Lazy<Url> =
-    Lazy::new(|| Url::parse("http://jsr.test").unwrap());
-
-  struct JsrTestUrlProvider;
-
-  impl JsrUrlProvider for JsrTestUrlProvider {
-    fn url(&self) -> &Url {
-      &DEFAULT_JSR_TEST_URL
-    }
-  }
 
   async fn test_npm_tarball(
     spec_path: &Path,
@@ -683,7 +671,8 @@ mod tests {
           resolver: None,
           npm_resolver: None,
           reporter: None,
-          jsr_url_provider: &JsrTestUrlProvider,
+          jsr_url_provider: &PassthroughJsrUrlProvider,
+          passthrough_jsr_specifiers: true,
           ..Default::default()
         },
       )
@@ -692,7 +681,7 @@ mod tests {
     graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
-      jsr_url_provider: Some(&JsrTestUrlProvider),
+      jsr_url_provider: Some(&PassthroughJsrUrlProvider),
       module_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,
@@ -776,7 +765,7 @@ mod tests {
     for (path, spec) in specs {
       test_npm_tarball(&path, spec)
         .await
-        .unwrap_or_else(|_| panic!("failed to test npm tarball {path:?}"));
+        .unwrap_or_else(|e| panic!("failed to test npm tarball {path:?}: {e}"));
     }
   }
 }

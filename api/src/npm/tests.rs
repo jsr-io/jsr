@@ -39,9 +39,10 @@ pub mod helpers {
     }
 
     pub fn url(&self) -> Url {
-      if !self.specifier.starts_with("file")
-        && !self.specifier.starts_with("http")
-        && !self.specifier.starts_with("npm")
+      if !self.specifier.starts_with("file:")
+        && !self.specifier.starts_with("http:")
+        && !self.specifier.starts_with("npm:")
+        && !self.specifier.starts_with("jsr:")
       {
         Url::parse(&format!("file:///{}", self.specifier)).unwrap()
       } else {

@@ -27,8 +27,6 @@ mod traced_router;
 mod tracing;
 mod util;
 
-use crate::analysis::GcsRegistryLoader;
-use crate::analysis::RegistryLoader;
 use crate::api::api_router;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
@@ -55,7 +53,6 @@ use hyper::Body;
 use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 
@@ -69,7 +66,6 @@ pub struct MainRouterOptions {
   npm_url: Url,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
-  registry: Arc<dyn RegistryLoader>,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -88,7 +84,6 @@ pub(crate) fn main_router(
     npm_url,
     publish_queue,
     npm_tarball_build_queue,
-    registry,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -103,7 +98,6 @@ pub(crate) fn main_router(
     .data(NpmUrl(npm_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
-    .data(registry)
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
 
@@ -230,11 +224,6 @@ async fn main() {
     )
   });
 
-  let registry: Arc<dyn RegistryLoader> = Arc::new(GcsRegistryLoader::new(
-    config.registry_url.clone(),
-    modules_bucket,
-  ));
-
   let router = main_router(MainRouterOptions {
     database,
     buckets,
@@ -245,7 +234,6 @@ async fn main() {
     npm_url: config.npm_url,
     publish_queue,
     npm_tarball_build_queue,
-    registry,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

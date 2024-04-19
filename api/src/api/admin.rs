@@ -1,13 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::analysis::RegistryLoader;
 use crate::buckets::Buckets;
 use crate::orama::OramaClient;
 use crate::NpmUrl;
+use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
 use routerify::prelude::RequestExt;
 use routerify::Router;
-use std::sync::Arc;
 use tracing::field;
 use tracing::instrument;
 use tracing::Instrument;
@@ -263,7 +262,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
     let buckets = req.data::<Buckets>().unwrap().clone();
-    let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
+    let registry = req.data::<RegistryUrl>().unwrap().0.clone();
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
     let span = Span::current();
