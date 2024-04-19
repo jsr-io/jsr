@@ -1133,6 +1133,14 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn triple_slash_reference_in_jsdoc() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("triple_slash_reference_in_jsdoc");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
   async fn npm_tarball() {
     let t = TestSetup::new().await;
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
