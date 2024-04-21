@@ -22,25 +22,18 @@ export const handler: Handlers<unknown, State> = {
           throw packageResp;
         }
       } else {
-        return new Response(
-          JSON.stringify({
-            schemaVersion: 1,
-            label: "",
-            // namedLogo: "jsr", TODO: add icon to shields.io or simple-icons. temporary solution below.
-            logoSvg: await Deno.readTextFile(
-              new URL("../../static/logo.svg", import.meta.url),
-            ),
-            message: packageResp.data.latestVersion,
-            labelColor: "rgb(247,223,30)",
-            color: "rgb(8,51,68)",
-            logoWidth: "25",
-          }),
-          {
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return Response.json({
+          schemaVersion: 1,
+          label: "",
+          // namedLogo: "jsr", TODO: add icon to shields.io or simple-icons. temporary solution below.
+          logoSvg: await Deno.readTextFile(
+            new URL("../../static/logo.svg", import.meta.url),
+          ),
+          message: packageResp.data.latestVersion,
+          labelColor: "rgb(247,223,30)",
+          color: "rgb(8,51,68)",
+          logoWidth: "25",
+        });
       }
     } else {
       const url = new URL(req.url);
