@@ -485,7 +485,7 @@ pub enum PublishError {
   #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed ({info})")]
   InvalidExternalImport { specifier: String, info: String },
 
-  #[error("Modifying global types is not allowed {specifier}:{line}:{column}")]
+  #[error("modifying global types is not allowed {specifier}:{line}:{column}")]
   GlobalTypeAugmentation {
     specifier: String,
     line: usize,
@@ -499,8 +499,15 @@ pub enum PublishError {
     column: usize,
   },
 
-  #[error("Triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
+  #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
   BannedTripleSlashDirectives {
+    specifier: String,
+    line: usize,
+    column: usize,
+  },
+
+  #[error("import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}")]
+  BannedImportAssertion {
     specifier: String,
     line: usize,
     column: usize,
@@ -613,6 +620,9 @@ impl PublishError {
       PublishError::CommonJs { .. } => Some("commonJs"),
       PublishError::BannedTripleSlashDirectives { .. } => {
         Some("bannedTripleSlashDirectives")
+      }
+      PublishError::BannedImportAssertion { .. } => {
+        Some("bannedImportAssertion")
       }
       PublishError::InvalidExternalImport { .. } => {
         Some("invalidExternalImport")
