@@ -1,9 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
 
-use crate::analysis::RegistryLoader;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
@@ -33,6 +31,7 @@ use crate::tarball::ProcessTarballOutput;
 use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::NpmUrl;
+use crate::RegistryUrl;
 use deno_semver::package::PackageReqReference;
 use hyper::Body;
 use hyper::Request;
@@ -55,13 +54,13 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
-  let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
   publish_task(
     publishing_task_id,
     buckets,
-    registry,
+    registry_url,
     npm_url,
     db,
     orama_client,
@@ -73,13 +72,13 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, registry, orama_client),
+  skip(buckets, db, registry_url, orama_client),
   err
 )]
 pub async fn publish_task(
   publish_id: Uuid,
   buckets: Buckets,
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   npm_url: Url,
   db: Database,
   orama_client: Option<OramaClient>,
@@ -99,7 +98,7 @@ pub async fn publish_task(
         let res = process_publishing_task(
           &db,
           &buckets,
-          registry.clone(),
+          registry_url.clone(),
           &mut publishing_task,
         )
         .await;
@@ -153,7 +152,7 @@ pub async fn publish_task(
 async fn process_publishing_task(
   db: &Database,
   buckets: &Buckets,
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
@@ -165,31 +164,32 @@ async fn process_publishing_task(
     )
     .await?;
 
-  let output = match process_tarball(buckets, registry, publishing_task).await {
-    Ok(output) => output,
-    Err(err) => match err.user_error_code() {
-      Some(code) => {
-        // non retryable, fatal error
-        error!("Error processing tarball, fatal: {}", err);
-        *publishing_task = db
-          .update_publishing_task_status(
-            publishing_task.id,
-            PublishingTaskStatus::Processing,
-            PublishingTaskStatus::Failure,
-            Some(PublishingTaskError {
-              code: code.to_owned(),
-              message: err.to_string(),
-            }),
-          )
-          .await?;
-        return Ok(());
-      }
-      None => {
-        // retryable errors
-        return Err(anyhow::Error::from(err));
-      }
-    },
-  };
+  let output =
+    match process_tarball(db, buckets, registry_url, publishing_task).await {
+      Ok(output) => output,
+      Err(err) => match err.user_error_code() {
+        Some(code) => {
+          // non retryable, fatal error
+          error!("Error processing tarball, fatal: {}", err);
+          *publishing_task = db
+            .update_publishing_task_status(
+              publishing_task.id,
+              PublishingTaskStatus::Processing,
+              PublishingTaskStatus::Failure,
+              Some(PublishingTaskError {
+                code: code.to_owned(),
+                message: err.to_string(),
+              }),
+            )
+            .await?;
+          return Ok(());
+        }
+        None => {
+          // retryable errors
+          return Err(anyhow::Error::from(err));
+        }
+      },
+    };
 
   let ProcessTarballOutput {
     file_infos,
@@ -501,7 +501,7 @@ pub mod tests {
     publish_task(
       task.id,
       t.buckets(),
-      t.registry(),
+      t.registry_url(),
       t.npm_url(),
       t.db(),
       None,
@@ -906,6 +906,33 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn case_insensitive_exports_reference() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(
+      &t,
+      create_mock_tarball("case_insensitive_exports_reference"),
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "configFileExportsInvalid");
+  }
+
+  #[tokio::test]
+  async fn case_insensitive_dep_reference() {
+    let t = TestSetup::new().await;
+    let task = process_tarball_setup(
+      &t,
+      create_mock_tarball("case_insensitive_dep_reference"),
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(error.message, "failed to build module graph: Module not found \"file:///Youtube.tsx\".\n    at file:///mod.ts:1:8");
+  }
+
+  #[tokio::test]
   async fn no_exports() {
     let t = TestSetup::new().await;
     let task =
@@ -964,7 +991,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "invalidExternalImport");
-    assert_eq!(error.message, "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed (non-JSR http(s) import)");
+    assert_eq!(error.message, "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed (http(s) import)");
   }
 
   async fn uses_npm(t: &TestSetup, task: &crate::db::PublishingTask) -> bool {
@@ -1025,8 +1052,8 @@ pub mod tests {
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
-    assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: Unknown package: @scope/foo\n  Specifier: jsr:@scope/foo@1\n    at file:///mod.ts:1:8");
+    assert_eq!(error.code, "unresolvableJsrDependency");
+    assert_eq!(error.message, "unresolvable 'jsr:' dependency: '@scope/foo@1', no published version matches the constraint");
   }
 
   #[tokio::test]
@@ -1130,6 +1157,14 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "globalTypeAugmentation");
+  }
+
+  #[tokio::test]
+  async fn triple_slash_reference_in_jsdoc() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("triple_slash_reference_in_jsdoc");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
   }
 
   #[tokio::test]

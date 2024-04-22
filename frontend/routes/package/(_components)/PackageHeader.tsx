@@ -67,26 +67,28 @@ export function PackageHeader(
         <div class="space-y-3.5 flex-shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
-              <span>
-                <a
-                  href={`/@${pkg.scope}`}
-                  class="link font-bold no-underline"
-                >
-                  @{pkg.scope}
-                </a>/<span class="font-semibold">
-                  {pkg.name}
-                </span>
-              </span>
-
-              {selectedVersion &&
-                (
-                  <span class="text-lg md:text-[0.75em] font-bold">
-                    <span class="relative text-[0.85em] -top-[0.175em] font-[800]">
-                      @
-                    </span>
-                    {selectedVersion.version}
+              <div class="flex items-baseline gap-x-1">
+                <span>
+                  <a
+                    href={`/@${pkg.scope}`}
+                    class="link font-bold no-underline"
+                  >
+                    @{pkg.scope}
+                  </a>/<span class="font-semibold">
+                    {pkg.name}
                   </span>
-                )}
+                </span>
+
+                {selectedVersion &&
+                  (
+                    <span class="text-lg md:text-[0.75em] font-bold">
+                      <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
+                        @
+                      </span>
+                      {selectedVersion.version}
+                    </span>
+                  )}
+              </div>
 
               {selectedVersion?.rekorLogId && (
                 <Tooltip tooltip="Built and signed on GitHub Actions">
@@ -134,7 +136,7 @@ export function PackageHeader(
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
             {runtimeCompat &&
               (
-                <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1 text-sm font-bold">
+                <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
                   <div>Works with</div>
                   {runtimeCompat}
                 </div>
@@ -142,11 +144,15 @@ export function PackageHeader(
 
             {pkg.score !== null && (
               <a
-                class="flex flex-row md:flex-col items-baseline md:items-end gap-2 md:gap-1 text-sm font-bold"
+                class="flex flex-row md:flex-col items-baseline md:items-end gap-2 md:gap-1.5 text-sm font-bold"
                 href={`/@${pkg.scope}/${pkg.name}/score`}
               >
                 <div>JSR Score</div>
-                <div class={`md:text-xl ${getScoreTextColorClass(pkg.score)}`}>
+                <div
+                  class={`!leading-none md:text-xl ${
+                    getScoreTextColorClass(pkg.score)
+                  }`}
+                >
                   {pkg.score}%
                 </div>
               </a>
@@ -155,10 +161,10 @@ export function PackageHeader(
 
           <div>
             {selectedVersion?.createdAt && (
-              <div class="flex flex-row md:flex-col gap-2 md:gap-1 text-sm font-bold">
+              <div class="flex flex-row items-baseline md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
                 <div>Published</div>
                 <div
-                  class="font-normal"
+                  class="leading-none font-normal"
                   title={new Date(selectedVersion.createdAt).toISOString()
                     .slice(
                       0,
