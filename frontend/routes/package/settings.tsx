@@ -100,7 +100,7 @@ function GitHubRepository(props: { package: Package }) {
 function DescriptionEditor(props: { description: string }) {
   return (
     <form class="mt-8" method="POST">
-      <h2 class="text-xl font-sans font-bold">Description</h2>
+      <h2 class="text-xl font-sans font-bold" id="description">Description</h2>
 
       <p class="mt-2 text-gray-600 max-w-3xl">
         The package description is shown on the package page and in search
@@ -117,7 +117,9 @@ function DescriptionEditor(props: { description: string }) {
 function RuntimeCompatEditor(props: { runtimeCompat: RuntimeCompat }) {
   return (
     <form class="border-t pt-8 mt-12" method="POST">
-      <h2 class="text-xl font-sans font-bold">Runtime Compat</h2>
+      <h2 class="text-xl font-sans font-bold" id="runtime_compat">
+        Runtime Compat
+      </h2>
 
       <p class="mt-2 text-gray-600 max-w-3xl">
         Set which packages this package is compatible with. This information is
