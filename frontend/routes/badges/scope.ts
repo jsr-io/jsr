@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { Handlers, RouteConfig } from "$fresh/server.ts";
 import { accepts } from "$oak_commons";
-import { Package } from "../../utils/api_types.ts";
+import { Scope } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
 import { State } from "../../util.ts";
 
@@ -11,21 +11,17 @@ export const handler: Handlers<unknown, State> = {
       accepts(req, "application/json", "text/html", "image/*") ===
         "application/json"
     ) {
-      const packageResp = await ctx.state.api.get<Package>(
-        path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}`,
+      const scopeResp = await ctx.state.api.get<Scope>(
+        path`/scopes/${ctx.params.scope}`,
       );
 
-      if (!packageResp.ok) {
-        if (packageResp.code === "packageNotFound") {
+      if (!scopeResp.ok) {
+        if (scopeResp.code === "scopeNotFound") {
           return new Response(null, { status: 404 });
         } else {
-          throw packageResp;
+          throw scopeResp;
         }
       } else {
-        if (packageResp.data.score === null) {
-          return new Response(null, { status: 404 });
-        }
-
         return Response.json({
           schemaVersion: 1,
           label: "",
@@ -33,7 +29,7 @@ export const handler: Handlers<unknown, State> = {
           logoSvg: await Deno.readTextFile(
             new URL("../../static/logo.svg", import.meta.url),
           ),
-          message: `${packageResp.data.score}%`,
+          message: `@${scopeResp.data.scope}`,
           labelColor: "rgb(247,223,30)",
           color: "rgb(8,51,68)",
           logoWidth: "25",
@@ -60,5 +56,5 @@ export const handler: Handlers<unknown, State> = {
 };
 
 export const config: RouteConfig = {
-  routeOverride: "/badges/@:scope/:package/score",
+  routeOverride: "/badges/@:scope",
 };

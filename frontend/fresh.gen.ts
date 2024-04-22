@@ -22,6 +22,7 @@ import * as $admin_users from "./routes/admin/users.tsx";
 import * as $auth from "./routes/auth.tsx";
 import * as $badges_package from "./routes/badges/package.ts";
 import * as $badges_package_score from "./routes/badges/package_score.ts";
+import * as $badges_scope from "./routes/badges/scope.ts";
 import * as $docs_id_ from "./routes/docs/[...id].tsx";
 import * as $docs_index from "./routes/docs/index.ts";
 import * as $go_id_ from "./routes/go/[id].ts";
@@ -91,6 +92,7 @@ const manifest = {
     "./routes/auth.tsx": $auth,
     "./routes/badges/package.ts": $badges_package,
     "./routes/badges/package_score.ts": $badges_package_score,
+    "./routes/badges/scope.ts": $badges_scope,
     "./routes/docs/[...id].tsx": $docs_id_,
     "./routes/docs/index.ts": $docs_index,
     "./routes/go/[id].ts": $go_id_,

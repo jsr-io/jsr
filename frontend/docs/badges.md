@@ -60,3 +60,29 @@ In HTML documents, the following can be used:
   <img src="https://jsr.io/badges/@<scope>/<package>/score" alt="" />
 </a>
 ```
+
+## Scope Badge
+
+The scope badge can be used to showcase the package list of a scope. It is
+available at the following URL:
+
+```
+https://jsr.io/badges/@<scope>
+```
+
+Here's how it looks:
+
+[![JSR scope](https://jsr.io/badges/@luca)](https://jsr.io/@luca)
+
+To include it in a Markdown document, use the following code, replacing
+`<scope>` with the actual scope.
+
+```markdown
+[![JSR Score](https://jsr.io/badges/@<scope>)](https://jsr.io/@<scope>)
+```
+
+```html
+<a href="https://jsr.io/@<scope>">
+  <img src="https://jsr.io/badges/@<scope>" alt="" />
+</a>
+```
