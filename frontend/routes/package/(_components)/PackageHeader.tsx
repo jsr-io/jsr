@@ -161,7 +161,7 @@ export function PackageHeader(
 
           <div>
             {selectedVersion?.createdAt && (
-              <div class="flex flex-row items-baseline md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
+              <div class="flex flex-row items-baseline md:items-end md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
                 <div>Published</div>
                 <div
                   class="leading-none font-normal"
