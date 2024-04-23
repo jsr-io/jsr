@@ -16,19 +16,21 @@ export function DocsView(
   { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
 ) {
   const content = (
-    <div class="flex-1 min-w-0 px-2 lg:px-6 pt-4">
+    <div class="flex-1 min-w-0 pt-4">
       <Head>
         <style dangerouslySetInnerHTML={{ __html: docs.css }} />
         <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
       </Head>
 
-      <div class="flex lg:items-center justify-between mb-8 gap-4 max-lg:flex-col-reverse">
-        {docs.breadcrumbs ? (
-          <div
-            class="ddoc"
-            dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}
-          />
-        ): <div />}
+      <div class="flex lg:items-center justify-between mb-4 md:mb-8 gap-4 max-lg:flex-col-reverse">
+        {docs.breadcrumbs
+          ? (
+            <div
+              class="ddoc"
+              dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}
+            />
+          )
+          : <div />}
 
         <LocalSymbolSearch
           scope={params.scope}
