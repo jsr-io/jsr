@@ -29,26 +29,7 @@ await import("jsr:@luca/flag@1")
   }
 }
 
-# http://jsr.test/@luca/flag/meta.json
-{
-  "scope": "luca",
-  "name": "flag",
-  "latest": "1.0.0",
-  "versions": {
-    "1.0.0": {}
-  }
-}
-
-# http://jsr.test/@luca/flag/1.0.0_meta.json
-{
-  "manifest": {
-  },
-  "exports": {
-    ".": "./main.ts"
-  }
-}
-
-# http://jsr.test/@luca/flag/1.0.0/main.ts
+# jsr:@luca/flag@1
 <external>
 
 # output

@@ -603,6 +603,10 @@ impl ExportsMap {
   pub fn into_inner(self) -> IndexMap<String, String> {
     self.0
   }
+
+  pub fn contains_key(&self, key: &str) -> bool {
+    self.0.contains_key(key)
+  }
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for ExportsMap {

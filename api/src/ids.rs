@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use deno_semver::VersionParseError;
 use sqlx::postgres::PgValueRef;
@@ -457,13 +459,12 @@ pub enum VersionValidateError {
 /// The path must only contain ascii alphanumeric characters, and the characters
 /// '$', '(', ')', '+', '-', '.', '@', '[', ']', '_', '{', '}',  '~'.
 ///
-/// Path's are case sensitive, but comparisons and hashing are case insensitive.
-/// This matches the behaviour of the Windows FS APIs.
+/// Path's are case sensitive, and comparisons and hashing are also case
+/// sensitive. However, to ensure no collisions based only on case-sensitivity,
+/// one may use the `CaseInsensitivePackagePath` type to compare paths in a
+/// case insensitive manner.
 #[derive(Clone, Default)]
-pub struct PackagePath {
-  path: String,
-  lower: Option<String>,
-}
+pub struct PackagePath(String);
 
 impl PackagePath {
   pub fn new(path: String) -> Result<Self, PackagePathValidationError> {
@@ -485,14 +486,6 @@ impl PackagePath {
       return Err(PackagePathValidationError::MissingPrefix);
     };
 
-    let mut has_upper = false;
-    let mut valid_char_mapper = |c: char| {
-      if c.is_ascii_uppercase() {
-        has_upper = true;
-      }
-      valid_char(c)
-    };
-
     let mut last = None;
 
     while let Some(component) = components.next() {
@@ -508,7 +501,7 @@ impl PackagePath {
         return Err(PackagePathValidationError::DotSegment);
       }
 
-      if let Some(err) = component.chars().find_map(&mut valid_char_mapper) {
+      if let Some(err) = component.chars().find_map(&mut valid_char) {
         return Err(err);
       }
 
@@ -544,38 +537,17 @@ impl PackagePath {
       ));
     }
 
-    let lower = has_upper.then(|| path.to_ascii_lowercase());
-
-    Ok(Self { path, lower })
+    Ok(Self(path))
   }
 
-  pub fn is_readme(&self) -> bool {
-    let path =
-      std::path::PathBuf::from(self.lower.as_ref().unwrap_or(&self.path));
-    let name = path
-      .file_stem()
-      .and_then(|name| name.to_str())
-      .unwrap_or_default();
-    let extension = path
-      .extension()
-      .and_then(|ext| ext.to_str())
-      .unwrap_or_default();
-    let parent = path
-      .parent()
-      .and_then(|ext| ext.to_str())
-      .unwrap_or_default();
-
-    parent == "/"
-      && name == "readme"
-      && matches!(extension, "md" | "txt" | "markdown")
+  pub fn case_insensitive(&self) -> CaseInsensitivePackagePath<'_> {
+    CaseInsensitivePackagePath::new(Cow::Borrowed(self))
   }
 }
 
 impl PartialEq for PackagePath {
   fn eq(&self, other: &Self) -> bool {
-    let self_lower = self.lower.as_ref().unwrap_or(&self.path);
-    let other_lower = other.lower.as_ref().unwrap_or(&other.path);
-    self_lower == other_lower
+    self.0 == other.0
   }
 }
 
@@ -583,8 +555,7 @@ impl Eq for PackagePath {}
 
 impl std::hash::Hash for PackagePath {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    let lower = self.lower.as_ref().unwrap_or(&self.path);
-    lower.hash(state);
+    self.0.hash(state);
   }
 }
 
@@ -606,19 +577,19 @@ impl std::ops::Deref for PackagePath {
   type Target = str;
 
   fn deref(&self) -> &Self::Target {
-    &self.path
+    &self.0
   }
 }
 
 impl std::fmt::Display for PackagePath {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.path)
+    write!(f, "{}", self.0)
   }
 }
 
 impl std::fmt::Debug for PackagePath {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:?}", self.path)
+    write!(f, "{:?}", self.0)
   }
 }
 
@@ -637,7 +608,7 @@ impl serde::Serialize for PackagePath {
   where
     S: serde::Serializer,
   {
-    self.path.serialize(serializer)
+    self.0.serialize(serializer)
   }
 }
 
@@ -656,7 +627,7 @@ impl<'q> sqlx::Encode<'q, Postgres> for PackagePath {
     buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
   ) -> sqlx::encode::IsNull {
     <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
-      &self.path, buf,
+      &self.0, buf,
     )
   }
 }
@@ -753,6 +724,85 @@ pub enum PackagePathValidationError {
 
   #[error("package path must not contain invalid characters (found '{}')", .0.escape_debug())]
   InvalidOtherChar(char),
+}
+
+/// Case insensitive package path. This type is useful for comparing package
+/// paths in a case insensitive manner.
+///
+/// The hash and equality of this type are case insensitive.
+#[derive(Clone, Default)]
+pub struct CaseInsensitivePackagePath<'a> {
+  path: Cow<'a, PackagePath>,
+  lower: Option<String>,
+}
+
+impl<'a> CaseInsensitivePackagePath<'a> {
+  pub fn new(path: Cow<'a, PackagePath>) -> Self {
+    let has_uppercase = (*path).chars().any(|c| char::is_ascii_uppercase(&c));
+    let lower = has_uppercase.then(|| path.to_ascii_lowercase());
+    Self { path, lower }
+  }
+
+  pub fn into_inner(self) -> Cow<'a, PackagePath> {
+    self.path
+  }
+
+  pub fn is_readme(&self) -> bool {
+    let path =
+      std::path::PathBuf::from(self.lower.as_deref().unwrap_or(&self.path));
+    let name = path
+      .file_stem()
+      .and_then(|name| name.to_str())
+      .unwrap_or_default();
+    let extension = path
+      .extension()
+      .and_then(|ext| ext.to_str())
+      .unwrap_or_default();
+    let parent = path
+      .parent()
+      .and_then(|ext| ext.to_str())
+      .unwrap_or_default();
+
+    parent == "/"
+      && name == "readme"
+      && matches!(extension, "md" | "txt" | "markdown")
+  }
+
+  pub fn to_owned(&self) -> CaseInsensitivePackagePath<'static> {
+    CaseInsensitivePackagePath {
+      path: Cow::Owned(PackagePath::clone(&self.path)),
+      lower: self.lower.clone(),
+    }
+  }
+}
+
+impl PartialEq for CaseInsensitivePackagePath<'_> {
+  fn eq(&self, other: &Self) -> bool {
+    let self_lower = self.lower.as_deref().unwrap_or(&self.path);
+    let other_lower = other.lower.as_deref().unwrap_or(&other.path);
+    self_lower == other_lower
+  }
+}
+
+impl Eq for CaseInsensitivePackagePath<'_> {}
+
+impl std::hash::Hash for CaseInsensitivePackagePath<'_> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    let self_lower = self.lower.as_deref().unwrap_or(&self.path);
+    self_lower.hash(state);
+  }
+}
+
+impl std::fmt::Display for CaseInsensitivePackagePath<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    std::fmt::Display::fmt(&self.path, f)
+  }
+}
+
+impl std::fmt::Debug for CaseInsensitivePackagePath<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    std::fmt::Debug::fmt(&self.path, f)
+  }
 }
 
 #[cfg(test)]
@@ -954,37 +1004,80 @@ mod tests {
     let a_capitalized = PackagePath::try_from("/Foo").unwrap();
     let b = PackagePath::try_from("/bar").unwrap();
 
-    assert_eq!(a, a_capitalized);
+    assert_eq!(a, a);
+    assert_ne!(a, a_capitalized);
     assert_ne!(a, b);
     assert_ne!(a_capitalized, b);
 
     let mut set = HashSet::new();
     assert!(set.insert(a.clone()));
-    assert!(!set.insert(a_capitalized.clone()));
+    assert!(!set.insert(a.clone()));
+    assert!(set.insert(a_capitalized.clone()));
     assert!(set.insert(b.clone()));
 
     assert!(set.contains(&a));
     assert!(set.contains(&a_capitalized));
     assert!(set.contains(&b));
+
+    let a_case_insensitive = a.case_insensitive();
+    let a_capitalized_case_insensitive = a_capitalized.case_insensitive();
+    let b_case_insensitive = b.case_insensitive();
+
+    assert_eq!(a_case_insensitive, a_case_insensitive);
+    assert_eq!(a_case_insensitive, a_capitalized_case_insensitive);
+    assert_ne!(a_case_insensitive, b_case_insensitive);
+
+    let mut set = HashSet::new();
+    assert!(set.insert(a_case_insensitive.clone()));
+    assert!(!set.insert(a_case_insensitive.clone()));
+    assert!(!set.insert(a_capitalized_case_insensitive.clone()));
+    assert!(set.insert(b_case_insensitive.clone()));
+
+    assert!(set.contains(&a_case_insensitive));
+    assert!(set.contains(&a_capitalized_case_insensitive));
+    assert!(set.contains(&b_case_insensitive));
   }
 
   #[test]
   fn test_package_path_is_readme() {
     // Valid READMEs
-    assert!(PackagePath::try_from("/README.md").unwrap().is_readme());
-    assert!(PackagePath::try_from("/README.txt").unwrap().is_readme());
+    assert!(PackagePath::try_from("/README.md")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
+    assert!(PackagePath::try_from("/README.txt")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
     assert!(PackagePath::try_from("/README.markdown")
       .unwrap()
+      .case_insensitive()
       .is_readme());
-    assert!(PackagePath::try_from("/readme.md").unwrap().is_readme());
-    assert!(PackagePath::try_from("/readme.txt").unwrap().is_readme());
+    assert!(PackagePath::try_from("/readme.md")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
+    assert!(PackagePath::try_from("/readme.txt")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
     assert!(PackagePath::try_from("/readme.markdown")
       .unwrap()
+      .case_insensitive()
       .is_readme());
-    assert!(PackagePath::try_from("/ReAdMe.md").unwrap().is_readme());
+    assert!(PackagePath::try_from("/ReAdMe.md")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
 
     // Invalid READMEs
-    assert!(!PackagePath::try_from("/foo/README.md").unwrap().is_readme());
-    assert!(!PackagePath::try_from("/foo.md").unwrap().is_readme());
+    assert!(!PackagePath::try_from("/foo/README.md")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
+    assert!(!PackagePath::try_from("/foo.md")
+      .unwrap()
+      .case_insensitive()
+      .is_readme());
   }
 }
