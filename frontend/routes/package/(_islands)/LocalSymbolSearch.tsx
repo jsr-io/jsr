@@ -158,11 +158,11 @@ export function LocalSymbolSearch(
     }
   }
 
-  const placeholder = `Search for symbols${
+  const placeholder = `Search for symbols in @${props.scope}/${props.pkg}${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
   return (
-    <div class="mb-2 flex-none" ref={ref}>
+    <div class="flex-none" ref={ref}>
       <input
         type="text"
         placeholder={placeholder}
@@ -193,7 +193,7 @@ function ResultList(
   },
 ) {
   return (
-    <div class="absolute bg-white min-w-full border sibling:bg-red-500 shadow z-40">
+    <div class="absolute md:right-0 bg-white min-w-full border sibling:bg-red-500 shadow z-40">
       <ul class="divide-y-1">
         {results.value.map((result, i) => {
           const selected = computed(() => selectionIdx.value === i);

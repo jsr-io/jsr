@@ -78,9 +78,9 @@ deno_semver = "0.5.2"
 flate2 = "1"
 thiserror = "1"
 async-tar = "0.4.2"
-deno_graph = "0.72.0"
-deno_ast = "0.37.0"
-deno_doc = { version = "0.124.0", features = ["tree-sitter"] }
+deno_graph = "0.73.1"
+deno_ast = "0.37.1"
+deno_doc = { path = "../../deno_doc", features = ["tree-sitter"] }
 comrak = { version = "0.20.0", default-features = false }
 async-trait = "0.1.73"
 jsonwebkey = { version = "0.3.5", features = ["jsonwebtoken", "jwt-convert"] }
@@ -100,6 +100,3 @@ sitemap-rs = "0.2.1"
 [dev-dependencies]
 flate2 = "1"
 deno_semver = "0.5.1"
-
-[patch.crates-io]
-deno_graph = { git = "https://github.com/denoland/deno_graph", rev = "d179f32b6879770119a00e408d9452567f0bbee8" }

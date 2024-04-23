@@ -22,12 +22,20 @@ export function DocsView(
         <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
       </Head>
 
-      {docs.breadcrumbs && (
-        <div
-          class="ddoc"
-          dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}
+      <div class="flex lg:items-center justify-between mb-8 gap-4 max-lg:flex-col-reverse">
+        {docs.breadcrumbs ? (
+          <div
+            class="ddoc"
+            dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}
+          />
+        ): <div />}
+
+        <LocalSymbolSearch
+          scope={params.scope}
+          pkg={params.package}
+          version={selectedVersion.version}
         />
-      )}
+      </div>
       <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
 
       {showProvenanceBadge && selectedVersion.rekorLogId && (
@@ -80,11 +88,6 @@ export function DocsView(
   return (
     <div class="grid grid-cols-1 lg:grid-cols-4 pt-2">
       <div class="col-span-1 top-0 md:pl-0 md:pr-2 pt-4 lg:sticky lg:max-h-screen box-border z-20">
-        <LocalSymbolSearch
-          scope={params.scope}
-          pkg={params.package}
-          version={selectedVersion.version}
-        />
         <div
           class="ddoc w-full lg:*:max-h-[calc(100vh-55px)] b-0"
           dangerouslySetInnerHTML={{ __html: docs.sidepanel }}

@@ -1161,7 +1161,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       ORDER BY package_versions.created_at DESC
@@ -1304,7 +1304,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "package_version_newer_versions_count!",
       users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
@@ -1370,7 +1370,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
@@ -1398,7 +1398,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
@@ -1512,7 +1512,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!""#,
       new_package_version.scope as _,
       new_package_version.name as _,
@@ -1546,7 +1546,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!""#,
       scope as _,
       name as _,

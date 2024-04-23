@@ -364,7 +364,7 @@ struct SyncLoader<'a> {
 
 impl<'a> SyncLoader<'a> {
   fn load_sync(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadResult {
     match specifier.scheme() {
@@ -394,7 +394,7 @@ impl<'a> SyncLoader<'a> {
 
 impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
@@ -538,7 +538,7 @@ struct GcsLoader<'a> {
 
 impl<'a> GcsLoader<'a> {
   fn load_inner(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadFuture {
     let specifier = specifier.clone();
@@ -579,7 +579,7 @@ impl<'a> GcsLoader<'a> {
 
 impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
