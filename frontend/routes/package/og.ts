@@ -17,6 +17,12 @@ const jsrLogo = await Image.decode(await Deno.readFile("./static/logo.png"));
 
 let dmmonoFont: Uint8Array | null = null;
 
+const COLOR_BLACK = Image.rgbToColor(0, 0, 0)
+const COLOR_WHITE = Image.rgbToColor(255, 255, 255)
+
+const WIDTH = 1200
+const HEIGHT = 630
+
 export const handler: Handlers<undefined, State> = {
   async GET(_req, ctx) {
     if (!dmmonoFont) {
@@ -39,7 +45,7 @@ export const handler: Handlers<undefined, State> = {
       return ctx.renderNotFound();
     }
 
-    const ogpImage = new Image(1200, 630);
+    const ogpImage = new Image(WIDTH, HEIGHT).drawBox(0, 0, WIDTH, HEIGHT, COLOR_WHITE);
 
     // Generate header
     const headerBaseX = 30;
@@ -48,7 +54,7 @@ export const handler: Handlers<undefined, State> = {
       dmmonoFont,
       50,
       `@${pkg.scope}/${pkg.name}`,
-      Image.rgbToColor(0, 0, 0),
+      COLOR_BLACK,
     );
     ogpImage.composite(packageNameText, headerBaseX, headerBaseY);
     const versionText = Image.renderText(
@@ -69,7 +75,7 @@ export const handler: Handlers<undefined, State> = {
         dmmonoFont,
         20,
         "latest",
-        Image.rgbToColor(0, 0, 0),
+        COLOR_BLACK,
       );
 
       const badgeWidth = 100;
@@ -128,7 +134,7 @@ export const handler: Handlers<undefined, State> = {
       dmmonoFont,
       32,
       "Published",
-      Image.rgbToColor(0, 0, 0),
+      COLOR_BLACK,
     );
     ogpImage.composite(publishedText, 50, packageInfomationDefaultY)
       .composite(
@@ -147,7 +153,7 @@ export const handler: Handlers<undefined, State> = {
       dmmonoFont,
       32,
       "JSR Score",
-      Image.rgbToColor(0, 0, 0),
+      COLOR_BLACK,
     );
     const scoreColor =
       SCORE_CLASSNAME_TO_COLOR_MAP[getScoreTextColorClass(pkg.score ?? 0)];
@@ -173,7 +179,7 @@ export const handler: Handlers<undefined, State> = {
       dmmonoFont,
       32,
       "Works with",
-      Image.rgbToColor(0, 0, 0),
+      COLOR_BLACK,
     );
     ogpImage.composite(
       runtimeCompatsText,
