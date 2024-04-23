@@ -72,13 +72,13 @@ https://jsr.io/badges/@<scope>
 
 Here's how it looks:
 
-[![JSR scope](https://jsr.io/badges/@luca)](https://jsr.io/@luca)
+[![JSR Scope](https://jsr.io/badges/@luca)](https://jsr.io/@luca)
 
 To include it in a Markdown document, use the following code, replacing
 `<scope>` with the actual scope.
 
 ```markdown
-[![JSR Score](https://jsr.io/badges/@<scope>)](https://jsr.io/@<scope>)
+[![JSR Scope](https://jsr.io/badges/@<scope>)](https://jsr.io/@<scope>)
 ```
 
 ```html
