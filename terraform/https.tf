@@ -24,6 +24,13 @@ resource "google_compute_target_https_proxy" "frontend" {
   name             = "frontend"
   url_map          = google_compute_url_map.frontend_https.id
   ssl_certificates = [google_compute_managed_ssl_certificate.frontend_cert.id]
+  ssl_policy       = google_compute_ssl_policy.frontend.id
+}
+
+resource "google_compute_ssl_policy" "frontend" {
+  name            = "frontend"
+  min_tls_version = "TLS_1_2"
+  profile         = "MODERN"
 }
 
 resource "google_compute_managed_ssl_certificate" "frontend_cert" {
@@ -37,6 +44,7 @@ resource "google_compute_managed_ssl_certificate" "frontend_cert" {
     create_before_destroy = true
   }
 }
+
 
 resource "google_compute_url_map" "frontend_https" {
   name = "frontend-https"
