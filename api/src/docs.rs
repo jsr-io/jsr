@@ -234,7 +234,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
             UsageComposerEntry {
               name: "npm".to_string(),
               icon: Some(
-                r#"<img src="/logos/npm.svg" alt="npm logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable={false} />"#.into(),
               ),
             },
             format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
@@ -243,7 +243,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
             UsageComposerEntry {
               name: "Yarn".to_string(),
               icon: Some(
-                r#"<img src="/logos/yarn.svg" alt="yarn logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable={false} />"#.into(),
               ),
             },
             format!("```\nyarn dlx jsr add {scoped_name}\n```\n{import}"),
@@ -252,7 +252,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
             UsageComposerEntry {
               name: "pnpm".to_string(),
               icon: Some(
-                r#"<img src="/logos/pnpm.svg" alt="pnpm logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable={false} />"#.into(),
               ),
             },
             format!("```\npnpm dlx jsr add {scoped_name}\n```\n{import}"),
@@ -285,6 +285,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
 
   generate_ctx.url_rewriter =
     Some(get_url_rewriter(url_rewriter_base, has_readme));
+  generate_ctx.sidebar_hide_all_symbols = true;
 
   generate_ctx
 }
