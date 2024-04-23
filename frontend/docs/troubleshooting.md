@@ -105,6 +105,17 @@ allowed by JSR. JSR only allows triple slash directives that are
 
 You can fix this error by removing the triple slash directive from your source.
 
+### `bannedImportAssertion`
+
+The package being published contains the legacy "import assertions" syntax,
+which is not allowed by JSR. JSR only allows the new "import attributes" syntax.
+
+`import "./data.json" assert { type: "json" };` is not allowed.
+`import "./data.json" with { type: "json" };` is allowed.
+
+You can fix this error by updating the import assertion to an import attribute,
+by replacing `assert` with `with`.
+
 ### `fileTooLarge`
 
 The package being published contains a file that is too large. JSR only allows

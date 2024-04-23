@@ -973,6 +973,41 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn import_assertions() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("import_assertions");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("foo").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "bannedImportAssertion");
+    assert_eq!(error.message, "import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') file:///mod.ts:1:29");
+  }
+
+  #[tokio::test]
+  async fn import_attributes() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("import_attributes");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("foo").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
   async fn jsr_jsonc() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("jsr_jsonc");
