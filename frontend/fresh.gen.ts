@@ -14,6 +14,8 @@ import * as $_middleware from "./routes/_middleware.ts";
 import * as $account_index from "./routes/account/index.tsx";
 import * as $account_invites from "./routes/account/invites.tsx";
 import * as $account_settings from "./routes/account/settings.tsx";
+import * as $account_tokens_create from "./routes/account/tokens/create.tsx";
+import * as $account_tokens_index from "./routes/account/tokens/index.tsx";
 import * as $admin_middleware from "./routes/admin/_middleware.ts";
 import * as $admin_index from "./routes/admin/index.tsx";
 import * as $admin_publishingTasks from "./routes/admin/publishingTasks.tsx";
@@ -63,6 +65,8 @@ import * as $admin_UserEdit from "./islands/admin/UserEdit.tsx";
 import * as $new_1 from "./islands/new.tsx";
 import * as $_scope_islands_ScopeInviteForm from "./routes/@[scope]/(_islands)/ScopeInviteForm.tsx";
 import * as $_scope_islands_ScopeMemberRole from "./routes/@[scope]/(_islands)/ScopeMemberRole.tsx";
+import * as $account_tokens_islands_CreateToken from "./routes/account/tokens/(_islands)/CreateToken.tsx";
+import * as $account_tokens_islands_RevokeToken from "./routes/account/tokens/(_islands)/RevokeToken.tsx";
 import * as $package_islands_LocalSymbolSearch from "./routes/package/(_islands)/LocalSymbolSearch.tsx";
 import * as $package_islands_PackageDescriptionEditor from "./routes/package/(_islands)/PackageDescriptionEditor.tsx";
 import * as $package_islands_PackageGitHubSettings from "./routes/package/(_islands)/PackageGitHubSettings.tsx";
@@ -84,6 +88,8 @@ const manifest = {
     "./routes/account/index.tsx": $account_index,
     "./routes/account/invites.tsx": $account_invites,
     "./routes/account/settings.tsx": $account_settings,
+    "./routes/account/tokens/create.tsx": $account_tokens_create,
+    "./routes/account/tokens/index.tsx": $account_tokens_index,
     "./routes/admin/_middleware.ts": $admin_middleware,
     "./routes/admin/index.tsx": $admin_index,
     "./routes/admin/publishingTasks.tsx": $admin_publishingTasks,
@@ -137,6 +143,10 @@ const manifest = {
       $_scope_islands_ScopeInviteForm,
     "./routes/@[scope]/(_islands)/ScopeMemberRole.tsx":
       $_scope_islands_ScopeMemberRole,
+    "./routes/account/tokens/(_islands)/CreateToken.tsx":
+      $account_tokens_islands_CreateToken,
+    "./routes/account/tokens/(_islands)/RevokeToken.tsx":
+      $account_tokens_islands_RevokeToken,
     "./routes/package/(_islands)/LocalSymbolSearch.tsx":
       $package_islands_LocalSymbolSearch,
     "./routes/package/(_islands)/PackageDescriptionEditor.tsx":

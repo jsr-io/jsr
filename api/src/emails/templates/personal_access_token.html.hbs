@@ -1,0 +1,37 @@
+{{#*inline "html_inner"}}
+<h1 style="margin-top: 0; text-align: left; font-size: 24px; font-weight: 700; color: #333333">
+  Hey {{ name }},
+</h1>
+<p style="margin-top: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+  We're notifying you that a new personal access token was just created for your {{ registry_name }} account.
+</p>
+<p style="margin-bottom: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+  You can now use this token to authenticate with JSR. Never share this token with anyone,
+  including JSR support. You can revoke the token at any time in your account settings.
+</p>
+<table align="center" style="margin: 30px auto; width: 100%; text-align: center" cellpadding="0" cellspacing="0" role="presentation">
+  <tr>
+    <td align="center">
+      <table style="width: 100%;" cellpadding="0" cellspacing="0" role="presentation">
+        <tr>
+          <td align="center" style="font-size: 16px;">
+            <a href="{{ registry_url }}account/tokens" class="button" style="display: inline-block; color: #fff; text-decoration-line: none; line-height: 1.25; background-color: #2563eb; border-radius: 0.375rem; font-weight: 500; padding-left: 1.125rem; padding-right: 1.125rem; padding-top: 0.625rem; padding-bottom: 0.625rem">Review Tokens</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<p style="margin-bottom: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+  If this link doesn't work, you can also copy and paste the following URL into your browser:
+  <a href="{{ registry_url }}account/tokens" style="color: #2563eb">{{ registry_url }}account/settings</a>
+</p>
+<p style="margin-bottom: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+  If you did not create the token yourself, immediately revoke it by visiting the link above, and then contact JSR support at <a href="mailto:{{ support_email }}" style="color: #2563eb">{{ support_email }}</a>.
+</p>
+<p style="margin-bottom: 5px; margin-top: 8px; font-size: 16px; line-height: 24px; color: #52525b">
+  Cheers,
+  <br>{{ registry_name }}
+</p>
+{{/inline}}
+{{> base.html}}

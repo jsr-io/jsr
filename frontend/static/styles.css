@@ -110,14 +110,23 @@
     @apply button border-1.5 border-cyan-900 hover:border-cyan-600 bg-jsr-yellow text-cyan-950
       font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-cyan-700
       outline-offset-2 disabled:bg-gray-100 disabled:text-gray-300 shadow-accent-sm disabled:shadow-transparent
-    disabled:border-gray-300 active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+    disabled:border-gray-300;
+  }
+
+  .button-primary:not(:disabled) {
+    @apply active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
   }
 
   .button-danger {
     @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-gray-100
     outline-red-600 disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent disabled:border-red-300
-    transition-all duration-75 active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+    transition-all duration-75 ease-in-out;
   }
+
+  .button-danger:not(:disabled) {
+    @apply active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+  }
+
 
   .chip {
     @apply inline-block py-1 px-2.5 rounded-full whitespace-nowrap
@@ -145,12 +154,12 @@
   .input-container {
     @apply bg-white rounded-md leading-snug
       border-1.5 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500
-      has-[input:disabled,select:disabled]:text-jsr-gray-300 has-[input:disabled,select:disabled]:cursor-not-allowed
-      has-[input:disabled,select:disabled]:bg-jsr-gray-100;
+      has-[input:disabled,select:disabled]:border-gray-300 has-[input:disabled,select:disabled]:text-jsr-gray-300 has-[input:disabled,select:disabled]:cursor-not-allowed
+      has-[input:disabled,select:disabled]:bg-gray-100;
   }
 
   .input {
-    @apply placeholder:text-jsr-gray-300 outline-none bg-transparent;
+    @apply placeholder:text-jsr-gray-300 disabled:placeholder:text-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
   }
 
   .search-input {

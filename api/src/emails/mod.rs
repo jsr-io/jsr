@@ -14,6 +14,8 @@ const BASE_TXT: &str = "base.txt";
 const BASE_HTML: &str = "base.html";
 const SCOPE_INVITE_TXT: &str = "scope_invite.txt";
 const SCOPE_INVITE_HTML: &str = "scope_invite.html";
+const PERSONAL_ACCESS_TOKEN_TXT: &str = "personal_access_token.txt";
+const PERSONAL_ACCESS_TOKEN_HTML: &str = "personal_access_token.html";
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -22,6 +24,12 @@ pub enum EmailArgs<'a> {
     name: Cow<'a, str>,
     inviter_name: Cow<'a, str>,
     scope: Cow<'a, ScopeName>,
+    registry_url: Cow<'a, str>,
+    registry_name: Cow<'a, str>,
+    support_email: Cow<'a, str>,
+  },
+  PersonalAccessToken {
+    name: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
@@ -38,18 +46,23 @@ impl EmailArgs<'_> {
       } => {
         format!("You've been invited to @{scope} on {registry_name}")
       }
+      EmailArgs::PersonalAccessToken { registry_name, .. } => {
+        format!("A new personal access token was created on {registry_name}")
+      }
     }
   }
 
   pub fn text_template_filename(&self) -> &'static str {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_TXT,
+      EmailArgs::PersonalAccessToken { .. } => PERSONAL_ACCESS_TOKEN_TXT,
     }
   }
 
   pub fn html_template_filename(&self) -> &'static str {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_HTML,
+      EmailArgs::PersonalAccessToken { .. } => PERSONAL_ACCESS_TOKEN_HTML,
     }
   }
 }
@@ -73,6 +86,14 @@ fn init_handlebars(
   t.register_template_string(
     SCOPE_INVITE_HTML,
     include_str!("./templates/scope_invite.html.hbs"),
+  )?;
+  t.register_template_string(
+    PERSONAL_ACCESS_TOKEN_TXT,
+    include_str!("./templates/personal_access_token.txt.hbs"),
+  )?;
+  t.register_template_string(
+    PERSONAL_ACCESS_TOKEN_HTML,
+    include_str!("./templates/personal_access_token.html.hbs"),
   )?;
 
   t.set_strict_mode(true);

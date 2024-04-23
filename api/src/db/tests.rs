@@ -556,10 +556,10 @@ async fn tokens() {
   assert_eq!(token.description, None);
   assert_eq!(token.expires_at, Some(time));
 
-  let token2 = db.get_token(&token.hash).await.unwrap().unwrap();
+  let token2 = db.get_token_by_hash(&token.hash).await.unwrap().unwrap();
   assert_eq!(token2.id, token.id);
 
-  let no_token = db.get_token("1").await.unwrap();
+  let no_token = db.get_token_by_hash("1").await.unwrap();
   assert!(no_token.is_none());
 }
 

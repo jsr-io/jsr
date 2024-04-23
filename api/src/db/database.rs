@@ -2567,11 +2567,39 @@ impl Database {
     .await
   }
 
-  #[instrument(name = "Database::get_token", skip(self), err)]
-  pub async fn get_token(&self, hash: &str) -> Result<Option<Token>> {
+  #[instrument(name = "Database::get_token_by_hash", skip(self), err)]
+  pub async fn get_token_by_hash(&self, hash: &str) -> Result<Option<Token>> {
     sqlx::query_as!(Token, r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at FROM tokens WHERE hash = $1"#, hash)
       .fetch_optional(&self.pool)
       .await
+  }
+
+  #[instrument(name = "Database::list_token", skip(self), err)]
+  pub async fn list_tokens(&self, user_id: Uuid) -> Result<Vec<Token>> {
+    // list a user's tokens where the expiration date is at most 1 day in the past
+    sqlx::query_as!(
+      Token,
+      r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at
+      FROM tokens
+      WHERE user_id = $1 AND (expires_at > now() - interval '1 day' OR expires_at IS NULL)
+      ORDER BY expires_at DESC NULLS FIRST, created_at DESC
+      "#,
+      user_id
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::delete_token", skip(self), err)]
+  pub async fn delete_token(&self, user_id: Uuid, id: Uuid) -> Result<bool> {
+    let res = sqlx::query!(
+      r#"DELETE FROM tokens WHERE user_id = $1 ANd id = $2"#,
+      user_id,
+      id
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(res.rows_affected() > 0)
   }
 
   #[instrument(

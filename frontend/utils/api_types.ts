@@ -196,6 +196,13 @@ export interface Authorization {
 export type Permission = {
   permission: "package/publish";
   scope: string;
+} | {
+  permission: "package/publish";
+  scope: string;
+  package: string;
+} | {
+  permission: "package/publish";
+  scope: string;
   package: string;
   version: string;
   tarballHash: string;
@@ -230,4 +237,19 @@ export interface Dependent {
   package: string;
   versions: string[];
   totalVersions: number;
+}
+
+export interface Token {
+  id: string;
+  description: string | null;
+  type: "web" | "device" | "personal";
+  expiresAt: string | null;
+  permissions: Permission[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface CreatedToken {
+  token: Token;
+  secret: string;
 }

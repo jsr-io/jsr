@@ -1,0 +1,15 @@
+{{#*inline "text_inner"}}
+Hey {{ name }},
+
+We're notifying you that a new personal access token was just created for your {{ registry_name }} account.
+
+You can now use this token to authenticate with JSR. Never share this token with anyone, including JSR support. You can revoke the token at any time by visiting the link below.
+
+{{ registry_url }}account/tokens
+
+If you did not create the token yourself, immediately revoke it by visiting the link above, and then contact JSR support at {{ support_email }}.
+
+Cheers,
+{{ registry_name }}
+{{/inline}}
+{{> base.txt }}

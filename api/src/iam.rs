@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::api::ApiError;
 use crate::db::Database;
+use crate::db::PackagePublishPermission;
 use crate::db::Permission;
 use crate::db::Permissions;
 use crate::db::Token;
@@ -123,18 +124,29 @@ impl<'s> IamHandler<'s> {
           .0
           .iter()
           .find_map(|permission| match permission {
-            Permission::VersionPublish {
+            Permission::PackagePublish(PackagePublishPermission::Version {
               scope,
               package,
               version,
               tarball_hash,
-            } if scope == scope_
+            }) if scope == scope_
               && package == package_
               && version == version_ =>
             {
               Some(PublishAccessRestriction {
                 tarball_hash: Some(tarball_hash.clone()),
               })
+            }
+            Permission::PackagePublish(PackagePublishPermission::Package {
+              scope,
+              package,
+            }) if scope == scope_ && package == package_ => {
+              Some(PublishAccessRestriction { tarball_hash: None })
+            }
+            Permission::PackagePublish(PackagePublishPermission::Scope {
+              scope,
+            }) if scope == scope_ => {
+              Some(PublishAccessRestriction { tarball_hash: None })
             }
             _ => None,
           });

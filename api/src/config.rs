@@ -173,6 +173,7 @@ impl std::fmt::Debug for Config {
         &self.postmark_token.as_ref().map(|_| "***"),
       )
       .field("email_from", &self.email_from)
+      .field("email_from_name", &self.email_from_name)
       .finish()
   }
 }

@@ -52,7 +52,7 @@ export default function AuthPage({ data }: PageProps<Data>) {
 
   const publishPermissions =
     data.authorization.permissions?.filter((perm) =>
-      perm.permission === "package/publish"
+      perm.permission === "package/publish" && perm.version
     ) ?? [];
 
   const title = !data.authorization.permissions
@@ -87,9 +87,9 @@ export default function AuthPage({ data }: PageProps<Data>) {
         {data.authorization.permissions === null && (
           <PermissionTile permission={null} />
         )}
-        <PublishPackagelist permissions={publishPermissions} />
+        <PublishPackageList permissions={publishPermissions} />
         {data.authorization.permissions?.filter((perm) =>
-          perm.permission !== "package/publish"
+          perm.permission !== "package/publish" && perm.version !== undefined
         ).map((perm) => <PermissionTile permission={perm} />)}
       </div>
       <p class="mt-8">Only grant authorization to applications you trust.</p>
@@ -98,7 +98,7 @@ export default function AuthPage({ data }: PageProps<Data>) {
   );
 }
 
-function PublishPackagelist({ permissions }: { permissions: Permission[] }) {
+function PublishPackageList({ permissions }: { permissions: Permission[] }) {
   if (permissions.length === 0) return null;
 
   return (
@@ -134,6 +134,25 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
       description =
         "Including creating scopes, publishing any package, adding members, removing members, and more";
       break;
+    case "package/publish":
+      icon = <ChevronRight class="w-12 h-12 flex-shrink-0" />;
+      if (permission!.package) {
+        title = `Publish any version of @${permission!.scope}/${
+          permission!.package
+        }`;
+        description =
+          `This application will be able to publish new versions of the package @${
+            permission!.scope
+          }/${permission!.package}`;
+      } else {
+        title = `Publishing any version in @${permission!.scope}`;
+        description =
+          `This application will be able to publish new versions of any existing package in the scope @${
+            permission!.scope
+          }`;
+      }
+      break;
+
     default:
       throw new Error("unreachable");
   }
