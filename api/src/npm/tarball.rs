@@ -662,7 +662,7 @@ mod tests {
     graph
       .build(
         roots,
-        &mut loader,
+        &loader,
         BuildOptions {
           is_dynamic: false,
           module_analyzer: &module_analyzer,
