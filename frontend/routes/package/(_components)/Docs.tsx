@@ -42,13 +42,13 @@ export function DocsView(
       {showProvenanceBadge && selectedVersion.rekorLogId && (
         <div class="mt-8 mb-8 border-2 border-jsr-cyan-500 max-w-xl rounded-md py-4 px-6">
           <div class="flex flex-row items-end justify-between">
-            <div className="items-center">
-              <span className="text-sm text-jsr-gray-300">
+            <div class="items-center">
+              <span class="text-sm text-jsr-gray-300">
                 Built and signed on
               </span>
 
-              <div className="flex gap-2 items-center">
-                <span className="text-2xl font-bold">GitHub Actions</span>
+              <div class="flex gap-2 items-center">
+                <span class="text-2xl font-bold">GitHub Actions</span>
                 <svg
                   aria-hidden="true"
                   role="img"
@@ -72,7 +72,7 @@ export function DocsView(
               href={`https://search.sigstore.dev/?logIndex=${selectedVersion.rekorLogId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm link"
+              class="text-sm link"
             >
               View transparency log
             </a>
