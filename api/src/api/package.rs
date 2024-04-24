@@ -2490,7 +2490,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"","line":10,"col":13,"byteIndex":99},"declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":99},"declarationKind":"export","deprecated":false}]}),
     );
 
     // symbol doesn't exist
