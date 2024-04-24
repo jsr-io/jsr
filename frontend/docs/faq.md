@@ -25,6 +25,9 @@ No. JSR is a package registry (the server storing the packages), not a package
 manager (the tool that installs packages). You can use existing package managers
 like `npm`, `yarn`, or `pnpm` with JSR.
 
+A deeper discussion of this can be found
+[here](https://deno.com/blog/jsr-is-not-another-package-manager).
+
 ## Is JSR open source?
 
 Yes. JSR is open source and licensed under the MIT License. You can find the
