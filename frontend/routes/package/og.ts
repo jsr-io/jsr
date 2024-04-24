@@ -30,6 +30,8 @@ const LATEST_BADGE_WIDTH = 100;
 const LATEST_BADGE_HEIGHT = 40;
 const LATEST_BADGE_COLOR = Image.rgbToColor(247, 222, 30);
 
+const JSR_LOGO_HEIGHT = 100
+
 export const handler: Handlers<undefined, State> = {
   async GET(_req, ctx) {
     if (!dmmonoFont) {
@@ -334,8 +336,8 @@ export const handler: Handlers<undefined, State> = {
       );
 
     // JSR Brand
-    const logoWidth = jsrLogo.width * 100 / jsrLogo.height;
-    ogpImage.composite(jsrLogo.resize(logoWidth, 100), 1100 - logoWidth, 500);
+    const logoWidth = jsrLogo.width * JSR_LOGO_HEIGHT / jsrLogo.height;
+    ogpImage.composite(jsrLogo.resize(logoWidth, JSR_LOGO_HEIGHT), WIDTH - logoWidth - PADDING, HEIGHT - JSR_LOGO_HEIGHT - PADDING);
 
     return new Response(await ogpImage.encode());
   },
