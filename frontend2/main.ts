@@ -1,8 +1,8 @@
-import { FreshApp, freshStaticFiles, fsRoutes } from "@fresh/core";
+import { FreshApp, staticFiles, fsRoutes } from "@fresh/core";
 
 export const app = new FreshApp();
 
-app.use(freshStaticFiles());
+app.use(staticFiles());
 
 await fsRoutes(app, {
   dir: Deno.cwd(),

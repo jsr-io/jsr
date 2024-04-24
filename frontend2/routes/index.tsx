@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh";
+import { defineHandlers, Handlers, PageProps } from "$fresh";
 import { State } from "../util.ts";
 import { path } from "../utils/api.ts";
 import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
@@ -13,7 +13,6 @@ interface Data {
 }
 
 export default function Home({ data }: PageProps<Data>) {
-  console.log(data);
   return (
     <div class="flex flex-col">
       <HomepageHero
@@ -215,7 +214,7 @@ function PackageVersionToPanelEntry(
   };
 }
 
-export const handler: Handlers<Data, State> = {
+export const handler = defineHandlers({
   async GET(ctx) {
     const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
       anonymous: true,
@@ -228,4 +227,4 @@ export const handler: Handlers<Data, State> = {
         : { "Cache-Control": "public, s-maxage=60" },
     };
   },
-};
+});

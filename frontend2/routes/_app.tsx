@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { PageProps } from "$fresh";
+import { FreshScripts, PageProps } from "$fresh";
 import { asset } from "$fresh/runtime";
 import { State } from "../util.ts";
 
@@ -7,11 +7,8 @@ export default async function App(
   { Component, state }: PageProps<undefined, State>,
 ) {
   const user = await state.userPromise;
-  console.log("user", user);
   if (user instanceof Response) return user;
   Object.defineProperty(state, "user", { value: user });
-  console.log("state", state);
-  console.log("Component", Component);
   return (
     <html lang="en">
       <head>
@@ -35,6 +32,7 @@ export default async function App(
       </head>
       <body>
         <Component />
+        <FreshScripts />
       </body>
     </html>
   );

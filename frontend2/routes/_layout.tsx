@@ -6,7 +6,6 @@ import { State } from "../util.ts";
 export default function Layout(
   { Component, state, url, data }: PageProps<undefined, State>,
 ) {
-  console.log("data", data);
   return (
     <>
       <div

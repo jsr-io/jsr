@@ -8,21 +8,16 @@
   },
   "lint": {
     "rules": {
-      "tags": [
-        "fresh",
-        "recommended"
-      ]
+      "tags": ["fresh", "recommended"]
     }
   },
-  "exclude": [
-    "**/_fresh/*"
-  ],
+  "exclude": ["**/_fresh/*"],
   "imports": {
-    "@fresh/core": "jsr:@marvinh-test/fresh@^2.0.0-prealpha.16",
-    "$fresh": "jsr:@marvinh-test/fresh@^2.0.0-prealpha.16",
-    "@fresh/plugin-tailwind": "jsr:@marvinh-test/fresh-tailwind@^0.0.3",
-    "preact": "npm:preact@^10.20.1",
-    "@preact/signals": "npm:@preact/signals@^1.2.3",
+    "@fresh/core": "jsr:@fresh/core@2.0.0-alpha.1",
+    "$fresh": "jsr:@fresh/core@2.0.0-alpha.1",
+    "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@0.0.1-alpha.1",
+    "preact": "npm:preact@10.20.1",
+    "@preact/signals": "npm:@preact/signals@1.2.3",
     "tailwindcss": "npm:tailwindcss@3.4.1",
     "$std/": "https://deno.land/std@0.193.0/",
     "$twas": "https://esm.sh/twas@2.1.3",

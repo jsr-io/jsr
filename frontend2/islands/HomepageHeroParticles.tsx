@@ -2,7 +2,7 @@
 import { GlobalSearch } from "./GlobalSearch.tsx";
 import { Plus } from "../components/icons/Plus.tsx";
 import { useEffect } from "preact/hooks";
-import { asset, Head } from "$fresh/runtime";
+import { asset, Head, IS_BROWSER } from "$fresh/runtime";
 import { AnimatedLogo } from "../components/AnimatedLogo.tsx";
 
 declare global {

@@ -31,13 +31,11 @@ const tracing: Middleware<State> = async (ctx) => {
 };
 
 const auth: Middleware<State> = async (ctx) => {
-  console.log("auth middleware");
   const url = new URL(ctx.req.url);
   const interactive = true ||
     (ctx.destination === "route" || ctx.destination === "notFound") &&
       !(url.pathname === "/gfm.css" || url.pathname === "/_frsh/client.js.map");
   const { token, sudo } = getCookies(ctx.req.headers);
-  console.log(token, sudo);
   if (interactive) {
     ctx.state.sudo = sudo === "1";
     ctx.state.api = new API(API_ROOT, {

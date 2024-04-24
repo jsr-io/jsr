@@ -163,7 +163,7 @@ function rewritePreflight() {
     const preflight = postcss.parse(
       Deno.readTextFileSync(
         new URL(
-          "./node_modules/tailwindcss/lib/css/preflight.css",
+          "../frontend/node_modules/tailwindcss/lib/css/preflight.css",
           import.meta.url,
         ),
       ),

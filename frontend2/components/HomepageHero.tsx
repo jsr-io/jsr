@@ -28,6 +28,7 @@ export function HomepageHero(
       class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none"
       id="particles-js"
     >
+      <script src="/scripts/particles.js" defer />
       <HomepageHeroParticles />
       <style>{canvasStyle}</style>
       <div class="section-x-inset-xl flex flex-col items-center justify-center gap-12 relative pointer-events-none">
