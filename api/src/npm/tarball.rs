@@ -640,7 +640,7 @@ mod tests {
       }
     }
 
-    let mut loader = MemoryLoader::new(memory_files, vec![]);
+    let loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
     let workspace_members = vec![WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
