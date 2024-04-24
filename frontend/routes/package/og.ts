@@ -163,7 +163,7 @@ export const handler: Handlers<undefined, State> = {
         ).composite(
           latestText,
           (LATEST_BADGE_WIDTH - latestText.width) / 2,
-          LATEST_BADGE_HEIGHT / 4,
+          (LATEST_BADGE_HEIGHT - latestText.height) / 2,
         );
       versionAndLatestBadgeImage.composite(
         latestBadge,
