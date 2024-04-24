@@ -848,16 +848,19 @@ impl HrefResolver for DocResolver {
     }
   }
 
-  fn resolve_usage(&self, current_file: &ShortPath) -> Option<String> {
+  fn resolve_usage(&self, current_resolve: UrlResolveKind) -> Option<String> {
+    dbg!();
+
+    let file = current_resolve
+      .get_file()
+      .map(|short_path| &*short_path.path)
+      .unwrap_or_default();
+
     Some(format!(
       "@{}/{}{}",
       self.scope,
       self.package,
-      if current_file.path == "." {
-        ""
-      } else {
-        &current_file.path
-      }
+      if file == "." { "" } else { file }
     ))
   }
 
