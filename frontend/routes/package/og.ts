@@ -30,7 +30,7 @@ const LATEST_BADGE_WIDTH = 100;
 const LATEST_BADGE_HEIGHT = 40;
 const LATEST_BADGE_COLOR = Image.rgbToColor(247, 222, 30);
 
-const JSR_LOGO_HEIGHT = 100
+const JSR_LOGO_HEIGHT = 100;
 
 export const handler: Handlers<undefined, State> = {
   async GET(_req, ctx) {
@@ -212,8 +212,6 @@ export const handler: Handlers<undefined, State> = {
     );
 
     // Package Infomations such as Runtime compats, JSR Score and Published
-    const packageInfomationDefaultY = descriptionY + descriptionText.height +
-      50;
 
     // Published
     const publishedImage = (() => {
@@ -300,7 +298,7 @@ export const handler: Handlers<undefined, State> = {
           );
         runtimeKeyImages.push(supportedIcon);
         runtimeCompatsImageWidth += supportedIcon.width;
-        runtimeCompatsImageHeight = Math.max(runtimeCompatsImageHeight, height);
+        runtimeCompatsImageHeight = Math.max(runtimeCompatsImageHeight, supportedIcon.height);
       }
 
       const result = new Image(
@@ -317,6 +315,11 @@ export const handler: Handlers<undefined, State> = {
       }
       return result;
     })();
+
+    const packageInfomationDefaultY = ((
+      (HEIGHT - JSR_LOGO_HEIGHT - PADDING) // JSR Logo y position
+      - (descriptionY + descriptionText.height) // Description underline y position
+    ) - Math.max(publishedImage.height, jsrScore.height, runtimeCompats.height)) / 2 + descriptionY + descriptionText.height;
 
     const packageInfomationPadding =
       (WIDTH - PADDING * 2 - publishedImage.width - jsrScore.width -
@@ -337,7 +340,11 @@ export const handler: Handlers<undefined, State> = {
 
     // JSR Brand
     const logoWidth = jsrLogo.width * JSR_LOGO_HEIGHT / jsrLogo.height;
-    ogpImage.composite(jsrLogo.resize(logoWidth, JSR_LOGO_HEIGHT), WIDTH - logoWidth - PADDING, HEIGHT - JSR_LOGO_HEIGHT - PADDING);
+    ogpImage.composite(
+      jsrLogo.resize(logoWidth, JSR_LOGO_HEIGHT),
+      WIDTH - logoWidth - PADDING,
+      HEIGHT - JSR_LOGO_HEIGHT - PADDING,
+    );
 
     return new Response(await ogpImage.encode());
   },
