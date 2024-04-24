@@ -44,7 +44,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
       />
 
       <PackageNav
-        currentTab="Index"
+        currentTab="Symbols"
         versionCount={data.package.versionCount}
         iam={iam}
         params={params as unknown as Params}
