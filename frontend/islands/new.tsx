@@ -223,6 +223,9 @@ export function PackageName(
   const message = useComputed(() => {
     if (error.value) return error.value;
     if (name.value.length === 0) return "";
+    if (name.value.startsWith("@")) {
+      return "Enter only the package name, do not include the scope.";
+    }
     if (name.value.length > 32) {
       return "Package name cannot be longer than 32 characters.";
     }
@@ -239,8 +242,9 @@ export function PackageName(
     const scope_ = scope.value;
     const newName = name.value;
     if (
-      scope_ === "" || newName.length < 2 || scope_.includes("_") ||
-      newName.includes("_")
+      scope_ === "" || newName.length < 2 ||
+      !/^[a-z0-9][a-z0-9\-]+$/.test(scope_) ||
+      !/^[a-z0-9][a-z0-9\-]+$/.test(newName)
     ) {
       pkg.value = undefined;
       return;
