@@ -811,7 +811,9 @@ pub mod tests {
           ModuleInfo {
             dependencies: vec![],
             ts_references: vec![],
+            self_types_specifier: None,
             jsx_import_source: None,
+            jsx_import_source_types: None,
             jsdoc_imports: vec![]
           }
         )])
