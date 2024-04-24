@@ -17,11 +17,18 @@ const jsrLogo = await Image.decode(await Deno.readFile("./static/logo.png"));
 
 let dmmonoFont: Uint8Array | null = null;
 
-const COLOR_BLACK = Image.rgbToColor(0, 0, 0)
-const COLOR_WHITE = Image.rgbToColor(255, 255, 255)
+const COLOR_BLACK = Image.rgbToColor(0, 0, 0);
+const COLOR_WHITE = Image.rgbToColor(255, 255, 255);
+const COLOR_GRAY = Image.rgbToColor(70, 70, 70);
 
-const WIDTH = 1200
-const HEIGHT = 630
+const PADDING = 30;
+
+const WIDTH = 1200;
+const HEIGHT = 630;
+
+const LATEST_BADGE_WIDTH = 100;
+const LATEST_BADGE_HEIGHT = 40;
+const LATEST_BADGE_COLOR = Image.rgbToColor(247, 222, 30);
 
 export const handler: Handlers<undefined, State> = {
   async GET(_req, ctx) {
@@ -45,89 +52,164 @@ export const handler: Handlers<undefined, State> = {
       return ctx.renderNotFound();
     }
 
-    const ogpImage = new Image(WIDTH, HEIGHT).drawBox(0, 0, WIDTH, HEIGHT, COLOR_WHITE);
+    const packageScope = '12345678901234567890' //pkg.scope
+    const packageName = [...Array(32)].fill('a').join('') //pkg.name
 
-    // Generate header
-    const headerBaseX = 30;
-    const headerBaseY = 30;
-    const packageNameText = Image.renderText(
-      dmmonoFont,
-      50,
-      `@${pkg.scope}/${pkg.name}`,
-      COLOR_BLACK,
+    const ogpImage = new Image(WIDTH, HEIGHT).drawBox(
+      0,
+      0,
+      WIDTH,
+      HEIGHT,
+      COLOR_WHITE,
     );
-    ogpImage.composite(packageNameText, headerBaseX, headerBaseY);
+
+    let packageNamePosition: {
+      x: number;
+      y: number;
+      height: number;
+    };
+    if (packageScope.length + packageName.length > 23) {
+      // new line  | @package
+      // example:  |  /name
+      const scopeText = Image.renderText(
+        dmmonoFont,
+        50,
+        `@${packageScope}`,
+        COLOR_GRAY,
+      );
+      ogpImage.composite(scopeText, PADDING, PADDING);
+
+      const packageNameText = Image.renderText(
+        dmmonoFont,
+        50,
+        `/${packageName}`,
+        COLOR_BLACK,
+      );
+      ogpImage.composite(packageNameText, PADDING, scopeText.height + 20);
+
+      packageNamePosition = {
+        x: PADDING + packageNameText.width,
+        y: PADDING + scopeText.height + 20 + packageNameText.height,
+        height: packageNameText.height,
+      };
+    } else {
+      // one line
+      // example: @package/name
+      const scopeText = Image.renderText(
+        dmmonoFont,
+        50,
+        `@${packageScope}`,
+        COLOR_GRAY,
+      );
+      ogpImage.composite(scopeText, PADDING, PADDING);
+
+      const packageNameText = Image.renderText(
+        dmmonoFont,
+        50,
+        `/${packageName}`,
+        COLOR_BLACK,
+      );
+      ogpImage.composite(
+        packageNameText,
+        PADDING + scopeText.width + 10,
+        PADDING,
+      );
+
+      packageNamePosition = {
+        x: PADDING + scopeText.width + 10 + packageNameText.width,
+        y: PADDING + packageNameText.height,
+        height: packageNameText.height,
+      };
+    }
+    const isLatest = selectedVersion.version === pkg.latestVersion;
+
     const versionText = Image.renderText(
       dmmonoFont,
       30,
       `@${selectedVersion.version}`,
       Image.rgbToColor(50, 50, 50),
     );
-    ogpImage.composite(
-      versionText,
-      headerBaseX + packageNameText.width + 20,
-      headerBaseY + packageNameText.height / 4,
+    const versionAndLatestBadgeImage = new Image(
+      versionText.width + (isLatest ? LATEST_BADGE_WIDTH + 10 : 0),
+      Math.max(versionText.height, LATEST_BADGE_HEIGHT),
     );
+    versionAndLatestBadgeImage.composite(versionText, 0, 0);
 
-    if (selectedVersion.version === pkg.latestVersion) {
-      const badgeColor = Image.rgbToColor(247, 222, 30);
+    if (isLatest) {
+      // This version is latest
       const latestText = Image.renderText(
         dmmonoFont,
         20,
         "latest",
         COLOR_BLACK,
       );
-
-      const badgeWidth = 100;
-      const badgeHeight = 40;
-
-      const latestBadge = new Image(badgeWidth, badgeHeight)
+      const latestBadge = new Image(LATEST_BADGE_WIDTH, LATEST_BADGE_HEIGHT)
         .drawCircle(
-          badgeHeight / 2,
-          badgeHeight / 2 + 1,
-          badgeHeight / 2,
-          badgeColor,
-        )
-        .drawBox(
-          badgeHeight / 2,
+          LATEST_BADGE_HEIGHT / 2,
+          LATEST_BADGE_HEIGHT / 2 + 1,
+          LATEST_BADGE_HEIGHT / 2,
+          LATEST_BADGE_COLOR,
+        ).drawBox(
+          LATEST_BADGE_HEIGHT / 2,
           0,
-          badgeWidth - badgeHeight,
-          badgeHeight,
-          badgeColor,
-        )
-        .drawCircle(
-          badgeWidth - badgeHeight / 2,
-          badgeHeight / 2 + 1,
-          badgeHeight / 2,
-          badgeColor,
-        )
-        .composite(
+          LATEST_BADGE_WIDTH - LATEST_BADGE_HEIGHT,
+          LATEST_BADGE_HEIGHT,
+          LATEST_BADGE_COLOR,
+        ).drawCircle(
+          LATEST_BADGE_WIDTH - LATEST_BADGE_HEIGHT / 2,
+          LATEST_BADGE_HEIGHT / 2 + 1,
+          LATEST_BADGE_HEIGHT / 2,
+          LATEST_BADGE_COLOR,
+        ).composite(
           latestText,
-          (badgeWidth - latestText.width) / 2,
-          badgeHeight / 4,
+          (LATEST_BADGE_WIDTH - latestText.width) / 2,
+          LATEST_BADGE_HEIGHT / 4,
         );
-      ogpImage.composite(
+      versionAndLatestBadgeImage.composite(
         latestBadge,
-        headerBaseX + packageNameText.width + versionText.width + 40,
-        headerBaseY + 14,
+        versionText.width + 10,
+        0,
       );
     }
+
+    let descriptionY: number
+    const isVersionAndLatestBadgeNextLine = packageNamePosition.x > 900
+    if (isVersionAndLatestBadgeNextLine) {
+      // Version/Latest will be new line
+      const yPos = packageNamePosition.y
+      ogpImage.composite(
+        versionAndLatestBadgeImage,
+        WIDTH - PADDING - versionAndLatestBadgeImage.width,
+        yPos
+      );
+      descriptionY = yPos
+    } else {
+      // Version/Latest will be current line
+      ogpImage.composite(
+        versionAndLatestBadgeImage,
+        packageNamePosition.x + 10,
+        packageNamePosition.y - packageNamePosition.height + (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2,
+      );
+      descriptionY = packageNamePosition.y + 10
+    }
+    const descriptionBreakPoint = isVersionAndLatestBadgeNextLine ? 45 : 60
+
     const descriptionText = Image.renderText(
       dmmonoFont,
-      32,
-      (pkg.description.length > 50
-        ? pkg.description.slice(0, 50) + "..."
+      30,
+      (pkg.description.length > descriptionBreakPoint
+        ? pkg.description.slice(0, descriptionBreakPoint) + "..."
         : pkg.description) || "No description",
-      Image.rgbToColor(50, 50, 50),
+      COLOR_GRAY,
     );
     ogpImage.composite(
       descriptionText,
-      headerBaseX + 16,
-      headerBaseY + packageNameText.height + 16,
+      PADDING,
+      descriptionY
     );
 
     // Package Infomations such as Runtime compats, JSR Score and Published
-    const packageInfomationDefaultY = 300;
+    const packageInfomationDefaultY = descriptionY + descriptionText.height + 50;
 
     // Published
     const publishedText = Image.renderText(
@@ -136,15 +218,15 @@ export const handler: Handlers<undefined, State> = {
       "Published",
       COLOR_BLACK,
     );
-    ogpImage.composite(publishedText, 50, packageInfomationDefaultY)
+    ogpImage.composite(publishedText, PADDING, packageInfomationDefaultY)
       .composite(
         Image.renderText(
           dmmonoFont,
           25,
           twas(new Date(selectedVersion.createdAt)),
-          Image.rgbToColor(50, 50, 50),
+          COLOR_GRAY,
         ),
-        60,
+        PADDING,
         publishedText.height + packageInfomationDefaultY,
       );
 
