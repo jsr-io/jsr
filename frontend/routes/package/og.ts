@@ -52,8 +52,8 @@ export const handler: Handlers<undefined, State> = {
       return ctx.renderNotFound();
     }
 
-    const packageScope = '12345678901234567890' //pkg.scope
-    const packageName = [...Array(32)].fill('a').join('') //pkg.name
+    const packageScope = "12345678901234567890"; //pkg.scope
+    const packageName = [...Array(32)].fill("a").join(""); //pkg.name
 
     const ogpImage = new Image(WIDTH, HEIGHT).drawBox(
       0,
@@ -172,27 +172,28 @@ export const handler: Handlers<undefined, State> = {
       );
     }
 
-    let descriptionY: number
-    const isVersionAndLatestBadgeNextLine = packageNamePosition.x > 900
+    let descriptionY: number;
+    const isVersionAndLatestBadgeNextLine = packageNamePosition.x > 900;
     if (isVersionAndLatestBadgeNextLine) {
       // Version/Latest will be new line
-      const yPos = packageNamePosition.y
+      const yPos = packageNamePosition.y;
       ogpImage.composite(
         versionAndLatestBadgeImage,
         WIDTH - PADDING - versionAndLatestBadgeImage.width,
-        yPos
+        yPos,
       );
-      descriptionY = yPos
+      descriptionY = yPos;
     } else {
       // Version/Latest will be current line
       ogpImage.composite(
         versionAndLatestBadgeImage,
         packageNamePosition.x + 10,
-        packageNamePosition.y - packageNamePosition.height + (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2,
+        packageNamePosition.y - packageNamePosition.height +
+          (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2,
       );
-      descriptionY = packageNamePosition.y + 10
+      descriptionY = packageNamePosition.y + 10;
     }
-    const descriptionBreakPoint = isVersionAndLatestBadgeNextLine ? 45 : 60
+    const descriptionBreakPoint = isVersionAndLatestBadgeNextLine ? 45 : 60;
 
     const descriptionText = Image.renderText(
       dmmonoFont,
@@ -205,100 +206,133 @@ export const handler: Handlers<undefined, State> = {
     ogpImage.composite(
       descriptionText,
       PADDING,
-      descriptionY
+      descriptionY,
     );
 
     // Package Infomations such as Runtime compats, JSR Score and Published
-    const packageInfomationDefaultY = descriptionY + descriptionText.height + 50;
+    const packageInfomationDefaultY = descriptionY + descriptionText.height +
+      50;
 
     // Published
-    const publishedText = Image.renderText(
-      dmmonoFont,
-      32,
-      "Published",
-      COLOR_BLACK,
-    );
-    ogpImage.composite(publishedText, PADDING, packageInfomationDefaultY)
-      .composite(
-        Image.renderText(
-          dmmonoFont,
-          25,
-          twas(new Date(selectedVersion.createdAt)),
-          COLOR_GRAY,
-        ),
-        PADDING,
-        publishedText.height + packageInfomationDefaultY,
+    const publishedImage = (() => {
+      const publishedText = Image.renderText(
+        dmmonoFont,
+        32,
+        "Published",
+        COLOR_BLACK,
       );
+      const publishDateText = Image.renderText(
+        dmmonoFont,
+        25,
+        twas(new Date(selectedVersion.createdAt)),
+        COLOR_GRAY,
+      );
+      const result = new Image(
+        Math.max(publishedText.width, publishDateText.width),
+        publishedText.height + 10 + publishDateText.height,
+      );
+      result.composite(publishedText, 0, 0);
+      result.composite(publishDateText, 0, publishedText.height + 10);
+
+      return result;
+    })();
 
     // JSR Score
-    const jsrScoreLabel = Image.renderText(
-      dmmonoFont,
-      32,
-      "JSR Score",
-      COLOR_BLACK,
-    );
-    const scoreColor =
-      SCORE_CLASSNAME_TO_COLOR_MAP[getScoreTextColorClass(pkg.score ?? 0)];
-    ogpImage.composite(
-      jsrScoreLabel,
-      600 - jsrScoreLabel.width / 2,
-      packageInfomationDefaultY,
-    );
-    const jsrScore = Image.renderText(
-      dmmonoFont,
-      60,
-      `${pkg.score}%`,
-      scoreColor,
-    );
-    ogpImage.composite(
-      jsrScore,
-      600 - jsrScore.width / 2,
-      packageInfomationDefaultY + jsrScoreLabel.height,
-    );
+    const jsrScore = (() => {
+      const jsrScoreLabel = Image.renderText(
+        dmmonoFont,
+        32,
+        "JSR Score",
+        COLOR_BLACK,
+      );
+      const scoreColor =
+        SCORE_CLASSNAME_TO_COLOR_MAP[getScoreTextColorClass(pkg.score ?? 0)];
+      const jsrScoreText = Image.renderText(
+        dmmonoFont,
+        60,
+        `${pkg.score}%`,
+        scoreColor,
+      );
+
+      const result = new Image(
+        Math.max(jsrScoreLabel.width, jsrScoreText.width),
+        jsrScoreLabel.height + 10 + jsrScoreText.height,
+      );
+      result.composite(jsrScoreLabel, 0, 0);
+      result.composite(jsrScoreText, 0, jsrScoreLabel.height + 10);
+      return result;
+    })();
 
     // Runtime compats
-    const runtimeCompatsText = Image.renderText(
-      dmmonoFont,
-      32,
-      "Works with",
-      COLOR_BLACK,
-    );
-    ogpImage.composite(
-      runtimeCompatsText,
-      1100 - runtimeCompatsText.width,
-      packageInfomationDefaultY,
-    );
-    const questionMark = Image.renderText(
-      dmmonoFont,
-      50,
-      "?",
-      Image.rgbToColor(29, 78, 216),
-    );
-    let runtimeKeyWidth = 0;
-    for (const runtimeKey of RUNTIME_COMPAT_KEYS.toReversed()) {
-      const [key, _name, icon, width, height] = runtimeKey;
-      const compat = pkg.runtimeCompat[key];
-      if (compat === false) {
-        // Not supported
-        continue;
-      }
-      const iconData = await Deno.readTextFile(`./static${icon}`);
-      const iconImage = Image.renderSVG(iconData, 50 / height);
-
-      const supportedIcon = compat
-        ? iconImage
-        : iconImage.saturation(0).opacity(0.4).composite(
-          questionMark,
-          (width / 2) * 50 / height - questionMark.width / 2,
-        );
-      runtimeKeyWidth += supportedIcon.width;
-
-      ogpImage.composite(
-        supportedIcon,
-        1100 - runtimeKeyWidth,
-        packageInfomationDefaultY + runtimeCompatsText.height + 16,
+    const runtimeCompats = await (async () => {
+      const runtimeCompatsText = Image.renderText(
+        dmmonoFont,
+        32,
+        "Works with",
+        COLOR_BLACK,
       );
-    }
+      const questionMark = Image.renderText(
+        dmmonoFont,
+        50,
+        "?",
+        Image.rgbToColor(29, 78, 216),
+      );
+      let runtimeCompatsImageWidth = 0;
+      let runtimeCompatsImageHeight = 0;
+      const runtimeKeyImages: Image[] = [];
+      for (const runtimeKey of RUNTIME_COMPAT_KEYS.toReversed()) {
+        const [key, _name, icon, width, height] = runtimeKey;
+        const compat = pkg.runtimeCompat[key];
+        if (compat === false) {
+          // Not supported
+          continue;
+        }
+        const iconData = await Deno.readTextFile(`./static${icon}`);
+        const iconImage = Image.renderSVG(iconData, 50 / height);
+
+        const supportedIcon = compat
+          ? iconImage
+          : iconImage.saturation(0).opacity(0.4).composite(
+            questionMark,
+            (width / 2) * 50 / height - questionMark.width / 2,
+          );
+        runtimeKeyImages.push(supportedIcon);
+        runtimeCompatsImageWidth += supportedIcon.width;
+        runtimeCompatsImageHeight = Math.max(runtimeCompatsImageHeight, height);
+      }
+
+      const result = new Image(
+        Math.max(runtimeCompatsText.width, runtimeCompatsImageWidth),
+        runtimeCompatsText.height + 10 + runtimeCompatsImageHeight,
+      );
+
+      result.composite(runtimeCompatsText, 0, 0);
+
+      let x = 0;
+      for (const runtimeKeyImage of runtimeKeyImages) {
+        result.composite(runtimeKeyImage, x, runtimeCompatsText.height + 10);
+        x += runtimeKeyImage.width;
+      }
+      return result;
+    })();
+
+    const packageInfomationPadding =
+      (WIDTH - PADDING * 2 - publishedImage.width - jsrScore.width -
+        runtimeCompats.width) / 2;
+
+    console.log(publishedImage.width, jsrScore.width, runtimeCompats.width);
+    ogpImage.composite(publishedImage, PADDING, packageInfomationDefaultY)
+      .composite(
+        jsrScore,
+        PADDING + publishedImage.width + packageInfomationPadding,
+        packageInfomationDefaultY,
+      )
+      .composite(
+        runtimeCompats,
+        PADDING + publishedImage.width + packageInfomationPadding * 2 +
+          jsrScore.width,
+        packageInfomationDefaultY
+      );
 
     // JSR Brand
     const logoWidth = jsrLogo.width * 100 / jsrLogo.height;
