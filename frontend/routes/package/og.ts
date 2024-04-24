@@ -52,8 +52,8 @@ export const handler: Handlers<undefined, State> = {
       return ctx.renderNotFound();
     }
 
-    const packageScope = "12345678901234567890"; //pkg.scope
-    const packageName = [...Array(32)].fill("a").join(""); //pkg.name
+    const packageScope = pkg.scope;
+    const packageName = pkg.name;
 
     const ogpImage = new Image(WIDTH, HEIGHT).drawBox(
       0,
@@ -320,7 +320,6 @@ export const handler: Handlers<undefined, State> = {
       (WIDTH - PADDING * 2 - publishedImage.width - jsrScore.width -
         runtimeCompats.width) / 2;
 
-    console.log(publishedImage.width, jsrScore.width, runtimeCompats.width);
     ogpImage.composite(publishedImage, PADDING, packageInfomationDefaultY)
       .composite(
         jsrScore,
@@ -331,7 +330,7 @@ export const handler: Handlers<undefined, State> = {
         runtimeCompats,
         PADDING + publishedImage.width + packageInfomationPadding * 2 +
           jsrScore.width,
-        packageInfomationDefaultY
+        packageInfomationDefaultY,
       );
 
     // JSR Brand
