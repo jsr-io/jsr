@@ -39,7 +39,7 @@ import * as $package_publish from "./routes/package/publish.tsx";
 import * as $package_score from "./routes/package/score.tsx";
 import * as $package_settings from "./routes/package/settings.tsx";
 import * as $package_source from "./routes/package/source.tsx";
-import * as $package_symbols from "./routes/package/symbols.tsx";
+import * as $package_symbols from "./routes/package/all_symbols.tsx";
 import * as $package_versions from "./routes/package/versions.tsx";
 import * as $packages from "./routes/packages.tsx";
 import * as $publishing_deny from "./routes/publishing/deny.tsx";
