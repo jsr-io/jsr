@@ -10,7 +10,7 @@ export interface Params {
 
 type Tab =
   | "Index"
-  | "Symbols"
+  | "Docs"
   | "Files"
   | "Versions"
   | "Dependencies"
@@ -41,9 +41,9 @@ export function PackageNav(
       {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/doc`}
-          active={currentTab === "Symbols"}
+          active={currentTab === "Docs"}
         >
-          Symbols
+          Docs
         </NavItem>
       )}
       {(latestVersion || params.version) && (

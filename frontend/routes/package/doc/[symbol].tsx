@@ -48,7 +48,7 @@ export default function Symbol(
       />
 
       <PackageNav
-        currentTab="Index"
+        currentTab="Docs"
         versionCount={data.package.versionCount}
         iam={iam}
         params={params as unknown as Params}

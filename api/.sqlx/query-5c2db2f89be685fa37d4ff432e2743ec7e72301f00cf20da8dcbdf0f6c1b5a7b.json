@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)\n      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%' \n        AND pv.is_yanked = false) as \"newer_versions_count!\"",
+  "query": "SELECT scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"newer_versions_count!\"\n      FROM package_versions\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
   "describe": {
     "columns": [
       {
@@ -70,16 +70,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Text",
-        "Text",
-        "Text",
-        "Uuid",
-        "Text",
-        "Jsonb",
-        "Bool",
-        "Jsonb"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -97,5 +88,5 @@
       null
     ]
   },
-  "hash": "47e5a593181b18d95c8db1d4fdc79bf88965488b43f3b72becaefec2aea64ba2"
+  "hash": "5c2db2f89be685fa37d4ff432e2743ec7e72301f00cf20da8dcbdf0f6c1b5a7b"
 }

@@ -139,7 +139,7 @@ async fn analyze_package_inner(
   let diagnostics = graph
     .build(
       roots.clone(),
-      &mut SyncLoader { files: &files },
+      &SyncLoader { files: &files },
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
@@ -364,7 +364,7 @@ struct SyncLoader<'a> {
 
 impl<'a> SyncLoader<'a> {
   fn load_sync(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadResult {
     match specifier.scheme() {
@@ -394,7 +394,7 @@ impl<'a> SyncLoader<'a> {
 
 impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
@@ -474,7 +474,7 @@ async fn rebuild_npm_tarball_inner(
   let diagnostics = graph
     .build(
       roots.clone(),
-      &mut GcsLoader {
+      &GcsLoader {
         files: &files,
         bucket: &modules_bucket,
         scope: &scope,
@@ -538,7 +538,7 @@ struct GcsLoader<'a> {
 
 impl<'a> GcsLoader<'a> {
   fn load_inner(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadFuture {
     let specifier = specifier.clone();
@@ -579,7 +579,7 @@ impl<'a> GcsLoader<'a> {
 
 impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
