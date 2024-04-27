@@ -35,6 +35,7 @@ export default function PublishApprovePage({ data }: PageProps<Data>) {
         <title>
           Publishing package{singular ? "s" : ""} - JSR
         </title>
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <section>
         <h1 class="text-4xl font-bold">Publishing progress</h1>

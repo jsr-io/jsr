@@ -11,6 +11,7 @@ export default function PublishDeniedPage() {
         <title>
           Publishing package(s) - JSR
         </title>
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <h1 class="text-4xl font-bold">Publishing has been denied</h1>
       <p class="text-lg mt-2">

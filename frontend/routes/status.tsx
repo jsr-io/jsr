@@ -36,6 +36,7 @@ export default function PackageListPage(
         <title>
           Publishing Task {data.publishingTask.id} - JSR
         </title>
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <div>
         <PackageHeader package={data.package} />

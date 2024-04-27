@@ -26,6 +26,7 @@ export default function AuthPage({ data }: PageProps<Data>) {
           <title>
             Authorize - JSR
           </title>
+          <meta property="og:image" content="/images/og-image.webp" />
         </Head>
         <h1 class="text-lg font-semibold">Authorization</h1>
         <p class="mt-2 text-gray-600 max-w-3xl">
