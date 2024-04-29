@@ -167,10 +167,8 @@ pub async fn create_npm_tarball<'a>(
             declaration_rewrites
               .insert(module.specifier(), declaration_specifier);
           }
-        } else {
-          if let Some(source_specifier) = source_specifier {
-            declaration_rewrites.insert(module.specifier(), source_specifier);
-          }
+        } else if let Some(source_specifier) = source_specifier {
+          declaration_rewrites.insert(module.specifier(), source_specifier);
         }
       }
       _ => {}
