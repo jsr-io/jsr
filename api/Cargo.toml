@@ -79,7 +79,7 @@ flate2 = "1"
 thiserror = "1"
 async-tar = "0.4.2"
 deno_graph = "0.74.1"
-deno_ast = "0.38.1"
+deno_ast = { version = "0.38.1", features = ["view"] }
 deno_doc = { version = "0.128.0", features = ["tree-sitter"] }
 comrak = { version = "0.20.0", default-features = false }
 async-trait = "0.1.73"

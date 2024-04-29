@@ -21,6 +21,20 @@ this is data
 }
 
 # output
+== /_dist/foo.d.ts ==
+export declare const foo: string;
+//# sourceMappingURL=foo.d.ts.map
+
+== /_dist/foo.d.ts.map ==
+{"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,OAAO,cAAM,KAAK,MAAM,CAAS"}
+
+== /_dist/foo.js ==
+export const foo = 'bar';
+//# sourceMappingURL=foo.js.map
+
+== /_dist/foo.js.map ==
+{"version":3,"file":"foo.js","sources":["../foo.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM"}
+
 == /bar.json ==
 console.log('foo');
 
@@ -28,12 +42,7 @@ console.log('foo');
 this is data
 
 == /foo.d.ts ==
-export declare const foo: string;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLGNBQU0sS0FBSyxNQUFNLENBQVMifQ==
-
-== /foo.js ==
-export const foo = 'bar';
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLE1BQU0sTUFBYyxNQUFNIn0=
+// unrelated content is overwritten
 
 == /foo.ts ==
 export const foo: string = 'bar';
@@ -57,8 +66,8 @@ export const foo: string = 'bar';
   "dependencies": {},
   "exports": {
     "./foo": {
-      "types": "./foo.d.ts",
-      "default": "./foo.js"
+      "types": "./_dist/foo.d.ts",
+      "default": "./_dist/foo.js"
     },
     "./bar": {
       "default": "./bar.json"
