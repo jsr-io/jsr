@@ -13,8 +13,8 @@ reference "slow types". "Slow types" are types that are not explicitly written,
 or are so complex that they require extensive inference to be understood.
 
 This inference requires full type checking of the TypeScript source, which is
-not possible to do in JSR because it would require running the TypeScript
-compiler. This is not possible, because `tsc` does not produce stable type
+not feasible to do in JSR because it would require running the TypeScript
+compiler. It is not feasible because `tsc` does not produce stable type
 information over time and is too slow to run on every package in the registry on
 a regular basis
 ([read more in this issue](https://github.com/jsr-io/jsr/issues/444#issuecomment-2079772908)).
@@ -264,9 +264,9 @@ explicitly. These cases are called "simple inference". Types that can be simply
 inferred are not considered "slow types".
 
 In general, simple inference is possible if a symbol is does not reference other
-symbols. It is also not possible if TypeScript would perform a type widening or
-narrowing operation on the type (for example arrays containing different shapes
-of object literals).
+symbols. It is also not possible if the TypeScript compiler would perform a type
+widening or narrowing operation on the type (for example arrays containing
+different shapes of object literals).
 
 Simple inference is possible in two positions:
 
