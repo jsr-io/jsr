@@ -3,8 +3,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::Mutex;
 
+use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::common::Span;
 use deno_ast::LineAndColumnDisplay;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
@@ -13,17 +14,16 @@ use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
 use deno_doc::DocNodeKind;
 use deno_graph::source::load_data_url;
+use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
-use deno_graph::source::ResolutionMode;
-use deno_graph::source::ResolveError;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
 use deno_graph::CapturingModuleAnalyzer;
 use deno_graph::GraphKind;
+use deno_graph::ModuleGraph;
 use deno_graph::ModuleInfo;
 use deno_graph::ParsedSourceStore;
-use deno_graph::Range;
 use deno_graph::WorkspaceFastCheckOption;
 use deno_graph::WorkspaceMember;
 use deno_semver::jsr::JsrPackageReqReference;
@@ -33,8 +33,6 @@ use deno_semver::package::PackageReqReference;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use tracing::debug;
-use tracing::info_span;
 use tracing::instrument;
 use tracing::Instrument;
 use url::Url;
@@ -49,8 +47,6 @@ use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::metadata::PackageMetadata;
-use crate::metadata::VersionMetadata;
 use crate::npm::create_npm_tarball;
 use crate::npm::NpmTarball;
 use crate::npm::NpmTarballFiles;
@@ -77,21 +73,21 @@ pub struct PackageAnalysisOutput {
 #[tokio::main(flavor = "current_thread")]
 pub async fn analyze_package(
   span: tracing::Span,
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   scope: ScopeName,
   name: PackageName,
   version: Version,
   config_file: PackagePath,
   data: PackageAnalysisData,
 ) -> Result<PackageAnalysisOutput, PublishError> {
-  analyze_package_inner(registry, scope, name, version, config_file, data)
+  analyze_package_inner(registry_url, scope, name, version, config_file, data)
     .instrument(span)
     .await
 }
 
-#[instrument(name = "analyze_package", skip(registry, data), err)]
+#[instrument(name = "analyze_package", skip(registry_url, data), err)]
 async fn analyze_package_inner(
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   scope: ScopeName,
   name: PackageName,
   version: Version,
@@ -139,18 +135,11 @@ async fn analyze_package_inner(
       version: version.0.clone(),
     },
   }];
-  let url_provider = RegistryJsrUrlProvider {
-    registry: registry.as_ref(),
-  };
-  let capturing_resolver = DependencyCapturingResolver::default();
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
   let diagnostics = graph
     .build(
       roots.clone(),
-      &mut SyncLoader {
-        files: &files,
-        registry: registry.clone(),
-      },
+      &SyncLoader { files: &files },
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
@@ -158,8 +147,9 @@ async fn analyze_package_inner(
         imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
-        jsr_url_provider: &url_provider,
-        resolver: Some(&capturing_resolver),
+        jsr_url_provider: &PassthroughJsrUrlProvider,
+        passthrough_jsr_specifiers: true,
+        resolver: None,
         npm_resolver: None,
         reporter: None,
         executor: Default::default(),
@@ -167,23 +157,20 @@ async fn analyze_package_inner(
     )
     .await;
   assert!(diagnostics.is_empty());
-  graph.valid().map_err(PublishError::GraphError)?;
+  graph
+    .valid()
+    .map_err(|e| PublishError::GraphError(Box::new(e)))?;
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: None,
     fast_check_dts: true,
-    jsr_url_provider: Some(&url_provider),
+    jsr_url_provider: Some(&PassthroughJsrUrlProvider),
     module_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
     npm_resolver: Default::default(),
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
   });
 
-  let inner = capturing_resolver.0.into_inner().unwrap();
-  if let Some(err) = inner.errors.into_iter().next() {
-    return Err(err);
-  }
-
-  let dependencies = inner.dependencies;
+  let dependencies = collect_dependencies(&graph)?;
 
   for module in graph.modules() {
     // Check for global type augementation.
@@ -197,29 +184,6 @@ async fn analyze_package_inner(
     {
       check_for_banned_syntax(&parsed_source)?;
       check_for_banned_triple_slash_directives(&parsed_source)?;
-    }
-
-    // Check that all modules are valid.
-    match module.specifier().scheme() {
-      "file" | "data" | "npm" | "node" => {}
-      "http" | "https" => {
-        if !module
-          .specifier()
-          .as_str()
-          .starts_with(registry.registry_url().as_str())
-        {
-          return Err(PublishError::InvalidExternalImport {
-            specifier: module.specifier().to_string(),
-            info: "non-JSR http(s) import".to_string(),
-          });
-        }
-      }
-      _ => {
-        return Err(PublishError::InvalidExternalImport {
-          specifier: module.specifier().to_string(),
-          info: "unsupported scheme".to_string(),
-        });
-      }
     }
   }
 
@@ -242,8 +206,8 @@ async fn analyze_package_inner(
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
-    sources: &module_analyzer.analyzer,
-    registry_url: registry.registry_url(),
+    analyzer: &module_analyzer.analyzer,
+    registry_url: &registry_url,
     scope: &scope,
     package: &name,
     version: &version,
@@ -255,7 +219,9 @@ async fn analyze_package_inner(
   .map_err(PublishError::NpmTarballError)?;
 
   let (meta, readme_path) = {
-    let readme = files.iter().find(|file| file.0.is_readme());
+    let readme = files
+      .iter()
+      .find(|file| file.0.case_insensitive().is_readme());
 
     (
       generate_score(main_entrypoint, &doc_nodes, &readme, all_fast_check),
@@ -372,82 +338,33 @@ fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
   (documented_symbols as f32) / (total_symbols as f32)
 }
 
-#[derive(Debug, Default)]
-struct DependencyCapturingResolver(Mutex<DependencyCapturingResolverInner>);
+pub struct PassthroughJsrUrlProvider;
 
-#[derive(Debug, Default)]
-struct DependencyCapturingResolverInner {
-  dependencies: HashSet<(DependencyKind, PackageReqReference)>,
-  errors: Vec<PublishError>,
-}
-
-impl deno_graph::source::Resolver for DependencyCapturingResolver {
-  fn resolve(
-    &self,
-    specifier_text: &str,
-    referrer_range: &Range,
-    _mode: ResolutionMode,
-  ) -> Result<ModuleSpecifier, ResolveError> {
-    let specifier =
-      deno_graph::resolve_import(specifier_text, &referrer_range.specifier)?;
-    if referrer_range.specifier.scheme() == "file" {
-      let mut inner = self.0.lock().unwrap();
-      if specifier.scheme() == "jsr" {
-        let res = JsrPackageReqReference::from_str(specifier.as_str());
-        match res {
-          Ok(req) => {
-            if req.req().version_req.version_text() == "*" {
-              inner.errors.push(PublishError::JsrMissingConstraint(req));
-            } else {
-              inner
-                .dependencies
-                .insert((DependencyKind::Jsr, req.into_inner()));
-            }
-          }
-          Err(err) => {
-            inner.errors.push(PublishError::InvalidJsrSpecifier(err));
-          }
-        }
-      } else if specifier.scheme() == "npm" {
-        let res = NpmPackageReqReference::from_str(specifier.as_str());
-        match res {
-          Ok(req) => {
-            if req.req().version_req.version_text() == "*" {
-              inner.errors.push(PublishError::NpmMissingConstraint(req));
-            } else {
-              inner
-                .dependencies
-                .insert((DependencyKind::Npm, req.into_inner()));
-            }
-          }
-          Err(err) => {
-            inner.errors.push(PublishError::InvalidNpmSpecifier(err));
-          }
-        }
-      }
-    }
-    Ok(specifier)
-  }
-}
-
-struct RegistryJsrUrlProvider<'a> {
-  registry: &'a dyn RegistryLoader,
-}
-
-impl<'a> deno_graph::source::JsrUrlProvider for RegistryJsrUrlProvider<'a> {
+impl JsrUrlProvider for PassthroughJsrUrlProvider {
   fn url(&self) -> &Url {
-    self.registry.registry_url()
+    unreachable!(
+      "BuildOptions::passthrough_jsr_specifiers should be set to true"
+    )
+  }
+
+  fn package_url(&self, _nv: &PackageNv) -> Url {
+    unreachable!(
+      "BuildOptions::passthrough_jsr_specifiers should be set to true"
+    )
+  }
+
+  fn package_url_to_nv(&self, _url: &Url) -> Option<PackageNv> {
+    None
   }
 }
 
 struct SyncLoader<'a> {
   files: &'a HashMap<PackagePath, Vec<u8>>,
-  registry: Arc<dyn RegistryLoader>,
 }
 
 impl<'a> SyncLoader<'a> {
   fn load_sync(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadResult {
     match specifier.scheme() {
@@ -464,7 +381,7 @@ impl<'a> SyncLoader<'a> {
           maybe_headers: None,
         }))
       }
-      "http" | "https" | "node" | "npm" => {
+      "http" | "https" | "node" | "npm" | "jsr" => {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier: specifier.clone(),
         }))
@@ -473,80 +390,16 @@ impl<'a> SyncLoader<'a> {
       _ => Ok(None),
     }
   }
-
-  fn parse_registry_url(
-    &self,
-    specifier: &ModuleSpecifier,
-  ) -> Option<(ScopeName, PackageName, Option<Version>)> {
-    // todo(dsherret): deja-vu with `parse_registry_url` in `GcsLoader`.
-    if let Some(path) = specifier
-      .as_str()
-      .strip_prefix(self.registry.registry_url().as_str())
-    {
-      let mut split = path.split('/').peekable();
-      if split.peek() == Some(&"") {
-        split.next();
-      }
-      let scope =
-        ScopeName::new(split.next()?.strip_prefix('@')?.into()).ok()?;
-      let name = PackageName::new(split.next()?.into()).ok()?;
-      let path = split.next()?;
-      if split.next().is_some() {
-        return None;
-      }
-      if path == "meta.json" {
-        return Some((scope, name, None));
-      }
-      if let Some(version) = path.strip_suffix("_meta.json") {
-        let version = Version::new(version).ok()?;
-        return Some((scope, name, Some(version)));
-      }
-    }
-    None
-  }
 }
 
 impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
-    if let Some((scope, name, version)) = self.parse_registry_url(specifier) {
-      let specifier = specifier.clone();
-      let registry = self.registry.clone();
-      let span = info_span!("Loader::load", specifier = %specifier);
-      async move {
-        if let Some(version) = version {
-          debug!("Fetching package version manifest from registry: {scope}/{name}@{version}");
-          let version_meta = registry
-            .load_version_meta(&scope, &name, &version)
-            .await?;
-          let content = serde_json::to_vec(&version_meta)?;
-          Ok(Some(deno_graph::source::LoadResponse::Module {
-            content: content.into(),
-            specifier,
-            maybe_headers: None,
-          }))
-        } else {
-          debug!("Fetching package manifest from registry: {scope}/{name}");
-          let Some(meta) = registry.load_package_meta(&scope, &name).await? else {
-            return Ok(None);
-          };
-          let content = serde_json::to_vec(&meta)?;
-          Ok(Some(deno_graph::source::LoadResponse::Module {
-            content: content.into(),
-            specifier,
-            maybe_headers: None,
-          }))
-        }
-      }
-      .instrument(span)
-      .boxed()
-    } else {
-      let result = self.load_sync(specifier);
-      async move { result }.boxed()
-    }
+    let result = self.load_sync(specifier);
+    async move { result }.boxed()
   }
 }
 
@@ -564,22 +417,22 @@ pub struct RebuildNpmTarballData {
 #[tokio::main(flavor = "current_thread")]
 pub async fn rebuild_npm_tarball(
   span: tracing::Span,
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   modules_bucket: BucketWithQueue,
   data: RebuildNpmTarballData,
 ) -> Result<NpmTarball, anyhow::Error> {
-  rebuild_npm_tarball_inner(registry, modules_bucket, data)
+  rebuild_npm_tarball_inner(registry_url, modules_bucket, data)
     .instrument(span)
     .await
 }
 
 #[instrument(
   name = "rebuild_npm_tarball",
-  skip(registry, modules_bucket, data),
+  skip(registry_url, modules_bucket, data),
   err
 )]
 async fn rebuild_npm_tarball_inner(
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   modules_bucket: BucketWithQueue,
   data: RebuildNpmTarballData,
 ) -> Result<NpmTarball, anyhow::Error> {
@@ -618,19 +471,15 @@ async fn rebuild_npm_tarball_inner(
       version: version.0.clone(),
     },
   }];
-  let url_provider = RegistryJsrUrlProvider {
-    registry: registry.as_ref(),
-  };
   let diagnostics = graph
     .build(
       roots.clone(),
-      &mut GcsLoader {
+      &GcsLoader {
         files: &files,
         bucket: &modules_bucket,
         scope: &scope,
         name: &name,
         version: &version,
-        registry: registry.clone(),
       },
       BuildOptions {
         is_dynamic: false,
@@ -639,7 +488,8 @@ async fn rebuild_npm_tarball_inner(
         imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
-        jsr_url_provider: &url_provider,
+        jsr_url_provider: &PassthroughJsrUrlProvider,
+        passthrough_jsr_specifiers: true,
         resolver: Default::default(),
         npm_resolver: Default::default(),
         reporter: Default::default(),
@@ -652,7 +502,7 @@ async fn rebuild_npm_tarball_inner(
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: Default::default(),
     fast_check_dts: true,
-    jsr_url_provider: Some(&url_provider),
+    jsr_url_provider: Some(&PassthroughJsrUrlProvider),
     module_parser: Some(&module_analyzer.analyzer),
     resolver: None,
     npm_resolver: None,
@@ -661,8 +511,8 @@ async fn rebuild_npm_tarball_inner(
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
-    sources: &module_analyzer.analyzer,
-    registry_url: registry.registry_url(),
+    analyzer: &module_analyzer.analyzer,
+    registry_url: &registry_url,
     scope: &scope,
     package: &name,
     version: &version,
@@ -684,12 +534,11 @@ struct GcsLoader<'a> {
   scope: &'a ScopeName,
   name: &'a PackageName,
   version: &'a Version,
-  registry: Arc<dyn RegistryLoader>,
 }
 
 impl<'a> GcsLoader<'a> {
   fn load_inner(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadFuture {
     let specifier = specifier.clone();
@@ -716,7 +565,7 @@ impl<'a> GcsLoader<'a> {
         }
         .boxed()
       }
-      "http" | "https" | "node" | "npm" => async move {
+      "http" | "https" | "node" | "npm" | "jsr" => async move {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier,
         }))
@@ -726,78 +575,15 @@ impl<'a> GcsLoader<'a> {
       _ => async move { Ok(None) }.boxed(),
     }
   }
-
-  fn parse_registry_url(
-    &self,
-    specifier: &ModuleSpecifier,
-  ) -> Option<(ScopeName, PackageName, Option<Version>)> {
-    if let Some(path) = specifier
-      .as_str()
-      .strip_prefix(self.registry.registry_url().as_str())
-    {
-      let mut split = path.split('/').peekable();
-      if split.peek() == Some(&"") {
-        split.next();
-      }
-      let scope =
-        ScopeName::new(split.next()?.strip_prefix('@')?.into()).ok()?;
-      let name = PackageName::new(split.next()?.into()).ok()?;
-      let path = split.next()?;
-      if split.next().is_some() {
-        return None;
-      }
-      if path == "meta.json" {
-        return Some((scope, name, None));
-      }
-      if let Some(version) = path.strip_suffix("_meta.json") {
-        let version = Version::new(version).ok()?;
-        return Some((scope, name, Some(version)));
-      }
-    }
-    None
-  }
 }
 
 impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
-    if let Some((scope, name, version)) = self.parse_registry_url(specifier) {
-      let specifier = specifier.clone();
-      let registry = self.registry.clone();
-      let span = info_span!("Loader::load", specifier = %specifier);
-      async move {
-        if let Some(version) = version {
-          debug!("Fetching package version manifest from registry: {scope}/{name}@{version}");
-          let version_meta = registry
-            .load_version_meta(&scope, &name, &version)
-            .await?;
-          let content = serde_json::to_vec(&version_meta)?;
-          Ok(Some(deno_graph::source::LoadResponse::Module {
-            content: content.into(),
-            specifier,
-            maybe_headers: None,
-          }))
-        } else {
-          debug!("Fetching package manifest from registry: {scope}/{name}");
-          let Some(meta) = registry.load_package_meta(&scope, &name).await? else {
-            return Ok(None);
-          };
-          let content = serde_json::to_vec(&meta)?;
-          Ok(Some(deno_graph::source::LoadResponse::Module {
-            content: content.into(),
-            specifier,
-            maybe_headers: None,
-          }))
-        }
-      }
-      .instrument(span)
-      .boxed()
-    } else {
-      self.load_inner(specifier)
-    }
+    self.load_inner(specifier)
   }
 }
 
@@ -839,87 +625,60 @@ impl deno_graph::ModuleAnalyzer for ModuleAnalyzer {
   }
 }
 
-#[async_trait::async_trait]
-pub trait RegistryLoader: Send + Sync + 'static {
-  fn registry_url(&self) -> &Url;
+fn collect_dependencies(
+  graph: &ModuleGraph,
+) -> Result<HashSet<(DependencyKind, PackageReqReference)>, PublishError> {
+  let mut dependencies = HashSet::new();
 
-  async fn load_package_meta(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-  ) -> Result<Option<PackageMetadata>, anyhow::Error>;
-
-  async fn load_version_meta(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-  ) -> Result<VersionMetadata, anyhow::Error>;
-}
-
-pub struct GcsRegistryLoader {
-  registry_url: Url,
-  module_bucket: BucketWithQueue,
-}
-
-impl GcsRegistryLoader {
-  pub fn new(registry_url: Url, module_bucket: BucketWithQueue) -> Self {
-    Self {
-      registry_url,
-      module_bucket,
+  for module in graph.modules() {
+    match module.specifier().scheme() {
+      "npm" => {
+        let res = NpmPackageReqReference::from_str(module.specifier().as_str());
+        match res {
+          Ok(req) => {
+            if req.req().version_req.version_text() == "*" {
+              return Err(PublishError::NpmMissingConstraint(req));
+            } else {
+              dependencies.insert((DependencyKind::Npm, req.into_inner()));
+            }
+          }
+          Err(err) => {
+            return Err(PublishError::InvalidNpmSpecifier(err));
+          }
+        }
+      }
+      "jsr" => {
+        let res = JsrPackageReqReference::from_str(module.specifier().as_str());
+        match res {
+          Ok(req) => {
+            if req.req().version_req.version_text() == "*" {
+              return Err(PublishError::JsrMissingConstraint(req));
+            } else {
+              dependencies.insert((DependencyKind::Jsr, req.into_inner()));
+            }
+          }
+          Err(err) => {
+            return Err(PublishError::InvalidJsrSpecifier(err));
+          }
+        }
+      }
+      "file" | "data" | "node" => {}
+      "http" | "https" => {
+        return Err(PublishError::InvalidExternalImport {
+          specifier: module.specifier().to_string(),
+          info: "http(s) import".to_string(),
+        });
+      }
+      _ => {
+        return Err(PublishError::InvalidExternalImport {
+          specifier: module.specifier().to_string(),
+          info: "unsupported scheme".to_string(),
+        });
+      }
     }
   }
-}
 
-#[async_trait::async_trait]
-impl RegistryLoader for GcsRegistryLoader {
-  fn registry_url(&self) -> &Url {
-    &self.registry_url
-  }
-
-  #[allow(clippy::blocks_in_conditions)] // https://github.com/tokio-rs/tracing/issues/2876
-  #[tracing::instrument(
-    name = "GcsRegistryLoader::load_package_meta",
-    skip(self),
-    err
-  )]
-  async fn load_package_meta(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-  ) -> Result<Option<PackageMetadata>, anyhow::Error> {
-    let path = format!("@{}/{}/meta.json", scope, name);
-    let Some(bytes) = self.module_bucket.download(path.into()).await? else {
-      return Ok(None);
-    };
-    let meta = serde_json::from_slice(&bytes)?;
-    Ok(Some(meta))
-  }
-
-  #[allow(clippy::blocks_in_conditions)] // https://github.com/tokio-rs/tracing/issues/2876
-  #[tracing::instrument(
-    name = "GcsRegistryLoader::load_version_meta",
-    skip(self),
-    err
-  )]
-  async fn load_version_meta(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-  ) -> Result<VersionMetadata, anyhow::Error> {
-    let path: Arc<str> =
-      format!("@{}/{}/{}_meta.json", scope, name, version).into();
-    let bytes = self
-      .module_bucket
-      .download(path.clone())
-      .await?
-      .ok_or_else(|| {
-        anyhow::anyhow!("failed to find version meta at {}", path)
-      })?;
-    let meta = serde_json::from_slice(&bytes)?;
-    Ok(meta)
-  }
+  Ok(dependencies)
 }
 
 fn check_for_banned_syntax(
@@ -969,6 +728,54 @@ fn check_for_banned_syntax(
             continue;
           }
         },
+        ast::ModuleDecl::Import(n) => {
+          if let Some(with) = &n.with {
+            let range =
+              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
+                .range();
+            let keyword = parsed_source.text_info().range_text(&range);
+            if keyword.contains("assert") {
+              let (line, column) = line_col(&with.span.range());
+              return Err(PublishError::BannedImportAssertion {
+                specifier: parsed_source.specifier().to_string(),
+                line,
+                column,
+              });
+            }
+          }
+        }
+        ast::ModuleDecl::ExportNamed(n) => {
+          if let Some(with) = &n.with {
+            let src = n.src.as_ref().unwrap();
+            let range =
+              Span::new(src.span.hi(), with.span.lo(), src.span.ctxt).range();
+            let keyword = parsed_source.text_info().range_text(&range);
+            if keyword.contains("assert") {
+              let (line, column) = line_col(&with.span.range());
+              return Err(PublishError::BannedImportAssertion {
+                specifier: parsed_source.specifier().to_string(),
+                line,
+                column,
+              });
+            }
+          }
+        }
+        ast::ModuleDecl::ExportAll(n) => {
+          if let Some(with) = &n.with {
+            let range =
+              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
+                .range();
+            let keyword = parsed_source.text_info().range_text(&range);
+            if keyword.contains("assert") {
+              let (line, column) = line_col(&with.span.range());
+              return Err(PublishError::BannedImportAssertion {
+                specifier: parsed_source.specifier().to_string(),
+                line,
+                column,
+              });
+            }
+          }
+        }
         _ => continue,
       },
       ast::ModuleItem::Stmt(n) => match n {
@@ -1002,7 +809,7 @@ fn check_for_banned_syntax(
 
 static TRIPLE_SLASH_RE: Lazy<Regex> = Lazy::new(|| {
   Regex::new(
-    r#"/\s+<reference\s+(no-default-lib\s*=\s*"true"|lib\s*=\s*("[^"]+"|'[^']+'))\s*/>"#,
+    r#"^/\s+<reference\s+(no-default-lib\s*=\s*"true"|lib\s*=\s*("[^"]+"|'[^']+'))\s*/>\s*$"#,
   )
   .unwrap()
 });
@@ -1010,19 +817,22 @@ static TRIPLE_SLASH_RE: Lazy<Regex> = Lazy::new(|| {
 fn check_for_banned_triple_slash_directives(
   parsed_source: &ParsedSource,
 ) -> Result<(), PublishError> {
-  let comments = parsed_source.comments().leading_map();
-  for (_pos, comments) in comments.iter() {
-    for comment in comments {
-      if TRIPLE_SLASH_RE.is_match(&comment.text) {
-        let lc = parsed_source
-          .text_info()
-          .line_and_column_display(comment.range().start);
-        return Err(PublishError::BannedTripleSlashDirectives {
-          specifier: parsed_source.specifier().to_string(),
-          line: lc.line_number,
-          column: lc.column_number,
-        });
-      }
+  let Some(comments) = parsed_source.get_leading_comments() else {
+    return Ok(());
+  };
+  for comment in comments {
+    if comment.kind != CommentKind::Line {
+      continue;
+    }
+    if TRIPLE_SLASH_RE.is_match(&comment.text) {
+      let lc = parsed_source
+        .text_info()
+        .line_and_column_display(comment.range().start);
+      return Err(PublishError::BannedTripleSlashDirectives {
+        specifier: parsed_source.specifier().to_string(),
+        line: lc.line_number,
+        column: lc.column_number,
+      });
     }
   }
   Ok(())
@@ -1090,6 +900,18 @@ mod tests {
       matches!(err, super::PublishError::BannedTripleSlashDirectives { .. }),
       "{err:?}",
     );
+
+    let x = parse("   //  /   <reference   lib = \'dom\'/>");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
+
+    let x = parse("   ///   <reference   lib = \'dom\'/>  asdasd");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
+
+    let x = parse("   //some text here/   <reference   lib = \'dom\'/>");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
+
+    let x = parse("/** /   <reference   lib = \'dom\'/> */");
+    super::check_for_banned_triple_slash_directives(&x).unwrap();
   }
 
   #[test]
@@ -1147,5 +969,29 @@ mod tests {
 
     let x = parse("import express = React.foo;");
     assert!(super::check_for_banned_syntax(&x).is_ok());
+
+    let x = parse("import './data.json' assert { type: 'json' }");
+    let err = super::check_for_banned_syntax(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::BannedImportAssertion { .. }),
+      "{err:?}",
+    );
+
+    let x = parse("export { a } from './data.json' assert { type: 'json' }");
+    let err = super::check_for_banned_syntax(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::BannedImportAssertion { .. }),
+      "{err:?}",
+    );
+
+    let x = parse("export * from './data.json' assert { type: 'json' }");
+    let err = super::check_for_banned_syntax(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::BannedImportAssertion { .. }),
+      "{err:?}",
+    );
+
+    let x = parse("export * from './data.json' with { type: 'json' }");
+    assert!(super::check_for_banned_syntax(&x).is_ok(), "{err:?}",);
   }
 }

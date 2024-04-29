@@ -2,6 +2,7 @@
 name = "registry_api"
 version = "0.1.0"
 edition = "2021"
+resolver = "2"
 
 [dependencies]
 sqlx = { version = "0.7", default-features = false, features = [
@@ -77,9 +78,9 @@ deno_semver = "0.5.2"
 flate2 = "1"
 thiserror = "1"
 async-tar = "0.4.2"
-deno_graph = "0.70.0"
-deno_ast = "0.35.0"
-deno_doc = { version = "0.123.0", features = ["tree-sitter"] }
+deno_graph = "0.73.1"
+deno_ast = "0.37.1"
+deno_doc = { version = "0.128.0", features = ["tree-sitter"] }
 comrak = { version = "0.20.0", default-features = false }
 async-trait = "0.1.73"
 jsonwebkey = { version = "0.3.5", features = ["jsonwebtoken", "jwt-convert"] }

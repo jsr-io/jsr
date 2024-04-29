@@ -1,0 +1,103 @@
+# foo.js
+/// <reference types="./fizz.d.ts" />
+import { html } from "npm:lit@^2.2.7";
+await import("npm:lit@^2.2.7")
+
+# bar.mjs
+/// <reference types="./fizz.d.ts" />
+import { html } from "npm:lit@^2.2.7";
+await import("npm:lit@^2.2.7")
+
+# baz.ts
+import { html } from "npm:lit@^2.2.7";
+html();
+await import("npm:lit@^2.2.7")
+
+# fizz.d.ts
+import { html } from "npm:lit@^2.2.7";
+await import("npm:lit@^2.2.7")
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs",
+    "./baz": "./baz.ts",
+    "./fizz": "./fizz.d.ts"
+  }
+}
+
+# npm:lit@^2.2.7
+<external>
+
+# output
+== /bar.mjs ==
+
+import { html } from "lit";
+await import("lit")
+
+== /baz.d.ts ==
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
+
+== /baz.js ==
+import { html } from "lit";
+html();
+await import("lit");
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhei50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLElBQUksY0FBeUI7QUFDdEM7QUFDQSxNQUFNLE1BQU0sQ0FBQyJ9
+
+== /baz.ts ==
+import { html } from "lit";
+html();
+await import("lit")
+
+== /fizz.d.ts ==
+import { html } from "lit";
+await import("lit")
+
+== /foo.js ==
+
+import { html } from "lit";
+await import("lit")
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    "./foo": "./foo.js",
+    "./bar": "./bar.mjs",
+    "./baz": "./baz.ts",
+    "./fizz": "./fizz.d.ts"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    "./foo": {
+      "types": "./fizz.d.ts",
+      "default": "./foo.js"
+    },
+    "./bar": {
+      "types": "./fizz.d.ts",
+      "default": "./bar.mjs"
+    },
+    "./baz": {
+      "types": "./baz.d.ts",
+      "default": "./baz.js"
+    },
+    "./fizz": {
+      "default": "./fizz.d.ts"
+    }
+  },
+  "_jsr_revision": 0
+}
+

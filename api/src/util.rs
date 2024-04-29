@@ -411,7 +411,6 @@ impl RequestIdExt for Request<Body> {
 
 #[cfg(test)]
 pub mod test {
-  use crate::analysis::GcsRegistryLoader;
   use crate::auth::GithubOauth2Client;
   use crate::buckets::BucketWithQueue;
   use crate::buckets::Buckets;
@@ -434,7 +433,6 @@ pub mod test {
   use routerify::RouteError;
   use serde::de::DeserializeOwned;
   use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-  use std::sync::Arc;
   use url::Url;
 
   #[derive(Debug)]
@@ -456,7 +454,6 @@ pub mod test {
     #[allow(dead_code)]
     pub scope: crate::db::Scope,
     pub github_oauth2_client: GithubOauth2Client,
-    pub registry: Arc<GcsRegistryLoader>,
     pub service: RequestService<Body, ApiError>,
   }
 
@@ -556,24 +553,18 @@ pub mod test {
 
       db.add_bad_word_for_test("somebadword").await.unwrap();
 
-      let registry_url: Url = "http://jsr-tests.test".parse().unwrap();
-      let registry = Arc::new(GcsRegistryLoader::new(
-        registry_url.clone(),
-        buckets.modules_bucket.clone(),
-      ));
       let router = crate::main_router(MainRouterOptions {
         database: db,
         buckets: buckets.clone(),
         github_client: github_oauth2_client.clone(),
         orama_client: None,
         email_sender: None,
-        registry_url,
+        registry_url: "http://jsr-tests.test".parse().unwrap(),
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
-        registry: registry.clone(),
-        expose_api: true,   // api enabled
-        expose_tasks: true, // task endpoints enabled
+        expose_api: true,              // api enabled
+        expose_tasks: true,            // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)
@@ -590,7 +581,6 @@ pub mod test {
         staff_user,
         scope,
         github_oauth2_client,
-        registry,
         service,
       }
     }
@@ -638,8 +628,8 @@ pub mod test {
       self.buckets.clone()
     }
 
-    pub fn registry(&self) -> Arc<GcsRegistryLoader> {
-      self.registry.clone()
+    pub fn registry_url(&self) -> Url {
+      Url::parse("http://jsr-tests.test").unwrap()
     }
 
     pub fn npm_url(&self) -> Url {

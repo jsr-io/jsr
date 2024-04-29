@@ -89,7 +89,11 @@ export default [
     id: "scoring",
     group: "Reference",
   },
-
+  {
+    title: "Private registries",
+    id: "private-registries",
+    group: "Reference",
+  },
   {
     title: "Provenance and trust",
     id: "trust",

@@ -17,7 +17,7 @@ interface Data {
   selectedVersion: PackageVersionWithUser;
 }
 
-export default function Symbols(
+export default function All_symbols(
   { data, params, state }: PageProps<Data, State>,
 ) {
   const iam = scopeIAM(state, data.member);
@@ -42,7 +42,7 @@ export default function Symbols(
       />
 
       <PackageNav
-        currentTab="Symbols"
+        currentTab="Docs"
         versionCount={data.package.versionCount}
         iam={iam}
         params={params as unknown as Params}

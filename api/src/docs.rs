@@ -14,6 +14,7 @@ use deno_doc::html::GenerateCtx;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
+use deno_doc::html::UsageComposerEntry;
 use deno_doc::DocNode;
 use deno_doc::DocNodeKind;
 use deno_doc::Location;
@@ -131,17 +132,18 @@ fn get_url_rewriter(
   base: String,
   is_readme: bool,
 ) -> deno_doc::html::comrak_adapters::URLRewriter {
-  Arc::new(move |current_specifier, url| {
+  Arc::new(move |current_file, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
     }
 
     if !is_readme {
-      if let Some(current_specifier) = current_specifier {
-        let (path, _file) = current_specifier
+      if let Some(current_file) = current_file {
+        let (path, _file) = current_file
+          .specifier
           .path()
           .rsplit_once('/')
-          .unwrap_or((current_specifier.path(), ""));
+          .unwrap_or((current_file.specifier.path(), ""));
         return format!("{base}{path}/{url}");
       }
     }
@@ -167,7 +169,7 @@ fn get_url_rewriter(
   )
 )]
 pub fn get_generate_ctx<'a, 'ctx>(
-  doc_nodes_by_url: &'a DocNodesByUrl,
+  doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
   scope: ScopeName,
@@ -178,83 +180,114 @@ pub fn get_generate_ctx<'a, 'ctx>(
   runtime_compat: RuntimeCompat,
   registry_url: String,
 ) -> GenerateCtx<'ctx> {
-  let url_rewriter_base = format!("/@{scope}/{package}/{version}");
+  let package_name = format!("@{scope}/{package}");
+  let url_rewriter_base = format!("/{package_name}/{version}");
 
-  GenerateCtx {
-    package_name: None,
-    common_ancestor: None,
-    main_entrypoint,
-    specifiers: doc_nodes_by_url.keys().cloned().collect(),
-    hbs: deno_doc::html::setup_hbs().unwrap(),
-    highlight_adapter: deno_doc::html::setup_highlighter(false),
-    url_rewriter: Some(get_url_rewriter(url_rewriter_base, has_readme)),
-    href_resolver: Rc::new(DocResolver {
-      scope: scope.clone(),
-      package: package.clone(),
-      version,
-      version_is_latest,
-      registry_url,
-      deno_types: DENO_TYPES
-        .get_or_init(|| {
-          serde_json::from_str(include_str!("./docs/deno_types.json")).unwrap()
-        })
-        .clone(),
-      web_types: WEB_TYPES
-        .get_or_init(|| {
-          serde_json::from_str::<Vec<WebType>>(include_str!(
-            "./docs/web_builtins.json"
-          ))
-          .unwrap()
-          .into_iter()
-          .map(|web_type| (web_type.id, web_type.docs))
-          .collect()
-        })
-        .clone(),
-    }),
-    usage_composer: Some(Rc::new(move |ctx, doc_nodes, url| {
-      let mut map = IndexMap::new();
-      let scoped_name = format!("@{scope}/{package}");
+  let mut generate_ctx = GenerateCtx::new(
+    deno_doc::html::GenerateOptions {
+      package_name: Some(package_name),
+      main_entrypoint,
+      href_resolver: Rc::new(DocResolver {
+        scope: scope.clone(),
+        package: package.clone(),
+        version,
+        version_is_latest,
+        registry_url,
+        deno_types: DENO_TYPES
+          .get_or_init(|| {
+            serde_json::from_str(include_str!("./docs/deno_types.json"))
+              .unwrap()
+          })
+          .clone(),
+        web_types: WEB_TYPES
+          .get_or_init(|| {
+            serde_json::from_str::<Vec<WebType>>(include_str!(
+              "./docs/web_builtins.json"
+            ))
+            .unwrap()
+            .into_iter()
+            .map(|web_type| (web_type.id, web_type.docs))
+            .collect()
+          })
+          .clone(),
+      }),
+      usage_composer: Some(Rc::new(move |ctx, doc_nodes, url| {
+        let mut map = IndexMap::new();
+        let scoped_name = format!("@{scope}/{package}");
 
-      if !runtime_compat.deno.is_some_and(|compat| !compat) {
-        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
-        map.insert(
-          "Deno".to_string(),
-          format!("```\ndeno add {scoped_name}\n```\n{import}"),
-        );
-      }
+        if !runtime_compat.deno.is_some_and(|compat| !compat) {
+          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
+          map.insert(
+            UsageComposerEntry {
+              name: "Deno".to_string(),
+              icon: Some(
+                r#"<img src="/logos/deno.svg" alt="deno logo" draggable={false} />"#.into(),
+              ),
+            },
+            format!("```\ndeno add {scoped_name}\n```\n{import}"),
+          );
+        }
 
-      if !runtime_compat.node.is_some_and(|compat| !compat) {
-        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
-        map.insert(
-          "npm".to_string(),
-          format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
-        );
-        map.insert(
-          "Yarn".to_string(),
-          format!("```\nyarn dlx jsr add {scoped_name}\n```\n{import}"),
-        );
-        map.insert(
-          "pnpm".to_string(),
-          format!("```\npnpm dlx jsr add {scoped_name}\n```\n{import}"),
-        );
-      }
+        if !runtime_compat.node.is_some_and(|compat| !compat) {
+          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
+          map.insert(
+            UsageComposerEntry {
+              name: "npm".to_string(),
+              icon: Some(
+                r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable={false} />"#.into(),
+              ),
+            },
+            format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
+          );
+          map.insert(
+            UsageComposerEntry {
+              name: "Yarn".to_string(),
+              icon: Some(
+                r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable={false} />"#.into(),
+              ),
+            },
+            format!("```\nyarn dlx jsr add {scoped_name}\n```\n{import}"),
+          );
+          map.insert(
+            UsageComposerEntry {
+              name: "pnpm".to_string(),
+              icon: Some(
+                r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable={false} />"#.into(),
+              ),
+            },
+            format!("```\npnpm dlx jsr add {scoped_name}\n```\n{import}"),
+          );
+        }
 
-      if !runtime_compat.bun.is_some_and(|compat| !compat) {
-        let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
-        map.insert(
-          "Bun".to_string(),
-          format!("```\nbunx jsr add {scoped_name}\n```\n{import}"),
-        );
-      }
+        if !runtime_compat.bun.is_some_and(|compat| !compat) {
+          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
+          map.insert(
+            UsageComposerEntry {
+              name: "Bun".to_string(),
+              icon: Some(
+                r#"<img src="/logos/bun.svg" alt="bun logo" draggable={false} />"#.into(),
+              ),
+            },
+            format!("```\nbunx jsr add {scoped_name}\n```\n{import}"),
+          );
+        }
 
-      map
-    })),
-    rewrite_map: Some(rewrite_map),
-    hide_module_doc_title: true,
-    single_file_mode: false,
-    sidebar_hide_all_symbols: true,
-    sidebar_flatten_namespaces: false,
-  }
+        map
+      })),
+      rewrite_map: Some(rewrite_map),
+      composable_output: false,
+    },
+    None,
+    deno_doc::html::FileMode::Normal,
+    doc_nodes_by_url,
+  )
+  .unwrap();
+
+  generate_ctx.url_rewriter =
+    Some(get_url_rewriter(url_rewriter_base, has_readme));
+  generate_ctx.sidebar_hide_all_symbols = true;
+
+  generate_ctx
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -277,7 +310,7 @@ pub fn generate_docs_html(
   registry_url: String,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
   let ctx = get_generate_ctx(
-    &doc_nodes_by_url,
+    doc_nodes_by_url,
     main_entrypoint,
     rewrite_map,
     scope,
@@ -289,32 +322,41 @@ pub fn generate_docs_html(
     registry_url,
   );
 
-  let doc_nodes_by_url = ctx.doc_nodes_by_url_add_context(doc_nodes_by_url);
-
   match req {
     DocsRequest::AllSymbols => {
       let render_ctx = deno_doc::html::RenderContext::new(
         &ctx,
         &[],
         UrlResolveKind::AllSymbols,
-        None,
       );
 
-      let all_doc_nodes = doc_nodes_by_url
+      let all_doc_nodes = ctx
+        .doc_nodes
         .values()
         .flatten()
         .cloned()
         .collect::<Vec<_>>();
 
       let partitions_by_kind =
-        deno_doc::html::partition::partition_nodes_by_kind(
+        deno_doc::html::partition::partition_nodes_by_entrypoint(
           &all_doc_nodes,
           true,
         );
 
       let sections = deno_doc::html::namespace::render_namespace(
         &render_ctx,
-        partitions_by_kind,
+        partitions_by_kind
+          .into_iter()
+          .map(|(path, nodes)| {
+            (
+              deno_doc::html::SectionHeaderCtx::new_for_namespace(
+                &render_ctx,
+                &path,
+              ),
+              nodes,
+            )
+          })
+          .collect(),
       );
 
       let breadcrumbs = ctx
@@ -340,39 +382,40 @@ pub fn generate_docs_html(
       })))
     }
     DocsRequest::Index => {
-      let doc_nodes = ctx
-        .main_entrypoint
-        .as_ref()
-        .and_then(|specifier| doc_nodes_by_url.get(specifier).map(|v| &**v))
-        .unwrap_or(&[]);
+      let main_entrypoint = ctx
+        .doc_nodes
+        .iter()
+        .find(|(short_path, _)| short_path.is_main);
+
+      let doc_nodes = main_entrypoint
+        .map(|(_, nodes)| nodes.as_slice())
+        .unwrap_or_default();
 
       let render_ctx = deno_doc::html::RenderContext::new(
         &ctx,
         doc_nodes,
         UrlResolveKind::Root,
-        ctx.main_entrypoint.as_ref(),
       );
 
-      let mut index_module_doc = ctx
-        .main_entrypoint
+      let mut index_module_doc = main_entrypoint
         .as_ref()
-        .map(|main_entrypoint| {
-          deno_doc::html::jsdoc::ModuleDocCtx::new(
-            &render_ctx,
-            main_entrypoint,
-            &doc_nodes_by_url,
-          )
+        .map(|(short_path, _)| {
+          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path)
         })
         .unwrap_or_default();
+
       if index_module_doc.sections.docs.is_none() {
         let markdown = readme
           .as_ref()
-          .map(|readme| {
+          .and_then(|readme| {
             deno_doc::html::jsdoc::markdown_to_html(
               &render_ctx,
               readme,
-              false,
-              true,
+              deno_doc::html::jsdoc::MarkdownToHTMLOptions {
+                summary: false,
+                summary_prefer_title: false,
+                render_toc: true,
+              },
             )
           })
           .unwrap_or(deno_doc::html::jsdoc::Markdown {
@@ -385,16 +428,15 @@ pub fn generate_docs_html(
       }
 
       let partitions_for_main_entrypoint =
-        deno_doc::html::partition::get_partitions_for_main_entrypoint(
-          &ctx,
-          &doc_nodes_by_url,
-        );
+        if let Some((_, doc_nodes)) = main_entrypoint {
+          deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes)
+        } else {
+          Default::default()
+        };
       let index_sidepanel = deno_doc::html::sidepanels::IndexSidepanelCtx::new(
         &ctx,
-        ctx.main_entrypoint.as_ref(),
-        &doc_nodes_by_url,
-        partitions_for_main_entrypoint,
         None,
+        partitions_for_main_entrypoint,
       );
       let sidepanel = ctx
         .hbs
@@ -413,27 +455,23 @@ pub fn generate_docs_html(
       })))
     }
     DocsRequest::File(specifier) => {
-      let doc_nodes = doc_nodes_by_url
-        .get(&specifier)
-        .map(|v| &**v)
+      let (short_path, doc_nodes) = ctx
+        .doc_nodes
+        .iter()
+        .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
 
-      let short_path = ctx.url_to_short_path(&specifier);
       let partitions_for_nodes =
         deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes);
 
       let render_ctx = deno_doc::html::RenderContext::new(
         &ctx,
         doc_nodes,
-        UrlResolveKind::File(&short_path),
-        Some(&specifier),
+        UrlResolveKind::File(short_path),
       );
 
-      let module_doc = deno_doc::html::jsdoc::ModuleDocCtx::new(
-        &render_ctx,
-        &specifier,
-        &doc_nodes_by_url,
-      );
+      let module_doc =
+        deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
 
       let breadcrumbs = ctx
         .hbs
@@ -442,10 +480,8 @@ pub fn generate_docs_html(
 
       let sidepanel = deno_doc::html::sidepanels::IndexSidepanelCtx::new(
         &ctx,
-        Some(&specifier),
-        &doc_nodes_by_url,
+        Some(short_path.clone()),
         partitions_for_nodes,
-        Some(&short_path),
       );
       let sidepanel = ctx
         .hbs
@@ -464,18 +500,17 @@ pub fn generate_docs_html(
       })))
     }
     DocsRequest::Symbol(specifier, symbol) => {
-      let doc_nodes = doc_nodes_by_url
-        .get(&specifier)
-        .map(|v| &**v)
+      let (short_path, doc_nodes) = ctx
+        .doc_nodes
+        .iter()
+        .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
-      let short_path = ctx.url_to_short_path(&specifier);
       let partitions_for_nodes =
         deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes);
 
       let Some(symbol_page) = generate_symbol_page(
         &ctx,
-        &specifier,
-        &short_path,
+        short_path,
         &partitions_for_nodes,
         doc_nodes,
         &symbol,
@@ -520,7 +555,6 @@ pub fn generate_docs_html(
 
 fn generate_symbol_page(
   ctx: &GenerateCtx,
-  current_specifier: &ModuleSpecifier,
   short_path: &ShortPath,
   partitions_for_nodes: &deno_doc::html::partition::Partition,
   doc_nodes_for_module: &[DocNodeWithContext],
@@ -700,7 +734,6 @@ fn generate_symbol_page(
     deno_doc::html::pages::render_symbol_page(
       ctx,
       doc_nodes_for_module,
-      current_specifier,
       short_path,
       &namespace_paths,
       name,
@@ -748,20 +781,12 @@ impl HrefResolver for DocResolver {
       UrlResolveKind::Symbol { file, symbol } => {
         format!(
           "{doc_base}{}/~/{symbol}",
-          if file.as_str() == "." {
-            ""
-          } else {
-            file.as_str()
-          }
+          if file.path == "." { "" } else { &file.path }
         )
       }
       UrlResolveKind::File(file) => format!(
         "{doc_base}{}/~/",
-        if file.as_str() == "." {
-          ""
-        } else {
-          file.as_str()
-        }
+        if file.path == "." { "" } else { &file.path }
       ),
     }
   }
@@ -801,12 +826,11 @@ impl HrefResolver for DocResolver {
           ))
         }
         "http" | "https" if src.starts_with(&self.registry_url) => {
-          let symbol = symbol.join(".");
           let path_parts = url.path().splitn(4, '/').collect::<Vec<_>>();
 
           Some(format!(
-            "/{}/{}@{}/doc/{}/~/{symbol}",
-            path_parts[0], path_parts[1], path_parts[2], path_parts[3]
+            "/{}/{}@{}",
+            path_parts[1], path_parts[2], path_parts[3]
           ))
         }
         "jsr" => {
@@ -824,24 +848,19 @@ impl HrefResolver for DocResolver {
     }
   }
 
-  fn resolve_usage(
-    &self,
-    _current_specifier: &ModuleSpecifier,
-    current_file: Option<&ShortPath>,
-  ) -> Option<String> {
+  fn resolve_usage(&self, current_resolve: UrlResolveKind) -> Option<String> {
+    dbg!();
+
+    let file = current_resolve
+      .get_file()
+      .map(|short_path| &*short_path.path)
+      .unwrap_or_default();
+
     Some(format!(
       "@{}/{}{}",
       self.scope,
       self.package,
-      if let Some(current_file) = current_file {
-        if current_file.as_str() == "." {
-          ""
-        } else {
-          current_file.as_str()
-        }
-      } else {
-        ""
-      }
+      if file == "." { "" } else { file }
     ))
   }
 
@@ -876,6 +895,13 @@ mod tests {
       web_types: Default::default(),
     };
 
+    let short_path = ShortPath::new(
+      ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      None,
+      None,
+      None,
+    );
+
     {
       assert_eq!(
         resolver.resolve_path(UrlResolveKind::Root, UrlResolveKind::Root),
@@ -888,7 +914,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Root,
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string()))
+          UrlResolveKind::File(&short_path)
         ),
         "/@foo/bar@0.0.1/doc/mod.ts/~/"
       );
@@ -896,7 +922,7 @@ mod tests {
         resolver.resolve_path(
           UrlResolveKind::Root,
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar",
           }
         ),
@@ -917,7 +943,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::AllSymbols,
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string()))
+          UrlResolveKind::File(&short_path)
         ),
         "/@foo/bar@0.0.1/doc/mod.ts/~/"
       );
@@ -925,7 +951,7 @@ mod tests {
         resolver.resolve_path(
           UrlResolveKind::AllSymbols,
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar",
           }
         ),
@@ -936,30 +962,30 @@ mod tests {
     {
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string())),
+          UrlResolveKind::File(&short_path),
           UrlResolveKind::Root
         ),
         "/@foo/bar@0.0.1"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string())),
+          UrlResolveKind::File(&short_path),
           UrlResolveKind::AllSymbols
         ),
         "/@foo/bar@0.0.1/doc"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string())),
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string()))
+          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File(&short_path)
         ),
         "/@foo/bar@0.0.1/doc/mod.ts/~/"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string())),
+          UrlResolveKind::File(&short_path),
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar",
           }
         ),
@@ -971,7 +997,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar"
           },
           UrlResolveKind::Root
@@ -981,7 +1007,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar"
           },
           UrlResolveKind::AllSymbols
@@ -991,21 +1017,21 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar"
           },
-          UrlResolveKind::File(&ShortPath::from("/mod.ts".to_string()))
+          UrlResolveKind::File(&short_path)
         ),
         "/@foo/bar@0.0.1/doc/mod.ts/~/"
       );
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar"
           },
           UrlResolveKind::Symbol {
-            file: &ShortPath::from("/mod.ts".to_string()),
+            file: &short_path,
             symbol: "bar",
           }
         ),
@@ -1028,7 +1054,12 @@ mod tests {
 
     assert_eq!(
       rewriter(
-        Some(&Url::parse("file:///src/mod.ts").unwrap()),
+        Some(&ShortPath::new(
+          ModuleSpecifier::parse("file:///src/mod.ts").unwrap(),
+          None,
+          None,
+          None,
+        )),
         "./logo.svg"
       ),
       "/@foo/bar/1.2.3/src/./logo.svg"
@@ -1045,7 +1076,12 @@ mod tests {
 
     assert_eq!(
       rewriter(
-        Some(&Url::parse("file:///esm").unwrap()),
+        Some(&ShortPath::new(
+          ModuleSpecifier::parse("file:///esm").unwrap(),
+          None,
+          None,
+          None,
+        )),
         "./src/assets/logo.svg"
       ),
       "/@foo/bar/1.2.3/./src/assets/logo.svg"

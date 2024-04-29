@@ -7,7 +7,7 @@ import IconArrowRight from "$tabler_icons/arrow-right.tsx";
 const SHARED_ITEM_CLASSES =
   "flex items-center px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 const DEFAULT_ITEM_CLASSES =
-  "hover:bg-jsr-yellow-300 focus-visible:bg-jsr-yellow-200 ring-jsr-yellow-700";
+  "hover:bg-jsr-cyan-50 focus-visible:bg-jsr-cyan-200 ring-jsr-cyan-700";
 
 const SUDO_CONFIRMATION =
   "Are you sure you want to enable sudo mode? Sudo mode will be enabled for 5 minutes.";
@@ -59,13 +59,13 @@ export function UserMenu({ user, sudo, logoutUrl }: {
         } transition`}
         style="--tw-shadow-color: rgba(156,163,175,0.2);"
       >
-        <div class="flex flex-col items-center p-4">
+        <div class="flex flex-col items-center gap-3 pt-4 pb-3">
           <img
-            class="h-24 w-24 rounded-full border-1 border-jsr-gray-0"
+            class="h-16 w-16 rounded-full ring-2 ring-offset-1 ring-jsr-cyan-950"
             src={user.avatarUrl}
             alt=""
           />
-          <div class="text-xl font-semibold mt-2">{user.name}</div>
+          <div class="text-xl font-semibold">{user.name}</div>
           {user.inviteCount !== 0 && (
             <a
               class="bg-orange-600 hover:bg-orange-400 text-white text-sm py-1 pl-4 pr-2 flex justify-between items-center gap-3 rounded-full mt-2"
@@ -95,11 +95,11 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             </button>
           )}
         </div>
-        <div class="divide-y divide-slate-200 border-t">
+        <div class="divide-y divide-slate-200">
           <a
             href="/new"
             tabIndex={open ? undefined : -1}
-            class={`${SHARED_ITEM_CLASSES} justify-start gap-2 bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-yellow-300 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
+            class={`${SHARED_ITEM_CLASSES} justify-start gap-2 font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
           >
             <Plus />
             Publish a package

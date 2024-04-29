@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use bytes::Bytes;
 use deno_semver::package::PackageReq;
@@ -20,7 +19,6 @@ use tracing::Span;
 
 use crate::analysis::rebuild_npm_tarball;
 use crate::analysis::RebuildNpmTarballData;
-use crate::analysis::RegistryLoader;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
@@ -41,6 +39,7 @@ use crate::util;
 use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::NpmUrl;
+use crate::RegistryUrl;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
 
@@ -77,7 +76,7 @@ pub async fn npm_tarball_build_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
   let is_already_built = db
@@ -133,7 +132,7 @@ pub async fn npm_tarball_build_handler(
       exports: version.exports,
     };
     let npm_tarball = tokio::task::spawn_blocking(|| {
-      rebuild_npm_tarball(span, registry, buckets.modules_bucket, data)
+      rebuild_npm_tarball(span, registry_url, buckets.modules_bucket, data)
     })
     .await
     .unwrap()?;

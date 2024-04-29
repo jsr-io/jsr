@@ -17,6 +17,7 @@ import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
+import { Logo } from "../../components/Logo.tsx";
 
 interface Data {
   package: Package;
@@ -60,6 +61,7 @@ export default function Score(
             name={data.package.name}
             scorePercentage={data.package.score}
             score={data.score}
+            canAdmin={iam.canAdmin}
           />
         )
         : (
@@ -77,16 +79,17 @@ function ScoreInfo(props: {
   name: string;
   scorePercentage: number;
   score: PackageScore;
+  canAdmin: boolean;
 }) {
-  const { scope, name, scorePercentage, score } = props;
+  const { scope, name, scorePercentage, score, canAdmin } = props;
 
   return (
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
       <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
         <div class="flex gap-2 items-center mb-4">
-          <img src="/logo.svg" class="w-16 select-none" alt="JSR logo" />
           <h2 class="text-2xl font-semibold">
-            <span class="sr-only">JSR</span> Score
+            <Logo size="medium" class="inline mr-2" />
+            Score
           </h2>
         </div>
         <div class="mb-6">
@@ -172,8 +175,14 @@ function ScoreInfo(props: {
           scoreValue={1}
           title="Has a description"
         >
-          The package should have a description set in the package settings to
-          help users find this package via search.
+          The package should have a description set in {canAdmin
+            ? (
+              <a class="link" href="settings#description">
+                the package settings
+              </a>
+            )
+            : "the package settings"}{" "}
+          to help users find this package via search.
         </ScoreItem>
         <ScoreItem
           value={score.atLeastOneRuntimeCompatible}
@@ -181,8 +190,14 @@ function ScoreInfo(props: {
           title="At least one runtime is marked as compatible"
         >
           The package should be marked with at least one runtime as "compatible"
-          in the package settings to aid users in understanding where they can
-          use this package.
+          in {canAdmin
+            ? (
+              <a class="link" href="settings#runtime_compat">
+                the package settings
+              </a>
+            )
+            : "the package settings"}{" "}
+          to aid users in understanding where they can use this package.
         </ScoreItem>
         <ScoreItem
           value={score.multipleRuntimesCompatible}
@@ -190,7 +205,13 @@ function ScoreInfo(props: {
           title="At least two runtimes are marked as compatible"
         >
           The package should be compatible with more than one runtime, and be
-          marked as such in the package settings.
+          marked as such in {canAdmin
+            ? (
+              <a class="link" href="settings#runtime_compat">
+                the package settings
+              </a>
+            )
+            : "the package settings"}.
         </ScoreItem>
         <ScoreItem
           value={score.hasProvenance}

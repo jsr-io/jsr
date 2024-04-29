@@ -139,7 +139,7 @@
   }
 
   .link-header {
-    @apply link opsize-sm font-medium hover:underline-offset-2;
+    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700 underline-offset-2;
   }
 
   .input-container {
@@ -201,7 +201,7 @@ body .ddoc .markdown pre {
   @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
   
   & > code:first-child {
-    @apply p-6;
+    @apply px-6;
   
     &.flex {
       display: flex;
@@ -218,19 +218,23 @@ body .ddoc .markdown a:not(.no_color) {
 }
 
 body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-y-1.5 border-jsr-cyan-100 border-x-0 -mx-6 md:mx-0 rounded-none md:rounded-lg md:border-1.5;
+  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0;
 }
 
 body .ddoc .usage pre.highlight {
-  @apply bg-white border-jsr-cyan-200 -mx-4 md:mx-0 border-x-0 md:border-1.5;
+  @apply bg-white border-jsr-cyan-200;
 }
 
 body .ddoc .usage nav {
   @apply bg-jsr-cyan-50 border-jsr-cyan-900/10;
 }
 
-body .ddoc .usage nav label {
-  @apply md:hover:bg-jsr-cyan-200 border-jsr-cyan-900/20;
+body .ddoc .usage nav details > summary {
+  @apply border-jsr-cyan-200;
+}
+
+body .ddoc .usage nav details > div > div {
+  @apply border-jsr-cyan-200;
 }
 
 body .ddoc > section > nav.py-4 {

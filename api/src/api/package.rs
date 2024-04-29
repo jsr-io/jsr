@@ -26,7 +26,6 @@ use tracing::Instrument;
 use tracing::Span;
 use url::Url;
 
-use crate::analysis::RegistryLoader;
 use crate::auth::access_token;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::Buckets;
@@ -64,6 +63,7 @@ use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::NpmUrl;
+use crate::RegistryUrl;
 
 use super::ApiDependency;
 use super::ApiDependent;
@@ -644,7 +644,7 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap().clone();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
@@ -747,7 +747,7 @@ pub async fn version_publish_handler(
     let fut = publish_task(
       publishing_task.id,
       buckets.clone(),
-      registry,
+      registry_url,
       npm_url,
       db,
       orama_client,
@@ -975,8 +975,7 @@ pub async fn get_docs_handler(
     return Err(ApiError::EntrypointOrSymbolNotFound);
   }
 
-  let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap();
-  let registry_url = registry.registry_url().to_string();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let req = match (docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
@@ -1014,28 +1013,14 @@ pub async fn get_docs_handler(
   .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
-    GeneratedDocsOutput::Docs(docs) => {
-      const FIXED_SCRIPT: &str = r#"
-document.addEventListener("click", (e) => {
-  let el = e.target;
-  do {
-    if (el instanceof HTMLButtonElement && el.dataset["copy"]) {
-      navigator?.clipboard?.writeText(el.dataset["copy"]);
-      return;
-    }
-  } while (el = el.parentElement);
-});
-  "#;
-
-      Ok(ApiPackageVersionDocs::Content {
-        css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-        script: Cow::Borrowed(FIXED_SCRIPT),
-        breadcrumbs: docs.breadcrumbs,
-        sidepanel: docs.sidepanel,
-        main: docs.main,
-        version: ApiPackageVersion::from(version),
-      })
-    }
+    GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
+      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+      breadcrumbs: docs.breadcrumbs,
+      sidepanel: docs.sidepanel,
+      main: docs.main,
+      version: ApiPackageVersion::from(version),
+    }),
     GeneratedDocsOutput::Redirect(href) => {
       Ok(ApiPackageVersionDocs::Redirect { symbol: href })
     }
@@ -1092,11 +1077,10 @@ pub async fn get_docs_search_handler(
 
   let docs_info = crate::docs::get_docs_info(&version, None);
 
-  let registry = req.data::<Arc<dyn RegistryLoader>>().unwrap();
-  let registry_url = registry.registry_url().to_string();
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let ctx = crate::docs::get_generate_ctx(
-    &doc_nodes,
+    doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
     scope.clone(),
@@ -1108,10 +1092,7 @@ pub async fn get_docs_search_handler(
     registry_url,
   );
 
-  let search_index = deno_doc::html::generate_search_index(
-    &ctx,
-    &ctx.doc_nodes_by_url_add_context(doc_nodes),
-  );
+  let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
 }
@@ -2509,7 +2490,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"","line":10,"col":13,"byteIndex":99},"declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":99},"declarationKind":"export","deprecated":false}]}),
     );
 
     // symbol doesn't exist

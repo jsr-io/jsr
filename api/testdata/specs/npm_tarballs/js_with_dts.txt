@@ -1,0 +1,83 @@
+# main.js
+/// <reference types="./main.d.ts" />
+
+export { A } from "./a.js";
+export const foo = 1;
+
+# main.d.ts
+/// <reference path="npm:@types/node" />
+
+export { A } from "./a.js";
+export const foo: number;
+
+# a.js
+/** other comment first /// */ /// <reference types="./a.d.ts" />
+
+export class A {
+  foo = 1;
+}
+
+# a.d.ts
+export class A {
+  foo: number;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./main.js"
+  }
+}
+
+# output
+== /a.d.ts ==
+export class A {
+  foo: number;
+}
+
+== /a.js ==
+/** other comment first /// */ 
+
+export class A {
+  foo = 1;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./main.js"
+  }
+}
+
+== /main.d.ts ==
+/// <reference path="@types/node" />
+
+export { A } from "./a.d.ts";
+export const foo: number;
+
+== /main.js ==
+
+
+export { A } from "./a.js";
+export const foo = 1;
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./main.d.ts",
+      "default": "./main.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+

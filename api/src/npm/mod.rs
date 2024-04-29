@@ -1,7 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 mod emit;
+mod import_transform;
 mod specifiers;
 mod tarball;
+#[cfg(test)]
+mod tests;
 mod types;
 
 use chrono::SecondsFormat;
@@ -26,7 +29,7 @@ pub use self::tarball::NpmTarballOptions;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 
-pub const NPM_TARBALL_REVISION: u32 = 7;
+pub const NPM_TARBALL_REVISION: u32 = 8;
 
 pub async fn generate_npm_version_manifest<'a>(
   db: &Database,

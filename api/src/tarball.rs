@@ -1,9 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
-use std::sync::Arc;
 use std::sync::OnceLock;
 
 use async_tar::EntryType;
@@ -12,6 +10,7 @@ use deno_ast::MediaType;
 use deno_graph::ModuleGraphError;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
+use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageReqReferenceParseError;
 use futures::AsyncReadExt;
@@ -25,14 +24,15 @@ use sha2::Digest;
 use thiserror::Error;
 use tracing::instrument;
 use tracing::Span;
+use url::Url;
 use uuid::Uuid;
 
 use crate::analysis::analyze_package;
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
-use crate::analysis::RegistryLoader;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
+use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
@@ -42,9 +42,11 @@ use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcs_paths::docs_v1_path;
 use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
+use crate::ids::CaseInsensitivePackagePath;
 use crate::ids::PackagePath;
 use crate::ids::PackagePathValidationError;
 use crate::ids::ScopedPackageName;
+use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
 
@@ -75,12 +77,13 @@ pub struct NpmTarballInfo {
 
 #[instrument(
   name = "process_tarball",
-  skip(buckets, registry, publishing_task),
+  skip(buckets, registry_url, publishing_task),
   err
 )]
 pub async fn process_tarball(
+  db: &Database,
   buckets: &Buckets,
-  registry: Arc<dyn RegistryLoader>,
+  registry_url: Url,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
   let tarball_path = gcs_tarball_path(publishing_task.id);
@@ -99,6 +102,7 @@ pub async fn process_tarball(
     .map_err(PublishError::UntarError)?;
 
   let mut files = HashMap::new();
+  let mut case_insensitive_paths = HashSet::<CaseInsensitivePackagePath>::new();
   let mut file_infos = Vec::new();
   let mut total_file_size = 0;
 
@@ -162,16 +166,18 @@ pub async fn process_tarball(
     let hash = sha2::Sha256::digest(&bytes);
     let hash = format!("sha256-{:x}", hash);
 
-    match files.entry(path.clone()) {
-      Entry::Occupied(entry) => {
-        return Err(PublishError::CaseInsensitiveDuplicatePath {
-          a: path,
-          b: entry.key().clone(),
-        });
-      }
-      Entry::Vacant(entry) => {
-        entry.insert(bytes);
-      }
+    // check for case-insensitive duplicate paths
+    let case_insensitive_path = path.case_insensitive();
+    if let Some(existing) = case_insensitive_paths.get(&case_insensitive_path) {
+      return Err(PublishError::CaseInsensitiveDuplicatePath {
+        a: path.clone(),
+        b: existing.clone().into_inner().into_owned(),
+      });
+    }
+    case_insensitive_paths.insert(case_insensitive_path.to_owned());
+
+    if files.insert(path.clone(), bytes).is_some() {
+      unreachable!("duplicate path: {:?}", path);
     }
 
     let file_info = FileInfo { path, hash, size };
@@ -262,7 +268,7 @@ pub async fn process_tarball(
   } = tokio::task::spawn_blocking(|| {
     analyze_package(
       span,
-      registry,
+      registry_url,
       scope,
       package,
       version,
@@ -272,6 +278,54 @@ pub async fn process_tarball(
   })
   .await
   .unwrap()?;
+
+  // ensure all of the JSR dependencies are resolvable
+  for (kind, req) in dependencies.iter() {
+    if kind == &DependencyKind::Jsr {
+      let package_scope = ScopedPackageName::new(req.req.name.clone())
+        .map_err(|e| {
+          PublishError::InvalidJsrScopedPackageName(req.req.name.clone(), e)
+        })?;
+
+      let mut versions = db
+        .list_package_versions(&package_scope.scope, &package_scope.package)
+        .await?
+        .into_iter()
+        .map(|v| v.0)
+        .collect::<Vec<_>>();
+      versions.sort_by_cached_key(|v| v.version.clone());
+
+      let mut found = false;
+      for version in versions.iter().rev() {
+        if req.req.version_req.matches(&version.version.0) {
+          let exports_key = if let Some(sub_path) = &req.sub_path {
+            if sub_path.is_empty() {
+              ".".to_owned()
+            } else {
+              format!("./{}", sub_path)
+            }
+          } else {
+            ".".to_owned()
+          };
+
+          if !version.exports.contains_key(&exports_key) {
+            return Err(PublishError::InvalidJsrDependencySubPath {
+              req: Box::new(req.clone()),
+              resolved_version: version.version.clone(),
+              exports_key,
+            });
+          }
+
+          found = true;
+          break;
+        }
+      }
+
+      if !found {
+        return Err(PublishError::UnresolvableJsrDependency(req.req.clone()));
+      }
+    }
+  }
 
   // TO ENSURE CONSISTENCY OF FILES IN GCS, ALL ERRORS RETURNED AFTER THIS POINT MUST BE RETRYABLE
 
@@ -408,6 +462,9 @@ pub enum PublishError {
   #[error("untar error: {0}")]
   UntarError(io::Error),
 
+  #[error("database error")]
+  DatabaseError(#[from] sqlx::Error),
+
   #[error(
     "entry at '{path}' is a link, only regular files and directories are allowed"
   )]
@@ -428,7 +485,7 @@ pub enum PublishError {
   #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed ({info})")]
   InvalidExternalImport { specifier: String, info: String },
 
-  #[error("Modifying global types is not allowed {specifier}:{line}:{column}")]
+  #[error("modifying global types is not allowed {specifier}:{line}:{column}")]
   GlobalTypeAugmentation {
     specifier: String,
     line: usize,
@@ -442,8 +499,15 @@ pub enum PublishError {
     column: usize,
   },
 
-  #[error("Triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
+  #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
   BannedTripleSlashDirectives {
+    specifier: String,
+    line: usize,
+    column: usize,
+  },
+
+  #[error("import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}")]
+  BannedImportAssertion {
     specifier: String,
     line: usize,
     column: usize,
@@ -502,7 +566,7 @@ pub enum PublishError {
   },
 
   #[error("failed to build module graph: {}", .0.to_string_with_range())]
-  GraphError(ModuleGraphError),
+  GraphError(Box<ModuleGraphError>),
 
   #[error("failed to generate documentation: {0:?}")]
   DocError(anyhow::Error),
@@ -521,6 +585,19 @@ pub enum PublishError {
 
   #[error("specifier '{0}' is missing a version constraint")]
   NpmMissingConstraint(NpmPackageReqReference),
+
+  #[error("invalid scoped package name in 'jsr:' specifier '{0}': {1}")]
+  InvalidJsrScopedPackageName(String, ScopedPackageNameValidateError),
+
+  #[error("unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint")]
+  UnresolvableJsrDependency(PackageReq),
+
+  #[error("invalid 'jsr:' dependency subpath: '{req}', resolved to {resolved_version}, has no export '{exports_key}'")]
+  InvalidJsrDependencySubPath {
+    req: Box<PackageReqReference>,
+    resolved_version: Version,
+    exports_key: String,
+  },
 }
 
 impl PublishError {
@@ -532,6 +609,7 @@ impl PublishError {
       PublishError::GcsUploadError(_) => None,
       PublishError::UntarError(_) => None,
       PublishError::MissingTarball => None,
+      PublishError::DatabaseError(_) => None,
       PublishError::LinkInTarball { .. } => Some("linkInTarball"),
       PublishError::InvalidEntryType { .. } => Some("invalidEntryType"),
       PublishError::InvalidPath { .. } => Some("invalidPath"),
@@ -542,6 +620,9 @@ impl PublishError {
       PublishError::CommonJs { .. } => Some("commonJs"),
       PublishError::BannedTripleSlashDirectives { .. } => {
         Some("bannedTripleSlashDirectives")
+      }
+      PublishError::BannedImportAssertion { .. } => {
+        Some("bannedImportAssertion")
       }
       PublishError::InvalidExternalImport { .. } => {
         Some("invalidExternalImport")
@@ -569,6 +650,15 @@ impl PublishError {
       PublishError::InvalidNpmSpecifier(_) => Some("invalidNpmSpecifier"),
       PublishError::JsrMissingConstraint(_) => Some("jsrMissingConstraint"),
       PublishError::NpmMissingConstraint(_) => Some("npmMissingConstraint"),
+      PublishError::InvalidJsrScopedPackageName(_, _) => {
+        Some("invalidJsrScopedPackageName")
+      }
+      PublishError::UnresolvableJsrDependency(_) => {
+        Some("unresolvableJsrDependency")
+      }
+      PublishError::InvalidJsrDependencySubPath { .. } => {
+        Some("invalidJsrDependencySubPath")
+      }
     }
   }
 }
@@ -586,7 +676,7 @@ pub struct ConfigFile {
   pub exports: Option<serde_json::Value>,
 }
 
-fn exports_map_from_json(
+pub fn exports_map_from_json(
   exports: Option<serde_json::Value>,
 ) -> Result<ExportsMap, String> {
   fn has_extension(value: &str) -> bool {
