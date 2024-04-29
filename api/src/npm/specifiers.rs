@@ -83,20 +83,20 @@ pub fn follow_specifier<'a>(
   remapped_specifiers: &'a HashMap<&ModuleSpecifier, ModuleSpecifier>,
 ) -> Option<&'a ModuleSpecifier> {
   let mut redirects = 0;
-  let mut types_specifier = specifier;
+  let mut specifier = specifier;
   loop {
     // avoid infinite loops
     if redirects > 10 {
       return None;
     }
-    if let Some(rewritten) = remapped_specifiers.get(&types_specifier) {
-      types_specifier = rewritten;
+    if let Some(rewritten) = remapped_specifiers.get(&specifier) {
+      specifier = rewritten;
     } else {
       break;
     }
     redirects += 1;
   }
-  Some(types_specifier)
+  Some(specifier)
 }
 
 pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
