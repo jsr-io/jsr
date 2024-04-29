@@ -106,9 +106,9 @@ https://jsr.io/@luca/flag/1.0.0_meta.json
 ```
 
 This metadata contains information about the requested version, such as the list
-of files in the package version, the `exports` field, and a `moduleGraph1` field
-that contains information about the module graph to allow for less waterfall
-when downloading modules.
+of files in the package version, the `exports` field, and a `moduleGraph1` or
+`moduleGraph2` field that contains information about the module graph to allow
+for less waterfall when downloading modules.
 
 For the above `@luca/flag` package version `1.0.0`, the metadata would look like
 this:
