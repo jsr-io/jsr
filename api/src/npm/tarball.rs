@@ -154,7 +154,7 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
         let source_specifier =
           rewrite_file_specifier_extension(module.specifier(), Extension::Js);
-        if let Some(source_specifier) = source_specifier {
+        if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
@@ -166,6 +166,10 @@ pub async fn create_npm_tarball<'a>(
           if let Some(declaration_specifier) = declaration_specifier {
             declaration_rewrites
               .insert(module.specifier(), declaration_specifier);
+          }
+        } else {
+          if let Some(source_specifier) = source_specifier {
+            declaration_rewrites.insert(module.specifier(), source_specifier);
           }
         }
       }
