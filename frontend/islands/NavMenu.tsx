@@ -18,7 +18,7 @@ const useWindowWidth = () => {
 
 export function NavMenu() {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
 
   useWindowWidth();
   useEffect(() => {
@@ -58,7 +58,7 @@ export function NavMenu() {
   }
 
   return (
-    <div
+    <button
       id="nav-menu"
       class={`group absolute right-4 md:right-10 rounded md:rounded-b-none border-1 md:border-b-0 border-jsr-cyan-100 hover:bg-jsr-cyan-50 hover:cursor-pointer ${
         displayMenu ? "" : "hidden"
@@ -76,6 +76,6 @@ export function NavMenu() {
           dangerouslySetInnerHTML={{ __html: navMenuList.join("") }}
         />
       )}
-    </div>
+    </button>
   );
 }
