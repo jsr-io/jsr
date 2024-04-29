@@ -60,7 +60,7 @@ pub struct PackageAnalysisData {
 
 pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
-  pub module_graph_1: HashMap<String, ModuleInfo>,
+  pub module_graph_2: HashMap<String, ModuleInfo>,
   pub doc_nodes: DocNodesByUrl,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
@@ -163,7 +163,7 @@ async fn analyze_package_inner(
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: None,
     fast_check_dts: true,
-    jsr_url_provider: Some(&PassthroughJsrUrlProvider),
+    jsr_url_provider: &PassthroughJsrUrlProvider,
     module_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
     npm_resolver: Default::default(),
@@ -202,7 +202,7 @@ async fn analyze_package_inner(
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)
       .map_err(PublishError::DocError)?;
 
-  let module_graph_1 = module_analyzer.take_module_graph_1();
+  let module_graph_2 = module_analyzer.take_module_graph_2();
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
@@ -231,7 +231,7 @@ async fn analyze_package_inner(
 
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
-    module_graph_1,
+    module_graph_2,
     doc_nodes,
     dependencies,
     npm_tarball,
@@ -502,7 +502,7 @@ async fn rebuild_npm_tarball_inner(
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: Default::default(),
     fast_check_dts: true,
-    jsr_url_provider: Some(&PassthroughJsrUrlProvider),
+    jsr_url_provider: &PassthroughJsrUrlProvider,
     module_parser: Some(&module_analyzer.analyzer),
     resolver: None,
     npm_resolver: None,
@@ -594,7 +594,7 @@ pub struct ModuleAnalyzer {
 }
 
 impl ModuleAnalyzer {
-  fn take_module_graph_1(&self) -> HashMap<String, ModuleInfo> {
+  fn take_module_graph_2(&self) -> HashMap<String, ModuleInfo> {
     std::mem::take(&mut *self.module_info.borrow_mut())
       .into_iter()
       .filter_map(|(url, info)| {

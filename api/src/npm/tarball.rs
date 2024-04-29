@@ -683,7 +683,7 @@ mod tests {
     graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
-      jsr_url_provider: Some(&PassthroughJsrUrlProvider),
+      jsr_url_provider: &PassthroughJsrUrlProvider,
       module_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,

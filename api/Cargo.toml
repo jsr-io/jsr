@@ -78,8 +78,8 @@ deno_semver = "0.5.2"
 flate2 = "1"
 thiserror = "1"
 async-tar = "0.4.2"
-deno_graph = "0.73.1"
-deno_ast = "0.37.1"
+deno_graph = "0.74.1"
+deno_ast = "0.38.1"
 deno_doc = { version = "0.128.0", features = ["tree-sitter"] }
 comrak = { version = "0.20.0", default-features = false }
 async-trait = "0.1.73"
@@ -91,7 +91,7 @@ regex = "1.10.2"
 postmark = { version = "0.10.0", features = ["reqwest-rustls-tls"] }
 handlebars = "5.0.0"
 jsonc-parser = { version = "0.23", features = ["serde"] }
-deno_npm = "0.16.0"
+deno_npm = "0.20.0"
 sha1 = "0.10.6"
 infer = "0.15.0"
 x509-parser = { version = "0.15.1", features = ["verify"] }
@@ -100,3 +100,4 @@ sitemap-rs = "0.2.1"
 [dev-dependencies]
 flate2 = "1"
 deno_semver = "0.5.1"
+pretty_assertions = "1.4.0"
