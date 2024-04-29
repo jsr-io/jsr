@@ -21,6 +21,7 @@ pub fn transpile_to_js(
 ) -> Result<String, anyhow::Error> {
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Inline,
+    source_map_file: None,
     inline_sources: false,
     keep_comments: true,
   };
@@ -74,6 +75,7 @@ pub fn transpile_to_dts(
 
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Inline,
+    source_map_file: None,
     inline_sources: false,
     keep_comments: true,
   };

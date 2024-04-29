@@ -193,7 +193,7 @@ async fn process_publishing_task(
 
   let ProcessTarballOutput {
     file_infos,
-    module_graph_1,
+    module_graph_2,
     exports,
     dependencies,
     npm_tarball_info,
@@ -206,7 +206,7 @@ async fn process_publishing_task(
     publishing_task,
     &file_infos,
     exports.clone().into_inner(),
-    module_graph_1,
+    module_graph_2,
   )
   .await?;
 
@@ -230,7 +230,7 @@ async fn upload_version_manifest(
   publishing_task: &PublishingTask,
   file_infos: &[crate::tarball::FileInfo],
   exports: IndexMap<String, String>,
-  module_graph_1: HashMap<String, deno_graph::ModuleInfo>,
+  module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
 ) -> Result<(), anyhow::Error> {
   let version_metadata_gcs_path = crate::gcs_paths::version_metadata(
     &publishing_task.package_scope,
@@ -252,7 +252,7 @@ async fn upload_version_manifest(
   let version_metadata = VersionMetadata {
     exports,
     manifest,
-    module_graph_1,
+    module_graph_2,
   };
   let content = serde_json::to_vec_pretty(&version_metadata)?;
   buckets
@@ -432,6 +432,7 @@ pub mod tests {
   use flate2::write::GzEncoder;
   use flate2::Compression;
   use hyper::StatusCode;
+  use serde_json::json;
   use std::collections::HashMap;
   use std::io::Write;
 
@@ -805,7 +806,7 @@ pub mod tests {
         })
       );
       assert_eq!(
-        metadata_json.module_graph_1,
+        metadata_json.module_graph_2,
         HashMap::from_iter([(
           "/mod.ts".to_string(),
           ModuleInfo {
@@ -856,6 +857,77 @@ pub mod tests {
     assert_eq!(package_metadata.name, package_name);
     assert_eq!(package_metadata.latest, Some(version));
     assert_eq!(package_metadata.versions.len(), 1);
+  }
+
+  #[tokio::test]
+  async fn module_graph() {
+    let t = TestSetup::new().await;
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("module_graph")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let metadata_json = t
+      .buckets
+      .modules_bucket
+      .download("@scope/foo/1.2.3_meta.json".into())
+      .await
+      .unwrap()
+      .unwrap();
+    let metadata_json: VersionMetadata =
+      serde_json::from_slice(&metadata_json).unwrap();
+
+    println!(
+      "{}",
+      serde_json::to_string(&metadata_json.module_graph_2).unwrap()
+    );
+
+    let expected = json!({
+      "/test.js": {
+        "selfTypesSpecifier": {
+          "text": "./test.d.ts",
+          "range": [[0,18],[0,31]]
+        }
+      },
+      "/mod.tsx": {
+        "dependencies": [
+          {
+            "type": "static",
+            "kind": "import",
+            "specifier": "./test.js",
+            "specifierRange": [[3,15],[3,26]]
+          },
+          {
+            "type": "static",
+            "kind": "import",
+            "typesSpecifier":{
+              "text": "./jsr.d.ts",
+              "range": [[5,13],[5,25]]
+            },
+            "specifier": "./jsr.json",
+            "specifierRange": [[6,7],[6,19]],
+            "importAttributes": { "known": { "type" : "json" } }
+          }
+        ],
+        "jsxImportSource": {
+          "text": "npm:react@18",
+          "range": [[0,21],[0,33]]
+        },
+        "jsxImportSourceTypes": {
+          "text": "npm:@types/react@18",
+          "range": [[1,26],[1,45]]
+        }
+      },
+      "/test.d.ts": {}
+    });
+    let expected: HashMap<String, ModuleInfo> =
+      serde_json::from_value(expected).unwrap();
+
+    pretty_assertions::assert_eq!(metadata_json.module_graph_2, expected);
   }
 
   #[tokio::test]
