@@ -210,7 +210,8 @@ body .ddoc .markdown pre {
 }
 
 body .ddoc .markdown :not(pre) > code {
-  @apply bg-slate-50 border-slate-300 rounded-md;
+  @apply bg-jsr-cyan-100/50 rounded-md;
+  @apply px-1.5;
 }
 
 body .ddoc .markdown_summary a:not(.no_color) {
