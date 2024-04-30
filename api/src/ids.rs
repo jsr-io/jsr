@@ -459,6 +459,9 @@ pub enum VersionValidateError {
 /// The path must only contain ascii alphanumeric characters, and the characters
 /// '$', '(', ')', '+', '-', '.', '@', '[', ']', '_', '{', '}',  '~'.
 ///
+/// The path must not start with `/_dist/`, as this is the directory JSR will
+/// emit `.d.ts` and `.js` files to when building the npm tarball.
+///
 /// Path's are case sensitive, and comparisons and hashing are also case
 /// sensitive. However, to ensure no collisions based only on case-sensitivity,
 /// one may use the `CaseInsensitivePackagePath` type to compare paths in a
@@ -487,6 +490,7 @@ impl PackagePath {
     };
 
     let mut last = None;
+    let mut first = true;
 
     while let Some(component) = components.next() {
       last = Some(component);
@@ -524,6 +528,11 @@ impl PackagePath {
           component.to_owned(),
         ));
       }
+
+      if first && component.eq_ignore_ascii_case("_dist") {
+        return Err(PackagePathValidationError::ReservedUnderscoreDist);
+      }
+      first = false;
     }
 
     // Due to restrictions in how tarballs are built, we need the ensure that
@@ -702,6 +711,11 @@ pub enum PackagePathValidationError {
     "package path must not contain windows reserved names like 'CON' or 'PRN' (found '{0}')"
   )]
   ReservedName(String),
+
+  #[error(
+    "package path must not start with /_dist/, as this is the directory JSR will emit .d.ts and .js files to when building the npm tarball"
+  )]
+  ReservedUnderscoreDist,
 
   #[error("path segment must not end in a dot (found '{0}')")]
   TrailingDot(String),
@@ -960,6 +974,7 @@ mod tests {
     assert!(PackagePath::try_from("/~/foo").is_ok());
     assert!(PackagePath::try_from("/~foo/bar").is_ok());
     assert!(PackagePath::try_from("/(section)/32").is_ok());
+    assert!(PackagePath::try_from("/foo/_dist/23").is_ok());
 
     // Test invalid package paths
     assert!(PackagePath::try_from("").is_err());
@@ -996,6 +1011,8 @@ mod tests {
     assert!(PackagePath::try_from("/CON.txt").is_err());
     assert!(PackagePath::try_from("/foo.").is_err());
     assert!(PackagePath::try_from("/f".repeat(81)).is_err());
+    assert!(PackagePath::try_from("/_dist").is_err());
+    assert!(PackagePath::try_from("/_dist/foo.txt").is_err());
   }
 
   #[test]

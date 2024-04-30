@@ -58,7 +58,7 @@ static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
 pub struct ProcessTarballOutput {
   pub file_infos: Vec<FileInfo>,
-  pub module_graph_1: HashMap<String, deno_graph::ModuleInfo>,
+  pub module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
   pub exports: ExportsMap,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball_info: NpmTarballInfo,
@@ -259,7 +259,7 @@ pub async fn process_tarball(
   let analysis_data = PackageAnalysisData { exports, files };
   let PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
-    module_graph_1,
+    module_graph_2,
     doc_nodes,
     dependencies,
     npm_tarball,
@@ -435,7 +435,7 @@ pub async fn process_tarball(
 
   Ok(ProcessTarballOutput {
     file_infos,
-    module_graph_1,
+    module_graph_2,
     exports,
     dependencies,
     npm_tarball_info,

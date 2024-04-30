@@ -68,6 +68,8 @@ Path rules are as follows:
 - Does not contain chars that have a special meaning in URLs (`%` or `#`)
 - Does not contain other chars that are not one of `a-z`, `A-Z`, `0-9`, `$`,
   `(`, `)`, `+`, `-`, `.`, `@`, `[`, `]`, `_`, `{`, `}`, or `~`
+- Does not start with `/_dist/`, as this is reserved for the directory JSR emits
+  `.js` and .`d.ts` files to when building an npm tarball
 
 ### `invalidExternalImport`
 
