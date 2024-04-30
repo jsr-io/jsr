@@ -23,7 +23,7 @@ export function DocsView(
       </Head>
 
       {docs.breadcrumbs && (
-        <div class="flex md:items-center justify-between mb-4 md:mb-8 gap-4 max-md:flex-col-reverse">
+        <div class="flex md:items-center justify-between mb-4 gap-4 max-md:flex-col-reverse">
           <div
             class="ddoc"
             dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}

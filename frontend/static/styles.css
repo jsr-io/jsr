@@ -134,7 +134,7 @@
   }
 
   .link {
-    @apply text-jsr-cyan-700 hover:text-jsr-cyan-600 underline
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline decoration-jsr-cyan-700/50 underline-offset-2
       outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm;
   }
 
@@ -199,10 +199,10 @@ body .ddoc a {
 
 body .ddoc .markdown pre {
   @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
-  
+
   & > code:first-child {
     @apply px-6;
-  
+
     &.flex {
       display: flex;
     }
@@ -210,7 +210,12 @@ body .ddoc .markdown pre {
 }
 
 body .ddoc .markdown :not(pre) > code {
-  @apply bg-slate-50 border-slate-300 rounded-md;
+  @apply bg-jsr-cyan-100/50 rounded-md;
+  @apply px-1.5;
+}
+
+body .ddoc .markdown_summary a:not(.no_color) {
+  @apply link;
 }
 
 body .ddoc .markdown a:not(.no_color) {
@@ -218,7 +223,72 @@ body .ddoc .markdown a:not(.no_color) {
 }
 
 body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0;
+  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0 pt-4 pb-5;
+}
+
+body .ddoc .usage nav details > summary {
+  @apply border-jsr-cyan-200 py-1.5 px-2.5 !important;
+}
+
+body .ddoc .markdown .highlight .context_button {
+  @apply hover:bg-jsr-cyan-50;
+  @apply border-none;
+}
+
+body .ddoc .contextLink {
+  text-decoration: underline;
+  text-decoration-skip-ink: auto;
+  text-decoration-thickness: 1.5px;
+  /* cyan 700 at 25%; */
+  text-decoration-color: #0e659040;
+  text-underline-offset: 0.15em;
+  color: theme("colors.jsr-cyan.700");
+}
+
+body .ddoc .breadcrumbs li:first-child .contextLink {
+  @apply text-2xl;
+}
+
+body .ddoc .breadcrumbs li {
+  @apply text-lg;
+}
+
+body .ddoc .markdown_summary > p {
+  @apply line-clamp-4;
+}
+
+body .ddoc .namespaceSection {
+  @apply gap-y-6 gap-x-10;
+}
+
+body .ddoc .namespaceSection .namespaceItem {
+  @apply lg:pr-4;
+  @apply md:min-h-[4rem];
+}
+
+.ddoc .markdown_summary :not(pre) > code {
+  @apply bg-jsr-cyan-100/50 !important;
+  @apply px-1.5 !important;
+}
+
+body .ddoc section.section {
+  @apply mb-6;
+}
+
+body .ddoc section.section > div > h2 {
+  @apply mb-1;
+}
+
+body .ddoc section.section > div > div.markdown_summary > p {
+  @apply text-base;
+  @apply max-w-prose;
+}
+
+/* only affect search box width on docs tab
+TODO have a better way to target on a specific page */
+.ddoc + div > input#symbol-search-input {
+  @apply w-full md:min-w-80;
+  @apply bg-white border-1.5 border-jsr-cyan-900/30;
 }
 
 body .ddoc .usage pre.highlight {
@@ -246,7 +316,8 @@ body .ddoc > section > nav.py-4 > ul {
   scrollbar-width: thin;
 }
 
-body .ddoc #module_doc, body .ddoc main {
+body .ddoc #module_doc,
+body .ddoc main {
   @apply pb-8;
 }
 
@@ -260,7 +331,7 @@ body .ddoc .markdown tr:nth-child(2n) {
 }
 
 body .ddoc .markdown th,
-body .ddoc .markdown td  {
+body .ddoc .markdown td {
   @apply border-1.5 border-slate-300;
 }
 
