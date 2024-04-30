@@ -231,7 +231,8 @@ body .ddoc .usage nav details > summary {
 }
 
 body .ddoc .markdown .highlight .context_button {
-  @apply hover:bg-jsr-cyan-50 border-inherit;
+  @apply hover:bg-jsr-cyan-50;
+  @apply border-none;
 }
 
 body .ddoc .contextLink {
