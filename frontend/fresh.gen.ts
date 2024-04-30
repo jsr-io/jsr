@@ -30,6 +30,7 @@ import * as $index from "./routes/index.tsx";
 import * as $login from "./routes/login.tsx";
 import * as $logout from "./routes/logout.tsx";
 import * as $new from "./routes/new.tsx";
+import * as $package_all_symbols from "./routes/package/all_symbols.tsx";
 import * as $package_dependencies from "./routes/package/dependencies.tsx";
 import * as $package_dependents from "./routes/package/dependents.tsx";
 import * as $package_doc_file_ from "./routes/package/doc/[file].tsx";
@@ -39,7 +40,6 @@ import * as $package_publish from "./routes/package/publish.tsx";
 import * as $package_score from "./routes/package/score.tsx";
 import * as $package_settings from "./routes/package/settings.tsx";
 import * as $package_source from "./routes/package/source.tsx";
-import * as $package_symbols from "./routes/package/all_symbols.tsx";
 import * as $package_versions from "./routes/package/versions.tsx";
 import * as $packages from "./routes/packages.tsx";
 import * as $publishing_deny from "./routes/publishing/deny.tsx";
@@ -100,6 +100,7 @@ const manifest = {
     "./routes/login.tsx": $login,
     "./routes/logout.tsx": $logout,
     "./routes/new.tsx": $new,
+    "./routes/package/all_symbols.tsx": $package_all_symbols,
     "./routes/package/dependencies.tsx": $package_dependencies,
     "./routes/package/dependents.tsx": $package_dependents,
     "./routes/package/doc/[file].tsx": $package_doc_file_,
@@ -109,7 +110,6 @@ const manifest = {
     "./routes/package/score.tsx": $package_score,
     "./routes/package/settings.tsx": $package_settings,
     "./routes/package/source.tsx": $package_source,
-    "./routes/package/symbols.tsx": $package_symbols,
     "./routes/package/versions.tsx": $package_versions,
     "./routes/packages.tsx": $packages,
     "./routes/publishing/deny.tsx": $publishing_deny,

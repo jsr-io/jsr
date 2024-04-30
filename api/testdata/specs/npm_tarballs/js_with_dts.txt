@@ -56,7 +56,7 @@ export class A {
 == /main.d.ts ==
 /// <reference path="@types/node" />
 
-export { A } from "./a.d.ts";
+export { A } from "./a.js";
 export const foo: number;
 
 == /main.js ==

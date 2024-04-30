@@ -1,0 +1,173 @@
+# main.ts
+export { type Add as Add2 } from "./foo.js";
+export type { Add as Add3 } from "./foo.js";
+export type * from "./foo.js";
+export type * as Foo from "./foo.js";
+import { add, Add } from "./foo.js";
+
+export function createAdd(): Add {
+  return add;
+}
+
+# foo.js
+/// <reference types="./foo.d.ts" />
+
+export function add(a, b) {
+  return a + b;
+}
+
+# foo.d.ts
+export { Adder } from "./adder.js";
+
+export interface Add {
+  (a: number, b: number): number;
+}
+
+export declare const add: Add;
+
+# adder.js
+/// <reference types="./adder.d.ts" />
+
+# adder.d.ts
+export interface Adder {
+  add(a: number, b: number): number;
+}
+
+# main2.js
+/// <reference types="./main2.d.ts" />
+
+import { add } from "./foo.js";
+
+export { add };
+
+export function createAdd() {
+  return add;
+}
+
+# main2.d.ts
+export { type Add as Add2 } from "./foo.d.ts";
+export type { Add as Add3 } from "./foo.d.ts";
+export type * from "./foo.d.ts";
+export type * as Foo from "./foo.d.ts";
+import type { Add } from "./foo.d.ts";
+
+export declare function createAdd(): Add;
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./main.ts",
+    "./main2": "./main2.js"
+  }
+}
+
+# output
+== /_dist/main.d.ts ==
+export { type Add as Add2 } from "./foo.d.ts";
+export type { Add as Add3 } from "./foo.d.ts";
+export type * from "./foo.d.ts";
+export type * as Foo from "./foo.d.ts";
+import { Add } from "./foo.d.ts";
+export declare function createAdd(): Add;
+//# sourceMappingURL=main.d.ts.map
+
+== /_dist/main.d.ts.map ==
+{"version":3,"file":"main.d.ts","sources":["../main.ts"],"names":[],"mappings":"AAAA,SAAS,KAAK,OAAO,IAAI,QAAQ,aAAW;AAC5C,cAAc,OAAO,IAAI,QAAQ,aAAW;AAC5C,mBAAmB,aAAW;AAC9B,YAAO,KAAU,GAAG,MAAM,aAAW;AACrC,SAAc,GAAG,QAAQ,aAAW;AAEpC,OAAO,iBAAS,aAAa"}
+
+== /_dist/main.js ==
+import { add } from "./foo.js";
+export function createAdd() {
+  return add;
+}
+//# sourceMappingURL=main.js.map
+
+== /_dist/main.js.map ==
+{"version":3,"file":"main.js","sources":["../main.ts"],"names":[],"mappings":"AAIA,SAAS,GAAG,QAAa,WAAW;AAEpC,OAAO,SAAS;EACd,OAAO;AACT"}
+
+== /adder.d.ts ==
+export interface Adder {
+  add(a: number, b: number): number;
+}
+
+== /adder.js ==
+
+
+== /foo.d.ts ==
+export { Adder } from "./adder.js";
+
+export interface Add {
+  (a: number, b: number): number;
+}
+
+export declare const add: Add;
+
+== /foo.js ==
+
+
+export function add(a, b) {
+  return a + b;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./main.ts",
+    "./main2": "./main2.js"
+  }
+}
+
+== /main.ts ==
+export { type Add as Add2 } from "./foo.js";
+export type { Add as Add3 } from "./foo.js";
+export type * from "./foo.js";
+export type * as Foo from "./foo.js";
+import { add, Add } from "./foo.js";
+
+export function createAdd(): Add {
+  return add;
+}
+
+== /main2.d.ts ==
+export { type Add as Add2 } from "./foo.js";
+export type { Add as Add3 } from "./foo.js";
+export type * from "./foo.js";
+export type * as Foo from "./foo.js";
+import type { Add } from "./foo.js";
+
+export declare function createAdd(): Add;
+
+== /main2.js ==
+
+
+import { add } from "./foo.js";
+
+export { add };
+
+export function createAdd() {
+  return add;
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./_dist/main.d.ts",
+      "default": "./_dist/main.js"
+    },
+    "./main2": {
+      "types": "./main2.d.ts",
+      "default": "./main2.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
