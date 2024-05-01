@@ -209,6 +209,32 @@ body .ddoc .markdown pre {
   }
 }
 
+body .ddoc article a.context_button {
+  @apply border-none hover:bg-jsr-cyan-50;
+}
+
+body .ddoc .docEntryHeader a {
+  @apply link font-medium;
+}
+
+body .ddoc .anchorable.docEntry {
+  @apply md:text-sm mb-4 !important;
+}
+
+body .ddoc .anchorable.docEntry > .docEntryHeader {
+  @apply md:text-base;
+}
+
+/* should get a better css class to target this */
+body .ddoc .anchorable.docEntry > .markdown_border {
+  @apply border-none pl-0 ml-0 max-w-prose;
+}
+
+/* just removing the ml-2 class from this div */
+body .ddoc section div.ml-2 {
+  @apply ml-0;
+}
+
 body .ddoc .markdown :not(pre) > code {
   @apply bg-jsr-cyan-100/50 rounded-md;
   @apply px-1.5;
