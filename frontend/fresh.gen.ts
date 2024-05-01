@@ -55,6 +55,7 @@ import * as $GithubUserLink from "./islands/GithubUserLink.tsx";
 import * as $GlobalSearch from "./islands/GlobalSearch.tsx";
 import * as $HeaderLogo from "./islands/HeaderLogo.tsx";
 import * as $HomepageHeroParticles from "./islands/HomepageHeroParticles.tsx";
+import * as $NavMenu from "./islands/NavMenu.tsx";
 import * as $PublishingTaskRequeue from "./islands/PublishingTaskRequeue.tsx";
 import * as $UserManageScopeInvite from "./islands/UserManageScopeInvite.tsx";
 import * as $UserMenu from "./islands/UserMenu.tsx";
@@ -127,6 +128,7 @@ const manifest = {
     "./islands/GlobalSearch.tsx": $GlobalSearch,
     "./islands/HeaderLogo.tsx": $HeaderLogo,
     "./islands/HomepageHeroParticles.tsx": $HomepageHeroParticles,
+    "./islands/NavMenu.tsx": $NavMenu,
     "./islands/PublishingTaskRequeue.tsx": $PublishingTaskRequeue,
     "./islands/UserManageScopeInvite.tsx": $UserManageScopeInvite,
     "./islands/UserMenu.tsx": $UserMenu,
