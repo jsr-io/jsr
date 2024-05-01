@@ -1017,7 +1017,7 @@ pub async fn get_docs_handler(
       css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
-      sidepanel: docs.sidepanel,
+      toc: docs.toc,
       main: docs.main,
       version: ApiPackageVersion::from(version),
     }),
