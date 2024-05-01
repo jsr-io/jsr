@@ -16,6 +16,7 @@ interface Data {
   docs: Docs | null;
   member: ScopeMember | null;
 }
+const FRONTEND_ROOT = Deno.env.get('FRONTEND_ROOT') ?? 'http://jsr.test'
 
 export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
@@ -39,12 +40,12 @@ export default function PackagePage(
             data.package.description ? `: ${data.package.description}` : ""
           }`}
         />
-        <meta property="og:url" content={`https://jsr.io/@${params.scope}/${params.package}`} />
+        <meta property="og:url" content={`${FRONTEND_ROOT}/@${params.scope}/${params.package}`} />
         <meta property="og:type" content="article" />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:site_name" content="JSR" />
-        <meta property="og:image" content={`https://jsr.io/@${params.scope}/${params.package}/og`} />
+        <meta property="og:image" content={`${FRONTEND_ROOT}/@${params.scope}/${params.package}/og`} />
       </Head>
 
       <PackageHeader
