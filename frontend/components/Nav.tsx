@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { ComponentChildren } from "preact";
+import { NavMenu } from "../islands/NavMenu.tsx";
 
 export interface NavProps {
   children?: ComponentChildren;
@@ -11,9 +12,12 @@ export function Nav(props: NavProps) {
     <nav
       class={`${
         props.noTopMargin ? "" : "mt-3"
-      } md:border-b border-jsr-cyan-300/30 flex flex-wrap md:flex-nowrap flex-row max-w-full overflow-auto items-end`}
+      } md:border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-hidden items-end`}
     >
-      {props.children}
+      <ul id="nav-items" class="flex flex-row">
+        {props.children}
+      </ul>
+      <NavMenu />
     </nav>
   );
 }
