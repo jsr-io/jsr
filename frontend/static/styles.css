@@ -225,6 +225,10 @@ body .ddoc .anchorable.docEntry > .docEntryHeader {
   @apply md:text-base;
 }
 
+body .ddoc .anchorable.docEntry > .docEntryHeader > span {
+  @apply items-baseline;
+}
+
 /* should get a better css class to target this */
 body .ddoc .anchorable.docEntry > .markdown_border {
   @apply border-none pl-0 ml-0 max-w-prose;
