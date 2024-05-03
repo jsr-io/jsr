@@ -45,7 +45,7 @@ pub fn self_user_router() -> Router<Body, ApiError> {
     .delete("/invites/:scope", util::auth(decline_invite_handler))
     .get("/tokens", util::auth(util::json(list_tokens)))
     .post("/tokens", util::auth(util::json(create_token)))
-    .delete("/tokens/:id", util::auth(util::json(delete_token)))
+    .delete("/tokens/:id", util::auth(delete_token))
     .build()
     .unwrap()
 }
@@ -257,7 +257,7 @@ async fn create_token(
 }
 
 #[instrument("DELETE /api/user/tokens/:id")]
-async fn delete_token(req: Request<Body>) -> Result<(), ApiError> {
+async fn delete_token(req: Request<Body>) -> Result<Response<Body>, ApiError> {
   let id = req.param_uuid("id")?;
 
   let iam = req.iam();
@@ -269,5 +269,161 @@ async fn delete_token(req: Request<Body>) -> Result<(), ApiError> {
     return Err(ApiError::TokenNotFound);
   };
 
-  Ok(())
+  let resp = Response::builder()
+    .status(hyper::StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(resp)
+}
+
+#[cfg(test)]
+mod tests {
+  use hyper::StatusCode;
+  use serde_json::json;
+
+  use crate::api::ApiCreatedToken;
+  use crate::api::ApiFullUser;
+  use crate::api::ApiToken;
+  use crate::api::ApiTokenType;
+  use crate::util::test::ApiResultExt;
+  use crate::util::test::TestSetup;
+
+  #[tokio::test]
+  async fn list_tokens() {
+    let mut t = TestSetup::new().await;
+
+    let tokens: Vec<ApiToken> = t
+      .http()
+      .get("/api/user/tokens")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+
+    assert_eq!(tokens.len(), 1);
+    assert!(
+      matches!(tokens[0].r#type, ApiTokenType::Web),
+      "{:?}",
+      tokens[0].r#type
+    );
+  }
+
+  #[tokio::test]
+  async fn create_and_delete_token() {
+    let mut t = TestSetup::new().await;
+
+    let token: ApiCreatedToken = t
+      .http()
+      .post("/api/user/tokens")
+      .body_json(json!({
+        "description": "test token",
+        "expires_at": null,
+        "permissions": null
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+
+    let secret = token.secret;
+
+    let user: ApiFullUser = t
+      .http()
+      .get("/api/user")
+      .token(Some(&secret))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert_eq!(user.id, t.user1.user.id);
+
+    let token = token.token;
+    assert_eq!(token.description.unwrap(), "test token");
+    assert!(
+      matches!(token.r#type, ApiTokenType::Personal),
+      "{:?}",
+      token.r#type
+    );
+
+    let tokens: Vec<ApiToken> = t
+      .http()
+      .get("/api/user/tokens")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert_eq!(tokens.len(), 2);
+    assert!(
+      matches!(tokens[0].r#type, ApiTokenType::Personal),
+      "{:?}",
+      tokens[1].r#type
+    );
+    assert!(
+      matches!(tokens[1].r#type, ApiTokenType::Web),
+      "{:?}",
+      tokens[0].r#type
+    );
+
+    // can't create another token with this token
+    t.http()
+      .post("/api/user/tokens")
+      .token(Some(&secret))
+      .body_json(json!({
+        "description": "test token",
+        "expires_at": null,
+        "permissions": null
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "credentialNotInteractive")
+      .await;
+
+    t.http()
+      .delete(&format!("/api/user/tokens/{}", token.id))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok_no_content()
+      .await;
+
+    let tokens: Vec<ApiToken> = t
+      .http()
+      .get("/api/user/tokens")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+
+    assert_eq!(tokens.len(), 1);
+    assert!(
+      matches!(tokens[0].r#type, ApiTokenType::Web),
+      "{:?}",
+      tokens[0].r#type
+    );
+
+    // can't delete the token again
+    t.http()
+      .delete(&format!("/api/user/tokens/{}", token.id))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::NOT_FOUND, "tokenNotFound")
+      .await;
+
+    // can't use the token anymore
+    t.http()
+      .get("/api/user")
+      .token(Some(&secret))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::UNAUTHORIZED, "invalidBearerToken")
+      .await;
+  }
 }
