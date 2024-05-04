@@ -107,6 +107,10 @@ making changes to the API.
 **Linux**
 
 - `docker` & `docker-compose` installed and running
+- Run `cd api`
+- Run `cargo sqlx migrate run`
+  - If you get the error `role "postgres" does not exist`, run
+    `createuser -s postgres`.
 
 ### Running jsr
 
