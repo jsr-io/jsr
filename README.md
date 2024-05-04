@@ -91,6 +91,7 @@ making changes to the API.
     2. Copy `api/.env.example` to `api/.env`
     3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` to the values from the
        GitHub App you created in step 1.
+    4. Set `DATABASE_URL` to point to your local Postgres database.
 - Install `sqlx` by running `cargo install sqlx-cli`
 
 **macOS**
