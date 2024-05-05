@@ -285,7 +285,6 @@ pub fn get_generate_ctx<'a, 'ctx>(
 
   generate_ctx.url_rewriter =
     Some(get_url_rewriter(url_rewriter_base, has_readme));
-  generate_ctx.sidebar_hide_all_symbols = true;
 
   generate_ctx
 }
@@ -379,22 +378,20 @@ pub fn generate_docs_html(
       })))
     }
     DocsRequest::Index => {
-      let main_entrypoint = ctx
-        .doc_nodes
-        .iter()
-        .find(|(short_path, _)| short_path.is_main);
-
-      let doc_nodes = main_entrypoint
-        .map(|(_, nodes)| nodes.as_slice())
+      let doc_nodes = ctx
+        .main_entrypoint
+        .as_ref()
+        .map(|entrypoint| ctx.doc_nodes.get(entrypoint).unwrap().as_slice())
         .unwrap_or_default();
 
       let render_ctx =
         RenderContext::new(&ctx, doc_nodes, UrlResolveKind::Root);
 
-      let mut index_module_doc = main_entrypoint
+      let mut index_module_doc = ctx
+        .main_entrypoint
         .as_ref()
-        .map(|(short_path, _)| {
-          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path)
+        .map(|entrypoint| {
+          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, entrypoint)
         })
         .unwrap_or_default();
 
