@@ -215,8 +215,9 @@ pub fn get_generate_ctx<'a, 'ctx>(
         let mut map = IndexMap::new();
         let scoped_name = format!("@{scope}/{package}");
 
+        let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
+        
         if !runtime_compat.deno.is_some_and(|compat| !compat) {
-          let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
           map.insert(
             UsageComposerEntry {
               name: "Deno".to_string(),
@@ -229,7 +230,6 @@ pub fn get_generate_ctx<'a, 'ctx>(
         }
 
         if !runtime_compat.node.is_some_and(|compat| !compat) {
-          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
           map.insert(
             UsageComposerEntry {
               name: "npm".to_string(),
@@ -260,7 +260,6 @@ pub fn get_generate_ctx<'a, 'ctx>(
         }
 
         if !runtime_compat.bun.is_some_and(|compat| !compat) {
-          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
           map.insert(
             UsageComposerEntry {
               name: "Bun".to_string(),
