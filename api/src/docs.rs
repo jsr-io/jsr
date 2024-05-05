@@ -216,7 +216,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
         let scoped_name = format!("@{scope}/{package}");
 
         if !runtime_compat.deno.is_some_and(|compat| !compat) {
-          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
+          let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
           map.insert(
             UsageComposerEntry {
               name: "Deno".to_string(),
@@ -224,7 +224,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/deno.svg" alt="deno logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\ndeno add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\ndeno add {scoped_name}\n```{import}"),
           );
         }
 
@@ -237,7 +237,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
           );
           map.insert(
             UsageComposerEntry {
@@ -246,7 +246,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\nyarn dlx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
           );
           map.insert(
             UsageComposerEntry {
@@ -255,7 +255,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\npnpm dlx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
           );
         }
 
@@ -268,7 +268,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/bun.svg" alt="bun logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\nbunx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
           );
         }
 
@@ -423,10 +423,7 @@ pub fn generate_docs_html(
         .render("module_doc", &index_module_doc)
         .context("failed to render index module doc")?;
 
-      let toc_ctx = deno_doc::html::ToCCtx {
-        top_symbols: Some(deno_doc::html::TopSymbolsCtx::new(&render_ctx)),
-        document_navigation: render_ctx.toc.render(),
-      };
+      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, &[]);
 
       let toc = ctx
         .hbs
@@ -462,10 +459,7 @@ pub fn generate_docs_html(
         .render("module_doc", &module_doc)
         .context("failed to render module doc")?;
 
-      let toc_ctx = deno_doc::html::ToCCtx {
-        top_symbols: None,
-        document_navigation: render_ctx.toc.render(),
-      };
+      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, &[]);
 
       let toc = ctx
         .hbs
