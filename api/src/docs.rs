@@ -216,7 +216,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
         let scoped_name = format!("@{scope}/{package}");
 
         let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
-        
+
         if !runtime_compat.deno.is_some_and(|compat| !compat) {
           map.insert(
             UsageComposerEntry {
