@@ -48,6 +48,7 @@ export const handler: Handlers<unknown, State> = {
       return new Response(res.body, {
         status: res.status,
         headers: {
+          "cache-control": "max-age=300, s-maxage=300",
           "content-type": res.headers.get("content-type")!,
         },
       });
