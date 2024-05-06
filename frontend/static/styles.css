@@ -336,11 +336,7 @@ body .ddoc .markdown th {
 }
 
 body .ddoc .toc {
-  .topSymbols {
-    @apply max-lg:hidden;
-  }
-  
-  .documentNavigation {
+  .topSymbols, .documentNavigation {
     @apply max-lg:hidden;
   }
 }
