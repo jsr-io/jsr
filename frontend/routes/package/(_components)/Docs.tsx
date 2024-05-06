@@ -38,8 +38,12 @@ export function DocsView(
           </div>
         )}
 
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-12">
-        <div class={`min-w-0 ${docs.toc ? "col-span-3" : "col-span-full"}`}>
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
+        <div
+          class={`min-w-0 ${
+            docs.toc ? "lg:col-span-3 lg:row-start-1" : "col-span-full"
+          }`}
+        >
           <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
 
           {showProvenanceBadge && selectedVersion.rekorLogId && (
@@ -83,9 +87,8 @@ export function DocsView(
             </div>
           )}
         </div>
-
         {docs.toc && (
-          <div class="max-lg:hidden col-span-1 top-0 lg:sticky lg:max-h-screen box-border space-y-4 -mt-4 pt-4">
+          <div class="max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen box-border space-y-4 -mt-4 pt-4">
             {!docs.breadcrumbs && (
               <LocalSymbolSearch
                 scope={params.scope}

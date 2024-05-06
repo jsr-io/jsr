@@ -335,6 +335,12 @@ body .ddoc .markdown th {
   @apply py-1.5;
 }
 
+body .ddoc .toc {
+  .topSymbols, .documentNavigation {
+    @apply max-lg:hidden;
+  }
+}
+
 /* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */
 .score-ring-red {
   @apply bg-red-500;
