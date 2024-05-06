@@ -32,7 +32,6 @@
     "target/",
     "api/testdata/",
     ".gcs/",
-    "e2e",
     "frontend/_fresh"
   ],
   "compilerOptions": {
