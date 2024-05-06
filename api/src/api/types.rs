@@ -587,7 +587,7 @@ pub enum ApiPackageVersionDocs {
     css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<String>,
-    sidepanel: Option<String>,
+    toc: Option<String>,
     main: String,
   },
   Redirect {

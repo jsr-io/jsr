@@ -136,7 +136,7 @@ export async function packageDataWithDocs(
         css: pkgDocsResp.data.css,
         script: pkgDocsResp.data.script,
         breadcrumbs: pkgDocsResp.data.breadcrumbs,
-        sidepanel: pkgDocsResp.data.sidepanel,
+        toc: pkgDocsResp.data.toc,
         main: pkgDocsResp.data.main,
       },
     };

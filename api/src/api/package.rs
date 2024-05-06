@@ -1017,7 +1017,7 @@ pub async fn get_docs_handler(
       css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
-      sidepanel: docs.sidepanel,
+      toc: docs.toc,
       main: docs.main,
       version: ApiPackageVersion::from(version),
     }),
@@ -2411,13 +2411,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         css,
         script: _,
         breadcrumbs,
-        sidepanel,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(sidepanel.is_some(), "{:?}", sidepanel)
+        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -2436,7 +2436,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         css,
         script: _,
         breadcrumbs,
-        sidepanel,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
@@ -2446,7 +2446,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           "{:?}",
           breadcrumbs
         );
-        assert!(sidepanel.is_none(), "{:?}", sidepanel);
+        assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -2465,7 +2465,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         css,
         script: _,
         breadcrumbs,
-        sidepanel,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
@@ -2475,7 +2475,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           "{:?}",
           breadcrumbs
         );
-        assert!(sidepanel.is_some(), "{:?}", sidepanel);
+        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
