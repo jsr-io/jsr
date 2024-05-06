@@ -39,7 +39,11 @@ export function DocsView(
         )}
 
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
-        <div class={`min-w-0 ${docs.toc ? "lg:col-span-3 lg:row-start-1" : "col-span-full"}`}>
+        <div
+          class={`min-w-0 ${
+            docs.toc ? "lg:col-span-3 lg:row-start-1" : "col-span-full"
+          }`}
+        >
           <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
 
           {showProvenanceBadge && selectedVersion.rekorLogId && (
