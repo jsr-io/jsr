@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { APIResponseError } from "../utils/api.ts";
 
 export function ErrorDisplay({ error }: { error: APIResponseError }) {

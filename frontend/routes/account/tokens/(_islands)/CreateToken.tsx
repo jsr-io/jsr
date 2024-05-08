@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { Signal, useComputed, useSignal } from "@preact/signals";
 import { IS_BROWSER } from "$fresh/runtime.ts";
