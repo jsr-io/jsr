@@ -31,19 +31,25 @@ export function PackageHeader(
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
             <WarningTriangle class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
-              This release is{" "}
-              {isPrerelease && selectedVersion.newerVersionsCount == 0
+              This release {selectedVersion.yanked
                 ? (
                   <>
-                    a pre-release — the latest stable version of @{pkg
+                    was yanked — the latest stable version of @{pkg
+                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                  </>
+                )
+                : isPrerelease && selectedVersion.newerVersionsCount == 0
+                ? (
+                  <>
+                    is a pre-release — the latest stable version of @{pkg
                       .scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (
                   <>
                     <span class="bold">
-                      {selectedVersion.newerVersionsCount}{" "}
-                      version{selectedVersion.newerVersionsCount > 1 && "s"}
+                      is {selectedVersion.newerVersionsCount}{" "}
+                      version{selectedVersion.newerVersionsCount !== 1 && "s"}
                       {" "}
                       behind {pkg.latestVersion}
                     </span>{" "}
@@ -54,8 +60,8 @@ export function PackageHeader(
                 class="link font-medium whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
-                Jump to latest{" "}
-                {isPrerelease && selectedVersion.newerVersionsCount == 0 &&
+                Jump to latest {(selectedVersion.yanked ||
+                  (isPrerelease && selectedVersion.newerVersionsCount == 0)) &&
                   "stable"}
               </a>
             </span>
