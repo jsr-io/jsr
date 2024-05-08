@@ -75,7 +75,7 @@ impl<'a> SpecifierRewriter<'a> {
       resolved_specifier.to_string()
     };
 
-    if &new_specifier == source_text_specifier {
+    if new_specifier == source_text_specifier {
       // No need to rewrite if the specifier is the same as the resolved
       // specifier.
       return None;
