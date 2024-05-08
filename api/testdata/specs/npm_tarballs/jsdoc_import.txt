@@ -26,11 +26,11 @@ export type Num = number;
 == /_dist/foo.d.ts.map ==
 {"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,YAAY,MAAM,MAAM"}
 
-== /_dist/foo.js ==
+== /foo.js ==
 
 //# sourceMappingURL=foo.js.map
 
-== /_dist/foo.js.map ==
+== /foo.js.map ==
 {"version":3,"file":"foo.js","sources":[],"names":[],"mappings":""}
 
 == /foo.ts ==

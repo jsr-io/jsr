@@ -1,0 +1,57 @@
+# mod.ts
+export * from "./sub/lib.js";
+
+# sub/lib.js
+export default 1;
+
+# sub/lib.d.ts
+declare const _default: number;
+export default _default;
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": "./mod.ts"
+}
+
+# output
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "0.0.1",
+  "exports": "./mod.ts"
+}
+
+== /mod.js ==
+export * from "./sub/lib.js";
+//# sourceMappingURL=mod.js.map
+
+== /mod.js.map ==
+{"version":3,"file":"mod.js","sources":["./mod.ts"],"names":[],"mappings":"AAAA,cAAc,eAAe"}
+
+== /mod.ts ==
+export * from "./sub/lib.js";
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "0.0.1",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "default": "./mod.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+
+== /sub/lib.d.ts ==
+declare const _default: number;
+export default _default;
+
+== /sub/lib.js ==
+export default 1;
+

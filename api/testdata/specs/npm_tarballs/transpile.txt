@@ -30,7 +30,14 @@ export declare function bar(): string;
 == /_dist/main.d.ts.map ==
 {"version":3,"file":"main.d.ts","sources":["../main.ts"],"names":[],"mappings":"AAAA,OAAO,cAAM,KAAK,MAAM,CAAS;AACjC,OAAO,cAAM,KAAM,MAAe;AAElC,iBAAiB;EACf,KAAK,MAAM;;AAGb,OAAO,iBAAS,OAAO,MAAM"}
 
-== /_dist/main.js ==
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./main.ts"
+}
+
+== /main.js ==
 export const foo = 'foo';
 export const bar = "bar";
 export function bar() {
@@ -38,15 +45,8 @@ export function bar() {
 }
 //# sourceMappingURL=main.js.map
 
-== /_dist/main.js.map ==
-{"version":3,"file":"main.js","sources":["../main.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM;AACjC,OAAO,MAAM,MAAM,MAAe;AAMlC,OAAO,SAAS;EACd,OAAO;AACT"}
-
-== /jsr.json ==
-{
-  "name": "@scope/foo",
-  "version": "1.0.0",
-  "exports": "./main.ts"
-}
+== /main.js.map ==
+{"version":3,"file":"main.js","sources":["./main.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM;AACjC,OAAO,MAAM,MAAM,MAAe;AAMlC,OAAO,SAAS;EACd,OAAO;AACT"}
 
 == /main.ts ==
 export const foo: string = 'foo';
@@ -70,7 +70,7 @@ export function bar(): string {
   "exports": {
     ".": {
       "types": "./_dist/main.d.ts",
-      "default": "./_dist/main.js"
+      "default": "./main.js"
     }
   },
   "_jsr_revision": 0

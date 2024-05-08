@@ -9,19 +9,19 @@ export const foo = bar();
 }
 
 # output
-== /_dist/main.js ==
-export const foo = bar();
-//# sourceMappingURL=main.js.map
-
-== /_dist/main.js.map ==
-{"version":3,"file":"main.js","sources":["../main.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAM,MAAM"}
-
 == /jsr.json ==
 {
   "name": "@scope/foo",
   "version": "1.0.0",
   "exports": "./main.ts"
 }
+
+== /main.js ==
+export const foo = bar();
+//# sourceMappingURL=main.js.map
+
+== /main.js.map ==
+{"version":3,"file":"main.js","sources":["./main.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAM,MAAM"}
 
 == /main.ts ==
 export const foo = bar();
@@ -35,7 +35,7 @@ export const foo = bar();
   "dependencies": {},
   "exports": {
     ".": {
-      "default": "./_dist/main.js"
+      "default": "./main.js"
     }
   },
   "_jsr_revision": 0
