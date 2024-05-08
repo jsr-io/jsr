@@ -29,6 +29,7 @@ pub struct SpecifierRewriter<'a> {
 
 impl<'a> SpecifierRewriter<'a> {
   pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
+    let source_text_specifier = specifier;
     let dep = self.dependencies.get(specifier)?;
 
     let specifier = match kind {
@@ -68,17 +69,17 @@ impl<'a> SpecifierRewriter<'a> {
       }
     }
 
-    if *resolved_specifier == *specifier {
-      // No need to rewrite if the specifier is the same as the resolved
-      // specifier.
-      return None;
-    }
-
     let new_specifier = if resolved_specifier.scheme() == "file" {
       relative_import_specifier(self.base_specifier, &resolved_specifier)
     } else {
       resolved_specifier.to_string()
     };
+
+    if &new_specifier == source_text_specifier {
+      // No need to rewrite if the specifier is the same as the resolved
+      // specifier.
+      return None;
+    }
 
     Some(new_specifier)
   }

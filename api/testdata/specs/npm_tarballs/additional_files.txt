@@ -28,13 +28,6 @@ export declare const foo: string;
 == /_dist/foo.d.ts.map ==
 {"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,OAAO,cAAM,KAAK,MAAM,CAAS"}
 
-== /_dist/foo.js ==
-export const foo = 'bar';
-//# sourceMappingURL=foo.js.map
-
-== /_dist/foo.js.map ==
-{"version":3,"file":"foo.js","sources":["../foo.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM"}
-
 == /bar.json ==
 console.log('foo');
 
@@ -43,6 +36,13 @@ this is data
 
 == /foo.d.ts ==
 // unrelated content is overwritten
+
+== /foo.js ==
+export const foo = 'bar';
+//# sourceMappingURL=foo.js.map
+
+== /foo.js.map ==
+{"version":3,"file":"foo.js","sources":["./foo.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM"}
 
 == /foo.ts ==
 export const foo: string = 'bar';
@@ -67,7 +67,7 @@ export const foo: string = 'bar';
   "exports": {
     "./foo": {
       "types": "./_dist/foo.d.ts",
-      "default": "./_dist/foo.js"
+      "default": "./foo.js"
     },
     "./bar": {
       "default": "./bar.json"
