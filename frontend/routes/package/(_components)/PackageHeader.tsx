@@ -7,7 +7,7 @@ import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
 import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "$twas";
-import { parse } from "$std/semver/mod.ts";
+import { gt, parse } from "$std/semver/mod.ts";
 
 interface PackageHeaderProps {
   package: Package;
@@ -20,8 +20,14 @@ export function PackageHeader(
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
-  const isPrerelease = selectedVersion &&
-    parse(selectedVersion.version).prerelease.length !== 0;
+  const isYanked = selectedVersion && selectedVersion.yanked;
+
+  const selectedVersionSemver = selectedVersion &&
+    parse(selectedVersion.version);
+  const isNewerPrerelease = selectedVersionSemver &&
+    selectedVersionSemver.prerelease.length !== 0 &&
+    (pkg.latestVersion === null ||
+      gt(selectedVersionSemver, parse(pkg.latestVersion)));
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -31,19 +37,26 @@ export function PackageHeader(
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
             <WarningTriangle class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
-              This release is{" "}
-              {isPrerelease && selectedVersion.newerVersionsCount == 0
+              This release {selectedVersion.yanked
                 ? (
                   <>
-                    a pre-release — the latest stable version of @{pkg
+                    was yanked — the latest version of @{pkg
+                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                  </>
+                )
+                : isNewerPrerelease
+                ? (
+                  <>
+                    is a pre-release — the latest non-prerelease version of
+                    @{pkg
                       .scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (
                   <>
                     <span class="bold">
-                      {selectedVersion.newerVersionsCount}{" "}
-                      version{selectedVersion.newerVersionsCount > 1 && "s"}
+                      is {selectedVersion.newerVersionsCount}{" "}
+                      version{selectedVersion.newerVersionsCount !== 1 && "s"}
                       {" "}
                       behind {pkg.latestVersion}
                     </span>{" "}
@@ -54,9 +67,7 @@ export function PackageHeader(
                 class="link font-medium whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
-                Jump to latest{" "}
-                {isPrerelease && selectedVersion.newerVersionsCount == 0 &&
-                  "stable"}
+                Jump to {isNewerPrerelease ? "this version " : "latest"}
               </a>
             </span>
           </div>
