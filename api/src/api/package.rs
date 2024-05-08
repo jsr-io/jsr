@@ -1408,7 +1408,11 @@ mod test {
   use crate::db::NewPackageVersion;
   use crate::db::NewPublishingTask;
   use crate::db::NewScopeInvite;
+  use crate::db::PackagePublishPermission;
+  use crate::db::Permission;
+  use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
+  use crate::db::TokenType;
   use crate::ids::PackageName;
   use crate::ids::PackagePath;
   use crate::ids::ScopeName;
@@ -1416,6 +1420,7 @@ mod test {
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
+  use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
 
@@ -2376,6 +2381,51 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         StatusCode::BAD_REQUEST,
         "weeklyPublishAttemptsLimitExceeded",
       )
+      .await;
+  }
+
+  #[tokio::test]
+  async fn test_publishing_with_missing_auth() {
+    let mut t = TestSetup::new().await;
+
+    let permission =
+      Permission::PackagePublish(PackagePublishPermission::Scope {
+        scope: ScopeName::new("otherscope".to_owned()).unwrap(),
+      });
+
+    let token = create_token(
+      &t.db(),
+      t.user1.user.id,
+      TokenType::Web,
+      None,
+      None,
+      Some(Permissions(vec![permission])),
+    )
+    .await
+    .unwrap();
+
+    let scope = t.scope.scope.clone();
+
+    let name = PackageName::new("foo".to_owned()).unwrap();
+
+    let CreatePackageResult::Ok(_) =
+      t.db().create_package(&scope, &name).await.unwrap()
+    else {
+      unreachable!();
+    };
+
+    let data = create_mock_tarball("ok");
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "missingPermission")
       .await;
   }
 
