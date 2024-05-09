@@ -42,27 +42,29 @@ export default function Home({ data }: PageProps<Data>) {
         indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
       />
 
-      <section class="flex flex-col gap-4 mb-16 md:mb-32">
-        <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
-          Latest updates
-        </h2>
-        <ul class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-          {data?.posts?.slice(0, 3).map((post) => (
-            <NewsCard
-              image={post.image}
-              title={post.title}
-              description={post.description}
-              url={post.url}
-            />
-          ))}
-        </ul>
-        <a
-          href="https://deno.com/blog?tag=jsr"
-          class="underline block mt-4 w-full text-center"
-        >
-          More JSR updates <span aria-hidden="true">&rsaquo;</span>
-        </a>
-      </section>
+      {data.posts?.length && (
+        <section class="flex flex-col gap-4 mb-16 md:mb-32">
+          <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
+            Latest updates
+          </h2>
+          <ul class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+            {data?.posts?.slice(0, 3).map((post) => (
+              <NewsCard
+                image={post.image}
+                title={post.title}
+                description={post.description}
+                url={post.url}
+              />
+            ))}
+          </ul>
+          <a
+            href="https://deno.com/blog?tag=jsr"
+            class="underline block mt-4 w-full text-center"
+          >
+            More JSR updates <span aria-hidden="true">&rsaquo;</span>
+          </a>
+        </section>
+      )}
 
       <section class="flex flex-col gap-4">
         <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
@@ -272,7 +274,7 @@ export const handler: Handlers<Data, State> = {
     const posts = await jsrPosts.json() as Post[];
 
     if (!statsResp.ok) throw statsResp; // gracefully handle this
-    return ctx.render({ stats: statsResp.data, posts }, {
+    return ctx.render({ stats: statsResp.data, posts: posts || [] }, {
       headers: ctx.state.api.hasToken()
         ? undefined
         : { "Cache-Control": "public, s-maxage=60" },
