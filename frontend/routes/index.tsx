@@ -9,9 +9,18 @@ import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
 import { HomepageHero } from "../components/HomepageHero.tsx";
 import { Logo } from "../components/Logo.tsx";
+import { NewsCard } from "../components/NewsCard.tsx";
+
+interface Post {
+  title: string;
+  description: string;
+  image: string;
+  url: string;
+}
 
 interface Data {
   stats: Stats;
+  posts: Post[];
 }
 
 export default function Home({ data }: PageProps<Data>) {
@@ -32,17 +41,45 @@ export default function Home({ data }: PageProps<Data>) {
         apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
         indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
       />
-      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <ListPanel title="Featured Packages">
-          {data.stats.featured.map(PackageToPanelEntry)}
-        </ListPanel>
-        <ListPanel title="Recent updates">
-          {data.stats.updated.map(PackageVersionToPanelEntry)}
-        </ListPanel>
-        <ListPanel title="New Packages">
-          {data.stats.newest.map(PackageToPanelEntry)}
-        </ListPanel>
-      </div>
+
+      <section class="flex flex-col gap-4 mb-16 md:mb-32">
+        <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
+          Latest updates
+        </h2>
+        <ul class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+          {data?.posts?.slice(0, 3).map((post) => (
+            <NewsCard
+              image={post.image}
+              title={post.title}
+              description={post.description}
+              url={post.url}
+            />
+          ))}
+        </ul>
+        <a
+          href="https://deno.com/blog?tag=jsr"
+          class="underline block mt-4 w-full text-center"
+        >
+          More JSR updates <span aria-hidden="true">&rsaquo;</span>
+        </a>
+      </section>
+
+      <section class="flex flex-col gap-4">
+        <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
+          Packages
+        </h2>
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <ListPanel title="Featured">
+            {data.stats.featured.map(PackageToPanelEntry)}
+          </ListPanel>
+          <ListPanel title="Recently updated">
+            {data.stats.updated.map(PackageVersionToPanelEntry)}
+          </ListPanel>
+          <ListPanel title="New to JSR">
+            {data.stats.newest.map(PackageToPanelEntry)}
+          </ListPanel>
+        </div>
+      </section>
 
       <h2
         class="font-semibold text-5xl md:text-7xl lg:text-center mt-16 md:mt-24 lg:mt-48 lg:mb-16"
@@ -231,8 +268,11 @@ export const handler: Handlers<Data, State> = {
     const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
       anonymous: true,
     });
+    const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
+    const posts = await jsrPosts.json() as Post[];
+
     if (!statsResp.ok) throw statsResp; // gracefully handle this
-    return ctx.render({ stats: statsResp.data }, {
+    return ctx.render({ stats: statsResp.data, posts }, {
       headers: ctx.state.api.hasToken()
         ? undefined
         : { "Cache-Control": "public, s-maxage=60" },

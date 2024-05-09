@@ -8,6 +8,7 @@ import { path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { processFilter } from "../islands/GlobalSearch.tsx";
+import { NewsCard } from "../components/NewsCard.tsx";
 
 interface Data extends PaginationData {
   packages: OramaPackageHit[] | Package[];
