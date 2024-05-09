@@ -272,7 +272,7 @@ export const handler: Handlers<Data, State> = {
 
     let posts: Post[] = [];
     try {
-      const jsrPosts = await fetch("https://deno.com/blodg/json?tag=JSR");
+      const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
       if (jsrPosts.ok) {
         posts = await jsrPosts.json() as Post[];
       }
