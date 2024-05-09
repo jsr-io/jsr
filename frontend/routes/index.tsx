@@ -41,8 +41,7 @@ export default function Home({ data }: PageProps<Data>) {
         apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
         indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
       />
-
-      {data.posts?.length && (
+      {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">
           <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
             Latest updates
@@ -270,8 +269,14 @@ export const handler: Handlers<Data, State> = {
     const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
       anonymous: true,
     });
-    const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
-    const posts = await jsrPosts.json() as Post[];
+
+    let posts: Post[] = [];
+    try {
+      const jsrPosts = await fetch("https://deno.com/blodg/json?tag=JSR");
+      posts = await jsrPosts.json() as Post[];
+    } catch (e) {
+      // ignore
+    }
 
     if (!statsResp.ok) throw statsResp; // gracefully handle this
     return ctx.render({ stats: statsResp.data, posts: posts || [] }, {
