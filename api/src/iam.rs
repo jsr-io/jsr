@@ -262,7 +262,8 @@ pub struct IamInfo {
   /// principal is allowed to do.
   pub permissions: Option<Permissions>,
   /// Whether the request comes from an interactive system (web portal), or via
-  /// an automated system (GitHub Actions / cli with device token).
+  /// an automated system (GitHub Actions / cli with device token / personal
+  /// access token).
   pub interactive: bool,
   /// Whether the request is being made with sudo privileges, which allows
   /// staff users to bypass some access restrictions.
