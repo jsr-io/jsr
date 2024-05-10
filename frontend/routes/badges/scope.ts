@@ -40,13 +40,17 @@ export const handler: Handlers<unknown, State> = {
       shieldsUrl.searchParams.set("logo", "jsr");
       shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
       shieldsUrl.searchParams.set("logoSize", "auto");
+      shieldsUrl.searchParams.set("cacheSeconds", "300");
 
       const res = await fetch(shieldsUrl);
 
       return new Response(res.body, {
         status: res.status,
         headers: {
-          "cache-control": "max-age=300, s-maxage=300",
+          "access-control-allow-origin": res.headers.get(
+            "access-control-allow-origin",
+          )!,
+          "cache-control": res.headers.get("cache-control")!,
           "content-type": res.headers.get("content-type")!,
         },
       });
