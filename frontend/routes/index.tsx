@@ -15,7 +15,7 @@ interface Post {
   title: string;
   description: string;
   image: string;
-  url: string;
+  link: string;
 }
 
 interface Data {
@@ -52,7 +52,7 @@ export default function Home({ data }: PageProps<Data>) {
                 image={post.image}
                 title={post.title}
                 description={post.description}
-                url={post.url}
+                url={post.link}
               />
             ))}
           </ul>
@@ -275,6 +275,7 @@ export const handler: Handlers<Data, State> = {
       const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
       if (jsrPosts.ok) {
         posts = await jsrPosts.json() as Post[];
+        console.log(posts);
       }
     } catch (e) {
       // ignore
