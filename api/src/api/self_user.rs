@@ -9,18 +9,30 @@ use tracing::field;
 use tracing::instrument;
 use tracing::Span;
 
+use std::borrow::Cow;
+
 use crate::db::Database;
+use crate::db::PackagePublishPermission;
+use crate::db::Permission;
+use crate::db::TokenType;
 use crate::db::UserPublic;
+use crate::emails::EmailArgs;
+use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
+use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
+use crate::RegistryUrl;
 
+use super::ApiCreateTokenRequest;
+use super::ApiCreatedToken;
 use super::ApiError;
 use super::ApiFullUser;
 use super::ApiScope;
 use super::ApiScopeInvite;
 use super::ApiScopeMember;
+use super::ApiToken;
 
 pub fn self_user_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -33,6 +45,9 @@ pub fn self_user_router() -> Router<Body, ApiError> {
       util::auth(util::json(accept_invite_handler)),
     )
     .delete("/invites/:scope", util::auth(decline_invite_handler))
+    .get("/tokens", util::auth(util::json(list_tokens)))
+    .post("/tokens", util::auth(util::json(create_token)))
+    .delete("/tokens/:id", util::auth(delete_token))
     .build()
     .unwrap()
 }
@@ -150,4 +165,304 @@ pub async fn decline_invite_handler(
     .body(Body::empty())
     .unwrap();
   Ok(resp)
+}
+
+#[instrument("GET /api/user/tokens")]
+async fn list_tokens(req: Request<Body>) -> Result<Vec<ApiToken>, ApiError> {
+  let iam = req.iam();
+  let user = iam.check_current_user_access()?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let tokens = db.list_tokens(user.id).await?;
+
+  Ok(tokens.into_iter().map(ApiToken::from).collect())
+}
+
+#[instrument("POST /api/user/tokens")]
+async fn create_token(
+  mut req: Request<Body>,
+) -> Result<ApiCreatedToken, ApiError> {
+  let ApiCreateTokenRequest {
+    description,
+    expires_at,
+    permissions,
+  } = decode_json(&mut req).await?;
+
+  let description = description.trim().replace('\n', " ").replace('\r', "");
+  if description.is_empty() {
+    return Err(ApiError::MalformedRequest {
+      msg: "description must not be empty".into(),
+    });
+  }
+  if description.len() > 250 {
+    return Err(ApiError::MalformedRequest {
+      msg: "description must not be longer than 250 characters".into(),
+    });
+  }
+  if description.contains(|c: char| c.is_control()) {
+    return Err(ApiError::MalformedRequest {
+      msg: "description must not contain control characters".into(),
+    });
+  }
+
+  if let Some(permissions) = permissions.as_ref() {
+    if permissions.0.len() != 1 {
+      return Err(ApiError::MalformedRequest {
+        msg: "permissions must contain exactly one element".into(),
+      });
+    }
+  }
+
+  let iam = req.iam();
+  let user = iam.check_authorization_approve_access()?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let secret = crate::token::create_token(
+    db,
+    user.id,
+    TokenType::Personal,
+    Some(description),
+    expires_at,
+    permissions,
+  )
+  .await?;
+
+  let hash = crate::token::hash(&secret);
+  let token = db.get_token_by_hash(&hash).await?.unwrap();
+
+  if let Some(ref email) = user.email {
+    let email_sender = req.data::<Option<EmailSender>>().unwrap();
+    let registry_url = req.data::<RegistryUrl>().unwrap();
+    if let Some(email_sender) = email_sender {
+      let permissions = if let Some(permissions) = &token.permissions {
+        match &permissions.0[0] {
+          Permission::PackagePublish(PackagePublishPermission::Scope {
+            scope,
+          }) => Cow::Owned(format!(
+            "Publish new versions to any package in the @{} scope",
+            scope
+          )),
+          Permission::PackagePublish(PackagePublishPermission::Package {
+            scope,
+            package,
+          }) => Cow::Owned(format!(
+            "Publish new versions of the @{}/{} package",
+            scope, package
+          )),
+          Permission::PackagePublish(PackagePublishPermission::Version {
+            scope,
+            package,
+            version,
+            ..
+          }) => Cow::Owned(format!(
+            "Publish the {} version of the @{}/{} package",
+            version, scope, package
+          )),
+        }
+      } else {
+        Cow::Borrowed("Full account access")
+      };
+
+      let expiry = token
+        .expires_at
+        .map(|e| Cow::Owned(e.to_string()))
+        .unwrap_or_else(|| Cow::Borrowed("never"));
+
+      let email_args = EmailArgs::PersonalAccessToken {
+        token_description: Cow::Borrowed(token.description.as_ref().unwrap()),
+        token_permissions: permissions,
+        token_expiry: expiry,
+        name: Cow::Borrowed(&user.name),
+        registry_url: Cow::Borrowed(registry_url.0.as_str()),
+        registry_name: Cow::Borrowed(&email_sender.from_name),
+        support_email: Cow::Borrowed(&email_sender.from),
+      };
+      email_sender
+        .send(email.clone(), email_args)
+        .await
+        .map_err(|e| {
+          tracing::error!("failed to send email: {:?}", e);
+          ApiError::InternalServerError
+        })?;
+    }
+  }
+
+  Ok(ApiCreatedToken {
+    token: token.into(),
+    secret,
+  })
+}
+
+#[instrument("DELETE /api/user/tokens/:id")]
+async fn delete_token(req: Request<Body>) -> Result<Response<Body>, ApiError> {
+  let id = req.param_uuid("id")?;
+
+  let iam = req.iam();
+  let user = iam.check_authorization_approve_access()?;
+
+  let db = req.data::<Database>().unwrap();
+
+  if !db.delete_token(user.id, id).await? {
+    return Err(ApiError::TokenNotFound);
+  };
+
+  let resp = Response::builder()
+    .status(hyper::StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(resp)
+}
+
+#[cfg(test)]
+mod tests {
+  use hyper::StatusCode;
+  use serde_json::json;
+
+  use crate::api::ApiCreatedToken;
+  use crate::api::ApiFullUser;
+  use crate::api::ApiToken;
+  use crate::api::ApiTokenType;
+  use crate::util::test::ApiResultExt;
+  use crate::util::test::TestSetup;
+
+  #[tokio::test]
+  async fn list_tokens() {
+    let mut t = TestSetup::new().await;
+
+    let tokens: Vec<ApiToken> = t
+      .http()
+      .get("/api/user/tokens")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+
+    assert_eq!(tokens.len(), 1);
+    assert!(
+      matches!(tokens[0].r#type, ApiTokenType::Web),
+      "{:?}",
+      tokens[0].r#type
+    );
+  }
+
+  #[tokio::test]
+  async fn create_and_delete_token() {
+    let mut t = TestSetup::new().await;
+
+    let token: ApiCreatedToken = t
+      .http()
+      .post("/api/user/tokens")
+      .body_json(json!({
+        "description": "test token",
+        "expires_at": null,
+        "permissions": null
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+
+    let secret = token.secret;
+
+    let user: ApiFullUser = t
+      .http()
+      .get("/api/user")
+      .token(Some(&secret))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert_eq!(user.id, t.user1.user.id);
+
+    let token = token.token;
+    assert_eq!(token.description.unwrap(), "test token");
+    assert!(
+      matches!(token.r#type, ApiTokenType::Personal),
+      "{:?}",
+      token.r#type
+    );
+
+    let tokens: Vec<ApiToken> = t
+      .http()
+      .get("/api/user/tokens")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert_eq!(tokens.len(), 2);
+    assert!(
+      matches!(tokens[0].r#type, ApiTokenType::Personal),
+      "{:?}",
+      tokens[1].r#type
+    );
+    assert!(
+      matches!(tokens[1].r#type, ApiTokenType::Web),
+      "{:?}",
+      tokens[0].r#type
+    );
+
+    // can't create another token with this token
+    t.http()
+      .post("/api/user/tokens")
+      .token(Some(&secret))
+      .body_json(json!({
+        "description": "test token",
+        "expires_at": null,
+        "permissions": null
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "credentialNotInteractive")
+      .await;
+
+    t.http()
+      .delete(&format!("/api/user/tokens/{}", token.id))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok_no_content()
+      .await;
+
+    let tokens: Vec<ApiToken> = t
+      .http()
+      .get("/api/user/tokens")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+
+    assert_eq!(tokens.len(), 1);
+    assert!(
+      matches!(tokens[0].r#type, ApiTokenType::Web),
+      "{:?}",
+      tokens[0].r#type
+    );
+
+    // can't delete the token again
+    t.http()
+      .delete(&format!("/api/user/tokens/{}", token.id))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::NOT_FOUND, "tokenNotFound")
+      .await;
+
+    // can't use the token anymore
+    t.http()
+      .get("/api/user")
+      .token(Some(&secret))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::UNAUTHORIZED, "invalidBearerToken")
+      .await;
+  }
 }

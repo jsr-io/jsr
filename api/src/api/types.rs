@@ -14,7 +14,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum ApiPublishingTaskStatus {
   Pending,
   Processing,
@@ -613,7 +613,7 @@ impl From<PackageVersion> for ApiPackageVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum ApiSourceDirEntryKind {
   Dir,
   File,
@@ -628,7 +628,7 @@ pub struct ApiSourceDirEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ApiSource {
   Dir { entries: Vec<ApiSourceDirEntry> },
   File { size: usize, view: Option<String> },
@@ -783,7 +783,7 @@ impl From<Authorization> for ApiAuthorization {
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum ApiDependencyKind {
   Jsr,
   Npm,
@@ -842,4 +842,65 @@ impl From<Dependent> for ApiDependent {
 pub struct ApiList<T> {
   pub items: Vec<T>,
   pub total: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApiTokenType {
+  Web,
+  Device,
+  Personal,
+}
+
+impl From<TokenType> for ApiTokenType {
+  fn from(value: TokenType) -> Self {
+    match value {
+      TokenType::Web => ApiTokenType::Web,
+      TokenType::Device => ApiTokenType::Device,
+      TokenType::Personal => ApiTokenType::Personal,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiToken {
+  pub id: Uuid,
+  pub description: Option<String>,
+  pub user_id: Uuid,
+  pub r#type: ApiTokenType,
+  pub expires_at: Option<DateTime<Utc>>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+  pub permissions: Option<Permissions>,
+}
+
+impl From<Token> for ApiToken {
+  fn from(value: Token) -> Self {
+    Self {
+      id: value.id,
+      description: value.description,
+      user_id: value.user_id,
+      r#type: value.r#type.into(),
+      expires_at: value.expires_at,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+      permissions: value.permissions,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiCreateTokenRequest {
+  pub description: String,
+  pub expires_at: Option<DateTime<Utc>>,
+  pub permissions: Option<Permissions>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiCreatedToken {
+  pub secret: String,
+  pub token: ApiToken,
 }

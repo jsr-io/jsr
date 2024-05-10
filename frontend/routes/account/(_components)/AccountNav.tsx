@@ -2,7 +2,7 @@
 import { Nav, NavItem } from "../../../components/Nav.tsx";
 import { FullUser } from "../../../utils/api_types.ts";
 
-export type AccountNavTab = "Profile" | "Invites" | "Settings";
+export type AccountNavTab = "Profile" | "Invites" | "Tokens" | "Settings";
 
 export interface AccountNavProps {
   user: FullUser;
@@ -34,6 +34,12 @@ export function AccountNav(props: AccountNavProps) {
             {props.user.inviteCount}
           </span>
         </span>
+      </NavItem>
+      <NavItem
+        href={`/account/tokens`}
+        active={props.active === "Tokens"}
+      >
+        Tokens
       </NavItem>
       <NavItem
         href={`/account/settings`}

@@ -310,6 +310,8 @@ pub enum TokenType {
   Web,
   /// Token obtained through device flow.
   Device,
+  /// Personal access token obtained through the web UI.
+  Personal,
 }
 
 impl TokenType {
@@ -317,6 +319,7 @@ impl TokenType {
     match self {
       Self::Web => "jsrw",
       Self::Device => "jsrd",
+      Self::Personal => "jsrp",
     }
   }
 }
@@ -406,13 +409,27 @@ pub struct Permissions(pub Vec<Permission>);
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "permission")]
 pub enum Permission {
-  #[serde(rename = "package/publish", rename_all = "camelCase")]
-  VersionPublish {
+  #[serde(rename = "package/publish")]
+  PackagePublish(PackagePublishPermission),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum PackagePublishPermission {
+  #[serde(rename_all = "camelCase")]
+  Version {
     scope: ScopeName,
     package: PackageName,
     version: Version,
     tarball_hash: String,
   },
+  #[serde(rename_all = "camelCase")]
+  Package {
+    scope: ScopeName,
+    package: PackageName,
+  },
+  #[serde(rename_all = "camelCase")]
+  Scope { scope: ScopeName },
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {
