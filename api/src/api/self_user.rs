@@ -12,6 +12,8 @@ use tracing::Span;
 use std::borrow::Cow;
 
 use crate::db::Database;
+use crate::db::PackagePublishPermission;
+use crate::db::Permission;
 use crate::db::TokenType;
 use crate::db::UserPublic;
 use crate::emails::EmailArgs;
@@ -234,7 +236,44 @@ async fn create_token(
     let email_sender = req.data::<Option<EmailSender>>().unwrap();
     let registry_url = req.data::<RegistryUrl>().unwrap();
     if let Some(email_sender) = email_sender {
+      let permissions = if let Some(permissions) = &token.permissions {
+        match &permissions.0[0] {
+          Permission::PackagePublish(PackagePublishPermission::Scope {
+            scope,
+          }) => Cow::Owned(format!(
+            "Publish new versions to any package in the @{} scope",
+            scope
+          )),
+          Permission::PackagePublish(PackagePublishPermission::Package {
+            scope,
+            package,
+          }) => Cow::Owned(format!(
+            "Publish new versions of the @{}/{} package",
+            scope, package
+          )),
+          Permission::PackagePublish(PackagePublishPermission::Version {
+            scope,
+            package,
+            version,
+            ..
+          }) => Cow::Owned(format!(
+            "Publish the {} version of the @{}/{} package",
+            version, scope, package
+          )),
+        }
+      } else {
+        Cow::Borrowed("Full account access")
+      };
+
+      let expiry = token
+        .expires_at
+        .map(|e| Cow::Owned(e.to_string()))
+        .unwrap_or_else(|| Cow::Borrowed("never"));
+
       let email_args = EmailArgs::PersonalAccessToken {
+        token_description: Cow::Borrowed(&token.description.as_ref().unwrap()),
+        token_permissions: permissions,
+        token_expiry: expiry,
         name: Cow::Borrowed(&user.name),
         registry_url: Cow::Borrowed(registry_url.0.as_str()),
         registry_name: Cow::Borrowed(&email_sender.from_name),

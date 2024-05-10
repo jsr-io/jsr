@@ -5,6 +5,14 @@
 <p style="margin-top: 15px; font-size: 16px; line-height: 24px; color: #52525b">
   We're notifying you that a new personal access token was just created for your {{ registry_name }} account.
 </p>
+<dl style="margin-top: 15px; margin-bottom: 15px; line-height: 24px">
+  <dt style="font-weight: 700; font-size: 16px; color: #52525b">Description:</dt>
+  <dd style="font-size: 16px; color: #52525b">{{ token_description }}</dd>
+  <dt style="font-weight: 700; font-size: 16px; color: #52525b">Permissions:</dt>
+  <dd style="font-size: 16px; color: #52525b">{{ token_permissions }}</dd>
+  <dt style="font-weight: 700; font-size: 16px; color: #52525b">Expires at:</dt>
+  <dd style="font-size: 16px; color: #52525b">{{ token_expiry }}</dd>
+</dl>
 <p style="margin-bottom: 15px; font-size: 16px; line-height: 24px; color: #52525b">
   You can now use this token to authenticate with JSR. Never share this token with anyone,
   including JSR support. You can revoke the token at any time in your account settings.

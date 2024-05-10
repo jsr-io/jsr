@@ -29,6 +29,9 @@ pub enum EmailArgs<'a> {
     support_email: Cow<'a, str>,
   },
   PersonalAccessToken {
+    token_description: Cow<'a, str>,
+    token_permissions: Cow<'a, str>,
+    token_expiry: Cow<'a, str>,
     name: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
