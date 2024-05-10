@@ -29,7 +29,8 @@ export function CopyButton(props: CopyButtonProps) {
     <button
       onClick={copy}
       title={props.title}
-      class={copied.value ? "text-green-700" : "text-gray-700"}
+      class={(copied.value ? "text-green-700" : "text-gray-700") +
+        " hover:bg-jsr-gray-100/30 p-1.5 -mx-1.5 -my-1 rounded-full"}
     >
       {copied.value ? <Check /> : <Copy />}
     </button>

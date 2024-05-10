@@ -812,22 +812,21 @@ impl HrefResolver for DocResolver {
   }
 
   fn resolve_usage(&self, current_resolve: UrlResolveKind) -> Option<String> {
-    let file = current_resolve
+    let (is_main, path) = current_resolve
       .get_file()
-      .map(|short_path| &*short_path.path)
+      .map(|short_path| (short_path.is_main, &*short_path.path))
       .unwrap_or_default();
 
     Some(format!(
       "@{}/{}{}",
       self.scope,
       self.package,
-      if file == "." { "" } else { file }
+      if is_main { "" } else { path }
     ))
   }
 
   fn resolve_source(&self, location: &Location) -> Option<String> {
-    let url =
-      Url::parse(&location.filename).expect("filename was generated with Url");
+    let url = Url::parse(&location.filename).ok()?;
     Some(format!(
       "/@{}/{}/{}{}#L{}",
       self.scope,

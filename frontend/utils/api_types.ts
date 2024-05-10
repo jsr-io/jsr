@@ -193,13 +193,29 @@ export interface Authorization {
   expiresAt: string;
 }
 
-export type Permission = {
+export type PermissionPackagePublishScope = {
+  permission: "package/publish";
+  scope: string;
+};
+
+export type PermissionPackagePublishPackage = {
+  permission: "package/publish";
+  scope: string;
+  package: string;
+};
+
+export type PermissionPackagePublishVersion = {
   permission: "package/publish";
   scope: string;
   package: string;
   version: string;
   tarballHash: string;
 };
+
+export type Permission =
+  | PermissionPackagePublishScope
+  | PermissionPackagePublishPackage
+  | PermissionPackagePublishVersion;
 
 export interface Dependency {
   kind: "jsr" | "npm";
@@ -230,4 +246,19 @@ export interface Dependent {
   package: string;
   versions: string[];
   totalVersions: number;
+}
+
+export interface Token {
+  id: string;
+  description: string | null;
+  type: "web" | "device" | "personal";
+  expiresAt: string | null;
+  permissions: Permission[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface CreatedToken {
+  token: Token;
+  secret: string;
 }

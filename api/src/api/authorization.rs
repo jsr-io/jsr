@@ -255,6 +255,7 @@ mod tests {
   use crate::api::ApiAuthorizationExchangeResponse;
   use crate::api::ApiCreateAuthorizationResponse;
   use crate::api::ApiFullUser;
+  use crate::db::PackagePublishPermission;
   use crate::db::Permission;
   use crate::db::Permissions;
   use crate::util::test::ApiResultExt;
@@ -367,12 +368,14 @@ mod tests {
 
     let (verifier, challenge) = new_verifier_and_challenge();
 
-    let permissions = Permissions(vec![Permission::VersionPublish {
-      scope: t.scope.scope.clone(),
-      package: "test".try_into().unwrap(),
-      version: "1.0.0".try_into().unwrap(),
-      tarball_hash: "sha256-1234567890".into(),
-    }]);
+    let permissions = Permissions(vec![Permission::PackagePublish(
+      PackagePublishPermission::Version {
+        scope: t.scope.scope.clone(),
+        package: "test".try_into().unwrap(),
+        version: "1.0.0".try_into().unwrap(),
+        tarball_hash: "sha256-1234567890".into(),
+      },
+    )]);
 
     let mut resp =
       create_authorization(&mut t, &challenge, Some(permissions)).await;

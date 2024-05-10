@@ -52,6 +52,10 @@ errors!(
     status: NOT_FOUND,
     "The requested path was not found.",
   },
+  TokenNotFound {
+    status: NOT_FOUND,
+    "The requested token was not found.",
+  },
   InternalServerError {
     status: INTERNAL_SERVER_ERROR,
     "Internal Server Error",
