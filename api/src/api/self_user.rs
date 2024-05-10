@@ -271,7 +271,7 @@ async fn create_token(
         .unwrap_or_else(|| Cow::Borrowed("never"));
 
       let email_args = EmailArgs::PersonalAccessToken {
-        token_description: Cow::Borrowed(&token.description.as_ref().unwrap()),
+        token_description: Cow::Borrowed(token.description.as_ref().unwrap()),
         token_permissions: permissions,
         token_expiry: expiry,
         name: Cow::Borrowed(&user.name),
