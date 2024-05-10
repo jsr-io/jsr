@@ -331,19 +331,15 @@ TODO have a better way to target on a specific page */
   @apply bg-white border-1.5 border-jsr-cyan-900/30;
 }
 
-body .ddoc .usage pre.highlight {
-  @apply bg-white border-jsr-cyan-200;
-}
-
-body .ddoc .usage nav {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-900/10;
-}
-
-body .ddoc .usage nav details > summary {
+body .ddoc .usages pre.highlight {
   @apply border-jsr-cyan-200;
 }
 
-body .ddoc .usage nav details > div > div {
+body .ddoc .usages nav details > summary {
+  @apply border-none bg-jsr-cyan-100;
+}
+
+body .ddoc .usages nav details > div > div {
   @apply border-jsr-cyan-200;
 }
 
@@ -377,6 +373,12 @@ body .ddoc .markdown td {
 
 body .ddoc .markdown th {
   @apply py-1.5;
+}
+
+body .ddoc .toc {
+  .topSymbols, .documentNavigation {
+    @apply max-lg:hidden;
+  }
 }
 
 /* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */

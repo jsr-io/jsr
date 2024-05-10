@@ -25,14 +25,9 @@ export const handler: Handlers<unknown, State> = {
         return Response.json({
           schemaVersion: 1,
           label: "",
-          // namedLogo: "jsr", TODO: add icon to shields.io or simple-icons. temporary solution below.
-          logoSvg: await Deno.readTextFile(
-            new URL("../../static/logo.svg", import.meta.url),
-          ),
           message: packageResp.data.latestVersion,
           labelColor: "rgb(247,223,30)",
           color: "rgb(8,51,68)",
-          logoWidth: "25",
         });
       }
     } else {
@@ -42,12 +37,16 @@ export const handler: Handlers<unknown, State> = {
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
       shieldsUrl.search = url.search;
       shieldsUrl.searchParams.set("url", url.href);
+      shieldsUrl.searchParams.set("logo", "jsr");
+      shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
+      shieldsUrl.searchParams.set("logoSize", "auto");
 
       const res = await fetch(shieldsUrl);
 
       return new Response(res.body, {
         status: res.status,
         headers: {
+          "cache-control": "max-age=300, s-maxage=300",
           "content-type": res.headers.get("content-type")!,
         },
       });

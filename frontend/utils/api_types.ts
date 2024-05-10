@@ -143,7 +143,7 @@ export interface PackageVersionDocsContent {
   css: string;
   script: string;
   breadcrumbs: string | null;
-  sidepanel: string | null;
+  toc: string | null;
   main: string;
 }
 

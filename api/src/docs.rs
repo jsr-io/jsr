@@ -8,10 +8,10 @@ use deno_ast::ModuleSpecifier;
 use deno_doc::function::FunctionDef;
 use deno_doc::html::pages::SymbolPage;
 use deno_doc::html::qualify_drilldown_name;
-use deno_doc::html::sidepanels::SidepanelCtx;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
 use deno_doc::html::HrefResolver;
+use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
@@ -81,7 +81,7 @@ pub enum GeneratedDocsOutput {
 #[derive(Debug)]
 pub struct GeneratedDocs {
   pub breadcrumbs: Option<String>,
-  pub sidepanel: Option<String>,
+  pub toc: Option<String>,
   pub main: String,
 }
 
@@ -215,8 +215,9 @@ pub fn get_generate_ctx<'a, 'ctx>(
         let mut map = IndexMap::new();
         let scoped_name = format!("@{scope}/{package}");
 
+        let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
+
         if !runtime_compat.deno.is_some_and(|compat| !compat) {
-          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
           map.insert(
             UsageComposerEntry {
               name: "Deno".to_string(),
@@ -224,12 +225,11 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/deno.svg" alt="deno logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\ndeno add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\ndeno add {scoped_name}\n```{import}"),
           );
         }
 
         if !runtime_compat.node.is_some_and(|compat| !compat) {
-          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
           map.insert(
             UsageComposerEntry {
               name: "npm".to_string(),
@@ -237,7 +237,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\nnpx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
           );
           map.insert(
             UsageComposerEntry {
@@ -246,7 +246,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\nyarn dlx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
           );
           map.insert(
             UsageComposerEntry {
@@ -255,12 +255,11 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\npnpm dlx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
           );
         }
 
         if !runtime_compat.bun.is_some_and(|compat| !compat) {
-          let import = deno_doc::html::usage_to_md(ctx, doc_nodes, &url);
           map.insert(
             UsageComposerEntry {
               name: "Bun".to_string(),
@@ -268,7 +267,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
                 r#"<img src="/logos/bun.svg" alt="bun logo" draggable={false} />"#.into(),
               ),
             },
-            format!("```\nbunx jsr add {scoped_name}\n```\n{import}"),
+            format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
           );
         }
 
@@ -285,7 +284,6 @@ pub fn get_generate_ctx<'a, 'ctx>(
 
   generate_ctx.url_rewriter =
     Some(get_url_rewriter(url_rewriter_base, has_readme));
-  generate_ctx.sidebar_hide_all_symbols = true;
 
   generate_ctx
 }
@@ -324,11 +322,8 @@ pub fn generate_docs_html(
 
   match req {
     DocsRequest::AllSymbols => {
-      let render_ctx = deno_doc::html::RenderContext::new(
-        &ctx,
-        &[],
-        UrlResolveKind::AllSymbols,
-      );
+      let render_ctx =
+        RenderContext::new(&ctx, &[], UrlResolveKind::AllSymbols);
 
       let all_doc_nodes = ctx
         .doc_nodes
@@ -377,30 +372,25 @@ pub fn generate_docs_html(
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        sidepanel: None,
+        toc: None,
         main,
       })))
     }
     DocsRequest::Index => {
-      let main_entrypoint = ctx
-        .doc_nodes
-        .iter()
-        .find(|(short_path, _)| short_path.is_main);
-
-      let doc_nodes = main_entrypoint
-        .map(|(_, nodes)| nodes.as_slice())
+      let doc_nodes = ctx
+        .main_entrypoint
+        .as_ref()
+        .map(|entrypoint| ctx.doc_nodes.get(entrypoint).unwrap().as_slice())
         .unwrap_or_default();
 
-      let render_ctx = deno_doc::html::RenderContext::new(
-        &ctx,
-        doc_nodes,
-        UrlResolveKind::Root,
-      );
+      let render_ctx =
+        RenderContext::new(&ctx, doc_nodes, UrlResolveKind::Root);
 
-      let mut index_module_doc = main_entrypoint
+      let mut index_module_doc = ctx
+        .main_entrypoint
         .as_ref()
-        .map(|(short_path, _)| {
-          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path)
+        .map(|entrypoint| {
+          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, entrypoint)
         })
         .unwrap_or_default();
 
@@ -414,43 +404,31 @@ pub fn generate_docs_html(
               deno_doc::html::jsdoc::MarkdownToHTMLOptions {
                 summary: false,
                 summary_prefer_title: false,
-                render_toc: true,
               },
             )
           })
-          .unwrap_or(deno_doc::html::jsdoc::Markdown {
-            html: r#"<div style="font-style: italic;">No docs found.</div>"#
+          .unwrap_or(
+            r#"<div style="font-style: italic;">No docs found.</div>"#
               .to_string(),
-            toc: None,
-          });
-        index_module_doc.sections.docs = Some(markdown.html);
-        index_module_doc.toc = markdown.toc;
+          );
+        index_module_doc.sections.docs = Some(markdown);
       }
-
-      let partitions_for_main_entrypoint =
-        if let Some((_, doc_nodes)) = main_entrypoint {
-          deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes)
-        } else {
-          Default::default()
-        };
-      let index_sidepanel = deno_doc::html::sidepanels::IndexSidepanelCtx::new(
-        &ctx,
-        None,
-        partitions_for_main_entrypoint,
-      );
-      let sidepanel = ctx
-        .hbs
-        .render("index_sidepanel", &index_sidepanel)
-        .context("failed to render index sidepanel")?;
 
       let main = ctx
         .hbs
         .render("module_doc", &index_module_doc)
         .context("failed to render index module doc")?;
 
+      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, &[]);
+
+      let toc = ctx
+        .hbs
+        .render("toc", &toc_ctx)
+        .context("failed to render toc")?;
+
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
-        sidepanel: Some(sidepanel),
+        toc: Some(toc),
         main,
       })))
     }
@@ -461,14 +439,8 @@ pub fn generate_docs_html(
         .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
 
-      let partitions_for_nodes =
-        deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes);
-
-      let render_ctx = deno_doc::html::RenderContext::new(
-        &ctx,
-        doc_nodes,
-        UrlResolveKind::File(short_path),
-      );
+      let render_ctx =
+        RenderContext::new(&ctx, doc_nodes, UrlResolveKind::File(short_path));
 
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
@@ -478,24 +450,21 @@ pub fn generate_docs_html(
         .render("breadcrumbs", &render_ctx.get_breadcrumbs())
         .context("failed to render breadcrumbs")?;
 
-      let sidepanel = deno_doc::html::sidepanels::IndexSidepanelCtx::new(
-        &ctx,
-        Some(short_path.clone()),
-        partitions_for_nodes,
-      );
-      let sidepanel = ctx
-        .hbs
-        .render("index_sidepanel", &sidepanel)
-        .context("failed to render index sidepanel")?;
-
       let main = ctx
         .hbs
         .render("module_doc", &module_doc)
         .context("failed to render module doc")?;
 
+      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, &[]);
+
+      let toc = ctx
+        .hbs
+        .render("toc", &toc_ctx)
+        .context("failed to render toc")?;
+
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        sidepanel: Some(sidepanel),
+        toc: Some(toc),
         main,
       })))
     }
@@ -505,43 +474,37 @@ pub fn generate_docs_html(
         .iter()
         .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
-      let partitions_for_nodes =
-        deno_doc::html::partition::get_partitions_for_file(&ctx, doc_nodes);
 
-      let Some(symbol_page) = generate_symbol_page(
-        &ctx,
-        short_path,
-        &partitions_for_nodes,
-        doc_nodes,
-        &symbol,
-      ) else {
+      let Some(symbol_page) =
+        generate_symbol_page(&ctx, short_path, doc_nodes, &symbol)
+      else {
         return Ok(None);
       };
 
       match symbol_page {
         SymbolPage::Symbol {
           breadcrumbs_ctx,
-          sidepanel_ctx,
           symbol_group_ctx,
+          toc_ctx,
         } => {
           let breadcrumbs = ctx
             .hbs
             .render("breadcrumbs", &breadcrumbs_ctx)
             .context("failed to render breadcrumbs")?;
 
-          let sidepanel = ctx
-            .hbs
-            .render("sidepanel", &sidepanel_ctx)
-            .context("failed to render sidepanel")?;
-
           let main = ctx
             .hbs
             .render("symbol_group", &symbol_group_ctx)
             .context("failed to render symbol group")?;
 
+          let toc = ctx
+            .hbs
+            .render("toc", &toc_ctx)
+            .context("failed to render toc")?;
+
           Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
             breadcrumbs: Some(breadcrumbs),
-            sidepanel: Some(sidepanel),
+            toc: Some(toc),
             main,
           })))
         }
@@ -556,7 +519,6 @@ pub fn generate_docs_html(
 fn generate_symbol_page(
   ctx: &GenerateCtx,
   short_path: &ShortPath,
-  partitions_for_nodes: &deno_doc::html::partition::Partition,
   doc_nodes_for_module: &[DocNodeWithContext],
   name: &str,
 ) -> Option<SymbolPage> {
@@ -727,23 +689,24 @@ fn generate_symbol_page(
     return None;
   }
 
-  let sidepanel_ctx =
-    SidepanelCtx::new(ctx, partitions_for_nodes, short_path, name);
+  let render_ctx = RenderContext::new(
+    ctx,
+    doc_nodes_for_module,
+    UrlResolveKind::File(short_path),
+  );
 
-  let (breadcrumbs_ctx, symbol_group_ctx) =
+  let (breadcrumbs_ctx, symbol_group_ctx, toc_ctx) =
     deno_doc::html::pages::render_symbol_page(
-      ctx,
-      doc_nodes_for_module,
+      &render_ctx,
       short_path,
-      &namespace_paths,
       name,
       &doc_nodes,
     );
 
   Some(SymbolPage::Symbol {
     breadcrumbs_ctx,
-    sidepanel_ctx,
     symbol_group_ctx,
+    toc_ctx,
   })
 }
 
@@ -849,8 +812,6 @@ impl HrefResolver for DocResolver {
   }
 
   fn resolve_usage(&self, current_resolve: UrlResolveKind) -> Option<String> {
-    dbg!();
-
     let file = current_resolve
       .get_file()
       .map(|short_path| &*short_path.path)

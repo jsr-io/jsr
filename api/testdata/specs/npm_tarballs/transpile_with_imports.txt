@@ -23,15 +23,6 @@ export declare function add(a: number, b: number): number;
 == /_dist/bar.d.ts.map ==
 {"version":3,"file":"bar.d.ts","sources":["../bar.ts"],"names":[],"mappings":"AAAA,OAAO,iBAAS,IAAI,GAAG,MAAM,EAAE,GAAG,MAAM,GAAG,MAAM"}
 
-== /_dist/bar.js ==
-export function add(a, b) {
-  return a + b;
-}
-//# sourceMappingURL=bar.js.map
-
-== /_dist/bar.js.map ==
-{"version":3,"file":"bar.js","sources":["../bar.ts"],"names":[],"mappings":"AAAA,OAAO,SAAS,IAAI,CAAS,EAAE,CAAS;EACtC,OAAO,IAAI;AACb"}
-
 == /_dist/foo.d.ts ==
 export { add } from "./bar.js";
 //# sourceMappingURL=foo.d.ts.map
@@ -39,20 +30,29 @@ export { add } from "./bar.js";
 == /_dist/foo.d.ts.map ==
 {"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,SAAS,GAAG,mBAAmB"}
 
-== /_dist/foo.js ==
-export { add } from "./bar.js";
-//# sourceMappingURL=foo.js.map
+== /bar.js ==
+export function add(a, b) {
+  return a + b;
+}
+//# sourceMappingURL=bar.js.map
 
-== /_dist/foo.js.map ==
-{"version":3,"file":"foo.js","sources":["../foo.ts"],"names":[],"mappings":"AAAA,SAAS,GAAG,mBAAmB"}
+== /bar.js.map ==
+{"version":3,"file":"bar.js","sources":["./bar.ts"],"names":[],"mappings":"AAAA,OAAO,SAAS,IAAI,CAAS,EAAE,CAAS;EACtC,OAAO,IAAI;AACb"}
 
 == /bar.ts ==
 export function add(a: number, b: number): number {
   return a + b;
 }
 
+== /foo.js ==
+export { add } from "./bar.js";
+//# sourceMappingURL=foo.js.map
+
+== /foo.js.map ==
+{"version":3,"file":"foo.js","sources":["./foo.ts"],"names":[],"mappings":"AAAA,SAAS,GAAG,mBAAmB"}
+
 == /foo.ts ==
-export { add } from "./_dist/bar.js";
+export { add } from "./bar.js";
 
 == /jsr.json ==
 {
@@ -73,7 +73,7 @@ export { add } from "./_dist/bar.js";
   "exports": {
     ".": {
       "types": "./_dist/foo.d.ts",
-      "default": "./_dist/foo.js"
+      "default": "./foo.js"
     }
   },
   "_jsr_revision": 0
