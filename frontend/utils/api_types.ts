@@ -193,20 +193,29 @@ export interface Authorization {
   expiresAt: string;
 }
 
-export type Permission = {
+export type PermissionPackagePublishScope = {
   permission: "package/publish";
   scope: string;
-} | {
+};
+
+export type PermissionPackagePublishPackage = {
   permission: "package/publish";
   scope: string;
   package: string;
-} | {
+};
+
+export type PermissionPackagePublishVersion = {
   permission: "package/publish";
   scope: string;
   package: string;
   version: string;
   tarballHash: string;
 };
+
+export type Permission =
+  | PermissionPackagePublishScope
+  | PermissionPackagePublishPackage
+  | PermissionPackagePublishVersion;
 
 export interface Dependency {
   kind: "jsr" | "npm";
