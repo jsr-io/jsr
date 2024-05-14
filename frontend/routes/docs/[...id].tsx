@@ -94,7 +94,7 @@ export const handler: Handlers<Data, State> = {
     if (!files.has(id)) return ctx.renderNotFound();
 
     const title = files.get(id)!;
-    const path = new URL(`../../docs/${id}.md`, import.meta.url).pathname;
+    const path = new URL(`../../docs/${id}.md`, import.meta.url);
     const markdown = await Deno.readTextFile(path);
 
     const { body, attrs } = extract(markdown);
