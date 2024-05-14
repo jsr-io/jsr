@@ -77,6 +77,7 @@ export default function New(props: PageProps<Data, State>) {
                     initialScope={props.data.initialScope}
                     scopeUsage={props.state.user.scopeUsage}
                     scopeLimit={props.state.user.scopeLimit}
+                    locked={props.data.fromCli}
                   />
                 )
                 : (
@@ -104,8 +105,12 @@ export default function New(props: PageProps<Data, State>) {
                 The name of your package must be unique within the scope you
                 selected.
               </p>
-              <PackageName scope={scope} name={name} pkg={pkg} />
-
+              <PackageName
+                scope={scope}
+                name={name}
+                pkg={pkg}
+                locked={props.data.fromCli}
+              />
               <CreatePackage
                 scope={scope}
                 name={name}
