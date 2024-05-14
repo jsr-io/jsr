@@ -35,12 +35,11 @@ export const handler: Handlers<unknown, State> = {
         });
       }
     } else {
-      const url = ctx.url;
-      url.protocol = "https:";
+      ctx.url.protocol = "https:";
 
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
-      shieldsUrl.search = url.search;
-      shieldsUrl.searchParams.set("url", url.href);
+      shieldsUrl.search = ctx.url.search;
+      shieldsUrl.searchParams.set("url", ctx.url.href);
       shieldsUrl.searchParams.set("logo", "jsr");
       shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
       shieldsUrl.searchParams.set("logoSize", "auto");
