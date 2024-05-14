@@ -154,8 +154,14 @@
   .input-container {
     @apply bg-white rounded-md leading-snug
       border-1.5 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500
-      has-[input:disabled,select:disabled]:border-gray-300 has-[input:disabled,select:disabled]:text-jsr-gray-300 has-[input:disabled,select:disabled]:cursor-not-allowed
-      has-[input:disabled,select:disabled]:bg-gray-100;
+  }
+
+  select:not([data-locked="true"]):disabled.input-container, input:not([data-locked="true"]):disabled.input-container, .input-container input:not([data-locked="true"]):disabled, .input-container select:not([data-locked="true"]):disabled {
+    @apply border-gray-300 text-jsr-gray-300 cursor-not-allowed bg-jsr-gray-100;
+  }
+
+  select[data-locked="true"].input-container, input[data-locked="true"].input-container, .input-container input[data-locked="true"], .input-container select[data-locked="true"] {
+    @apply text-jsr-gray-500 cursor-not-allowed bg-gray-50;
   }
 
   .input {
@@ -167,7 +173,7 @@
   }
 
   .select {
-    @apply appearance-none outline-none;
+    @apply appearance-none outline-none opacity-100;
     background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>')
       no-repeat;
     background-position: center right 0.5rem;
