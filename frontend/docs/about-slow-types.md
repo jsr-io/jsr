@@ -20,8 +20,6 @@ a regular basis
 ([read more in this issue](https://github.com/jsr-io/jsr/issues/444#issuecomment-2079772908)).
 Because of this, these kinds of types are not supported in the public API.
 
-<!-- https://github.com/dprint/dprint-plugin-markdown/issues/98 -->
-<!--deno-fmt-ignore-start-->
 > :warning: If JSR discovers "slow types" in a package, certain features will
 > either not work or degrade in quality. These are:
 >
@@ -29,12 +27,11 @@ Because of this, these kinds of types are not supported in the public API.
 >   at least on the order of 1.5-2x for most packages. It may be significantly
 >   higher.
 > - The package will not be able to generate type declarations for the npm
->   compatibility layer, or "slow types" will be omitted or replaced with `any` in
->   the generated type declarations.
+>   compatibility layer, or "slow types" will be omitted or replaced with `any`
+>   in the generated type declarations.
 > - The package will not be able to generate documentation for the package, or
 >   "slow types" will be omitted or missing details in the generated
 >   documentation.
-<!--deno-fmt-ignore-end-->
 
 ## What are slow types?
 
@@ -343,3 +340,33 @@ are:
     ```ts
     const x = (a: number, b: number): number => a + b;
     ```
+
+## Ignoring slow types
+
+Due to their nature of affecting _if_ JSR can understand the code, you can not
+selectively ignore individual diagnostics for slow types. Slow type diagnostics
+can only be ignored for the entire package. Doing this results in incomplete
+documentation and type declarations for the package, and slower type checking
+for consumers of the package.
+
+To ignore slow types for a package, add the `--allow-slow-types` flag to
+`jsr publish` or `deno publish`.
+
+When using Deno, one can supress slow type diagnostics from being surfaced in
+`deno lint` by adding an exclude for the `no-slow-types` rule. This can be done
+by specifying `--rules-exclude=no-slow-types` when running `deno lint`, or by
+adding the following to your `deno.json` configuration file:
+
+```json
+{
+  "lint": {
+    "rules": {
+      "exclude": ["no-slow-types"]
+    }
+  }
+}
+```
+
+Note that because slow types can not be individually ignored, one can not use an
+ignore comment like `// deno-lint-ignore no-slow-types` to ignore slow type
+diagnostics.
