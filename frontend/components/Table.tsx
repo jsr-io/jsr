@@ -73,9 +73,9 @@ function Pagination(
   const hasPrevious = pagination.page > 1;
   const hasNext = pagination.limit * pagination.page < pagination.total;
 
-  const prevURL = new URL(currentUrl);
+  const prevURL = currentUrl;
   prevURL.searchParams.set("page", (pagination.page - 1).toString());
-  const nextURL = new URL(currentUrl);
+  const nextURL = currentUrl;
   nextURL.searchParams.set("page", (pagination.page + 1).toString());
 
   return (

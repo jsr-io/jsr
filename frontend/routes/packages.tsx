@@ -56,11 +56,10 @@ const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
 const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const reqUrl = new URL(req.url);
-    const search = reqUrl.searchParams.get("search") || "";
-    const page = +(reqUrl.searchParams.get("page") || 1);
-    const limit = +(reqUrl.searchParams.get("limit") || 20);
+  async GET(_req, ctx) {
+    const search = ctx.url.searchParams.get("search") || "";
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     let packages;
     let total;

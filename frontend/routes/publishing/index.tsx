@@ -85,11 +85,9 @@ function PackageListItem(props: {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
-
-    const authorizedVersions = url.searchParams.getAll("v");
-    const date = url.searchParams.get("date");
+  async GET(_req, ctx) {
+    const authorizedVersions = ctx.url.searchParams.getAll("v");
+    const date = ctx.url.searchParams.get("date");
     if (authorizedVersions.length === 0 || !date) {
       return new Response(null, {
         status: 302,
