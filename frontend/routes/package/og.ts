@@ -32,6 +32,8 @@ const LATEST_BADGE_COLOR = Image.rgbToColor(247, 222, 30);
 
 const JSR_LOGO_HEIGHT = 100;
 
+const DESCRIPTION_MAX_BREAK_POINT = 60;
+
 export const handler: Handlers<undefined, State> = {
   async GET(_req, ctx) {
     if (!dmmonoFont) {
@@ -195,14 +197,27 @@ export const handler: Handlers<undefined, State> = {
       );
       descriptionY = packageNamePosition.y + 10;
     }
-    const descriptionBreakPoint = isVersionAndLatestBadgeNextLine ? 45 : 60;
+    const descriptionBreakPoint = isVersionAndLatestBadgeNextLine
+      ? 45
+      : DESCRIPTION_MAX_BREAK_POINT;
+
+    const descriptionString: string = (() => {
+      if (pkg.description.length <= descriptionBreakPoint) {
+        // Don't cut
+        return pkg.description;
+      }
+      const secondLine = pkg.description.slice(descriptionBreakPoint);
+
+      return pkg.description.slice(0, descriptionBreakPoint) + "\n" +
+        (secondLine.length >= DESCRIPTION_MAX_BREAK_POINT
+          ? secondLine.slice(0, DESCRIPTION_MAX_BREAK_POINT - 3) + "..."
+          : secondLine);
+    })() || "No description";
 
     const descriptionText = Image.renderText(
       dmmonoFont,
       30,
-      (pkg.description.length > descriptionBreakPoint
-        ? pkg.description.slice(0, descriptionBreakPoint) + "..."
-        : pkg.description) || "No description",
+      descriptionString,
       COLOR_GRAY,
     );
     ogpImage.composite(
@@ -298,7 +313,10 @@ export const handler: Handlers<undefined, State> = {
           );
         runtimeKeyImages.push(supportedIcon);
         runtimeCompatsImageWidth += supportedIcon.width;
-        runtimeCompatsImageHeight = Math.max(runtimeCompatsImageHeight, supportedIcon.height);
+        runtimeCompatsImageHeight = Math.max(
+          runtimeCompatsImageHeight,
+          supportedIcon.height,
+        );
       }
 
       const result = new Image(
@@ -317,9 +335,14 @@ export const handler: Handlers<undefined, State> = {
     })();
 
     const packageInfomationDefaultY = ((
-      (HEIGHT - JSR_LOGO_HEIGHT - PADDING) // JSR Logo y position
-      - (descriptionY + descriptionText.height) // Description underline y position
-    ) - Math.max(publishedImage.height, jsrScore.height, runtimeCompats.height)) / 2 + descriptionY + descriptionText.height;
+          (HEIGHT - JSR_LOGO_HEIGHT - PADDING) - // JSR Logo y position
+          (descriptionY + descriptionText.height) // Description underline y position
+        ) -
+          Math.max(
+            publishedImage.height,
+            jsrScore.height,
+            runtimeCompats.height,
+          )) / 2 + descriptionY + descriptionText.height;
 
     const packageInfomationPadding =
       (WIDTH - PADDING * 2 - publishedImage.width - jsrScore.width -
