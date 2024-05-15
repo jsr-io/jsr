@@ -88,7 +88,7 @@ export function DocsView(
           )}
         </div>
         {docs.toc && (
-          <div class="max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen box-border space-y-4 -mt-4 pt-4">
+          <div class="max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4">
             {!docs.breadcrumbs && (
               <LocalSymbolSearch
                 scope={params.scope}
@@ -98,7 +98,7 @@ export function DocsView(
             )}
 
             <div
-              class="ddoc w-full lg:*:max-h-[calc(100vh-55px)] b-0"
+              class="ddoc w-full overflow-scroll pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
             />
           </div>
