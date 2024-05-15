@@ -1,3 +1,5 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
 import { Handlers, RouteConfig } from "$fresh/server.ts";
 import { Image } from "$imagescript";
 
