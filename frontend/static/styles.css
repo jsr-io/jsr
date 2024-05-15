@@ -127,7 +127,6 @@
     @apply active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
   }
 
-
   .chip {
     @apply inline-block py-1 px-2.5 rounded-full whitespace-nowrap
       leading-none font-semibold text-sm;
@@ -153,14 +152,20 @@
 
   .input-container {
     @apply bg-white rounded-md leading-snug
-      border-1.5 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500
+      border-1.5 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500;
   }
 
-  select:not([data-locked="true"]):disabled.input-container, input:not([data-locked="true"]):disabled.input-container, .input-container input:not([data-locked="true"]):disabled, .input-container select:not([data-locked="true"]):disabled {
+  select:not([data-locked="true"]):disabled.input-container,
+  input:not([data-locked="true"]):disabled.input-container,
+  .input-container input:not([data-locked="true"]):disabled,
+  .input-container select:not([data-locked="true"]):disabled {
     @apply border-gray-300 text-jsr-gray-300 cursor-not-allowed bg-jsr-gray-100;
   }
 
-  select[data-locked="true"].input-container, input[data-locked="true"].input-container, .input-container input[data-locked="true"], .input-container select[data-locked="true"] {
+  select[data-locked="true"].input-container,
+  input[data-locked="true"].input-container,
+  .input-container input[data-locked="true"],
+  .input-container select[data-locked="true"] {
     @apply text-jsr-gray-500 cursor-not-allowed bg-gray-50;
   }
 
@@ -300,6 +305,10 @@ body .ddoc .contextLink {
   color: theme("colors.jsr-cyan.700");
 }
 
+body .ddoc .breadcrumbs {
+  @apply flex-wrap;
+}
+
 body .ddoc .breadcrumbs li:first-child .contextLink {
   @apply text-2xl;
 }
@@ -391,7 +400,8 @@ body .ddoc .markdown th {
 }
 
 body .ddoc .toc {
-  .topSymbols, .documentNavigation {
+  .topSymbols,
+  .documentNavigation {
     @apply max-lg:hidden;
   }
 }
