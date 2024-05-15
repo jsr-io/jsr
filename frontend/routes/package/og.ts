@@ -208,7 +208,7 @@ export const handler: Handlers<undefined, State> = {
         // Don't cut
         return pkg.description;
       }
-      const secondLine = pkg.description.slice(descriptionBreakPoint);
+      const secondLine = pkg.description.slice(descriptionBreakPoint).replace(/^ /, '');
 
       return pkg.description.slice(0, descriptionBreakPoint) + "\n" +
         (secondLine.length >= DESCRIPTION_MAX_BREAK_POINT
