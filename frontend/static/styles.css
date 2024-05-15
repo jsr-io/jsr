@@ -406,6 +406,10 @@ body .ddoc .toc {
   }
 }
 
+body .ddoc:has(.toc) {
+  scrollbar-width: thin;
+}
+
 /* These might seem redundant but Tailwind won't always load them in the compiled stylesheet unless they're explicitly included here. */
 .score-ring-red {
   @apply bg-red-500;
