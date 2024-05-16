@@ -357,3 +357,9 @@ impl From<std::io::Error> for ApiError {
     anyhow::Error::from(error).into()
   }
 }
+
+impl From<std::string::FromUtf8Error> for ApiError {
+  fn from(error: std::string::FromUtf8Error) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
