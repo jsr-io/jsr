@@ -27,10 +27,10 @@ export function BreadcrumbsSticky(
       }
     };
 
-    window.addEventListener("scroll", scrollCb);
+    document.addEventListener("scroll", scrollCb);
     scrollCb();
 
-    return () => window.removeEventListener("scroll", scrollCb);
+    return () => document.removeEventListener("scroll", scrollCb);
   }, []);
 
   return (
