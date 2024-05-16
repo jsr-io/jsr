@@ -20,8 +20,6 @@ export function BreadcrumbsSticky(
     const scrollCb = () => {
       const rect = ref.current.getBoundingClientRect();
 
-      console.log(rect, rect.top <= 0);
-
       if (rect.top <= 0) {
         sticky.value = true;
       } else {
