@@ -18,12 +18,14 @@ export function BreadcrumbsSticky(
 
   useEffect(() => {
     const scrollCb = () => {
-      const rect = ref.current.getBoundingClientRect();
+      if (ref.current) {
+        const rect = ref.current.getBoundingClientRect();
 
-      if (rect.top <= 0) {
-        sticky.value = true;
-      } else {
-        sticky.value = false;
+        if (rect.top <= 0) {
+          sticky.value = true;
+        } else {
+          sticky.value = false;
+        }
       }
     };
 
