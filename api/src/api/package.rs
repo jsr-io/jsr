@@ -903,11 +903,16 @@ pub async fn get_docs_handler(
   });
   Span::current()
     .record("entrypoint", &field::display(&entrypoint.unwrap_or("")));
-  let symbol = req.query("symbol").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
-  });
-  Span::current().record("symbol", &field::display(&symbol.unwrap_or("")));
+
+  let symbol = req
+    .query("symbol")
+    .and_then(|s| match s.as_str() {
+      "" => None,
+      s => Some(urlencoding::decode(s)),
+    })
+    .transpose()?;
+  Span::current()
+    .record("symbol", &field::display(&symbol.as_deref().unwrap_or("")));
 
   if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
     return Err(ApiError::MalformedRequest {
@@ -2530,6 +2535,38 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
 
+    // symbol page
+    let mut resp = t
+      .http()
+      .get(format!(
+        "/api/scopes/scope/packages/foo/versions/1.2.3/docs?symbol={}",
+        urlencoding::encode("读取多键1")
+      ))
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script: _,
+        breadcrumbs,
+        toc,
+        main: _,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(
+          breadcrumbs.as_ref().unwrap().contains("读取多键1"),
+          "{:?}",
+          breadcrumbs
+        );
+        assert!(toc.is_some(), "{:?}", toc);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
     // search
     let mut resp = t
       .http()
@@ -2540,7 +2577,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":99},"declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"declarationKind":"export","deprecated":false}]}),
     );
 
     // symbol doesn't exist
