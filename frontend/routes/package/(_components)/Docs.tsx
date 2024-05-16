@@ -4,6 +4,7 @@ import type { PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
 import { Params } from "./PackageNav.tsx";
+import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 
 interface DocsProps {
   docs: Docs;
@@ -22,21 +23,14 @@ export function DocsView(
         <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
       </Head>
 
-      {docs.breadcrumbs &&
-        (
-          <div class="flex md:items-center justify-between gap-4 max-md:flex-col-reverse">
-            <div
-              class="ddoc"
-              dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}
-            />
-
-            <LocalSymbolSearch
-              scope={params.scope}
-              pkg={params.package}
-              version={selectedVersion.version}
-            />
-          </div>
-        )}
+      {docs.breadcrumbs && (
+        <BreadcrumbsSticky
+          content={docs.breadcrumbs}
+          scope={params.scope}
+          package={params.package}
+          version={selectedVersion.version}
+        />
+      )}
 
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
         <div
@@ -88,7 +82,11 @@ export function DocsView(
           )}
         </div>
         {docs.toc && (
-          <div class="max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4">
+          <div
+            class={`max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
+              docs.breadcrumbs ? "lg:-mt-20 lg:pt-20" : ""
+            }`}
+          >
             {!docs.breadcrumbs && (
               <LocalSymbolSearch
                 scope={params.scope}
@@ -98,7 +96,7 @@ export function DocsView(
             )}
 
             <div
-              class="ddoc w-full overflow-scroll pb-4"
+              class="ddoc w-full lg:overflow-y-scroll pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
             />
           </div>

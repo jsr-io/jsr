@@ -140,6 +140,20 @@
   .section-x-inset-xl {
     @apply max-w-screen-xl mx-auto px-4 md:px-8 lg:px-10 xl:px-14;
   }
+  
+  .-section-x-inset-xl {
+    margin: 0 calc(((100vw - (min(1280px, 100vw) - 32px)) / 2) * -1);
+    
+    @media screen(md) {
+      margin: 0 calc(((100vw - (min(1280px, 100vw) - 64px)) / 2) * -1);
+    }
+    @media screen(lg) {
+      margin: 0 calc(((100vw - (min(1280px, 100vw) - 80px)) / 2) * -1);
+    }
+    @media screen(xl) {
+      margin: 0 calc(((100vw - (min(1280px, 100vw) - 112px)) / 2) * -1);
+    }
+  }
 
   .link {
     @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline decoration-jsr-cyan-700/50 underline-offset-2
@@ -309,7 +323,7 @@ body .ddoc .breadcrumbs {
   @apply flex-wrap;
 }
 
-body .ddoc .breadcrumbs li:first-child .contextLink {
+body .ddoc .breadcrumbs > li:first-child .contextLink {
   @apply text-2xl;
 }
 
