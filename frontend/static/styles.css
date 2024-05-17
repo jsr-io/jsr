@@ -199,95 +199,103 @@
   }
 }
 
-body .ddoc #sidepanel a:hover,
-body .ddoc #sidepanel a:active {
-  @apply bg-cyan-200;
-}
-
-body .ddoc #sidepanel {
-  @apply pb-4;
-  height: unset !important;
-}
-
 /* !important seems necessary for taking precedent over current ddoc styling */
-
-body .ddoc .markdown h1 {
-  @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
+body .ddoc {
+  #sidepanel {
+    @apply pb-4;
+    height: unset !important;
+    
+    a:hover, a:active {
+      @apply bg-cyan-200;
+    }
+  }
+  
+  .markdown {
+    h1 {
+      @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
+    }
+    
+    h2 {
+      @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
+    }
+    
+    h3 {
+      @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
+    }
+    
+    h4 {
+      @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
+    }
+    
+    :not(pre) > code {
+      @apply bg-jsr-cyan-100/50;
+    }
+    
+    a:not(.no_color) {
+      @apply link;
+    }
+    
+    .highlight .context_button {
+      @apply border-none hover:bg-jsr-cyan-50;
+    }
+  }
+  
+  .markdown_summary {
+    a:not(.no_color) {
+      @apply link;
+    }
+    
+    :not(pre) > code {
+      @apply bg-jsr-cyan-100/50 !important;
+    }
+  }
+  
+  .symbolGroup article a.context_button {
+    @apply border-none hover:bg-jsr-cyan-50;
+  }
+  
+  .docEntryHeader a {
+    @apply link;
+  }
+  
+  .contextLink {
+    /* cyan 700 at 25%; */
+    text-decoration-color: #0e659040;
+    color: theme("colors.jsr-cyan.700");
+  }
+  
+  .usages {
+    nav details {
+      > summary {
+        @apply border-none bg-jsr-cyan-100;
+      }
+      
+      > div > div {
+        @apply border-jsr-cyan-200;
+      }
+    }
+    
+    pre.highlight {
+      @apply border-jsr-cyan-200;
+    }
+  }
+  
+  #module_doc, main {
+    @apply pb-8;
+  }
+  
+  .toc {
+    .topSymbols,
+    .documentNavigation {
+      @apply max-lg:hidden;
+    }
+  }
 }
 
-body .ddoc .markdown h2 {
-  @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
-}
-
-body .ddoc .markdown h3 {
-  @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
-}
-
-body .ddoc .markdown h4 {
-  @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
-}
-
-body .ddoc .symbolGroup article a.context_button {
-  @apply border-none hover:bg-jsr-cyan-50;
-}
-
-body .ddoc .docEntryHeader a {
-	@apply link;
-}
-
-body .ddoc .markdown :not(pre) > code {
-  @apply bg-jsr-cyan-100/50;
-}
-
-body .ddoc .markdown_summary a:not(.no_color) {
-  @apply link;
-}
-
-body .ddoc .markdown a:not(.no_color) {
-  @apply link;
-}
-
-body .ddoc .markdown .highlight .context_button {
-  @apply border-none hover:bg-jsr-cyan-50;
-}
-
-body .ddoc .contextLink {
-  /* cyan 700 at 25%; */
-  text-decoration-color: #0e659040;
-  color: theme("colors.jsr-cyan.700");
-}
-
-.ddoc .markdown_summary :not(pre) > code {
-  @apply bg-jsr-cyan-100/50 !important;
-}
-
-body .ddoc .usages pre.highlight {
-  @apply border-jsr-cyan-200;
-}
-
-body .ddoc .usages nav details > summary {
-  @apply border-none bg-jsr-cyan-100;
-}
-
-body .ddoc .usages nav details > div > div {
-  @apply border-jsr-cyan-200;
-}
-
-body .ddoc #module_doc,
-body .ddoc main {
-  @apply pb-8;
-}
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
 body:has(.ddoc) #footer {
   display: none;
-}
-
-body .ddoc .toc {
-  .topSymbols,
-  .documentNavigation {
-    @apply max-lg:hidden;
-  }
 }
 
 body .ddoc:has(.toc) {
