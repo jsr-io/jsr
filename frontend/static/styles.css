@@ -199,225 +199,91 @@
   }
 }
 
-body .ddoc #sidepanel a:hover,
-body .ddoc #sidepanel a:active {
-  background-color: theme("colors.cyan.200");
-}
-
-body .ddoc #sidepanel {
-  @apply pb-4;
-  height: unset !important;
-}
-
 /* !important seems necessary for taking precedent over current ddoc styling */
-
-body .ddoc .markdown h1 {
-  @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
-}
-
-body .ddoc .markdown h2 {
-  @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
-}
-
-body .ddoc .markdown h3 {
-  @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
-}
-
-body .ddoc .markdown h4 {
-  @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
-}
-
-body .ddoc a {
-  word-wrap: break-word;
-}
-
-body .ddoc .markdown pre {
-  @apply bg-slate-50 border-t-1.5 border-b-1.5 border-slate-300 -mx-6 rounded-none md:rounded-md md:border-1.5 md:mx-0;
-
-  & > code:first-child {
-    @apply px-6;
-
-    &.flex {
-      display: flex;
+body .ddoc {
+  .markdown {
+    h1 {
+      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
     }
+    
+    h2 {
+      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
+    }
+    
+    h3 {
+      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
+    }
+    
+    h4 {
+      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
+    }
+    
+    :not(pre) > code {
+      @apply bg-jsr-cyan-100/50;
+    }
+    
+    a:not(.no_color) {
+      @apply link;
+    }
+    
+    .highlight .context_button {
+      @apply border-none hover:bg-jsr-cyan-50;
+    }
+  }
+  
+  .markdown_summary {
+    a:not(.no_color) {
+      @apply link;
+    }
+    
+    :not(pre) > code {
+      @apply bg-jsr-cyan-100/50 !important;
+    }
+  }
+  
+  .symbolGroup article a.context_button {
+    @apply border-none hover:bg-jsr-cyan-50;
+  }
+  
+  .docEntryHeader a {
+    @apply link;
+  }
+  
+  .contextLink {
+    /* cyan 700 at 25%; */
+    text-decoration-color: #0e659040;
+    color: theme("colors.jsr-cyan.700");
+  }
+  
+  .usages {
+    nav details {
+      > summary {
+        @apply border-none bg-jsr-cyan-100;
+      }
+      
+      > div > div {
+        @apply border-jsr-cyan-200;
+      }
+    }
+    
+    pre.highlight {
+      @apply border-jsr-cyan-200;
+    }
+  }
+  
+  #module_doc, main {
+    @apply pb-8;
+  }
+  
+  .toc .topSymbols {
+    @apply max-lg:hidden;
   }
 }
 
-body .ddoc article a.context_button {
-  @apply border-none hover:bg-jsr-cyan-50;
-}
-
-body .ddoc .docEntryHeader a {
-  @apply link font-medium;
-}
-
-body .ddoc .anchorable.docEntry {
-  @apply md:text-sm mb-4 !important;
-}
-
-body .ddoc .anchorable.docEntry > .docEntryHeader {
-  @apply md:text-base;
-}
-
-body .ddoc .anchorable.docEntry > .docEntryHeader > span {
-  @apply items-baseline;
-}
-
-/* should get a better css class to target this */
-body .ddoc .anchorable.docEntry > .markdown_border {
-  @apply border-none pl-0 ml-0 max-w-prose;
-}
-
-/* should get a better css class to target this */
-body .ddoc .anchorable.example > details > .markdown_border {
-  @apply border-none pl-0 ml-0 !important;
-}
-
-/* just removing the ml-2 class from this div */
-body .ddoc section div.ml-2 {
-  @apply ml-0;
-}
-
-/* can replace the space-y-3 with space-y-2 in ddoc */
-body .ddoc section div.ml-2.space-y-3 {
-  @apply mt-2 !important;
-}
-
-body .ddoc .markdown :not(pre) > code {
-  @apply bg-jsr-cyan-100/50 rounded-md;
-  @apply px-1.5;
-}
-
-body .ddoc .markdown_summary a:not(.no_color) {
-  @apply link;
-}
-
-body .ddoc .markdown a:not(.no_color) {
-  @apply link;
-}
-
-body .ddoc .usage {
-  @apply bg-jsr-cyan-50 border-jsr-cyan-100 -mx-6 md:mx-0 pt-4 pb-5;
-}
-
-body .ddoc .usage nav details > summary {
-  @apply border-jsr-cyan-200 py-1.5 px-2.5 !important;
-}
-
-body .ddoc .markdown .highlight .context_button {
-  @apply hover:bg-jsr-cyan-50;
-  @apply border-none;
-}
-
-body .ddoc .contextLink {
-  text-decoration: underline;
-  text-decoration-skip-ink: auto;
-  text-decoration-thickness: 1.5px;
-  /* cyan 700 at 25%; */
-  text-decoration-color: #0e659040;
-  text-underline-offset: 0.15em;
-  color: theme("colors.jsr-cyan.700");
-}
-
-body .ddoc .breadcrumbs {
-  @apply flex-wrap;
-}
-
-body .ddoc .breadcrumbs > li:first-child .contextLink {
-  @apply text-2xl;
-}
-
-body .ddoc .breadcrumbs li {
-  @apply text-lg;
-}
-
-body .ddoc .markdown_summary > p {
-  @apply line-clamp-4;
-}
-
-body .ddoc .namespaceSection {
-  @apply gap-y-6 gap-x-10;
-}
-
-body .ddoc .namespaceSection .namespaceItem {
-  @apply lg:pr-4;
-  @apply md:min-h-[4rem];
-}
-
-.ddoc .markdown_summary :not(pre) > code {
-  @apply bg-jsr-cyan-100/50 !important;
-  @apply px-1.5 !important;
-}
-
-body .ddoc section.section {
-  @apply mb-6;
-}
-
-body .ddoc section.section > div > h2 {
-  @apply mb-1;
-}
-
-body .ddoc section.section > div > div.markdown_summary > p {
-  @apply text-base;
-  @apply max-w-prose;
-}
-
-/* only affect search box width on docs tab
-TODO have a better way to target on a specific page */
-.ddoc + div > input#symbol-search-input {
-  @apply w-full md:min-w-80;
-  @apply bg-white border-1.5 border-jsr-cyan-900/30;
-}
-
-body .ddoc .usages pre.highlight {
-  @apply border-jsr-cyan-200;
-}
-
-body .ddoc .usages nav details > summary {
-  @apply border-none bg-jsr-cyan-100;
-}
-
-body .ddoc .usages nav details > div > div {
-  @apply border-jsr-cyan-200;
-}
-
-body .ddoc > section > nav.py-4 {
-  @apply pt-0 pb-0;
-}
-
-body .ddoc > section > nav.py-4 > ul {
-  padding: 1rem 0;
-  scrollbar-width: thin;
-}
-
-body .ddoc #module_doc,
-body .ddoc main {
-  @apply pb-8;
-}
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
 body:has(.ddoc) #footer {
   display: none;
-}
-
-body .ddoc .markdown tr:nth-child(2n) {
-  @apply bg-slate-50;
-}
-
-body .ddoc .markdown th,
-body .ddoc .markdown td {
-  @apply border-1.5 border-slate-300;
-}
-
-body .ddoc .markdown th {
-  @apply py-1.5;
-}
-
-body .ddoc .toc {
-  .topSymbols,
-  .documentNavigation {
-    @apply max-lg:hidden;
-  }
 }
 
 body .ddoc:has(.toc) {
