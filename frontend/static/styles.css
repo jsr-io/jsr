@@ -201,30 +201,21 @@
 
 /* !important seems necessary for taking precedent over current ddoc styling */
 body .ddoc {
-  #sidepanel {
-    @apply pb-4;
-    height: unset !important;
-    
-    a:hover, a:active {
-      @apply bg-cyan-200;
-    }
-  }
-  
   .markdown {
     h1 {
-      @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
+      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
     }
     
     h2 {
-      @apply mt-8 -mx-6 px-6 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
+      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
     }
     
     h3 {
-      @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
+      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
     }
     
     h4 {
-      @apply mt-6 -mx-6 px-6 md:mx-0 md:px-0 font-bold md:font-medium !important;
+      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
     }
     
     :not(pre) > code {
@@ -284,11 +275,8 @@ body .ddoc {
     @apply pb-8;
   }
   
-  .toc {
-    .topSymbols,
-    .documentNavigation {
-      @apply max-lg:hidden;
-    }
+  .toc .topSymbols {
+    @apply max-lg:hidden;
   }
 }
 
