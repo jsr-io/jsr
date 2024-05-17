@@ -87,7 +87,7 @@ export function PackageHeader(
                     @{pkg.scope}
                   </a>/<a
                     href={`/@${pkg.scope}/${pkg.name}`}
-                    class="link font-bold no-underline"
+                    class="link font-semibold no-underline"
                   >
                     {pkg.name}
                   </a>
