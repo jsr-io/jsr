@@ -52,6 +52,8 @@ use crate::npm::NPM_TARBALL_REVISION;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
+const HIGH_MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
+const HIGH_MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
 const MAX_CONCURRENT_UPLOADS: usize = 1024;
 
 static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
@@ -106,6 +108,22 @@ pub async fn process_tarball(
   let mut file_infos = Vec::new();
   let mut total_file_size = 0;
 
+  // TODO: make these configurable through quota fields on the package
+  let max_file_size = if *publishing_task.package_scope == "llamaindex"
+    && *publishing_task.package_name == "core"
+  {
+    HIGH_MAX_FILE_SIZE
+  } else {
+    MAX_FILE_SIZE
+  };
+  let max_total_file_size = if *publishing_task.package_scope == "llamaindex"
+    && *publishing_task.package_name == "core"
+  {
+    HIGH_MAX_TOTAL_FILE_SIZE
+  } else {
+    MAX_TOTAL_FILE_SIZE
+  };
+
   while let Some(res) = tar.next().await {
     let mut entry = res.map_err(PublishError::UntarError)?;
 
@@ -140,18 +158,19 @@ pub async fn process_tarball(
     }
 
     let size = header.size().map_err(PublishError::UntarError)?;
-    if size > MAX_FILE_SIZE {
+    if size > max_file_size {
       return Err(PublishError::FileTooLarge {
         path,
-        max_size: MAX_FILE_SIZE,
+        max_size: max_file_size,
         size,
       });
     }
     total_file_size += size;
-    if total_file_size > MAX_TOTAL_FILE_SIZE {
+
+    if total_file_size > max_total_file_size {
       return Err(PublishError::PackageTooLarge {
         path,
-        max_size: MAX_TOTAL_FILE_SIZE,
+        max_size: max_total_file_size,
         size: total_file_size,
       });
     }
