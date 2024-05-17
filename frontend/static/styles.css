@@ -173,7 +173,7 @@
   input:not([data-locked="true"]):disabled.input-container,
   .input-container input:not([data-locked="true"]):disabled,
   .input-container select:not([data-locked="true"]):disabled {
-    @apply border-gray-300 text-jsr-gray-300 cursor-not-allowed bg-jsr-gray-100;
+    @apply border-gray-300 text-jsr-gray-300 cursor-not-allowed bg-gray-50;
   }
 
   select[data-locked="true"].input-container,
