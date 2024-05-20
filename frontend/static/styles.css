@@ -278,6 +278,12 @@ body .ddoc {
   .toc .topSymbols {
     @apply max-lg:hidden;
   }
+
+  @media (min-width: 768px) {
+    .usages nav details>div {
+      @apply -left-8;
+    }
+  }
 }
 
 

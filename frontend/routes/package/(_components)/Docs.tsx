@@ -96,7 +96,7 @@ export function DocsView(
             )}
 
             <div
-              class="ddoc w-full lg:overflow-y-scroll pb-4"
+              class="ddoc w-full lg:overflow-y-auto pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
             />
           </div>
