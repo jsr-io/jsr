@@ -1183,7 +1183,7 @@ pub mod tests {
     )
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
-    assert_eq!(task.error.unwrap().code, "jsrMissingConstraint");
+    assert_eq!(task.error.unwrap().code, "missingConstraint");
   }
 
   #[tokio::test]
