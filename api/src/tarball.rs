@@ -667,8 +667,8 @@ impl PublishError {
       PublishError::NpmTarballError(_) => Some("npmTarballError"),
       PublishError::InvalidJsrSpecifier(_) => Some("invalidJsrSpecifier"),
       PublishError::InvalidNpmSpecifier(_) => Some("invalidNpmSpecifier"),
-      PublishError::JsrMissingConstraint(_) => Some("jsrMissingConstraint"),
-      PublishError::NpmMissingConstraint(_) => Some("npmMissingConstraint"),
+      PublishError::JsrMissingConstraint(_) => Some("missingConstraint"),
+      PublishError::NpmMissingConstraint(_) => Some("missingConstraint"),
       PublishError::InvalidJsrScopedPackageName(_, _) => {
         Some("invalidJsrScopedPackageName")
       }
