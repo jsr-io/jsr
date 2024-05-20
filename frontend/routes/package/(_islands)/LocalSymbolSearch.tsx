@@ -158,7 +158,7 @@ export function LocalSymbolSearch(
     }
   }
 
-  const placeholder = `Search for symbols in @${props.scope}/${props.pkg}${
+  const placeholder = `Search for symbols${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
   return (
