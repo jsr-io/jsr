@@ -167,7 +167,7 @@ export function LocalSymbolSearch(
         type="text"
         placeholder={placeholder}
         id="symbol-search-input"
-        class="block text-sm w-full py-1.5 px-2 input-container input bg-white border-1.5 border-jsr-cyan-900/30"
+        class="block text-sm w-full py-2 px-2 input-container input bg-white border-jsr-cyan-300/50"
         disabled={!db}
         onInput={onInput}
         onKeyUp={onKeyUp}

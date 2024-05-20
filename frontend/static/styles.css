@@ -140,10 +140,10 @@
   .section-x-inset-xl {
     @apply max-w-screen-xl mx-auto px-4 md:px-8 lg:px-10 xl:px-14;
   }
-  
+
   .-section-x-inset-xl {
     margin: 0 calc(((100vw - (min(1280px, 100vw) - 32px)) / 2) * -1);
-    
+
     @media screen(md) {
       margin: 0 calc(((100vw - (min(1280px, 100vw) - 64px)) / 2) * -1);
     }
@@ -166,7 +166,7 @@
 
   .input-container {
     @apply bg-white rounded-md leading-snug
-      border-1.5 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500;
+      border-1 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500;
   }
 
   select:not([data-locked="true"]):disabled.input-container,
@@ -188,7 +188,7 @@
   }
 
   .search-input {
-    @apply input-container border-jsr-cyan-950;
+    @apply input-container border-1.5 border-jsr-cyan-950;
   }
 
   .select {
@@ -205,87 +205,87 @@ body .ddoc {
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
     }
-    
+
     h2 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
     }
-    
+
     h3 {
       @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
     }
-    
+
     h4 {
       @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
     }
-    
+
     :not(pre) > code {
       @apply bg-jsr-cyan-100/50;
     }
-    
+
     a:not(.no_color) {
       @apply link;
     }
-    
+
     .highlight .context_button {
       @apply border-none hover:bg-jsr-cyan-50;
     }
   }
-  
+
   .markdown_summary {
     a:not(.no_color) {
       @apply link;
     }
-    
+
     :not(pre) > code {
       @apply bg-jsr-cyan-100/50 !important;
     }
   }
-  
+
   .symbolGroup article a.context_button {
     @apply border-none hover:bg-jsr-cyan-50;
   }
-  
+
   .docEntryHeader a {
     @apply link;
   }
-  
+
   .contextLink {
     /* cyan 700 at 25%; */
     text-decoration-color: #0e659040;
     color: theme("colors.jsr-cyan.700");
   }
-  
+
   .usages {
     nav details {
       > summary {
-        @apply border-none bg-jsr-cyan-100;
+        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50;
       }
-      
+
       > div > div {
         @apply border-jsr-cyan-200;
       }
     }
-    
+
     pre.highlight {
-      @apply border-jsr-cyan-200;
+      @apply border-jsr-cyan-300/50;
     }
   }
-  
-  #module_doc, main {
+
+  #module_doc,
+  main {
     @apply pb-8;
   }
-  
+
   .toc .topSymbols {
     @apply max-lg:hidden;
   }
 
   @media (min-width: 768px) {
-    .usages nav details>div {
+    .usages nav details > div {
       @apply -left-8;
     }
   }
 }
-
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
 body:has(.ddoc) #footer {
