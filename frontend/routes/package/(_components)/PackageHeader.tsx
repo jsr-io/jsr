@@ -58,7 +58,7 @@ export function PackageHeader(
                       is {selectedVersion.newerVersionsCount}{" "}
                       version{selectedVersion.newerVersionsCount !== 1 && "s"}
                       {" "}
-                      behind (v{pkg.latestVersion})
+                      behind {pkg.latestVersion}
                     </span>{" "}
                     — the latest version of @{pkg.scope}/{pkg.name}.
                   </>
@@ -187,7 +187,7 @@ export function PackageHeader(
                 >
                   {`${
                     twas(new Date(selectedVersion.createdAt))
-                  } (v${pkg.latestVersion})`}
+                  } (${selectedVersion.version})`}
                 </div>
               </div>
             )}
