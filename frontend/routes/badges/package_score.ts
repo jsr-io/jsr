@@ -35,8 +35,6 @@ export const handler: Handlers<unknown, State> = {
         });
       }
     } else {
-      ctx.url.protocol = "https:";
-
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
       shieldsUrl.search = ctx.url.search;
       shieldsUrl.searchParams.set("url", ctx.url.href);
