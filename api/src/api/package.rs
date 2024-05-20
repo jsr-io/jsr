@@ -549,7 +549,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
-    orama_client.delete_package(&scope, &package).await?;
+    orama_client.delete_package(&scope, &package);
   }
 
   let res = Response::builder()
