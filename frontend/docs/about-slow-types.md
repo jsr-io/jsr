@@ -391,11 +391,11 @@ export function foo() {
 However, there are some differences between the two:
 
 - Isolated declarations require that all symbols that are exported from a module
-  follow the "no inference" rules. JSR only requires that symbos that are
+  follow the "no inference" rules. JSR only requires that symbols that are
   actually part of the public API of a package follow the "no inference" rules.
 - Isolated declarations is sometimes more strict than JSR. For example, isolated
-  declarations does not have inference for arrow function expression bodies,
-  while JSR does.
+  declarations does not support inferring the return type of an empty function
+  body as `void`, while JSR does.
 
 If you are using TypeScript with `isolatedDeclarations`, your code is already
 compliant with the "no slow types" policy of JSR. However, you may still need to
