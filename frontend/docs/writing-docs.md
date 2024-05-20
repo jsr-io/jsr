@@ -18,6 +18,9 @@ There are two important pieces to documentation:
   of the package - it acts as an overview or summary for all symbols in the
   module
 
+> Also see this blog post on
+> [how to write docs for your package](https://deno.com/blog/document-javascript-package).
+
 ## Symbol documentation
 
 To add documentation for a symbol, add a JSDoc comment above the symbol:

@@ -39,14 +39,16 @@ while (true) {
   }
 }
 
-const entries: OramaPackageHit[] = packages.map((entry) => ({
-  scope: entry.scope,
-  name: entry.name,
-  description: entry.description,
-  runtimeCompat: entry.runtimeCompat,
-  score: entry.score,
-  id: `@${entry.scope}/${entry.name}`,
-}));
+const entries: OramaPackageHit[] = packages
+  .filter((entry) => entry.versionCount > 0)
+  .map((entry) => ({
+    scope: entry.scope,
+    name: entry.name,
+    description: entry.description,
+    runtimeCompat: entry.runtimeCompat,
+    score: entry.score,
+    id: `@${entry.scope}/${entry.name}`,
+  }));
 
 const res2 = await fetch(`${ORAMA_URL}/${index}/notify`, {
   method: "POST",
