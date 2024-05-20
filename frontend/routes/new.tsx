@@ -134,20 +134,19 @@ export const handler: Handlers<Data, State> = {
         : Promise.resolve(null));
     if (scopesResp && !scopesResp.ok) throw scopesResp; // gracefully handle this
     const scopes = scopesResp?.data.map((scope) => scope.scope) ?? [];
-    const url = new URL(req.url);
     let scope = "";
     let initialScope;
-    if (url.searchParams.has("scope")) {
-      initialScope = url.searchParams.get("scope") ?? undefined;
+    if (ctx.url.searchParams.has("scope")) {
+      initialScope = ctx.url.searchParams.get("scope") ?? undefined;
       if (initialScope && scopes.includes(initialScope)) {
         scope = initialScope;
         initialScope = undefined;
       }
     }
-    if (url.searchParams.has("package")) {
-      newPackage = url.searchParams.get("package")!;
+    if (ctx.url.searchParams.has("package")) {
+      newPackage = ctx.url.searchParams.get("package")!;
     }
-    const fromCli = url.searchParams.get("from") == "cli";
+    const fromCli = ctx.url.searchParams.get("from") == "cli";
     return ctx.render({
       scopes,
       scope,

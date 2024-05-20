@@ -2,9 +2,8 @@
 import { Handlers, RouteConfig } from "$fresh/server.ts";
 
 export const handler: Handlers = {
-  GET(req, ctx) {
-    const url = new URL(req.url);
-    const redirectPath = url.searchParams.get("redirect") ?? "/";
+  GET(_req, ctx) {
+    const redirectPath = ctx.url.searchParams.get("redirect") ?? "/";
     return new Response(null, {
       status: 302,
       headers: {
