@@ -35,13 +35,17 @@ export const handler: Handlers<unknown, State> = {
         });
       }
     } else {
+      const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
+
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
-      shieldsUrl.search = ctx.url.search;
-      shieldsUrl.searchParams.set("url", ctx.url.href);
+      shieldsUrl.search = url.search;
+      shieldsUrl.searchParams.set("url", url.href);
       shieldsUrl.searchParams.set("logo", "jsr");
       shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
       shieldsUrl.searchParams.set("logoSize", "auto");
       shieldsUrl.searchParams.set("cacheSeconds", "300");
+
+      console.log(shieldsUrl.href);
 
       const res = await fetch(shieldsUrl);
 
