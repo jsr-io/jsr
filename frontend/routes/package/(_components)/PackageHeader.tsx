@@ -185,7 +185,9 @@ export function PackageHeader(
                       10,
                     )}
                 >
-                  {twas(new Date(selectedVersion.createdAt))}
+                  {`${
+                    twas(new Date(selectedVersion.createdAt))
+                  } (${selectedVersion.version})`}
                 </div>
               </div>
             )}

@@ -32,10 +32,10 @@ export function DocsView(
         />
       )}
 
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
+      <div class="grid grid-cols-1 lg:grid-cols-10 gap-8 lg:gap-12">
         <div
           class={`min-w-0 ${
-            docs.toc ? "lg:col-span-3 lg:row-start-1" : "col-span-full"
+            docs.toc ? "lg:col-span-7 lg:row-start-1" : "col-span-full"
           }`}
         >
           <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
@@ -83,7 +83,7 @@ export function DocsView(
         </div>
         {docs.toc && (
           <div
-            class={`max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
+            class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
               docs.breadcrumbs ? "lg:-mt-20 lg:pt-20" : ""
             }`}
           >
