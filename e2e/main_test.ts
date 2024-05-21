@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { assertStringIncludes } from "./utils/assert.ts";
+import { assertNotMatch, assertStringIncludes } from "./utils/assert.ts";
 import { assertEquals } from "./utils/assert.ts";
 import { JSR_URL } from "./utils/configuration.ts";
 
@@ -322,4 +322,28 @@ if (import.meta.main) {
     response.headers.get("content-type"),
     "text/typescript",
   );
+});
+
+Deno.test("[GET /badges/@luca/flag] works", async (t) => {
+  await t.step("Package badge", async () => {
+    const res = await fetch(`${JSR_URL}badges/@luca/flag`);
+    const text = await res.text();
+    assertEquals(res.status, 200);
+    assertNotMatch(text, /please use https/);
+  });
+
+  // Skipping: These are not registered with shields.io yet
+  // await t.step("Package score badge", async () => {
+  //   const res = await fetch(`${JSR_URL}badges/@luca/flag/score`);
+  //   const text = await res.text();
+  //   assertEquals(res.status, 200);
+  //   assertNotMatch(text, /please use https/);
+  // });
+
+  // await t.step("Scope badge", async () => {
+  //   const res = await fetch(`${JSR_URL}badges/@luca`);
+  //   const text = await res.text();
+  //   assertEquals(res.status, 200);
+  //   assertNotMatch(text, /please use https/);
+  // });
 });
