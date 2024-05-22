@@ -116,7 +116,9 @@ export function DocsView(
               class="ddoc w-full lg:overflow-y-auto pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
             />
-            <script dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }} />
+            <script
+              dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
+            />
           </div>
         )}
       </div>
