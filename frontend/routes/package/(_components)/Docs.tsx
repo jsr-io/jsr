@@ -13,6 +13,23 @@ interface DocsProps {
   showProvenanceBadge?: boolean;
 }
 
+const USAGE_SELECTOR_SCRIPT = `(() => {
+const preferredUsage = localStorage.getItem('preferredUsage');
+
+if (preferredUsage) {
+  document.querySelectorAll('input[name="usage"]').forEach((el) => {
+    el.checked = el.id === preferredUsage
+  });
+}
+
+document.querySelector('.usages').addEventListener('change', (e) => {
+  const target = e.target;
+  if (target instanceof HTMLInputElement && target.name === 'usage') {
+    localStorage.setItem('preferredUsage', target.id);
+  } 
+});
+})()`;
+
 export function DocsView(
   { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
 ) {
@@ -98,6 +115,9 @@ export function DocsView(
             <div
               class="ddoc w-full lg:overflow-y-auto pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
+            />
+            <script
+              dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
             />
           </div>
         )}
