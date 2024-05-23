@@ -157,6 +157,7 @@ You can also include examples in module documentation:
    *
    * This module contains functions to search the database.
    *
++  * @example
 +  * ```ts
 +  * import { search } from "@luca/search";
 +  *
