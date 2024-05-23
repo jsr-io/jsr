@@ -7,6 +7,7 @@ export function DevelopmentLogin() {
   const waitingForAuth = useSignal(false);
 
   const onClick = async (e: Event) => {
+    console.log("clicked");
     e.preventDefault();
     waitingForAuth.value = true;
     const verifier = "abc";

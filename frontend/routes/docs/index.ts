@@ -1,8 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers } from "$fresh/server.ts";
-import { State } from "../../util.ts";
+import { define } from "../../util.ts";
 
-export const handler: Handlers<undefined, State> = {
+export const handler = define.handlers( {
   GET() {
     return new Response("", {
       status: 302,
@@ -11,4 +10,4 @@ export const handler: Handlers<undefined, State> = {
       },
     });
   },
-};
+});

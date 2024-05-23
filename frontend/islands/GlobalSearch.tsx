@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
 import { Highlight } from "@orama/highlight";
-import { IS_BROWSER } from "$fresh/runtime.ts";
+import { IS_BROWSER } from "fresh/runtime";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
