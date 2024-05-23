@@ -27,14 +27,28 @@ export default function Deps(
 ) {
   const iam = scopeIAM(state, data.member);
 
-  const deps: Record<string, { link: string; constraints: Set<string> }> = {};
+  const deps: Record<
+    string,
+    {
+      packageName: string;
+      packageLink: string;
+      moduleName?: string;
+      moduleLink?: string;
+      constraints: Set<string>;
+    }
+  > = {};
 
   for (const dep of data.deps) {
-    const key = `${dep.kind}:${dep.name}`;
+    const key = `${dep.kind}:${dep.name}${dep.path ? `/${dep.path}` : ""}`;
     deps[key] ??= {
-      link: `${
+      packageName: `${dep.kind}:${dep.name}`,
+      packageLink: `${
         dep.kind === "jsr" ? "/" : "https://www.npmjs.com/package/"
       }${dep.name}`,
+      moduleName: dep.path,
+      moduleLink: dep.path && dep.kind === "jsr"
+        ? `/${dep.name}/doc/${dep.path}/~`
+        : "",
       constraints: new Set(),
     };
     deps[key].constraints.add(dep.constraint);
@@ -80,16 +94,16 @@ export default function Deps(
           : (
             <Table
               columns={[
-                { title: "Name", class: "w-1/3" },
+                { title: "Package / Module", class: "w-1/3" },
                 { title: "Versions", class: "w-auto" },
               ]}
               currentUrl={url}
             >
-              {list.map(([name, info]) => (
+              {list.map(([key, { constraints, ...info }]) => (
                 <Dependency
-                  name={name}
-                  link={info.link}
-                  constraints={[...info.constraints]}
+                  key={key}
+                  {...info}
+                  constraints={[...constraints]}
                 />
               ))}
             </Table>
@@ -100,18 +114,32 @@ export default function Deps(
 }
 
 function Dependency(
-  { name, link, constraints }: {
-    name: string;
-    link: string;
+  { packageName, packageLink, moduleName, moduleLink, constraints }: {
+    packageName: string;
+    packageLink: string;
+    moduleName?: string;
+    moduleLink?: string;
     constraints: string[];
   },
 ) {
   return (
-    <TableRow key={name}>
-      <TableData>
-        <a href={link} class="link">
-          {name}
+    <TableRow>
+      <TableData class="space-x-1">
+        <a href={packageLink} class="link">
+          {packageName}
         </a>
+        {moduleName && (
+          <>
+            <span>/</span>
+            {moduleLink
+              ? (
+                <a href={moduleLink} class="link">
+                  {moduleName}
+                </a>
+              )
+              : <span>{moduleName}</span>}
+          </>
+        )}
       </TableData>
       <TableData class="space-x-4">
         {constraints.map((constraint) => <span>{constraint}</span>)}
