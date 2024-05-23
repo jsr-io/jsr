@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { FullUser, User } from "../../../utils/api_types.ts";
 import { AccountNav, AccountNavTab } from "./AccountNav.tsx";
-import twas from "$twas";
+import twas from "twas";
 import { ComponentChildren } from "preact";
 import { GitHubUserLink } from "../../../islands/GithubUserLink.tsx";
 
@@ -25,7 +25,7 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
             {user.name}
           </h1>
           <p class="text-xs text-gray-600">
-            Created account {twas(new Date(user.createdAt))}
+            Created account {twas(new Date(user.createdAt).getTime())}
           </p>
           <p class="text-xs text-gray-600">
             <GitHubUserLink user={user} />

@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type {
   Package,
   PackageVersionWithUser,
@@ -7,7 +7,6 @@ import type {
 } from "../../utils/api_types.ts";
 import { ScopeMember } from "../../utils/api_types.ts";
 import { type Source, State } from "../../util.ts";
-import { Head } from "$fresh/src/runtime/head.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
@@ -34,21 +33,9 @@ export default function PackagePage(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          @{params.scope}/{params.package} - JSR
-        </title>
-        {data.source?.css && (
-          <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
-        )}
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
+      {data.source && (
+        <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
+      )}
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
@@ -157,7 +144,7 @@ function bytesToSize(bytes: number) {
 const LINE_COL_REGEX = /(.*):(\d+):(\d+)$/;
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const originalPath = ctx.params.path;
     ctx.params.path = originalPath.replace(LINE_COL_REGEX, "$1#L$2");
     if (originalPath !== ctx.params.path) {
@@ -185,7 +172,12 @@ export const handler: Handlers<Data, State> = {
       ctx.params.version,
       sourcePath,
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(
+        404,
+        "This file or this package version was not found.",
+      );
+    }
 
     const {
       pkg,
@@ -194,15 +186,22 @@ export const handler: Handlers<Data, State> = {
       source,
     } = res;
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      source,
-      sourcePath,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      title: `${sourcePath} - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        selectedVersion,
+        source,
+        sourcePath,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
 };
 

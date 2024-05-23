@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type {
   Package,
   PackageVersionWithUser,
@@ -27,21 +26,6 @@ export default function Symbol(
 
   return (
     <div>
-      <Head>
-        <title>
-          {/* TODO: print symbol kind here (function / class / etc) */}
-          {params.symbol}
-          {params.entrypoint && ` from ${params.entrypoint}`}{" "}
-          - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
@@ -65,7 +49,7 @@ export default function Symbol(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,
@@ -76,7 +60,12 @@ export const handler: Handlers<Data, State> = {
         symbol: ctx.params.symbol,
       },
     );
-    if (!res) return ctx.renderNotFound();
+    if (!res) {
+      throw new HttpError(
+        404,
+        "This package, package version, entrypoint, or symbol was not found.",
+      );
+    }
 
     if (res.kind === "redirect") {
       return new Response(null, {
@@ -102,16 +91,31 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    if (!docs?.main) return ctx.renderNotFound();
+    if (!docs?.main) {
+      throw new HttpError(
+        404,
+        "This package, package version, entrypoint, or symbol was not found.",
+      );
+    }
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      docs,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      /* TODO: print symbol kind here (function / class / etc) */
+      title: `${ctx.params.symbol}${
+        ctx.params.entrypoint && ` from ${ctx.params.entrypoint}`
+      } - @${ctx.params.scope}/${ctx.params.package} - JSR`,
+      description: `@${ctx.params.scope}/${ctx.params.package} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        selectedVersion,
+        docs,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
 };
 

@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type { Package, PackageVersionWithUser } from "../../utils/api_types.ts";
 import { Docs, State } from "../../util.ts";
 import { ScopeMember } from "../../utils/api_types.ts";
@@ -24,18 +23,6 @@ export default function All_symbols(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          All symbols - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
@@ -59,7 +46,7 @@ export default function All_symbols(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,
@@ -67,7 +54,12 @@ export const handler: Handlers<Data, State> = {
       ctx.params.version,
       { all_symbols: "true" },
     );
-    if (!res) return ctx.renderNotFound();
+    if (!res) {
+      throw new HttpError(
+        404,
+        "This package or this package version was not found.",
+      );
+    }
     if (res instanceof Response) {
       return res;
     }
@@ -87,14 +79,21 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      docs,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      title: `All symbols - @${ctx.params.scope}/${ctx.params.package} - JSR`,
+      description: `@${ctx.params.scope}/${ctx.params.package} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        selectedVersion,
+        docs,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
 };
 

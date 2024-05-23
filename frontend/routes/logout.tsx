@@ -1,8 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, RouteConfig } from "$fresh/server.ts";
+import { Handlers, RouteConfig } from "@fresh/core";
 
 export const handler: Handlers = {
-  GET(_req, ctx) {
+  GET(ctx) {
     const redirectPath = ctx.url.searchParams.get("redirect") ?? "/";
     return new Response(null, {
       status: 302,

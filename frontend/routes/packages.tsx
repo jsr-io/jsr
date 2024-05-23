@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
+import { Handlers, PageProps } from "@fresh/core";
 import { OramaPackageHit, PaginationData, State } from "../util.ts";
 import { OramaClient } from "@oramacloud/client";
 import type { List, Package } from "../utils/api_types.ts";
@@ -20,15 +19,6 @@ export default function PackageListPage({
 }: PageProps<Data>) {
   return (
     <div class="mb-24 space-y-16">
-      <Head>
-        <title>
-          {data.query ? `${data.query} - Packages` : "Explore Packages"} - JSR
-        </title>
-        <meta
-          name="description"
-          content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
-        />
-      </Head>
       <div>
         <ListDisplay
           title={`${data.query ? "Search" : "Explore"} Packages`}
@@ -57,7 +47,7 @@ const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
 const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
 
 export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+  async GET(ctx) {
     const search = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
@@ -97,12 +87,19 @@ export const handler: Handlers<Data, State> = {
       total = packagesResp.data.total;
     }
 
-    return ctx.render({
-      packages,
-      query: search,
-      page,
-      limit,
-      total,
-    });
+    ctx.state.meta = {
+      title: search ? `${search} - Packages` : "Explore Packages",
+      description:
+        "JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers.",
+    };
+    return {
+      data: {
+        packages,
+        query: search,
+        page,
+        limit,
+        total,
+      },
+    };
   },
 };

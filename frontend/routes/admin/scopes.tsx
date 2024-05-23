@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { Handlers, PageProps } from "@fresh/core";
 import type { PaginationData, State } from "../../util.ts";
 import type { FullScope, List } from "../../utils/api_types.ts";
 import ScopeEdit from "../../islands/admin/ScopeEdit.tsx";
@@ -39,7 +39,8 @@ export default function Scopes({ data, url }: PageProps<Data>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const query = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
@@ -51,12 +52,14 @@ export const handler: Handlers<Data, State> = {
     });
     if (!resp.ok) throw resp; // gracefully handle this
 
-    return ctx.render({
-      scopes: resp.data.items,
-      query,
-      page,
-      limit,
-      total: resp.data.total,
-    });
+    return {
+      data: {
+        scopes: resp.data.items,
+        query,
+        page,
+        limit,
+        total: resp.data.total,
+      },
+    };
   },
 };

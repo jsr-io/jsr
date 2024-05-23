@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { IS_BROWSER } from "$fresh/runtime.ts";
+import { IS_BROWSER } from "@fresh/core/runtime";
 import type { TraceSpan } from "./tracing.ts";
 
 export type QueryParams = Record<string, string | number>;

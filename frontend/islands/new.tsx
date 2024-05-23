@@ -8,7 +8,7 @@ import {
 import { Package, Scope } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
-import twas from "$twas";
+import twas from "twas";
 
 interface IconColorProps {
   done: Signal<unknown>;
@@ -406,7 +406,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
               <p class="text-gray-500">
-                Created {twas(new Date(pkg.value.createdAt))}.
+                Created {twas(new Date(pkg.value.createdAt).getTime())}.
               </p>
               {fromCli && (
                 <p class="mt-2 text-gray-500">
