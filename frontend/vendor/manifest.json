@@ -1,0 +1,7 @@
+{
+  "modules": {
+    "https://jsr.io/@std/crypto/0.221.0/_wasm/lib/deno_std_wasm_crypto.generated.mjs": {},
+    "https://googleapis.deno.dev/v1/cloudtrace:v2.ts": {},
+    "https://jsr.io/@std/crypto/0.221.0/_wasm/lib/deno_std_wasm_crypto.generated.d.mts": {}
+  }
+}

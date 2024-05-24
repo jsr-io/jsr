@@ -1,0 +1,484 @@
+{
+  "manifest": {
+    "/_util_test.ts": {
+      "size": 2109,
+      "checksum": "sha256-0da33a3515210c6e525d07b37bb1d4104be58dfafe197b776dead1bc762aacd6"
+    },
+    "/parse_media_type.ts": {
+      "size": 3310,
+      "checksum": "sha256-e326dfa495b3d635263a42019a9e0799dad3b016a79a815b63ed7f70ac732f0b"
+    },
+    "/_db.ts": {
+      "size": 1295,
+      "checksum": "sha256-19563a2491cd81b53b9c1c6ffd1a9145c355042d4a854c52f6e1424f73ff3923"
+    },
+    "/_util.ts": {
+      "size": 3361,
+      "checksum": "sha256-97fadcdfc82fdb02da87efb0fcd3171b0004fb810284114e9d0914a7c4a0b7e5"
+    },
+    "/extension_test.ts": {
+      "size": 543,
+      "checksum": "sha256-b72c0ab2f9119821d39bafba10f692dc2308bf13e3a3b0aa884ea477a8d8ad79"
+    },
+    "/extension.ts": {
+      "size": 780,
+      "checksum": "sha256-5d7f06ec4b80b2d1f10c047a983b1526323a3cf15cc4425221b70a6c04ceaea1"
+    },
+    "/type_by_extension.ts": {
+      "size": 912,
+      "checksum": "sha256-7613afd7d82b4fefc381cad13068d693ccd3434a399d7f6dad66ad205bf77519"
+    },
+    "/vendor/LICENSE": {
+      "size": 1172,
+      "checksum": "sha256-cc1dfd4dafa27271e8212cd3b274eeb3f262e40a6fdab36ddc3f9696f706f58b"
+    },
+    "/extensions_by_type_test.ts": {
+      "size": 610,
+      "checksum": "sha256-0ab73c04b2df2504f7873d188fef1f7a38a5f53d58aaf0ff5de8c29e778c1925"
+    },
+    "/parse_media_type_test.ts": {
+      "size": 3204,
+      "checksum": "sha256-91e139e3873a3415decb85a89d6e02dd8c8d43b8fd82d2b7feb80440d884af02"
+    },
+    "/vendor/mime-db.v1.52.0.ts": {
+      "size": 186498,
+      "checksum": "sha256-0218d2c7d900e8cd6fa4a866e0c387712af4af9a1bae55d6b2546c73d273a1e6"
+    },
+    "/format_media_type_test.ts": {
+      "size": 2179,
+      "checksum": "sha256-b262bf4450a11cd204f2c7eca645fee1de70d383cee830d6355af57719e30844"
+    },
+    "/type_by_extension_test.ts": {
+      "size": 683,
+      "checksum": "sha256-3c74cced7651342d405bbbd40de86d49401c00b3b3c54fdd7bfdeff9e39169b5"
+    },
+    "/mod.ts": {
+      "size": 1170,
+      "checksum": "sha256-2340f1ece2a785f8d283c3d6d82d47b245367d9476628d51e7be3fcffcfbd27c"
+    },
+    "/deno.json": {
+      "size": 493,
+      "checksum": "sha256-4875dc4f56422cdf12300f6b7c999240e0c7f885aa091b1299b9993b07a3fdd8"
+    },
+    "/extensions_by_type.ts": {
+      "size": 979,
+      "checksum": "sha256-1a81f89491a313963bea91ec48dc84e70d1eb5b820ea2f8d3933333cc06ee7c7"
+    },
+    "/content_type.ts": {
+      "size": 3111,
+      "checksum": "sha256-18f0b9dea1e79d13db18734577203adc7dba9ff31c0f003b6f5da8ae6dde784a"
+    },
+    "/get_charset.ts": {
+      "size": 1208,
+      "checksum": "sha256-f53e36df89d5f29584f98a1e7eac2397b6458036a314be359afb7d11cea18e94"
+    },
+    "/content_type_test.ts": {
+      "size": 1465,
+      "checksum": "sha256-c9c3181db370274a7149d785fd35802fe6fba998b7dadd4306debccef89397b2"
+    },
+    "/format_media_type.ts": {
+      "size": 1775,
+      "checksum": "sha256-5a4fb4c3f1ba0ac8d6dec0731723edc4d6480c91e422e1e02867f75f2b2bb955"
+    },
+    "/get_charset_test.ts": {
+      "size": 588,
+      "checksum": "sha256-54ef850497b85935248d4174161504d4e1a5f79a3e5456424b2c7460ebb79caa"
+    }
+  },
+  "moduleGraph1": {
+    "/format_media_type.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              3,
+              51
+            ],
+            [
+              3,
+              63
+            ]
+          ]
+        }
+      ]
+    },
+    "/type_by_extension.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_db.ts",
+          "specifierRange": [
+            [
+              3,
+              22
+            ],
+            [
+              3,
+              32
+            ]
+          ]
+        }
+      ]
+    },
+    "/extension.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./extensions_by_type.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              58
+            ]
+          ]
+        }
+      ]
+    },
+    "/vendor/mime-db.v1.52.0.ts": {},
+    "/extensions_by_type.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./parse_media_type.ts",
+          "specifierRange": [
+            [
+              3,
+              31
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_db.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              37
+            ]
+          ]
+        }
+      ]
+    },
+    "/_util.ts": {},
+    "/get_charset.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./parse_media_type.ts",
+          "specifierRange": [
+            [
+              3,
+              31
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              4,
+              29
+            ],
+            [
+              4,
+              41
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_db.ts",
+          "specifierRange": [
+            [
+              5,
+              33
+            ],
+            [
+              5,
+              43
+            ]
+          ]
+        }
+      ]
+    },
+    "/_db.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./vendor/mime-db.v1.52.0.ts",
+          "specifierRange": [
+            [
+              1,
+              15
+            ],
+            [
+              1,
+              44
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              2,
+              29
+            ],
+            [
+              2,
+              41
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./content_type.ts",
+          "specifierRange": [
+            [
+              25,
+              14
+            ],
+            [
+              25,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./extension.ts",
+          "specifierRange": [
+            [
+              26,
+              14
+            ],
+            [
+              26,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./extensions_by_type.ts",
+          "specifierRange": [
+            [
+              27,
+              14
+            ],
+            [
+              27,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./format_media_type.ts",
+          "specifierRange": [
+            [
+              28,
+              14
+            ],
+            [
+              28,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./get_charset.ts",
+          "specifierRange": [
+            [
+              29,
+              14
+            ],
+            [
+              29,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./parse_media_type.ts",
+          "specifierRange": [
+            [
+              30,
+              14
+            ],
+            [
+              30,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./type_by_extension.ts",
+          "specifierRange": [
+            [
+              31,
+              14
+            ],
+            [
+              31,
+              38
+            ]
+          ]
+        }
+      ]
+    },
+    "/content_type.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./parse_media_type.ts",
+          "specifierRange": [
+            [
+              3,
+              31
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./get_charset.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./format_media_type.ts",
+          "specifierRange": [
+            [
+              5,
+              32
+            ],
+            [
+              5,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_db.ts",
+          "specifierRange": [
+            [
+              6,
+              24
+            ],
+            [
+              6,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./type_by_extension.ts",
+          "specifierRange": [
+            [
+              7,
+              32
+            ],
+            [
+              7,
+              56
+            ]
+          ]
+        }
+      ]
+    },
+    "/parse_media_type.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              3,
+              54
+            ],
+            [
+              3,
+              66
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./content-type": "./content_type.ts",
+    "./extension": "./extension.ts",
+    "./extensions-by-type": "./extensions_by_type.ts",
+    "./format-media-type": "./format_media_type.ts",
+    "./get-charset": "./get_charset.ts",
+    "./parse-media-type": "./parse_media_type.ts",
+    "./type-by-extension": "./type_by_extension.ts",
+    "./vendor/mime-db.v1.52.0": "./vendor/mime-db.v1.52.0.ts"
+  }
+}

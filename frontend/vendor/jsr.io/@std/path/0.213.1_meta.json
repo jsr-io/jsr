@@ -1,0 +1,8751 @@
+{
+  "manifest": {
+    "/posix/is_glob.ts": {
+      "size": 156,
+      "checksum": "sha256-135ac8b1e647f673ea650fb713e2d9c42d0108c29cae3a2b77399fec0dae8864"
+    },
+    "/posix/common.ts": {
+      "size": 674,
+      "checksum": "sha256-4c896e6e9357f33c3ffe027cb13cb2ccf5dbe3575604b43c195befffb0f40b2b"
+    },
+    "/posix/from_file_url.ts": {
+      "size": 562,
+      "checksum": "sha256-dc4a092de0d117d94bfd54390b4bc360ea1c68d4a1e42d2ea94d6fe75b483c37"
+    },
+    "/_common/assert_path.ts": {
+      "size": 306,
+      "checksum": "sha256-2ca275f36ac1788b2acb60fb2b79cb06027198bc2ba6fb7e163efaedde98c297"
+    },
+    "/posix/join_globs.ts": {
+      "size": 898,
+      "checksum": "sha256-3d77c1a2e29997f6d993105b5f5e8e89a280320a3e0e3df7e6b912506d69103f"
+    },
+    "/_common/strip_trailing_separators.ts": {
+      "size": 592,
+      "checksum": "sha256-7024a93447efcdcfeaa9339a98fa63ef9d53de363f1fbe9858970f1bba02655a"
+    },
+    "/glob.ts": {
+      "size": 4141,
+      "checksum": "sha256-04510962905d4b1513b44da9cb195914e0fa46c24359f6feaca20848d797dcb0"
+    },
+    "/_common/relative.ts": {
+      "size": 287,
+      "checksum": "sha256-faa2753d9b32320ed4ada0733261e3357c186e5705678d9dd08b97527deae607"
+    },
+    "/deno.json": {
+      "size": 3067,
+      "checksum": "sha256-f614d73fac4d63ded4297219f7fd9f7b1cd45570d33cb7c5863929f4fdd0c7d9"
+    },
+    "/_common/glob_to_reg_exp.ts": {
+      "size": 7427,
+      "checksum": "sha256-2007aa87bed6eb2c8ae8381adcc3125027543d9ec347713c1ad2c68427330770"
+    },
+    "/_common/normalize_string.ts": {
+      "size": 2304,
+      "checksum": "sha256-dfdf657a1b1a7db7999f7c575ee7e6b0551d9c20f19486c6c3f5ff428384c965"
+    },
+    "/common_test.ts": {
+      "size": 989,
+      "checksum": "sha256-ab5254f644a52b9d6f616a3821c0ccbcb6b3619f23083dfd3041ed271b6144b2"
+    },
+    "/is_glob_test.ts": {
+      "size": 3603,
+      "checksum": "sha256-1b535cc9971c17e5eb816279cf71a7f6dfc20844ffee8b8a55ccf12e4d2b19c5"
+    },
+    "/posix/join.ts": {
+      "size": 733,
+      "checksum": "sha256-1bbf0d9303160d4b9be76161d0ef73d67198cf7bf66e84d88eb560abc492070f"
+    },
+    "/is_glob.ts": {
+      "size": 938,
+      "checksum": "sha256-a65f6195d3058c3050ab905705891b412ff942a292bcbaa1a807a74439a14141"
+    },
+    "/relative.ts": {
+      "size": 788,
+      "checksum": "sha256-ab739d727180ed8727e34ed71d976912461d98e2b76de3d3de834c1066667add"
+    },
+    "/posix/glob_to_regexp.ts": {
+      "size": 3386,
+      "checksum": "sha256-4db789540039ea4c75f1ba8182c43fc2965a019df3c26a825945642452e8bf75"
+    },
+    "/posix/normalize_glob.ts": {
+      "size": 824,
+      "checksum": "sha256-c1b8a6f001d7cad1a6c8eefb4d7f7a027d3a7bc7a0c91c6e08222f4cbac6105f"
+    },
+    "/_common/constants.ts": {
+      "size": 2020,
+      "checksum": "sha256-dc5f8057159f4b48cd304eb3027e42f1148cf4df1fb4240774d3492b5d12ac0c"
+    },
+    "/posix/to_namespaced_path.ts": {
+      "size": 301,
+      "checksum": "sha256-28b216b3c76f892a4dca9734ff1cc0045d135532bfd9c435ae4858bfa5a2ebf0"
+    },
+    "/parse.ts": {
+      "size": 513,
+      "checksum": "sha256-65e8e285f1a63b714e19ef24b68f56e76934c3df0b6e65fd440d3991f4f8aefb"
+    },
+    "/windows/extname.ts": {
+      "size": 2346,
+      "checksum": "sha256-297ff46e51d75b97d4096cf5664471dca65b529f557c2e6e08aec3f2441767bf"
+    },
+    "/windows/constants.ts": {
+      "size": 236,
+      "checksum": "sha256-5afaac0a1f67b68b0a380a4ef391bf59feb55856aa8c60dfc01bd3b6abb813f5"
+    },
+    "/windows/normalize.ts": {
+      "size": 3792,
+      "checksum": "sha256-f5d8b971161eff7b4f8e45c7520cbb0c6553ccff7c4b3ced2dfe0d6ad46a2328"
+    },
+    "/posix/mod.ts": {
+      "size": 1812,
+      "checksum": "sha256-c9d57eb43df561742cf545816a7d6e1382680425de245588197bbf3d325931ad"
+    },
+    "/to_file_url.ts": {
+      "size": 871,
+      "checksum": "sha256-ce1a439e03377882e58f06ef43ef2259d483bab235d1eb727f1637b0a6bd7070"
+    },
+    "/windows/normalize_glob.ts": {
+      "size": 893,
+      "checksum": "sha256-c37afcaf52f2ce977f52a2b7820cad7e1fb7b9651df1fe130dda52401ae12263"
+    },
+    "/join_test.ts": {
+      "size": 4479,
+      "checksum": "sha256-85d30f25262acdec06f950846dfe6acfc70e94feac4a67ab42726dd107873fa1"
+    },
+    "/glob_to_regexp.ts": {
+      "size": 3557,
+      "checksum": "sha256-83c5fd36a8c86f5e72df9d0f45317f9546afa2ce39acaafe079d43a865aced08"
+    },
+    "/join.ts": {
+      "size": 510,
+      "checksum": "sha256-ae2ec5ca44c7e84a235fd532e4a0116bfb1f2368b394db1c4fb75e3c0f26a33a"
+    },
+    "/posix/separator.ts": {
+      "size": 472,
+      "checksum": "sha256-c9ecae5c843170118156ac5d12dc53e9caf6a1a4c96fc8b1a0ab02dff5c847b0"
+    },
+    "/format.ts": {
+      "size": 571,
+      "checksum": "sha256-98fad25f1af7b96a48efb5b67378fcc8ed77be895df8b9c733b86411632162af"
+    },
+    "/join_globs_test.ts": {
+      "size": 351,
+      "checksum": "sha256-9e807c246c7f272090055c26354e864d39ba7896606bd1f5baf3683f93deee06"
+    },
+    "/_common/to_file_url.ts": {
+      "size": 440,
+      "checksum": "sha256-7f76adbc83ece1bba173e6e98a27c647712cab773d3f8cbe0398b74afc817883"
+    },
+    "/windows/basename.ts": {
+      "size": 1320,
+      "checksum": "sha256-20179a24e3b4a8d5d957f0b6c5515d1d05c47c7e5824d595844f3ff5558e6e5b"
+    },
+    "/windows/parse.ts": {
+      "size": 4926,
+      "checksum": "sha256-c63488c9d581576f955eaa8c4ab09c165b8d922ec3911b302c31331c8303973f"
+    },
+    "/windows/from_file_url.ts": {
+      "size": 1060,
+      "checksum": "sha256-d67e4c8e7453597bf8071da6a995d6c9ad41f3c30192dc6494a25beb14647ff7"
+    },
+    "/_interface.ts": {
+      "size": 728,
+      "checksum": "sha256-a1419fcf45c0ceb8acdccc94394e3e94f99e18cfd32d509aab514c8841799600"
+    },
+    "/windows/_util.ts": {
+      "size": 828,
+      "checksum": "sha256-d5f47363e5293fced22c984550d5e70e98e266cc3f31769e1710511803d04808"
+    },
+    "/glob_to_regexp_test.ts": {
+      "size": 18189,
+      "checksum": "sha256-b13953857d575956776fe859c3600d2dde134fcf0e2579e2e0500847481ce515"
+    },
+    "/dirname_test.ts": {
+      "size": 2868,
+      "checksum": "sha256-9f42a0d035057e182df7bf5f0208643d906d83e585068269cfa045a7918716f4"
+    },
+    "/posix/to_file_url.ts": {
+      "size": 730,
+      "checksum": "sha256-e1c2f7b256100610ae85a443f89404f4b5d730d882c388a76b8e4fa1ecfc5ac7"
+    },
+    "/windows/format.ts": {
+      "size": 467,
+      "checksum": "sha256-8986f9e9b1cd48b404aa7c3873bfb976a9af08eeb40a58f1001a8d887d0dfe14"
+    },
+    "/windows/is_glob.ts": {
+      "size": 156,
+      "checksum": "sha256-135ac8b1e647f673ea650fb713e2d9c42d0108c29cae3a2b77399fec0dae8864"
+    },
+    "/normalize_glob.ts": {
+      "size": 659,
+      "checksum": "sha256-98ee8268fad271193603271c203ae973280b5abfbdd2cbca1053fd2af71869ca"
+    },
+    "/extname.ts": {
+      "size": 547,
+      "checksum": "sha256-593303db8ae8c865cbd9ceec6e55d4b9ac5410c1e276bfd3131916591b954441"
+    },
+    "/posix/format.ts": {
+      "size": 466,
+      "checksum": "sha256-47318e54ac8cd2e9c35ef2a143d02c198ce093e31f9789b6ecb95cbc60fec71b"
+    },
+    "/_common/basename.ts": {
+      "size": 1262,
+      "checksum": "sha256-569744855bc8445f3a56087fd2aed56bdad39da971a8d92b138c9913aecc5fa2"
+    },
+    "/dirname.ts": {
+      "size": 498,
+      "checksum": "sha256-85bd955bf31d62c9aafdd7ff561c4b5fb587d11a9a5a45e2b01aedffa4238a7c"
+    },
+    "/parse_format_test.ts": {
+      "size": 5920,
+      "checksum": "sha256-149b6b5f05f50bfbfd29348f043684a1fa74e73adb489ca6bc40e0e5529f3bc9"
+    },
+    "/_common/common.ts": {
+      "size": 768,
+      "checksum": "sha256-6157c7ec1f4db2b4a9a187efd6ce76dcaf1e61cfd49f87e40d4ea102818df031"
+    },
+    "/to_file_url_test.ts": {
+      "size": 2001,
+      "checksum": "sha256-2608202d8cbe324ac290db7915fa3819c8ec1ce5669e2c9d60c297023a93d9b0"
+    },
+    "/windows/dirname.ts": {
+      "size": 2885,
+      "checksum": "sha256-f5aee3cff1830aa804bee6b947c51a667dfc713b339923d884e590cffdf5d8e0"
+    },
+    "/windows/resolve.ts": {
+      "size": 4853,
+      "checksum": "sha256-671e70d150bd933832ffcf02e97572fdfbb8ed199082bdabdf4e92d3e898636e"
+    },
+    "/is_absolute_test.ts": {
+      "size": 1780,
+      "checksum": "sha256-8a29cd36a55f6d8e31bc536796be99b4e0c0455aa1764a159916cc6453c93bba"
+    },
+    "/join_globs.ts": {
+      "size": 620,
+      "checksum": "sha256-e9589869a33dc3982101898ee50903db918ca00ad2614dbe3934d597d7b1fbea"
+    },
+    "/separator.ts": {
+      "size": 561,
+      "checksum": "sha256-c6c890507f944a1f5cb7d53b8d638d6ce3cf0f34609c8d84a10c1eaa400b77a9"
+    },
+    "/is_absolute.ts": {
+      "size": 521,
+      "checksum": "sha256-4791afc8bfd0c87f0526eaa616b0d16e7b3ab6a65b62942e50eac68de4ef67d7"
+    },
+    "/normalize_glob_test.ts": {
+      "size": 392,
+      "checksum": "sha256-a26f51d34d5fdd05672a32c2e9213468538bfe29e496849beb5813e4e5d8d732"
+    },
+    "/_common/format.ts": {
+      "size": 827,
+      "checksum": "sha256-92500e91ea5de21c97f5fe91e178bae62af524b72d5fcd246d6d60ae4bcada8b"
+    },
+    "/_common/from_file_url.ts": {
+      "size": 312,
+      "checksum": "sha256-d672bdeebc11bf80e99bf266f886c70963107bdd31134c4e249eef51133ceccf"
+    },
+    "/windows/to_file_url.ts": {
+      "size": 1135,
+      "checksum": "sha256-cdead9ba8f1e4062c3c45a7c9fa6384e209b734526b4c6ab36ce2f17339367f5"
+    },
+    "/windows/join_globs.ts": {
+      "size": 898,
+      "checksum": "sha256-3d77c1a2e29997f6d993105b5f5e8e89a280320a3e0e3df7e6b912506d69103f"
+    },
+    "/resolve.ts": {
+      "size": 528,
+      "checksum": "sha256-a6f977bdb4272e79d8d0ed4333e3d71367cc3926acf15ac271f1d059c8494d8d"
+    },
+    "/_common/dirname.ts": {
+      "size": 263,
+      "checksum": "sha256-684df4aa71a04bbcc346c692c8485594fc8a90b9408dfbc26ff32cf3e0c98cc8"
+    },
+    "/constants.ts": {
+      "size": 348,
+      "checksum": "sha256-0c206169ca104938ede9da48ac952de288f23343304a1c3cb6ec7625e7325f36"
+    },
+    "/windows/mod.ts": {
+      "size": 1817,
+      "checksum": "sha256-8b483812e8f38abcbf5aad4352409e7828d9ef9ecd4aa0a241fbeb0f8ba7a890"
+    },
+    "/_os.ts": {
+      "size": 705,
+      "checksum": "sha256-8fb9b90fb6b753bd8c77cfd8a33c2ff6c5f5bc185f50de8ca4ac6a05710b2c15"
+    },
+    "/posix/relative.ts": {
+      "size": 3002,
+      "checksum": "sha256-f0617bf5614ac45462d71d8d03a5bbe3db9f5aaadc9e470a560013d0416d4cc0"
+    },
+    "/_common/normalize.ts": {
+      "size": 263,
+      "checksum": "sha256-684df4aa71a04bbcc346c692c8485594fc8a90b9408dfbc26ff32cf3e0c98cc8"
+    },
+    "/windows/common.ts": {
+      "size": 674,
+      "checksum": "sha256-4c896e6e9357f33c3ffe027cb13cb2ccf5dbe3575604b43c195befffb0f40b2b"
+    },
+    "/windows/separator.ts": {
+      "size": 480,
+      "checksum": "sha256-e51c5522140eff4f8402617c5c68a201fdfa3a1a8b28dc23587cff931b665e43"
+    },
+    "/relative_test.ts": {
+      "size": 2965,
+      "checksum": "sha256-e1a4d5a9aa896f579288ba9d1b6ff471f8ba6b5fd179c2bebf0d5462d89f110f"
+    },
+    "/windows/to_namespaced_path.ts": {
+      "size": 1459,
+      "checksum": "sha256-96dd0d55d484905e06553fd7d5feb6b3e4c0c99c337fda4199b6c32bce44833a"
+    },
+    "/common.ts": {
+      "size": 671,
+      "checksum": "sha256-4c80da2ee5563eb31f87cf7d21879db90d614a3fae83358670625e4b90342745"
+    },
+    "/windows/relative.ts": {
+      "size": 3982,
+      "checksum": "sha256-366eb25bd3469433e47dd4cac52d03048d5e27e8a89e059217065d3afa4e7e71"
+    },
+    "/normalize.ts": {
+      "size": 695,
+      "checksum": "sha256-4155743ccceeed319b350c1e62e931600272fad8ad00c417b91df093867a8352"
+    },
+    "/posix/resolve.ts": {
+      "size": 1589,
+      "checksum": "sha256-00f39f36478ad11b64604ad9b508b137a930aae2423e757ba53ec5f11a919ee1"
+    },
+    "/windows/glob_to_regexp.ts": {
+      "size": 3422,
+      "checksum": "sha256-5a9251ea357ec619f8b370a87e3ec010f36ceb9a0112973b6a1122684b72ccdb"
+    },
+    "/posix/extname.ts": {
+      "size": 1980,
+      "checksum": "sha256-b1400d9d0ac2160accda327790c93daa4ee8325b87f4c4d9b21887e7c8fd73db"
+    },
+    "/normalize_test.ts": {
+      "size": 337,
+      "checksum": "sha256-967efe1ad7461207eff6b8253fbaaa91e7e3e1c2f2a1bd62740dc1f348eb2899"
+    },
+    "/posix/constants.ts": {
+      "size": 232,
+      "checksum": "sha256-93481efb98cdffa4c719c22a0182b994e5a6aed3047e1962f6c2c75b7592bef1"
+    },
+    "/windows/join.ts": {
+      "size": 2484,
+      "checksum": "sha256-a62e4f0cc65e0f6f2b033f5df3b11e0b51362aef2e1fb7c9aef2b299ac224810"
+    },
+    "/posix/glob.ts": {
+      "size": 4038,
+      "checksum": "sha256-43c116dcfcba89b8c4e205575adde10ce69bd5fc6d19c1ee0794d2474c85e3eb"
+    },
+    "/posix/is_absolute.ts": {
+      "size": 464,
+      "checksum": "sha256-e7147b25e786abb51dd888eca89d2fd3770c41e6bd556d19db26cca348fb78a4"
+    },
+    "/windows/is_absolute.ts": {
+      "size": 822,
+      "checksum": "sha256-d3534d9fd5680d4c6895bbb59193335e5753cdef875f095297be66eb96f2f530"
+    },
+    "/basename_test.ts": {
+      "size": 4034,
+      "checksum": "sha256-96738f93e1360418c9a1d0c3bff5e8f436f652253eb3ba7905934f3d0bb11d1e"
+    },
+    "/windows/glob.ts": {
+      "size": 4047,
+      "checksum": "sha256-a310346752d39d2ae26725ec7a2260aaa46ff8cadeb78ec75126692daba392fa"
+    },
+    "/posix/normalize.ts": {
+      "size": 1060,
+      "checksum": "sha256-9b9f666159c0e5ee3df292cf56555547b1be4cd3ca54da6a263a3074b8e44964"
+    },
+    "/resolve_test.ts": {
+      "size": 2065,
+      "checksum": "sha256-76055942d3a89843a75c85cd6e0e978046987d0126a00a697ed27e52c2c28832"
+    },
+    "/extname_test.ts": {
+      "size": 2660,
+      "checksum": "sha256-2b4d5fee8206c2e3eb2bf9311fdcb90cfbd75fd5cca8931c76906020b9bb27ff"
+    },
+    "/to_namespaced_path.ts": {
+      "size": 572,
+      "checksum": "sha256-b706a4103b104cfadc09600a5f838c2ba94dbcdb642344557122dda444526e40"
+    },
+    "/from_file_url_test.ts": {
+      "size": 2356,
+      "checksum": "sha256-4cf353944ed17f463e39babc8c626f2a2698f90f6d63ea2ff236c1d4b23dd5d6"
+    },
+    "/posix/dirname.ts": {
+      "size": 1113,
+      "checksum": "sha256-ecdaeec17d5fdd00da89bb05962e209c7aa41ad4967279bc8662c0bb3a243b2f"
+    },
+    "/basename.ts": {
+      "size": 677,
+      "checksum": "sha256-5d341aadb7ada266e2280561692c165771d071c98746fcb66da928870cd47668"
+    },
+    "/from_file_url.ts": {
+      "size": 861,
+      "checksum": "sha256-7c87244ca07e4065cb024016b03d012facb856cc7aed089d9b6f1e4ea6152316"
+    },
+    "/posix/parse.ts": {
+      "size": 3070,
+      "checksum": "sha256-96aad4733eb1091db6b3de423f23c25a2ac3e3a5b29b35c3ee808b123eef73e5"
+    },
+    "/posix/basename.ts": {
+      "size": 912,
+      "checksum": "sha256-265d3360c49c1af372a10891518b785fc2ae138f019892c89642e1f1c523b2dc"
+    },
+    "/posix/_util.ts": {
+      "size": 391,
+      "checksum": "sha256-1e3937da30f080bfc99fe45d7ed23c47dd8585c5e473b2d771380d3a6937cf9d"
+    },
+    "/mod.ts": {
+      "size": 2486,
+      "checksum": "sha256-8a61b81dd91a8cca0326bf0011db8d227b23b982dd4647fb119674594e29e544"
+    }
+  },
+  "moduleGraph1": {
+    "/_common/from_file_url.ts": {},
+    "/windows/glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              10,
+              25
+            ]
+          ],
+          "specifier": "./../is_glob.ts",
+          "specifierRange": [
+            [
+              10,
+              7
+            ],
+            [
+              10,
+              24
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              12,
+              0
+            ],
+            [
+              73,
+              29
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              73,
+              7
+            ],
+            [
+              73,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              75,
+              0
+            ],
+            [
+              82,
+              29
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              82,
+              7
+            ],
+            [
+              82,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              84,
+              0
+            ],
+            [
+              91,
+              25
+            ]
+          ],
+          "specifier": "./join_globs.ts",
+          "specifierRange": [
+            [
+              91,
+              7
+            ],
+            [
+              91,
+              24
+            ]
+          ]
+        }
+      ]
+    },
+    "/basename.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              64
+            ]
+          ],
+          "specifier": "./posix/basename.ts",
+          "specifierRange": [
+            [
+              4,
+              42
+            ],
+            [
+              4,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              68
+            ]
+          ],
+          "specifier": "./windows/basename.ts",
+          "specifierRange": [
+            [
+              5,
+              44
+            ],
+            [
+              5,
+              67
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/glob_to_regexp.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              7,
+              41
+            ]
+          ],
+          "specifier": "./../_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              7,
+              7
+            ],
+            [
+              7,
+              40
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " Copyright the Browserify authors. MIT License.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  49
+                ]
+              ]
+            },
+            {
+              "text": " Ported mostly from https://github.com/browserify/path-browserify/",
+              "range": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  2,
+                  68
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  3,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Utilities for working with OS-specific file paths.\n *\n * Functions from this module will automatically switch to support the path style\n * of the current OS, either `windows` for Microsoft Windows, or `posix` for\n * every other operating system, eg. Linux, MacOS, BSD etc.\n *\n * To use functions for a specific path style regardless of the current OS\n * import the modules from the platform sub directory instead.\n *\n * Example, for `posix`:\n *\n * ```ts\n * import { fromFileUrl } from \"@std/path/posix/from_file_url\";\n * const p = fromFileUrl(\"file:///home/foo\");\n * console.log(p); // \"/home/foo\"\n * ```\n *\n * or, for `windows`:\n *\n * ```ts\n * import { fromFileUrl } from \"@std/path/windows/from_file_url\";\n * const p = fromFileUrl(\"file:///home/foo\");\n * console.log(p); // \"\\\\home\\\\foo\"\n * ```\n *\n * This module is browser compatible.\n *\n * @module\n ",
+              "range": [
+                [
+                  5,
+                  0
+                ],
+                [
+                  34,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              36,
+              0
+            ],
+            [
+              36,
+              45
+            ]
+          ],
+          "specifier": "./windows/mod.ts",
+          "specifierRange": [
+            [
+              36,
+              26
+            ],
+            [
+              36,
+              44
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              37,
+              0
+            ],
+            [
+              37,
+              41
+            ]
+          ],
+          "specifier": "./posix/mod.ts",
+          "specifierRange": [
+            [
+              37,
+              24
+            ],
+            [
+              37,
+              40
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              38,
+              0
+            ],
+            [
+              38,
+              54
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              38,
+              37
+            ],
+            [
+              38,
+              53
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              56,
+              0
+            ],
+            [
+              56,
+              30
+            ]
+          ],
+          "specifier": "./basename.ts",
+          "specifierRange": [
+            [
+              56,
+              14
+            ],
+            [
+              56,
+              29
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              57,
+              0
+            ],
+            [
+              57,
+              31
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              57,
+              14
+            ],
+            [
+              57,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              58,
+              0
+            ],
+            [
+              58,
+              29
+            ]
+          ],
+          "specifier": "./dirname.ts",
+          "specifierRange": [
+            [
+              58,
+              14
+            ],
+            [
+              58,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              59,
+              0
+            ],
+            [
+              59,
+              29
+            ]
+          ],
+          "specifier": "./extname.ts",
+          "specifierRange": [
+            [
+              59,
+              14
+            ],
+            [
+              59,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              60,
+              0
+            ],
+            [
+              60,
+              28
+            ]
+          ],
+          "specifier": "./format.ts",
+          "specifierRange": [
+            [
+              60,
+              14
+            ],
+            [
+              60,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              61,
+              0
+            ],
+            [
+              61,
+              35
+            ]
+          ],
+          "specifier": "./from_file_url.ts",
+          "specifierRange": [
+            [
+              61,
+              14
+            ],
+            [
+              61,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              62,
+              0
+            ],
+            [
+              62,
+              33
+            ]
+          ],
+          "specifier": "./is_absolute.ts",
+          "specifierRange": [
+            [
+              62,
+              14
+            ],
+            [
+              62,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              63,
+              0
+            ],
+            [
+              63,
+              26
+            ]
+          ],
+          "specifier": "./join.ts",
+          "specifierRange": [
+            [
+              63,
+              14
+            ],
+            [
+              63,
+              25
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              64,
+              0
+            ],
+            [
+              64,
+              31
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              64,
+              14
+            ],
+            [
+              64,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              65,
+              0
+            ],
+            [
+              65,
+              27
+            ]
+          ],
+          "specifier": "./parse.ts",
+          "specifierRange": [
+            [
+              65,
+              14
+            ],
+            [
+              65,
+              26
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              66,
+              0
+            ],
+            [
+              66,
+              30
+            ]
+          ],
+          "specifier": "./relative.ts",
+          "specifierRange": [
+            [
+              66,
+              14
+            ],
+            [
+              66,
+              29
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              67,
+              0
+            ],
+            [
+              67,
+              29
+            ]
+          ],
+          "specifier": "./resolve.ts",
+          "specifierRange": [
+            [
+              67,
+              14
+            ],
+            [
+              67,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              68,
+              0
+            ],
+            [
+              68,
+              33
+            ]
+          ],
+          "specifier": "./to_file_url.ts",
+          "specifierRange": [
+            [
+              68,
+              14
+            ],
+            [
+              68,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              69,
+              0
+            ],
+            [
+              69,
+              40
+            ]
+          ],
+          "specifier": "./to_namespaced_path.ts",
+          "specifierRange": [
+            [
+              69,
+              14
+            ],
+            [
+              69,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              70,
+              0
+            ],
+            [
+              70,
+              28
+            ]
+          ],
+          "specifier": "./common.ts",
+          "specifierRange": [
+            [
+              70,
+              14
+            ],
+            [
+              70,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              71,
+              0
+            ],
+            [
+              71,
+              31
+            ]
+          ],
+          "specifier": "./separator.ts",
+          "specifierRange": [
+            [
+              71,
+              14
+            ],
+            [
+              71,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              72,
+              0
+            ],
+            [
+              72,
+              32
+            ]
+          ],
+          "specifier": "./_interface.ts",
+          "specifierRange": [
+            [
+              72,
+              14
+            ],
+            [
+              72,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              73,
+              0
+            ],
+            [
+              73,
+              36
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              73,
+              14
+            ],
+            [
+              73,
+              35
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              74,
+              0
+            ],
+            [
+              74,
+              29
+            ]
+          ],
+          "specifier": "./is_glob.ts",
+          "specifierRange": [
+            [
+              74,
+              14
+            ],
+            [
+              74,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              75,
+              0
+            ],
+            [
+              75,
+              32
+            ]
+          ],
+          "specifier": "./join_globs.ts",
+          "specifierRange": [
+            [
+              75,
+              14
+            ],
+            [
+              75,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              76,
+              0
+            ],
+            [
+              76,
+              36
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              76,
+              14
+            ],
+            [
+              76,
+              35
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/normalize_string.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " Copyright the Browserify authors. MIT License.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  49
+                ]
+              ]
+            },
+            {
+              "text": " Ported from https://github.com/browserify/path-browserify/",
+              "range": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  2,
+                  61
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  3,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              62
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              5,
+              45
+            ],
+            [
+              5,
+              61
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/glob_to_reg_exp.ts": {},
+    "/dirname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              61
+            ]
+          ],
+          "specifier": "./posix/dirname.ts",
+          "specifierRange": [
+            [
+              4,
+              40
+            ],
+            [
+              4,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              65
+            ]
+          ],
+          "specifier": "./windows/dirname.ts",
+          "specifierRange": [
+            [
+              5,
+              42
+            ],
+            [
+              5,
+              64
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/glob_to_regexp.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              7,
+              41
+            ]
+          ],
+          "specifier": "./../_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              7,
+              7
+            ],
+            [
+              7,
+              40
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              34,
+              0
+            ],
+            [
+              34,
+              30
+            ]
+          ],
+          "specifier": "./basename.ts",
+          "specifierRange": [
+            [
+              34,
+              14
+            ],
+            [
+              34,
+              29
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              35,
+              0
+            ],
+            [
+              35,
+              31
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              35,
+              14
+            ],
+            [
+              35,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              36,
+              0
+            ],
+            [
+              36,
+              29
+            ]
+          ],
+          "specifier": "./dirname.ts",
+          "specifierRange": [
+            [
+              36,
+              14
+            ],
+            [
+              36,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              37,
+              0
+            ],
+            [
+              37,
+              29
+            ]
+          ],
+          "specifier": "./extname.ts",
+          "specifierRange": [
+            [
+              37,
+              14
+            ],
+            [
+              37,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              38,
+              0
+            ],
+            [
+              38,
+              28
+            ]
+          ],
+          "specifier": "./format.ts",
+          "specifierRange": [
+            [
+              38,
+              14
+            ],
+            [
+              38,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              39,
+              0
+            ],
+            [
+              39,
+              35
+            ]
+          ],
+          "specifier": "./from_file_url.ts",
+          "specifierRange": [
+            [
+              39,
+              14
+            ],
+            [
+              39,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              33
+            ]
+          ],
+          "specifier": "./is_absolute.ts",
+          "specifierRange": [
+            [
+              40,
+              14
+            ],
+            [
+              40,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              41,
+              0
+            ],
+            [
+              41,
+              26
+            ]
+          ],
+          "specifier": "./join.ts",
+          "specifierRange": [
+            [
+              41,
+              14
+            ],
+            [
+              41,
+              25
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              42,
+              0
+            ],
+            [
+              42,
+              31
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              42,
+              14
+            ],
+            [
+              42,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              43,
+              0
+            ],
+            [
+              43,
+              27
+            ]
+          ],
+          "specifier": "./parse.ts",
+          "specifierRange": [
+            [
+              43,
+              14
+            ],
+            [
+              43,
+              26
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              44,
+              0
+            ],
+            [
+              44,
+              30
+            ]
+          ],
+          "specifier": "./relative.ts",
+          "specifierRange": [
+            [
+              44,
+              14
+            ],
+            [
+              44,
+              29
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              45,
+              0
+            ],
+            [
+              45,
+              29
+            ]
+          ],
+          "specifier": "./resolve.ts",
+          "specifierRange": [
+            [
+              45,
+              14
+            ],
+            [
+              45,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              46,
+              0
+            ],
+            [
+              46,
+              33
+            ]
+          ],
+          "specifier": "./to_file_url.ts",
+          "specifierRange": [
+            [
+              46,
+              14
+            ],
+            [
+              46,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              47,
+              0
+            ],
+            [
+              47,
+              40
+            ]
+          ],
+          "specifier": "./to_namespaced_path.ts",
+          "specifierRange": [
+            [
+              47,
+              14
+            ],
+            [
+              47,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              48,
+              0
+            ],
+            [
+              48,
+              28
+            ]
+          ],
+          "specifier": "./common.ts",
+          "specifierRange": [
+            [
+              48,
+              14
+            ],
+            [
+              48,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              49,
+              0
+            ],
+            [
+              49,
+              31
+            ]
+          ],
+          "specifier": "./separator.ts",
+          "specifierRange": [
+            [
+              49,
+              14
+            ],
+            [
+              49,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              50,
+              0
+            ],
+            [
+              50,
+              35
+            ]
+          ],
+          "specifier": "./../_interface.ts",
+          "specifierRange": [
+            [
+              50,
+              14
+            ],
+            [
+              50,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              51,
+              0
+            ],
+            [
+              51,
+              36
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              51,
+              14
+            ],
+            [
+              51,
+              35
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              52,
+              0
+            ],
+            [
+              52,
+              29
+            ]
+          ],
+          "specifier": "./is_glob.ts",
+          "specifierRange": [
+            [
+              52,
+              14
+            ],
+            [
+              52,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              53,
+              0
+            ],
+            [
+              53,
+              32
+            ]
+          ],
+          "specifier": "./join_globs.ts",
+          "specifierRange": [
+            [
+              53,
+              14
+            ],
+            [
+              53,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              54,
+              0
+            ],
+            [
+              54,
+              36
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              54,
+              14
+            ],
+            [
+              54,
+              35
+            ]
+          ]
+        }
+      ]
+    },
+    "/is_absolute.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              71
+            ]
+          ],
+          "specifier": "./posix/is_absolute.ts",
+          "specifierRange": [
+            [
+              4,
+              46
+            ],
+            [
+              4,
+              70
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              75
+            ]
+          ],
+          "specifier": "./windows/is_absolute.ts",
+          "specifierRange": [
+            [
+              5,
+              48
+            ],
+            [
+              5,
+              74
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/dirname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              46
+            ]
+          ],
+          "specifier": "./assert_path.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/extname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              65
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              37
+            ],
+            [
+              3,
+              64
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              66
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              53
+            ],
+            [
+              5,
+              65
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/normalize_glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              62
+            ]
+          ],
+          "specifier": "./../_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              28
+            ],
+            [
+              3,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              43
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              51
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              5,
+              34
+            ],
+            [
+              5,
+              50
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/to_namespaced_path.ts": {},
+    "/windows/common.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              49
+            ]
+          ],
+          "specifier": "./../_common/common.ts",
+          "specifierRange": [
+            [
+              3,
+              24
+            ],
+            [
+              3,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              43
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/_util.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " Copyright the Browserify authors. MIT License.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  49
+                ]
+              ]
+            },
+            {
+              "text": " Ported from https://github.com/browserify/path-browserify/",
+              "range": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  2,
+                  61
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  3,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              61
+            ]
+          ],
+          "specifier": "../_common/constants.ts",
+          "specifierRange": [
+            [
+              5,
+              35
+            ],
+            [
+              5,
+              60
+            ]
+          ]
+        }
+      ]
+    },
+    "/glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "exportType",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              64
+            ]
+          ],
+          "specifier": "./_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "exportType",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              63
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              4,
+              41
+            ],
+            [
+              4,
+              62
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              13,
+              22
+            ]
+          ],
+          "specifier": "./is_glob.ts",
+          "specifierRange": [
+            [
+              13,
+              7
+            ],
+            [
+              13,
+              21
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              15,
+              0
+            ],
+            [
+              76,
+              29
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              76,
+              7
+            ],
+            [
+              76,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              78,
+              0
+            ],
+            [
+              85,
+              29
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              85,
+              7
+            ],
+            [
+              85,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              87,
+              0
+            ],
+            [
+              94,
+              25
+            ]
+          ],
+          "specifier": "./join_globs.ts",
+          "specifierRange": [
+            [
+              94,
+              7
+            ],
+            [
+              94,
+              24
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/parse.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              53
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              25
+            ],
+            [
+              3,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              48
+            ]
+          ],
+          "specifier": "./../_interface.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              84
+            ]
+          ],
+          "specifier": "./../_common/strip_trailing_separators.ts",
+          "specifierRange": [
+            [
+              5,
+              40
+            ],
+            [
+              5,
+              83
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              6,
+              27
+            ],
+            [
+              6,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              7,
+              0
+            ],
+            [
+              7,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              7,
+              37
+            ],
+            [
+              7,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/format.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              58
+            ]
+          ],
+          "specifier": "./posix/format.ts",
+          "specifierRange": [
+            [
+              4,
+              38
+            ],
+            [
+              4,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              62
+            ]
+          ],
+          "specifier": "./windows/format.ts",
+          "specifierRange": [
+            [
+              5,
+              40
+            ],
+            [
+              5,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              56
+            ]
+          ],
+          "specifier": "./_interface.ts",
+          "specifierRange": [
+            [
+              6,
+              38
+            ],
+            [
+              6,
+              55
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/join_globs.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              62
+            ]
+          ],
+          "specifier": "./../_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              28
+            ],
+            [
+              3,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              33
+            ]
+          ],
+          "specifier": "./join.ts",
+          "specifierRange": [
+            [
+              4,
+              21
+            ],
+            [
+              4,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              43
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              5,
+              26
+            ],
+            [
+              5,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              52
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              6,
+              30
+            ],
+            [
+              6,
+              51
+            ]
+          ]
+        }
+      ]
+    },
+    "/relative.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              64
+            ]
+          ],
+          "specifier": "./posix/relative.ts",
+          "specifierRange": [
+            [
+              4,
+              42
+            ],
+            [
+              4,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              68
+            ]
+          ],
+          "specifier": "./windows/relative.ts",
+          "specifierRange": [
+            [
+              5,
+              44
+            ],
+            [
+              5,
+              67
+            ]
+          ]
+        }
+      ]
+    },
+    "/separator.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              34,
+              0
+            ],
+            [
+              34,
+              30
+            ]
+          ],
+          "specifier": "./basename.ts",
+          "specifierRange": [
+            [
+              34,
+              14
+            ],
+            [
+              34,
+              29
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              35,
+              0
+            ],
+            [
+              35,
+              31
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              35,
+              14
+            ],
+            [
+              35,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              36,
+              0
+            ],
+            [
+              36,
+              29
+            ]
+          ],
+          "specifier": "./dirname.ts",
+          "specifierRange": [
+            [
+              36,
+              14
+            ],
+            [
+              36,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              37,
+              0
+            ],
+            [
+              37,
+              29
+            ]
+          ],
+          "specifier": "./extname.ts",
+          "specifierRange": [
+            [
+              37,
+              14
+            ],
+            [
+              37,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              38,
+              0
+            ],
+            [
+              38,
+              28
+            ]
+          ],
+          "specifier": "./format.ts",
+          "specifierRange": [
+            [
+              38,
+              14
+            ],
+            [
+              38,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              39,
+              0
+            ],
+            [
+              39,
+              35
+            ]
+          ],
+          "specifier": "./from_file_url.ts",
+          "specifierRange": [
+            [
+              39,
+              14
+            ],
+            [
+              39,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              40,
+              0
+            ],
+            [
+              40,
+              33
+            ]
+          ],
+          "specifier": "./is_absolute.ts",
+          "specifierRange": [
+            [
+              40,
+              14
+            ],
+            [
+              40,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              41,
+              0
+            ],
+            [
+              41,
+              26
+            ]
+          ],
+          "specifier": "./join.ts",
+          "specifierRange": [
+            [
+              41,
+              14
+            ],
+            [
+              41,
+              25
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              42,
+              0
+            ],
+            [
+              42,
+              31
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              42,
+              14
+            ],
+            [
+              42,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              43,
+              0
+            ],
+            [
+              43,
+              27
+            ]
+          ],
+          "specifier": "./parse.ts",
+          "specifierRange": [
+            [
+              43,
+              14
+            ],
+            [
+              43,
+              26
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              44,
+              0
+            ],
+            [
+              44,
+              30
+            ]
+          ],
+          "specifier": "./relative.ts",
+          "specifierRange": [
+            [
+              44,
+              14
+            ],
+            [
+              44,
+              29
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              45,
+              0
+            ],
+            [
+              45,
+              29
+            ]
+          ],
+          "specifier": "./resolve.ts",
+          "specifierRange": [
+            [
+              45,
+              14
+            ],
+            [
+              45,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              46,
+              0
+            ],
+            [
+              46,
+              33
+            ]
+          ],
+          "specifier": "./to_file_url.ts",
+          "specifierRange": [
+            [
+              46,
+              14
+            ],
+            [
+              46,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              47,
+              0
+            ],
+            [
+              47,
+              40
+            ]
+          ],
+          "specifier": "./to_namespaced_path.ts",
+          "specifierRange": [
+            [
+              47,
+              14
+            ],
+            [
+              47,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              48,
+              0
+            ],
+            [
+              48,
+              28
+            ]
+          ],
+          "specifier": "./common.ts",
+          "specifierRange": [
+            [
+              48,
+              14
+            ],
+            [
+              48,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              49,
+              0
+            ],
+            [
+              49,
+              31
+            ]
+          ],
+          "specifier": "./separator.ts",
+          "specifierRange": [
+            [
+              49,
+              14
+            ],
+            [
+              49,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              50,
+              0
+            ],
+            [
+              50,
+              35
+            ]
+          ],
+          "specifier": "./../_interface.ts",
+          "specifierRange": [
+            [
+              50,
+              14
+            ],
+            [
+              50,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              51,
+              0
+            ],
+            [
+              51,
+              36
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              51,
+              14
+            ],
+            [
+              51,
+              35
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              52,
+              0
+            ],
+            [
+              52,
+              29
+            ]
+          ],
+          "specifier": "./is_glob.ts",
+          "specifierRange": [
+            [
+              52,
+              14
+            ],
+            [
+              52,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              53,
+              0
+            ],
+            [
+              53,
+              32
+            ]
+          ],
+          "specifier": "./join_globs.ts",
+          "specifierRange": [
+            [
+              53,
+              14
+            ],
+            [
+              53,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              54,
+              0
+            ],
+            [
+              54,
+              36
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              54,
+              14
+            ],
+            [
+              54,
+              35
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/is_absolute.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              4,
+              37
+            ],
+            [
+              4,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/join.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              43
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/from_file_url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              75
+            ]
+          ],
+          "specifier": "./posix/from_file_url.ts",
+          "specifierRange": [
+            [
+              4,
+              48
+            ],
+            [
+              4,
+              74
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              79
+            ]
+          ],
+          "specifier": "./windows/from_file_url.ts",
+          "specifierRange": [
+            [
+              5,
+              50
+            ],
+            [
+              5,
+              78
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/join.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              58
+            ]
+          ],
+          "specifier": "jsr:/@std/assert@^0.213.1/assert",
+          "specifierRange": [
+            [
+              3,
+              23
+            ],
+            [
+              3,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              45
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              32
+            ],
+            [
+              5,
+              44
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              43
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              6,
+              26
+            ],
+            [
+              6,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/normalize.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              54
+            ]
+          ],
+          "specifier": "./../_common/normalize.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              53
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              67
+            ]
+          ],
+          "specifier": "./../_common/normalize_string.ts",
+          "specifierRange": [
+            [
+              4,
+              32
+            ],
+            [
+              4,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              37
+            ],
+            [
+              5,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/to_file_url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              63
+            ]
+          ],
+          "specifier": "./../_common/to_file_url.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              62
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              46
+            ]
+          ],
+          "specifier": "./is_absolute.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              10,
+              25
+            ]
+          ],
+          "specifier": "./../is_glob.ts",
+          "specifierRange": [
+            [
+              10,
+              7
+            ],
+            [
+              10,
+              24
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              12,
+              0
+            ],
+            [
+              73,
+              29
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              73,
+              7
+            ],
+            [
+              73,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              75,
+              0
+            ],
+            [
+              82,
+              29
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              82,
+              7
+            ],
+            [
+              82,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              84,
+              0
+            ],
+            [
+              91,
+              25
+            ]
+          ],
+          "specifier": "./join_globs.ts",
+          "specifierRange": [
+            [
+              91,
+              7
+            ],
+            [
+              91,
+              24
+            ]
+          ]
+        }
+      ]
+    },
+    "/resolve.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              61
+            ]
+          ],
+          "specifier": "./posix/resolve.ts",
+          "specifierRange": [
+            [
+              4,
+              40
+            ],
+            [
+              4,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              65
+            ]
+          ],
+          "specifier": "./windows/resolve.ts",
+          "specifierRange": [
+            [
+              5,
+              42
+            ],
+            [
+              5,
+              64
+            ]
+          ]
+        }
+      ]
+    },
+    "/to_file_url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              69
+            ]
+          ],
+          "specifier": "./posix/to_file_url.ts",
+          "specifierRange": [
+            [
+              4,
+              44
+            ],
+            [
+              4,
+              68
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              73
+            ]
+          ],
+          "specifier": "./windows/to_file_url.ts",
+          "specifierRange": [
+            [
+              5,
+              46
+            ],
+            [
+              5,
+              72
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/constants.ts": {},
+    "/constants.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              2,
+              0
+            ],
+            [
+              2,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              2,
+              26
+            ],
+            [
+              2,
+              36
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/relative.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              3,
+              37
+            ],
+            [
+              3,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              39
+            ]
+          ],
+          "specifier": "./resolve.ts",
+          "specifierRange": [
+            [
+              4,
+              24
+            ],
+            [
+              4,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              54
+            ]
+          ],
+          "specifier": "./../_common/relative.ts",
+          "specifierRange": [
+            [
+              5,
+              27
+            ],
+            [
+              5,
+              53
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/parse.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              65
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              37
+            ],
+            [
+              3,
+              64
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              48
+            ]
+          ],
+          "specifier": "./../_interface.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              5,
+              27
+            ],
+            [
+              5,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              66
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              6,
+              53
+            ],
+            [
+              6,
+              65
+            ]
+          ]
+        }
+      ]
+    },
+    "/common.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              46
+            ]
+          ],
+          "specifier": "./_common/common.ts",
+          "specifierRange": [
+            [
+              3,
+              24
+            ],
+            [
+              3,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              43
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/dirname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              52
+            ]
+          ],
+          "specifier": "./../_common/dirname.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              84
+            ]
+          ],
+          "specifier": "./../_common/strip_trailing_separators.ts",
+          "specifierRange": [
+            [
+              4,
+              40
+            ],
+            [
+              4,
+              83
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              37
+            ],
+            [
+              5,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/is_glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              41
+            ]
+          ],
+          "specifier": "./../is_glob.ts",
+          "specifierRange": [
+            [
+              3,
+              23
+            ],
+            [
+              3,
+              40
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/normalize.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              54
+            ]
+          ],
+          "specifier": "./../_common/normalize.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              53
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              55
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              67
+            ]
+          ],
+          "specifier": "./../_common/normalize_string.ts",
+          "specifierRange": [
+            [
+              5,
+              32
+            ],
+            [
+              5,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              66
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              6,
+              53
+            ],
+            [
+              6,
+              65
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/to_file_url.ts": {},
+    "/posix/common.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              49
+            ]
+          ],
+          "specifier": "./../_common/common.ts",
+          "specifierRange": [
+            [
+              3,
+              24
+            ],
+            [
+              3,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              43
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/join_globs.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              62
+            ]
+          ],
+          "specifier": "./../_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              28
+            ],
+            [
+              3,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              33
+            ]
+          ],
+          "specifier": "./join.ts",
+          "specifierRange": [
+            [
+              4,
+              21
+            ],
+            [
+              4,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              43
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              5,
+              26
+            ],
+            [
+              5,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              52
+            ]
+          ],
+          "specifier": "./normalize_glob.ts",
+          "specifierRange": [
+            [
+              6,
+              30
+            ],
+            [
+              6,
+              51
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/basename.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              7,
+              34
+            ]
+          ],
+          "specifier": "./../_common/basename.ts",
+          "specifierRange": [
+            [
+              7,
+              7
+            ],
+            [
+              7,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              8,
+              0
+            ],
+            [
+              8,
+              55
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              8,
+              27
+            ],
+            [
+              8,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              9,
+              0
+            ],
+            [
+              9,
+              84
+            ]
+          ],
+          "specifier": "./../_common/strip_trailing_separators.ts",
+          "specifierRange": [
+            [
+              9,
+              40
+            ],
+            [
+              9,
+              83
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              10,
+              0
+            ],
+            [
+              10,
+              66
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              10,
+              53
+            ],
+            [
+              10,
+              65
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/resolve.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              55
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              67
+            ]
+          ],
+          "specifier": "./../_common/normalize_string.ts",
+          "specifierRange": [
+            [
+              4,
+              32
+            ],
+            [
+              4,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              5,
+              27
+            ],
+            [
+              5,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              66
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              6,
+              53
+            ],
+            [
+              6,
+              65
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/_util.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " Copyright the Browserify authors. MIT License.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  49
+                ]
+              ]
+            },
+            {
+              "text": " Ported from https://github.com/browserify/path-browserify/",
+              "range": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  2,
+                  61
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  3,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              12,
+              33
+            ]
+          ],
+          "specifier": "../_common/constants.ts",
+          "specifierRange": [
+            [
+              12,
+              7
+            ],
+            [
+              12,
+              32
+            ]
+          ]
+        }
+      ]
+    },
+    "/_interface.ts": {},
+    "/_common/relative.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              46
+            ]
+          ],
+          "specifier": "./assert_path.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/is_absolute.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              55
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              66
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              53
+            ],
+            [
+              5,
+              65
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/basename.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              46
+            ]
+          ],
+          "specifier": "./assert_path.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/to_file_url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              63
+            ]
+          ],
+          "specifier": "./../_common/to_file_url.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              62
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              46
+            ]
+          ],
+          "specifier": "./is_absolute.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/extname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              53
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              25
+            ],
+            [
+              3,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              37
+            ],
+            [
+              5,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/basename.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              7,
+              34
+            ]
+          ],
+          "specifier": "./../_common/basename.ts",
+          "specifierRange": [
+            [
+              7,
+              7
+            ],
+            [
+              7,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              8,
+              0
+            ],
+            [
+              8,
+              84
+            ]
+          ],
+          "specifier": "./../_common/strip_trailing_separators.ts",
+          "specifierRange": [
+            [
+              8,
+              40
+            ],
+            [
+              8,
+              83
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              9,
+              0
+            ],
+            [
+              9,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              9,
+              37
+            ],
+            [
+              9,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/join.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              52
+            ]
+          ],
+          "specifier": "./posix/join.ts",
+          "specifierRange": [
+            [
+              4,
+              34
+            ],
+            [
+              4,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              56
+            ]
+          ],
+          "specifier": "./windows/join.ts",
+          "specifierRange": [
+            [
+              5,
+              36
+            ],
+            [
+              5,
+              55
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/common.ts": {},
+    "/glob_to_regexp.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              64
+            ]
+          ],
+          "specifier": "./_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              45
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              4,
+              34
+            ],
+            [
+              4,
+              44
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              78
+            ]
+          ],
+          "specifier": "./posix/glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              6,
+              50
+            ],
+            [
+              6,
+              77
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              7,
+              0
+            ],
+            [
+              9,
+              37
+            ]
+          ],
+          "specifier": "./windows/glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              9,
+              7
+            ],
+            [
+              9,
+              36
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/relative.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              64
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              3,
+              36
+            ],
+            [
+              3,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              39
+            ]
+          ],
+          "specifier": "./resolve.ts",
+          "specifierRange": [
+            [
+              4,
+              24
+            ],
+            [
+              4,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              54
+            ]
+          ],
+          "specifier": "./../_common/relative.ts",
+          "specifierRange": [
+            [
+              5,
+              27
+            ],
+            [
+              5,
+              53
+            ]
+          ]
+        }
+      ]
+    },
+    "/normalize_glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              64
+            ]
+          ],
+          "specifier": "./_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              80
+            ]
+          ],
+          "specifier": "./posix/normalize_glob.ts",
+          "specifierRange": [
+            [
+              5,
+              52
+            ],
+            [
+              5,
+              79
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              8,
+              37
+            ]
+          ],
+          "specifier": "./windows/normalize_glob.ts",
+          "specifierRange": [
+            [
+              8,
+              7
+            ],
+            [
+              8,
+              36
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/resolve.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              67
+            ]
+          ],
+          "specifier": "./../_common/normalize_string.ts",
+          "specifierRange": [
+            [
+              3,
+              32
+            ],
+            [
+              3,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              57
+            ]
+          ],
+          "specifier": "./../_common/assert_path.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              50
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              5,
+              37
+            ],
+            [
+              5,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/parse.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              50
+            ]
+          ],
+          "specifier": "./_interface.ts",
+          "specifierRange": [
+            [
+              4,
+              32
+            ],
+            [
+              4,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              55
+            ]
+          ],
+          "specifier": "./posix/parse.ts",
+          "specifierRange": [
+            [
+              5,
+              36
+            ],
+            [
+              5,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              59
+            ]
+          ],
+          "specifier": "./windows/parse.ts",
+          "specifierRange": [
+            [
+              6,
+              38
+            ],
+            [
+              6,
+              58
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/constants.ts": {},
+    "/posix/format.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              60
+            ]
+          ],
+          "specifier": "./../_common/format.ts",
+          "specifierRange": [
+            [
+              3,
+              35
+            ],
+            [
+              3,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              64
+            ]
+          ],
+          "specifier": "./../_interface.ts",
+          "specifierRange": [
+            [
+              4,
+              43
+            ],
+            [
+              4,
+              63
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/separator.ts": {},
+    "/windows/dirname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              52
+            ]
+          ],
+          "specifier": "./../_common/dirname.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              55
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              84
+            ]
+          ],
+          "specifier": "./../_common/strip_trailing_separators.ts",
+          "specifierRange": [
+            [
+              5,
+              40
+            ],
+            [
+              5,
+              83
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              10,
+              20
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              10,
+              7
+            ],
+            [
+              10,
+              19
+            ]
+          ]
+        }
+      ]
+    },
+    "/to_namespaced_path.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              90
+            ]
+          ],
+          "specifier": "./posix/to_namespaced_path.ts",
+          "specifierRange": [
+            [
+              4,
+              58
+            ],
+            [
+              4,
+              89
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              94
+            ]
+          ],
+          "specifier": "./windows/to_namespaced_path.ts",
+          "specifierRange": [
+            [
+              5,
+              60
+            ],
+            [
+              5,
+              93
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/to_namespaced_path.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              8,
+              35
+            ]
+          ],
+          "specifier": "./../_common/constants.ts",
+          "specifierRange": [
+            [
+              8,
+              7
+            ],
+            [
+              8,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              9,
+              0
+            ],
+            [
+              9,
+              49
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              9,
+              36
+            ],
+            [
+              9,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              10,
+              0
+            ],
+            [
+              10,
+              39
+            ]
+          ],
+          "specifier": "./resolve.ts",
+          "specifierRange": [
+            [
+              10,
+              24
+            ],
+            [
+              10,
+              38
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/normalize_glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              68
+            ]
+          ],
+          "specifier": "./glob_to_regexp.ts",
+          "specifierRange": [
+            [
+              3,
+              46
+            ],
+            [
+              3,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              62
+            ]
+          ],
+          "specifier": "./../_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              4,
+              28
+            ],
+            [
+              4,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              43
+            ]
+          ],
+          "specifier": "./normalize.ts",
+          "specifierRange": [
+            [
+              5,
+              26
+            ],
+            [
+              5,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              51
+            ]
+          ],
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              6,
+              34
+            ],
+            [
+              6,
+              50
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/is_glob.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              41
+            ]
+          ],
+          "specifier": "./../is_glob.ts",
+          "specifierRange": [
+            [
+              3,
+              23
+            ],
+            [
+              3,
+              40
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/constants.ts": {},
+    "/windows/from_file_url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              58
+            ]
+          ],
+          "specifier": "./../_common/from_file_url.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              57
+            ]
+          ]
+        }
+      ]
+    },
+    "/posix/from_file_url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              58
+            ]
+          ],
+          "specifier": "./../_common/from_file_url.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              57
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/assert_path.ts": {},
+    "/posix/separator.ts": {},
+    "/normalize.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              67
+            ]
+          ],
+          "specifier": "./posix/normalize.ts",
+          "specifierRange": [
+            [
+              4,
+              44
+            ],
+            [
+              4,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              71
+            ]
+          ],
+          "specifier": "./windows/normalize.ts",
+          "specifierRange": [
+            [
+              5,
+              46
+            ],
+            [
+              5,
+              70
+            ]
+          ]
+        }
+      ]
+    },
+    "/join_globs.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              64
+            ]
+          ],
+          "specifier": "./_common/glob_to_reg_exp.ts",
+          "specifierRange": [
+            [
+              3,
+              33
+            ],
+            [
+              3,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              68
+            ]
+          ],
+          "specifier": "./posix/join_globs.ts",
+          "specifierRange": [
+            [
+              5,
+              44
+            ],
+            [
+              5,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              72
+            ]
+          ],
+          "specifier": "./windows/join_globs.ts",
+          "specifierRange": [
+            [
+              6,
+              46
+            ],
+            [
+              6,
+              71
+            ]
+          ]
+        }
+      ]
+    },
+    "/_common/strip_trailing_separators.ts": {},
+    "/_common/normalize.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              46
+            ]
+          ],
+          "specifier": "./assert_path.ts",
+          "specifierRange": [
+            [
+              3,
+              27
+            ],
+            [
+              3,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/_os.ts": {},
+    "/_common/format.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              62
+            ]
+          ],
+          "specifier": "../_interface.ts",
+          "specifierRange": [
+            [
+              3,
+              43
+            ],
+            [
+              3,
+              61
+            ]
+          ]
+        }
+      ]
+    },
+    "/is_glob.ts": {},
+    "/extname.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              37
+            ]
+          ],
+          "specifier": "./_os.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              61
+            ]
+          ],
+          "specifier": "./posix/extname.ts",
+          "specifierRange": [
+            [
+              4,
+              40
+            ],
+            [
+              4,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              5,
+              0
+            ],
+            [
+              5,
+              65
+            ]
+          ],
+          "specifier": "./windows/extname.ts",
+          "specifierRange": [
+            [
+              5,
+              42
+            ],
+            [
+              5,
+              64
+            ]
+          ]
+        }
+      ]
+    },
+    "/windows/format.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              60
+            ]
+          ],
+          "specifier": "./../_common/format.ts",
+          "specifierRange": [
+            [
+              3,
+              35
+            ],
+            [
+              3,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "range": [
+            [
+              4,
+              0
+            ],
+            [
+              4,
+              64
+            ]
+          ],
+          "specifier": "./../_interface.ts",
+          "specifierRange": [
+            [
+              4,
+              43
+            ],
+            [
+              4,
+              63
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./basename": "./basename.ts",
+    "./common": "./common.ts",
+    "./constants": "./constants.ts",
+    "./dirname": "./dirname.ts",
+    "./extname": "./extname.ts",
+    "./format": "./format.ts",
+    "./from_file_url": "./from_file_url.ts",
+    "./glob": "./glob.ts",
+    "./glob_to_regexp": "./glob_to_regexp.ts",
+    "./is_absolute": "./is_absolute.ts",
+    "./is_glob": "./is_glob.ts",
+    "./join": "./join.ts",
+    "./join_globs": "./join_globs.ts",
+    "./normalize": "./normalize.ts",
+    "./normalize_glob": "./normalize_glob.ts",
+    "./parse": "./parse.ts",
+    "./posix": "./posix/mod.ts",
+    "./posix/basename": "./posix/basename.ts",
+    "./posix/common": "./posix/common.ts",
+    "./posix/constants": "./posix/constants.ts",
+    "./posix/dirname": "./posix/dirname.ts",
+    "./posix/extname": "./posix/extname.ts",
+    "./posix/format": "./posix/format.ts",
+    "./posix/from_file_url": "./posix/from_file_url.ts",
+    "./posix/glob": "./posix/glob.ts",
+    "./posix/glob_to_regexp": "./posix/glob_to_regexp.ts",
+    "./posix/is_absolute": "./posix/is_absolute.ts",
+    "./posix/is_glob": "./posix/is_glob.ts",
+    "./posix/join": "./posix/join.ts",
+    "./posix/join_globs": "./posix/join_globs.ts",
+    "./posix/normalize": "./posix/normalize.ts",
+    "./posix/normalize_glob": "./posix/normalize_glob.ts",
+    "./posix/parse": "./posix/parse.ts",
+    "./posix/relative": "./posix/relative.ts",
+    "./posix/resolve": "./posix/resolve.ts",
+    "./posix/separator": "./posix/separator.ts",
+    "./posix/to_file_url": "./posix/to_file_url.ts",
+    "./posix/to_namespaced_path": "./posix/to_namespaced_path.ts",
+    "./relative": "./relative.ts",
+    "./resolve": "./resolve.ts",
+    "./separator": "./separator.ts",
+    "./to_file_url": "./to_file_url.ts",
+    "./to_namespaced_path": "./to_namespaced_path.ts",
+    "./windows": "./windows/mod.ts",
+    "./windows/basename": "./windows/basename.ts",
+    "./windows/common": "./windows/common.ts",
+    "./windows/constants": "./windows/constants.ts",
+    "./windows/dirname": "./windows/dirname.ts",
+    "./windows/extname": "./windows/extname.ts",
+    "./windows/format": "./windows/format.ts",
+    "./windows/from_file_url": "./windows/from_file_url.ts",
+    "./windows/glob": "./windows/glob.ts",
+    "./windows/glob_to_regexp": "./windows/glob_to_regexp.ts",
+    "./windows/is_absolute": "./windows/is_absolute.ts",
+    "./windows/is_glob": "./windows/is_glob.ts",
+    "./windows/join": "./windows/join.ts",
+    "./windows/join_globs": "./windows/join_globs.ts",
+    "./windows/normalize": "./windows/normalize.ts",
+    "./windows/normalize_glob": "./windows/normalize_glob.ts",
+    "./windows/parse": "./windows/parse.ts",
+    "./windows/relative": "./windows/relative.ts",
+    "./windows/resolve": "./windows/resolve.ts",
+    "./windows/separator": "./windows/separator.ts",
+    "./windows/to_file_url": "./windows/to_file_url.ts",
+    "./windows/to_namespaced_path": "./windows/to_namespaced_path.ts"
+  }
+}

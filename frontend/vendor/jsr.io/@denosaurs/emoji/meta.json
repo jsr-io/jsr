@@ -1,0 +1,12 @@
+{
+  "scope": "denosaurs",
+  "name": "emoji",
+  "versions": {
+    "0.3.0": {
+      "yanked": false,
+      "exports": {
+        ".": "./mod.ts"
+      }
+    }
+  }
+}

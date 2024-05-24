@@ -1,0 +1,771 @@
+{
+  "manifest": {
+    "/testdata/file_server_as_library.ts": {
+      "size": 201,
+      "checksum": "sha256-2fbcc523bf7e17efea31d76d537a76aac81a806d9e4c68048fc3a5849ccf2333"
+    },
+    "/_negotiation/common.ts": {
+      "size": 1801,
+      "checksum": "sha256-051a9f6edd1ed69507df89bbc16fc1b13b7654b9b8fd38072ec33ae4c185fc13"
+    },
+    "/_negotiation/encoding.ts": {
+      "size": 4301,
+      "checksum": "sha256-fdedea1145c1dea3b3de2d5217e8eb927e764083eebc8c52d09a1ed3d9bb7a93"
+    },
+    "/user_agent_test.ts": {
+      "size": 3021,
+      "checksum": "sha256-6fcd5163e8426134e5d30f6fc76f1cca86dc4f628e9485f26089c4efdaf7a131"
+    },
+    "/file_server_test.ts": {
+      "size": 34245,
+      "checksum": "sha256-b8c306a1666694a3ff8750565abbe0bd5b7b6269e64049b97c1a469ff6bfc8e9"
+    },
+    "/unstable_signed_cookie.ts": {
+      "size": 3266,
+      "checksum": "sha256-6923dd528584001f51084d1247b59db278035d24d29a9442fc6e21448e851edd"
+    },
+    "/negotiation.ts": {
+      "size": 5379,
+      "checksum": "sha256-923cef82d6fbfb3b3aaaf42bfbe1ae1a8ad87d31d2c7595abb74c71ce598cdce"
+    },
+    "/server_sent_event_stream_test.ts": {
+      "size": 2932,
+      "checksum": "sha256-53a33b271fb1f56c27b701a862f37e103dc36b89d4184130ddcc5af473f2c6a7"
+    },
+    "/testdata/user_agent/cpu-all.json": {
+      "size": 6254,
+      "checksum": "sha256-56c35c79170a3685fbc076726afab7038066c6a7a2ae69201e269f86f2ed2154"
+    },
+    "/negotiation_test.ts": {
+      "size": 4149,
+      "checksum": "sha256-566fb2be040a232de9aec1f0cf9f1b904137e10877608f121208548e16da95de"
+    },
+    "/etag_test.ts": {
+      "size": 3173,
+      "checksum": "sha256-16ca7858929490b74901bfeea51b1fee6a3e3d905e9ee04081b946f12dba807a"
+    },
+    "/testdata/tls/localhost.crt": {
+      "size": 1245,
+      "checksum": "sha256-f03aed2154c7f5396d38c4183b8eba3d61b78149d52342eb8813776266278477"
+    },
+    "/testdata/test_empty_file.txt": {
+      "size": 0,
+      "checksum": "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/deno.json": {
+      "size": 461,
+      "checksum": "sha256-58e8e595a93a74ad6f4df96a41f43a13b66806a3bc5813a6dfa20875c9e96a52"
+    },
+    "/server_test.ts": {
+      "size": 44389,
+      "checksum": "sha256-5f3624c38d897325776041858cbe0b7ade3ddc6e777f10ebf69e5a0552d6eea1"
+    },
+    "/testdata/subdir-with-index/index.html": {
+      "size": 37,
+      "checksum": "sha256-7a74e785f7737fa4e405c655d542269241e2cf48843dea13d78cd22daa2c65df"
+    },
+    "/etag.ts": {
+      "size": 6092,
+      "checksum": "sha256-4f42f55cdba49370e75b734af575fc9e1811e2d398833a735f3aaeed894ab3ba"
+    },
+    "/testdata/test_file.txt": {
+      "size": 10034,
+      "checksum": "sha256-ff9f35c0695de5fb74d3642d04263344ff58f66ec095070b16e08ef4555c89da"
+    },
+    "/_negotiation/language.ts": {
+      "size": 4150,
+      "checksum": "sha256-300a5c586f844c97f246ab72c948e9fde9a8f45e92ec08e1cc9a9df80259e2a3"
+    },
+    "/mod.ts": {
+      "size": 2380,
+      "checksum": "sha256-f1ef4140b6089fdbb6ae471ece5c1aa3de80dff865487e29b049d95bbfd579a5"
+    },
+    "/testdata/user_agent/browser-all.json": {
+      "size": 51879,
+      "checksum": "sha256-af2bd9b60e457c31c0dc4e78aa656c9b0219455fcc84bc063665b4d7d3b14cf0"
+    },
+    "/testdata/hello.html": {
+      "size": 136,
+      "checksum": "sha256-701a1afcb9ce9246fdd96dd0cefa58ac0184e83afa8e8eb153aea8f42af2ed26"
+    },
+    "/testdata/.dotfile": {
+      "size": 7,
+      "checksum": "sha256-082e8fb7d162138b8d839d6a1ff5a3957b44747dda70c9f12b2bb8fa94d42e7c"
+    },
+    "/testdata/tls/RootCA.crt": {
+      "size": 1147,
+      "checksum": "sha256-11a8d4377cfdfdc6fbffbf9aef9cb94a9e339604991d115053f54aa4a756c67e"
+    },
+    "/_mock_conn.ts": {
+      "size": 1288,
+      "checksum": "sha256-6c6f593bbb19d98010e54160a41edf44b73b7bf4e02f9aa5924ae40b0fc8b905"
+    },
+    "/_negotiation/media_type.ts": {
+      "size": 4970,
+      "checksum": "sha256-87a1ecb22c1b268d0fa23d798e1ea238343505268cb1ff82bd038638de29ce31"
+    },
+    "/status.ts": {
+      "size": 11543,
+      "checksum": "sha256-f1ac9f2fed434d93415213fdc359437a5d61a1236a25e6f60a9afeb4fc94faa2"
+    },
+    "/cookie_test.ts": {
+      "size": 14803,
+      "checksum": "sha256-8fa3ff89ea18f12794672a7a502222dd91350e10017cf0817afe38a87a7d6fc0"
+    },
+    "/testdata/user_agent/engine-all.json": {
+      "size": 3992,
+      "checksum": "sha256-61360ae1b7ba14ab52f460b5503b7ae0a38a598f652198bb693c16c22cdef9d7"
+    },
+    "/file_server.ts": {
+      "size": 25198,
+      "checksum": "sha256-cbd4b9cd8f2d0a06099e92acc26593c93a1a40c7f8019b0d6efe60b389da9e59"
+    },
+    "/testdata/tls/RootCA.key": {
+      "size": 1704,
+      "checksum": "sha256-500d6d1140db926f7210ce05242fcf8e1e44f1fcc52f674453c314bf91f07032"
+    },
+    "/testdata/tls/RootCA.pem": {
+      "size": 1147,
+      "checksum": "sha256-11a8d4377cfdfdc6fbffbf9aef9cb94a9e339604991d115053f54aa4a756c67e"
+    },
+    "/cookie.ts": {
+      "size": 11286,
+      "checksum": "sha256-4c1132f563258e9084d9f54d0c7d4048c85f6cdc47f05df4b87d8b1a94657d1c"
+    },
+    "/testdata/tls/README.md": {
+      "size": 1481,
+      "checksum": "sha256-933cbcfa4955d621eedcca51c59632c1ba77a66b9feb9813269898992dbd2642"
+    },
+    "/testdata/user_agent/device-all.json": {
+      "size": 105317,
+      "checksum": "sha256-47ab0afe26f11638ce27099fe8fa6bd710d3fff4199fc3af2aa8de0f7812be12"
+    },
+    "/testdata/tls/localhost.key": {
+      "size": 1708,
+      "checksum": "sha256-a2022d1b1dd1dc502538990c28a22a7094d26d8f5ba6282cbff4f9767fc5d7fa"
+    },
+    "/status_test.ts": {
+      "size": 2661,
+      "checksum": "sha256-5d5a564bdf00cded9659cd4758214833d6cd6de3d0bd8a26a169186551535b93"
+    },
+    "/testdata/user_agent/os-all.json": {
+      "size": 29442,
+      "checksum": "sha256-7465591920fb4b99a594a314d1ced905e7bcdff69c513e1be13436041d97dd36"
+    },
+    "/user_agent.ts": {
+      "size": 32011,
+      "checksum": "sha256-35a5f6d7597a466ceb28e3a7fa57e762654338e2409f5dc72b6e87d972333922"
+    },
+    "/unstable_signed_cookie_test.ts": {
+      "size": 2168,
+      "checksum": "sha256-a5144b7a4d94655645e609fbdc56e99f6b949cfec656a11f0549b6de38415a06"
+    },
+    "/server_sent_event_stream.ts": {
+      "size": 2755,
+      "checksum": "sha256-f70024a189de756847fab0778b7da13170da3a09210b3dc494cab83c39a001ee"
+    },
+    "/server.ts": {
+      "size": 23215,
+      "checksum": "sha256-6737d3b2c4168da53477cd97f759af24e5ba0a8699484227b6625499b5b6b72d"
+    },
+    "/testdata/tls/domains.txt": {
+      "size": 199,
+      "checksum": "sha256-fb061dc0d044dc680b9c90e0e724805f7f9f4b65619b384faa7bd7a846e67400"
+    },
+    "/testdata/desktop.ini": {
+      "size": 195,
+      "checksum": "sha256-2c7e0f6873c5eadcdcb07a998cd174020c84ac3e4d3a9210f1dbbbe8a15d9d95"
+    }
+  },
+  "moduleGraph2": {
+    "/cookie.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/assert@^0.225.3/assert",
+          "specifierRange": [
+            [
+              5,
+              23
+            ],
+            [
+              5,
+              57
+            ]
+          ]
+        }
+      ]
+    },
+    "/unstable_signed_cookie.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/encoding@^0.224.2/hex",
+          "specifierRange": [
+            [
+              2,
+              37
+            ],
+            [
+              2,
+              70
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./cookie.ts",
+          "specifierRange": [
+            [
+              64,
+              14
+            ],
+            [
+              64,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./etag.ts",
+          "specifierRange": [
+            [
+              65,
+              14
+            ],
+            [
+              65,
+              25
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./status.ts",
+          "specifierRange": [
+            [
+              66,
+              14
+            ],
+            [
+              66,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./negotiation.ts",
+          "specifierRange": [
+            [
+              67,
+              14
+            ],
+            [
+              67,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./server.ts",
+          "specifierRange": [
+            [
+              68,
+              14
+            ],
+            [
+              68,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./unstable_signed_cookie.ts",
+          "specifierRange": [
+            [
+              69,
+              14
+            ],
+            [
+              69,
+              43
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./server_sent_event_stream.ts",
+          "specifierRange": [
+            [
+              70,
+              14
+            ],
+            [
+              70,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./user_agent.ts",
+          "specifierRange": [
+            [
+              71,
+              14
+            ],
+            [
+              71,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./file_server.ts",
+          "specifierRange": [
+            [
+              72,
+              14
+            ],
+            [
+              72,
+              32
+            ]
+          ]
+        }
+      ]
+    },
+    "/server_sent_event_stream.ts": {},
+    "/status.ts": {},
+    "/_negotiation/encoding.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./common.ts",
+          "specifierRange": [
+            [
+              31,
+              58
+            ],
+            [
+              31,
+              71
+            ]
+          ]
+        }
+      ]
+    },
+    "/server.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/async@^0.224.1/delay",
+          "specifierRange": [
+            [
+              1,
+              22
+            ],
+            [
+              1,
+              54
+            ]
+          ]
+        }
+      ]
+    },
+    "/user_agent.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/assert@^0.225.3/assert",
+          "specifierRange": [
+            [
+              13,
+              23
+            ],
+            [
+              13,
+              57
+            ]
+          ]
+        }
+      ]
+    },
+    "/negotiation.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_negotiation/encoding.ts",
+          "specifierRange": [
+            [
+              10,
+              35
+            ],
+            [
+              10,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_negotiation/language.ts",
+          "specifierRange": [
+            [
+              11,
+              35
+            ],
+            [
+              11,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_negotiation/media_type.ts",
+          "specifierRange": [
+            [
+              12,
+              36
+            ],
+            [
+              12,
+              66
+            ]
+          ]
+        }
+      ]
+    },
+    "/_negotiation/language.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./common.ts",
+          "specifierRange": [
+            [
+              31,
+              58
+            ],
+            [
+              31,
+              71
+            ]
+          ]
+        }
+      ]
+    },
+    "/_negotiation/media_type.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./common.ts",
+          "specifierRange": [
+            [
+              31,
+              58
+            ],
+            [
+              31,
+              71
+            ]
+          ]
+        }
+      ]
+    },
+    "/file_server.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/posix/join",
+          "specifierRange": [
+            [
+              33,
+              34
+            ],
+            [
+              33,
+              70
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/posix/normalize",
+          "specifierRange": [
+            [
+              34,
+              44
+            ],
+            [
+              34,
+              85
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/extname",
+          "specifierRange": [
+            [
+              35,
+              24
+            ],
+            [
+              35,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/join",
+          "specifierRange": [
+            [
+              36,
+              21
+            ],
+            [
+              36,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/relative",
+          "specifierRange": [
+            [
+              37,
+              25
+            ],
+            [
+              37,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/resolve",
+          "specifierRange": [
+            [
+              38,
+              24
+            ],
+            [
+              38,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/path@^0.225.1/constants",
+          "specifierRange": [
+            [
+              39,
+              34
+            ],
+            [
+              39,
+              69
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/media-types@^1.0.0-rc.1/content-type",
+          "specifierRange": [
+            [
+              40,
+              28
+            ],
+            [
+              40,
+              76
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./etag.ts",
+          "specifierRange": [
+            [
+              41,
+              39
+            ],
+            [
+              41,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./status.ts",
+          "specifierRange": [
+            [
+              47,
+              7
+            ],
+            [
+              47,
+              20
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/streams@^0.224.1/byte-slice-stream",
+          "specifierRange": [
+            [
+              48,
+              32
+            ],
+            [
+              48,
+              78
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/cli@^0.224.3/parse-args",
+          "specifierRange": [
+            [
+              49,
+              26
+            ],
+            [
+              49,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.225.1/colors",
+          "specifierRange": [
+            [
+              50,
+              20
+            ],
+            [
+              50,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./deno.json",
+          "specifierRange": [
+            [
+              51,
+              23
+            ],
+            [
+              51,
+              36
+            ]
+          ],
+          "importAttributes": {
+            "known": {
+              "type": "json"
+            }
+          }
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.225.1/bytes",
+          "specifierRange": [
+            [
+              52,
+              38
+            ],
+            [
+              52,
+              68
+            ]
+          ]
+        }
+      ]
+    },
+    "/_negotiation/common.ts": {},
+    "/etag.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/encoding@^0.224.2/base64",
+          "specifierRange": [
+            [
+              16,
+              45
+            ],
+            [
+              16,
+              81
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./cookie": "./cookie.ts",
+    "./etag": "./etag.ts",
+    "./file-server": "./file_server.ts",
+    "./negotiation": "./negotiation.ts",
+    "./server": "./server.ts",
+    "./server-sent-event-stream": "./server_sent_event_stream.ts",
+    "./status": "./status.ts",
+    "./unstable-signed-cookie": "./unstable_signed_cookie.ts",
+    "./user-agent": "./user_agent.ts"
+  }
+}

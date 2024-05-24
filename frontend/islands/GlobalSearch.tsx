@@ -2,8 +2,7 @@
 import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
-import { OramaClient } from "@oramacloud/client";
-import { Highlight } from "@orama/highlight";
+// import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "@fresh/core/runtime";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";

@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Handlers, PageProps } from "@fresh/core";
 import { OramaPackageHit, PaginationData, State } from "../util.ts";
-import { OramaClient } from "@oramacloud/client";
 import type { List, Package } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";

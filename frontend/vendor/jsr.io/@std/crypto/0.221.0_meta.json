@@ -1,0 +1,287 @@
+{
+  "manifest": {
+    "/timing_safe_equal_test.ts": {
+      "size": 3522,
+      "checksum": "sha256-8aea10b34e8d4b4f36eab4dfa6633b6660ff74cd138b986093931b9f7e95f1a8"
+    },
+    "/_wasm/Cargo.lock": {
+      "size": 10107,
+      "checksum": "sha256-03ef50cbf2e70639501f016d6717e07b2f8d557f81a38fb809ae940b354f28b2"
+    },
+    "/_wasm/rust-toolchain.toml": {
+      "size": 79,
+      "checksum": "sha256-a601c8f25d2e94b86c43116a61eb4c410a269dd8699074b6c842bf38193f2397"
+    },
+    "/_wasm/.rustfmt.toml": {
+      "size": 121,
+      "checksum": "sha256-e3cdaacad8caa9f718f4362a57d5a12c8532ba6332e7068a397a67b170193d38"
+    },
+    "/mod.ts": {
+      "size": 690,
+      "checksum": "sha256-e7dfa97c99fc760d55cf458be6214774048cf02e258869ef28d9825d1adea821"
+    },
+    "/_wasm/.cargo/config.toml": {
+      "size": 42,
+      "checksum": "sha256-285033faa15221410d801d5394381ae495890d37cc60b6c0aff0b7d08beda7b8"
+    },
+    "/_wasm/mod.ts": {
+      "size": 1264,
+      "checksum": "sha256-e89fbbc3c4722602ff975dd85f18273c7741ec766a9b68f6de4fd1d9876409f8"
+    },
+    "/_fnv/fnv32.ts": {
+      "size": 825,
+      "checksum": "sha256-ba2c5ef976b9f047d7ce2d33dfe18671afc75154bcf20ef89d932b2fe8820535"
+    },
+    "/crypto_test.ts": {
+      "size": 85221,
+      "checksum": "sha256-69fa6732b22d2f7c95737061c01cf31e07355164c6106a9c9eafd2182dc221e2"
+    },
+    "/_fnv/util_test.ts": {
+      "size": 2291,
+      "checksum": "sha256-b95052d3d53b43b18f5a8e687ea5a3db49497ba3fc7d2afe5275345152618236"
+    },
+    "/_fnv/fnv64.ts": {
+      "size": 1043,
+      "checksum": "sha256-580cadfe2ff333fe253d15df450f927c8ac7e408b704547be26aab41b5772558"
+    },
+    "/timing_safe_equal.ts": {
+      "size": 1825,
+      "checksum": "sha256-03b024dda8cfc3d739cd80ac2df506141b613aff8f2d789f69db6daa97a2d697"
+    },
+    "/_fnv/util.ts": {
+      "size": 1477,
+      "checksum": "sha256-27b36ce3440d0a180af6bf1cfc2c326f68823288540a354dc1d636b781b9b75f"
+    },
+    "/_benches/bench.ts": {
+      "size": 2516,
+      "checksum": "sha256-d37e543188b1ff8d8e67d7ff25299dfbdd4cf808c7e1afa2ed4402998f7e8855"
+    },
+    "/_wasm/test.ts": {
+      "size": 550,
+      "checksum": "sha256-9f7a888afbbc93904691d6a72f5342a44633c18f02d7e1f2fec3df574c0cc82a"
+    },
+    "/crypto.ts": {
+      "size": 10732,
+      "checksum": "sha256-5425e8afdc2a0f81c30e1fa92269a466fc6255696ebe93cc8ba21cd023e87815"
+    },
+    "/deno.json": {
+      "size": 268,
+      "checksum": "sha256-afb3e265448e842175fe247cd31caed3b0a1cdfac36374475dede9ab0cbdbc5b"
+    },
+    "/_wasm/src/lib.rs": {
+      "size": 3695,
+      "checksum": "sha256-023868f20023da332efdad93baf8a1529e05e389ab1abae52904ce0a367cb4ca"
+    },
+    "/unstable_keystack.ts": {
+      "size": 5795,
+      "checksum": "sha256-3a4e0413b350300643908e68e5659c87fad993ab5ef5cc933c6f78616c61945d"
+    },
+    "/_wasm/Cargo.toml": {
+      "size": 722,
+      "checksum": "sha256-c4ab508d7b301eb3b47745a19780e8b6febf2f0fb686af415c9d032039d90d7e"
+    },
+    "/testdata/digest_large_inputs.ts": {
+      "size": 896,
+      "checksum": "sha256-b1270834fea2d04db1ed112c25234d225c87ae7dff19daf604bb74a1cf9baf39"
+    },
+    "/_wasm/lib/deno_std_wasm_crypto.generated.mjs": {
+      "size": 196614,
+      "checksum": "sha256-f65ea775c52c5641f0154d98d6059e261ca3dc917a8856209d60bc6cb406e699"
+    },
+    "/_wasm/lib/deno_std_wasm_crypto.generated.d.mts": {
+      "size": 2942,
+      "checksum": "sha256-d78d61578ecab7cb4b1e9d2f5945e2235003984caa204a449b350002fdcac6c7"
+    },
+    "/_fnv/mod.ts": {
+      "size": 621,
+      "checksum": "sha256-8dbb60f062a6e77b82f7a62ac11fabfba52c3cd408c21916b130d8f57a880f96"
+    },
+    "/_wasm/src/fnv.rs": {
+      "size": 1767,
+      "checksum": "sha256-ad4b1191a8c2238514f28945089e04eef12c3681dd4e411a83e1901d65807df8"
+    },
+    "/_wasm/src/digest.rs": {
+      "size": 9127,
+      "checksum": "sha256-05297e43b655bee13e89b3f8c64482d3f71d45fd7ad2796543e6b912bc17a8f4"
+    },
+    "/unstable_keystack_test.ts": {
+      "size": 5921,
+      "checksum": "sha256-39072672b927d22fdd3ea20c1a185a9fbfd84916a0b197675555cce66e4b3ba4"
+    },
+    "/_wasm/README.md": {
+      "size": 484,
+      "checksum": "sha256-d7edd375244f3549e7b36da6c69db2f1f8d38d38dd991e7171feed98c8ab38b1"
+    },
+    "/testdata/digest_many_calls.ts": {
+      "size": 707,
+      "checksum": "sha256-5ba335750583a18d786752aa920d015f0b302872562b2c67ec1d7aba74617405"
+    }
+  },
+  "moduleGraph1": {
+    "/_wasm/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./lib/deno_std_wasm_crypto.generated.mjs",
+          "specifierRange": [
+            [
+              3,
+              7
+            ],
+            [
+              3,
+              49
+            ]
+          ]
+        }
+      ]
+    },
+    "/_wasm/lib/deno_std_wasm_crypto.generated.mjs": {
+      "tsReferences": [
+        {
+          "type": "types",
+          "text": "./deno_std_wasm_crypto.generated.d.mts",
+          "range": [
+            [
+              4,
+              21
+            ],
+            [
+              4,
+              61
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./crypto.ts",
+          "specifierRange": [
+            [
+              22,
+              14
+            ],
+            [
+              22,
+              27
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./unstable_keystack.ts",
+          "specifierRange": [
+            [
+              23,
+              14
+            ],
+            [
+              23,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./timing_safe_equal.ts",
+          "specifierRange": [
+            [
+              24,
+              14
+            ],
+            [
+              24,
+              38
+            ]
+          ]
+        }
+      ]
+    },
+    "/unstable_keystack.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./timing_safe_equal.ts",
+          "specifierRange": [
+            [
+              10,
+              32
+            ],
+            [
+              10,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/encoding@^0.221.0/base64url",
+          "specifierRange": [
+            [
+              11,
+              32
+            ],
+            [
+              11,
+              71
+            ]
+          ]
+        }
+      ]
+    },
+    "/_wasm/lib/deno_std_wasm_crypto.generated.d.mts": {},
+    "/timing_safe_equal.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/assert@^0.221.0/assert",
+          "specifierRange": [
+            [
+              3,
+              23
+            ],
+            [
+              3,
+              57
+            ]
+          ]
+        }
+      ]
+    },
+    "/crypto.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_wasm/mod.ts",
+          "specifierRange": [
+            [
+              112,
+              7
+            ],
+            [
+              112,
+              23
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./crypto": "./crypto.ts",
+    "./timing-safe-equal": "./timing_safe_equal.ts",
+    "./unstable-keystack": "./unstable_keystack.ts"
+  }
+}

@@ -1,0 +1,1760 @@
+{
+  "manifest": {
+    "/_type/seq.ts": {
+      "size": 492,
+      "checksum": "sha256-2deffc7f970869bc01a1541b4961d076329a1c2b30b95e07918f3132db7c3fe2"
+    },
+    "/_dumper/dumper.ts": {
+      "size": 25533,
+      "checksum": "sha256-08b595b40841a2e1c75303f5096392323b6baf8e9662430a91e3b36fbe175fe9"
+    },
+    "/schema/failsafe.ts": {
+      "size": 832,
+      "checksum": "sha256-0ac1cae5b86d8fe2c83ad0a17f8adc33106a452b7139f84e4b0bfaee2206730e"
+    },
+    "/deno.json": {
+      "size": 445,
+      "checksum": "sha256-c3c641824965f08987e4527a52872bb658db95b42fde030f841456adbfa91aaa"
+    },
+    "/_type/merge.ts": {
+      "size": 509,
+      "checksum": "sha256-ad0d971f91d2fb9f4ab3eba0c837eae357b1804d6b798adc99dc917bc5306b11"
+    },
+    "/_type/int.ts": {
+      "size": 4424,
+      "checksum": "sha256-c2dc88438a60fccc8d2226042bd18b9967753adaf6bd145feb8b99d567e432ce"
+    },
+    "/_type/pairs.ts": {
+      "size": 1256,
+      "checksum": "sha256-dd39bb44c1b9abaf6172c63f73350475933151f07e05253b81f7860c9b507177"
+    },
+    "/parse.ts": {
+      "size": 1645,
+      "checksum": "sha256-d83fd856780f98a85cdbc4716a689d4547eca215d5c454697ed47abb542c7a92"
+    },
+    "/example/sample_document.yml": {
+      "size": 5530,
+      "checksum": "sha256-a850c475ec784e7f451b392d3ce2c0c8790d2be734371c71c9bde8830f364620"
+    },
+    "/mod.ts": {
+      "size": 1370,
+      "checksum": "sha256-c6d0c57f0dad30be53173baf1bb70158af5dfd949225a25b6ccc75c25162b22c"
+    },
+    "/_type/omap.ts": {
+      "size": 1194,
+      "checksum": "sha256-cda915105ab22ba9e1d6317adacee8eec2d8ddaf864cc2f814e3e476946e72c6"
+    },
+    "/_type/str.ts": {
+      "size": 377,
+      "checksum": "sha256-88f0a1ba12295520cd57e96cd78d53aa0787d53c7a1c506155f418c496c2f550"
+    },
+    "/schema/core.ts": {
+      "size": 797,
+      "checksum": "sha256-0a37c07710e3df4eb4edc02f4edf623bf8df5af72b34d8a7c0229d0bac2a7043"
+    },
+    "/_loader/loader_state.ts": {
+      "size": 2263,
+      "checksum": "sha256-ee216de6040551940b85473c3185fdb7a6f3030b77153f87a6b7f63f82e489ea"
+    },
+    "/_loader/loader.ts": {
+      "size": 46759,
+      "checksum": "sha256-bf9e8a99770b59bc887b43ebccea108cbe9146ae32d91f7ce558d62c946d3fe3"
+    },
+    "/_error.ts": {
+      "size": 639,
+      "checksum": "sha256-f38cdebdb69cde16903d9aa2f3b8a3dd9d13e5f7f3570bf662bfaca69fef669e"
+    },
+    "/schema/extended.ts": {
+      "size": 1818,
+      "checksum": "sha256-0f04ff65b27c2c32d4362a378bf4bc0931e705216779be5d22fdd10ea9fb32e8"
+    },
+    "/_type/undefined.ts": {
+      "size": 611,
+      "checksum": "sha256-9d215953c65740f1764e0bdca021007573473f0c49e087f00d9ff02817ecfc97"
+    },
+    "/stringify.ts": {
+      "size": 705,
+      "checksum": "sha256-f0ed4e419cb40c807cf79ae4039d6cdf492be9a947121fff4d4b7cd1d4738bae"
+    },
+    "/_type/bool.ts": {
+      "size": 1206,
+      "checksum": "sha256-121743b23ba82a27ad6a3ec6298c7f5b0908f90e52707f8644a91f7ad51ed2ef"
+    },
+    "/stringify_test.ts": {
+      "size": 3779,
+      "checksum": "sha256-113baf814017ff42b1296588459e19b0c75665081324ec3c7088a1c25a75f22a"
+    },
+    "/parse_test.ts": {
+      "size": 5497,
+      "checksum": "sha256-1cdad8fe4f6a8c75ebb287659d7f92b0ed25c9aff04f8fc60ce30ec177043ab0"
+    },
+    "/_dumper/dumper_state.ts": {
+      "size": 4403,
+      "checksum": "sha256-9e29f700ea876ed230b43f11fa006fcb1a62eedc1e27d32baaeaf3210f19f1e7"
+    },
+    "/_type/binary.ts": {
+      "size": 3246,
+      "checksum": "sha256-f1a6e1d83dcc52b21cc3639cd98be44051cfc54065cc4f2a42065bce07ebc07d"
+    },
+    "/_state.ts": {
+      "size": 471,
+      "checksum": "sha256-f3b1c1fd11860302f1f33e35e9ce089bf069d4943e8d67516cd6bedbba058c13"
+    },
+    "/_type/function.ts": {
+      "size": 1275,
+      "checksum": "sha256-bbf705058942bf3370604b37eb77a10aadd72f986c237c9f69b43378a42202c1"
+    },
+    "/example/sample_document.ts": {
+      "size": 557,
+      "checksum": "sha256-cfb0e533cb1e3c13a50f7fa97f21f33c1813ab15a53a0e7f83b52bb65f0b590f"
+    },
+    "/_type/timestamp.ts": {
+      "size": 2730,
+      "checksum": "sha256-277a41a40fb93c3b2b3f5c373bf11b0b7856cc6a7b919e8ea130755e4029edc5"
+    },
+    "/_type/regexp.ts": {
+      "size": 1333,
+      "checksum": "sha256-e49eb9e1c9356fd142bc15f7f323820d411fcc537b5ba3896df9a8b812d270a4"
+    },
+    "/_type/mod.ts": {
+      "size": 842,
+      "checksum": "sha256-e8929d7b1c969a74f76338d4eb380ef8c4a26cd6441117d521f076b766e9c265"
+    },
+    "/_type/set.ts": {
+      "size": 806,
+      "checksum": "sha256-be8a9e7237a7ffc92dfbe7f5e552d84b7eeba60f3f73cc77fc3c59d3506c74ea"
+    },
+    "/_type/float.ts": {
+      "size": 3242,
+      "checksum": "sha256-c5ed84b0aec1ec5dc05f6abfaaff672e8890d4d44a42120b4445c9754fca4eba"
+    },
+    "/_type/map.ts": {
+      "size": 491,
+      "checksum": "sha256-ae2acb1cb837fb8e96c75c98611cfd45af847d0114ab5336333c318e7d4b12f4"
+    },
+    "/schema/json.ts": {
+      "size": 761,
+      "checksum": "sha256-a0228a0c0bad7dece17ab848774fcadc2ccb5e51775c2d58d21d486917ba3ba1"
+    },
+    "/schema/default.ts": {
+      "size": 897,
+      "checksum": "sha256-1367fd30420c7071ecc67e5b470838474e8259aaf64460f314af4b6bd8da497c"
+    },
+    "/_utils.ts": {
+      "size": 2135,
+      "checksum": "sha256-91bbe28b5e7000b9594e40ff5353f8fe7a7ba914eec917e1202cbaf5ac931c58"
+    },
+    "/example/dump.ts": {
+      "size": 382,
+      "checksum": "sha256-86438fbf3efcda0edf089b691bb9b83de05e5baf2754afaafd59ecabbafb1fe0"
+    },
+    "/type.ts": {
+      "size": 1910,
+      "checksum": "sha256-708dde5f20b01cc1096489b7155b6af79a217d585afb841128e78c3c2391eb5c"
+    },
+    "/_type/nil.ts": {
+      "size": 1067,
+      "checksum": "sha256-cbe4387d02d5933322c21b25d8955c5e6228c492e391a6fb82dcf4f498cc421c"
+    },
+    "/schema/mod.ts": {
+      "size": 533,
+      "checksum": "sha256-0e1558a4823834f106675e48ddc15338e04f6f18469d1a7d6b3f0e1ab06abcb2"
+    },
+    "/example/parse.ts": {
+      "size": 453,
+      "checksum": "sha256-65ab8529526bef612979a901df84f0ead5c68bb20a036d92319f9254782760a2"
+    },
+    "/_mark.ts": {
+      "size": 1803,
+      "checksum": "sha256-61097a614857fcebf7b2ecad057916d74c90cd160117a33c9e74bac60457410a"
+    },
+    "/example/inout.ts": {
+      "size": 479,
+      "checksum": "sha256-d62f74b1e1e7a8f104f79de3a0cbdd690dfca945312d5f39b01de0ad1e3e1d6d"
+    },
+    "/schema.ts": {
+      "size": 3078,
+      "checksum": "sha256-a0f7956d997852b5d1c6564bd73eb7352175cfba439707ac819b65b5a2ec173a"
+    }
+  },
+  "moduleGraph1": {
+    "/schema/failsafe.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              6,
+              23
+            ],
+            [
+              6,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_type/mod.ts",
+          "specifierRange": [
+            [
+              7,
+              30
+            ],
+            [
+              7,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./parse.ts",
+          "specifierRange": [
+            [
+              49,
+              14
+            ],
+            [
+              49,
+              26
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./stringify.ts",
+          "specifierRange": [
+            [
+              50,
+              14
+            ],
+            [
+              50,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./type.ts",
+          "specifierRange": [
+            [
+              51,
+              14
+            ],
+            [
+              51,
+              25
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./schema/mod.ts",
+          "specifierRange": [
+            [
+              52,
+              14
+            ],
+            [
+              52,
+              31
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/regexp.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/map.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_dumper/dumper_state.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              5,
+              46
+            ],
+            [
+              5,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_state.ts",
+          "specifierRange": [
+            [
+              6,
+              22
+            ],
+            [
+              6,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              7,
+              40
+            ],
+            [
+              7,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              8,
+              38
+            ],
+            [
+              8,
+              52
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/omap.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/type.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              38
+            ],
+            [
+              6,
+              51
+            ]
+          ]
+        }
+      ]
+    },
+    "/_loader/loader.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_error.ts",
+          "specifierRange": [
+            [
+              5,
+              26
+            ],
+            [
+              5,
+              40
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_mark.ts",
+          "specifierRange": [
+            [
+              6,
+              21
+            ],
+            [
+              6,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              7,
+              26
+            ],
+            [
+              7,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              8,
+              24
+            ],
+            [
+              8,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./loader_state.ts",
+          "specifierRange": [
+            [
+              13,
+              7
+            ],
+            [
+              13,
+              26
+            ]
+          ]
+        }
+      ]
+    },
+    "/_mark.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_utils.ts",
+          "specifierRange": [
+            [
+              5,
+              23
+            ],
+            [
+              5,
+              36
+            ]
+          ]
+        }
+      ]
+    },
+    "/parse.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_loader/loader.ts",
+          "specifierRange": [
+            [
+              6,
+              47
+            ],
+            [
+              6,
+              68
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_loader/loader_state.ts",
+          "specifierRange": [
+            [
+              7,
+              40
+            ],
+            [
+              7,
+              67
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/binary.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              4,
+              21
+            ],
+            [
+              4,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              5,
+              25
+            ],
+            [
+              5,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/schema.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_error.ts",
+          "specifierRange": [
+            [
+              6,
+              26
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./type.ts",
+          "specifierRange": [
+            [
+              7,
+              36
+            ],
+            [
+              7,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_utils.ts",
+          "specifierRange": [
+            [
+              8,
+              38
+            ],
+            [
+              8,
+              51
+            ]
+          ]
+        }
+      ]
+    },
+    "/_utils.ts": {},
+    "/_type/nil.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        }
+      ]
+    },
+    "/schema/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./core.ts",
+          "specifierRange": [
+            [
+              6,
+              28
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./default.ts",
+          "specifierRange": [
+            [
+              7,
+              31
+            ],
+            [
+              7,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./extended.ts",
+          "specifierRange": [
+            [
+              8,
+              32
+            ],
+            [
+              8,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./failsafe.ts",
+          "specifierRange": [
+            [
+              9,
+              32
+            ],
+            [
+              9,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./json.ts",
+          "specifierRange": [
+            [
+              10,
+              28
+            ],
+            [
+              10,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/set.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/bool.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              26
+            ],
+            [
+              6,
+              40
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/str.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              4,
+              21
+            ],
+            [
+              4,
+              33
+            ]
+          ]
+        }
+      ]
+    },
+    "/schema/json.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              6,
+              23
+            ],
+            [
+              6,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_type/mod.ts",
+          "specifierRange": [
+            [
+              7,
+              38
+            ],
+            [
+              7,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./failsafe.ts",
+          "specifierRange": [
+            [
+              8,
+              32
+            ],
+            [
+              8,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/schema/core.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              6,
+              23
+            ],
+            [
+              6,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./json.ts",
+          "specifierRange": [
+            [
+              7,
+              28
+            ],
+            [
+              7,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/seq.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/pairs.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/stringify.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_dumper/dumper.ts",
+          "specifierRange": [
+            [
+              6,
+              21
+            ],
+            [
+              6,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_dumper/dumper_state.ts",
+          "specifierRange": [
+            [
+              7,
+              40
+            ],
+            [
+              7,
+              67
+            ]
+          ]
+        }
+      ]
+    },
+    "/_loader/loader_state.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_error.ts",
+          "specifierRange": [
+            [
+              5,
+              31
+            ],
+            [
+              5,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              6,
+              55
+            ],
+            [
+              6,
+              69
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_state.ts",
+          "specifierRange": [
+            [
+              7,
+              22
+            ],
+            [
+              7,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              8,
+              26
+            ],
+            [
+              8,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              9,
+              38
+            ],
+            [
+              9,
+              52
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./binary.ts",
+          "specifierRange": [
+            [
+              5,
+              23
+            ],
+            [
+              5,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./bool.ts",
+          "specifierRange": [
+            [
+              6,
+              21
+            ],
+            [
+              6,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./float.ts",
+          "specifierRange": [
+            [
+              7,
+              22
+            ],
+            [
+              7,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./function.ts",
+          "specifierRange": [
+            [
+              8,
+              21
+            ],
+            [
+              8,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./int.ts",
+          "specifierRange": [
+            [
+              9,
+              20
+            ],
+            [
+              9,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./map.ts",
+          "specifierRange": [
+            [
+              10,
+              20
+            ],
+            [
+              10,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./merge.ts",
+          "specifierRange": [
+            [
+              11,
+              22
+            ],
+            [
+              11,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./nil.ts",
+          "specifierRange": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./omap.ts",
+          "specifierRange": [
+            [
+              13,
+              21
+            ],
+            [
+              13,
+              32
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./pairs.ts",
+          "specifierRange": [
+            [
+              14,
+              22
+            ],
+            [
+              14,
+              34
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./regexp.ts",
+          "specifierRange": [
+            [
+              15,
+              23
+            ],
+            [
+              15,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./seq.ts",
+          "specifierRange": [
+            [
+              16,
+              20
+            ],
+            [
+              16,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./set.ts",
+          "specifierRange": [
+            [
+              17,
+              20
+            ],
+            [
+              17,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./str.ts",
+          "specifierRange": [
+            [
+              18,
+              20
+            ],
+            [
+              18,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./timestamp.ts",
+          "specifierRange": [
+            [
+              19,
+              26
+            ],
+            [
+              19,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./undefined.ts",
+          "specifierRange": [
+            [
+              20,
+              30
+            ],
+            [
+              20,
+              46
+            ]
+          ]
+        }
+      ]
+    },
+    "/_error.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./_mark.ts",
+          "specifierRange": [
+            [
+              5,
+              26
+            ],
+            [
+              5,
+              38
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/float.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              40
+            ],
+            [
+              5,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              41
+            ],
+            [
+              6,
+              55
+            ]
+          ]
+        }
+      ]
+    },
+    "/_state.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./schema.ts",
+          "specifierRange": [
+            [
+              5,
+              38
+            ],
+            [
+              5,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./schema/mod.ts",
+          "specifierRange": [
+            [
+              6,
+              31
+            ],
+            [
+              6,
+              48
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/undefined.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        }
+      ]
+    },
+    "/schema/default.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              6,
+              23
+            ],
+            [
+              6,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_type/mod.ts",
+          "specifierRange": [
+            [
+              7,
+              59
+            ],
+            [
+              7,
+              76
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./core.ts",
+          "specifierRange": [
+            [
+              8,
+              28
+            ],
+            [
+              8,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/schema/extended.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../schema.ts",
+          "specifierRange": [
+            [
+              3,
+              23
+            ],
+            [
+              3,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_type/mod.ts",
+          "specifierRange": [
+            [
+              4,
+              38
+            ],
+            [
+              4,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./default.ts",
+          "specifierRange": [
+            [
+              5,
+              31
+            ],
+            [
+              5,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/merge.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/timestamp.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        }
+      ]
+    },
+    "/_dumper/dumper.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_error.ts",
+          "specifierRange": [
+            [
+              5,
+              26
+            ],
+            [
+              5,
+              40
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              6,
+              33
+            ],
+            [
+              6,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              7,
+              24
+            ],
+            [
+              7,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./dumper_state.ts",
+          "specifierRange": [
+            [
+              8,
+              53
+            ],
+            [
+              8,
+              72
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/function.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              25
+            ],
+            [
+              6,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    "/_type/int.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../type.ts",
+          "specifierRange": [
+            [
+              5,
+              21
+            ],
+            [
+              5,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../_utils.ts",
+          "specifierRange": [
+            [
+              6,
+              41
+            ],
+            [
+              6,
+              55
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./parse": "./parse.ts",
+    "./schema": "./schema/mod.ts",
+    "./schema/core": "./schema/core.ts",
+    "./schema/default": "./schema/default.ts",
+    "./schema/extended": "./schema/extended.ts",
+    "./schema/failsafe": "./schema/failsafe.ts",
+    "./schema/json": "./schema/json.ts",
+    "./stringify": "./stringify.ts",
+    "./type": "./type.ts"
+  }
+}

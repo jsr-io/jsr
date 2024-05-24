@@ -1,0 +1,1799 @@
+{
+  "manifest": {
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_capital_e_pos_exp.json": {
+      "size": 7,
+      "checksum": "sha256-e6ada7942a920659cc5f96066c713b57c94f36dd13c41a45f9ce554009296954"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_1_invalid_codepoint.json": {
+      "size": 7,
+      "checksum": "sha256-335ffac769e5b3cec6047f6f464a0d24267493f49d3bc75f0a6411ad9448f003"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_last_surrogates_1_and_2.json": {
+      "size": 16,
+      "checksum": "sha256-03483610a167d485199cd64bb562340752c1865a11c543bc8fc786496fa93940"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g1-1.js": {
+      "size": 542,
+      "checksum": "sha256-196e0529831ca9dcd3fa76b6edd56b5665134e18377e15fd30e5eb5ba4f69adf"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_incomplete_surrogate_escape_invalid.json": {
+      "size": 18,
+      "checksum": "sha256-006c749ff0f0e82a966ca6060a880cd9eda45ffa8e561840954a3b0735fda3b0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_1_true_without_comma.json": {
+      "size": 10,
+      "checksum": "sha256-cf1fed8e18a6f0ed928360c6592aa87bdd84f1163fbd6fdef26e859ba4c1bfe3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_array_with_unclosed_string.json": {
+      "size": 6,
+      "checksum": "sha256-7d5c01400b39d5ebebb81a2a51ec727d9fbf722bbf5caff62cb695c4fb288e29"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-7.js": {
+      "size": 1485,
+      "checksum": "sha256-5fdeb788509fd3d8a6d8386fefc0499ca4990b6951163f9ccbcb671ac82e3d3c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_object_with_comment.json": {
+      "size": 25,
+      "checksum": "sha256-9461e3cb190b0380f11f52b04857e755d191e59e775e201eec79fe13e2b2a888"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_1.000000000000000005.json": {
+      "size": 23,
+      "checksum": "sha256-6fa0726be610f990552f138009cbd4d8e8ba42989d06a63da2c1065e12212fc9"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-9.js": {
+      "size": 552,
+      "checksum": "sha256-24f7a4b5e6d9ab920db5cbd8fb35d1d9f765f6c8146bbf9564b7870c6aa45c23"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_U+200B_ZERO_WIDTH_SPACE.json": {
+      "size": 11,
+      "checksum": "sha256-3478676505ec656693447c24d2b4bee0757722270276f5f4a899e1cfd1c7c58a"
+    },
+    "/testdata/JSONTestSuite/test_transform/object_same_key_unclear_values.json": {
+      "size": 20,
+      "checksum": "sha256-73e82e09a8a783db30357481c1c80a35fd0dc77ab15c28bf5ffded04f518e9f9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_lone_second_surrogate.json": {
+      "size": 10,
+      "checksum": "sha256-24b9bc232f8cf6dff1869f7ef72790c7c5aac9c7529dd9c36427bb012bc20f37"
+    },
+    "/testdata/JSONTestSuite/test.ts": {
+      "size": 1743,
+      "checksum": "sha256-b771ec94ca24a23d8a5968a2e7e1b20f8a43c462b6e75991d2d37486b0943a7e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_object_comma.json": {
+      "size": 2,
+      "checksum": "sha256-c78d70af1856bb70da7d0edac1926c86b4cea9edcbf849300d1ccbc174648a69"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_array_with_extra_array_close.json": {
+      "size": 4,
+      "checksum": "sha256-f9bfc9cf84e12516f67e02e9b412520c6ffd0a016730e1da2b5ae32417f8affb"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_1e6.json": {
+      "size": 6,
+      "checksum": "sha256-fec941084bd63b2da67f238ad97fc43ecbf00c3295c4332fd5bb061de738f567"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_trailing_newline.json": {
+      "size": 6,
+      "checksum": "sha256-92260ea0cbd70738c0bccba89c8dbf5881ec50d1a09891ea531aa254a783c9cd"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_invalid_utf-8.json": {
+      "size": 5,
+      "checksum": "sha256-d7e1fd6f762f8c56a677954609ede1f15b518a9dd565a719f7841ed6b3e3836a"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-2.js": {
+      "size": 1484,
+      "checksum": "sha256-57359631005d590e2630b2a1ffced3badc205b30f2af974c4bc4033ff6b39aef"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_1_escaped_invalid_codepoint.json": {
+      "size": 10,
+      "checksum": "sha256-aa59cd62acb952631f6dadcbdafd4d5dd85451ef5f51d5fe9e7246787edbb870"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-3.js": {
+      "size": 1481,
+      "checksum": "sha256-a93723b2b2a5a43adb77fca5726e37bd0f9746342fd0dd76d61dc6cb74cc1bdb"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_uEscape.json": {
+      "size": 29,
+      "checksum": "sha256-de831fa1c7cbb62870e46bdf5d1e863534b4ea8c0eb274f3298d911f2632e25c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0.1.2.json": {
+      "size": 7,
+      "checksum": "sha256-46d28bfddb89134f2219c3f18734c5e625cff94d92ff3e2caf9e5904545c8099"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_with_several_null.json": {
+      "size": 20,
+      "checksum": "sha256-7aebf7c131c4ed7fdb458678a7c61bd6b7d0a13683c753be68822d8ad962a9b9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_lonely_false.json": {
+      "size": 6,
+      "checksum": "sha256-2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_incomplete_escaped_character.json": {
+      "size": 9,
+      "checksum": "sha256-f3b21db18eed4ce123ecd20c64798ce33a9f409adba22ff49cec573856405fe7"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_unclosed_trailing_comma.json": {
+      "size": 3,
+      "checksum": "sha256-b2d3da6f524e2498194717d153a5621e2618d7643c1b23dbbcb2ebe52fa7933e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_duplicated_key_and_value.json": {
+      "size": 23,
+      "checksum": "sha256-1643424f4e56e7bfb1336af285f9e413f930d2c9c4e9e206ed2f63360c233b8e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_U+FDD0_nonchar.json": {
+      "size": 10,
+      "checksum": "sha256-093f3d1b0f5c40df1427a3bbb8e1999df3e923f475b0a9655c1a7eafbf69ebe3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0_capital_E+.json": {
+      "size": 5,
+      "checksum": "sha256-cd14bf1fa8803ada52504f5a88bb1b3bf703234bdcc3977610c50410582f5f49"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_UTF8_BOM_no_data.json": {
+      "size": 3,
+      "checksum": "sha256-f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_reservedCharacterInUTF-8_U+1BFFF.json": {
+      "size": 8,
+      "checksum": "sha256-4cd40b9e988de371b814d7ef6fffc56acfa5b8ef1ccfa373ed618d3313e8bdc4"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-9.js": {
+      "size": 1513,
+      "checksum": "sha256-729b0f8e6cd8461ecb78cac27df850b32cd89ce41db66c1b3558c83b9918ad40"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-3.js": {
+      "size": 425,
+      "checksum": "sha256-4b768c25f10765ef7cc2780ab584324ab5223686dccf7830f4d44e5a944107f7"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_empty.json": {
+      "size": 3,
+      "checksum": "sha256-ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-1.js": {
+      "size": 464,
+      "checksum": "sha256-06b7aa4fd95f9cfbf8548c88795f46178e5d6303fb915490f56b65127f9338a9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_unclosed_object.json": {
+      "size": 12,
+      "checksum": "sha256-6ee07337d690f359cd72160b7345984cc14d987e24d588a8433f257d2336ce49"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_starting_with_dot.json": {
+      "size": 6,
+      "checksum": "sha256-1adfbdedbcc45bdbf49580206bb6b5c641dd9da079b42e454ee3ad1e0f9bd29b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_allowed_escapes.json": {
+      "size": 21,
+      "checksum": "sha256-7785980a23e2a42b9ef4a1db524e526c633d71604f6d67ecd9ddbe3f493be0f0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_surrogates_U+1D11E_MUSICAL_SYMBOL_G_CLEF.json": {
+      "size": 16,
+      "checksum": "sha256-fe59c5b3de3b68f7c7fb803299e2bcf5b280a45c2fca2ab2cb2391d8024e3dea"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_object_string_with_apostrophes.json": {
+      "size": 4,
+      "checksum": "sha256-19ac7ea02ed8313abb6995c7f83c52d323826a9d925ce172e46fd37919360639"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_9223372036854775808.json": {
+      "size": 22,
+      "checksum": "sha256-47983757a88e369e8672ecd0b163473bcf3a46a2fbd925729b1036d28f77b3cc"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_double_close_to_zero.json": {
+      "size": 84,
+      "checksum": "sha256-6ba90e73f1328c9cb5528bb93cf09e02626d4cd923c98c9582affd1c832531a3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_utf16BE_no_BOM.json": {
+      "size": 10,
+      "checksum": "sha256-1304842222b6f8a5220f1b4a49031b80ed62f131b3f014f14e32ebdfe7ce2a20"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_trailing_comment_open.json": {
+      "size": 14,
+      "checksum": "sha256-d5f7ea39565fdb12239b0dba1e09c42ef511891069b6d3129c90b5fcf228258e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_escaped_ctrl_char_tab.json": {
+      "size": 6,
+      "checksum": "sha256-50b34150204026c1a7f138035f9f375efe28b90bd594241d80d34bdff5ffdbdd"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_angle_bracket_..json": {
+      "size": 3,
+      "checksum": "sha256-5545c186e2e58097f78948f4318b1da4a944853d7aa5d431db0a7cc14328ea23"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_nbsp_uescaped.json": {
+      "size": 17,
+      "checksum": "sha256-770046219042aa550c693bd6a2b776dee6d317705a67495b6cbc8426e3db1655"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_single_star.json": {
+      "size": 1,
+      "checksum": "sha256-684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_incomplete.json": {
+      "size": 4,
+      "checksum": "sha256-301f5421cd3a61da99963d2f6fbabb29f0d9f00cdd9b3886f512240d148a335f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_garbage_at_end.json": {
+      "size": 13,
+      "checksum": "sha256-57651f368485ef89a98adbe252b860b2fe7d23dc58b1927b01d01f8ecd5a83e9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_.-1.json": {
+      "size": 5,
+      "checksum": "sha256-3c7791891957c90087cea4ec2483fdf1518d1a5717210b9853c08332cedd2735"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_-1.0..json": {
+      "size": 7,
+      "checksum": "sha256-baab147e06a9082026c6292240e4c8802c05a70de0da085bc6d3e07765243757"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_pos_exponent.json": {
+      "size": 6,
+      "checksum": "sha256-021e295090984a454b83295322b0b7e58d1460036fd48c010864ed8adda8e48c"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-6.js": {
+      "size": 425,
+      "checksum": "sha256-a0fb5ae1442622a0ddcbbc67e2a85127c9fcee2e64b3b011a24dc8f35a748e2d"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-1.js": {
+      "size": 1466,
+      "checksum": "sha256-a4a409cddc4b9e62d9eb15184439d8699f412bf17186c92c31cf1b81149a3e4a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_open.json": {
+      "size": 16,
+      "checksum": "sha256-59926679fdeb977ce6a3a45683a7aaf2b1d30d4f4f68435df075bbf195843c00"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number.json": {
+      "size": 8,
+      "checksum": "sha256-0bacf2e644afc0036da409821adf0493bec25543aa358bedc3fd1f0a31af829c"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g5-2.js": {
+      "size": 422,
+      "checksum": "sha256-14eae5ae489d13624883ef574d88a3a5fc509b9b95983471ae6d80c5b6eb4a3e"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-8.js": {
+      "size": 475,
+      "checksum": "sha256-4e996ae6fbddd3d386bccefc72a3b7f07755474fb0907dbba4fbb49ad2d07bd6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_double_huge_neg_exp.json": {
+      "size": 15,
+      "checksum": "sha256-d8474d50e429a95cea2a336b6b111dbf35804b5861daaad97efbab6ad844eb1d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_nonCharacterInUTF-8_U+10FFFF.json": {
+      "size": 8,
+      "checksum": "sha256-ae205bae31537db2df3b058d4847c3e8c184b0e5a5e93dcc11de6202a7bc1c3f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_U+1FFFE_nonchar.json": {
+      "size": 16,
+      "checksum": "sha256-1522be6352030d1fea7484adcccd731408f3f000fe893b567c4cc6fc79378ad6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_missing_value.json": {
+      "size": 9,
+      "checksum": "sha256-35f020c1aa4f03b8c486781fd8fa9a5ba1b2e4a6d7a847279afbcb578f4d5b05"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_lonely_null.json": {
+      "size": 5,
+      "checksum": "sha256-38e0b9de817f645c4bec37c0d4a3e58baecccb040f5718dc069a72c7385a0bed"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_whitespace_formfeed.json": {
+      "size": 3,
+      "checksum": "sha256-37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_minus_infinity.json": {
+      "size": 11,
+      "checksum": "sha256-4735d351ed0e14ba484a0d7a09335c3b8741258817529f5b4539111bbbaeb829"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_u+2029_par_sep.json": {
+      "size": 7,
+      "checksum": "sha256-bd532d486bbb87075166aa0ac00c967ba019ed58e603ed644f0b1c099ba262f5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_trailing_comment_slash_open_incomplete.json": {
+      "size": 10,
+      "checksum": "sha256-9d6150b0a69063d628a89714df57662ec1d581c06f2110347e22d4b3125b55d7"
+    },
+    "/testdata/test262/test.ts": {
+      "size": 1224,
+      "checksum": "sha256-e7fe74c2ff7c80f550f470f7b04865fa993a99aeca91256b0fc6a9cc0df1c81c"
+    },
+    "/testdata/JSONTestSuite/README.md": {
+      "size": 1648,
+      "checksum": "sha256-6d511906e4db30ae02c67e49e71cd5d4398b289c4f14491dfc85d7b3a76e172b"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-6.js": {
+      "size": 1467,
+      "checksum": "sha256-e7d4efaa974f75e8b3bfe367fd9bb1c888fd2ab789fbf011f3d14bbc935c85e1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_0e+1.json": {
+      "size": 7,
+      "checksum": "sha256-19a32432f4529ce54852793e29ffcf3ad39f1af1b12faa2a67eecc9181b244dc"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_double_comma.json": {
+      "size": 6,
+      "checksum": "sha256-1b4a2022b0702d87a15a49f031e9795ab6824cb3945c106bcfa5ad55c2e945cc"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_array_comma.json": {
+      "size": 2,
+      "checksum": "sha256-4ee7b10cd97f554c82c2c22fb1a1c7fdf83e864ffe121b698755f97eeaa209c0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_a_invalid_utf8.json": {
+      "size": 4,
+      "checksum": "sha256-00308ed1d30dd0c6248a36107049cfe7a4a795c774e252d6eeec4d64ccee4aad"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_end_array.json": {
+      "size": 1,
+      "checksum": "sha256-cfae0d4248f7142f7b17f826cd7a519280e312577690e957830d23dcf35a3fff"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_U+FF11_fullwidth_digit_one.json": {
+      "size": 5,
+      "checksum": "sha256-418b3fc29c6688ee9fe090022ad1cd422ac738d8b5ce13a9272cf7451a340c6c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_double_escape_n.json": {
+      "size": 7,
+      "checksum": "sha256-aa9c977fcd275f87135c1874663c150c9f91a6abf98789dbc98df19f77e59ca2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_false.json": {
+      "size": 7,
+      "checksum": "sha256-456e2e3fa05ee1e2f4e529558008ce162bbd388a9dd4a923c79543a4a1dba618"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_2_invalid_codepoints.json": {
+      "size": 10,
+      "checksum": "sha256-86b79e609ac3fc802701063d939c844971a5a26fe3fdbfbd990e465012ccf6c3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_-2..json": {
+      "size": 5,
+      "checksum": "sha256-bc47f88e8caae073ad2bd956036332513a25ef55da8eb7637347677c2a230297"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_uescaped_newline.json": {
+      "size": 18,
+      "checksum": "sha256-102809f259ed14502771ee9921537ea20d21ae79b1eb3166439f6495e99f15f2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_basic.json": {
+      "size": 13,
+      "checksum": "sha256-aeab10e350ec1756ea24bc72181b19979e86c9585ced7b89e8a657e75d239c22"
+    },
+    "/testdata/JSONTestSuite/test_transform/object_key_nfc_nfd.json": {
+      "size": 30,
+      "checksum": "sha256-661d74834088a2921f0d50e46b446b879383170b51338b1e37b0db8e5c177666"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object.json": {
+      "size": 31,
+      "checksum": "sha256-f16efdb37235322ae8924f2ad594af15a034e068e93e49bdad1ff5aa5ee47dea"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_too_big_pos_int.json": {
+      "size": 24,
+      "checksum": "sha256-61e6ad4f0eaf1df3b467767c268342695a4a8655a983bc1018739da31b9e93b7"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_true_in_array.json": {
+      "size": 7,
+      "checksum": "sha256-3f0d1cd20974b0bb72691d77740ceee77c3e899ebab9c43e4f310b9d8d2078b0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_no_data.json": {
+      "size": 0,
+      "checksum": "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_after_space.json": {
+      "size": 4,
+      "checksum": "sha256-9d1f4e3a2170ce5f947bcdfa249a77885875b0d9d7af88ad3fbc7f7cd7a224fa"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_real_garbage_after_e.json": {
+      "size": 5,
+      "checksum": "sha256-1716a62d93d51e03ff006ea05d30db8ec4d96e30eef967fa442d777aaee8d296"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_invalid-utf-8-in-exponent.json": {
+      "size": 6,
+      "checksum": "sha256-58cc9aadeb3f0619fda566c1d439e02d94722663ac388822ac3155f5dd3a397e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode.json": {
+      "size": 11,
+      "checksum": "sha256-f677f8c6a918c90ab6e52bd637ea69cc745e38f439630380b3f9619610712ac9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_lonely_negative_real.json": {
+      "size": 5,
+      "checksum": "sha256-312c25d0495ce00a7db2b4ff7351eeef0b6f1a83f320975f0241b10c2257b5eb"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_bracket_key.json": {
+      "size": 9,
+      "checksum": "sha256-67196b37d18b572e82aa5a121b52c38104d2c62cb35499ed6666823780cb94c3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_single_string_no_double_quotes.json": {
+      "size": 3,
+      "checksum": "sha256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_just_comma.json": {
+      "size": 3,
+      "checksum": "sha256-739bac5a700cb6ab872c1a898eeadc6f6d8839f4224a8db0525253efcf2384bd"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g2-3.js": {
+      "size": 397,
+      "checksum": "sha256-2c2060cd316959d6aabc6bc1807f2cead050f8fe12cf7e02a14d73a8a5ff1e6e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_neg_int_huge_exp.json": {
+      "size": 10,
+      "checksum": "sha256-92123944cf252563cc9d402ad83df085a20f9899144b3b59661f898fcffd1e2b"
+    },
+    "/testdata/test262/JSON/parse/text-non-string-primitive.js": {
+      "size": 1046,
+      "checksum": "sha256-f0253704ce262eb13a5073b60a891d4e64d45f164c31abd3b0ce2b26ed316a4d"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-5.js": {
+      "size": 1490,
+      "checksum": "sha256-1192d3b688981c822ac356649b3dccd8a774b56f754d34963ce84ab976e75341"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_2.e+3.json": {
+      "size": 7,
+      "checksum": "sha256-ddfb52b4d5c947c90b7b62e4a654c35f6c3a4b726ef606da6b6fdb1aeb0ed33d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_incomplete_null.json": {
+      "size": 5,
+      "checksum": "sha256-267620ed5987a977c03473eee18b9aa69a4183b3024417f93466983b7c772491"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_number_with_trailing_garbage.json": {
+      "size": 2,
+      "checksum": "sha256-4c1731d722cf5ff61708486fbe2593cb779d91d6536e504300da66bdb4754507"
+    },
+    "/testdata/JSONTestSuite/test_transform/object_key_nfd_nfc.json": {
+      "size": 30,
+      "checksum": "sha256-61abb480e899806faeda510edb485dbd91fc70bb6063f3aa8e7ebafca33216f1"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g5-1.js": {
+      "size": 419,
+      "checksum": "sha256-d63ee4be566b1f521f5e7f83c8fb0255902a6f07e0b4a49e4ac643315b1c15c1"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g2-4.js": {
+      "size": 385,
+      "checksum": "sha256-4d31d7fa8fb72be18c2706358c51acf84e746e163cae87e98127ea24b2d16fa9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_1.0e.json": {
+      "size": 6,
+      "checksum": "sha256-1b45efc13b6f4321c799e46e9304b31449719274bcd5d4e9e959c2d828c54eba"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-4.js": {
+      "size": 425,
+      "checksum": "sha256-163f72c74a5d1e5808bb10fbcdfa35f6e50e79af5596f3d237f6696baba89c8f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_heterogeneous.json": {
+      "size": 18,
+      "checksum": "sha256-14c644de0d447c3a875fcb1a257cc09a5db3ef047377733066ffc1bee4a17803"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_accepted_surrogate_pairs.json": {
+      "size": 28,
+      "checksum": "sha256-9df10c47273a7e385c87007e8629b34a30288eb24752c9e1c519256b46d6e287"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_lone_continuation_byte_in_key_and_trailing_comma.json": {
+      "size": 10,
+      "checksum": "sha256-e5fd5846504c7770130c3cf2245b9d0efa5c34175921de3446d53c6827dcdc0d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_invalid-utf-8-in-int.json": {
+      "size": 5,
+      "checksum": "sha256-72258704dd857e84f0aa55e7124204d0dcf78247472d314310de0b023cb9b8f2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_pos_double_huge_exp.json": {
+      "size": 12,
+      "checksum": "sha256-08936a28cf98c27900633703c2cd4d19886041b1f288f01db37236d8ef0841cd"
+    },
+    "/testdata/test262/JSON/parse/S15.12.2_A1.js": {
+      "size": 670,
+      "checksum": "sha256-6550b2557833dae38e66b63cafc2743ff888011c33e97cf7a2ce128fd87fdc94"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_with_del_character.json": {
+      "size": 7,
+      "checksum": "sha256-db99989c39740edd8dda79380e881f7d0837fb88481dafa65dd5cfaee0038fdf"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_simple_real.json": {
+      "size": 13,
+      "checksum": "sha256-307f89f4f1f210ae6e6274acd02bc4771b05616acd2648e2417019e8524c6064"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_overlong_sequence_2_bytes.json": {
+      "size": 6,
+      "checksum": "sha256-e17aa42df055ec15b4c3118c8e739fe18a52a047c5a2dc36b5ad1df9bb51aeaf"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_two_commas_in_a_row.json": {
+      "size": 18,
+      "checksum": "sha256-c83f029d66739b785a7e958d39c088edbe81f23741949471ddaba8759a222173"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-2.js": {
+      "size": 426,
+      "checksum": "sha256-71727871d735e611c739187e660177a7194cdc1fd15a4bc2958154e78df5f3bb"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_negative_one.json": {
+      "size": 5,
+      "checksum": "sha256-bf7a8c4a7db48529c2b729ca534158474141a469e03f06ae47d18ea813ee5f83"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-4.js": {
+      "size": 1511,
+      "checksum": "sha256-6c8d0419e665aad8ffbb969564b37fad8620ab2e9c3abaa04e0c91f6150d98a8"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_+1.json": {
+      "size": 4,
+      "checksum": "sha256-d83017afc0b63eef28670ae0c39391f0fabe91f299126160029a13713fca361e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_duplicated_key.json": {
+      "size": 17,
+      "checksum": "sha256-94766ff02436ccd9bceddab5ed15bd3df3d5d6cee3ca0a34c9ad1fd1a9bed523"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_unclosed_array_partial_null.json": {
+      "size": 12,
+      "checksum": "sha256-8a244a1a3fc93637d90f1ec6e3df8bb39fdf0658bc1c55f68cf1c3e38d971e05"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_unicode-identifier.json": {
+      "size": 2,
+      "checksum": "sha256-e83979df9d36090142f23051f8e8d7ad48e5c20dff5c9e7b92ca3454f67469f9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_utf16LE_no_BOM.json": {
+      "size": 10,
+      "checksum": "sha256-561d378d28aba1257f2d32b7c67c668e5bf549424ac0ff218f1d8f76c223b3d1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_unterminated-value.json": {
+      "size": 7,
+      "checksum": "sha256-34937db038e20201fca9f1e1fc232953eea57d986143d621d3c5a707b3e10ed9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_100000_opening_arrays.json": {
+      "size": 100000,
+      "checksum": "sha256-13f86ea1e7edd116d18d4ba6c6fa114cd3c927516182d24259623874955d21d1"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_1e-999.json": {
+      "size": 9,
+      "checksum": "sha256-bc5a8e5542f351d9a046da9aecf4c0c7871acee95e1aa8d89d366423db30efb5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_with_leading_space.json": {
+      "size": 4,
+      "checksum": "sha256-acc07b62f23f458923737c4cd4a66bd05d1e71eb4f384003baaf2dcc760d6349"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_1_000.json": {
+      "size": 9,
+      "checksum": "sha256-6713fc40db65bdbedf52f0ebe3a3121435ab186dcb11b408cb5a3ce9ed000f38"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_1_surrogate_then_escape_u1x.json": {
+      "size": 14,
+      "checksum": "sha256-71a495c9b4a08e9037f6be675aab32e21189f3bbb7cd61adfe720f4c32fd726e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_double_colon.json": {
+      "size": 10,
+      "checksum": "sha256-ea905a2f98e015dd8ddd6b28737d977b6ca0e114b04ed368f79bbdd42d84b516"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_incomplete_UTF8_BOM.json": {
+      "size": 4,
+      "checksum": "sha256-3f801979daa8eb44ebbc793bafe85ec1dd22ca8c976d9069fb0b0195c1cad8f9"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g5-3.js": {
+      "size": 421,
+      "checksum": "sha256-7ad5eb2a05dfea4468657a426f9607f71cd1609d3bbbb8685b7058aa912dc589"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_1st_valid_surrogate_2nd_invalid.json": {
+      "size": 16,
+      "checksum": "sha256-eb291cafd21f78d8c6de009c084361c3b4ff3043c44a4d2e122d8d5bd5955901"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_real_with_invalid_utf8_after_e.json": {
+      "size": 5,
+      "checksum": "sha256-3d1903201ee720f58f1b0c7120edc2d1da03751239f62711f47b091b9bd83fd6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_hex_1_digit.json": {
+      "size": 5,
+      "checksum": "sha256-37d7fe7b45e87c632936ce095616eacc75fa292fffa1581dbc0682bfb9e102a2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_multidigit_number_then_00.json": {
+      "size": 4,
+      "checksum": "sha256-a787b6772e3e4df1b2a04d5eee56f8570ab38825eed1b6a9bda288429b7f29a1"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g2-1.js": {
+      "size": 377,
+      "checksum": "sha256-288a57e626d55ffdff46bb46e4678094a07c445aeaeab6d6b97d27ce77473716"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_unquoted_key.json": {
+      "size": 13,
+      "checksum": "sha256-4c4df30b9faa2b91734b47a153cc841e87cb4860121c28ef9f4946c0dfb1784b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_truncated-utf-8.json": {
+      "size": 6,
+      "checksum": "sha256-65fd4cdbf6c28fe2d4e18f81ea37e154a90198fae4fe923eb41533dbd301cb02"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_missing_semicolon.json": {
+      "size": 9,
+      "checksum": "sha256-0cc9076470bce7c6b805638c32510a7a4cff2a6679a4813c08d85589ff4895bc"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_incomplete_true.json": {
+      "size": 5,
+      "checksum": "sha256-5f5470d03cb2af3cce0cf3cc063ba8ae676258cb9d4ba0dcfc82a978ab5f40ba"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_2.e-3.json": {
+      "size": 7,
+      "checksum": "sha256-ceb6bf65dbdcb4c6dc85156d0646d095784445db6c84f594353e249491caf02c"
+    },
+    "/testdata/README.md": {
+      "size": 91,
+      "checksum": "sha256-8d2a7687badcdfc8947a9f0bfdc2ce43f966f085138332c435030646c7779f8d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_comments.json": {
+      "size": 18,
+      "checksum": "sha256-81b58f4e1fa97f09d6b0b0c817de6819cdc4ee3df96029fed4ba395ed610fc9f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_capitalized_True.json": {
+      "size": 6,
+      "checksum": "sha256-b78c88a26a2b512a2964fc4160ddb4d32e2aed8b01219ab5e3666b633572b336"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_with_alpha.json": {
+      "size": 8,
+      "checksum": "sha256-d9eb35a268ba5fc48b1c82549782aa7d3e8abd5aa9fcef7c7a2b254ff5349995"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_lonely_string.json": {
+      "size": 6,
+      "checksum": "sha256-9e113f79d0c2accb8cd48c7022e735eaa4ed84f30ca600ebadd094dd07d88a6e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_2.e3.json": {
+      "size": 6,
+      "checksum": "sha256-f1c8e1ff48fe7daafbad0cc9f3e3ca21960e06292f7553e1d25f845abc8f26d9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0.3e.json": {
+      "size": 6,
+      "checksum": "sha256-0791dee428d1d6a1fbc6eb26c2cc745f4eee2c89e8c20a6bc5d58f6ea7a859e5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_repeated_null_null.json": {
+      "size": 21,
+      "checksum": "sha256-c53c4ac8f547a851fc490678bc88233a84aff27d695731c5acad8a83cfbc21af"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_expression.json": {
+      "size": 5,
+      "checksum": "sha256-bb9856e4c612b9ed993f6520936bcc560cbf3bf112000f28c62ed3a787db983d"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-6.js": {
+      "size": 457,
+      "checksum": "sha256-e32dd096a5598a61d2d945543082c78e7e913bd7b296802a4f14ba2d3b0b6fdc"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_empty.json": {
+      "size": 3,
+      "checksum": "sha256-37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_minus_sign_with_trailing_garbage.json": {
+      "size": 6,
+      "checksum": "sha256-15490c42527202c27b4d9a81f23e9936a5db44d8d908fdb684ba3d64bb10456a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_empty_key.json": {
+      "size": 6,
+      "checksum": "sha256-6d741b146801696dd35e34575e778730f06b2ec4bb5ccee13166f36c0761a55a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_unclosed_array_unfinished_false.json": {
+      "size": 12,
+      "checksum": "sha256-eed9cbf6e6793bd31aaf13a66d2d21b8af7ee6574be5ce70b991249d651c515f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_+Inf.json": {
+      "size": 6,
+      "checksum": "sha256-5d61f171f20d3267ab360f545a50e55f462ca45ff5d067fd51678f71c4cfa7ab"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_null_escape.json": {
+      "size": 11,
+      "checksum": "sha256-eb2c9f99e27bd1a4d52f140f5ed01475a51db11eadb916450836d9a4ecf9602e"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-8.js": {
+      "size": 1483,
+      "checksum": "sha256-b94f6d21c7b073cb6e480144f40c6c28bdebaf2e645766893bf5b39f4afc8313"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_minus_space_1.json": {
+      "size": 5,
+      "checksum": "sha256-13edd4c8183bc3e9e2b92acd350282e5f8c14e16ea9d01d4d2a6f941bb67c8c8"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_object_open_string.json": {
+      "size": 3,
+      "checksum": "sha256-55505b6f8c3dc34a3b804086a88d4beae35b69af0dbc471d8cd780d37569a50b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_1.0e+.json": {
+      "size": 7,
+      "checksum": "sha256-0937993255ba3ce388b6109abbb081d3740075dd4efcab01b4b2c11c8c84fd19"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_lone-invalid-utf-8.json": {
+      "size": 1,
+      "checksum": "sha256-ab61ba11a38b007ff98baa3ab20e2a584e15269fd428db3c857e2a2d568b5725"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_structure_UTF-8_BOM_empty_object.json": {
+      "size": 5,
+      "checksum": "sha256-aa25e978046d680ef8740d837e6de5bc1e2a2dc6089dbda1012544b538d53f65"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_incomplete_false.json": {
+      "size": 6,
+      "checksum": "sha256-7d00bafe4b8765a9c80f8c1db638ad802d0214599d3caa0ea977f26ea01fb4e5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_real_pos_overflow.json": {
+      "size": 15,
+      "checksum": "sha256-da343ec51bb98bd52b77889b8195feb916ef86cb7813c168ac6255442412a307"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_trailing_comma.json": {
+      "size": 12,
+      "checksum": "sha256-b9b8f880a600bde13569defc8bd87eb361c9035623665174725db72925d52581"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_UTF-16LE_with_BOM.json": {
+      "size": 10,
+      "checksum": "sha256-e0b884f88a816e868ff095f71249f7d214c856d42f8b4b2b80e87395d4fd5611"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_incomplete_escape.json": {
+      "size": 5,
+      "checksum": "sha256-df3709e1b19bc2562a9bc0301265c237ca5a5b35bd9bc5c3a7f45c57092e0537"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_several_trailing_commas.json": {
+      "size": 13,
+      "checksum": "sha256-8c75d56d4bafe295ecc9a72150b1af76a1f77f66a8fc8300d2a72cefd78fe694"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g4-4.js": {
+      "size": 559,
+      "checksum": "sha256-6955c87b8f1de11710ad74d3bfce98574e3fa21015806c84272dd8ece2722f08"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_unescaped_ctrl_char.json": {
+      "size": 8,
+      "checksum": "sha256-192b2ed33e6f17ea5e79d2784dbc95bb8be9036549c6aed0209f4afad0341c63"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_incomplete_surrogate.json": {
+      "size": 14,
+      "checksum": "sha256-612c2551c87839eed8286a94010f37d2bf6d20b65d9bdb9c42b7c61f50ecc362"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_infinity.json": {
+      "size": 10,
+      "checksum": "sha256-10058b8cd98a02ff73d5cd3092bb44f05b0d11148d0a81fde35c2a90673f1254"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_accepted_surrogate_pair.json": {
+      "size": 16,
+      "checksum": "sha256-112c1de300c75efe3328e044b785388e1adaa1a4d11d05b04c4f8c20758ddba2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_huge_exp.json": {
+      "size": 137,
+      "checksum": "sha256-ed12f6d094097176142c8f51a29d62cf952d5ab2644cdec71f31a1c0480e69ca"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_.2e-3.json": {
+      "size": 7,
+      "checksum": "sha256-d2c89dd9ae3a6a5c01b64bb6f82055a35a0d79a084668f579177e1ef6242ba37"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_extra_comma.json": {
+      "size": 5,
+      "checksum": "sha256-7c077ca2308714493d07163e1033c4282bd869ff6d477b3e77408587f95e2930"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_-9223372036854775808.json": {
+      "size": 23,
+      "checksum": "sha256-e35ba5206fe7be043166035e348c9e1628a58fd91c39a964b429e34565d5e93c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_overlong_sequence_6_bytes_null.json": {
+      "size": 10,
+      "checksum": "sha256-8a6e9429a50beda59e50476ad58c0b18297522149b12deeabaa1acb201e94857"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_single_eacute.json": {
+      "size": 1,
+      "checksum": "sha256-de2e331d891ae267a7009cb45b4e8830f170e0c937288ea2731a1941c7a53b0d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_newlines_unclosed.json": {
+      "size": 11,
+      "checksum": "sha256-fc05212efa24a13427744d2ee2d716119ea6bddf4ea03bfb750b56476d3c773d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unescaped_char_delete.json": {
+      "size": 6,
+      "checksum": "sha256-63fbc4955a40aa44ddf14aaf330e9977baa415ec88b104fa23e18cdbe3344393"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_double_extra_comma.json": {
+      "size": 7,
+      "checksum": "sha256-2161a4ca5aa1599950752bf9aa8a42358035362098dc702e9bde01dc05f3a674"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_spaces_vertical_tab_formfeed.json": {
+      "size": 8,
+      "checksum": "sha256-563d321a80cb3919dbcba1ac4bb6e8595e00186b1c3b3db46a64a0e64ddb7075"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_object_unclosed_no_value.json": {
+      "size": 4,
+      "checksum": "sha256-c6157167c74dace056a67dee056bee30ec1dbe40227b410d1948578317ef87fd"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_empty-string.json": {
+      "size": 5,
+      "checksum": "sha256-7c077ca2308714493d07163e1033c4282bd869ff6d477b3e77408587f95e2930"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_missing_colon.json": {
+      "size": 7,
+      "checksum": "sha256-f1a260a986fa42f6c6c33dc3f130bfd3af488acd84ce8573095f30d23eed1861"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_fraction_exponent.json": {
+      "size": 12,
+      "checksum": "sha256-440ffa21e6f0d58c090d99f2459a150ad0907bd6aa090f7c8811dc84a18ffefa"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_backslash_and_u_escaped_zero.json": {
+      "size": 12,
+      "checksum": "sha256-1a99d0df3b7f1c05c81c3c5b166f4a19c4bc36af7797f84c8da6e93736804c48"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0_capital_E.json": {
+      "size": 4,
+      "checksum": "sha256-a6fab5fbe2ef3fe441d68c14301fc85048286e68c6bba7a93f643d788b6cf081"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_accentuated_char_no_quotes.json": {
+      "size": 4,
+      "checksum": "sha256-616190c9bddd53ca645f47f5ecba9f8f47bf5932a9da7e7d468894efdf7adaac"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_comma_after_close.json": {
+      "size": 5,
+      "checksum": "sha256-31f674b45f5eaff8419175ab479b1e8d5946d3fae55106a86f116d77f58672be"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0.e1.json": {
+      "size": 6,
+      "checksum": "sha256-379c8b8c643d0ce35b907d0d1dcd4780f586badae64c42d78cd05048b1879707"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_minus_zero.json": {
+      "size": 5,
+      "checksum": "sha256-618236935c3a6d2880c7bff48a4c8ab9ef5ed9b2163c97c8ffb353d8521fe352"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_lone-open-bracket.json": {
+      "size": 1,
+      "checksum": "sha256-245843abef9e72e7efac30138a994bf6301e7e1d7d7042a33d42e863d2638811"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_unclosed_with_new_lines.json": {
+      "size": 8,
+      "checksum": "sha256-75b121d21dda317ab9e7c72844ff11ea4e05a48f118c90c4fd1e42e139f9d542"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g4-3.js": {
+      "size": 559,
+      "checksum": "sha256-249967b79d22722377035c404c23736bc1ba7f841aeeb733f6a70cbc1d223d34"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_U+FFFE_nonchar.json": {
+      "size": 10,
+      "checksum": "sha256-7e7d42cac051b1e55f093262ecb8cda1cc080cb9cde6a2cbe163b7a5db9fbfa9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_9.e+.json": {
+      "size": 6,
+      "checksum": "sha256-8e33de781a327a6563cbd4d808cabfdb6e3ad2b2ea916de34f8ad2f11e0d0801"
+    },
+    "/testdata/test262/JSON/parse/duplicate-proto.js": {
+      "size": 804,
+      "checksum": "sha256-0203762d7c08f86dd9d51865825b2c369274db22eb234554fd8f7891b96429c9"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_2_escaped_invalid_codepoints.json": {
+      "size": 16,
+      "checksum": "sha256-c1475490843cd38ad70f6e1f1825bfd70a8e442bd546184bd59f17e79aada8b6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_backslash_00.json": {
+      "size": 6,
+      "checksum": "sha256-245950d0f3fde1ac886cd7c16b5e7a0dd612dfcd5ba4fdad33b731f8e3d65a72"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_string_unicode.json": {
+      "size": 115,
+      "checksum": "sha256-cda5ddcaf4c0d6d0a67fd67c63c04ae5b43ac05758686087634dd39a396ad261"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_incomplete_surrogate_and_escape_valid.json": {
+      "size": 12,
+      "checksum": "sha256-a6b1fba2b092852036b6ade42b4f59a7ad0754bc93f92c25b359db90dfb956ce"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_simple_ascii.json": {
+      "size": 9,
+      "checksum": "sha256-eba9fa9e08cf0fd1e3bf007515a75358a0f4a398772ee3b419e53f4f77a4d4cb"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_double_escape_a.json": {
+      "size": 8,
+      "checksum": "sha256-32aa9e18cd74c4843b2d35c39bd404651a9a808ae21906e5bc5bc8ba2478e66a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_array_trailing_garbage.json": {
+      "size": 4,
+      "checksum": "sha256-4a0aa4da859bc84269fc36c50a5968cf4109b9b07099c0cb49f331f50c5c848b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_structure_500_nested_arrays.json": {
+      "size": 1000,
+      "checksum": "sha256-a6c6b45361ff77e7372a015a1f0289e9c09d1fe1ed59cf9773d599c55acf57cf"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g1-4.js": {
+      "size": 537,
+      "checksum": "sha256-e5b6199754aad8e785b77fc23ceb4145728c455a9350ba71a35068782f89a307"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_real_underflow.json": {
+      "size": 15,
+      "checksum": "sha256-a2d94b618d77571edc861b072524837131b3b637bc03722190fe5a1d9d9ff8a4"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_array_open_string.json": {
+      "size": 3,
+      "checksum": "sha256-18d428401e338337407d8d88da1c82749a360cc94a0e8a94f33eedf730d2d4bb"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_10000000000000000999.json": {
+      "size": 23,
+      "checksum": "sha256-820a9183d4b1d151364642a9ecb2fa5f62171c84060769ac063c788beca01c9c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_2.json": {
+      "size": 13,
+      "checksum": "sha256-a44e2ecefdcc43bfea052cc63fd8e02348e1bf50640b7f50919db3d02c3bd05a"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g1-2.js": {
+      "size": 539,
+      "checksum": "sha256-b4c2f1ba42b1997b21577eb67ca248e1e05d561b9726e46f8f3dc0a4fdec6e4b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_incomplete_invalid_value.json": {
+      "size": 2,
+      "checksum": "sha256-36696d34fce38b101fed5298e3166ea22a9954bd6d237930c2bd96b03c041a62"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_ending_with_newline.json": {
+      "size": 6,
+      "checksum": "sha256-92260ea0cbd70738c0bccba89c8dbf5881ec50d1a09891ea531aa254a783c9cd"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_unescaped_newline.json": {
+      "size": 12,
+      "checksum": "sha256-b53a55c51fa3b643f1e760d7a2a98869e9bff4e59edff443a632864c37c29e25"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_U+2060_word_joined.json": {
+      "size": 5,
+      "checksum": "sha256-aacc3ed19ba1f9596daefc68914fe3253c00703648e8ee606f03823feaed1da6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_trailing_comment_slash_open.json": {
+      "size": 16,
+      "checksum": "sha256-7e2f2f210ede1bf39ef2dbd07c092ccc72b07e14c704887a7f07ab8731322814"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_with_trailing_space.json": {
+      "size": 4,
+      "checksum": "sha256-a3e1815164add55525596cf8da31156ded48c3af1a7fd1a1acb23912206fc957"
+    },
+    "/testdata/test262/README.md": {
+      "size": 258,
+      "checksum": "sha256-b89b13aca80e739045691eadd98ceabe1ede2b3d08c42cf30a3df5a401c0f09d"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g2-5.js": {
+      "size": 401,
+      "checksum": "sha256-adfdb3906cbb84b339a4535fbdadf6dab42944839450e4b0142ad7afaf38df2f"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-1.js": {
+      "size": 424,
+      "checksum": "sha256-bddbcf66e3728758e62c5c5256141eec3f5d4c438d39e93413fcdeb2de3e34a4"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_unclosed_array.json": {
+      "size": 2,
+      "checksum": "sha256-4138c6ae42992f3ca53610b0c858e0f5a5a8d7e3424a81feb73b89f0f1877ba9"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_with_leading_zero.json": {
+      "size": 8,
+      "checksum": "sha256-1c176abef10bea10dfac8c45d33535b0630809bf7eae37478dac1550be166a4d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_real_neg_overflow.json": {
+      "size": 16,
+      "checksum": "sha256-02dbc9e54463fa3b2a0eb7eaf990fdfbb577850414e44089c3e55712271a23a9"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_3_invalid_codepoints.json": {
+      "size": 13,
+      "checksum": "sha256-39439380280110fcbaedbc06a2efd6fe369208a66910c6b1d929b58e5a800683"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_-NaN.json": {
+      "size": 6,
+      "checksum": "sha256-f7df6eb96bdb9858395509fd4536c544eda9fabcbb49b74941da50eca7228c6c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_invalid-negative-real.json": {
+      "size": 13,
+      "checksum": "sha256-5ba01dae4b0ab597e21ee7a321a2793a5a4bf0acd5d535e0e6ed261c3f584d4a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_star_inside.json": {
+      "size": 3,
+      "checksum": "sha256-76d344d401adb58391bfdd4c76177896be0bf313dbc2b07bd001be34b3227aae"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_array_apostrophe.json": {
+      "size": 2,
+      "checksum": "sha256-64821ae0d442bae7ca2d701c40319368af5806f40d93dce67db8eaa982a6c012"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_incomplete_surrogates_escape_valid.json": {
+      "size": 18,
+      "checksum": "sha256-a1ee85c5d6cec2cc0cea8b91ec6d6c253f2bb7d2bd48a2ce5e9f0db49d9d0b32"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_-01.json": {
+      "size": 8,
+      "checksum": "sha256-05b2ed289dcc98fab23f2cd1d0e54b6b1381422079885f93edc892624bc76357"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_u+2028_line_sep.json": {
+      "size": 8,
+      "checksum": "sha256-22deede97b29c7e754d0e206ef5083f2fd5dcd5d1e5c9beedac9517d0c788bd5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_two-byte-utf-8.json": {
+      "size": 11,
+      "checksum": "sha256-9378fad29581be79506ad140394870adddad570f7fc48cb987db75f70cf33f58"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_invalid+-.json": {
+      "size": 7,
+      "checksum": "sha256-25981c42fdd25646ab17d57bfaa65e4b2d7b791fdf13840e75c5a9e8f66dec70"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_single_space.json": {
+      "size": 0,
+      "checksum": "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_extreme_numbers.json": {
+      "size": 36,
+      "checksum": "sha256-a46f36a13a1bb69b26785a2a7a7999cd4ea9d19c6ee4fb4cd6a0ab2451ee06ba"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_with_trailing_garbage.json": {
+      "size": 10,
+      "checksum": "sha256-5156aca03363828ef438eff823e8a6a624d9a19bab07823a0983448320abfe7b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_escaped_null_in_key.json": {
+      "size": 20,
+      "checksum": "sha256-1c3c00c78ceca5a6cce2f0aefe316b5352117011f6f9a471a18eb4f3c1930739"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_trailing_comment.json": {
+      "size": 13,
+      "checksum": "sha256-e06904040a47c238c2690b5e61167fad1c371d220190722d09494aef3371a7b7"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_with_trailing_garbage.json": {
+      "size": 3,
+      "checksum": "sha256-3861f42f224ea26ea00ff20a8a4fba07e3fb26be247c112cf51f4d9840805616"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_object_with_trailing_garbage.json": {
+      "size": 15,
+      "checksum": "sha256-ae13f955e8b401cc5c6ab62569f4239f38676019e023097e3e811f6ef41f9a60"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_invalid_utf8.json": {
+      "size": 3,
+      "checksum": "sha256-379af949f1f0fe32439c2c960df7adf60d3a858b8c640c858fb780fb79bf5c94"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_1.0e-.json": {
+      "size": 7,
+      "checksum": "sha256-64b715b632ad55a49b6221cb15f6827d7e4630a83baed3713939f31170e63afb"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_three-byte-utf-8.json": {
+      "size": 11,
+      "checksum": "sha256-ef0635008ee7ec43a9a1f1cff49c99b56d603d9531c31d9d63d0edc4495cf102"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_escaped_control_character.json": {
+      "size": 11,
+      "checksum": "sha256-a249d0fdbbf10a557998789abd71e948593fd370ff4ed8150269b5521235d121"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_leading_uescaped_thinspace.json": {
+      "size": 13,
+      "checksum": "sha256-086051c6d14b7dcf7ba3a0a2823fbb9d96ac8e215a7248640bf55ebce77e66c2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_null.json": {
+      "size": 7,
+      "checksum": "sha256-161a1bfffa621be8ff92c3a770b613a877f77c8a2d865342c10988ae7f72aa6b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_with_alpha_char.json": {
+      "size": 25,
+      "checksum": "sha256-22ad3f63db73e6639efe2589a7de456acb71c14bfe44152c5df462ba5694f931"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_3_escaped_invalid_codepoints.json": {
+      "size": 22,
+      "checksum": "sha256-17b7e0b7862dc29d4238dd15e3a776c710fc61a4a7e1ef24f94f1bd9f3806765"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0e.json": {
+      "size": 4,
+      "checksum": "sha256-cd279aa777afca083b346dbc2b62a1847c24f1556b619b7564842457f8949c93"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicodeEscapedBackslash.json": {
+      "size": 11,
+      "checksum": "sha256-b5f12f9cd4d50a28f3a5bff6a2eb4569ce3f82ee5406143a17627751b4e1a78e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_null-byte-outside-string.json": {
+      "size": 3,
+      "checksum": "sha256-b092606b4e272c079151f7627c83db66b93c3624d0b051e6d0712925ed8b5c79"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_invalid_backslash_esc.json": {
+      "size": 6,
+      "checksum": "sha256-670eca29fffa63a17bb2e87e1157d473bb3b1a2a3e97aab641f53da93d8bde27"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_trailing_hastag.json": {
+      "size": 12,
+      "checksum": "sha256-ce6bcb6a186a600809549525a2aebae9873e6daf4b5eb08c2b88aaa3c9afe449"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_unclosed.json": {
+      "size": 3,
+      "checksum": "sha256-73d88c9f94b28ad9f5e9e7f656976215d66e62ed0e84242205da3468f335b081"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_1_surrogate_then_escape.json": {
+      "size": 11,
+      "checksum": "sha256-50f7d7a72fdb1665341f04244341704b2b8b4d8d3b8ccfaf0ce5e12c7de69aa7"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_items_separated_by_semicolon.json": {
+      "size": 5,
+      "checksum": "sha256-7c7a17b09611e95a3fb14a3dc32a61cbf09ac9a0fa86116347dfbbbbd56b9fb4"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_U+2064_invisible_plus.json": {
+      "size": 11,
+      "checksum": "sha256-f1315671cf5b372eaf3d8da23d6b8eb423c469c0718c022017a1e1aa9eab598a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_incomplete_surrogate_pair.json": {
+      "size": 11,
+      "checksum": "sha256-823b370458fa84f32efaf461472abba66a29d1873ba77b81cb9b5213f6df79e6"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_9223372036854775807.json": {
+      "size": 22,
+      "checksum": "sha256-62e4d4c3a7265c825477a15caa0de7d6654072962fc9ffc15f9ed970167ef828"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g4-1.js": {
+      "size": 559,
+      "checksum": "sha256-a0c52694127be6570f61bc52f0556bc8ca604d28629cecf01d3524e059fec323"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_unicode_CapitalU.json": {
+      "size": 8,
+      "checksum": "sha256-2871101babb06b63ad8cf90cc9c4b49d52f79d7165db60af743cf42391fae7d2"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_iso_latin_1.json": {
+      "size": 5,
+      "checksum": "sha256-63cb55c1bfc4cc630ed56d854519e04e34a1a85f7ca338a90ff4a0bf900250c8"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_non_string_key.json": {
+      "size": 11,
+      "checksum": "sha256-65135e7e0e2a7e6561640a38c9be52a3b4629428ef3fb73530443079d905d9ef"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_negative_int.json": {
+      "size": 7,
+      "checksum": "sha256-185b6e8bb69e3af25986e1f7823d3980c4f2e0c8da3d24864c4735c8f0c68600"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_long_strings.json": {
+      "size": 118,
+      "checksum": "sha256-f2d1e59b66f31c7842d0d870fe3168a2f95465dc49d19b8936d2ca59f0991f75"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_ascii-unicode-identifier.json": {
+      "size": 3,
+      "checksum": "sha256-c9e0bfc2ef7439ecd1084b7496f1b96ec27e1c8a80c7811eb7f91d4fa64da666"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_with_1_and_newline.json": {
+      "size": 4,
+      "checksum": "sha256-acc07b62f23f458923737c4cd4a66bd05d1e71eb4f384003baaf2dcc760d6349"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_invalid_utf8_after_escape.json": {
+      "size": 6,
+      "checksum": "sha256-37d5eedb25cec736cf89a65e86d7c410ce5125e8685a87fb2a276dbccab5ff45"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_number_and_comma.json": {
+      "size": 4,
+      "checksum": "sha256-acc07b62f23f458923737c4cd4a66bd05d1e71eb4f384003baaf2dcc760d6349"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_capital_e_neg_exp.json": {
+      "size": 7,
+      "checksum": "sha256-cb6a52ba0b21e8742d42a89ef07f29107fdd7b49ac57d6eecea51e5681ad812b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_array_object.json": {
+      "size": 250001,
+      "checksum": "sha256-48b232fcd18ce2f714a16651ea9f27c04498dcd31ea1329a288c7aa981e1b531"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_0e1.json": {
+      "size": 5,
+      "checksum": "sha256-fd42abd2eda2e279fd612a669f1c21b3665789ab980dcff3d4c286dbe94375ce"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_invalid_unicode_escape.json": {
+      "size": 10,
+      "checksum": "sha256-2b6de004085a3dae0ea9b31230c1d9ce7bc92722914eee188d45eeda803c398a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_one-byte-utf-8.json": {
+      "size": 10,
+      "checksum": "sha256-440a346596ed50e35bd72fb0bba49b20c67bccf8899ae5ef1d73890f40e9593e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_unclosed_array_unfinished_true.json": {
+      "size": 12,
+      "checksum": "sha256-6732ae91c3a7dd2d74828f2683d8a7b084e2f4d003fef7c42fd0e01b81e1dd39"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_escaped_emoji.json": {
+      "size": 9,
+      "checksum": "sha256-8ad7e4922258492dc7d254e91385d6cb5b6b7d9c82ebb8488228fb8d294850d5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_array_arraysWithSpaces.json": {
+      "size": 7,
+      "checksum": "sha256-03514ff57dd2364cc63b23ff011cc97cdc0aee89e31f39b538c45efa4a1f093b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_1eE2.json": {
+      "size": 6,
+      "checksum": "sha256-02b51b6940228135be8c48f0472f220a341a9b7bce8150395a58afb7e41fac18"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_exponent.json": {
+      "size": 8,
+      "checksum": "sha256-15b33591966758437b80030f60c7941bd3a5d42f496d46b9d78ddad1c1e953e1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_emoji.json": {
+      "size": 10,
+      "checksum": "sha256-3ad1b7680b6f1f5186a1af1f4a6822ea090ceebb4d616bf9330204387ed3c934"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_in_array_with_leading_space.json": {
+      "size": 8,
+      "checksum": "sha256-c8a83a0f75ceabc50fb63ac3cd3a9ef8531e6730d0997558728b84fac149edb3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_angle_bracket_null.json": {
+      "size": 8,
+      "checksum": "sha256-7227cd2265406dc197d250c3f0e5293cee7912acad093392367d8679b221f41d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_hex_2_digits.json": {
+      "size": 6,
+      "checksum": "sha256-ce2e3b8b3e0a6cf29602463d4e70910d3b3fcb38874800d491efe163d8ff9592"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_missing_key.json": {
+      "size": 6,
+      "checksum": "sha256-9a25a7e80b3b9ffdcc2c19edcff1ae5c68e8ce83a38b7acf922627c709a91919"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_key_with_single_quotes.json": {
+      "size": 19,
+      "checksum": "sha256-4b62535130112385645094ffd8fe8714453bc3639d48bd8acad45b3cacd2e7aa"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_nonCharacterInUTF-8_U+FFFF.json": {
+      "size": 7,
+      "checksum": "sha256-f71019c976f92080edc1802b707f306ce74360ba5b21481c3ce5f39631ab5f74"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_inner_array_no_comma.json": {
+      "size": 6,
+      "checksum": "sha256-e34a9903249cf3508b7f8ff91b510b0b1058d1a3aeec4005356b8021a130f2ca"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_with_single_string.json": {
+      "size": 22,
+      "checksum": "sha256-e170f309232eca3dab5420479b36cdbf92877ddd8ca6dc7af0a9e5c00c30486f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_pi.json": {
+      "size": 7,
+      "checksum": "sha256-9e226026d45cc5aba6bc968a67aafcad67d5a07e90e753cb936a406ace4883c7"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_close_unopened_array.json": {
+      "size": 2,
+      "checksum": "sha256-892491211326600b77f0464218fe38f041857e6b8cb5253558f03fe6f81ce40b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_in_array.json": {
+      "size": 7,
+      "checksum": "sha256-88d0d49f2caf8f249e81a3c4a12657678594af2ca9867b193993b02bb4cf6814"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g1-3.js": {
+      "size": 539,
+      "checksum": "sha256-61da09016980f67f78b7893310719ae4db2ba0d35ff1260059c20526e0126262"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-7.js": {
+      "size": 425,
+      "checksum": "sha256-080eed5e89cd7ac07ecc7a4c4546385dbf2e02077a87b903d83356119408f050"
+    },
+    "/testdata/test262/JSON/parse/name.js": {
+      "size": 880,
+      "checksum": "sha256-7622cd6be56514fb9f29f85c739cf6d1e9a02aceb33b0eff16934bbb41b57813"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_very_big_negative_int.json": {
+      "size": 51,
+      "checksum": "sha256-735b3dcc58336f383e4668439dfbde6147b25f8f5a2548873e7979813e55d48b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_unclosed_with_object_inside.json": {
+      "size": 3,
+      "checksum": "sha256-903dda41bec7150e805f158ac061587fcf72b9d01d15b86222966814dda496f0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_neg_with_garbage_at_end.json": {
+      "size": 5,
+      "checksum": "sha256-00c6d0363ca61949d57d59b9b24da62d9a3a8438242b88f6af12c3587eddceb3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_invalid_lonely_surrogate.json": {
+      "size": 10,
+      "checksum": "sha256-69119aac5ce42bc93c1667db0454297ffaa342c431efa2dfdf48af101c035106"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-4.js": {
+      "size": 457,
+      "checksum": "sha256-e6ad671401af61ea160ab49524c6b4f08062707d6c1ae901e5456819e53a94b1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_single_doublequote.json": {
+      "size": 1,
+      "checksum": "sha256-8a331fdde7032f33a71e1b2e257d80166e348e00fcb17914f48bdb57a1c63007"
+    },
+    "/parse.ts": {
+      "size": 11801,
+      "checksum": "sha256-79316f011625bfbe9f59680790cf046e33841624995342868cc7c8b684327c1c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_real_without_fractional_part.json": {
+      "size": 4,
+      "checksum": "sha256-6c66925b31c0576edefa5753ae952ff6758a4b94784473e421baef61aafaea48"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-3.js": {
+      "size": 455,
+      "checksum": "sha256-8a3d36ced01f963585f7411dd7686845d94afa35e795411b86f631b57ac04cf9"
+    },
+    "/testdata/node-jsonc-parser/README.md": {
+      "size": 300,
+      "checksum": "sha256-0a123d3bc4ca082bce38bbbd7bc13bb5bf2ad29dc69224d361606f1647665f40"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_1_2_3_bytes_UTF-8_sequences.json": {
+      "size": 23,
+      "checksum": "sha256-76b788ff0eaaa0e82c10bcd5d09677c173d4004dd26cddef1782f0a7d50de515"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_whitespace_U+2060_word_joiner.json": {
+      "size": 5,
+      "checksum": "sha256-aacc3ed19ba1f9596daefc68914fe3253c00703648e8ee606f03823feaed1da6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_uescaped_LF_before_string.json": {
+      "size": 10,
+      "checksum": "sha256-0d3066fc4d2e4da78f549fd8cbc4e9d26abf100c209f116f58e1fc278f0b274f"
+    },
+    "/testdata/test262/JSON/parse/invalid-whitespace.js": {
+      "size": 1685,
+      "checksum": "sha256-d78ff4cc63bbbb19931a5dafcbfc1007a4f6557852c6b58bd57f9f6176ffa017"
+    },
+    "/testdata/test262/assert.js": {
+      "size": 3204,
+      "checksum": "sha256-5ef8cf6265420af47cac180cdf5a5500a7e0b9ea8614531a8cc77e7999f5631f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_overlong_sequence_6_bytes.json": {
+      "size": 10,
+      "checksum": "sha256-ddb01e68ad635d951563550ed51179f064f534cd0d5f26cf8ca26a69a8299bb1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_string_empty.json": {
+      "size": 3,
+      "checksum": "sha256-bd85bcdb8d4e613a79cb62d0903946ad10c83e63dc75f67614c159c0dbf4d184"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_unescaped_tab.json": {
+      "size": 6,
+      "checksum": "sha256-9ff31d299767911bebeb746b089d98be4351a2ddee765df84b8c952f340de158"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_1st_surrogate_but_2nd_missing.json": {
+      "size": 10,
+      "checksum": "sha256-614fddf8cc37b552fd23b6fed4bd1e5b78ddfa86b8e3870f089c8f6e90ccf8f1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_U+10FFFE_nonchar.json": {
+      "size": 16,
+      "checksum": "sha256-95affe1744a2fb5a585d0a4a8b28b3238f36473ac55e21b43ead5e9824389eb3"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_comma_and_number.json": {
+      "size": 4,
+      "checksum": "sha256-2b3646f1ef5cf8b30a71b9e140e89b77da7eb4354ddc1f346f57ffc66ad68cd0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_1_surrogate_then_escape_u1.json": {
+      "size": 13,
+      "checksum": "sha256-cea1473bbc52ce15c8c439f8e82e1419cfc22088d6396a1a405b1d1fa0d4cd7e"
+    },
+    "/testdata/JSONTestSuite/test_transform/object_same_key_different_values.json": {
+      "size": 19,
+      "checksum": "sha256-733fd5227d4c549fed0465b6e0939d64ef28262edad85dde8c2f546dee167b9a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_extra_close.json": {
+      "size": 6,
+      "checksum": "sha256-b9ffad41832eeef97b229c9de4f664d7ad3bd3094ebdf5342729564427b1688f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_space.json": {
+      "size": 4,
+      "checksum": "sha256-f2b2d33a77d10934b28d3bb3d694c4d08b1ebc802e65c1cf44085794cf0dd39c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_with_newlines.json": {
+      "size": 15,
+      "checksum": "sha256-bf5d360a201497a7353c13dbd865c0968cacefcf8dd3b7a5904ecc8843a727f4"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_simple_int.json": {
+      "size": 5,
+      "checksum": "sha256-201add142419aaa1ff8bf4b25772b7af870d06753a642c57a49640cd9835f6d4"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g4-2.js": {
+      "size": 559,
+      "checksum": "sha256-8e40285b0f99e8cf94bf4a72c547c79424a572b429edf003277e6526e97a5fa5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_negative_zero.json": {
+      "size": 5,
+      "checksum": "sha256-618236935c3a6d2880c7bff48a4c8ab9ef5ed9b2163c97c8ffb353d8521fe352"
+    },
+    "/deno.json": {
+      "size": 120,
+      "checksum": "sha256-495691302c20b752101363cd6194edb580c60fe1f2d1ee9ec41bd1f99df8d1aa"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_utf8.json": {
+      "size": 12,
+      "checksum": "sha256-a43c8b664d932b030cf35ccb714ce29992628eece21b29d935069f6842e80360"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-2.js": {
+      "size": 455,
+      "checksum": "sha256-7a5dbdae07f9f2f474d566f06e55bc7360a6b8f30ba838ba357d43251073482a"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_int_with_exp.json": {
+      "size": 6,
+      "checksum": "sha256-6d014f6467daa9753d57f0d75067fe62c9f3b0116455a3222c26e58432541b0d"
+    },
+    "/mod.ts": {
+      "size": 142,
+      "checksum": "sha256-82722888823e1af5a8f7918bf810ea581f68081064d529218533acad6cb7c2bc"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_-9223372036854775809.json": {
+      "size": 23,
+      "checksum": "sha256-0542ac348d899ade5905cc4a6e33e38c039f4162243c2edcc16c07bb9fee15e5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_number_too_big_neg_int.json": {
+      "size": 34,
+      "checksum": "sha256-d0f4550a55039ff68f39edadacaa27312fee3be3c8759c240d8a113748830740"
+    },
+    "/testdata/test262/propertyHelper.js": {
+      "size": 6853,
+      "checksum": "sha256-8b85c45f4236ca85c8b35be3f2470a9589533453f0982370246a285cad92dc51"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_no_quotes_with_bad_escape.json": {
+      "size": 4,
+      "checksum": "sha256-814a698775017816f2280a649b3f4e824359c4100225294eb5857e244a248d02"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_double_array.json": {
+      "size": 4,
+      "checksum": "sha256-821bf06b4dcb406ea508a4a992eadc22f29850cd208ba24aea7c29148de8ccf1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_inverted_surrogates_U+1D11E.json": {
+      "size": 16,
+      "checksum": "sha256-17dc4691fa7a327ac3411391f7d3b5db983715391f8dfee1c008ffb453959fff"
+    },
+    "/testdata/test262/JSON/parse/15.12.2-2-10.js": {
+      "size": 1492,
+      "checksum": "sha256-0f012ba3c86fd93d1eeeeb790ca80557c5775f0aa4aa4ee96791a069816c9c39"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g6-5.js": {
+      "size": 425,
+      "checksum": "sha256-f93bcedcb008e8bd4a6cc5c89946e0c87e26efad67d2d6938568999a4e2ac980"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_colon_instead_of_comma.json": {
+      "size": 7,
+      "checksum": "sha256-b4bceb6e7fefaf43b73f472b8c260c5aad24610faea9a1abe6b9a3035065deb4"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-0-5.js": {
+      "size": 458,
+      "checksum": "sha256-4620466b1c503a4e31b0d36169b09776f34bab2506ed34cd4a5786c87806e40f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_NaN.json": {
+      "size": 5,
+      "checksum": "sha256-638577393ecb248f472c18a1a95104181a3188551615d763873393eaf4eff186"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_invalid_surrogate.json": {
+      "size": 13,
+      "checksum": "sha256-741eff3218368e2fc13a93ce6993548a83719ed3c05a78db3de6ef8ab7eab64e"
+    },
+    "/testdata/test262/JSON/parse/text-object.js": {
+      "size": 776,
+      "checksum": "sha256-41fe5cf2146eb25116f0c043b170f486f8f88e06e3506656518542857389143f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_whitespace_array.json": {
+      "size": 4,
+      "checksum": "sha256-7e58d2487a2aaa36b6c1f57dbe1b513f1637fce9b58bb771797daa980dcdb3eb"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_lone_utf8_continuation_byte.json": {
+      "size": 5,
+      "checksum": "sha256-59de3a862e298c811bf5c494f43104af9c72e0d1c8ee2c2d4ceed7232e9ebe10"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_Inf.json": {
+      "size": 5,
+      "checksum": "sha256-68979a7a850577548cffccc18abe34fab7d70d4e733b10ae228e030a142052e5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_single_quote.json": {
+      "size": 16,
+      "checksum": "sha256-0389d0d5920ee2996811974bdcbfe05c9ca0ed79af909704b8485bc86f6eaf25"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_backslash_doublequotes.json": {
+      "size": 7,
+      "checksum": "sha256-f9478d31692a29352cf9d972c47b43c08affa74b8a8482376c85b423a612969c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_object_key_lone_2nd_surrogate.json": {
+      "size": 12,
+      "checksum": "sha256-3c8f12d1d98603cc19dc6428e2ca50fd5055405a9ee84eff134edc07e66e155b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_comma_instead_of_closing_brace.json": {
+      "size": 11,
+      "checksum": "sha256-d2b042da0c0664285a8485eec9097afc54e376f1a675818386699c5f2a65433d"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_UTF-8_invalid_sequence.json": {
+      "size": 10,
+      "checksum": "sha256-93d762e06089733df04d765462ac2da5e60ab1d691e5a57708b27ed4e3342968"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_invalid-utf-8-in-escape.json": {
+      "size": 7,
+      "checksum": "sha256-1c1ef70149258ff7ee082817269431c45e34f75a2268c3dff56f35d3a4859f1e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_just_minus.json": {
+      "size": 3,
+      "checksum": "sha256-912e1c65eed5e5d54ec020900c7d7e12e16fe270abd6c150a41dc63011dd7c19"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_capital_e.json": {
+      "size": 6,
+      "checksum": "sha256-487520c1738b59febf4b14cddd8e962ea3cc9cec00995d505e0eef258d8f2413"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_array_number_and_several_commas.json": {
+      "size": 5,
+      "checksum": "sha256-6d66636bc1399db9f6ab65d0ecc702fb1d12588d37ab3c79670698507b972d12"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_escaped_noncharacter.json": {
+      "size": 11,
+      "checksum": "sha256-1b85b8d53a359956d2f4f4c3a537091f946e8c929c7e59ea2631ff1748c6ad30"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_object_followed_by_closing_object.json": {
+      "size": 3,
+      "checksum": "sha256-8a299b12f74132eef36aa0ee1005e6ee4c0610572acf986becf7f0905db3d88f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_bad_value.json": {
+      "size": 12,
+      "checksum": "sha256-532ef8019fc26b0680b94c203bb2cf1dd1b91529cda3afc1933ac1398da16c08"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_neg_real_without_int_part.json": {
+      "size": 7,
+      "checksum": "sha256-883151c5ef152620edcf2ae229ace6e170b29f01fbb21dc8b0d8faeb863135d8"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_object_simple.json": {
+      "size": 12,
+      "checksum": "sha256-af5693129dfdf6e6879d30962ceaa5aac5c619da10038a0ac4dc1f5836aaf14b"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_object_close_array.json": {
+      "size": 2,
+      "checksum": "sha256-2125223e9996e4c2e393de959aa95e788cfd809a2a85eea6a7bc89aab856a352"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_no-colon.json": {
+      "size": 4,
+      "checksum": "sha256-de9ce9008704dd0aa575b07196e92a96935fdcef06f97988cf5e2eb7a9b26b62"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_start_escape_unclosed.json": {
+      "size": 3,
+      "checksum": "sha256-71efe1dd33978d346960b810a8dd22b9bbca77490b3c35d16ae329f457aea737"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_array_open_object.json": {
+      "size": 2,
+      "checksum": "sha256-8b351adb56355ffc40a4986ab30267eecae89710c63d09cba764a35adfda3ef5"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_neg_int_starting_with_zero.json": {
+      "size": 9,
+      "checksum": "sha256-30e0a718752fefad556e30a84e3619e2c7ca3e710d5cbfef6727a50cc5309874"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_1_surrogate_then_escape_u.json": {
+      "size": 12,
+      "checksum": "sha256-3a5b06d8fc9190c4f382a094bc372f39539ccd34ef3c917db4c5e10284c2e3d0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_number_real_neg_exp.json": {
+      "size": 6,
+      "checksum": "sha256-2a43df431a4412183f3b0e796a4fdc5488469428e91527cdaf40434e3d64c8ec"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_object_open_array.json": {
+      "size": 2,
+      "checksum": "sha256-a4a00261fb75f8b66efbc725ac8c58ab39f613f7aae38ea4fec5497aa09ccb6c"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_object.json": {
+      "size": 1,
+      "checksum": "sha256-021fb596db81e6d02bf3d2586ee3981fe519f275c0ac9ca76bbcf2ebb4097d96"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_lonely_int.json": {
+      "size": 3,
+      "checksum": "sha256-084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_++.json": {
+      "size": 8,
+      "checksum": "sha256-ec5e5041e992f94073df8faeeb6b9c97b3ee53b7384234beaa7595b424e346b6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_string_unicode_escaped_double_quote.json": {
+      "size": 11,
+      "checksum": "sha256-ab95c86eef0d005dc066ab553f21df63d2dfaa671dec3da5962c51cfbb626151"
+    },
+    "/testdata/JSONTestSuite/test_transform/string_with_escaped_NULL.json": {
+      "size": 13,
+      "checksum": "sha256-56f02f67f3ca91dcd337b935139e1ad0d3d804683b1fbd98bf4e24ba0adf8a6f"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_1000000000000000.json": {
+      "size": 19,
+      "checksum": "sha256-4a4e4d04cd1859975695f64cf9a7a48de202ed0d800a58cd4096b7ac9f294a58"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_comma_instead_of_colon.json": {
+      "size": 11,
+      "checksum": "sha256-768e2ec23b20790f9f16a5665e6749ee45fd0ffd642a55047ad12db2cf86f3f0"
+    },
+    "/testdata/test262/sta.js": {
+      "size": 1000,
+      "checksum": "sha256-0f1498ac31f40a630249ee66d87367db7c4046e6de49e67c6584871238fcd17f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_UTF8_surrogate_U+D800.json": {
+      "size": 7,
+      "checksum": "sha256-335ffac769e5b3cec6047f6f464a0d24267493f49d3bc75f0a6411ad9448f003"
+    },
+    "/testdata/test262/JSON/parse/text-negative-zero.js": {
+      "size": 835,
+      "checksum": "sha256-c6b5476cdf028300565bb3a566df0ea23ed679377796a389208a08fd370d72e0"
+    },
+    "/parse_test.ts": {
+      "size": 5968,
+      "checksum": "sha256-efcfb47409498a24ed20259f6384e62ca89b71941dc191fe40b283501cb99a14"
+    },
+    "/testdata/JSONTestSuite/test_transform/object_same_key_same_value.json": {
+      "size": 19,
+      "checksum": "sha256-54d76e8584e6549aad6d866266c4a6108fcc4b6f92ca6395732f6933226fd307"
+    },
+    "/testdata/test262/JSON/parse/text-object-abrupt.js": {
+      "size": 667,
+      "checksum": "sha256-fd1915ddac2de827808719a76a12ad8374b55e00e948a5069e78f3a378d02bc6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_structure_open_array_string.json": {
+      "size": 4,
+      "checksum": "sha256-d87fbfd036243752ee25747924c7b51869985a0f8203867dada08113f7be4406"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_escaped_backslash_bad.json": {
+      "size": 7,
+      "checksum": "sha256-7e38d58c88a6f593c1dccc11accd719032a0ac34e8169fc81cd70dfbcba9d7ba"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_non_string_key_but_huge_number_instead.json": {
+      "size": 13,
+      "checksum": "sha256-5f76df23491379110e3d23e8278d6797c5ae5dc912e03bf901b1fd20a896679e"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0e+.json": {
+      "size": 5,
+      "checksum": "sha256-3f54bdbbd4e3ad547fa457b5810df7c96f2d2c3bc6985e11202ffd1d42116889"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_missing_value.json": {
+      "size": 5,
+      "checksum": "sha256-ffb38b22ee3e0ca90325ebce953a9846990f292faf44c50498771602e31cb61f"
+    },
+    "/testdata/JSONTestSuite/test_parsing/i_string_not_in_unicode_range.json": {
+      "size": 8,
+      "checksum": "sha256-1e4a55bc32c7de4b1af008ed206899f4debd32ce7676e11b017633aba8a548f8"
+    },
+    "/testdata/node-jsonc-parser/test.ts": {
+      "size": 4645,
+      "checksum": "sha256-3e45ba990108cf4242e387781d60a3c7546c9ef4e1afb9ddbbf16bcf8a21b904"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_object_single_quote.json": {
+      "size": 7,
+      "checksum": "sha256-67425dd8fb9386942496d20c8bdc9f3b113517a6185bf38da4c8b87de8f49708"
+    },
+    "/testdata/JSONTestSuite/test_transform/number_1.0.json": {
+      "size": 6,
+      "checksum": "sha256-d5a4818effe899511510887f0c4008ece9ebde6e5e715a67ce574a0c9cafc6e6"
+    },
+    "/testdata/JSONTestSuite/test_parsing/y_structure_lonely_true.json": {
+      "size": 5,
+      "checksum": "sha256-a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74"
+    },
+    "/testdata/test262/JSON/parse/15.12.1.1-g2-2.js": {
+      "size": 377,
+      "checksum": "sha256-bf2aa45f486f64bc91bce0314f81a6ca0c654e3dd19fb72015c4b04d856806c4"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_invalid-utf-8-in-bigger-int.json": {
+      "size": 6,
+      "checksum": "sha256-c5efd0312f655f7d8a15938fed77cea804726f6ce9539cd73340616e151e1338"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_number_0.3e+.json": {
+      "size": 7,
+      "checksum": "sha256-d56c36978bba5b6f062b28f35f7e237af4f0fe016edb2943e666da6e58efedf1"
+    },
+    "/testdata/JSONTestSuite/test_parsing/n_string_escape_x.json": {
+      "size": 8,
+      "checksum": "sha256-e51a0dfa4018434feaf3918d5e94d3a6139a4a80af3b0880d5387c54740d9606"
+    }
+  },
+  "moduleGraph1": {
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              3,
+              0
+            ],
+            [
+              3,
+              27
+            ]
+          ],
+          "specifier": "./parse.ts",
+          "specifierRange": [
+            [
+              3,
+              14
+            ],
+            [
+              3,
+              26
+            ]
+          ]
+        }
+      ]
+    },
+    "/parse.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * {@linkcode parse} function for parsing\n * {@link https://code.visualstudio.com/docs/languages/json#_json-with-comments | JSONC}\n * (JSON with Comments) strings.\n *\n * This module is browser compatible.\n *\n * @module\n ",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  11,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              13,
+              0
+            ],
+            [
+              13,
+              58
+            ]
+          ],
+          "specifier": "jsr:/@std/assert@^0.213.1/assert",
+          "specifierRange": [
+            [
+              13,
+              23
+            ],
+            [
+              13,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "range": [
+            [
+              15,
+              0
+            ],
+            [
+              15,
+              64
+            ]
+          ],
+          "specifier": "jsr:/@std/json@^0.213.1/common",
+          "specifierRange": [
+            [
+              15,
+              31
+            ],
+            [
+              15,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "exportType",
+          "range": [
+            [
+              16,
+              0
+            ],
+            [
+              16,
+              64
+            ]
+          ],
+          "specifier": "jsr:/@std/json@^0.213.1/common",
+          "specifierRange": [
+            [
+              16,
+              31
+            ],
+            [
+              16,
+              63
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./parse": "./parse.ts"
+  }
+}

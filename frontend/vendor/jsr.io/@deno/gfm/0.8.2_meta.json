@@ -1,0 +1,363 @@
+{
+  "manifest": {
+    "/style.ts": {
+      "size": 77362,
+      "checksum": "sha256-3ded4f39284d2bcf414a9bc7ae368f5d7ba7e041e477d53d7218e1206777644b"
+    },
+    "/test/test_utils.ts": {
+      "size": 2998,
+      "checksum": "sha256-c1cdae8dc2da8916b0a8ecf64ca249eb9d148d0cbb23929b5635cea2a0577ef9"
+    },
+    "/test/test.ts": {
+      "size": 15575,
+      "checksum": "sha256-d29ae75af4f73311f17c9001a2ae705b7de089b7fb400ea9522b131d9a5be4ec"
+    },
+    "/LICENSE": {
+      "size": 1070,
+      "checksum": "sha256-75b6120f639f83c46bfaec3a6c97516e015b5ab18053c39bfbaf72f1d76e6c87"
+    },
+    "/example/content.md": {
+      "size": 6331,
+      "checksum": "sha256-4e99e6f83fa09b9855838fbee45e623b0eb76f9d3a9db73204a3c4782506580b"
+    },
+    "/test/fixtures/lineBreaks.md": {
+      "size": 171,
+      "checksum": "sha256-4caee18a508ae1a4e4fa438ddd6bff86bbd966f2937ef672ba797829895d13b3"
+    },
+    "/test/server_test.ts": {
+      "size": 5121,
+      "checksum": "sha256-581bfd0de4ab03fa930d044de76ca401fb97f359d6f3282e30f2c4f94ee42911"
+    },
+    "/test/fixtures/footnote.html": {
+      "size": 3112,
+      "checksum": "sha256-039e1da151283c5974686a141bce8c85f679665f94fe2a9c59df1fde8eeb806e"
+    },
+    "/test/fixtures/customAllowedTags.md": {
+      "size": 114,
+      "checksum": "sha256-823fb984fbb37fb3cbde5fe84baa8f10f3b9a3227a2234bad96a19b3ca41960c"
+    },
+    "/test/fixtures/footnote.md": {
+      "size": 1241,
+      "checksum": "sha256-cb6380b0e93673c869f79df9e301df55a7044681653fc0606f2dd2274f760d74"
+    },
+    "/style/patch.ts": {
+      "size": 2567,
+      "checksum": "sha256-86e4dce2c70669d86c6844c1cb85636488e87a1d05a6d0b9f33f5ba47bf73021"
+    },
+    "/README.md": {
+      "size": 3451,
+      "checksum": "sha256-c4bac66ea65de25116eea69de39bc3b6a5e3c54e2b386876a9019a8f189c4ad9"
+    },
+    "/style/.parcelrc": {
+      "size": 42,
+      "checksum": "sha256-da245ceebfc1503d9d1a34ebff76a0c09a0df69381d573ad2a4a1304ed361188"
+    },
+    "/style/package-lock.json": {
+      "size": 130709,
+      "checksum": "sha256-8768e7122ddf54558b501d1418dbdd306ffcdfb90aa55b75737b1afa4c92670d"
+    },
+    "/test/fixtures/detailsSummaryDel.strip": {
+      "size": 52,
+      "checksum": "sha256-c746e025ada0f8cfdafb9c4df59c5e03cb4b5a0e30b59637aeb1ad2a308add67"
+    },
+    "/test/runTestServer.ts": {
+      "size": 62,
+      "checksum": "sha256-a54bbb200248cd4dd1a222c79550d27e8a1198a3b7daedd42e5067923380720f"
+    },
+    "/test/fixtures/table.html": {
+      "size": 1243,
+      "checksum": "sha256-f0c0d48746efa5b827a0bf1226c0eaf1ea585820dac60c43b441e6040f8fde72"
+    },
+    "/test/fixtures/example.strip": {
+      "size": 3949,
+      "checksum": "sha256-3779e74164963e726496bfb7031fa12c9a51044e6e862443ce6637530e9128b4"
+    },
+    "/test/fixtures/alerts.md": {
+      "size": 396,
+      "checksum": "sha256-a5c3ee296a0fc7c48dd6aade5994774f9ed925a1649fa278e089d0096ec9d514"
+    },
+    "/test/fixtures/example.json": {
+      "size": 4550,
+      "checksum": "sha256-2bce4d616a1b5b0bc4a36e2c5d2822ce4c0a0a9763a53538a1ace677e172c12d"
+    },
+    "/test/fixtures/table.md": {
+      "size": 1241,
+      "checksum": "sha256-323746e27c845cc538554a75ab7dd29a1e83f7238617e0df390ad790cbe232a6"
+    },
+    "/test/fixtures/math.html": {
+      "size": 2157,
+      "checksum": "sha256-b89038b84417dcf8000676d33915f5141b5fcf33ec598dfcac87233ee8fd59f8"
+    },
+    "/style/main.scss": {
+      "size": 2427,
+      "checksum": "sha256-3b77329ac1f03a433d3e4e4a3ef5755231508abb55ad47ce17bd2147fcc7548e"
+    },
+    "/test/fixtures/taskList.html": {
+      "size": 142,
+      "checksum": "sha256-7b2012773d7d8f2d7bbee2932e923b8e5b8b35103508191a572f9bc27a207367"
+    },
+    "/test/fixtures/lineBreaks.strip": {
+      "size": 0,
+      "checksum": "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "/test/fixtures/alerts.strip": {
+      "size": 353,
+      "checksum": "sha256-20914b449136ec2f07008f8fabd7fef5a311ff5ca80369998ab9e63c60256ac0"
+    },
+    "/test/fixtures/customAllowedClasses.html": {
+      "size": 124,
+      "checksum": "sha256-1d4d2702ebc5914e14afeafaa3c2f6c00b8bbfe7727076e110e1ac65a72742ca"
+    },
+    "/style/package.json": {
+      "size": 233,
+      "checksum": "sha256-439c4527b4551097c85077f00f0c2bd3b8ababa0112c3e33c1f0b933b5f849f8"
+    },
+    "/test/fixtures/codeMath.html": {
+      "size": 1066,
+      "checksum": "sha256-9c238b743963379dac6f3e51efc5a11327c9cf5ca8228b27057b73d822d341a1"
+    },
+    "/test/fixtures/customAllowedClasses.md": {
+      "size": 28,
+      "checksum": "sha256-c819145a04f3c450488d249c0ca1da89ca960d7a80ffb0933744855b376e05bd"
+    },
+    "/test/fixtures/math.strip": {
+      "size": 25,
+      "checksum": "sha256-8814f5c036eedacc11adf201668a9fd60d64c6d2e0c4a74389ce18df1aed7981"
+    },
+    "/test/fixtures/basic.strip": {
+      "size": 27,
+      "checksum": "sha256-96b2108567fc8a013f5cc17d6330dc069dc367f6184a5a56a3084786bc3674c8"
+    },
+    "/deno.json": {
+      "size": 1432,
+      "checksum": "sha256-bea13ceb16d7e7a413d8b94d56b27846b50e72cc3c5a217a53d1070a75979e12"
+    },
+    "/.vscode/settings.json": {
+      "size": 597,
+      "checksum": "sha256-e684e0f015779b86a79d0d521b06a739f0cd1947950a1b79b6f7fbb46ca75f83"
+    },
+    "/test/fixtures/taskList.strip": {
+      "size": 26,
+      "checksum": "sha256-773599a17d32d70a08bae9eb8bd4d6a2760c3677c0bea768675744018c628426"
+    },
+    "/test/fixtures/detailsSummaryDel.html": {
+      "size": 160,
+      "checksum": "sha256-30882f192cfede9f6d64fc01640b4d1c44a3e1c19bd3fda3ef8e2a5c66efd82d"
+    },
+    "/test/fixtures/basic.md": {
+      "size": 35,
+      "checksum": "sha256-d65e016de575b7e560a89457c1d7577420a4eab6f36a832e397ea7ad042b773f"
+    },
+    "/test/fixtures/customAllowedTags.html": {
+      "size": 101,
+      "checksum": "sha256-c0a077ed2db994c650108ca6378e3480614440c8c7aaa963e9b442f917c09ee4"
+    },
+    "/test/fixtures/alerts.html": {
+      "size": 4033,
+      "checksum": "sha256-73fa09112f4bf9c8cd55d14cfd33561e85fd81860c6e514b87534d3842c38115"
+    },
+    "/test/fixtures/math.md": {
+      "size": 51,
+      "checksum": "sha256-72bbe8fef88e77d2f25408aef1daa64792f739ab6d5e971e84e008a5c2325066"
+    },
+    "/test/fixtures/basic.html": {
+      "size": 648,
+      "checksum": "sha256-643f74761bd8f7c06bbdf2cc9a0155dcc4ca4610e5b5a9543bec73273ddf1c3f"
+    },
+    "/example/main.ts": {
+      "size": 1904,
+      "checksum": "sha256-05898acc3a1404330ffc9a37e83c9bb85a4616ea9a5179b47240b6d0cd38993e"
+    },
+    "/.github/workflows/ci.yml": {
+      "size": 846,
+      "checksum": "sha256-a68befb9f3e5f21526908c04b003f08ae0b779001b83925f4669ed741709ba9d"
+    },
+    "/mod.ts": {
+      "size": 14260,
+      "checksum": "sha256-0d4e6441daa01d9b48d55ffe96c9963ec550c689e4341328c405ab0a6780c01e"
+    },
+    "/test/fixtures/example.html": {
+      "size": 10696,
+      "checksum": "sha256-450e86645f44bd2d82f0790fdc6d977647aaf076093e10daf5b849837c23d561"
+    },
+    "/test/fixtures/lineBreaks.html": {
+      "size": 193,
+      "checksum": "sha256-e92ea937fc1ebe312df7a99d2f9a5444b68baf954cae62d71c7f4de79a9980d1"
+    }
+  },
+  "moduleGraph2": {
+    "/style.ts": {},
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@denosaurs/emoji@0.3",
+          "specifierRange": [
+            [
+              0,
+              24
+            ],
+            [
+              0,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:marked@^12",
+          "specifierRange": [
+            [
+              1,
+              24
+            ],
+            [
+              1,
+              40
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:github-slugger@^2.0",
+          "specifierRange": [
+            [
+              2,
+              26
+            ],
+            [
+              2,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:marked-alert@^2.0",
+          "specifierRange": [
+            [
+              3,
+              24
+            ],
+            [
+              3,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:marked-footnote@^1.2",
+          "specifierRange": [
+            [
+              4,
+              27
+            ],
+            [
+              4,
+              53
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:marked-gfm-heading-id@^3.1",
+          "specifierRange": [
+            [
+              5,
+              29
+            ],
+            [
+              5,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:prismjs@^1.29",
+          "specifierRange": [
+            [
+              6,
+              18
+            ],
+            [
+              6,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:sanitize-html@^2.11",
+          "specifierRange": [
+            [
+              7,
+              25
+            ],
+            [
+              7,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:he@^1.2",
+          "specifierRange": [
+            [
+              8,
+              15
+            ],
+            [
+              8,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:katex@^0.16",
+          "specifierRange": [
+            [
+              9,
+              18
+            ],
+            [
+              9,
+              35
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./style.ts",
+          "specifierRange": [
+            [
+              11,
+              46
+            ],
+            [
+              11,
+              58
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

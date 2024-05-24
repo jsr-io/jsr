@@ -1,0 +1,544 @@
+{
+  "manifest": {
+    "/base32.ts": {
+      "size": 7275,
+      "checksum": "sha256-f72c06eb2d1c1b1bde48c5e42d5b6f739e37cea48df5587d0fa0fe1a57cfeaca"
+    },
+    "/base64url.ts": {
+      "size": 2282,
+      "checksum": "sha256-10e7bf34757d64a77b2592c37f5ab279ea96c3971199ee1d113113597d2123b0"
+    },
+    "/base64_test.ts": {
+      "size": 1176,
+      "checksum": "sha256-fea73c9c3d3c0f668785583e44cc2678993bc1c95246c4af8d6a28a7cb8d6d7c"
+    },
+    "/hex.ts": {
+      "size": 2763,
+      "checksum": "sha256-1aecfa504efd0ffcd176037abc7eb7d775a7b38a9e775d9e7260b583ad1301e7"
+    },
+    "/varint_test.ts": {
+      "size": 4088,
+      "checksum": "sha256-dce28660933a67fb3b7c2e03b565315ffe957b9c7df048da3e0295bc0ad031f8"
+    },
+    "/base64.ts": {
+      "size": 2548,
+      "checksum": "sha256-4b3bde3c0d699cc0fae6e5bd119ab3a8b9b05293e0053140faa340a30b01e4bc"
+    },
+    "/ascii85.ts": {
+      "size": 5480,
+      "checksum": "sha256-f59cdf3e1896518d040170d4616784b4bea1e14fec7dbfb7dd5c7add27206d9f"
+    },
+    "/_util.ts": {
+      "size": 798,
+      "checksum": "sha256-beacef316c1255da9bc8e95afb1fa56ed69baef919c88dc06ae6cb7a6103d376"
+    },
+    "/base32_test.ts": {
+      "size": 4115,
+      "checksum": "sha256-d7e628108369a8231917d72a1a53c0c53330b3291e6b5578f01c1db6300a709f"
+    },
+    "/base58_test.ts": {
+      "size": 1917,
+      "checksum": "sha256-1d367984544dc25feaa66c64b5cf260b92a7bf2d82c4c6ba1672cd1250c9b71d"
+    },
+    "/varint.ts": {
+      "size": 5788,
+      "checksum": "sha256-ecc92ffeae10816a073143c0965ce0237c1d4a1cb3edd9d53d570137645df72d"
+    },
+    "/base58.ts": {
+      "size": 3879,
+      "checksum": "sha256-61b5c5415ed9aafa1dd2db2f881e2eb690042e4c7f9bb1ac5fe51b42b7b1b9f9"
+    },
+    "/ascii85_test.ts": {
+      "size": 8946,
+      "checksum": "sha256-d7edd7d94b9f9b33bfd32a3149a1f10b10d130b9752a23e84c5bcc083916f5f1"
+    },
+    "/base64url_test.ts": {
+      "size": 1745,
+      "checksum": "sha256-4e96b251bbfb379c609439f88f8dea2f29ff2539823b01fe004a2f6a98890d4b"
+    },
+    "/hex_test.ts": {
+      "size": 2194,
+      "checksum": "sha256-47aa95c761c12f1141cc49c5a09893656d4ff90937ed4f4e4f5fe9ae83d63071"
+    },
+    "/deno.json": {
+      "size": 292,
+      "checksum": "sha256-b829d6c509c50c120ca4c8b3b5d8a9326cecf77cfb81741ce3e8fd5c1c8c14ff"
+    },
+    "/_util_test.ts": {
+      "size": 1782,
+      "checksum": "sha256-269e783415685fd4f2f1afac7d68ebf74a62c8029988fdcd5a9941b02e881408"
+    }
+  },
+  "moduleGraph1": {
+    "/hex.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2009 The Go Authors. All rights reserved.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  54
+                ]
+              ]
+            },
+            {
+              "text": " https://github.com/golang/go/blob/master/LICENSE",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  51
+                ]
+              ]
+            },
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  2,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  3,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Port of the Go\n * {@link https://github.com/golang/go/blob/go1.12.5/src/encoding/hex/hex.go | encoding/hex}\n * library.\n *\n * This module is browser compatible.\n *\n * @example\n * ```ts\n * import {\n *   decodeHex,\n *   encodeHex,\n * } from \"@std/encoding/hex\";\n *\n * const binary = new TextEncoder().encode(\"abc\");\n * const encoded = encodeHex(binary);\n * console.log(encoded);\n * // => \"616263\"\n *\n * console.log(decodeHex(encoded));\n * // => Uint8Array(3) [ 97, 98, 99 ]\n * ```\n *\n * @module\n ",
+              "range": [
+                [
+                  5,
+                  0
+                ],
+                [
+                  29,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              31,
+              0
+            ],
+            [
+              31,
+              48
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              31,
+              35
+            ],
+            [
+              31,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/ascii85.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Utilities for working with {@link https://en.wikipedia.org/wiki/Ascii85 | ascii85} encoding.\n *\n * This module is browser compatible.\n *\n * ## Specifying a standard and delimiter\n *\n * By default, all functions are using the most popular Adobe version of ascii85\n * and not adding any delimiter. However, there are three more standards\n * supported - btoa (different delimiter and additional compression of 4 bytes\n * equal to 32), {@link https://rfc.zeromq.org/spec/32/ | Z85} and\n * {@link https://tools.ietf.org/html/rfc1924 | RFC 1924}. It's possible to use a\n * different encoding by specifying it in `options` object as a second parameter.\n *\n * Similarly, it's possible to make `encode` add a delimiter (`<~` and `~>` for\n * Adobe, `xbtoa Begin` and `xbtoa End` with newlines between the delimiters and\n * encoded data for btoa. Checksums for btoa are not supported. Delimiters are not\n * supported by other encodings.)\n *\n * @module\n ",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  23,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              25,
+              0
+            ],
+            [
+              25,
+              48
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              25,
+              35
+            ],
+            [
+              25,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/base32.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " Copyright (c) 2014 Jameson Little. MIT License.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  50
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  2,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Utilities for\n * {@link https://datatracker.ietf.org/doc/html/rfc4648#section-6 | base32}\n * encoding and decoding.\n *\n * Modified from {@link https://github.com/beatgammit/base64-js}.\n *\n * This module is browser compatible.\n *\n * @module\n ",
+              "range": [
+                [
+                  4,
+                  0
+                ],
+                [
+                  14,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              16,
+              0
+            ],
+            [
+              16,
+              48
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              16,
+              35
+            ],
+            [
+              16,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/base58.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Utilities for\n * {@link https://datatracker.ietf.org/doc/html/draft-msporny-base58-03 | base58}\n * encoding and decoding.\n *\n * This module is browser compatible.\n *\n * @module\n ",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  11,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              13,
+              0
+            ],
+            [
+              13,
+              48
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              13,
+              35
+            ],
+            [
+              13,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/_util.ts": {},
+    "/varint.ts": {},
+    "/base64url.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Utilities for\n * {@link https://datatracker.ietf.org/doc/html/rfc4648#section-5 | base64url}\n * encoding and decoding.\n *\n * This module is browser compatible.\n *\n * @module\n ",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  11,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              13,
+              0
+            ],
+            [
+              13,
+              38
+            ]
+          ],
+          "specifier": "./base64.ts",
+          "specifierRange": [
+            [
+              13,
+              24
+            ],
+            [
+              13,
+              37
+            ]
+          ]
+        }
+      ]
+    },
+    "/base64.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "leadingComments": [
+            {
+              "text": " Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.",
+              "range": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  74
+                ]
+              ]
+            },
+            {
+              "text": " This module is browser compatible.",
+              "range": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  37
+                ]
+              ]
+            },
+            {
+              "text": "*\n * Utilities for\n * {@link https://datatracker.ietf.org/doc/html/rfc4648#section-4 | base64}\n * encoding and decoding.\n *\n * This module is browser compatible.\n *\n * @module\n ",
+              "range": [
+                [
+                  3,
+                  0
+                ],
+                [
+                  11,
+                  3
+                ]
+              ]
+            }
+          ],
+          "range": [
+            [
+              13,
+              0
+            ],
+            [
+              13,
+              48
+            ]
+          ],
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              13,
+              35
+            ],
+            [
+              13,
+              47
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    "./ascii85": "./ascii85.ts",
+    "./base32": "./base32.ts",
+    "./base58": "./base58.ts",
+    "./base64": "./base64.ts",
+    "./base64url": "./base64url.ts",
+    "./hex": "./hex.ts",
+    "./varint": "./varint.ts"
+  }
+}

@@ -6,11 +6,13 @@ export const app = new App<State>()
   .use(trailingSlashes("never"))
   .use(staticFiles());
 
+console.time("route loading");
 await fsRoutes(app, {
   dir: Deno.cwd(),
-  loadIsland: (path) => import("./islands/" + path),
-  loadRoute: (path) => import("./routes/" + path),
+  loadIsland: (path) => import(`./islands/${path}`),
+  loadRoute: (path) => import(`./routes/${path}`),
 });
+console.timeEnd("route loading");
 
 if (import.meta.main) {
   await app.listen();

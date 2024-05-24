@@ -1,0 +1,216 @@
+{
+  "manifest": {
+    "/README.md": {
+      "size": 540,
+      "checksum": "sha256-7e43cb06f69a70d5e37b40154bb8fa5f855ef8f012dd755d31d7e99c2e9cab4c"
+    },
+    "/src/compiler.ts": {
+      "size": 2343,
+      "checksum": "sha256-a442748f9344572021f4fcfc25fe78903da50d63fe9d2f3d609ecb9a0ac8d4a8"
+    },
+    "/deno.json": {
+      "size": 394,
+      "checksum": "sha256-baae153db142cc425fadfbbefe42ff115771b66fd291fca0784b8a7d1a47e93d"
+    },
+    "/src/types.ts": {
+      "size": 1283,
+      "checksum": "sha256-745dded1323498ebd8c439a8975dfcaae3db376566f2ab47b82a34643da85898"
+    },
+    "/src/mod.ts": {
+      "size": 736,
+      "checksum": "sha256-670a5d972f6e94f47915863f6e1d9f86a88557f9b00745c93497ce5cb8b34a5d"
+    }
+  },
+  "moduleGraph2": {
+    "/src/types.ts": {},
+    "/src/compiler.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:tailwindcss@^3.4.1",
+          "specifierRange": [
+            [
+              0,
+              41
+            ],
+            [
+              0,
+              65
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:postcss@8.4.35",
+          "specifierRange": [
+            [
+              1,
+              20
+            ],
+            [
+              1,
+              40
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:cssnano@6.0.3",
+          "specifierRange": [
+            [
+              2,
+              20
+            ],
+            [
+              2,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:autoprefixer@10.4.17",
+          "specifierRange": [
+            [
+              3,
+              25
+            ],
+            [
+              3,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              4,
+              22
+            ],
+            [
+              4,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./types.ts",
+          "specifierRange": [
+            [
+              5,
+              43
+            ],
+            [
+              5,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "jsr:@fresh/core@^2.0.0-alpha.1",
+          "specifierRange": [
+            [
+              6,
+              41
+            ],
+            [
+              6,
+              73
+            ]
+          ]
+        },
+        {
+          "type": "dynamic",
+          "argumentRange": [
+            [
+              47,
+              39
+            ],
+            [
+              47,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./types.ts",
+          "specifierRange": [
+            [
+              0,
+              43
+            ],
+            [
+              0,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./compiler.ts",
+          "specifierRange": [
+            [
+              1,
+              29
+            ],
+            [
+              1,
+              44
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "jsr:/@fresh/core@^2.0.0-alpha.1/dev",
+          "specifierRange": [
+            [
+              2,
+              29
+            ],
+            [
+              2,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "jsr:@fresh/core@^2.0.0-alpha.1",
+          "specifierRange": [
+            [
+              3,
+              25
+            ],
+            [
+              3,
+              57
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/mod.ts"
+  }
+}

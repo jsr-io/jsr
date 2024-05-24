@@ -1,0 +1,597 @@
+{
+  "manifest": {
+    "/vendor/x/importmap/_util.ts": {
+      "size": 1496,
+      "checksum": "sha256-ada9a9618b537e6c0316c048a898352396c882b9f2de38aba18fd3f2950ede89"
+    },
+    "/src/plugin_deno_resolver.ts": {
+      "size": 5589,
+      "checksum": "sha256-6a1045f90a6a70c7a1f4e591adad616596c58fd36a4b1d0cc968de3b34185b2b"
+    },
+    "/README.md": {
+      "size": 4470,
+      "checksum": "sha256-a0c41634f353ae5bb8aec2c1eb5a29765b41dd18b0472e24b1cb250bb94fd9a9"
+    },
+    "/vendor/x/importmap/mod.ts": {
+      "size": 8110,
+      "checksum": "sha256-4f2a72b330a0190895393eb05666a75e3f90ed3fce51c5bfd04fb1721ec49ba2"
+    },
+    "/src/shared.ts": {
+      "size": 11120,
+      "checksum": "sha256-bb905200d44a01c6a7686c1c54ce1eb3260878aa888b69ea3b845d05e18e62ef"
+    },
+    "/src/shared_test.ts": {
+      "size": 4839,
+      "checksum": "sha256-137478c8f1b3f90f6fb4a4eda37ee5c8a4647f519105ca36709fccbfe1569aef"
+    },
+    "/mod.ts": {
+      "size": 2660,
+      "checksum": "sha256-b5d68dd84bf847c37e03ade24369074c020fb1656e63bd2c31b1377f753bf7f7"
+    },
+    "/examples/bundle.ts": {
+      "size": 325,
+      "checksum": "sha256-dc01dd6caecdbb1ec407621216997afa9ff95e60d9950037acd84a9d3fd8e044"
+    },
+    "/src/deno.ts": {
+      "size": 6700,
+      "checksum": "sha256-c1a76125f12a03b993350e63fe5ffce1456d6fea2cd31306a9d9d04cc93825ec"
+    },
+    "/src/plugin_deno_loader.ts": {
+      "size": 12961,
+      "checksum": "sha256-a47e96369a5f99304d3a71165eafcae3d5ca40abde614cebe086f069cf8e9e67"
+    },
+    "/LICENSE": {
+      "size": 1070,
+      "checksum": "sha256-75b6120f639f83c46bfaec3a6c97516e015b5ab18053c39bfbaf72f1d76e6c87"
+    },
+    "/src/loader_native.ts": {
+      "size": 5712,
+      "checksum": "sha256-88d0cc15c8c66a8549e8ed26e324d9fc4dec3bb4c4e138ed92dcb6ce565fbd41"
+    },
+    "/.vscode/settings.json": {
+      "size": 377,
+      "checksum": "sha256-fd130ffd6c737a7e713d5b07a628a7551da177330ff98881b7ce51d4075be47d"
+    },
+    "/src/esbuild_types.ts": {
+      "size": 3403,
+      "checksum": "sha256-bec55091176c4f690755c2186714eca151a1febb949d3d901d9a3a2682eababe"
+    },
+    "/.github/workflows/ci.yml": {
+      "size": 1299,
+      "checksum": "sha256-fb302cf2bf925a69944181fb473f425cb00c3487facee25699d07a998f3e4fc4"
+    },
+    "/src/loader_portable.ts": {
+      "size": 7132,
+      "checksum": "sha256-4fb83416c142373d5d396b49794062fd16d30b95d88b38e0445e44353872acd1"
+    },
+    "/examples/custom_scheme_plugin.ts": {
+      "size": 1081,
+      "checksum": "sha256-ff3a9ecb3d9cd4367280e6cf8f0782a1ec5c86ad5b8a521eade12f18accc5930"
+    },
+    "/deno.json": {
+      "size": 893,
+      "checksum": "sha256-4348e01b45a4a77d1ecceb05a0e45ede3f87e3178c7e8d57de30f7a78060e8f8"
+    },
+    "/vendor/x/importmap/LICENSE": {
+      "size": 1067,
+      "checksum": "sha256-b97d06f9c3a0590fad5eb844a65b454ada2b5e96624d243ed4eaea5a640fd3b2"
+    }
+  },
+  "moduleGraph1": {
+    "/vendor/x/importmap/_util.ts": {},
+    "/src/esbuild_types.ts": {},
+    "/vendor/x/importmap/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              10,
+              7
+            ],
+            [
+              10,
+              19
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "exportType",
+          "specifier": "./_util.ts",
+          "specifierRange": [
+            [
+              12,
+              31
+            ],
+            [
+              12,
+              43
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/loader_portable.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./esbuild_types.ts",
+          "specifierRange": [
+            [
+              0,
+              30
+            ],
+            [
+              0,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@0.213",
+          "specifierRange": [
+            [
+              1,
+              28
+            ],
+            [
+              1,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./deno.ts",
+          "specifierRange": [
+            [
+              2,
+              22
+            ],
+            [
+              2,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./shared.ts",
+          "specifierRange": [
+            [
+              10,
+              7
+            ],
+            [
+              10,
+              20
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/loader_native.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./esbuild_types.ts",
+          "specifierRange": [
+            [
+              0,
+              30
+            ],
+            [
+              0,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@0.213",
+          "specifierRange": [
+            [
+              1,
+              43
+            ],
+            [
+              1,
+              64
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/encoding@0.213/base32",
+          "specifierRange": [
+            [
+              2,
+              29
+            ],
+            [
+              2,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./deno.ts",
+          "specifierRange": [
+            [
+              3,
+              22
+            ],
+            [
+              3,
+              33
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./deno.ts",
+          "specifierRange": [
+            [
+              4,
+              41
+            ],
+            [
+              4,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./shared.ts",
+          "specifierRange": [
+            [
+              11,
+              7
+            ],
+            [
+              11,
+              20
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/plugin_deno_resolver.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./esbuild_types.ts",
+          "specifierRange": [
+            [
+              0,
+              30
+            ],
+            [
+              0,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@0.213",
+          "specifierRange": [
+            [
+              1,
+              26
+            ],
+            [
+              1,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../vendor/x/importmap/mod.ts",
+          "specifierRange": [
+            [
+              6,
+              7
+            ],
+            [
+              6,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../vendor/x/importmap/_util.ts",
+          "specifierRange": [
+            [
+              7,
+              37
+            ],
+            [
+              7,
+              69
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./shared.ts",
+          "specifierRange": [
+            [
+              13,
+              7
+            ],
+            [
+              13,
+              20
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/shared.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@0.213",
+          "specifierRange": [
+            [
+              0,
+              59
+            ],
+            [
+              0,
+              80
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/jsonc@0.213",
+          "specifierRange": [
+            [
+              1,
+              23
+            ],
+            [
+              1,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../vendor/x/importmap/mod.ts",
+          "specifierRange": [
+            [
+              2,
+              26
+            ],
+            [
+              2,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./deno.ts",
+          "specifierRange": [
+            [
+              3,
+              26
+            ],
+            [
+              3,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./esbuild_types.ts",
+          "specifierRange": [
+            [
+              4,
+              30
+            ],
+            [
+              4,
+              50
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/deno.ts": {},
+    "/src/plugin_deno_loader.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./esbuild_types.ts",
+          "specifierRange": [
+            [
+              0,
+              30
+            ],
+            [
+              0,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@0.213",
+          "specifierRange": [
+            [
+              1,
+              30
+            ],
+            [
+              1,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./loader_native.ts",
+          "specifierRange": [
+            [
+              2,
+              29
+            ],
+            [
+              2,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./loader_portable.ts",
+          "specifierRange": [
+            [
+              3,
+              31
+            ],
+            [
+              3,
+              53
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./shared.ts",
+          "specifierRange": [
+            [
+              4,
+              32
+            ],
+            [
+              4,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./shared.ts",
+          "specifierRange": [
+            [
+              11,
+              7
+            ],
+            [
+              11,
+              20
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./src/esbuild_types.ts",
+          "specifierRange": [
+            [
+              0,
+              30
+            ],
+            [
+              0,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./src/plugin_deno_resolver.ts",
+          "specifierRange": [
+            [
+              5,
+              7
+            ],
+            [
+              5,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./src/plugin_deno_loader.ts",
+          "specifierRange": [
+            [
+              12,
+              7
+            ],
+            [
+              12,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./src/shared.ts",
+          "specifierRange": [
+            [
+              19,
+              7
+            ],
+            [
+              19,
+              24
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./esbuild_types": "./src/esbuild_types.ts"
+  }
+}

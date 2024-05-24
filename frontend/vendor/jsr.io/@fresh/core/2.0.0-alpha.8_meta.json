@@ -1,0 +1,2988 @@
+{
+  "manifest": {
+    "/www/static/fresh-badge-dark.svg": {
+      "size": 6885,
+      "checksum": "sha256-8ee9a908d6d85c8100785276276a3af79e1f86dd24cf72408e6b1fd14ae2b1fc"
+    },
+    "/README.md": {
+      "size": 3690,
+      "checksum": "sha256-b297cc9d2a8641a92024f60a3b9f22759aaf7153b6fee11b2dc1af28f609f750"
+    },
+    "/src/error.ts": {
+      "size": 3616,
+      "checksum": "sha256-1035a4840b9508f28c55de2f130ec7dcbb929bc0efc6383c936e1ee88aacb412"
+    },
+    "/src/finish_setup.tsx": {
+      "size": 1434,
+      "checksum": "sha256-35c5f4e21c3648bfb25032b1f3d7b2c01b359838bbce8609f67938f7ffbd0275"
+    },
+    "/src/dev/file_transformer.ts": {
+      "size": 6502,
+      "checksum": "sha256-795e4fe528226c27c7405290fa691ff6037b4931ad42f5e0b0272b61c96f7f0b"
+    },
+    "/src/dev/mod.ts": {
+      "size": 250,
+      "checksum": "sha256-c4e26946e006234e3887eb11e877d4ee276a68a53fc6feacc13b12f4893e8545"
+    },
+    "/src/dev/middlewares/live_reload.ts": {
+      "size": 1079,
+      "checksum": "sha256-9fb861a750f7b8d278e132b43e0c048b996e6391e985ce44199e255c037daf26"
+    },
+    "/src/test_utils.ts": {
+      "size": 3274,
+      "checksum": "sha256-1dc0893e14842f95681aaac78e6fc22370b0f9943aae3a1b8472a90ce395ba88"
+    },
+    "/src/dev/middlewares/error_overlay/middleware.tsx": {
+      "size": 932,
+      "checksum": "sha256-cf462219063ca64ea5fcf3792229533b5c6ce4492ce7a94ea48da0181b6dc5de"
+    },
+    "/src/dev/middlewares/error_overlay/overlay.tsx": {
+      "size": 3733,
+      "checksum": "sha256-459f4adb2d2dd1e4fc9abe455e663a39b27a97bb4794f88e1c746e1ea8883af9"
+    },
+    "/src/middlewares/static_files.ts": {
+      "size": 2389,
+      "checksum": "sha256-dd1ae2521c975cde730d628eff0c86c776c1dd635a13017962a611a8b87936b8"
+    },
+    "/src/plugins/fs_routes/render_middleware.ts": {
+      "size": 2124,
+      "checksum": "sha256-0a019a2477ec35227a81e8ce237df03162044235bfca2daab424d95f71fc3129"
+    },
+    "/src/config.ts": {
+      "size": 1424,
+      "checksum": "sha256-d74f03b5b7d2aba7ea51be85358ba623b0bc4e0b85917f6fb1c4b57b58cd6edb"
+    },
+    "/src/runtime/client/reviver.ts": {
+      "size": 16144,
+      "checksum": "sha256-2a77184acd387071cab79c156f8b7f099e63c3ad45a7572dafe9ac523432c8f0"
+    },
+    "/src/dev/middlewares/error_overlay/code_frame.tsx": {
+      "size": 3448,
+      "checksum": "sha256-ecb2d549079b0e6b0ed952b48fc53f5f37b6b106be1cf21ea52631f217dfb560"
+    },
+    "/src/middlewares/trailing_slashes.ts": {
+      "size": 854,
+      "checksum": "sha256-f8f0e16805b2a0962e90f08abc569301f68ad956881ddf9a4bbc8d0e6550cc6f"
+    },
+    "/src/router.ts": {
+      "size": 6055,
+      "checksum": "sha256-e8a615c9c675b3632baf409d2361a3ad4c12c504a9306bd2d4e0ac90eaf538db"
+    },
+    "/src/compat/server.ts": {
+      "size": 1551,
+      "checksum": "sha256-33ce883e38bfbf5a0331b3956e32ffa093498e9a9d48ec500be96d99a7b0fc54"
+    },
+    "/src/dev/esbuild.ts": {
+      "size": 3473,
+      "checksum": "sha256-a5b420db5b0e1efbf547fcdc1f40fb43589caf8ac725a17835c290ffbe13cf82"
+    },
+    "/src/runtime/client/mod.tsx": {
+      "size": 172,
+      "checksum": "sha256-bf77968982d9caf4ac4eb56759d6436e3058ab327661d080b3fcd5a84bd4efb6"
+    },
+    "/src/runtime/client/partials.ts": {
+      "size": 15048,
+      "checksum": "sha256-bc553eac4a095638208b4b171f9cecb9c4b119212436a653046bbf690690c185"
+    },
+    "/src/runtime/client/dev.ts": {
+      "size": 2803,
+      "checksum": "sha256-5b7fa7570d1b160dd800c20561309dcbc88411d30cbf4ebd95f8e48169ec4560"
+    },
+    "/src/build_cache.ts": {
+      "size": 3042,
+      "checksum": "sha256-d66f3ae3e7c76d41e7b5cf54214a8a02a541a3872f1fbd53364cab7ab9cb91f5"
+    },
+    "/src/handlers.ts": {
+      "size": 5540,
+      "checksum": "sha256-9434742173007c9f65aafc56251e0e4c043f86355949f293825aa28481c31190"
+    },
+    "/src/runtime/shared.ts": {
+      "size": 1725,
+      "checksum": "sha256-4c0d5831e7f3d815c7188e1e2a7c03224e0d16556c363388bc2469f68d4ac756"
+    },
+    "/src/compat/runtime.ts": {
+      "size": 261,
+      "checksum": "sha256-8ff723fa5eba616791722c39983c14ee3c06e9d134bdcdf090a115f3c24c5e0b"
+    },
+    "/src/dev/update_check.ts": {
+      "size": 3849,
+      "checksum": "sha256-d2565f0bb0130657487b37ee4e333aaa35f71d64cc7ebed4e823a18db6c4dd1f"
+    },
+    "/src/dev/dev_build_cache.ts": {
+      "size": 8109,
+      "checksum": "sha256-4cf3c779b5c4e04919882dfe47f8d467084787b0c63d621043fc531b6d2aca92"
+    },
+    "/src/mod.ts": {
+      "size": 1151,
+      "checksum": "sha256-7a1f557a4d7159905fd8296c70f46d5ef26e173eb848b0a9a7b420117ffcf72f"
+    },
+    "/src/runtime/server/mod.tsx": {
+      "size": 462,
+      "checksum": "sha256-9a94dd3c128b406610acce35477ca56c63bff059b04657986713a8156022c8c7"
+    },
+    "/src/jsonify/stringify.ts": {
+      "size": 5267,
+      "checksum": "sha256-34f4fba5a3663390ea3bb7cda63dea0b515017c91ba7e0251f4c53c0dc4d20e3"
+    },
+    "/src/runtime/client/polyfills.ts": {
+      "size": 231,
+      "checksum": "sha256-c3de932b2f23df9a4ade1ab4f8890730c0db0a71bf85faa41742a1763631e917"
+    },
+    "/src/runtime/client/preact_hooks_client.ts": {
+      "size": 280,
+      "checksum": "sha256-645c868097fe191d3112676caf1e1f3825f48b7217abf4d992f73d5165df84a6"
+    },
+    "/src/helpers.ts": {
+      "size": 6013,
+      "checksum": "sha256-0c0441e78098882129415a780d169e01812249173c1cef5cd662b5acb9548008"
+    },
+    "/src/plugins/fs_routes/mod.ts": {
+      "size": 13234,
+      "checksum": "sha256-730fb9d636d26e424f37ecbb31fe56f77b680e51c09d59c804154bf3a4dec469"
+    },
+    "/src/utils.ts": {
+      "size": 972,
+      "checksum": "sha256-207206fda5d6a8ed99741608077322944af7ef281d45898b9bab3a3e28681ef7"
+    },
+    "/src/context.ts": {
+      "size": 5664,
+      "checksum": "sha256-38868d15cb3e74d4d5109d2f4677f3fae0daf6cc05dfab3101e42ac7cd0ed7a3"
+    },
+    "/LICENSE": {
+      "size": 1075,
+      "checksum": "sha256-e637c3d86ae1aff975d8ec496e7c489adcbca83574a8789c5cc05cb207fd765e"
+    },
+    "/src/types.ts": {
+      "size": 1443,
+      "checksum": "sha256-e2ade9ed774072d92cb4cfa532d178b2ef4b963eac252c447f16a5bc493511b0"
+    },
+    "/src/constants.ts": {
+      "size": 271,
+      "checksum": "sha256-f48fe01941b9d5dc9f230e304e044e6b797ee7b5d50f3f7bb9b8d804ea91badc"
+    },
+    "/src/jsonify/constants.ts": {
+      "size": 192,
+      "checksum": "sha256-dc38fe0b760366c3cd1c0149dc46418c6b17a770ed4ee0096f8a3f2ccca7ed34"
+    },
+    "/src/runtime/build_id.ts": {
+      "size": 464,
+      "checksum": "sha256-93a0a38be739ffaa7c9d079c8c80c3d1d824c563b5d66b3bbc2f3c8f06070401"
+    },
+    "/src/middlewares/mod.ts": {
+      "size": 3623,
+      "checksum": "sha256-992f620e19383ad86a7f489f438de35492d94d951faa363fa791b3ecc9d445e5"
+    },
+    "/deno.json": {
+      "size": 3458,
+      "checksum": "sha256-d4418111affaf6cbee705c01d05d6965eb5daa2307ce8c85615bc9c4451035b5"
+    },
+    "/src/fs.ts": {
+      "size": 949,
+      "checksum": "sha256-d63367aa0636e3060eab383f5d008ddc2bba7e5e3312a240e6d1d5502df38f62"
+    },
+    "/src/runtime/shared_internal.tsx": {
+      "size": 3779,
+      "checksum": "sha256-8c10eb58356cd98fc1e7d2e535d3166ebf28469d6d6d9b5de4a530736819f397"
+    },
+    "/src/dev/builder.ts": {
+      "size": 8122,
+      "checksum": "sha256-5b6acf07f996e03d4dd10a16abfec4baae41db31b9613c0a2c49d4fe3fd46012"
+    },
+    "/src/jsonify/parse.ts": {
+      "size": 4995,
+      "checksum": "sha256-e323f1c16700cfbb5fb9752b12e36c5651bcb4bd830beef5320d6a8e9c8a4324"
+    },
+    "/src/runtime/server/preact_hooks.tsx": {
+      "size": 14500,
+      "checksum": "sha256-2c408694d993fd2bc28012343da648f95949f8704476806088fe4b6e88dfc46f"
+    },
+    "/src/app.ts": {
+      "size": 8335,
+      "checksum": "sha256-4f5034843250d87e6f9738324e4e02ef2872d06d2e698b9eb24873ddbdde178e"
+    },
+    "/www/static/fresh-badge.svg": {
+      "size": 6997,
+      "checksum": "sha256-be18d9a3f6c2387594b8907307d730eb7588cc6ca5a70a8bba9a3493ac11d342"
+    }
+  },
+  "moduleGraph2": {
+    "/src/dev/middlewares/live_reload.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../middlewares/mod.ts",
+          "specifierRange": [
+            [
+              0,
+              34
+            ],
+            [
+              0,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../constants.ts",
+          "specifierRange": [
+            [
+              1,
+              26
+            ],
+            [
+              1,
+              46
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/types.ts": {},
+    "/src/error.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./runtime/server/mod.tsx",
+          "specifierRange": [
+            [
+              0,
+              21
+            ],
+            [
+              0,
+              47
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/constants.ts": {},
+    "/src/utils.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              0,
+              22
+            ],
+            [
+              0,
+              46
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../runtime/server/mod.tsx",
+          "specifierRange": [
+            [
+              0,
+              24
+            ],
+            [
+              0,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./builder.ts",
+          "specifierRange": [
+            [
+              2,
+              43
+            ],
+            [
+              2,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./file_transformer.ts",
+          "specifierRange": [
+            [
+              7,
+              7
+            ],
+            [
+              7,
+              30
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/middlewares/error_overlay/overlay.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              39
+            ],
+            [
+              0,
+              60
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/context.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              50
+            ],
+            [
+              0,
+              71
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./config.ts",
+          "specifierRange": [
+            [
+              1,
+              41
+            ],
+            [
+              1,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact-render-to-string@^6.4.2",
+          "specifierRange": [
+            [
+              2,
+              31
+            ],
+            [
+              2,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./build_cache.ts",
+          "specifierRange": [
+            [
+              3,
+              32
+            ],
+            [
+              3,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./runtime/server/preact_hooks.tsx",
+          "specifierRange": [
+            [
+              8,
+              7
+            ],
+            [
+              8,
+              42
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              9,
+              38
+            ],
+            [
+              9,
+              54
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/client/mod.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./polyfills.ts",
+          "specifierRange": [
+            [
+              0,
+              7
+            ],
+            [
+              0,
+              23
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./partials.ts",
+          "specifierRange": [
+            [
+              1,
+              7
+            ],
+            [
+              1,
+              22
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "../shared.ts",
+          "specifierRange": [
+            [
+              2,
+              62
+            ],
+            [
+              2,
+              76
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./reviver.ts",
+          "specifierRange": [
+            [
+              3,
+              29
+            ],
+            [
+              3,
+              43
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/server/mod.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              39
+            ],
+            [
+              0,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../context.ts",
+          "specifierRange": [
+            [
+              1,
+              34
+            ],
+            [
+              1,
+              52
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/jsonify/stringify.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              7,
+              7
+            ],
+            [
+              7,
+              23
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              8,
+              21
+            ],
+            [
+              8,
+              37
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/finish_setup.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              39
+            ],
+            [
+              0,
+              60
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/compat/runtime.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              64
+            ],
+            [
+              0,
+              85
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/file_transformer.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../fs.ts",
+          "specifierRange": [
+            [
+              0,
+              31
+            ],
+            [
+              0,
+              41
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../runtime/build_id.ts",
+          "specifierRange": [
+            [
+              1,
+              25
+            ],
+            [
+              1,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../runtime/shared_internal.tsx",
+          "specifierRange": [
+            [
+              2,
+              30
+            ],
+            [
+              2,
+              62
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/builder.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../app.ts",
+          "specifierRange": [
+            [
+              6,
+              7
+            ],
+            [
+              6,
+              18
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../fs.ts",
+          "specifierRange": [
+            [
+              7,
+              26
+            ],
+            [
+              7,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              8,
+              22
+            ],
+            [
+              8,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.224.0/colors",
+          "specifierRange": [
+            [
+              9,
+              24
+            ],
+            [
+              9,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./esbuild.ts",
+          "specifierRange": [
+            [
+              10,
+              25
+            ],
+            [
+              10,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/jsonc@^0.221.0",
+          "specifierRange": [
+            [
+              11,
+              23
+            ],
+            [
+              11,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./middlewares/live_reload.ts",
+          "specifierRange": [
+            [
+              12,
+              27
+            ],
+            [
+              12,
+              57
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./file_transformer.ts",
+          "specifierRange": [
+            [
+              17,
+              7
+            ],
+            [
+              17,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./file_transformer.ts",
+          "specifierRange": [
+            [
+              18,
+              33
+            ],
+            [
+              18,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./dev_build_cache.ts",
+          "specifierRange": [
+            [
+              19,
+              49
+            ],
+            [
+              19,
+              71
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../context.ts",
+          "specifierRange": [
+            [
+              20,
+              28
+            ],
+            [
+              20,
+              43
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../runtime/build_id.ts",
+          "specifierRange": [
+            [
+              21,
+              25
+            ],
+            [
+              21,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./update_check.ts",
+          "specifierRange": [
+            [
+              22,
+              28
+            ],
+            [
+              22,
+              47
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/datetime@^0.224.0",
+          "specifierRange": [
+            [
+              23,
+              20
+            ],
+            [
+              23,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./middlewares/error_overlay/middleware.tsx",
+          "specifierRange": [
+            [
+              24,
+              32
+            ],
+            [
+              24,
+              76
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/build_id.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/encoding@^0.221.0/hex",
+          "specifierRange": [
+            [
+              0,
+              26
+            ],
+            [
+              0,
+              59
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/config.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              0,
+              22
+            ],
+            [
+              0,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./runtime/server/mod.tsx",
+          "specifierRange": [
+            [
+              1,
+              32
+            ],
+            [
+              1,
+              58
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/middlewares/error_overlay/code_frame.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              0,
+              22
+            ],
+            [
+              0,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.224.0/colors",
+          "specifierRange": [
+            [
+              1,
+              24
+            ],
+            [
+              1,
+              55
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/update_check.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/semver@^0.223.0",
+          "specifierRange": [
+            [
+              0,
+              24
+            ],
+            [
+              0,
+              50
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.224.0/colors",
+          "specifierRange": [
+            [
+              1,
+              24
+            ],
+            [
+              1,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              2,
+              22
+            ],
+            [
+              2,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "dynamic",
+          "argument": "../../deno.json",
+          "argumentRange": [
+            [
+              51,
+              23
+            ],
+            [
+              51,
+              40
+            ]
+          ],
+          "importAttributes": {
+            "known": {
+              "type": "json"
+            }
+          }
+        }
+      ]
+    },
+    "/src/dev/middlewares/error_overlay/middleware.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../../constants.ts",
+          "specifierRange": [
+            [
+              0,
+              38
+            ],
+            [
+              0,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../../error.ts",
+          "specifierRange": [
+            [
+              1,
+              26
+            ],
+            [
+              1,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../../middlewares/mod.ts",
+          "specifierRange": [
+            [
+              2,
+              34
+            ],
+            [
+              2,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../../runtime/server/preact_hooks.tsx",
+          "specifierRange": [
+            [
+              3,
+              29
+            ],
+            [
+              3,
+              71
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./overlay.tsx",
+          "specifierRange": [
+            [
+              4,
+              29
+            ],
+            [
+              4,
+              44
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/jsonify/constants.ts": {},
+    "/src/middlewares/static_files.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              0,
+              22
+            ],
+            [
+              0,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/media-types@^0.221.0/content-type",
+          "specifierRange": [
+            [
+              1,
+              46
+            ],
+            [
+              1,
+              91
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../mod.ts",
+          "specifierRange": [
+            [
+              2,
+              34
+            ],
+            [
+              2,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../runtime/shared_internal.tsx",
+          "specifierRange": [
+            [
+              3,
+              37
+            ],
+            [
+              3,
+              69
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../runtime/build_id.ts",
+          "specifierRange": [
+            [
+              4,
+              25
+            ],
+            [
+              4,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../context.ts",
+          "specifierRange": [
+            [
+              5,
+              30
+            ],
+            [
+              5,
+              45
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/server/preact_hooks.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              10,
+              7
+            ],
+            [
+              10,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:@preact/signals@^1.2.3",
+          "specifierRange": [
+            [
+              11,
+              28
+            ],
+            [
+              11,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../jsonify/stringify.ts",
+          "specifierRange": [
+            [
+              12,
+              34
+            ],
+            [
+              12,
+              62
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../context.ts",
+          "specifierRange": [
+            [
+              13,
+              34
+            ],
+            [
+              13,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../shared.ts",
+          "specifierRange": [
+            [
+              14,
+              50
+            ],
+            [
+              14,
+              64
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../jsonify/stringify.ts",
+          "specifierRange": [
+            [
+              15,
+              26
+            ],
+            [
+              15,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../context.ts",
+          "specifierRange": [
+            [
+              16,
+              42
+            ],
+            [
+              16,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../context.ts",
+          "specifierRange": [
+            [
+              17,
+              28
+            ],
+            [
+              17,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../shared_internal.tsx",
+          "specifierRange": [
+            [
+              24,
+              7
+            ],
+            [
+              24,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../build_cache.ts",
+          "specifierRange": [
+            [
+              25,
+              32
+            ],
+            [
+              25,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../build_id.ts",
+          "specifierRange": [
+            [
+              26,
+              25
+            ],
+            [
+              26,
+              41
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../constants.ts",
+          "specifierRange": [
+            [
+              27,
+              38
+            ],
+            [
+              27,
+              58
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../dev/middlewares/error_overlay/code_frame.tsx",
+          "specifierRange": [
+            [
+              30,
+              7
+            ],
+            [
+              30,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.224.0/colors",
+          "specifierRange": [
+            [
+              31,
+              24
+            ],
+            [
+              31,
+              55
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/helpers.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              34
+            ],
+            [
+              0,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./handlers.ts",
+          "specifierRange": [
+            [
+              1,
+              51
+            ],
+            [
+              1,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./context.ts",
+          "specifierRange": [
+            [
+              2,
+              34
+            ],
+            [
+              2,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./middlewares/mod.ts",
+          "specifierRange": [
+            [
+              3,
+              32
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./app.ts",
+          "specifierRange": [
+            [
+              0,
+              62
+            ],
+            [
+              0,
+              72
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./middlewares/trailing_slashes.ts",
+          "specifierRange": [
+            [
+              1,
+              32
+            ],
+            [
+              1,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./plugins/fs_routes/mod.ts",
+          "specifierRange": [
+            [
+              2,
+              47
+            ],
+            [
+              2,
+              75
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./handlers.ts",
+          "specifierRange": [
+            [
+              9,
+              7
+            ],
+            [
+              9,
+              22
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./types.ts",
+          "specifierRange": [
+            [
+              10,
+              33
+            ],
+            [
+              10,
+              45
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./middlewares/mod.ts",
+          "specifierRange": [
+            [
+              11,
+              51
+            ],
+            [
+              11,
+              73
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./middlewares/static_files.ts",
+          "specifierRange": [
+            [
+              12,
+              28
+            ],
+            [
+              12,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./runtime/server/mod.tsx",
+          "specifierRange": [
+            [
+              13,
+              42
+            ],
+            [
+              13,
+              68
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./config.ts",
+          "specifierRange": [
+            [
+              14,
+              59
+            ],
+            [
+              14,
+              72
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./context.ts",
+          "specifierRange": [
+            [
+              15,
+              47
+            ],
+            [
+              15,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./helpers.ts",
+          "specifierRange": [
+            [
+              16,
+              44
+            ],
+            [
+              16,
+              58
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./router.ts",
+          "specifierRange": [
+            [
+              17,
+              28
+            ],
+            [
+              17,
+              41
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./error.ts",
+          "specifierRange": [
+            [
+              18,
+              26
+            ],
+            [
+              18,
+              38
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./compat/server.ts",
+          "specifierRange": [
+            [
+              32,
+              7
+            ],
+            [
+              32,
+              27
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/plugins/fs_routes/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              34
+            ],
+            [
+              0,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../app.ts",
+          "specifierRange": [
+            [
+              1,
+              25
+            ],
+            [
+              1,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "jsr:/@std/fs@^0.221.0/walk",
+          "specifierRange": [
+            [
+              2,
+              31
+            ],
+            [
+              2,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              3,
+              22
+            ],
+            [
+              3,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../types.ts",
+          "specifierRange": [
+            [
+              4,
+              33
+            ],
+            [
+              4,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../handlers.ts",
+          "specifierRange": [
+            [
+              5,
+              34
+            ],
+            [
+              5,
+              53
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../context.ts",
+          "specifierRange": [
+            [
+              6,
+              34
+            ],
+            [
+              6,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../middlewares/mod.ts",
+          "specifierRange": [
+            [
+              7,
+              34
+            ],
+            [
+              7,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./render_middleware.ts",
+          "specifierRange": [
+            [
+              11,
+              7
+            ],
+            [
+              11,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../router.ts",
+          "specifierRange": [
+            [
+              12,
+              43
+            ],
+            [
+              12,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../handlers.ts",
+          "specifierRange": [
+            [
+              13,
+              50
+            ],
+            [
+              13,
+              69
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../fs.ts",
+          "specifierRange": [
+            [
+              14,
+              42
+            ],
+            [
+              14,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../runtime/server/mod.tsx",
+          "specifierRange": [
+            [
+              15,
+              31
+            ],
+            [
+              15,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../error.ts",
+          "specifierRange": [
+            [
+              16,
+              26
+            ],
+            [
+              16,
+              42
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/middlewares/trailing_slashes.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./mod.ts",
+          "specifierRange": [
+            [
+              0,
+              34
+            ],
+            [
+              0,
+              44
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/client/reviver.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              8,
+              7
+            ],
+            [
+              8,
+              28
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../jsonify/parse.ts",
+          "specifierRange": [
+            [
+              9,
+              41
+            ],
+            [
+              9,
+              65
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:@preact/signals@^1.2.3",
+          "specifierRange": [
+            [
+              10,
+              23
+            ],
+            [
+              10,
+              51
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../shared_internal.tsx",
+          "specifierRange": [
+            [
+              11,
+              44
+            ],
+            [
+              11,
+              68
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/fs.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fs@^0.221.0/walk",
+          "specifierRange": [
+            [
+              0,
+              55
+            ],
+            [
+              0,
+              83
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/plugins/fs_routes/render_middleware.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              71
+            ],
+            [
+              0,
+              92
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../middlewares/mod.ts",
+          "specifierRange": [
+            [
+              1,
+              34
+            ],
+            [
+              1,
+              60
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../handlers.ts",
+          "specifierRange": [
+            [
+              2,
+              39
+            ],
+            [
+              2,
+              58
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../context.ts",
+          "specifierRange": [
+            [
+              3,
+              34
+            ],
+            [
+              3,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../../runtime/server/mod.tsx",
+          "specifierRange": [
+            [
+              4,
+              31
+            ],
+            [
+              4,
+              61
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/handlers.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./context.ts",
+          "specifierRange": [
+            [
+              0,
+              34
+            ],
+            [
+              0,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./router.ts",
+          "specifierRange": [
+            [
+              1,
+              28
+            ],
+            [
+              1,
+              41
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/dev_build_cache.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../build_cache.ts",
+          "specifierRange": [
+            [
+              0,
+              44
+            ],
+            [
+              0,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              1,
+              22
+            ],
+            [
+              1,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../config.ts",
+          "specifierRange": [
+            [
+              2,
+              41
+            ],
+            [
+              2,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../build_cache.ts",
+          "specifierRange": [
+            [
+              3,
+              35
+            ],
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/encoding@^0.221.0/hex",
+          "specifierRange": [
+            [
+              4,
+              26
+            ],
+            [
+              4,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/crypto@^0.221.0",
+          "specifierRange": [
+            [
+              5,
+              23
+            ],
+            [
+              5,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../fs.ts",
+          "specifierRange": [
+            [
+              6,
+              26
+            ],
+            [
+              6,
+              36
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./file_transformer.ts",
+          "specifierRange": [
+            [
+              7,
+              42
+            ],
+            [
+              7,
+              65
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../utils.ts",
+          "specifierRange": [
+            [
+              8,
+              28
+            ],
+            [
+              8,
+              41
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/client/partials.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              42
+            ],
+            [
+              0,
+              63
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../shared_internal.tsx",
+          "specifierRange": [
+            [
+              8,
+              7
+            ],
+            [
+              8,
+              31
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./reviver.ts",
+          "specifierRange": [
+            [
+              19,
+              7
+            ],
+            [
+              19,
+              21
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./reviver.ts",
+          "specifierRange": [
+            [
+              20,
+              65
+            ],
+            [
+              20,
+              79
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../server/preact_hooks.tsx",
+          "specifierRange": [
+            [
+              21,
+              38
+            ],
+            [
+              21,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../jsonify/parse.ts",
+          "specifierRange": [
+            [
+              22,
+              22
+            ],
+            [
+              22,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../../constants.ts",
+          "specifierRange": [
+            [
+              23,
+              32
+            ],
+            [
+              23,
+              52
+            ]
+          ]
+        },
+        {
+          "type": "dynamic",
+          "argumentRange": [
+            [
+              319,
+              15
+            ],
+            [
+              319,
+              27
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/app.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./runtime/build_id.ts",
+          "specifierRange": [
+            [
+              0,
+              35
+            ],
+            [
+              0,
+              58
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/fmt@^0.224.0/colors",
+          "specifierRange": [
+            [
+              1,
+              24
+            ],
+            [
+              1,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./middlewares/mod.ts",
+          "specifierRange": [
+            [
+              2,
+              50
+            ],
+            [
+              2,
+              72
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./context.ts",
+          "specifierRange": [
+            [
+              3,
+              32
+            ],
+            [
+              3,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./router.ts",
+          "specifierRange": [
+            [
+              9,
+              7
+            ],
+            [
+              9,
+              20
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./config.ts",
+          "specifierRange": [
+            [
+              14,
+              7
+            ],
+            [
+              14,
+              20
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./build_cache.ts",
+          "specifierRange": [
+            [
+              15,
+              48
+            ],
+            [
+              15,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              16,
+              22
+            ],
+            [
+              16,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              17,
+              38
+            ],
+            [
+              17,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./context.ts",
+          "specifierRange": [
+            [
+              18,
+              42
+            ],
+            [
+              18,
+              56
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:preact-render-to-string@^6.4.2",
+          "specifierRange": [
+            [
+              19,
+              31
+            ],
+            [
+              19,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./finish_setup.tsx",
+          "specifierRange": [
+            [
+              20,
+              41
+            ],
+            [
+              20,
+              61
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./error.ts",
+          "specifierRange": [
+            [
+              21,
+              26
+            ],
+            [
+              21,
+              38
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/build_cache.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              0,
+              22
+            ],
+            [
+              0,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./config.ts",
+          "specifierRange": [
+            [
+              1,
+              41
+            ],
+            [
+              1,
+              54
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./runtime/build_id.ts",
+          "specifierRange": [
+            [
+              2,
+              27
+            ],
+            [
+              2,
+              50
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/dev/esbuild.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@luca/esbuild-deno-loader@^0.10.3",
+          "specifierRange": [
+            [
+              0,
+              28
+            ],
+            [
+              0,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:esbuild@0.20.2",
+          "specifierRange": [
+            [
+              1,
+              45
+            ],
+            [
+              1,
+              65
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:@std/path@^0.221.0",
+          "specifierRange": [
+            [
+              2,
+              22
+            ],
+            [
+              2,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:esbuild-wasm@0.20.2",
+          "specifierRange": [
+            [
+              21,
+              34
+            ],
+            [
+              21,
+              59
+            ]
+          ]
+        },
+        {
+          "type": "dynamic",
+          "argument": "npm:esbuild-wasm@0.20.2",
+          "argumentRange": [
+            [
+              28,
+              21
+            ],
+            [
+              28,
+              46
+            ]
+          ]
+        },
+        {
+          "type": "dynamic",
+          "argument": "npm:esbuild@0.20.2",
+          "argumentRange": [
+            [
+              29,
+              21
+            ],
+            [
+              29,
+              41
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/shared.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              46
+            ],
+            [
+              0,
+              67
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./build_id.ts",
+          "specifierRange": [
+            [
+              1,
+              25
+            ],
+            [
+              1,
+              40
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./shared_internal.tsx",
+          "specifierRange": [
+            [
+              2,
+              51
+            ],
+            [
+              2,
+              74
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "../compat/runtime.ts",
+          "specifierRange": [
+            [
+              3,
+              21
+            ],
+            [
+              3,
+              43
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/client/dev.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "npm:/preact@^10.20.2/debug",
+          "specifierRange": [
+            [
+              0,
+              7
+            ],
+            [
+              0,
+              35
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./mod.tsx",
+          "specifierRange": [
+            [
+              1,
+              14
+            ],
+            [
+              1,
+              25
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "../shared.ts",
+          "specifierRange": [
+            [
+              2,
+              27
+            ],
+            [
+              2,
+              41
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/router.ts": {},
+    "/src/compat/server.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              27
+            ],
+            [
+              0,
+              48
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../context.ts",
+          "specifierRange": [
+            [
+              1,
+              34
+            ],
+            [
+              1,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../handlers.ts",
+          "specifierRange": [
+            [
+              2,
+              37
+            ],
+            [
+              2,
+              53
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/shared_internal.tsx": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "npm:preact@^10.20.2",
+          "specifierRange": [
+            [
+              0,
+              27
+            ],
+            [
+              0,
+              48
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/jsonify/parse.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./constants.ts",
+          "specifierRange": [
+            [
+              8,
+              7
+            ],
+            [
+              8,
+              23
+            ]
+          ]
+        }
+      ]
+    },
+    "/src/runtime/client/polyfills.ts": {},
+    "/src/middlewares/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../context.ts",
+          "specifierRange": [
+            [
+              0,
+              34
+            ],
+            [
+              0,
+              49
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "../app.ts",
+          "specifierRange": [
+            [
+              1,
+              33
+            ],
+            [
+              1,
+              44
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/mod.ts",
+    "./runtime": "./src/runtime/shared.ts",
+    "./client": "./src/runtime/client/mod.tsx",
+    "./client-dev": "./src/runtime/client/dev.ts",
+    "./dev": "./src/dev/mod.ts"
+  }
+}

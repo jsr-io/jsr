@@ -1,0 +1,357 @@
+{
+  "manifest": {
+    "/json.ts": {
+      "size": 773,
+      "checksum": "sha256-14072ab95c42d5bc5d237cd79a34c275dd01b4a213a270f2e05ced91e446c956"
+    },
+    "/testdata/toml.md": {
+      "size": 234,
+      "checksum": "sha256-94d267b1e746304355932ba0fde1bb340f78c4ec3e53e812ef7c05880bd36180"
+    },
+    "/testdata/horizontal_rules.md": {
+      "size": 142,
+      "checksum": "sha256-5301c7f79046ad14aab62f9605078945a7d5e8eaed0d27e4ea7bb244e0d9da7b"
+    },
+    "/create_extractor.ts": {
+      "size": 5384,
+      "checksum": "sha256-9e9a6124f427ff7074f0243361acb5823d6ecee89a04f7cb83f2c20770ad18d6"
+    },
+    "/test_test.ts": {
+      "size": 1352,
+      "checksum": "sha256-af3830ae8047413c28fc16a9e16c25d49d6ae5ddef6be7028ae22de36ffbcd76"
+    },
+    "/testdata/yaml2.md": {
+      "size": 193,
+      "checksum": "sha256-a572a476e2a68c4bcc94ba83f13f209d9bb0bc86592d838b2e37db3d8d8bdc00"
+    },
+    "/testdata/json.md": {
+      "size": 260,
+      "checksum": "sha256-6e85d34a8b235d71254f21e3cb04aaf7d665ab86c1bdc4c8109ee6aa48d777c3"
+    },
+    "/json_test.ts": {
+      "size": 703,
+      "checksum": "sha256-42404a3929e75fba16f37a685748c4183e562010027ac4169997d8a264bf0bab"
+    },
+    "/yaml.ts": {
+      "size": 794,
+      "checksum": "sha256-e14cb1a979674a645838fd6bc3d0e0055f733485a89f07c7686e7518c543a724"
+    },
+    "/any_test.ts": {
+      "size": 1805,
+      "checksum": "sha256-67d69dbe00fad5c701081dae8bf20f4461e54b3977a331866f2c7bf7042a801d"
+    },
+    "/any.ts": {
+      "size": 1061,
+      "checksum": "sha256-d4e805a3420203bf288fd6e0b7023eedef27184d36b5c96e36eb13d8c890f917"
+    },
+    "/deno.json": {
+      "size": 282,
+      "checksum": "sha256-3d815f79de45a79d48c73a47eacc512ec8fbb02ee6fc4e2bea21c878de186879"
+    },
+    "/yaml_test.ts": {
+      "size": 847,
+      "checksum": "sha256-a488fb3ad2f44c6e607cc29bc64bc14a9cd522d61b5dbf6ec8d4a3d8c1616468"
+    },
+    "/toml_test.ts": {
+      "size": 841,
+      "checksum": "sha256-96847d2a65c00db19f9fddd930588d3e090aa4e42ef9a510422c0f923e75fcf7"
+    },
+    "/_test_utils.ts": {
+      "size": 5849,
+      "checksum": "sha256-a38d763c383f9225f2a98bee90b370626c970ad14827e074b2dd4fc6464c6025"
+    },
+    "/testdata/yaml1.md": {
+      "size": 189,
+      "checksum": "sha256-71be561f44b362bca1f03b2e275046d7d5ffbd376b16f4df09afce1d474d7970"
+    },
+    "/testdata/toml2.md": {
+      "size": 230,
+      "checksum": "sha256-0f293e1f519806a871d7cfefcca89dc3120022f55a2d96e4b6d7d62fd8cb7b29"
+    },
+    "/test.ts": {
+      "size": 1270,
+      "checksum": "sha256-44ecb74ab59ea1bb58fc67de82d8fc493568cbddb800cdb956777f4574058a32"
+    },
+    "/create_extractor_test.ts": {
+      "size": 2765,
+      "checksum": "sha256-946b6219d95053fb985f94507f2b252ca2dbd21ced8d78db6b2ba35fdd4fe4e7"
+    },
+    "/_formats.ts": {
+      "size": 1544,
+      "checksum": "sha256-9a8ac1524f93b3ae093bd66864a49fc0088037920c6d60863da136d10f92e04d"
+    },
+    "/toml.ts": {
+      "size": 799,
+      "checksum": "sha256-dc7a63be48bf6a5a3734ce71f28537c0bb1faf2f1e1d6a9c07d9de795e29004e"
+    },
+    "/mod.ts": {
+      "size": 2699,
+      "checksum": "sha256-695035da320682675ef7f37c98033a2f48611aa03cb4ff40f72af63040518fb5"
+    }
+  },
+  "moduleGraph1": {
+    "/yaml.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./create_extractor.ts",
+          "specifierRange": [
+            [
+              6,
+              7
+            ],
+            [
+              6,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/yaml@^0.224.0/parse",
+          "specifierRange": [
+            [
+              7,
+              22
+            ],
+            [
+              7,
+              53
+            ]
+          ]
+        }
+      ]
+    },
+    "/_formats.ts": {},
+    "/any.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./create_extractor.ts",
+          "specifierRange": [
+            [
+              6,
+              7
+            ],
+            [
+              6,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/yaml@^0.224.0/parse",
+          "specifierRange": [
+            [
+              7,
+              35
+            ],
+            [
+              7,
+              66
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/toml@^0.224.0/parse",
+          "specifierRange": [
+            [
+              8,
+              35
+            ],
+            [
+              8,
+              66
+            ]
+          ]
+        }
+      ]
+    },
+    "/test.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_formats.ts",
+          "specifierRange": [
+            [
+              2,
+              35
+            ],
+            [
+              2,
+              50
+            ]
+          ]
+        }
+      ]
+    },
+    "/create_extractor.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./_formats.ts",
+          "specifierRange": [
+            [
+              2,
+              57
+            ],
+            [
+              2,
+              72
+            ]
+          ]
+        }
+      ]
+    },
+    "/toml.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./create_extractor.ts",
+          "specifierRange": [
+            [
+              6,
+              7
+            ],
+            [
+              6,
+              30
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "jsr:/@std/toml@^0.224.0/parse",
+          "specifierRange": [
+            [
+              7,
+              22
+            ],
+            [
+              7,
+              53
+            ]
+          ]
+        }
+      ]
+    },
+    "/json.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "import",
+          "specifier": "./create_extractor.ts",
+          "specifierRange": [
+            [
+              6,
+              7
+            ],
+            [
+              6,
+              30
+            ]
+          ]
+        }
+      ]
+    },
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./json.ts",
+          "specifierRange": [
+            [
+              117,
+              44
+            ],
+            [
+              117,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./toml.ts",
+          "specifierRange": [
+            [
+              118,
+              44
+            ],
+            [
+              118,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "importType",
+          "specifier": "./yaml.ts",
+          "specifierRange": [
+            [
+              119,
+              44
+            ],
+            [
+              119,
+              55
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./create_extractor.ts",
+          "specifierRange": [
+            [
+              121,
+              14
+            ],
+            [
+              121,
+              37
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "export",
+          "specifier": "./test.ts",
+          "specifierRange": [
+            [
+              122,
+              14
+            ],
+            [
+              122,
+              25
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./any": "./any.ts",
+    "./create-extractor": "./create_extractor.ts",
+    "./json": "./json.ts",
+    "./test": "./test.ts",
+    "./toml": "./toml.ts",
+    "./yaml": "./yaml.ts"
+  }
+}

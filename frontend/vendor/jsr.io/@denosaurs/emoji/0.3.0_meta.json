@@ -1,0 +1,232 @@
+{
+  "manifest": {
+    "/README.md": {
+      "size": 1720,
+      "checksum": "sha256-6d9c04ea0136dfdc2e6d32394df921660dc4552ba58556c352324f956dca407c"
+    },
+    "/mod.ts": {
+      "size": 28,
+      "checksum": "sha256-9ef5a2fca1a633f29747b6d3254afd19545cef586128a8213a1003ee2808186d"
+    },
+    "/emoji.ts": {
+      "size": 4477,
+      "checksum": "sha256-22f7b8d2fa19c66b15f15a5b6cb2624956c823003b40b72e2c100cda022d1968"
+    },
+    "/.github/workflows/checks.yml": {
+      "size": 687,
+      "checksum": "sha256-57f8d440a3b2f38a2b75213061089a07c8b45baec019e7dd198922a5e052122f"
+    },
+    "/unicode.ts": {
+      "size": 3913,
+      "checksum": "sha256-ac8079e8e1da66ae9e601c1fdd0e7641120c2b07ca7bd2875e65fe23e16e6199"
+    },
+    "/.idea/modules.xml": {
+      "size": 262,
+      "checksum": "sha256-4d7629b32c46db016e7579d076662210eec97bb8ccbd1d92ec06621024c87009"
+    },
+    "/.idea/.gitignore": {
+      "size": 98,
+      "checksum": "sha256-ca032d82aa302ebed293f50f36a6b022de8e8b2e16f6400076f2a70236f9bc1b"
+    },
+    "/.idea/misc.xml": {
+      "size": 280,
+      "checksum": "sha256-c028a46f28a16f21ff0114fe5ca94ba869edb38786226e2b84f27ee5e87a3e24"
+    },
+    "/emoji_test.ts": {
+      "size": 1217,
+      "checksum": "sha256-58ce7d897984643f32fdd0a3a43105a503196071b7a68878b43958749069a2e6"
+    },
+    "/all.json": {
+      "size": 561557,
+      "checksum": "sha256-f0553b660db5e44e71ca46f637a06c2ec94f34445a920fcf319858094a91f46b"
+    },
+    "/.idea/vcs.xml": {
+      "size": 167,
+      "checksum": "sha256-6323e12648862a0a96fc0d7877672817d6cd91e2c2a3c3d78f1090db23c6e88e"
+    },
+    "/.github/workflows/update.yml": {
+      "size": 1350,
+      "checksum": "sha256-1db5e6438745faa713c1c4c601405ecabccaaa8087074d59a926347c97da5c06"
+    },
+    "/.idea/workspace.xml": {
+      "size": 4255,
+      "checksum": "sha256-2cc6d72173a61cb56fda052f7a63f48af5b121fe57816633d41ffeb52a429ebb"
+    },
+    "/deno.lock": {
+      "size": 4500,
+      "checksum": "sha256-c345a9863379eade37f759906bbf268b0f8ce088420fa09480796b8fdf39f319"
+    },
+    "/.github/FUNDING.yml": {
+      "size": 45,
+      "checksum": "sha256-f7d5bd53b9a6add2d05771a6edeb3192701e92fb60c0725cbd861ebadd5e4181"
+    },
+    "/update.ts": {
+      "size": 4917,
+      "checksum": "sha256-daa2a4e319df26fb16c849358ca7866275ce3353c188d3246ddaeebed3a03374"
+    },
+    "/deno.json": {
+      "size": 223,
+      "checksum": "sha256-61699aff4253649c71c0240d61b196d1fa60fc97898cbc2608965f725f7bbd98"
+    },
+    "/.idea/git_toolbox_prj.xml": {
+      "size": 480,
+      "checksum": "sha256-d7d016f19cd08a0e1572284a95781159186c3a6682d0b6b6dd68ff183eacfcb5"
+    },
+    "/.editorconfig": {
+      "size": 99,
+      "checksum": "sha256-561e2d9d8035e8b9861e31b3934557da651481d95dfd8992e12dbbee03c285c2"
+    },
+    "/.idea/emoji.iml": {
+      "size": 458,
+      "checksum": "sha256-035fd8fa90a68984b9c6ae2b35599ec30c045be661882ab8bf638bedfa60e221"
+    },
+    "/.idea/deno.xml": {
+      "size": 163,
+      "checksum": "sha256-a827acf87caebe240ae21bc7c78c227d8a3ed31e87be55a51a75750f2ff5bb92"
+    },
+    "/LICENSE": {
+      "size": 1111,
+      "checksum": "sha256-c30da3d439d79332c2189a008c820ee52010893b6aea0dce8aa935fae665ec90"
+    },
+    "/.gitignore": {
+      "size": 43,
+      "checksum": "sha256-46dda093bc073a3b70efdf38c5e011fe12c4261bea5d8daa772eccf3f14394f5"
+    },
+    "/SECURITY.md": {
+      "size": 2379,
+      "checksum": "sha256-c9b8e9f6934c42b006788fc4e75100beb69b7f586cb6b1e42d1e6dbcffb48c00"
+    },
+    "/types.ts": {
+      "size": 1123,
+      "checksum": "sha256-5897345f500088c719a35388c5b192bc5d93fc2c13e37d94eafa8ff3480edd17"
+    },
+    "/CHANGELOG.md": {
+      "size": 853,
+      "checksum": "sha256-c8a940a23117a4c7f3a095ea104c88166e44bbc14d2bec955c21784a4975e73c"
+    },
+    "/.idea/inspectionProfiles/Project_Default.xml": {
+      "size": 262,
+      "checksum": "sha256-3a7ef0b68d954978cab18f2022bebb1e8957e0052d1bb15fd3f57e2e9907fc2e"
+    }
+  },
+  "moduleGraph1": {
+    "/emoji.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "importType",
+          "range": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              40
+            ]
+          ],
+          "specifier": "./types.ts",
+          "specifierRange": [
+            [
+              0,
+              27
+            ],
+            [
+              0,
+              39
+            ]
+          ]
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              1,
+              0
+            ],
+            [
+              1,
+              54
+            ]
+          ],
+          "specifier": "./all.json",
+          "specifierRange": [
+            [
+              1,
+              19
+            ],
+            [
+              1,
+              31
+            ]
+          ],
+          "importAttributes": {
+            "known": {
+              "type": "json"
+            }
+          }
+        },
+        {
+          "type": "static",
+          "kind": "import",
+          "range": [
+            [
+              2,
+              0
+            ],
+            [
+              2,
+              41
+            ]
+          ],
+          "specifier": "./unicode.ts",
+          "specifierRange": [
+            [
+              2,
+              26
+            ],
+            [
+              2,
+              40
+            ]
+          ]
+        }
+      ]
+    },
+    "/unicode.ts": {},
+    "/mod.ts": {
+      "dependencies": [
+        {
+          "type": "static",
+          "kind": "export",
+          "range": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              27
+            ]
+          ],
+          "specifier": "./emoji.ts",
+          "specifierRange": [
+            [
+              0,
+              14
+            ],
+            [
+              0,
+              26
+            ]
+          ]
+        }
+      ]
+    },
+    "/types.ts": {}
+  },
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

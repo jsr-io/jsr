@@ -2,13 +2,13 @@
 import { JSX } from "preact";
 import { computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useRef, useState } from "preact/hooks";
-import {
-  components,
-  create,
-  insertMultiple,
-  type Orama,
-  search,
-} from "@orama/orama";
+// import {
+//   components,
+//   create,
+//   insertMultiple,
+//   type Orama,
+//   search,
+// } from "@orama/orama";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
 
