@@ -18,7 +18,7 @@ const preferredUsage = localStorage.getItem('preferredUsage');
 
 if (preferredUsage) {
   document.querySelectorAll('input[name="usage"]').forEach((el) => {
-    el.checked = el.id === preferredUsage
+    if (el.id === preferredUsage) el.checked = true;
   });
 }
 
