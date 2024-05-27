@@ -1,11 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps } from "@fresh/core";
 import { State } from "../../util.ts";
 import { path } from "../../utils/api.ts";
 import { FullUser, Scope, User } from "../../utils/api_types.ts";
 import { ListPanel } from "../../components/ListPanel.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
-import { Head } from "$fresh/runtime.ts";
 
 interface Data {
   user: User | FullUser;
@@ -15,11 +14,6 @@ interface Data {
 export default function UserPage({ data, state }: PageProps<Data, State>) {
   return (
     <AccountLayout user={data.user} active="Profile">
-      <Head>
-        <title>
-          {data.user.name} - JSR
-        </title>
-      </Head>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.scopes.length > 0
           ? (
@@ -56,7 +50,7 @@ export default function UserPage({ data, state }: PageProps<Data, State>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const [currentUser, userRes, scopesRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<User>(path`/users/${ctx.params.id}`),
@@ -65,7 +59,10 @@ export const handler: Handlers<Data, State> = {
     if (currentUser instanceof Response) return currentUser;
 
     if (!userRes.ok) {
-      if (userRes.code == "userNotFound") return ctx.renderNotFound();
+      if (userRes.code == "userNotFound") {
+        throw new HttpError(404, "This user was not found.");
+      }
+
       throw userRes; // gracefully handle errors
     }
     if (!scopesRes.ok) throw scopesRes; // gracefully handle errors
@@ -75,9 +72,14 @@ export const handler: Handlers<Data, State> = {
       user = currentUser;
     }
 
-    return ctx.render({
-      user,
-      scopes: scopesRes.data,
-    });
+    ctx.state.meta = {
+      title: `${user.name} - JSR`,
+    };
+    return {
+      data: {
+        user,
+        scopes: scopesRes.data,
+      },
+    };
   },
 };

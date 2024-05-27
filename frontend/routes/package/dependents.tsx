@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type {
   Dependent,
   List,
@@ -12,7 +12,6 @@ import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data extends PaginationData {
@@ -28,18 +27,6 @@ export default function Dep(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Dependents - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader package={data.package} />
 
       <PackageNav
@@ -110,7 +97,7 @@ function Dependent(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+  async GET(ctx) {
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
@@ -121,19 +108,28 @@ export const handler: Handlers<Data, State> = {
         { page, limit },
       ),
     ]);
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) throw new HttpError(404, "This package was not found.");
 
     // TODO: handle errors gracefully
     if (!dependentsResp.ok) throw dependentsResp;
 
-    return ctx.render({
-      package: res.pkg,
-      dependents: dependentsResp.data.items,
-      member: res.scopeMember,
-      page,
-      limit,
-      total: dependentsResp.data.total,
-    }, { headers: { "X-Robots-Tag": "noindex" } });
+    ctx.state.meta = {
+      title: `Dependents - @${res.pkg.scope}/${res.pkg.name} - JSR`,
+      description: `@${res.pkg.scope}/${res.pkg.name} on JSR${
+        res.pkg.description ? `: ${res.pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: res.pkg,
+        dependents: dependentsResp.data.items,
+        member: res.scopeMember,
+        page,
+        limit,
+        total: dependentsResp.data.total,
+      },
+      headers: { "X-Robots-Tag": "noindex" },
+    };
   },
 };
 

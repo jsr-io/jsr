@@ -2,7 +2,7 @@
 import { useSignal } from "@preact/signals";
 import { useCallback } from "preact/hooks";
 import { api, path } from "../../../utils/api.ts";
-import { IS_BROWSER } from "$fresh/runtime.ts";
+import { IS_BROWSER } from "@fresh/core/runtime";
 
 export interface ScopeMemberRoleProps {
   scope: string;

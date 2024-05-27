@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { ComponentChildren } from "preact";
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type {
   Package,
   PackageScore,
@@ -11,7 +11,6 @@ import { State } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { Check } from "../../components/icons/Check.tsx";
 import { Cross } from "../../components/icons/Cross.tsx";
 import { ErrorIcon } from "../../components/icons/Error.tsx";
@@ -32,18 +31,6 @@ export default function Score(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Score - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader package={data.package} />
 
       <PackageNav
@@ -278,14 +265,14 @@ function ScoreItem(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
     const [res, scoreResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
       ctx.state.api.get<PackageScore>(
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/score`,
       ),
     ]);
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) throw new HttpError(404, "This package was not found.");
 
     if (res.pkg.versionCount < 1) {
       return new Response("", {
@@ -297,11 +284,20 @@ export const handler: Handlers<Data, State> = {
     // TODO: handle errors gracefully
     if (!scoreResp.ok) throw scoreResp;
 
-    return ctx.render({
-      package: res.pkg,
-      score: scoreResp.data,
-      member: res.scopeMember,
-    }, { headers: { "X-Robots-Tag": "noindex" } });
+    ctx.state.meta = {
+      title: `Score - @${res.pkg.scope}/${res.pkg.name} - JSR`,
+      description: `@${res.pkg.scope}/${res.pkg.name} on JSR${
+        res.pkg.description ? `: ${res.pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: res.pkg,
+        score: scoreResp.data,
+        member: res.scopeMember,
+      },
+      headers: { "X-Robots-Tag": "noindex" },
+    };
   },
 };
 

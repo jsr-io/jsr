@@ -1,9 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type { Package, PackageVersionWithUser } from "../../utils/api_types.ts";
 import { Docs, State } from "../../util.ts";
 import { ScopeMember } from "../../utils/api_types.ts";
-import { Head } from "$fresh/src/runtime/head.ts";
 import { DocsData, packageDataWithDocs } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
@@ -24,18 +23,6 @@ export default function PackagePage(
 
   return (
     <div>
-      <Head>
-        <title>
-          @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
@@ -70,7 +57,7 @@ export default function PackagePage(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,
@@ -78,7 +65,12 @@ export const handler: Handlers<Data, State> = {
       ctx.params.version,
       {},
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(
+        404,
+        "This package or this package version was not found.",
+      );
+    }
     if (res instanceof Response) {
       return res;
     }
@@ -99,14 +91,21 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      docs,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      title: `@${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        selectedVersion,
+        docs,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
 };
 

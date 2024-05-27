@@ -1,11 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps } from "@fresh/core";
 import { State } from "../../util.ts";
 import { APIResponse, path } from "../../utils/api.ts";
 import { FullUser, ScopeInvite } from "../../utils/api_types.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
-import { Head } from "$fresh/runtime.ts";
 
 interface Data {
   user: FullUser;
@@ -17,11 +16,6 @@ export default function AccountInvitesPage(
 ) {
   return (
     <AccountLayout user={data.user} active="Invites">
-      <Head>
-        <title>
-          Your invites - JSR
-        </title>
-      </Head>
       <div>
         {data.invites.length
           ? (
@@ -108,22 +102,25 @@ function InviteRow({ invite }: { invite: ScopeInvite }) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const [currentUser, invitesRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<ScopeInvite[]>(path`/user/invites`),
     ]);
     if (currentUser instanceof Response) return currentUser;
-    if (!currentUser) return ctx.renderNotFound();
+    if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
     if (!invitesRes.ok) throw invitesRes; // gracefully handle errors
-
-    return ctx.render({
-      user: currentUser,
-      invites: invitesRes.data,
-    });
+    ctx.state.meta = { title: "Your invites - JSR" };
+    return {
+      data: {
+        user: currentUser,
+        invites: invitesRes.data,
+      },
+    };
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const form = await req.formData();
     const action = form.get("action");
     const scope = String(form.get("scope"));
@@ -138,9 +135,6 @@ export const handler: Handlers<Data, State> = {
       throw new Error("invalid action");
     }
     if (!res.ok) throw res; // graceful handle errors
-    return new Response(null, {
-      status: 303,
-      headers: { location },
-    });
+    return ctx.redirect(location, 303);
   },
 };

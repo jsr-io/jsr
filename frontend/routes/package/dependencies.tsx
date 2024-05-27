@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type {
   Dependency,
   Package,
@@ -12,7 +12,6 @@ import { packageDataWithVersion } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 
 interface Data {
@@ -44,18 +43,6 @@ export default function Deps(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Dependencies - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
@@ -121,14 +108,20 @@ function Dependency(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const res = await packageDataWithVersion(
       ctx.state,
       ctx.params.scope,
       ctx.params.package,
       ctx.params.version,
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(
+        404,
+        "This package or this package version was not found.",
+      );
+    }
+
     const {
       pkg,
       scopeMember,
@@ -149,12 +142,21 @@ export const handler: Handlers<Data, State> = {
     );
     if (!depsResp.ok) throw depsResp;
 
-    return ctx.render({
-      package: pkg,
-      deps: depsResp.data,
-      selectedVersion,
-      member: scopeMember,
-    }, { headers: { "X-Robots-Tag": "noindex" } });
+    ctx.state.meta = {
+      title: `Dependencies - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        deps: depsResp.data,
+        selectedVersion,
+        member: scopeMember,
+      },
+      headers: { "X-Robots-Tag": "noindex" },
+    };
   },
 };
 

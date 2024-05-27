@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Marked, render } from "$gfm";
-import { markedSmartypants } from "$marked-smartypants";
+import { Marked, render } from "@deno/gfm";
+import { markedSmartypants } from "marked-smartypants";
 
-import "https://esm.sh/prismjs@1.29.0/components/prism-json?no-check";
-import "https://esm.sh/prismjs@1.29.0/components/prism-typescript?no-check";
-import "https://esm.sh/prismjs@1.29.0/components/prism-jsx?no-check";
-import "https://esm.sh/prismjs@1.29.0/components/prism-tsx?no-check";
-import "https://esm.sh/prismjs@1.29.0/components/prism-bash?no-check";
-import "https://esm.sh/prismjs@1.29.0/components/prism-diff?no-check";
+import "prismjs/components/prism-json.js";
+import "prismjs/components/prism-typescript.js";
+import "prismjs/components/prism-jsx.js";
+import "prismjs/components/prism-tsx.js";
+import "prismjs/components/prism-bash.js";
+import "prismjs/components/prism-diff.js";
 
 Marked.marked.use(markedSmartypants());
 

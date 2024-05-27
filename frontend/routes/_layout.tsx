@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { PageProps } from "$fresh/server.ts";
+import { PageProps } from "@fresh/core";
 import { Header } from "../components/Header.tsx";
 import { State } from "../util.ts";
 
@@ -53,7 +53,7 @@ export default function Layout(
         >
           <span>GitHub</span>
         </a>
-        {state?.span.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
+        {state.span?.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
       </footer>
     </>
   );

@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import type {
   Package,
   PackageVersionWithUser,
@@ -20,24 +19,13 @@ interface Data {
   selectedVersion: PackageVersionWithUser;
 }
 
-export default function File({ data, params, state }: PageProps<Data, State>) {
+export default function File(
+  { data, params, state }: PageProps<Data, State>,
+) {
   const iam = scopeIAM(state, data.member);
 
   return (
     <div>
-      <Head>
-        <title>
-          {params.entrypoint || "index"} - @{params.scope}/{params.package}{" "}
-          - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
@@ -61,7 +49,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+  async GET(ctx) {
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,
@@ -69,7 +57,12 @@ export const handler: Handlers<Data, State> = {
       ctx.params.version,
       { entrypoint: ctx.params.entrypoint },
     );
-    if (!res) return ctx.renderNotFound();
+    if (!res) {
+      throw new HttpError(
+        404,
+        "This package, package version, entrypoint, or symbol was not found.",
+      );
+    }
 
     const {
       pkg,
@@ -86,16 +79,31 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    if (docs === null) return ctx.renderNotFound();
+    if (docs === null) {
+      throw new HttpError(
+        404,
+        "This package, package version, or entrypoint was not found.",
+      );
+    }
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      docs,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      title: `${
+        ctx.params.entrypoint || "index"
+      } - @${ctx.params.scope}/${ctx.params.package} - JSR`,
+      description: `@${ctx.params.scope}/${ctx.params.package} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+
+    return {
+      data: {
+        package: pkg,
+        selectedVersion,
+        docs,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
 };
 

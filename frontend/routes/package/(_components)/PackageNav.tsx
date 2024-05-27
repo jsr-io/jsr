@@ -19,15 +19,21 @@ type Tab =
   | "Publish"
   | "Settings";
 
-export function PackageNav(
-  { currentTab, params, iam, versionCount, latestVersion }: {
-    currentTab: Tab;
-    params: Params;
-    versionCount: number;
-    iam: ScopeIAM;
-    latestVersion: string | null;
-  },
-) {
+interface PackageNavProps {
+  currentTab: Tab;
+  params: Params;
+  versionCount: number;
+  iam: ScopeIAM;
+  latestVersion: string | null;
+}
+
+export function PackageNav({
+  currentTab,
+  params,
+  iam,
+  versionCount,
+  latestVersion,
+}: PackageNavProps) {
   const base = `/@${params.scope}/${params.package}`;
   const versionedBase = `${base}${params.version ? `@${params.version}` : ""}`;
 

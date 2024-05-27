@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
+import { Handlers, HttpError, PageProps, RouteConfig } from "@fresh/core";
 import { State } from "../util.ts";
 import type {
   Package,
@@ -12,7 +11,7 @@ import { path } from "../utils/api.ts";
 import { packageData } from "../utils/data.ts";
 import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
-import twas from "$twas";
+import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
 import { Pending } from "../components/icons/Pending.tsx";
 import { Check } from "../components/icons/Check.tsx";
@@ -32,11 +31,6 @@ export default function PackageListPage(
 
   return (
     <div class="mb-24 space-y-16">
-      <Head>
-        <title>
-          Publishing Task {data.publishingTask.id} - JSR
-        </title>
-      </Head>
       <div>
         <PackageHeader package={data.package} />
 
@@ -63,7 +57,7 @@ export default function PackageListPage(
             </p>
             <p>
               <span class="font-semibold">Created:</span>{" "}
-              {twas(new Date(data.publishingTask.createdAt))}
+              {twas(new Date(data.publishingTask.createdAt).getTime())}
             </p>
             {data.publishingTask.userId && (
               <p>
@@ -130,7 +124,7 @@ export function StatusToIcon(status: PublishingTaskStatus) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+  async GET(ctx) {
     const publishingTaskResp = await ctx.state.api.get<PublishingTask>(
       path`/publishing_tasks/${ctx.params.publishingTask}`,
     );
@@ -141,13 +135,20 @@ export const handler: Handlers<Data, State> = {
       publishingTaskResp.data.packageScope,
       publishingTaskResp.data.packageName,
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(404, "The package was not found.");
+    }
 
-    return ctx.render({
-      package: res.pkg,
-      member: res.scopeMember,
-      publishingTask: publishingTaskResp.data,
-    });
+    ctx.state.meta = {
+      title: `Publishing Task ${publishingTaskResp.data.id} - JSR`,
+    };
+    return {
+      data: {
+        package: res.pkg,
+        member: res.scopeMember,
+        publishingTask: publishingTaskResp.data,
+      },
+    };
   },
 };
 

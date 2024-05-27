@@ -1,12 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { Handlers, PageProps } from "@fresh/core";
 import type { PaginationData, State } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { path } from "../../utils/api.ts";
 import { List, PublishingTask } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "../../components/URLQuerySearch.tsx";
-import twas from "$twas";
+import twas from "twas";
 import PublishingTaskRequeue from "../../islands/PublishingTaskRequeue.tsx";
 
 interface Data extends PaginationData {
@@ -80,7 +80,7 @@ export default function PublishingTasks({ data, url }: PageProps<Data>) {
                 10,
               )}
             >
-              {twas(new Date(publishingTask.createdAt))}
+              {twas(new Date(publishingTask.createdAt).getTime())}
             </TableData>
             <TableData
               title={new Date(publishingTask.updatedAt).toISOString().slice(
@@ -88,7 +88,7 @@ export default function PublishingTasks({ data, url }: PageProps<Data>) {
                 10,
               )}
             >
-              {twas(new Date(publishingTask.updatedAt))}
+              {twas(new Date(publishingTask.updatedAt).getTime())}
             </TableData>
             <TableData>
               <PublishingTaskRequeue publishingTask={publishingTask} />
@@ -101,7 +101,7 @@ export default function PublishingTasks({ data, url }: PageProps<Data>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+  async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
@@ -116,12 +116,14 @@ export const handler: Handlers<Data, State> = {
     );
     if (!resp.ok) throw resp; // gracefully handle this
 
-    return ctx.render({
-      publishingTasks: resp.data.items,
-      query,
-      page,
-      limit,
-      total: resp.data.total,
-    });
+    return {
+      data: {
+        publishingTasks: resp.data.items,
+        query,
+        page,
+        limit,
+        total: resp.data.total,
+      },
+    };
   },
 };

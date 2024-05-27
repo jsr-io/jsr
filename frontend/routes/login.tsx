@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RouteConfig } from "$fresh/server.ts";
+import { RouteConfig } from "@fresh/core";
 import { DevelopmentLogin } from "../islands/DevelopmentLogin.tsx";
 
 export default function Login() {
