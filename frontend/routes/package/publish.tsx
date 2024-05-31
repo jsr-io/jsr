@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type { FullUser, Package, ScopeMember } from "../../utils/api_types.ts";
+import type { FullUser, Package } from "../../utils/api_types.ts";
 import { State } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
