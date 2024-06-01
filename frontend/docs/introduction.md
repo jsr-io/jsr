@@ -4,7 +4,7 @@ description: JSR is a new modern package registry for JavaScript and TypeScript.
 ---
 
 The JavaScript Registry (**JSR**) is a modern package registry for JavaScript
-and TypeScript. JSR works with many runtimes (Node.js, Deno, browsers, and more)
+and TypeScript. JSR works with many runtimes (Node.js, Deno, Bun, browsers, and more)
 and is backwards compatible with npm.
 [Learn more about why we built JSR.](/docs/why)
 
