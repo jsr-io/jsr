@@ -6,7 +6,7 @@ export function Tooltip({ children, tooltip }: {
   tooltip: string;
 }) {
   return (
-    <div class="group/tooltip">
+    <div class="group/tooltip" aria-label={tooltip}>
       {children}
       <div class="w-full flex justify-center">
         <div class="absolute">
