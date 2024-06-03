@@ -126,6 +126,7 @@ export function HomepageHeroParticles() {
           ".particles-js-canvas-el",
         ) as HTMLCanvasElement;
         canvas.style.opacity = "1";
+        canvas.ariaHidden = "true";
       },
     );
   }, []);
