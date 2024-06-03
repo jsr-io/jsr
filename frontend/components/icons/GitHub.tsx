@@ -1,8 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-export function GitHub(props: { class?: string }) {
+export function GitHub(props: { class?: string; "aria-hidden"?: boolean }) {
   return (
     <svg
       class={`size-6 ${props.class ?? ""}`}
+      aria-hidden={props["aria-hidden"] ?? false}
       fill="currentColor"
       viewBox="0 0 24 24"
     >

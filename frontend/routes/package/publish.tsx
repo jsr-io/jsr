@@ -204,8 +204,9 @@ function GitHubActions({ pkg, canEdit, user }: {
   return (
     <>
       <p class="mt-4">
-        This package is linked to <GitHub class="inline size-5 -mt-[2px]" />
-        {" "}
+        This package is linked to{" "}
+        <GitHub class="inline size-5 -mt-[2px]" aria-hidden={true} />{" "}
+        <span className="sr-only">GitHub</span>{" "}
         <a
           href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
           class="link"

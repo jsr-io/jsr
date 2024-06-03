@@ -131,8 +131,9 @@ export function PackageHeader(
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" />
+                  <GitHub class="text-black !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
