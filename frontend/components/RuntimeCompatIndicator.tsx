@@ -57,7 +57,7 @@ export function RuntimeCompatIndicator(
           </span>
         )}
         {RUNTIME_COMPAT_KEYS.toReversed().map(
-          ([key, icon, w, h]) => {
+          ([key, _name, icon, w, h]) => {
             const value = runtimeCompat[key];
             if (
               value === false || (hideUnknown && value === undefined)
