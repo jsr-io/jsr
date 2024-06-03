@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, RouteConfig } from "$fresh/server.ts";
+import { Handlers } from "$fresh/server.ts";
 
 export const handler: Handlers = {
   GET(_req, ctx) {

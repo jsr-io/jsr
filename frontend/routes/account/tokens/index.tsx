@@ -14,9 +14,7 @@ interface Data {
   tokens: Token[];
 }
 
-export default function AccountTokensPage(
-  { data, url }: PageProps<Data, State>,
-) {
+export default function AccountTokensPage({ data }: PageProps<Data, State>) {
   const personal = data.tokens.filter((token) => token.type === "personal");
   const sessions = data.tokens.filter((token) => token.type !== "personal");
 

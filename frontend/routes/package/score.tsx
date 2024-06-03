@@ -293,7 +293,7 @@ function ScoreItem(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(_req, ctx) {
     const [res, scoreResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
       ctx.state.api.get<PackageScore>(

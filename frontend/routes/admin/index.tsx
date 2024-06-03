@@ -3,7 +3,7 @@ import type { Handlers } from "$fresh/server.ts";
 import { State } from "../../util.ts";
 
 export const handler: Handlers<void, State> = {
-  GET(_req, ctx) {
+  GET(_req) {
     return new Response(null, {
       headers: { location: "/admin/scopes" },
       status: 307,

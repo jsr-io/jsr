@@ -34,7 +34,7 @@ export function Table(
           <table class="w-full divide-y divide-jsr-cyan-900/10">
             <thead class="bg-jsr-cyan-50">
               <TableRow class="children:font-semibold">
-                {columns.map((column, i) => (
+                {columns.map((column) => (
                   <TableHead
                     class={column.class}
                     align={column.align}

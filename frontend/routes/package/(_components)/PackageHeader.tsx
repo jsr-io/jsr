@@ -20,7 +20,6 @@ export function PackageHeader(
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
-  const isYanked = selectedVersion && selectedVersion.yanked;
 
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
