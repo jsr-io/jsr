@@ -126,7 +126,7 @@ export default function New(props: PageProps<Data, State>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(_req, ctx) {
     let newPackage = undefined;
     const scopesResp =
       await (ctx.state.api.hasToken()

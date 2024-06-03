@@ -184,6 +184,7 @@ pub async fn create_npm_tarball<'a>(
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
@@ -204,6 +205,7 @@ pub async fn create_npm_tarball<'a>(
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
@@ -243,6 +245,7 @@ pub async fn create_npm_tarball<'a>(
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,

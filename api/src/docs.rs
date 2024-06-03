@@ -526,7 +526,7 @@ fn generate_symbol_page(
   let mut doc_nodes = doc_nodes_for_module.to_vec();
   let mut namespace_paths = vec![];
 
-  let doc_nodes = loop {
+  let doc_nodes = 'outer: loop {
     let next_part = name_parts.next()?;
     let nodes = doc_nodes
       .iter()
@@ -539,128 +539,277 @@ fn generate_symbol_page(
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_some() {
-      let drilldown_node = if let Some(class_node) =
-        nodes.iter().find(|node| node.kind == DocNodeKind::Class)
-      {
-        let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
-        let mut is_static = true;
+      for node in &nodes {
+        let drilldown_node = match node.kind {
+          DocNodeKind::Class => {
+            let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
+            let mut is_static = true;
 
-        if drilldown_parts[0] == "prototype" {
-          if drilldown_parts.len() == 1 {
-            return Some(SymbolPage::Redirect {
-              current_symbol: name.to_string(),
-              href: name.rsplit_once('.').unwrap().0.to_string(),
-            });
-          } else {
-            is_static = false;
-            drilldown_parts.remove(0);
+            if drilldown_parts[0] == "prototype" {
+              if drilldown_parts.len() == 1 {
+                return Some(SymbolPage::Redirect {
+                  current_symbol: name.to_string(),
+                  href: name.rsplit_once('.').unwrap().0.to_string(),
+                });
+              } else {
+                is_static = false;
+                drilldown_parts.remove(0);
+              }
+            }
+
+            let drilldown_name = drilldown_parts.join(".");
+
+            let class = node.class_def.as_ref().unwrap();
+
+            class
+              .methods
+              .iter()
+              .find_map(|method| {
+                if method.name == drilldown_name
+                  && method.is_static == is_static
+                {
+                  Some(node.create_child_method(
+                    DocNode::function(
+                      qualify_drilldown_name(
+                        node.get_name(),
+                        &method.name,
+                        method.is_static,
+                      ),
+                      method.location.clone(),
+                      node.declaration_kind,
+                      method.js_doc.clone(),
+                      method.function_def.clone(),
+                    ),
+                    is_static,
+                  ))
+                } else {
+                  None
+                }
+              })
+              .or_else(|| {
+                class.properties.iter().find_map(|property| {
+                  if property.name == drilldown_name
+                    && property.is_static == is_static
+                  {
+                    Some(node.create_child_property(
+                      DocNode::variable(
+                        qualify_drilldown_name(
+                          node.get_name(),
+                          &property.name,
+                          property.is_static,
+                        ),
+                        property.location.clone(),
+                        node.declaration_kind,
+                        property.js_doc.clone(),
+                        deno_doc::variable::VariableDef {
+                          ts_type: property.ts_type.clone(),
+                          kind: deno_ast::swc::ast::VarDeclKind::Const,
+                        },
+                      ),
+                      is_static,
+                    ))
+                  } else {
+                    None
+                  }
+                })
+              })
           }
+          DocNodeKind::Interface => {
+            let drilldown_name =
+              name_parts.clone().collect::<Vec<_>>().join(".");
+
+            let interface = node.interface_def.as_ref().unwrap();
+
+            interface
+              .methods
+              .iter()
+              .find_map(|method| {
+                if method.name == drilldown_name {
+                  Some(node.create_child_method(
+                    DocNode::function(
+                      qualify_drilldown_name(
+                        node.get_name(),
+                        &method.name,
+                        true,
+                      ),
+                      method.location.clone(),
+                      node.declaration_kind,
+                      method.js_doc.clone(),
+                      FunctionDef {
+                        def_name: None,
+                        params: method.params.clone(),
+                        return_type: method.return_type.clone(),
+                        has_body: false,
+                        is_async: false,
+                        is_generator: false,
+                        type_params: method.type_params.clone(),
+                        decorators: vec![],
+                      },
+                    ),
+                    true,
+                  ))
+                } else {
+                  None
+                }
+              })
+              .or_else(|| {
+                interface.properties.iter().find_map(|property| {
+                  if property.name == drilldown_name {
+                    Some(node.create_child_property(
+                      DocNode::variable(
+                        qualify_drilldown_name(name, &property.name, true),
+                        property.location.clone(),
+                        node.declaration_kind,
+                        property.js_doc.clone(),
+                        deno_doc::variable::VariableDef {
+                          ts_type: property.ts_type.clone(),
+                          kind: deno_ast::swc::ast::VarDeclKind::Const,
+                        },
+                      ),
+                      true,
+                    ))
+                  } else {
+                    None
+                  }
+                })
+              })
+          }
+          DocNodeKind::TypeAlias => {
+            let type_alias = node.type_alias_def.as_ref().unwrap();
+
+            if let Some(ts_type_literal) =
+              type_alias.ts_type.type_literal.as_ref()
+            {
+              let drilldown_name =
+                name_parts.clone().collect::<Vec<_>>().join(".");
+
+              ts_type_literal
+                .methods
+                .iter()
+                .find_map(|method| {
+                  if method.name == drilldown_name {
+                    Some(node.create_child_method(
+                      DocNode::function(
+                        qualify_drilldown_name(name, &method.name, true),
+                        method.location.clone(),
+                        node.declaration_kind,
+                        method.js_doc.clone(),
+                        FunctionDef {
+                          def_name: None,
+                          params: method.params.clone(),
+                          return_type: method.return_type.clone(),
+                          has_body: false,
+                          is_async: false,
+                          is_generator: false,
+                          type_params: method.type_params.clone(),
+                          decorators: vec![],
+                        },
+                      ),
+                      true,
+                    ))
+                  } else {
+                    None
+                  }
+                })
+                .or_else(|| {
+                  ts_type_literal.properties.iter().find_map(|property| {
+                    if property.name == drilldown_name {
+                      Some(node.create_child_property(
+                        DocNode::variable(
+                          qualify_drilldown_name(name, &property.name, true),
+                          property.location.clone(),
+                          node.declaration_kind,
+                          property.js_doc.clone(),
+                          deno_doc::variable::VariableDef {
+                            ts_type: property.ts_type.clone(),
+                            kind: deno_ast::swc::ast::VarDeclKind::Const,
+                          },
+                        ),
+                        true,
+                      ))
+                    } else {
+                      None
+                    }
+                  })
+                })
+            } else {
+              None
+            }
+          }
+          DocNodeKind::Variable => {
+            let variable = node.variable_def.as_ref().unwrap();
+
+            if let Some(ts_type_literal) = variable
+              .ts_type
+              .as_ref()
+              .and_then(|ts_type| ts_type.type_literal.as_ref())
+            {
+              let drilldown_name =
+                name_parts.clone().collect::<Vec<_>>().join(".");
+
+              ts_type_literal
+                .methods
+                .iter()
+                .find_map(|method| {
+                  if method.name == drilldown_name {
+                    Some(node.create_child_method(
+                      DocNode::function(
+                        qualify_drilldown_name(name, &method.name, true),
+                        method.location.clone(),
+                        node.declaration_kind,
+                        method.js_doc.clone(),
+                        FunctionDef {
+                          def_name: None,
+                          params: method.params.clone(),
+                          return_type: method.return_type.clone(),
+                          has_body: false,
+                          is_async: false,
+                          is_generator: false,
+                          type_params: method.type_params.clone(),
+                          decorators: vec![],
+                        },
+                      ),
+                      true,
+                    ))
+                  } else {
+                    None
+                  }
+                })
+                .or_else(|| {
+                  ts_type_literal.properties.iter().find_map(|property| {
+                    if property.name == drilldown_name {
+                      Some(node.create_child_property(
+                        DocNode::variable(
+                          qualify_drilldown_name(name, &property.name, true),
+                          property.location.clone(),
+                          node.declaration_kind,
+                          property.js_doc.clone(),
+                          deno_doc::variable::VariableDef {
+                            ts_type: property.ts_type.clone(),
+                            kind: deno_ast::swc::ast::VarDeclKind::Const,
+                          },
+                        ),
+                        true,
+                      ))
+                    } else {
+                      None
+                    }
+                  })
+                })
+            } else {
+              None
+            }
+          }
+          DocNodeKind::Import
+          | DocNodeKind::Enum
+          | DocNodeKind::ModuleDoc
+          | DocNodeKind::Function
+          | DocNodeKind::Namespace => None,
+        };
+
+        if let Some(drilldown_node) = drilldown_node {
+          break 'outer vec![drilldown_node];
         }
-
-        let drilldown_name = drilldown_parts.join(".");
-
-        let class = class_node.class_def.as_ref().unwrap();
-        class
-          .methods
-          .iter()
-          .find_map(|method| {
-            if method.name == drilldown_name && method.is_static == is_static {
-              Some(class_node.create_child(Arc::new(DocNode::function(
-                qualify_drilldown_name(
-                  class_node.get_name(),
-                  &method.name,
-                  method.is_static,
-                ),
-                method.location.clone(),
-                class_node.declaration_kind,
-                method.js_doc.clone(),
-                method.function_def.clone(),
-              ))))
-            } else {
-              None
-            }
-          })
-          .or_else(|| {
-            class.properties.iter().find_map(|property| {
-              if property.name == drilldown_name
-                && property.is_static == is_static
-              {
-                Some(class_node.create_child(Arc::new(DocNode::variable(
-                  qualify_drilldown_name(
-                    class_node.get_name(),
-                    &property.name,
-                    property.is_static,
-                  ),
-                  property.location.clone(),
-                  class_node.declaration_kind,
-                  property.js_doc.clone(),
-                  deno_doc::variable::VariableDef {
-                    ts_type: property.ts_type.clone(),
-                    kind: deno_ast::swc::ast::VarDeclKind::Const,
-                  },
-                ))))
-              } else {
-                None
-              }
-            })
-          })
-      } else if let Some(class_node) = nodes
-        .iter()
-        .find(|node| node.kind == DocNodeKind::Interface)
-      {
-        let drilldown_name = name_parts.clone().collect::<Vec<_>>().join(".");
-
-        let interface = class_node.interface_def.as_ref().unwrap();
-
-        interface
-          .methods
-          .iter()
-          .find_map(|method| {
-            if method.name == drilldown_name {
-              Some(class_node.create_child(Arc::new(DocNode::function(
-                qualify_drilldown_name(name, &method.name, true),
-                method.location.clone(),
-                doc_nodes[0].declaration_kind,
-                method.js_doc.clone(),
-                FunctionDef {
-                  def_name: None,
-                  params: method.params.clone(),
-                  return_type: method.return_type.clone(),
-                  has_body: false,
-                  is_async: false,
-                  is_generator: false,
-                  type_params: method.type_params.clone(),
-                  decorators: vec![],
-                },
-              ))))
-            } else {
-              None
-            }
-          })
-          .or_else(|| {
-            interface.properties.iter().find_map(|property| {
-              if property.name == drilldown_name {
-                Some(class_node.create_child(Arc::new(DocNode::variable(
-                  qualify_drilldown_name(name, &property.name, true),
-                  property.location.clone(),
-                  doc_nodes[0].declaration_kind,
-                  property.js_doc.clone(),
-                  deno_doc::variable::VariableDef {
-                    ts_type: property.ts_type.clone(),
-                    kind: deno_ast::swc::ast::VarDeclKind::Const,
-                  },
-                ))))
-              } else {
-                None
-              }
-            })
-          })
-      } else {
-        None
-      };
-
-      if let Some(drilldown_node) = drilldown_node {
-        break vec![drilldown_node];
       }
     }
 
@@ -672,13 +821,18 @@ fn generate_symbol_page(
       .iter()
       .find(|node| matches!(node.kind, DocNodeKind::Namespace))
     {
-      namespace_paths.push(next_part);
+      namespace_paths.push(next_part.to_string());
 
       let namespace = namespace_node.namespace_def.as_ref().unwrap();
+
+      let parts = Rc::new(namespace_paths.clone());
+
       doc_nodes = namespace
         .elements
         .iter()
-        .map(|element| namespace_node.create_child(element.clone()))
+        .map(|element| {
+          namespace_node.create_namespace_child(element.clone(), parts.clone())
+        })
         .collect();
     } else {
       return None;

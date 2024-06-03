@@ -1,9 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
-import { Package, User } from "../utils/api_types.ts";
-import { api, path } from "../utils/api.ts";
-import { GitHubRepoInput } from "../components/GitHubRepoInput.tsx";
+import { User } from "../utils/api_types.ts";
 import { cachedGitHubLogin } from "../utils/github.ts";
 
 export function GitHubUserLink({ user }: { user?: User }) {
