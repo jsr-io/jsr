@@ -94,7 +94,7 @@ export function Header({
               )}
             {searchKind !== "docs" && (
               <>
-                <span class="text-gray-200 select-none">|</span>
+                <Divider />
                 <a
                   href="/docs"
                   class="link-header"
@@ -103,7 +103,7 @@ export function Header({
                 </a>
               </>
             )}
-            <span class="text-gray-200 select-none">|</span>
+            <Divider />
             {user
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
               : (
@@ -127,4 +127,8 @@ export function Header({
       </div>
     </>
   );
+}
+
+function Divider() {
+  return <span class="text-gray-200 select-none" aria-hidden="true">|</span>;
 }
