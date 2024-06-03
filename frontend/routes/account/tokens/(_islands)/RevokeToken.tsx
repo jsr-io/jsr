@@ -19,7 +19,7 @@ export function RevokeToken(props: { id: string }) {
   }
 
   return (
-    <button class="text-red-500 underline hover:text-red-700" onClick={onClick}>
+    <button class="text-red-600 underline hover:text-red-700" onClick={onClick}>
       Revoke token
     </button>
   );
