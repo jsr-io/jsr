@@ -25,6 +25,19 @@ export function RuntimeCompatIndicator(
   const hasExplicitCompat = Object.values(runtimeCompat).some((v) => v);
   if (!hasExplicitCompat) return null;
 
+  const worksWithArray: string[] = [];
+  const unknownWithArray: string[] = [];
+
+  for (const [key, name] of RUNTIME_COMPAT_KEYS.toReversed()) {
+    const status = runtimeCompat[key];
+
+    if (status) {
+      worksWithArray.push(name);
+      continue;
+    }
+    unknownWithArray.push(name);
+  }
+
   return (
     <div class="min-w-content font-semibold select-none">
       <div
@@ -32,8 +45,19 @@ export function RuntimeCompatIndicator(
           compact ? "*:-mx-1" : "*:mx-0.5"
         } flex-row-reverse`}
       >
+        {worksWithArray.length > 0 && (
+          <span className="sr-only">
+            This package works with {worksWithArray.join(", ")}
+          </span>
+        )}
+        {unknownWithArray.length > 0 && (
+          <span className="sr-only">
+            It is unknown whether this package works with{" "}
+            {unknownWithArray.join(", ")}
+          </span>
+        )}
         {RUNTIME_COMPAT_KEYS.toReversed().map(
-          ([key, name, icon, w, h]) => {
+          ([key, icon, w, h]) => {
             const value = runtimeCompat[key];
             if (
               value === false || (hideUnknown && value === undefined)
@@ -42,17 +66,7 @@ export function RuntimeCompatIndicator(
               <div
                 class="relative h-4 md:h-5"
                 style={`aspect-ratio: ${w} / ${h}`}
-                title={`${
-                  value === undefined
-                    ? "It is unknown whether this package works"
-                    : "This package works"
-                } with ${name}.`}
               >
-                <div className="sr-only">
-                  {value === undefined
-                    ? "It is unknown whether this package works"
-                    : "This package works"} with {name}
-                </div>
                 <img
                   src={icon}
                   width={w}

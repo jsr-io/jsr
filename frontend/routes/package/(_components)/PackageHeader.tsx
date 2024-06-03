@@ -152,7 +152,7 @@ export function PackageHeader(
             {runtimeCompat &&
               (
                 <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
-                  <div>Works with</div>
+                  <div aria-hidden="true">Works with</div>
                   {runtimeCompat}
                 </div>
               )}
