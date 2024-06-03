@@ -531,8 +531,7 @@ fn generate_symbol_page(
     let nodes = doc_nodes
       .iter()
       .filter(|node| {
-        !(matches!(node.kind, DocNodeKind::ModuleDoc | DocNodeKind::Import)
-          || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
+        !matches!(node.kind, DocNodeKind::ModuleDoc | DocNodeKind::Import)
           && node.get_name() == next_part
       })
       .cloned()
