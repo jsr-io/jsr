@@ -83,11 +83,13 @@ export function PackageHeader(
                   <a
                     href={`/@${pkg.scope}`}
                     class="link font-bold no-underline"
+                    aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
                   </a>/<a
                     href={`/@${pkg.scope}/${pkg.name}`}
                     class="link font-semibold no-underline"
+                    aria-label={`Package: ${pkg.name}`}
                   >
                     {pkg.name}
                   </a>
@@ -95,7 +97,10 @@ export function PackageHeader(
 
                 {selectedVersion &&
                   (
-                    <span class="text-lg md:text-[0.75em] font-bold">
+                    <span
+                      class="text-lg md:text-[0.75em] font-bold"
+                      aria-label={`Version: ${selectedVersion.version}`}
+                    >
                       <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
                         @
                       </span>
