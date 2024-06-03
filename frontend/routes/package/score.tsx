@@ -278,7 +278,7 @@ function ScoreItem(
         <p class="text-gray-500 text-sm leading-tight mt-1">{props.children}</p>
       </div>
 
-      <div class="text-sm text-gray-400 pt-[0.2em]">
+      <div class="text-sm text-jsr-gray-400 pt-[0.2em]">
         {typeof props.value === "number"
           ? (
             <span>
