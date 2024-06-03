@@ -275,9 +275,8 @@ export const handler: Handlers<Data, State> = {
       const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
       if (jsrPosts.ok) {
         posts = await jsrPosts.json() as Post[];
-        console.log(posts);
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
 

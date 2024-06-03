@@ -67,6 +67,7 @@ import * as $_scope_islands_ScopeInviteForm from "./routes/@[scope]/(_islands)/S
 import * as $_scope_islands_ScopeMemberRole from "./routes/@[scope]/(_islands)/ScopeMemberRole.tsx";
 import * as $account_tokens_islands_CreateToken from "./routes/account/tokens/(_islands)/CreateToken.tsx";
 import * as $account_tokens_islands_RevokeToken from "./routes/account/tokens/(_islands)/RevokeToken.tsx";
+import * as $package_islands_BreadcrumbsSticky from "./routes/package/(_islands)/BreadcrumbsSticky.tsx";
 import * as $package_islands_LocalSymbolSearch from "./routes/package/(_islands)/LocalSymbolSearch.tsx";
 import * as $package_islands_PackageDescriptionEditor from "./routes/package/(_islands)/PackageDescriptionEditor.tsx";
 import * as $package_islands_PackageGitHubSettings from "./routes/package/(_islands)/PackageGitHubSettings.tsx";
@@ -147,6 +148,8 @@ const manifest = {
       $account_tokens_islands_CreateToken,
     "./routes/account/tokens/(_islands)/RevokeToken.tsx":
       $account_tokens_islands_RevokeToken,
+    "./routes/package/(_islands)/BreadcrumbsSticky.tsx":
+      $package_islands_BreadcrumbsSticky,
     "./routes/package/(_islands)/LocalSymbolSearch.tsx":
       $package_islands_LocalSymbolSearch,
     "./routes/package/(_islands)/PackageDescriptionEditor.tsx":

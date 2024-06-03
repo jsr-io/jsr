@@ -169,9 +169,8 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code") ?? "";
+  async GET(_req, ctx) {
+    const code = ctx.url.searchParams.get("code") ?? "";
     const [user, authorizationResp] = await Promise.all([
       ctx.state.userPromise,
       code !== ""
@@ -191,7 +190,7 @@ export const handler: Handlers<Data, State> = {
     const authorization = authorizationResp?.data ?? null;
 
     if (user === null && authorization !== null) {
-      const redirectPath = url.pathname + url.search;
+      const redirectPath = ctx.url.pathname + ctx.url.search;
       return new Response(null, {
         status: 302,
         headers: {

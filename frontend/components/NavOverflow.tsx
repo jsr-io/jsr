@@ -15,7 +15,6 @@ for (let i = 0; i < navItemsEl.children.length; i++) {
 }
 
 const active = navItemsEl.querySelector("[data-active]");
-console.log(active, navItems.get(active));
 
 function updateNavItems() {
   const navWidth = navItemsEl.parentElement.offsetWidth;

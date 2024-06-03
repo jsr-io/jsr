@@ -4,6 +4,7 @@ import type { PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
 import { Params } from "./PackageNav.tsx";
+import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 
 interface DocsProps {
   docs: Docs;
@@ -11,6 +12,23 @@ interface DocsProps {
   selectedVersion: PackageVersionWithUser;
   showProvenanceBadge?: boolean;
 }
+
+const USAGE_SELECTOR_SCRIPT = `(() => {
+const preferredUsage = localStorage.getItem('preferredUsage');
+
+if (preferredUsage) {
+  document.querySelectorAll('input[name="usage"]').forEach((el) => {
+    if (el.id === preferredUsage) el.checked = true;
+  });
+}
+
+document.querySelector('.usages').addEventListener('change', (e) => {
+  const target = e.target;
+  if (target instanceof HTMLInputElement && target.name === 'usage') {
+    localStorage.setItem('preferredUsage', target.id);
+  } 
+});
+})()`;
 
 export function DocsView(
   { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
@@ -22,26 +40,19 @@ export function DocsView(
         <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
       </Head>
 
-      {docs.breadcrumbs &&
-        (
-          <div class="flex md:items-center justify-between gap-4 max-md:flex-col-reverse">
-            <div
-              class="ddoc"
-              dangerouslySetInnerHTML={{ __html: docs.breadcrumbs }}
-            />
+      {docs.breadcrumbs && (
+        <BreadcrumbsSticky
+          content={docs.breadcrumbs}
+          scope={params.scope}
+          package={params.package}
+          version={selectedVersion.version}
+        />
+      )}
 
-            <LocalSymbolSearch
-              scope={params.scope}
-              pkg={params.package}
-              version={selectedVersion.version}
-            />
-          </div>
-        )}
-
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
+      <div class="grid grid-cols-1 lg:grid-cols-10 gap-8 lg:gap-12">
         <div
           class={`min-w-0 ${
-            docs.toc ? "lg:col-span-3 lg:row-start-1" : "col-span-full"
+            docs.toc ? "lg:col-span-7 lg:row-start-1" : "col-span-full"
           }`}
         >
           <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
@@ -88,7 +99,11 @@ export function DocsView(
           )}
         </div>
         {docs.toc && (
-          <div class="max-lg:row-start-1 lg:col-[span_1_/_-1] lg:top-0 lg:sticky lg:max-h-screen box-border space-y-4 -mt-4 pt-4">
+          <div
+            class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
+              docs.breadcrumbs ? "lg:-mt-20 lg:pt-20" : ""
+            }`}
+          >
             {!docs.breadcrumbs && (
               <LocalSymbolSearch
                 scope={params.scope}
@@ -98,8 +113,11 @@ export function DocsView(
             )}
 
             <div
-              class="ddoc w-full lg:*:max-h-[calc(100vh-55px)] b-0"
+              class="ddoc w-full lg:overflow-y-auto pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
+            />
+            <script
+              dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
             />
           </div>
         )}

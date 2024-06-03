@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { JSX } from "preact";
 import { computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import {
   components,
   create,
@@ -158,7 +158,7 @@ export function LocalSymbolSearch(
     }
   }
 
-  const placeholder = `Search for symbols in @${props.scope}/${props.pkg}${
+  const placeholder = `Search for symbols${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
   return (
@@ -167,7 +167,7 @@ export function LocalSymbolSearch(
         type="text"
         placeholder={placeholder}
         id="symbol-search-input"
-        class="block text-sm w-full py-1.5 px-2 input-container input border-cyan-900/30"
+        class="block text-sm w-full py-2 px-2 input-container input bg-white border-jsr-cyan-300/50"
         disabled={!db}
         onInput={onInput}
         onKeyUp={onKeyUp}

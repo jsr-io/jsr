@@ -20,7 +20,6 @@ export function PackageHeader(
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
-  const isYanked = selectedVersion && selectedVersion.yanked;
 
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
@@ -85,9 +84,12 @@ export function PackageHeader(
                     class="link font-bold no-underline"
                   >
                     @{pkg.scope}
-                  </a>/<span class="font-semibold">
+                  </a>/<a
+                    href={`/@${pkg.scope}/${pkg.name}`}
+                    class="link font-semibold no-underline"
+                  >
                     {pkg.name}
-                  </span>
+                  </a>
                 </span>
 
                 {selectedVersion &&
@@ -182,7 +184,9 @@ export function PackageHeader(
                       10,
                     )}
                 >
-                  {twas(new Date(selectedVersion.createdAt))}
+                  {`${
+                    twas(new Date(selectedVersion.createdAt))
+                  } (${selectedVersion.version})`}
                 </div>
               </div>
             )}

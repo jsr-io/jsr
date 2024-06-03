@@ -153,6 +153,7 @@ async fn analyze_package_inner(
         npm_resolver: None,
         reporter: None,
         executor: Default::default(),
+        locker: None,
       },
     )
     .await;
@@ -494,6 +495,7 @@ async fn rebuild_npm_tarball_inner(
         npm_resolver: Default::default(),
         reporter: Default::default(),
         executor: Default::default(),
+        locker: None,
       },
     )
     .await;
@@ -609,14 +611,16 @@ impl ModuleAnalyzer {
   }
 }
 
+#[async_trait::async_trait(?Send)]
 impl deno_graph::ModuleAnalyzer for ModuleAnalyzer {
-  fn analyze(
+  async fn analyze(
     &self,
     specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
   ) -> Result<ModuleInfo, deno_ast::ParseDiagnostic> {
-    let module_info = self.analyzer.analyze(specifier, source, media_type)?;
+    let module_info =
+      self.analyzer.analyze(specifier, source, media_type).await?;
     self
       .module_info
       .borrow_mut()

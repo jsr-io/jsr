@@ -800,8 +800,8 @@ pub mod tests {
                 "size": 74
             },
             "/mod.ts": {
-                "checksum": "sha256-cac3d193853f12ab7247f20458587cfb20df7a77b5c2583aae5a309752908c16",
-                "size": 124
+                "checksum": "sha256-fcc96c29c74f914ed8f38c0357d07f495d79091d2baea146a1525f140736951b",
+                "size": 155
             }
         })
       );
@@ -1183,7 +1183,7 @@ pub mod tests {
     )
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
-    assert_eq!(task.error.unwrap().code, "jsrMissingConstraint");
+    assert_eq!(task.error.unwrap().code, "missingConstraint");
   }
 
   #[tokio::test]
@@ -1224,7 +1224,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: invalid data");
+    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~");
   }
 
   #[tokio::test]

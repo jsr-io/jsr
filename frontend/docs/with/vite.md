@@ -40,7 +40,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = encodeBase64(
 ```
 
 Running `vite` to start the local development server will serve your application
-at `http://localhost:5123`. You can then visit `http://localhost:5123` to see
+at `http://localhost:5173`. You can then visit `http://localhost:5173` to see
 it.
 
 ```shell

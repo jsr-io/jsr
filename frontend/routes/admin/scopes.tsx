@@ -39,11 +39,10 @@ export default function Scopes({ data, url }: PageProps<Data>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const reqUrl = new URL(req.url);
-    const query = reqUrl.searchParams.get("search") || "";
-    const page = +(reqUrl.searchParams.get("page") || 1);
-    const limit = +(reqUrl.searchParams.get("limit") || 20);
+  async GET(_req, ctx) {
+    const query = ctx.url.searchParams.get("search") || "";
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     const resp = await ctx.state.api.get<List<FullScope>>(path`/admin/scopes`, {
       query,

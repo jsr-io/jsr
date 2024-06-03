@@ -245,6 +245,14 @@ impl sqlx::Type<Postgres> for PackageName {
   }
 }
 
+impl std::ops::Deref for PackageName {
+  type Target = String;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
 #[derive(Debug, Clone, Error)]
 pub enum PackageNameValidateError {
   #[error("package name must be at least 2 characters long")]

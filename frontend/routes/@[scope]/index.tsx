@@ -56,11 +56,10 @@ export default function ScopePackagesPage(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
-    const page = +(url.searchParams.get("page") || 1);
+  async GET(_req, ctx) {
+    const page = +(ctx.url.searchParams.get("page") || 1);
     // Default to large enough to display all of @std.
-    const limit = +(url.searchParams.get("limit") || 50);
+    const limit = +(ctx.url.searchParams.get("limit") || 50);
 
     const [data, packagesResp, userInvitesResp] = await Promise.all([
       scopeDataWithMember(ctx.state, ctx.params.scope),
