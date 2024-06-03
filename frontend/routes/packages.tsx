@@ -45,7 +45,8 @@ export default function PackageListPage({
           </span>
           <div class="flex items-center gap-1">
             <span className="text-sm text-gray-500">powered by</span>
-            <img className="h-4" src="/logos/orama-dark.svg" />
+            <span className="sr-only">Orama</span>
+            <img className="h-4" src="/logos/orama-dark.svg" alt="" />
           </div>
         </div>
       </div>
