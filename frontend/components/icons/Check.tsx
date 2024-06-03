@@ -3,6 +3,7 @@ export function Check(props: { class?: string }) {
   return (
     <svg
       class={`size-4 ${props.class ?? ""}`}
+      aria-hidden="true"
       viewBox="0 0 24 24"
       strokeWidth={2}
       stroke="currentColor"

@@ -253,10 +253,25 @@ function ScoreItem(
   return (
     <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 py-3 first:pt-0 items-start">
       {status === "complete"
-        ? <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+        ? (
+          <>
+            <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+            <span class="sr-only">Complete score</span>
+          </>
+        )
         : (status === "partial"
-          ? <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
-          : <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />)}
+          ? (
+            <>
+              <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
+              <span class="sr-only">Partial score</span>
+            </>
+          )
+          : (
+            <>
+              <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />
+              <span class="sr-only">Missing score</span>
+            </>
+          ))}
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
