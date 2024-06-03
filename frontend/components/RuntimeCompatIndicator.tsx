@@ -35,7 +35,10 @@ export function RuntimeCompatIndicator(
       worksWithArray.push(name);
       continue;
     }
-    unknownWithArray.push(name);
+    if (status === undefined) {
+      unknownWithArray.push(name);
+      continue;
+    }
   }
 
   return (
