@@ -56,8 +56,8 @@ export function Header({
             <a
               href="/"
               class="outline-none focus-visible:ring-2 ring-cyan-700"
-              aria-label="Home"
             >
+              <span className="sr-only">Home</span>
               <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
