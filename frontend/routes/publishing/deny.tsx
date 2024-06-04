@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { Handlers, RouteConfig } from "$fresh/server.ts";
+import { Handlers } from "$fresh/server.ts";
 import { State } from "../../util.ts";
 import { Head } from "$fresh/runtime.ts";
 
