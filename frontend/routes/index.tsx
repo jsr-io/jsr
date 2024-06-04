@@ -276,7 +276,7 @@ export const handler: Handlers<Data, State> = {
       if (jsrPosts.ok) {
         posts = await jsrPosts.json() as Post[];
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
 
