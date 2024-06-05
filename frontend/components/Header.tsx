@@ -6,7 +6,6 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
-import { Logo } from "./Logo.tsx";
 
 export function Header({
   user,

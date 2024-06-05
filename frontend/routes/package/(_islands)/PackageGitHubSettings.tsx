@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Signal, useSignal } from "@preact/signals";
+import { useSignal } from "@preact/signals";
 import { GitHubRepoInput } from "../../../components/GitHubRepoInput.tsx";
 import { api, path } from "../../../utils/api.ts";
 import { GithubRepository } from "../../../utils/api_types.ts";
