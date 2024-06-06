@@ -91,6 +91,11 @@ resource "google_compute_backend_service" "registry_frontend" {
     }
   }
 
+  log_config {
+    enable      = true
+    sample_rate = 1
+  }
+
   lifecycle {
     ignore_changes = [cdn_policy[0].client_ttl, cdn_policy[0].max_ttl]
   }
