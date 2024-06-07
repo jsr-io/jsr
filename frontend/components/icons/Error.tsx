@@ -8,6 +8,7 @@ export function ErrorIcon(props: { class?: string }) {
       strokeWidth={1.5}
       stroke="currentColor"
       class={`size-4 ${props.class ?? ""}`}
+      aria-hidden="true"
     >
       <path
         strokeLinecap="round"
