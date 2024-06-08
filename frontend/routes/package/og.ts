@@ -194,7 +194,7 @@ export const handler: Handlers<undefined, State> = {
       ogpImage.composite(
         versionAndLatestBadgeImage,
         packageNamePosition.x + 10,
-        packageNamePosition.y - packageNamePosition.height +
+        packageNamePosition.y - packageNamePosition.height -
           (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2,
       );
       descriptionY = packageNamePosition.y + 10;
@@ -221,7 +221,10 @@ export const handler: Handlers<undefined, State> = {
         }
       }
       const firstLineText = firstLine.join(" ");
-      const secondLine = pkg.description.slice(firstLineText.length).replace(/^ +/, '');
+      const secondLine = pkg.description.slice(firstLineText.length).replace(
+        /^ +/,
+        "",
+      );
 
       return firstLineText + "\n" +
         (secondLine.length >= DESCRIPTION_MAX_BREAK_POINT
