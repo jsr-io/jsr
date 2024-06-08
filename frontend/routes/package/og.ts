@@ -8,6 +8,7 @@ import { State } from "../../util.ts";
 import twas from "$twas";
 import { getScoreTextColorClass } from "../../utils/score_ring_color.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
+import { PackageName } from "../../islands/new.tsx";
 
 const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
   "score-text-green": Image.rgbToColor(34, 197, 94),
@@ -73,6 +74,7 @@ export const handler: Handlers<undefined, State> = {
       x: number;
       y: number;
       height: number;
+      isSplited: boolean;
     };
     if (packageScope.length + packageName.length > 23) {
       // new line  | @package
@@ -97,6 +99,7 @@ export const handler: Handlers<undefined, State> = {
         x: PADDING + packageNameText.width,
         y: PADDING + scopeText.height + 20 + packageNameText.height,
         height: packageNameText.height,
+        isSplited: true
       };
     } else {
       // one line
@@ -125,6 +128,7 @@ export const handler: Handlers<undefined, State> = {
         x: PADDING + scopeText.width + 10 + packageNameText.width,
         y: PADDING + packageNameText.height,
         height: packageNameText.height,
+        isSplited: false
       };
     }
     const isLatest = selectedVersion.version === pkg.latestVersion;
@@ -191,11 +195,11 @@ export const handler: Handlers<undefined, State> = {
       descriptionY = yPos;
     } else {
       // Version/Latest will be current line
+      const versionAndLatestBadgeYPadding = (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2
       ogpImage.composite(
         versionAndLatestBadgeImage,
         packageNamePosition.x + 10,
-        packageNamePosition.y - packageNamePosition.height -
-          (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2,
+        packageNamePosition.y - packageNamePosition.height + (packageNamePosition.isSplited ? -versionAndLatestBadgeYPadding : versionAndLatestBadgeYPadding)
       );
       descriptionY = packageNamePosition.y + 10;
     }
