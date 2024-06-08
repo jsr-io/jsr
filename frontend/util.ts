@@ -21,7 +21,7 @@ export interface Docs {
   // null only on index page
   breadcrumbs: string | null;
   // null only on all symbols page
-  sidepanel: string | null;
+  toc: string | null;
   main: string;
 }
 

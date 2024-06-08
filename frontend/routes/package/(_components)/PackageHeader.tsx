@@ -7,7 +7,7 @@ import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
 import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "$twas";
-import { parse } from "$std/semver/mod.ts";
+import { gt, parse } from "$std/semver/mod.ts";
 
 interface PackageHeaderProps {
   package: Package;
@@ -20,8 +20,13 @@ export function PackageHeader(
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
-  const isPrerelease = selectedVersion &&
-    parse(selectedVersion.version).prerelease.length !== 0;
+
+  const selectedVersionSemver = selectedVersion &&
+    parse(selectedVersion.version);
+  const isNewerPrerelease = selectedVersionSemver &&
+    selectedVersionSemver.prerelease.length !== 0 &&
+    (pkg.latestVersion === null ||
+      gt(selectedVersionSemver, parse(pkg.latestVersion)));
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -31,19 +36,26 @@ export function PackageHeader(
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
             <WarningTriangle class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
-              This release is{" "}
-              {isPrerelease && selectedVersion.newerVersionsCount == 0
+              This release {selectedVersion.yanked
                 ? (
                   <>
-                    a pre-release — the latest stable version of @{pkg
+                    was yanked — the latest version of @{pkg
+                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                  </>
+                )
+                : isNewerPrerelease
+                ? (
+                  <>
+                    is a pre-release — the latest non-prerelease version of
+                    @{pkg
                       .scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (
                   <>
                     <span class="bold">
-                      {selectedVersion.newerVersionsCount}{" "}
-                      version{selectedVersion.newerVersionsCount > 1 && "s"}
+                      is {selectedVersion.newerVersionsCount}{" "}
+                      version{selectedVersion.newerVersionsCount !== 1 && "s"}
                       {" "}
                       behind {pkg.latestVersion}
                     </span>{" "}
@@ -54,9 +66,7 @@ export function PackageHeader(
                 class="link font-medium whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
-                Jump to latest{" "}
-                {isPrerelease && selectedVersion.newerVersionsCount == 0 &&
-                  "stable"}
+                Jump to {isNewerPrerelease ? "this version " : "latest"}
               </a>
             </span>
           </div>
@@ -72,16 +82,24 @@ export function PackageHeader(
                   <a
                     href={`/@${pkg.scope}`}
                     class="link font-bold no-underline"
+                    aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
-                  </a>/<span class="font-semibold">
+                  </a>/<a
+                    href={`/@${pkg.scope}/${pkg.name}`}
+                    class="link font-semibold no-underline"
+                    aria-label={`Package: ${pkg.name}`}
+                  >
                     {pkg.name}
-                  </span>
+                  </a>
                 </span>
 
                 {selectedVersion &&
                   (
-                    <span class="text-lg md:text-[0.75em] font-bold">
+                    <span
+                      class="text-lg md:text-[0.75em] font-bold"
+                      aria-label={`Version: ${selectedVersion.version}`}
+                    >
                       <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
                         @
                       </span>
@@ -117,8 +135,9 @@ export function PackageHeader(
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" />
+                  <GitHub class="text-black !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
@@ -137,7 +156,7 @@ export function PackageHeader(
             {runtimeCompat &&
               (
                 <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
-                  <div>Works with</div>
+                  <div aria-hidden="true">Works with</div>
                   {runtimeCompat}
                 </div>
               )}
@@ -161,7 +180,7 @@ export function PackageHeader(
 
           <div>
             {selectedVersion?.createdAt && (
-              <div class="flex flex-row items-baseline md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
+              <div class="flex flex-row items-baseline md:items-end md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
                 <div>Published</div>
                 <div
                   class="leading-none font-normal"
@@ -171,7 +190,9 @@ export function PackageHeader(
                       10,
                     )}
                 >
-                  {twas(new Date(selectedVersion.createdAt))}
+                  {`${
+                    twas(new Date(selectedVersion.createdAt))
+                  } (${selectedVersion.version})`}
                 </div>
               </div>
             )}

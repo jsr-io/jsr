@@ -8,7 +8,7 @@ import { path } from "../utils/api.ts";
 import type {
   Authorization,
   Permission,
-  PublishingTask,
+  PermissionPackagePublishVersion,
 } from "../utils/api_types.ts";
 import { Head } from "$fresh/runtime.ts";
 import { ChevronRight } from "../components/icons/ChevronRight.tsx";
@@ -51,16 +51,15 @@ export default function AuthPage({ data }: PageProps<Data>) {
     );
   }
 
-  const publishPermissions =
-    data.authorization.permissions?.filter((perm) =>
-      perm.permission === "package/publish"
-    ) ?? [];
+  const publishPermissions = data.authorization.permissions?.filter(
+    (perm) => perm.permission === "package/publish" && "version" in perm,
+  ) as PermissionPackagePublishVersion[] ?? [];
 
   const title = !data.authorization.permissions
     ? "full access"
     : publishPermissions.length >= 1 &&
         publishPermissions.length == data.authorization.permissions.length
-    ? `publishing @${publishPermissions[0].scope}@${
+    ? `publishing @${publishPermissions[0].scope}/${
       publishPermissions[0].package
     }${
       publishPermissions.length > 1
@@ -88,9 +87,9 @@ export default function AuthPage({ data }: PageProps<Data>) {
         {data.authorization.permissions === null && (
           <PermissionTile permission={null} />
         )}
-        <PublishPackagelist permissions={publishPermissions} />
+        <PublishPackageList permissions={publishPermissions} />
         {data.authorization.permissions?.filter((perm) =>
-          perm.permission !== "package/publish"
+          perm.permission !== "package/publish" && !("version" in perm)
         ).map((perm) => <PermissionTile permission={perm} />)}
       </div>
       <p class="mt-8">Only grant authorization to applications you trust.</p>
@@ -99,14 +98,15 @@ export default function AuthPage({ data }: PageProps<Data>) {
   );
 }
 
-function PublishPackagelist({ permissions }: { permissions: Permission[] }) {
+function PublishPackageList(
+  { permissions }: { permissions: PermissionPackagePublishVersion[] },
+) {
   if (permissions.length === 0) return null;
 
   return (
     <ul class="w-full divide-y border-t border-b">
       {permissions.map((perm) => {
         const name = `@${perm.scope}/${perm.package}`;
-
         return (
           <li
             key={name}
@@ -135,6 +135,25 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
       description =
         "Including creating scopes, publishing any package, adding members, removing members, and more";
       break;
+    case "package/publish":
+      icon = <ChevronRight class="w-12 h-12 flex-shrink-0" />;
+      if ("package" in permission!) {
+        title = `Publish any version of @${permission!.scope}/${
+          permission!.package
+        }`;
+        description =
+          `This application will be able to publish new versions of the package @${
+            permission!.scope
+          }/${permission!.package}`;
+      } else {
+        title = `Publishing any version in @${permission!.scope}`;
+        description =
+          `This application will be able to publish new versions of any existing package in the scope @${
+            permission!.scope
+          }`;
+      }
+      break;
+
     default:
       throw new Error("unreachable");
   }
@@ -151,9 +170,8 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code") ?? "";
+  async GET(_req, ctx) {
+    const code = ctx.url.searchParams.get("code") ?? "";
     const [user, authorizationResp] = await Promise.all([
       ctx.state.userPromise,
       code !== ""
@@ -173,7 +191,7 @@ export const handler: Handlers<Data, State> = {
     const authorization = authorizationResp?.data ?? null;
 
     if (user === null && authorization !== null) {
-      const redirectPath = url.pathname + url.search;
+      const redirectPath = ctx.url.pathname + ctx.url.search;
       return new Response(null, {
         status: 302,
         headers: {

@@ -6,7 +6,6 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import { GitHub } from "./icons/GitHub.tsx";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
-import { Logo } from "./Logo.tsx";
 
 export function Header({
   user,
@@ -58,6 +57,7 @@ export function Header({
               href="/"
               class="outline-none focus-visible:ring-2 ring-cyan-700"
             >
+              <span className="sr-only">Home</span>
               <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
@@ -93,7 +93,7 @@ export function Header({
               )}
             {searchKind !== "docs" && (
               <>
-                <span class="text-gray-200 select-none">|</span>
+                <Divider />
                 <a
                   href="/docs"
                   class="link-header"
@@ -102,12 +102,12 @@ export function Header({
                 </a>
               </>
             )}
-            <span class="text-gray-200 select-none">|</span>
+            <Divider />
             {user
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
               : (
-                <a href={loginUrl} class="link flex items-center gap-2">
-                  <GitHub class="size-5 flex-none" />
+                <a href={loginUrl} class="link-header flex items-center gap-2">
+                  <GitHub class="size-5 flex-none" aria-hidden={true} />
                   Sign in
                 </a>
               )}
@@ -126,4 +126,8 @@ export function Header({
       </div>
     </>
   );
+}
+
+function Divider() {
+  return <span class="text-gray-200 select-none" aria-hidden="true">|</span>;
 }

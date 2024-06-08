@@ -7,6 +7,7 @@ export function Tooltip({ children, tooltip }: {
 }) {
   return (
     <div class="group/tooltip">
+      <span className="sr-only">{tooltip}</span>
       {children}
       <div class="w-full flex justify-center">
         <div class="absolute">

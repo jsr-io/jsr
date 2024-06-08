@@ -10,7 +10,7 @@ export interface Params {
 
 type Tab =
   | "Index"
-  | "Symbols"
+  | "Docs"
   | "Files"
   | "Versions"
   | "Dependencies"
@@ -41,9 +41,9 @@ export function PackageNav(
       {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/doc`}
-          active={currentTab === "Symbols"}
+          active={currentTab === "Docs"}
         >
-          Symbols
+          Docs
         </NavItem>
       )}
       {(latestVersion || params.version) && (
@@ -57,7 +57,7 @@ export function PackageNav(
       <NavItem href={`${base}/versions`} active={currentTab === "Versions"}>
         <span class="flex items-center">
           Versions
-          <span class="chip tabular-nums bg-jsr-cyan-200 ml-2 leading-[0] w-[1.5em] aspect-square flex items-center justify-center">
+          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
             {versionCount}
           </span>
         </span>

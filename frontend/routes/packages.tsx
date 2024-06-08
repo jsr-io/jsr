@@ -40,12 +40,14 @@ export default function PackageListPage({
         </ListDisplay>
 
         <div className="mt-2 flex flex-wrap items-start justify-between px-2">
-          <span className="text-sm text-gray-400 block">
-            Changes made in the last 15 minutes may not be visible yet.
+          <span className="text-sm text-jsr-gray-400 block">
+            Changes made in the last 15 minutes may not be visible yet. Packages
+            with no published versions are not shown.
           </span>
           <div class="flex items-center gap-1">
             <span className="text-sm text-gray-500">powered by</span>
-            <img className="h-4" src="/logos/orama-dark.svg" />
+            <span className="sr-only">Orama</span>
+            <img className="h-4" src="/logos/orama-dark.svg" alt="" />
           </div>
         </div>
       </div>
@@ -57,11 +59,10 @@ const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
 const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const reqUrl = new URL(req.url);
-    const search = reqUrl.searchParams.get("search") || "";
-    const page = +(reqUrl.searchParams.get("page") || 1);
-    const limit = +(reqUrl.searchParams.get("limit") || 20);
+  async GET(_req, ctx) {
+    const search = ctx.url.searchParams.get("search") || "";
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     let packages;
     let total;

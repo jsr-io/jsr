@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::common::Span;
 use deno_ast::LineAndColumnDisplay;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
@@ -59,7 +60,7 @@ pub struct PackageAnalysisData {
 
 pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
-  pub module_graph_1: HashMap<String, ModuleInfo>,
+  pub module_graph_2: HashMap<String, ModuleInfo>,
   pub doc_nodes: DocNodesByUrl,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
@@ -138,7 +139,7 @@ async fn analyze_package_inner(
   let diagnostics = graph
     .build(
       roots.clone(),
-      &mut SyncLoader { files: &files },
+      &SyncLoader { files: &files },
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
@@ -152,6 +153,7 @@ async fn analyze_package_inner(
         npm_resolver: None,
         reporter: None,
         executor: Default::default(),
+        locker: None,
       },
     )
     .await;
@@ -162,7 +164,7 @@ async fn analyze_package_inner(
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: None,
     fast_check_dts: true,
-    jsr_url_provider: Some(&PassthroughJsrUrlProvider),
+    jsr_url_provider: &PassthroughJsrUrlProvider,
     module_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
     npm_resolver: Default::default(),
@@ -201,7 +203,7 @@ async fn analyze_package_inner(
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)
       .map_err(PublishError::DocError)?;
 
-  let module_graph_1 = module_analyzer.take_module_graph_1();
+  let module_graph_2 = module_analyzer.take_module_graph_2();
 
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
@@ -230,7 +232,7 @@ async fn analyze_package_inner(
 
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
-    module_graph_1,
+    module_graph_2,
     doc_nodes,
     dependencies,
     npm_tarball,
@@ -363,7 +365,7 @@ struct SyncLoader<'a> {
 
 impl<'a> SyncLoader<'a> {
   fn load_sync(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadResult {
     match specifier.scheme() {
@@ -393,7 +395,7 @@ impl<'a> SyncLoader<'a> {
 
 impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
@@ -473,7 +475,7 @@ async fn rebuild_npm_tarball_inner(
   let diagnostics = graph
     .build(
       roots.clone(),
-      &mut GcsLoader {
+      &GcsLoader {
         files: &files,
         bucket: &modules_bucket,
         scope: &scope,
@@ -493,6 +495,7 @@ async fn rebuild_npm_tarball_inner(
         npm_resolver: Default::default(),
         reporter: Default::default(),
         executor: Default::default(),
+        locker: None,
       },
     )
     .await;
@@ -501,7 +504,7 @@ async fn rebuild_npm_tarball_inner(
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: Default::default(),
     fast_check_dts: true,
-    jsr_url_provider: Some(&PassthroughJsrUrlProvider),
+    jsr_url_provider: &PassthroughJsrUrlProvider,
     module_parser: Some(&module_analyzer.analyzer),
     resolver: None,
     npm_resolver: None,
@@ -537,7 +540,7 @@ struct GcsLoader<'a> {
 
 impl<'a> GcsLoader<'a> {
   fn load_inner(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
   ) -> deno_graph::source::LoadFuture {
     let specifier = specifier.clone();
@@ -578,7 +581,7 @@ impl<'a> GcsLoader<'a> {
 
 impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
   fn load(
-    &mut self,
+    &self,
     specifier: &ModuleSpecifier,
     _options: LoadOptions,
   ) -> deno_graph::source::LoadFuture {
@@ -593,7 +596,7 @@ pub struct ModuleAnalyzer {
 }
 
 impl ModuleAnalyzer {
-  fn take_module_graph_1(&self) -> HashMap<String, ModuleInfo> {
+  fn take_module_graph_2(&self) -> HashMap<String, ModuleInfo> {
     std::mem::take(&mut *self.module_info.borrow_mut())
       .into_iter()
       .filter_map(|(url, info)| {
@@ -608,14 +611,16 @@ impl ModuleAnalyzer {
   }
 }
 
+#[async_trait::async_trait(?Send)]
 impl deno_graph::ModuleAnalyzer for ModuleAnalyzer {
-  fn analyze(
+  async fn analyze(
     &self,
     specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
   ) -> Result<ModuleInfo, deno_ast::ParseDiagnostic> {
-    let module_info = self.analyzer.analyze(specifier, source, media_type)?;
+    let module_info =
+      self.analyzer.analyze(specifier, source, media_type).await?;
     self
       .module_info
       .borrow_mut()
@@ -727,6 +732,54 @@ fn check_for_banned_syntax(
             continue;
           }
         },
+        ast::ModuleDecl::Import(n) => {
+          if let Some(with) = &n.with {
+            let range =
+              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
+                .range();
+            let keyword = parsed_source.text_info().range_text(&range);
+            if keyword.contains("assert") {
+              let (line, column) = line_col(&with.span.range());
+              return Err(PublishError::BannedImportAssertion {
+                specifier: parsed_source.specifier().to_string(),
+                line,
+                column,
+              });
+            }
+          }
+        }
+        ast::ModuleDecl::ExportNamed(n) => {
+          if let Some(with) = &n.with {
+            let src = n.src.as_ref().unwrap();
+            let range =
+              Span::new(src.span.hi(), with.span.lo(), src.span.ctxt).range();
+            let keyword = parsed_source.text_info().range_text(&range);
+            if keyword.contains("assert") {
+              let (line, column) = line_col(&with.span.range());
+              return Err(PublishError::BannedImportAssertion {
+                specifier: parsed_source.specifier().to_string(),
+                line,
+                column,
+              });
+            }
+          }
+        }
+        ast::ModuleDecl::ExportAll(n) => {
+          if let Some(with) = &n.with {
+            let range =
+              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
+                .range();
+            let keyword = parsed_source.text_info().range_text(&range);
+            if keyword.contains("assert") {
+              let (line, column) = line_col(&with.span.range());
+              return Err(PublishError::BannedImportAssertion {
+                specifier: parsed_source.specifier().to_string(),
+                line,
+                column,
+              });
+            }
+          }
+        }
         _ => continue,
       },
       ast::ModuleItem::Stmt(n) => match n {
@@ -920,5 +973,29 @@ mod tests {
 
     let x = parse("import express = React.foo;");
     assert!(super::check_for_banned_syntax(&x).is_ok());
+
+    let x = parse("import './data.json' assert { type: 'json' }");
+    let err = super::check_for_banned_syntax(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::BannedImportAssertion { .. }),
+      "{err:?}",
+    );
+
+    let x = parse("export { a } from './data.json' assert { type: 'json' }");
+    let err = super::check_for_banned_syntax(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::BannedImportAssertion { .. }),
+      "{err:?}",
+    );
+
+    let x = parse("export * from './data.json' assert { type: 'json' }");
+    let err = super::check_for_banned_syntax(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::BannedImportAssertion { .. }),
+      "{err:?}",
+    );
+
+    let x = parse("export * from './data.json' with { type: 'json' }");
+    assert!(super::check_for_banned_syntax(&x).is_ok(), "{err:?}",);
   }
 }

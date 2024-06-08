@@ -18,6 +18,18 @@ export function bar(): string {
 }
 
 # output
+== /_dist/main.d.ts ==
+export declare const foo: string;
+export declare const bar: "bar";
+export interface Foo {
+  foo: string;
+}
+export declare function bar(): string;
+//# sourceMappingURL=main.d.ts.map
+
+== /_dist/main.d.ts.map ==
+{"version":3,"file":"main.d.ts","sources":["../main.ts"],"names":[],"mappings":"AAAA,OAAO,cAAM,KAAK,MAAM,CAAS;AACjC,OAAO,cAAM,KAAM,MAAe;AAElC,iBAAiB;EACf,KAAK,MAAM;;AAGb,OAAO,iBAAS,OAAO,MAAM"}
+
 == /jsr.json ==
 {
   "name": "@scope/foo",
@@ -25,22 +37,16 @@ export function bar(): string {
   "exports": "./main.ts"
 }
 
-== /main.d.ts ==
-export declare const foo: string;
-export declare const bar: "bar";
-export interface Foo {
-  foo: string;
-}
-export declare function bar(): string;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIm1haW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxjQUFNLEtBQUssTUFBTSxDQUFTO0FBQ2pDLE9BQU8sY0FBTSxLQUFNLE1BQWU7QUFFbEMsaUJBQWlCO0VBQ2YsS0FBSyxNQUFNOztBQUdiLE9BQU8saUJBQVMsT0FBTyxNQUFNIn0=
-
 == /main.js ==
 export const foo = 'foo';
 export const bar = "bar";
 export function bar() {
   return 'bar';
 }
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIm1haW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxNQUFNLE1BQWMsTUFBTTtBQUNqQyxPQUFPLE1BQU0sTUFBTSxNQUFlO0FBTWxDLE9BQU8sU0FBUztFQUNkLE9BQU87QUFDVCJ9
+//# sourceMappingURL=main.js.map
+
+== /main.js.map ==
+{"version":3,"file":"main.js","sources":["./main.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM;AACjC,OAAO,MAAM,MAAM,MAAe;AAMlC,OAAO,SAAS;EACd,OAAO;AACT"}
 
 == /main.ts ==
 export const foo: string = 'foo';
@@ -63,7 +69,7 @@ export function bar(): string {
   "dependencies": {},
   "exports": {
     ".": {
-      "types": "./main.d.ts",
+      "types": "./_dist/main.d.ts",
       "default": "./main.js"
     }
   },

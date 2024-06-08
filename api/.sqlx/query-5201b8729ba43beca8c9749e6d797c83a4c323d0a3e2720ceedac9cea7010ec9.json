@@ -27,7 +27,8 @@
             "kind": {
               "Enum": [
                 "web",
-                "device"
+                "device",
+                "personal"
               ]
             }
           }
@@ -69,7 +70,8 @@
             "kind": {
               "Enum": [
                 "web",
-                "device"
+                "device",
+                "personal"
               ]
             }
           }

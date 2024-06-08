@@ -1,0 +1,43 @@
+# main.ts
+export const foo = bar();
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./main.ts"
+}
+
+# output
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./main.ts"
+}
+
+== /main.js ==
+export const foo = bar();
+//# sourceMappingURL=main.js.map
+
+== /main.js.map ==
+{"version":3,"file":"main.js","sources":["./main.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAM,MAAM"}
+
+== /main.ts ==
+export const foo = bar();
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "default": "./main.js"
+    }
+  },
+  "_jsr_revision": 0
+}
+

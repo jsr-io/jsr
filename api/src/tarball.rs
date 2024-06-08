@@ -52,13 +52,15 @@ use crate::npm::NPM_TARBALL_REVISION;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
+const HIGH_MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
+const HIGH_MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
 const MAX_CONCURRENT_UPLOADS: usize = 1024;
 
 static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
 pub struct ProcessTarballOutput {
   pub file_infos: Vec<FileInfo>,
-  pub module_graph_1: HashMap<String, deno_graph::ModuleInfo>,
+  pub module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
   pub exports: ExportsMap,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball_info: NpmTarballInfo,
@@ -106,6 +108,22 @@ pub async fn process_tarball(
   let mut file_infos = Vec::new();
   let mut total_file_size = 0;
 
+  // TODO: make these configurable through quota fields on the package
+  let max_file_size = if *publishing_task.package_scope == "llamaindex"
+    && *publishing_task.package_name == "core"
+  {
+    HIGH_MAX_FILE_SIZE
+  } else {
+    MAX_FILE_SIZE
+  };
+  let max_total_file_size = if *publishing_task.package_scope == "llamaindex"
+    && *publishing_task.package_name == "core"
+  {
+    HIGH_MAX_TOTAL_FILE_SIZE
+  } else {
+    MAX_TOTAL_FILE_SIZE
+  };
+
   while let Some(res) = tar.next().await {
     let mut entry = res.map_err(PublishError::UntarError)?;
 
@@ -140,18 +158,19 @@ pub async fn process_tarball(
     }
 
     let size = header.size().map_err(PublishError::UntarError)?;
-    if size > MAX_FILE_SIZE {
+    if size > max_file_size {
       return Err(PublishError::FileTooLarge {
         path,
-        max_size: MAX_FILE_SIZE,
+        max_size: max_file_size,
         size,
       });
     }
     total_file_size += size;
-    if total_file_size > MAX_TOTAL_FILE_SIZE {
+
+    if total_file_size > max_total_file_size {
       return Err(PublishError::PackageTooLarge {
         path,
-        max_size: MAX_TOTAL_FILE_SIZE,
+        max_size: max_total_file_size,
         size: total_file_size,
       });
     }
@@ -259,7 +278,7 @@ pub async fn process_tarball(
   let analysis_data = PackageAnalysisData { exports, files };
   let PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
-    module_graph_1,
+    module_graph_2,
     doc_nodes,
     dependencies,
     npm_tarball,
@@ -435,7 +454,7 @@ pub async fn process_tarball(
 
   Ok(ProcessTarballOutput {
     file_infos,
-    module_graph_1,
+    module_graph_2,
     exports,
     dependencies,
     npm_tarball_info,
@@ -485,7 +504,7 @@ pub enum PublishError {
   #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed ({info})")]
   InvalidExternalImport { specifier: String, info: String },
 
-  #[error("Modifying global types is not allowed {specifier}:{line}:{column}")]
+  #[error("modifying global types is not allowed {specifier}:{line}:{column}")]
   GlobalTypeAugmentation {
     specifier: String,
     line: usize,
@@ -499,8 +518,15 @@ pub enum PublishError {
     column: usize,
   },
 
-  #[error("Triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
+  #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
   BannedTripleSlashDirectives {
+    specifier: String,
+    line: usize,
+    column: usize,
+  },
+
+  #[error("import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}")]
+  BannedImportAssertion {
     specifier: String,
     line: usize,
     column: usize,
@@ -614,6 +640,9 @@ impl PublishError {
       PublishError::BannedTripleSlashDirectives { .. } => {
         Some("bannedTripleSlashDirectives")
       }
+      PublishError::BannedImportAssertion { .. } => {
+        Some("bannedImportAssertion")
+      }
       PublishError::InvalidExternalImport { .. } => {
         Some("invalidExternalImport")
       }
@@ -638,8 +667,8 @@ impl PublishError {
       PublishError::NpmTarballError(_) => Some("npmTarballError"),
       PublishError::InvalidJsrSpecifier(_) => Some("invalidJsrSpecifier"),
       PublishError::InvalidNpmSpecifier(_) => Some("invalidNpmSpecifier"),
-      PublishError::JsrMissingConstraint(_) => Some("jsrMissingConstraint"),
-      PublishError::NpmMissingConstraint(_) => Some("npmMissingConstraint"),
+      PublishError::JsrMissingConstraint(_) => Some("missingConstraint"),
+      PublishError::NpmMissingConstraint(_) => Some("missingConstraint"),
       PublishError::InvalidJsrScopedPackageName(_, _) => {
         Some("invalidJsrScopedPackageName")
       }

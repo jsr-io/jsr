@@ -549,7 +549,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
-    orama_client.delete_package(&scope, &package).await?;
+    orama_client.delete_package(&scope, &package);
   }
 
   let res = Response::builder()
@@ -903,11 +903,16 @@ pub async fn get_docs_handler(
   });
   Span::current()
     .record("entrypoint", &field::display(&entrypoint.unwrap_or("")));
-  let symbol = req.query("symbol").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
-  });
-  Span::current().record("symbol", &field::display(&symbol.unwrap_or("")));
+
+  let symbol = req
+    .query("symbol")
+    .and_then(|s| match s.as_str() {
+      "" => None,
+      s => Some(urlencoding::decode(s)),
+    })
+    .transpose()?;
+  Span::current()
+    .record("symbol", &field::display(&symbol.as_deref().unwrap_or("")));
 
   if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
     return Err(ApiError::MalformedRequest {
@@ -1013,28 +1018,14 @@ pub async fn get_docs_handler(
   .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
-    GeneratedDocsOutput::Docs(docs) => {
-      const FIXED_SCRIPT: &str = r#"
-document.addEventListener("click", (e) => {
-  let el = e.target;
-  do {
-    if (el instanceof HTMLButtonElement && el.dataset["copy"]) {
-      navigator?.clipboard?.writeText(el.dataset["copy"]);
-      return;
-    }
-  } while (el = el.parentElement);
-});
-  "#;
-
-      Ok(ApiPackageVersionDocs::Content {
-        css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-        script: Cow::Borrowed(FIXED_SCRIPT),
-        breadcrumbs: docs.breadcrumbs,
-        sidepanel: docs.sidepanel,
-        main: docs.main,
-        version: ApiPackageVersion::from(version),
-      })
-    }
+    GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
+      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+      breadcrumbs: docs.breadcrumbs,
+      toc: docs.toc,
+      main: docs.main,
+      version: ApiPackageVersion::from(version),
+    }),
     GeneratedDocsOutput::Redirect(href) => {
       Ok(ApiPackageVersionDocs::Redirect { symbol: href })
     }
@@ -1094,7 +1085,7 @@ pub async fn get_docs_search_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let ctx = crate::docs::get_generate_ctx(
-    &doc_nodes,
+    doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
     scope.clone(),
@@ -1106,10 +1097,7 @@ pub async fn get_docs_search_handler(
     registry_url,
   );
 
-  let search_index = deno_doc::html::generate_search_index(
-    &ctx,
-    &ctx.doc_nodes_by_url_add_context(doc_nodes),
-  );
+  let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
 }
@@ -1425,7 +1413,11 @@ mod test {
   use crate::db::NewPackageVersion;
   use crate::db::NewPublishingTask;
   use crate::db::NewScopeInvite;
+  use crate::db::PackagePublishPermission;
+  use crate::db::Permission;
+  use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
+  use crate::db::TokenType;
   use crate::ids::PackageName;
   use crate::ids::PackagePath;
   use crate::ids::ScopeName;
@@ -1433,6 +1425,7 @@ mod test {
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
+  use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
 
@@ -2397,6 +2390,51 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   }
 
   #[tokio::test]
+  async fn test_publishing_with_missing_auth() {
+    let mut t = TestSetup::new().await;
+
+    let permission =
+      Permission::PackagePublish(PackagePublishPermission::Scope {
+        scope: ScopeName::new("otherscope".to_owned()).unwrap(),
+      });
+
+    let token = create_token(
+      &t.db(),
+      t.user1.user.id,
+      TokenType::Web,
+      None,
+      None,
+      Some(Permissions(vec![permission])),
+    )
+    .await
+    .unwrap();
+
+    let scope = t.scope.scope.clone();
+
+    let name = PackageName::new("foo".to_owned()).unwrap();
+
+    let CreatePackageResult::Ok(_) =
+      t.db().create_package(&scope, &name).await.unwrap()
+    else {
+      unreachable!();
+    };
+
+    let data = create_mock_tarball("ok");
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .token(Some(&token))
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::FORBIDDEN, "missingPermission")
+      .await;
+  }
+
+  #[tokio::test]
   async fn test_package_docs() {
     let mut t = TestSetup::new().await;
 
@@ -2428,13 +2466,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         css,
         script: _,
         breadcrumbs,
-        sidepanel,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(sidepanel.is_some(), "{:?}", sidepanel)
+        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -2453,7 +2491,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         css,
         script: _,
         breadcrumbs,
-        sidepanel,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
@@ -2463,7 +2501,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           "{:?}",
           breadcrumbs
         );
-        assert!(sidepanel.is_none(), "{:?}", sidepanel);
+        assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -2482,7 +2520,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         css,
         script: _,
         breadcrumbs,
-        sidepanel,
+        toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
@@ -2492,7 +2530,39 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           "{:?}",
           breadcrumbs
         );
-        assert!(sidepanel.is_some(), "{:?}", sidepanel);
+        assert!(toc.is_some(), "{:?}", toc);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // symbol page
+    let mut resp = t
+      .http()
+      .get(format!(
+        "/api/scopes/scope/packages/foo/versions/1.2.3/docs?symbol={}",
+        urlencoding::encode("读取多键1")
+      ))
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content {
+        version,
+        css,
+        script: _,
+        breadcrumbs,
+        toc,
+        main: _,
+      } => {
+        assert_eq!(version.version, task.package_version);
+        assert!(css.contains("{max-width:"), "{}", css);
+        assert!(
+          breadcrumbs.as_ref().unwrap().contains("读取多键1"),
+          "{:?}",
+          breadcrumbs
+        );
+        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -2507,7 +2577,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"","line":10,"col":13,"byteIndex":99},"declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"declarationKind":"export","deprecated":false}]}),
     );
 
     // symbol doesn't exist

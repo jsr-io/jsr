@@ -68,6 +68,8 @@ Path rules are as follows:
 - Does not contain chars that have a special meaning in URLs (`%` or `#`)
 - Does not contain other chars that are not one of `a-z`, `A-Z`, `0-9`, `$`,
   `(`, `)`, `+`, `-`, `.`, `@`, `[`, `]`, `_`, `{`, `}`, or `~`
+- Does not start with `/_dist/`, as this is reserved for the directory JSR emits
+  `.js` and .`d.ts` files to when building an npm tarball
 
 ### `invalidExternalImport`
 
@@ -104,6 +106,17 @@ allowed by JSR. JSR only allows triple slash directives that are
 `/// <reference no-default-lib="true" />` are not allowed.
 
 You can fix this error by removing the triple slash directive from your source.
+
+### `bannedImportAssertion`
+
+The package being published contains the legacy "import assertions" syntax,
+which is not allowed by JSR. JSR only allows the new "import attributes" syntax.
+
+`import "./data.json" assert { type: "json" };` is not allowed.
+`import "./data.json" with { type: "json" };` is allowed.
+
+You can fix this error by updating the import assertion to an import attribute,
+by replacing `assert` with `with`.
 
 ### `fileTooLarge`
 

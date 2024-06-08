@@ -46,6 +46,9 @@ impl OramaClient {
 
   #[instrument(name = "OramaClient::upsert_package", skip(self))]
   pub fn upsert_package(&self, package: &Package, meta: &PackageVersionMeta) {
+    if package.version_count == 0 {
+      return;
+    }
     let id = format!("@{}/{}", package.scope, package.name);
     let score = package
       .latest_version
@@ -87,27 +90,31 @@ impl OramaClient {
     );
   }
 
-  #[instrument(name = "OramaClient::delete_package", skip(self), err)]
-  pub async fn delete_package(
-    &self,
-    scope: &ScopeName,
-    package: &PackageName,
-  ) -> Result<(), anyhow::Error> {
+  #[instrument(name = "OramaClient::delete_package", skip(self))]
+  pub fn delete_package(&self, scope: &ScopeName, package: &PackageName) {
     let id = format!("@{scope}/{package}");
-    let res = self
-      .request(
-        &format!("/webhooks/{}/notify", self.index_id),
-        serde_json::json!({ "remove": [id] }),
-      )
-      .await?;
-    let status = res.status();
-    if status.is_success() {
-      Ok(())
-    } else {
-      let response = res.text().await?;
-      Err(anyhow::anyhow!(
-        "failed to deploy changes (status {status}): {response}"
-      ))
-    }
+    let body = serde_json::json!({ "remove": [id] });
+    let span = Span::current();
+    let client = self.clone();
+    let path = format!("/webhooks/{}/notify", self.index_id);
+    tokio::spawn(
+      async move {
+        let res = match  client.request(&path, body).await {
+          Ok(res) => res,
+          Err(err) => {
+            error!("failed to OramaClient::delete_package: {err}");
+            return;
+          }
+        };
+        let status = res.status();
+        if !status.is_success() {
+          let response = res.text().await.unwrap_or_default();
+          error!(
+            "failed to OramaClient::delete_package for {id} (status {status}): {response}"
+          );
+        }
+      }
+      .instrument(span),
+    );
   }
 }

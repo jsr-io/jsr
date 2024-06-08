@@ -1,0 +1,5 @@
+{
+  "name": "@scope/foo",
+  "version": "1.2.3",
+  "exports": "./mod.tsx"
+}

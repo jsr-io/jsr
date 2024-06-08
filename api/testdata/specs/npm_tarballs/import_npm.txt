@@ -33,20 +33,26 @@ await import("npm:lit@^2.2.7")
 <external>
 
 # output
+== /_dist/baz.d.ts ==
+
+//# sourceMappingURL=baz.d.ts.map
+
+== /_dist/baz.d.ts.map ==
+{"version":3,"file":"baz.d.ts","sources":[],"names":[],"mappings":""}
+
 == /bar.mjs ==
 
 import { html } from "lit";
 await import("lit")
 
-== /baz.d.ts ==
-
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
-
 == /baz.js ==
 import { html } from "lit";
 html();
 await import("lit");
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhei50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLElBQUksY0FBeUI7QUFDdEM7QUFDQSxNQUFNLE1BQU0sQ0FBQyJ9
+//# sourceMappingURL=baz.js.map
+
+== /baz.js.map ==
+{"version":3,"file":"baz.js","sources":["./baz.ts"],"names":[],"mappings":"AAAA,SAAS,IAAI,cAAyB;AACtC;AACA,MAAM,MAAM,CAAC"}
 
 == /baz.ts ==
 import { html } from "lit";
@@ -91,7 +97,7 @@ await import("lit")
       "default": "./bar.mjs"
     },
     "./baz": {
-      "types": "./baz.d.ts",
+      "types": "./_dist/baz.d.ts",
       "default": "./baz.js"
     },
     "./fizz": {

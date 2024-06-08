@@ -17,9 +17,9 @@ export function ListPanel(
     <div class="w-full">
       <div class="mb-2">
         {title && (
-          <h2 class="text-xl md:text-2xl font-semibold">
+          <h3 class="text-lg md:text-xl font-semibold">
             {title}
-          </h2>
+          </h3>
         )}
         {subtitle && (
           <div class="text-base text-gray-500">

@@ -19,23 +19,29 @@ export type Num = number;
 }
 
 # output
-== /foo.d.ts ==
+== /_dist/foo.d.ts ==
 export type Num = number;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxZQUFZLE1BQU0sTUFBTSJ9
+//# sourceMappingURL=foo.d.ts.map
+
+== /_dist/foo.d.ts.map ==
+{"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,YAAY,MAAM,MAAM"}
 
 == /foo.js ==
 
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IiJ9
+//# sourceMappingURL=foo.js.map
+
+== /foo.js.map ==
+{"version":3,"file":"foo.js","sources":[],"names":[],"mappings":""}
 
 == /foo.ts ==
 export type Num = number;
 
 == /index.d.ts ==
-export const a: import("./foo.d.ts").Num;
+export const a: import("./_dist/foo.js").Num;
 
 == /index.js ==
 
-/** @type {import("./foo.d.ts").Num} */
+/** @type {import("./_dist/foo.js").Num} */
 export const a = 1;
 
 == /jsr.json ==

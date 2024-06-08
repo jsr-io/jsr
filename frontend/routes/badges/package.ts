@@ -22,39 +22,34 @@ export const handler: Handlers<unknown, State> = {
           throw packageResp;
         }
       } else {
-        return new Response(
-          JSON.stringify({
-            schemaVersion: 1,
-            label: "",
-            // namedLogo: "jsr", TODO: add icon to shields.io or simple-icons. temporary solution below.
-            logoSvg: await Deno.readTextFile(
-              new URL("../../static/logo.svg", import.meta.url),
-            ),
-            message: packageResp.data.latestVersion,
-            labelColor: "rgb(247,223,30)",
-            color: "rgb(8,51,68)",
-            logoWidth: "25",
-          }),
-          {
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return Response.json({
+          schemaVersion: 1,
+          label: "",
+          message: packageResp.data.latestVersion,
+          labelColor: "rgb(247,223,30)",
+          color: "rgb(8,51,68)",
+        });
       }
     } else {
-      const url = new URL(req.url);
-      url.protocol = "https:";
+      const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
 
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
       shieldsUrl.search = url.search;
       shieldsUrl.searchParams.set("url", url.href);
+      shieldsUrl.searchParams.set("logo", "jsr");
+      shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
+      shieldsUrl.searchParams.set("logoSize", "auto");
+      shieldsUrl.searchParams.set("cacheSeconds", "300");
 
       const res = await fetch(shieldsUrl);
 
       return new Response(res.body, {
         status: res.status,
         headers: {
+          "access-control-allow-origin": res.headers.get(
+            "access-control-allow-origin",
+          )!,
+          "cache-control": res.headers.get("cache-control")!,
           "content-type": res.headers.get("content-type")!,
         },
       });

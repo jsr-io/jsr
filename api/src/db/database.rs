@@ -1161,7 +1161,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       ORDER BY package_versions.created_at DESC
@@ -1304,7 +1304,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "package_version_newer_versions_count!",
       users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
@@ -1370,7 +1370,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
@@ -1398,7 +1398,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
@@ -1512,7 +1512,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!""#,
       new_package_version.scope as _,
       new_package_version.name as _,
@@ -1546,7 +1546,7 @@ impl Database {
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%' 
+        AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "newer_versions_count!""#,
       scope as _,
       name as _,
@@ -2567,11 +2567,39 @@ impl Database {
     .await
   }
 
-  #[instrument(name = "Database::get_token", skip(self), err)]
-  pub async fn get_token(&self, hash: &str) -> Result<Option<Token>> {
+  #[instrument(name = "Database::get_token_by_hash", skip(self), err)]
+  pub async fn get_token_by_hash(&self, hash: &str) -> Result<Option<Token>> {
     sqlx::query_as!(Token, r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at FROM tokens WHERE hash = $1"#, hash)
       .fetch_optional(&self.pool)
       .await
+  }
+
+  #[instrument(name = "Database::list_token", skip(self), err)]
+  pub async fn list_tokens(&self, user_id: Uuid) -> Result<Vec<Token>> {
+    // list a user's tokens where the expiration date is at most 1 day in the past
+    sqlx::query_as!(
+      Token,
+      r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at
+      FROM tokens
+      WHERE user_id = $1 AND (expires_at > now() - interval '1 day' OR expires_at IS NULL)
+      ORDER BY expires_at DESC NULLS FIRST, created_at DESC
+      "#,
+      user_id
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::delete_token", skip(self), err)]
+  pub async fn delete_token(&self, user_id: Uuid, id: Uuid) -> Result<bool> {
+    let res = sqlx::query!(
+      r#"DELETE FROM tokens WHERE user_id = $1 ANd id = $2"#,
+      user_id,
+      id
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(res.rows_affected() > 0)
   }
 
   #[instrument(

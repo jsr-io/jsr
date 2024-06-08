@@ -106,9 +106,9 @@ https://jsr.io/@luca/flag/1.0.0_meta.json
 ```
 
 This metadata contains information about the requested version, such as the list
-of files in the package version, the `exports` field, and a `moduleGraph1` field
-that contains information about the module graph to allow for less waterfall
-when downloading modules.
+of files in the package version, the `exports` field, and a `moduleGraph1` or
+`moduleGraph2` field that contains information about the module graph to allow
+for less waterfall when downloading modules.
 
 For the above `@luca/flag` package version `1.0.0`, the metadata would look like
 this:
@@ -214,11 +214,8 @@ JSR supports authenticating with three types of tokens:
 
 - Long-lived personal access tokens, which are used to authenticate as a user.
   Personal access tokens may have an expiration date, and may grant only limited
-  permissions.
-
-  > A user will be able to create personal access tokens in the user in their
-  > account settings page. This is not yet implemented. See
-  > [issue #393](https://github.com/jsr-io/jsr/issues/393).
+  permissions. Personal access tokens can be created on the JSR account settings
+  page in the "Tokens" tab.
 
 - GitHub Actions OIDC tokens, which are used to authenticate as a GitHub Actions
   runner. These tokens are created from within GitHub Actions, and are only

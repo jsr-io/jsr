@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use deno_ast::ModuleSpecifier;
@@ -28,6 +29,7 @@ pub struct SpecifierRewriter<'a> {
 
 impl<'a> SpecifierRewriter<'a> {
   pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
+    let source_text_specifier = specifier;
     let dep = self.dependencies.get(specifier)?;
 
     let specifier = match kind {
@@ -40,7 +42,8 @@ impl<'a> SpecifierRewriter<'a> {
       RewriteKind::Declaration => self.declaration_rewrites,
     };
 
-    let resolved_specifier = follow_specifier(specifier, rewrites)?;
+    let mut resolved_specifier =
+      Cow::Borrowed(follow_specifier(specifier, rewrites)?);
 
     if let Some(specifier) =
       rewrite_npm_and_jsr_specifier(resolved_specifier.as_str())
@@ -48,17 +51,35 @@ impl<'a> SpecifierRewriter<'a> {
       return Some(specifier);
     };
 
-    if resolved_specifier == specifier {
+    if matches!(kind, RewriteKind::Declaration)
+      && resolved_specifier.scheme() == "file"
+    {
+      let path = resolved_specifier.path();
+      if path.ends_with(".d.ts") || path.ends_with(".d.mts") {
+        // If the base specifier is a declaration file, and a dependency is also a
+        // declaration file, TypeScript will not allow the import (TS2846). In
+        // this case, replace the `.d.ts` extension in the resolved specifier
+        // with `.js` so that TypeScript thinks we're importing a source file,
+        // which is allowed. It will then probe for the `.d.ts` file, which it
+        // will find.
+        // We do not use extensionless imports, because TypeScript does not
+        // allow them under `moduleResolution: "nodenext"` (TS2835).
+        let path = rewrite_path_extension(path, Extension::Js).unwrap();
+        resolved_specifier.to_mut().set_path(&path);
+      }
+    }
+
+    let new_specifier = if resolved_specifier.scheme() == "file" {
+      relative_import_specifier(self.base_specifier, &resolved_specifier)
+    } else {
+      resolved_specifier.to_string()
+    };
+
+    if new_specifier == source_text_specifier {
       // No need to rewrite if the specifier is the same as the resolved
       // specifier.
       return None;
     }
-
-    let new_specifier = if resolved_specifier.scheme() == "file" {
-      relative_import_specifier(self.base_specifier, resolved_specifier)
-    } else {
-      resolved_specifier.to_string()
-    };
 
     Some(new_specifier)
   }
@@ -83,20 +104,20 @@ pub fn follow_specifier<'a>(
   remapped_specifiers: &'a HashMap<&ModuleSpecifier, ModuleSpecifier>,
 ) -> Option<&'a ModuleSpecifier> {
   let mut redirects = 0;
-  let mut types_specifier = specifier;
+  let mut specifier = specifier;
   loop {
     // avoid infinite loops
     if redirects > 10 {
       return None;
     }
-    if let Some(rewritten) = remapped_specifiers.get(&types_specifier) {
-      types_specifier = rewritten;
+    if let Some(rewritten) = remapped_specifiers.get(&specifier) {
+      specifier = rewritten;
     } else {
       break;
     }
     redirects += 1;
   }
-  Some(types_specifier)
+  Some(specifier)
 }
 
 pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
@@ -142,14 +163,18 @@ pub enum Extension {
   Dts,
 }
 
-pub fn rewrite_file_specifier_extension(
+pub fn rewrite_file_specifier(
   specifier: &ModuleSpecifier,
+  prefix: &str,
   new_extension: Extension,
 ) -> Option<ModuleSpecifier> {
   assert_eq!(specifier.scheme(), "file");
   let path = specifier.path();
   let rewritten_path = rewrite_path_extension(path, new_extension)?;
-  Some(ModuleSpecifier::parse(&format!("file://{}", rewritten_path)).unwrap())
+  Some(
+    ModuleSpecifier::parse(&format!("file://{prefix}{rewritten_path}"))
+      .unwrap(),
+  )
 }
 
 pub fn rewrite_path_extension(

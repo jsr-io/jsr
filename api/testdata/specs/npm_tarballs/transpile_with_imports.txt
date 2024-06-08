@@ -16,28 +16,40 @@ export function add(a: number, b: number): number {
 }
 
 # output
-== /bar.d.ts ==
+== /_dist/bar.d.ts ==
 export declare function add(a: number, b: number): number;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhci50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLGlCQUFTLElBQUksR0FBRyxNQUFNLEVBQUUsR0FBRyxNQUFNLEdBQUcsTUFBTSJ9
+//# sourceMappingURL=bar.d.ts.map
+
+== /_dist/bar.d.ts.map ==
+{"version":3,"file":"bar.d.ts","sources":["../bar.ts"],"names":[],"mappings":"AAAA,OAAO,iBAAS,IAAI,GAAG,MAAM,EAAE,GAAG,MAAM,GAAG,MAAM"}
+
+== /_dist/foo.d.ts ==
+export { add } from "./bar.js";
+//# sourceMappingURL=foo.d.ts.map
+
+== /_dist/foo.d.ts.map ==
+{"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,SAAS,GAAG,mBAAmB"}
 
 == /bar.js ==
 export function add(a, b) {
   return a + b;
 }
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhci50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLFNBQVMsSUFBSSxDQUFTLEVBQUUsQ0FBUztFQUN0QyxPQUFPLElBQUk7QUFDYiJ9
+//# sourceMappingURL=bar.js.map
+
+== /bar.js.map ==
+{"version":3,"file":"bar.js","sources":["./bar.ts"],"names":[],"mappings":"AAAA,OAAO,SAAS,IAAI,CAAS,EAAE,CAAS;EACtC,OAAO,IAAI;AACb"}
 
 == /bar.ts ==
 export function add(a: number, b: number): number {
   return a + b;
 }
 
-== /foo.d.ts ==
-export { add } from "./bar.d.ts";
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLEdBQUcscUJBQW1CIn0=
-
 == /foo.js ==
 export { add } from "./bar.js";
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxTQUFTLEdBQUcsbUJBQW1CIn0=
+//# sourceMappingURL=foo.js.map
+
+== /foo.js.map ==
+{"version":3,"file":"foo.js","sources":["./foo.ts"],"names":[],"mappings":"AAAA,SAAS,GAAG,mBAAmB"}
 
 == /foo.ts ==
 export { add } from "./bar.js";
@@ -60,7 +72,7 @@ export { add } from "./bar.js";
   "dependencies": {},
   "exports": {
     ".": {
-      "types": "./foo.d.ts",
+      "types": "./_dist/foo.d.ts",
       "default": "./foo.js"
     }
   },

@@ -14,6 +14,8 @@ import * as $_middleware from "./routes/_middleware.ts";
 import * as $account_index from "./routes/account/index.tsx";
 import * as $account_invites from "./routes/account/invites.tsx";
 import * as $account_settings from "./routes/account/settings.tsx";
+import * as $account_tokens_create from "./routes/account/tokens/create.tsx";
+import * as $account_tokens_index from "./routes/account/tokens/index.tsx";
 import * as $admin_middleware from "./routes/admin/_middleware.ts";
 import * as $admin_index from "./routes/admin/index.tsx";
 import * as $admin_publishingTasks from "./routes/admin/publishingTasks.tsx";
@@ -22,6 +24,7 @@ import * as $admin_users from "./routes/admin/users.tsx";
 import * as $auth from "./routes/auth.tsx";
 import * as $badges_package from "./routes/badges/package.ts";
 import * as $badges_package_score from "./routes/badges/package_score.ts";
+import * as $badges_scope from "./routes/badges/scope.ts";
 import * as $docs_id_ from "./routes/docs/[...id].tsx";
 import * as $docs_index from "./routes/docs/index.ts";
 import * as $go_id_ from "./routes/go/[id].ts";
@@ -29,6 +32,7 @@ import * as $index from "./routes/index.tsx";
 import * as $login from "./routes/login.tsx";
 import * as $logout from "./routes/logout.tsx";
 import * as $new from "./routes/new.tsx";
+import * as $package_all_symbols from "./routes/package/all_symbols.tsx";
 import * as $package_dependencies from "./routes/package/dependencies.tsx";
 import * as $package_dependents from "./routes/package/dependents.tsx";
 import * as $package_doc_file_ from "./routes/package/doc/[file].tsx";
@@ -39,7 +43,6 @@ import * as $package_publish from "./routes/package/publish.tsx";
 import * as $package_score from "./routes/package/score.tsx";
 import * as $package_settings from "./routes/package/settings.tsx";
 import * as $package_source from "./routes/package/source.tsx";
-import * as $package_symbols from "./routes/package/symbols.tsx";
 import * as $package_versions from "./routes/package/versions.tsx";
 import * as $packages from "./routes/packages.tsx";
 import * as $publishing_deny from "./routes/publishing/deny.tsx";
@@ -63,6 +66,9 @@ import * as $admin_UserEdit from "./islands/admin/UserEdit.tsx";
 import * as $new_1 from "./islands/new.tsx";
 import * as $_scope_islands_ScopeInviteForm from "./routes/@[scope]/(_islands)/ScopeInviteForm.tsx";
 import * as $_scope_islands_ScopeMemberRole from "./routes/@[scope]/(_islands)/ScopeMemberRole.tsx";
+import * as $account_tokens_islands_CreateToken from "./routes/account/tokens/(_islands)/CreateToken.tsx";
+import * as $account_tokens_islands_RevokeToken from "./routes/account/tokens/(_islands)/RevokeToken.tsx";
+import * as $package_islands_BreadcrumbsSticky from "./routes/package/(_islands)/BreadcrumbsSticky.tsx";
 import * as $package_islands_LocalSymbolSearch from "./routes/package/(_islands)/LocalSymbolSearch.tsx";
 import * as $package_islands_PackageDescriptionEditor from "./routes/package/(_islands)/PackageDescriptionEditor.tsx";
 import * as $package_islands_PackageGitHubSettings from "./routes/package/(_islands)/PackageGitHubSettings.tsx";
@@ -84,6 +90,8 @@ const manifest = {
     "./routes/account/index.tsx": $account_index,
     "./routes/account/invites.tsx": $account_invites,
     "./routes/account/settings.tsx": $account_settings,
+    "./routes/account/tokens/create.tsx": $account_tokens_create,
+    "./routes/account/tokens/index.tsx": $account_tokens_index,
     "./routes/admin/_middleware.ts": $admin_middleware,
     "./routes/admin/index.tsx": $admin_index,
     "./routes/admin/publishingTasks.tsx": $admin_publishingTasks,
@@ -92,6 +100,7 @@ const manifest = {
     "./routes/auth.tsx": $auth,
     "./routes/badges/package.ts": $badges_package,
     "./routes/badges/package_score.ts": $badges_package_score,
+    "./routes/badges/scope.ts": $badges_scope,
     "./routes/docs/[...id].tsx": $docs_id_,
     "./routes/docs/index.ts": $docs_index,
     "./routes/go/[id].ts": $go_id_,
@@ -99,6 +108,7 @@ const manifest = {
     "./routes/login.tsx": $login,
     "./routes/logout.tsx": $logout,
     "./routes/new.tsx": $new,
+    "./routes/package/all_symbols.tsx": $package_all_symbols,
     "./routes/package/dependencies.tsx": $package_dependencies,
     "./routes/package/dependents.tsx": $package_dependents,
     "./routes/package/doc/[file].tsx": $package_doc_file_,
@@ -109,7 +119,6 @@ const manifest = {
     "./routes/package/score.tsx": $package_score,
     "./routes/package/settings.tsx": $package_settings,
     "./routes/package/source.tsx": $package_source,
-    "./routes/package/symbols.tsx": $package_symbols,
     "./routes/package/versions.tsx": $package_versions,
     "./routes/packages.tsx": $packages,
     "./routes/publishing/deny.tsx": $publishing_deny,
@@ -137,6 +146,12 @@ const manifest = {
       $_scope_islands_ScopeInviteForm,
     "./routes/@[scope]/(_islands)/ScopeMemberRole.tsx":
       $_scope_islands_ScopeMemberRole,
+    "./routes/account/tokens/(_islands)/CreateToken.tsx":
+      $account_tokens_islands_CreateToken,
+    "./routes/account/tokens/(_islands)/RevokeToken.tsx":
+      $account_tokens_islands_RevokeToken,
+    "./routes/package/(_islands)/BreadcrumbsSticky.tsx":
+      $package_islands_BreadcrumbsSticky,
     "./routes/package/(_islands)/LocalSymbolSearch.tsx":
       $package_islands_LocalSymbolSearch,
     "./routes/package/(_islands)/PackageDescriptionEditor.tsx":

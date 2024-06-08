@@ -9,8 +9,10 @@ use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
 use deno_ast::TranspileOptions;
 use deno_graph::FastCheckTypeModule;
+use url::Url;
 
 use crate::npm::import_transform::ImportRewriteTransformer;
+use crate::npm::specifiers::relative_import_specifier;
 
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
@@ -18,14 +20,18 @@ use super::specifiers::SpecifierRewriter;
 pub fn transpile_to_js(
   source: &ParsedSource,
   specifier_rewriter: SpecifierRewriter,
-) -> Result<String, anyhow::Error> {
+  target_specifier: &Url,
+) -> Result<(String, String), anyhow::Error> {
+  let basename = target_specifier.path().rsplit_once('/').unwrap().1;
   let emit_options = deno_ast::EmitOptions {
-    source_map: SourceMapOption::Inline,
+    source_map: SourceMapOption::Separate,
+    source_map_file: Some(basename.to_owned()),
     inline_sources: false,
     keep_comments: true,
   };
 
-  let file_name = source.specifier().path().split('/').last().unwrap();
+  let file_name =
+    relative_import_specifier(target_specifier, source.specifier());
   let source_map =
     SourceMap::single(file_name, source.text_info().text_str().to_owned());
 
@@ -59,9 +65,16 @@ pub fn transpile_to_js(
       source.diagnostics(),
     )?;
 
-    let emitted = emit(&program, &comments, &source_map, &emit_options)?;
+    let EmittedSource {
+      mut text,
+      source_map,
+    } = emit(&program, &comments, &source_map, &emit_options)?;
+    if !text.ends_with('\n') {
+      text.push('\n');
+    }
+    text.push_str(format!("//# sourceMappingURL={}.map", basename).as_str());
 
-    Ok(emitted.text)
+    Ok((text, source_map.unwrap()))
   })
 }
 
@@ -69,16 +82,20 @@ pub fn transpile_to_dts(
   source: &ParsedSource,
   fast_check_module: &FastCheckTypeModule,
   specifier_rewriter: SpecifierRewriter,
-) -> Result<String, anyhow::Error> {
+  target_specifier: &Url,
+) -> Result<(String, String), anyhow::Error> {
   let dts = fast_check_module.dts.as_ref().unwrap();
 
+  let basename = target_specifier.path().rsplit_once('/').unwrap().1;
   let emit_options = deno_ast::EmitOptions {
-    source_map: SourceMapOption::Inline,
+    source_map: SourceMapOption::Separate,
+    source_map_file: Some(basename.to_owned()),
     inline_sources: false,
     keep_comments: true,
   };
 
-  let file_name = source.specifier().path().split('/').last().unwrap();
+  let file_name =
+    relative_import_specifier(target_specifier, source.specifier());
   let source_map =
     SourceMap::single(file_name, source.text_info().text_str().to_owned());
 
@@ -92,8 +109,14 @@ pub fn transpile_to_dts(
   };
   program.visit_mut_with(&mut import_rewrite_transformer);
 
-  let EmittedSource { text, .. } =
-    emit(&program, &comments, &source_map, &emit_options)?;
+  let EmittedSource {
+    mut text,
+    source_map,
+  } = emit(&program, &comments, &source_map, &emit_options)?;
+  if !text.ends_with('\n') {
+    text.push('\n');
+  }
+  text.push_str(format!("//# sourceMappingURL={}.map", basename).as_str());
 
-  Ok(text)
+  Ok((text, source_map.unwrap()))
 }

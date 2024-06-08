@@ -1953,6 +1953,31 @@ components:
               enum: ["package/publish"]
             scope:
               $ref: "#/components/schemas/ScopeName"
+          required:
+            - permission
+            - scope
+        - type: object
+          properties:
+            permission:
+              type: string
+              description: The permission name.
+              enum: ["package/publish"]
+            scope:
+              $ref: "#/components/schemas/ScopeName"
+            package:
+              $ref: "#/components/schemas/PackageName"
+          required:
+            - permission
+            - scope
+            - package
+        - type: object
+          properties:
+            permission:
+              type: string
+              description: The permission name.
+              enum: ["package/publish"]
+            scope:
+              $ref: "#/components/schemas/ScopeName"
             package:
               $ref: "#/components/schemas/PackageName"
             version:

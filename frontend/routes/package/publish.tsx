@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type { FullUser, Package, ScopeMember } from "../../utils/api_types.ts";
+import type { FullUser, Package } from "../../utils/api_types.ts";
 import { State } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
@@ -204,8 +204,9 @@ function GitHubActions({ pkg, canEdit, user }: {
   return (
     <>
       <p class="mt-4">
-        This package is linked to <GitHub class="inline size-5 -mt-[2px]" />
-        {" "}
+        This package is linked to{" "}
+        <GitHub class="inline size-5 -mt-[2px]" aria-hidden={true} />{" "}
+        <span className="sr-only">GitHub</span>{" "}
         <a
           href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
           class="link"

@@ -110,10 +110,9 @@ function Dependent(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
-    const reqUrl = new URL(req.url);
-    const page = +(reqUrl.searchParams.get("page") || 1);
-    const limit = +(reqUrl.searchParams.get("limit") || 20);
+  async GET(_req, ctx) {
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     const [res, dependentsResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),

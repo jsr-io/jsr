@@ -21,6 +21,13 @@ this is data
 }
 
 # output
+== /_dist/foo.d.ts ==
+export declare const foo: string;
+//# sourceMappingURL=foo.d.ts.map
+
+== /_dist/foo.d.ts.map ==
+{"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,OAAO,cAAM,KAAK,MAAM,CAAS"}
+
 == /bar.json ==
 console.log('foo');
 
@@ -28,12 +35,14 @@ console.log('foo');
 this is data
 
 == /foo.d.ts ==
-export declare const foo: string;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLGNBQU0sS0FBSyxNQUFNLENBQVMifQ==
+// unrelated content is overwritten
 
 == /foo.js ==
 export const foo = 'bar';
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImZvby50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFBQSxPQUFPLE1BQU0sTUFBYyxNQUFNIn0=
+//# sourceMappingURL=foo.js.map
+
+== /foo.js.map ==
+{"version":3,"file":"foo.js","sources":["./foo.ts"],"names":[],"mappings":"AAAA,OAAO,MAAM,MAAc,MAAM"}
 
 == /foo.ts ==
 export const foo: string = 'bar';
@@ -57,7 +66,7 @@ export const foo: string = 'bar';
   "dependencies": {},
   "exports": {
     "./foo": {
-      "types": "./foo.d.ts",
+      "types": "./_dist/foo.d.ts",
       "default": "./foo.js"
     },
     "./bar": {

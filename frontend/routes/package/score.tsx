@@ -61,6 +61,7 @@ export default function Score(
             name={data.package.name}
             scorePercentage={data.package.score}
             score={data.score}
+            canAdmin={iam.canAdmin}
           />
         )
         : (
@@ -78,8 +79,9 @@ function ScoreInfo(props: {
   name: string;
   scorePercentage: number;
   score: PackageScore;
+  canAdmin: boolean;
 }) {
-  const { scope, name, scorePercentage, score } = props;
+  const { scope, name, scorePercentage, score, canAdmin } = props;
 
   return (
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
@@ -173,8 +175,14 @@ function ScoreInfo(props: {
           scoreValue={1}
           title="Has a description"
         >
-          The package should have a description set in the package settings to
-          help users find this package via search.
+          The package should have a description set in {canAdmin
+            ? (
+              <a class="link" href="settings#description">
+                the package settings
+              </a>
+            )
+            : "the package settings"}{" "}
+          to help users find this package via search.
         </ScoreItem>
         <ScoreItem
           value={score.atLeastOneRuntimeCompatible}
@@ -182,8 +190,14 @@ function ScoreInfo(props: {
           title="At least one runtime is marked as compatible"
         >
           The package should be marked with at least one runtime as "compatible"
-          in the package settings to aid users in understanding where they can
-          use this package.
+          in {canAdmin
+            ? (
+              <a class="link" href="settings#runtime_compat">
+                the package settings
+              </a>
+            )
+            : "the package settings"}{" "}
+          to aid users in understanding where they can use this package.
         </ScoreItem>
         <ScoreItem
           value={score.multipleRuntimesCompatible}
@@ -191,7 +205,13 @@ function ScoreInfo(props: {
           title="At least two runtimes are marked as compatible"
         >
           The package should be compatible with more than one runtime, and be
-          marked as such in the package settings.
+          marked as such in {canAdmin
+            ? (
+              <a class="link" href="settings#runtime_compat">
+                the package settings
+              </a>
+            )
+            : "the package settings"}.
         </ScoreItem>
         <ScoreItem
           value={score.hasProvenance}
@@ -233,17 +253,32 @@ function ScoreItem(
   return (
     <li class="grid grid-cols-[auto_1fr_auto] gap-x-3 py-3 first:pt-0 items-start">
       {status === "complete"
-        ? <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+        ? (
+          <>
+            <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+            <span class="sr-only">Complete score</span>
+          </>
+        )
         : (status === "partial"
-          ? <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
-          : <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />)}
+          ? (
+            <>
+              <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
+              <span class="sr-only">Partial score</span>
+            </>
+          )
+          : (
+            <>
+              <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />
+              <span class="sr-only">Missing score</span>
+            </>
+          ))}
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
         <p class="text-gray-500 text-sm leading-tight mt-1">{props.children}</p>
       </div>
 
-      <div class="text-sm text-gray-400 pt-[0.2em]">
+      <div class="text-sm text-jsr-gray-400 pt-[0.2em]">
         {typeof props.value === "number"
           ? (
             <span>
@@ -258,7 +293,7 @@ function ScoreItem(
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(_req, ctx) {
     const [res, scoreResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
       ctx.state.api.get<PackageScore>(

@@ -33,6 +33,7 @@ interface ScopeSelectProps {
   initialScope: string | undefined;
   scopeUsage: number;
   scopeLimit: number;
+  locked: boolean;
 }
 
 export function ScopeSelect(
@@ -42,6 +43,7 @@ export function ScopeSelect(
     initialScope,
     scopeLimit: initialScopeLimit,
     scopeUsage: initialScopeUsage,
+    locked,
   }: ScopeSelectProps,
 ) {
   const scopeUsage = useSignal(initialScopeUsage);
@@ -63,6 +65,7 @@ export function ScopeSelect(
             scopes.value = [...scopes.value, newScope];
             scope.value = newScope;
           }}
+          locked={locked}
         />
       </div>
     );
@@ -81,16 +84,19 @@ export function ScopeSelect(
             scope.value = newScope;
             scopeUsage.value++;
           }}
+          locked={locked}
         />
-        <p>
-          or{" "}
-          <button
-            class="inline link"
-            onClick={() => explicitCreateScope.value = false}
-          >
-            select an existing scope
-          </button>
-        </p>
+        {!locked && (
+          <p>
+            or{" "}
+            <button
+              class="inline link"
+              onClick={() => explicitCreateScope.value = false}
+            >
+              select an existing scope
+            </button>
+          </p>
+        )}
         <p class="text-gray-700 text-sm mt-2">
           You can create {scopesLeft === 0 ? "no" : scopesLeft}{" "}
           more scope{scopesLeft !== 1 && "s"}.{" "}
@@ -107,24 +113,29 @@ export function ScopeSelect(
         class="w-full mt-4 block py-2 px-4 input-container input select"
         onChange={(e) => scope.value = e.currentTarget.value}
         value={scope}
+        disabled={locked}
+        data-locked={locked || undefined}
       >
         <option value="" disabled selected class="hidden text-gray-100">
           ---
         </option>
         {scopes.value.map((scope) => <option value={scope}>{scope}</option>)}
       </select>
-      <p class="text-gray-500">
-        or{" "}
-        <button
-          class="inline link mt-2"
-          onClick={() => {
-            explicitCreateScope.value = true;
-            scope.value = "";
-          }}
-        >
-          create a new scope
-        </button>
-      </p>
+
+      {!locked && (
+        <p class="text-gray-500">
+          or{" "}
+          <button
+            class="inline link mt-2"
+            onClick={() => {
+              explicitCreateScope.value = true;
+              scope.value = "";
+            }}
+          >
+            create a new scope
+          </button>
+        </p>
+      )}
     </>
   );
 }
@@ -133,6 +144,7 @@ function CreateScope(
   props: {
     initialValue: string | undefined;
     onCreate: (scope: string) => void;
+    locked: boolean;
   },
 ) {
   const newScope = useSignal(props.initialValue ?? "");
@@ -178,6 +190,8 @@ function CreateScope(
             type="text"
             name="scope"
             placeholder="foo"
+            disabled={props.locked}
+            data-locked={props.locked || undefined}
             value={newScope}
             onInput={(e) => {
               newScope.value = e.currentTarget.value;
@@ -197,14 +211,16 @@ function CreateScope(
         ? (
           <p class="text-sm text-yellow-600">
             Scope names can not contain _, use - instead.{" "}
-            <button
-              class="text-cyan-700 hover:underline hover:text-blue-400"
-              onClick={() => {
-                newScope.value = newScope.value.replace(/_/g, "-");
-              }}
-            >
-              Click to replace
-            </button>
+            {!props.locked && (
+              <button
+                class="text-cyan-700 hover:underline hover:text-blue-400"
+                onClick={() => {
+                  newScope.value = newScope.value.replace(/_/g, "-");
+                }}
+              >
+                Click to replace
+              </button>
+            )}
           </p>
         )
         : message.value && <p class="text-sm text-yellow-600">{message}</p>}
@@ -213,16 +229,20 @@ function CreateScope(
 }
 
 export function PackageName(
-  { scope, name, pkg }: {
+  { scope, name, pkg, locked }: {
     scope: Signal<string>;
     name: Signal<string>;
     pkg: Signal<Package | null | undefined>;
+    locked: boolean;
   },
 ) {
   const error = useSignal("");
   const message = useComputed(() => {
     if (error.value) return error.value;
     if (name.value.length === 0) return "";
+    if (name.value.startsWith("@")) {
+      return "Enter only the package name, do not include the scope.";
+    }
     if (name.value.length > 32) {
       return "Package name cannot be longer than 32 characters.";
     }
@@ -239,8 +259,9 @@ export function PackageName(
     const scope_ = scope.value;
     const newName = name.value;
     if (
-      scope_ === "" || newName.length < 2 || scope_.includes("_") ||
-      newName.includes("_")
+      scope_ === "" || newName.length < 2 ||
+      !/^[a-z0-9][a-z0-9\-]+$/.test(scope_) ||
+      !/^[a-z0-9][a-z0-9\-]+$/.test(newName)
     ) {
       pkg.value = undefined;
       return;
@@ -279,6 +300,8 @@ export function PackageName(
         type="text"
         name="package"
         placeholder="bar"
+        disabled={locked}
+        data-locked={locked || undefined}
         value={name}
         onInput={(e) => {
           name.value = e.currentTarget.value;
@@ -295,15 +318,16 @@ export function PackageName(
       {name.value.includes("_")
         ? (
           <p class="text-sm text-yellow-600">
-            Package names can not contain _, use - instead.{" "}
-            <button
-              class="text-cyan-700 hover:underline hover:text-blue-400"
-              onClick={() => {
-                name.value = name.value.replace(/_/g, "-");
-              }}
-            >
-              Click to replace
-            </button>
+            Package names can not contain _, use - instead. {!locked && (
+              <button
+                class="text-cyan-700 hover:underline hover:text-blue-400"
+                onClick={() => {
+                  name.value = name.value.replace(/_/g, "-");
+                }}
+              >
+                Click to replace
+              </button>
+            )}
           </p>
         )
         : message.value && <p class="text-sm text-yellow-600">{message}</p>}
@@ -386,7 +410,8 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
               </p>
               {fromCli && (
                 <p class="mt-2 text-gray-500">
-                  Go back to your terminal to continue publishing.
+                  You can now close this page and go back to your terminal to
+                  continue publishing.
                 </p>
               )}
             </div>

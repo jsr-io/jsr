@@ -12,11 +12,10 @@ export const tracer = new Tracer();
 
 const tracing: MiddlewareHandler<State> = async (req, ctx) => {
   ctx.state.span = tracer.spanForRequest(req, ctx.destination);
-  const url = new URL(req.url);
   const attributes: Record<string, string | bigint> = {
-    "http.url": url.href,
+    "http.url": ctx.url.href,
     "http.method": req.method,
-    "http.host": url.host,
+    "http.host": ctx.url.host,
   };
   const start = new Date();
   try {
@@ -26,15 +25,15 @@ const tracing: MiddlewareHandler<State> = async (req, ctx) => {
     return resp;
   } finally {
     const end = new Date();
-    ctx.state.span.record(url.pathname, start, end, attributes);
+    ctx.state.span.record(ctx.url.pathname, start, end, attributes);
   }
 };
 
 const auth: MiddlewareHandler<State> = async (req, ctx) => {
-  const url = new URL(req.url);
   const interactive =
     (ctx.destination === "route" || ctx.destination === "notFound") &&
-    !(url.pathname === "/gfm.css" || url.pathname === "/_frsh/client.js.map");
+    !(ctx.url.pathname === "/gfm.css" ||
+      ctx.url.pathname === "/_frsh/client.js.map");
   const { token, sudo } = getCookies(req.headers);
   if (interactive) {
     ctx.state.sudo = sudo === "1";
@@ -54,7 +53,7 @@ const auth: MiddlewareHandler<State> = async (req, ctx) => {
             span: ctx.state.span,
             token: null,
           });
-          const redirectTarget = `${url.pathname}${url.search}`;
+          const redirectTarget = `${ctx.url.pathname}${ctx.url.search}`;
           const loginUrl = `/login?redirect=${
             encodeURIComponent(redirectTarget)
           }`;

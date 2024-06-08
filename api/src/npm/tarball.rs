@@ -38,7 +38,7 @@ use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
 use super::specifiers::follow_specifier;
 use super::specifiers::relative_import_specifier;
-use super::specifiers::rewrite_file_specifier_extension;
+use super::specifiers::rewrite_file_specifier;
 use super::specifiers::Extension;
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
@@ -136,7 +136,7 @@ pub async fn create_npm_tarball<'a>(
       }
       deno_ast::MediaType::Jsx => {
         let source_specifier =
-          rewrite_file_specifier_extension(module.specifier(), Extension::Js);
+          rewrite_file_specifier(module.specifier(), "", Extension::Js);
         if let Some(source_specifier) = source_specifier {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
@@ -153,20 +153,23 @@ pub async fn create_npm_tarball<'a>(
       }
       deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
         let source_specifier =
-          rewrite_file_specifier_extension(module.specifier(), Extension::Js);
-        if let Some(source_specifier) = source_specifier {
+          rewrite_file_specifier(module.specifier(), "", Extension::Js);
+        if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
         if js.fast_check_module().is_some() {
-          let declaration_specifier = rewrite_file_specifier_extension(
+          let declaration_specifier = rewrite_file_specifier(
             module.specifier(),
+            "/_dist",
             Extension::Dts,
           );
           if let Some(declaration_specifier) = declaration_specifier {
             declaration_rewrites
               .insert(module.specifier(), declaration_specifier);
           }
+        } else if let Some(source_specifier) = source_specifier {
+          declaration_rewrites.insert(module.specifier(), source_specifier);
         }
       }
       _ => {}
@@ -176,19 +179,19 @@ pub async fn create_npm_tarball<'a>(
   }
 
   for js in to_be_rewritten {
-    let specifier_rewriter = SpecifierRewriter {
-      base_specifier: &js.specifier,
-      source_rewrites: &source_rewrites,
-      declaration_rewrites: &declaration_rewrites,
-      dependencies: &js.dependencies,
-    };
-
     match js.media_type {
       deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .await
           .unwrap();
+        let specifier_rewriter = SpecifierRewriter {
+          base_specifier: &js.specifier,
+          source_rewrites: &source_rewrites,
+          declaration_rewrites: &declaration_rewrites,
+          dependencies: &js.dependencies,
+        };
         let rewritten = rewrite_specifiers(
           parsed_source.text_info(),
           &module_info,
@@ -202,7 +205,14 @@ pub async fn create_npm_tarball<'a>(
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .await
           .unwrap();
+        let specifier_rewriter = SpecifierRewriter {
+          base_specifier: &js.specifier,
+          source_rewrites: &source_rewrites,
+          declaration_rewrites: &declaration_rewrites,
+          dependencies: &js.dependencies,
+        };
         let rewritten = rewrite_specifiers(
           parsed_source.text_info(),
           &module_info,
@@ -214,17 +224,35 @@ pub async fn create_npm_tarball<'a>(
       }
       deno_ast::MediaType::Jsx => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
-        let source =
-          transpile_to_js(&parsed_source, specifier_rewriter).unwrap();
         let source_target = source_rewrites.get(&js.specifier).unwrap();
+        let specifier_rewriter = SpecifierRewriter {
+          base_specifier: source_target,
+          source_rewrites: &source_rewrites,
+          declaration_rewrites: &declaration_rewrites,
+          dependencies: &js.dependencies,
+        };
+        let (source, source_map) =
+          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
+            .unwrap();
         package_files
           .insert(source_target.path().to_owned(), source.into_bytes());
+        package_files.insert(
+          format!("{}.map", source_target.path()),
+          source_map.into_bytes(),
+        );
       }
       deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .await
           .unwrap();
+        let specifier_rewriter = SpecifierRewriter {
+          base_specifier: &js.specifier,
+          source_rewrites: &source_rewrites,
+          declaration_rewrites: &declaration_rewrites,
+          dependencies: &js.dependencies,
+        };
         let rewritten = rewrite_specifiers(
           parsed_source.text_info(),
           &module_info,
@@ -235,23 +263,45 @@ pub async fn create_npm_tarball<'a>(
           .insert(js.specifier.path().to_owned(), rewritten.into_bytes());
 
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
-        let source =
-          transpile_to_js(&parsed_source, specifier_rewriter).unwrap();
         let source_target = source_rewrites.get(&js.specifier).unwrap();
+        let specifier_rewriter = SpecifierRewriter {
+          base_specifier: source_target,
+          source_rewrites: &source_rewrites,
+          declaration_rewrites: &declaration_rewrites,
+          dependencies: &js.dependencies,
+        };
+        let (source, source_map) =
+          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
+            .unwrap();
         package_files
           .insert(source_target.path().to_owned(), source.into_bytes());
+        package_files.insert(
+          format!("{}.map", source_target.path()),
+          source_map.into_bytes(),
+        );
 
         if let Some(fast_check_module) = js.fast_check_module() {
-          let declaration = transpile_to_dts(
+          let declaration_target =
+            declaration_rewrites.get(&js.specifier).unwrap();
+          let specifier_rewriter = SpecifierRewriter {
+            base_specifier: declaration_target,
+            source_rewrites: &source_rewrites,
+            declaration_rewrites: &declaration_rewrites,
+            dependencies: &js.dependencies,
+          };
+          let (declaration, declaration_map) = transpile_to_dts(
             &parsed_source,
             fast_check_module,
             specifier_rewriter,
+            declaration_target,
           )?;
-          let declaration_target =
-            declaration_rewrites.get(&js.specifier).unwrap();
           package_files.insert(
             declaration_target.path().to_owned(),
             declaration.into_bytes(),
+          );
+          package_files.insert(
+            format!("{}.map", declaration_target.path()),
+            declaration_map.into_bytes(),
           );
         }
       }
@@ -374,18 +424,19 @@ fn rewrite_specifiers(
 ) -> String {
   let mut text_changes = vec![];
 
+  let file_start_pos = source_text_info.range().start;
+
   let add_text_change = |text_changes: &mut Vec<TextChange>,
                          new_specifier: String,
                          range: &PositionRange| {
-    let start_pos = source_text_info.range().start;
     let mut start = range
       .start
       .as_source_pos(source_text_info)
-      .as_byte_index(start_pos);
+      .as_byte_index(file_start_pos);
     let mut end = range
       .end
       .as_source_pos(source_text_info)
-      .as_byte_index(start_pos);
+      .as_byte_index(file_start_pos);
 
     let to_be_replaced = &source_text_info.text_str()[start..end];
     if to_be_replaced.starts_with('\'')
@@ -640,7 +691,7 @@ mod tests {
       }
     }
 
-    let mut loader = MemoryLoader::new(memory_files, vec![]);
+    let loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
     let workspace_members = vec![WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
@@ -662,7 +713,7 @@ mod tests {
     graph
       .build(
         roots,
-        &mut loader,
+        &loader,
         BuildOptions {
           is_dynamic: false,
           module_analyzer: &module_analyzer,
@@ -681,7 +732,7 @@ mod tests {
     graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
-      jsr_url_provider: Some(&PassthroughJsrUrlProvider),
+      jsr_url_provider: &PassthroughJsrUrlProvider,
       module_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,

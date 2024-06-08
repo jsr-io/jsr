@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { JSX } from "preact";
 import { computed, Signal, useSignal } from "@preact/signals";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import {
   components,
   create,
@@ -162,12 +162,12 @@ export function LocalSymbolSearch(
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
   return (
-    <div class="mb-2 flex-none" ref={ref}>
+    <div class="flex-none" ref={ref}>
       <input
-        type="text"
+        type="search"
         placeholder={placeholder}
         id="symbol-search-input"
-        class="block text-sm w-full py-1.5 px-2 input-container input border-cyan-900/30"
+        class="block text-sm w-full py-2 px-2 input-container input bg-white border-jsr-cyan-300/50"
         disabled={!db}
         onInput={onInput}
         onKeyUp={onKeyUp}
@@ -193,7 +193,7 @@ function ResultList(
   },
 ) {
   return (
-    <div class="absolute bg-white min-w-full border sibling:bg-red-500 shadow z-40">
+    <div class="absolute md:right-0 bg-white min-w-full border sibling:bg-red-500 shadow z-40">
       <ul class="divide-y-1">
         {results.value.map((result, i) => {
           const selected = computed(() => selectionIdx.value === i);

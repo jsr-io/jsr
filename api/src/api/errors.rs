@@ -52,6 +52,10 @@ errors!(
     status: NOT_FOUND,
     "The requested path was not found.",
   },
+  TokenNotFound {
+    status: NOT_FOUND,
+    "The requested token was not found.",
+  },
   InternalServerError {
     status: INTERNAL_SERVER_ERROR,
     "Internal Server Error",
@@ -350,6 +354,12 @@ impl From<GcsError> for ApiError {
 
 impl From<std::io::Error> for ApiError {
   fn from(error: std::io::Error) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<std::string::FromUtf8Error> for ApiError {
+  fn from(error: std::string::FromUtf8Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

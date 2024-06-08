@@ -157,7 +157,9 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
     match token {
       Some((AuthorizationToken::Bearer(token), sudo)) => {
         span.record("token.kind", &field::display("bearer"));
-        if let Some(token) = db.get_token(&crate::token::hash(token)).await? {
+        if let Some(token) =
+          db.get_token_by_hash(&crate::token::hash(token)).await?
+        {
           if let Some(expires_at) = token.expires_at {
             if expires_at < chrono::Utc::now() {
               return Err(ApiError::InvalidBearerToken);

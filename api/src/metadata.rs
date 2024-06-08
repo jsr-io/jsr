@@ -111,7 +111,7 @@ pub struct PackageMetadataVersion {
 #[serde(rename_all = "camelCase")]
 pub struct VersionMetadata {
   pub manifest: HashMap<PackagePath, ManifestEntry>,
-  pub module_graph_1: HashMap<String, deno_graph::ModuleInfo>,
+  pub module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
   pub exports: IndexMap<String, String>,
 }
 

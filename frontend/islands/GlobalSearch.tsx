@@ -222,7 +222,7 @@ export function GlobalSearch(
           {kindPlaceholder}
         </label>
         <input
-          type="text"
+          type="search"
           name="search"
           class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses} relative`}
           placeholder={placeholder}

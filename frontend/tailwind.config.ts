@@ -10,7 +10,7 @@ export default {
     "{routes,islands,components}/**/*.{ts,tsx}",
   ],
   plugins: [
-    rewritePreflight(),
+    ...(typeof Deno !== "undefined" ? [rewritePreflight()] : []),
   ],
   theme: {
     fontFamily: {
@@ -161,12 +161,7 @@ export default {
 function rewritePreflight() {
   return plugin(({ addBase }) => {
     const preflight = postcss.parse(
-      Deno.readTextFileSync(
-        new URL(
-          "./node_modules/tailwindcss/lib/css/preflight.css",
-          import.meta.url,
-        ),
-      ),
+      Deno.readTextFileSync("./node_modules/tailwindcss/lib/css/preflight.css"),
     );
 
     // Tailwindcss applies `height: auto` for img and video tags in preflight css,

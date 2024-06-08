@@ -77,6 +77,7 @@ export default function New(props: PageProps<Data, State>) {
                     initialScope={props.data.initialScope}
                     scopeUsage={props.state.user.scopeUsage}
                     scopeLimit={props.state.user.scopeLimit}
+                    locked={props.data.fromCli}
                   />
                 )
                 : (
@@ -104,8 +105,12 @@ export default function New(props: PageProps<Data, State>) {
                 The name of your package must be unique within the scope you
                 selected.
               </p>
-              <PackageName scope={scope} name={name} pkg={pkg} />
-
+              <PackageName
+                scope={scope}
+                name={name}
+                pkg={pkg}
+                locked={props.data.fromCli}
+              />
               <CreatePackage
                 scope={scope}
                 name={name}
@@ -121,7 +126,7 @@ export default function New(props: PageProps<Data, State>) {
 }
 
 export const handler: Handlers<Data, State> = {
-  async GET(req, ctx) {
+  async GET(_req, ctx) {
     let newPackage = undefined;
     const scopesResp =
       await (ctx.state.api.hasToken()
@@ -129,20 +134,19 @@ export const handler: Handlers<Data, State> = {
         : Promise.resolve(null));
     if (scopesResp && !scopesResp.ok) throw scopesResp; // gracefully handle this
     const scopes = scopesResp?.data.map((scope) => scope.scope) ?? [];
-    const url = new URL(req.url);
     let scope = "";
     let initialScope;
-    if (url.searchParams.has("scope")) {
-      initialScope = url.searchParams.get("scope") ?? undefined;
+    if (ctx.url.searchParams.has("scope")) {
+      initialScope = ctx.url.searchParams.get("scope") ?? undefined;
       if (initialScope && scopes.includes(initialScope)) {
         scope = initialScope;
         initialScope = undefined;
       }
     }
-    if (url.searchParams.has("package")) {
-      newPackage = url.searchParams.get("package")!;
+    if (ctx.url.searchParams.has("package")) {
+      newPackage = ctx.url.searchParams.get("package")!;
     }
-    const fromCli = url.searchParams.get("from") == "cli";
+    const fromCli = ctx.url.searchParams.get("from") == "cli";
     return ctx.render({
       scopes,
       scope,
