@@ -208,9 +208,22 @@ export const handler: Handlers<undefined, State> = {
         // Don't cut
         return pkg.description;
       }
-      const secondLine = pkg.description.slice(descriptionBreakPoint).replace(/^ /, '');
+      const firstLine: string[] = [];
 
-      return pkg.description.slice(0, descriptionBreakPoint) + "\n" +
+      const splittedBySpace = pkg.description.split(/(?<=\,?) /g);
+
+      for (const word of splittedBySpace) {
+        firstLine.push(word);
+        const { width } = Image.renderText(dmmonoFont, 30, firstLine.join(" "));
+        if (width > WIDTH - 2 * PADDING) {
+          firstLine.pop();
+          break;
+        }
+      }
+      const firstLineText = firstLine.join(" ");
+      const secondLine = pkg.description.slice(firstLineText.length).replace(/^ +/, '');
+
+      return firstLineText + "\n" +
         (secondLine.length >= DESCRIPTION_MAX_BREAK_POINT
           ? secondLine.slice(0, DESCRIPTION_MAX_BREAK_POINT - 3) + "..."
           : secondLine);
