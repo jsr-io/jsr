@@ -106,17 +106,17 @@ function PersonalTokenRow({ token }: { token: Token }) {
           {isActive
             ? (
               <span
-                class={expiresSoon ? "text-orange-500" : "text-green-500"}
+                class={expiresSoon ? "text-orange-700" : "text-green-700"}
               >
                 <b>Active</b> {expiresAt === null
                   ? "forever"
-                  : `- expires ${
+                  : `– expires ${
                     twas(new Date(), expiresAt).replace("ago", "from now")
                   }`}
               </span>
             )
             : (
-              <span class="text-red-500">
+              <span class="text-red-600">
                 <b>Inactive</b> - expired {twas(expiresAt)}
               </span>
             )}
@@ -159,16 +159,16 @@ function SessionRow({ token }: { token: Token }) {
           <p class="text-sm">
             {isActive
               ? (
-                <span class="text-green-500">
+                <span class="text-green-700">
                   <b>Active</b> {expiresAt === null
                     ? "forever"
-                    : `- expires ${
+                    : `– expires ${
                       twas(new Date(), expiresAt).replace("ago", "from now")
                     }`}
                 </span>
               )
               : (
-                <span class="text-red-500">
+                <span class="text-red-600">
                   <b>Inactive</b> - expired {twas(expiresAt)}
                 </span>
               )}

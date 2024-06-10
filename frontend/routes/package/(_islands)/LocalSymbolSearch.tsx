@@ -164,7 +164,7 @@ export function LocalSymbolSearch(
   return (
     <div class="flex-none" ref={ref}>
       <input
-        type="text"
+        type="search"
         placeholder={placeholder}
         id="symbol-search-input"
         class="block text-sm w-full py-2 px-2 input-container input bg-white border-jsr-cyan-300/50"

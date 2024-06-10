@@ -34,7 +34,7 @@ export default function Modal(
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            class="absolute top-8 right-8 hover:text-gray-400"
+            class="absolute top-8 right-8 hover:text-jsr-gray-400"
             onClick={() => setOpen(false)}
           >
             <Cross />
