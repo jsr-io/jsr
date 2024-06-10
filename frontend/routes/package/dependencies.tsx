@@ -30,28 +30,32 @@ export default function Deps(
   const deps: Record<
     string,
     {
-      packageName: string;
-      packageLink: string;
-      moduleName?: string;
-      moduleLink?: string;
+      link: string;
       constraints: Set<string>;
+      modules: Set<{ path: string; link?: string }>;
+      defaultModule: boolean;
     }
   > = {};
 
   for (const dep of data.deps) {
-    const key = `${dep.kind}:${dep.name}${dep.path ? `/${dep.path}` : ""}`;
+    const key = `${dep.kind}:${dep.name}`;
     deps[key] ??= {
-      packageName: `${dep.kind}:${dep.name}`,
-      packageLink: `${
+      link: `${
         dep.kind === "jsr" ? "/" : "https://www.npmjs.com/package/"
       }${dep.name}`,
-      moduleName: dep.path,
-      moduleLink: dep.path && dep.kind === "jsr"
-        ? `/${dep.name}/doc/${dep.path}/~`
-        : "",
       constraints: new Set(),
+      modules: new Set(),
+      defaultModule: false,
     };
     deps[key].constraints.add(dep.constraint);
+    if (dep.path) {
+      deps[key].modules.add({
+        path: dep.path,
+        link: dep.kind === "jsr" ? `/${dep.name}/doc/${dep.path}/~` : undefined,
+      });
+    } else {
+      deps[key].defaultModule = true;
+    }
   }
 
   const list = Object.entries(deps);
@@ -94,16 +98,18 @@ export default function Deps(
           : (
             <Table
               columns={[
-                { title: "Package / Module", class: "w-1/3" },
-                { title: "Versions", class: "w-auto" },
+                { title: "Package", class: "w-1/3" },
+                { title: "Versions", class: "w-1/3" },
+                { title: "Modules", class: "w-auto" },
               ]}
               currentUrl={url}
             >
-              {list.map(([key, { constraints, ...info }]) => (
+              {list.map(([name, info]) => (
                 <Dependency
-                  key={key}
+                  name={name}
                   {...info}
-                  constraints={[...constraints]}
+                  constraints={[...info.constraints]}
+                  modules={[...info.modules]}
                 />
               ))}
             </Table>
@@ -114,35 +120,45 @@ export default function Deps(
 }
 
 function Dependency(
-  { packageName, packageLink, moduleName, moduleLink, constraints }: {
-    packageName: string;
-    packageLink: string;
-    moduleName?: string;
-    moduleLink?: string;
+  { name, link, constraints, modules, defaultModule }: {
+    name: string;
+    link: string;
     constraints: string[];
+    modules: { path: string; link?: string }[];
+    defaultModule: boolean;
   },
 ) {
   return (
     <TableRow>
-      <TableData class="space-x-1">
-        <a href={packageLink} class="link">
-          {packageName}
+      <TableData>
+        <a href={link} class="link">
+          {name}
         </a>
-        {moduleName && (
-          <>
-            <span>/</span>
-            {moduleLink
-              ? (
-                <a href={moduleLink} class="link">
-                  {moduleName}
-                </a>
-              )
-              : <span>{moduleName}</span>}
-          </>
-        )}
       </TableData>
       <TableData class="space-x-4">
         {constraints.map((constraint) => <span>{constraint}</span>)}
+      </TableData>
+      <TableData>
+        {modules.length > 0 && (
+          <ul>
+            {defaultModule && <li class="italic">(default)</li>}
+            {modules.map(({ path, link }) => (
+              <li>
+                {link
+                  ? (
+                    <a href={link} class="link">
+                      {path}
+                    </a>
+                  )
+                  : (
+                    <span>
+                      {path}
+                    </span>
+                  )}
+              </li>
+            ))}
+          </ul>
+        )}
       </TableData>
     </TableRow>
   );
