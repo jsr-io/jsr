@@ -106,9 +106,10 @@ export default function Deps(
               {list.map(([name, info]) => (
                 <Dependency
                   name={name}
-                  {...info}
+                  link={info.link}
                   constraints={[...info.constraints]}
                   modules={Object.entries(info.modules)}
+                  defaultModule={info.defaultModule}
                 />
               ))}
             </Table>
@@ -128,7 +129,7 @@ function Dependency(
   },
 ) {
   return (
-    <TableRow>
+    <TableRow key={name}>
       <TableData>
         <a href={link} class="link">
           {name}
