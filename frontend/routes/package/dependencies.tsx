@@ -32,7 +32,7 @@ export default function Deps(
     {
       link: string;
       constraints: Set<string>;
-      modules: Set<{ path: string; link?: string }>;
+      modules: Record<string, string | undefined>;
       defaultModule: boolean;
     }
   > = {};
@@ -44,15 +44,14 @@ export default function Deps(
         dep.kind === "jsr" ? "/" : "https://www.npmjs.com/package/"
       }${dep.name}`,
       constraints: new Set(),
-      modules: new Set(),
+      modules: {},
       defaultModule: false,
     };
     deps[key].constraints.add(dep.constraint);
     if (dep.path) {
-      deps[key].modules.add({
-        path: dep.path,
-        link: dep.kind === "jsr" ? `/${dep.name}/doc/${dep.path}/~` : undefined,
-      });
+      deps[key].modules[dep.path] = dep.kind === "jsr"
+        ? `/${dep.name}/doc/${dep.path}/~`
+        : undefined;
     } else {
       deps[key].defaultModule = true;
     }
@@ -109,7 +108,7 @@ export default function Deps(
                   name={name}
                   {...info}
                   constraints={[...info.constraints]}
-                  modules={[...info.modules]}
+                  modules={Object.entries(info.modules)}
                 />
               ))}
             </Table>
@@ -124,7 +123,7 @@ function Dependency(
     name: string;
     link: string;
     constraints: string[];
-    modules: { path: string; link?: string }[];
+    modules: [path: string, link?: string][];
     defaultModule: boolean;
   },
 ) {
@@ -142,7 +141,7 @@ function Dependency(
         {modules.length > 0 && (
           <ul>
             {defaultModule && <li class="italic">(default)</li>}
-            {modules.map(({ path, link }) => (
+            {modules.map(([path, link]) => (
               <li>
                 {link
                   ? (
