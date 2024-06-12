@@ -99,7 +99,7 @@ export const handler: Handlers<undefined, State> = {
         x: PADDING + packageNameText.width,
         y: PADDING + scopeText.height + 20 + packageNameText.height,
         height: packageNameText.height,
-        isSplited: true
+        isSplited: true,
       };
     } else {
       // one line
@@ -128,7 +128,7 @@ export const handler: Handlers<undefined, State> = {
         x: PADDING + scopeText.width + 10 + packageNameText.width,
         y: PADDING + packageNameText.height,
         height: packageNameText.height,
-        isSplited: false
+        isSplited: false,
       };
     }
     const isLatest = selectedVersion.version === pkg.latestVersion;
@@ -195,11 +195,15 @@ export const handler: Handlers<undefined, State> = {
       descriptionY = yPos;
     } else {
       // Version/Latest will be current line
-      const versionAndLatestBadgeYPadding = (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2
+      const versionAndLatestBadgeYPadding =
+        (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2;
       ogpImage.composite(
         versionAndLatestBadgeImage,
         packageNamePosition.x + 10,
-        packageNamePosition.y - packageNamePosition.height + (packageNamePosition.isSplited ? -versionAndLatestBadgeYPadding : versionAndLatestBadgeYPadding)
+        packageNamePosition.y - packageNamePosition.height +
+          (packageNamePosition.isSplited
+            ? -versionAndLatestBadgeYPadding
+            : versionAndLatestBadgeYPadding),
       );
       descriptionY = packageNamePosition.y + 10;
     }
