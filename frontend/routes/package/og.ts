@@ -8,7 +8,6 @@ import { State } from "../../util.ts";
 import twas from "$twas";
 import { getScoreTextColorClass } from "../../utils/score_ring_color.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
-import { PackageName } from "../../islands/new.tsx";
 
 const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
   "score-text-green": Image.rgbToColor(34, 197, 94),
