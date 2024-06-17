@@ -3,6 +3,7 @@ export function Cross(props: { class?: string }) { // Size not normalized
   return (
     <svg
       class={`size-6 ${props.class ?? ""}`}
+      aria-hidden="true"
       stroke="currentColor"
       fill="none"
       viewBox="0 0 24 24"

@@ -199,7 +199,7 @@ function Version({
             ? "bg-blue-50 border-blue-200"
             : (isLatestInReleaseTrack
               ? "bg-green-50 hover:bg-green-100 border-green-200 hover:border-green-300"
-              : "hover:bg-gray-100 border-gray-200 hover:border-gray-400"))
+              : "hover:bg-gray-100 border-gray-200 hover:border-jsr-gray-400"))
       }`}
     >
       <div class="flex items-center justify-between">

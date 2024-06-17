@@ -82,11 +82,13 @@ export function PackageHeader(
                   <a
                     href={`/@${pkg.scope}`}
                     class="link font-bold no-underline"
+                    aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
                   </a>/<a
                     href={`/@${pkg.scope}/${pkg.name}`}
                     class="link font-semibold no-underline"
+                    aria-label={`Package: ${pkg.name}`}
                   >
                     {pkg.name}
                   </a>
@@ -94,7 +96,10 @@ export function PackageHeader(
 
                 {selectedVersion &&
                   (
-                    <span class="text-lg md:text-[0.75em] font-bold">
+                    <span
+                      class="text-lg md:text-[0.75em] font-bold"
+                      aria-label={`Version: ${selectedVersion.version}`}
+                    >
                       <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
                         @
                       </span>
@@ -130,8 +135,9 @@ export function PackageHeader(
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" />
+                  <GitHub class="text-black !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
@@ -150,7 +156,7 @@ export function PackageHeader(
             {runtimeCompat &&
               (
                 <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
-                  <div>Works with</div>
+                  <div aria-hidden="true">Works with</div>
                   {runtimeCompat}
                 </div>
               )}

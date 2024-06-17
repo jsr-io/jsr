@@ -314,11 +314,11 @@ body .ddoc:has(.toc) {
 }
 
 .score-text-yellow {
-  @apply text-yellow-500;
+  @apply text-yellow-700;
 }
 
 .score-text-green {
-  @apply text-green-500;
+  @apply text-green-600;
 }
 
 @layer base {
