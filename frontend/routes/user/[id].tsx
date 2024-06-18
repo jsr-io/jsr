@@ -19,6 +19,7 @@ export default function UserPage({ data, state }: PageProps<Data, State>) {
         <title>
           {data.user.name} - JSR
         </title>
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.scopes.length > 0

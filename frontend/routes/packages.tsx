@@ -28,6 +28,7 @@ export default function PackageListPage({
           name="description"
           content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
         />
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <div>
         <ListDisplay

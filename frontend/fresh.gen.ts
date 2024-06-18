@@ -38,6 +38,7 @@ import * as $package_dependents from "./routes/package/dependents.tsx";
 import * as $package_doc_file_ from "./routes/package/doc/[file].tsx";
 import * as $package_doc_symbol_ from "./routes/package/doc/[symbol].tsx";
 import * as $package_index from "./routes/package/index.tsx";
+import * as $package_og from "./routes/package/og.ts";
 import * as $package_publish from "./routes/package/publish.tsx";
 import * as $package_score from "./routes/package/score.tsx";
 import * as $package_settings from "./routes/package/settings.tsx";
@@ -113,6 +114,7 @@ const manifest = {
     "./routes/package/doc/[file].tsx": $package_doc_file_,
     "./routes/package/doc/[symbol].tsx": $package_doc_symbol_,
     "./routes/package/index.tsx": $package_index,
+    "./routes/package/og.ts": $package_og,
     "./routes/package/publish.tsx": $package_publish,
     "./routes/package/score.tsx": $package_score,
     "./routes/package/settings.tsx": $package_settings,
