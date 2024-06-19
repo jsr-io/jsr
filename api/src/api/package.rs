@@ -1275,8 +1275,7 @@ pub async fn list_dependents_handler(
     .query("versions_per_package_limit")
     .and_then(|page| page.parse::<i64>().ok())
     .unwrap_or(10)
-    .max(1)
-    .min(10);
+    .clamp(1, 10);
 
   let db = req.data::<Database>().unwrap();
   db.get_package(&scope, &package)
