@@ -258,9 +258,9 @@ fn generate_score(
     });
 
   let has_readme_examples = readme
-    .is_some_and(|(_, readme)| readme.windows(3).any(|chars| chars == b"```"))
+    .is_some_and(|(_, readme)| readme.windows(3).any(|chars| chars == b"```" || chars == b"~~~"))
     || main_entrypoint_doc.is_some_and(|js_doc| {
-      js_doc.doc.as_ref().is_some_and(|doc| doc.contains("```"))
+      js_doc.doc.as_ref().is_some_and(|doc| doc.contains("```") || doc.contains("~~~"))
         || js_doc
           .tags
           .iter()
