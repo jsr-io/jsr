@@ -82,7 +82,9 @@ export const handler: Handlers<Data, State> = {
         mode: "fulltext",
       });
 
-      packages = res?.hits.map((hit) => hit.document) ?? [];
+      packages = res?.hits.map((hit) =>
+        hit.document
+      ).filter((document) => document) ?? [];
       total = res?.count ?? 0;
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(
