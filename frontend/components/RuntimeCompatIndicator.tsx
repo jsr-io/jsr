@@ -59,7 +59,13 @@ export function RuntimeCompatIndicator(
           </span>
         )}
         {RUNTIME_COMPAT_KEYS
-          .sort(([key]) => runtimeCompat[key] ? 1 : -1)
+          .sort(([keyA], [keyB]) => {
+            if (runtimeCompat[keyA]) {
+              return keyA > keyB ? -1 : 1;
+            } else {
+              return -1;
+            }
+          })
           .map(
           ([key, name, icon, w, h]) => {
             const value = runtimeCompat[key];
