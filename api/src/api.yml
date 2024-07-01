@@ -1961,7 +1961,7 @@ components:
         userId:
           allOf:
             - $ref: "#/components/schemas/UserId"
-#            - type: "null"
+            - type: "null"
         packageScope:
           $ref: "#/components/schemas/ScopeName"
         packageName:
