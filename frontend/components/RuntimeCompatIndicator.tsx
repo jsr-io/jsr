@@ -25,9 +25,6 @@ export function RuntimeCompatIndicator(
     compact?: boolean;
   },
 ) {
-  const hasExplicitCompat = Object.values(runtimeCompat).some((v) => v);
-  if (!hasExplicitCompat) return null;
-
   const worksWithArray: string[] = [];
   const unknownWithArray: string[] = [];
 
