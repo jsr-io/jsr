@@ -32,6 +32,7 @@ use deno_semver::package::PackageNv;
 use deno_semver::package::PackageReqReference;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
+use regex::bytes::Regex as BytesRegex;
 use regex::Regex;
 use tracing::instrument;
 use tracing::Instrument;
@@ -241,6 +242,9 @@ async fn analyze_package_inner(
   })
 }
 
+static INDENTED_CODE_BLOCK_RE: Lazy<BytesRegex> =
+  Lazy::new(|| BytesRegex::new(r#"\n\s*?\n( {4}|\t)[^\S\n]*\S"#).unwrap());
+
 fn generate_score(
   main_entrypoint: Option<ModuleSpecifier>,
   doc_nodes_by_url: &DocNodesByUrl,
@@ -257,15 +261,21 @@ fn generate_score(
         .map(|node| &node.js_doc)
     });
 
-  let has_readme_examples = readme
-    .is_some_and(|(_, readme)| readme.windows(3).any(|chars| chars == b"```"))
-    || main_entrypoint_doc.is_some_and(|js_doc| {
-      js_doc.doc.as_ref().is_some_and(|doc| doc.contains("```"))
-        || js_doc
-          .tags
-          .iter()
-          .any(|tag| matches!(tag, deno_doc::js_doc::JsDocTag::Example { .. }))
-    });
+  let has_readme_examples = readme.is_some_and(|(_, readme)| {
+    readme
+      .windows(3)
+      .any(|chars| chars == b"```" || chars == b"~~~")
+      || INDENTED_CODE_BLOCK_RE.is_match(readme)
+  }) || main_entrypoint_doc.is_some_and(|js_doc| {
+    js_doc
+      .doc
+      .as_ref()
+      .is_some_and(|doc| doc.contains("```") || doc.contains("~~~"))
+      || js_doc
+        .tags
+        .iter()
+        .any(|tag| matches!(tag, deno_doc::js_doc::JsDocTag::Example { .. }))
+  });
 
   PackageVersionMeta {
     has_readme: readme.is_some()
