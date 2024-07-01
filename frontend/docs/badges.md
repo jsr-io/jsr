@@ -99,4 +99,4 @@ Here's how it looks:
 
 [![JSR Scope](https://jsr.io/badges/@luca?color=blue&labelColor=121212&logoColor=red)](https://jsr.io/@luca)
 
-The supported style-related query parameters can be found in the [Shields.io documentation](https://shields.io/badges/static-badge#:~:text=build%2Dpassing%2Dbrightgreen-,Query%20Parameters,-style%20string).
+The supported style-related query parameters can be found in the [Shields.io documentation](https://shields.io/badges/static-badge#:~:text=Query%20Parameters).
