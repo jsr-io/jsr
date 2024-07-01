@@ -1,6 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { RuntimeCompat } from "../utils/api_types.ts";
 
+const KNOWN_WORKING_PREFIX: string = "This package works with";
+const UNKNOWN_WORKING_PREFIX: string = "It is unknown whether this package works with";
+
 export const RUNTIME_COMPAT_KEYS: [
   key: keyof RuntimeCompat,
   name: string,
@@ -28,7 +31,7 @@ export function RuntimeCompatIndicator(
   const worksWithArray: string[] = [];
   const unknownWithArray: string[] = [];
 
-  for (const [key, name] of RUNTIME_COMPAT_KEYS.toReversed()) {
+  for (const [key, name] of RUNTIME_COMPAT_KEYS) {
     const status = runtimeCompat[key];
 
     if (status) {
@@ -50,21 +53,26 @@ export function RuntimeCompatIndicator(
       >
         {worksWithArray.length > 0 && (
           <span className="sr-only">
-            This package works with {worksWithArray.join(", ")}
+            {KNOWN_WORKING_PREFIX}{" "}{worksWithArray.join(", ")}
           </span>
         )}
         {unknownWithArray.length > 0 && (
           <span className="sr-only">
-            It is unknown whether this package works with{" "}
-            {unknownWithArray.join(", ")}
+            {UNKNOWN_WORKING_PREFIX}{" "}{unknownWithArray.join(", ")}
           </span>
         )}
-        {RUNTIME_COMPAT_KEYS.toReversed().map(
-          ([key, _name, icon, w, h]) => {
+        {RUNTIME_COMPAT_KEYS
+          .sort(([key]) => runtimeCompat[key] ? 1 : -1)
+          .map(
+          ([key, name, icon, w, h]) => {
             const value = runtimeCompat[key];
+
             if (
               value === false || (hideUnknown && value === undefined)
             ) return null;
+
+            const ICON_TITLE_TEXT = `${value === undefined ? UNKNOWN_WORKING_PREFIX : KNOWN_WORKING_PREFIX} ${name}`;
+
             return (
               <div
                 class="relative h-4 md:h-5"
@@ -74,7 +82,8 @@ export function RuntimeCompatIndicator(
                   src={icon}
                   width={w}
                   height={h}
-                  alt=""
+                  alt={ICON_TITLE_TEXT}
+                  title={ICON_TITLE_TEXT}
                   class={`h-4 md:h-5 select-none ${
                     value === undefined ? "filter grayscale opacity-40" : ""
                   }`}
@@ -82,6 +91,7 @@ export function RuntimeCompatIndicator(
                 {value === undefined && (
                   <div
                     aria-hidden="true"
+                    title={ICON_TITLE_TEXT}
                     class="absolute inset-0 h-full w-full text-jsr-cyan-600 text-center leading-4 md:leading-5 drop-shadow-md font-bold text-md md:text-xl select-none"
                   >
                     ?
