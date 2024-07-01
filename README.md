@@ -137,8 +137,7 @@ done via the following steps:
 
 1. Clone https://github.com/denoland/deno_std in the same parent folder as the
    `jsr` project
-2. In the `deno_std` folder, run `deno run -A _tools/convert_to_workspace.ts`.
-3. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
+2. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
    packages to your local dev environment.
 
 ### Making yourself a staff user/admin
