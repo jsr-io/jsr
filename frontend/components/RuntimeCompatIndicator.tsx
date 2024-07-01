@@ -63,7 +63,7 @@ export function RuntimeCompatIndicator(
             if (runtimeCompat[keyA]) {
               return keyA > keyB ? -1 : 1;
             } else {
-              return -1;
+              return 1;
             }
           })
           .map(
