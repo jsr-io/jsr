@@ -235,7 +235,7 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
 
       <div class="mt-2 -mb-2">
-        <div class="text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block">
+        <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
           .github/workflows/publish.yml
         </div>
       </div>
