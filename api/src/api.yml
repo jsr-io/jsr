@@ -881,49 +881,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-
-  /scopes/{scope}/packages/{package}/versions/{version}/docs:
-    get:
-      summary: Get package version docs
-      operationId: getPackageVersionDocs
-      parameters:
-        - name: scope
-          in: path
-          description: The name of the scope
-          required: true
-          schema:
-            $ref: "#/components/schemas/ScopeName"
-        - name: package
-          in: path
-          description: The name of the package
-          required: true
-          schema:
-            $ref: "#/components/schemas/PackageName"
-        - name: version
-          in: path
-          description: The version of the package
-          required: true
-          schema:
-            $ref: "#/components/schemas/Version"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PackageDocs"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Package version not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /scopes/{scope}/packages/{package}/versions/{version}:
     get:
       summary: Get package version details
@@ -2171,26 +2128,6 @@ components:
         - newest
         - updated
         - featured
-
-    PackageDocs:
-      type: object
-      properties:
-        kind:
-          type: string
-        version:
-          allOf:
-            - $ref: "#/components/schemas/PackageVersion"
-        css:
-          type: string
-        main:
-          type: string
-        toc:
-          type: string
-      required:
-        - version
-        - css
-        - main
-        - toc
 
     PackageScore:
       type: object
