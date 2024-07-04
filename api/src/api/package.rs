@@ -130,6 +130,13 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      "/:package/versions/:version/docs/search_html",
+      util::cache(
+        CacheDuration::ONE_MINUTE,
+        util::json(get_docs_search_html_handler),
+      ),
+    )
+    .get(
       "/:package/versions/:version/source",
       util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
     )
@@ -1100,6 +1107,85 @@ pub async fn get_docs_search_handler(
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  skip(req),
+  err,
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_docs_search_html_handler(
+  req: Request<Body>,
+) -> ApiResult<String> {
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  let version_or_latest = req.param_version_or_latest()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&version_or_latest));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, _, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let maybe_version = match &version_or_latest {
+    VersionOrLatest::Version(version) => {
+      db.get_package_version(&scope, &package_name, version)
+        .await?
+    }
+    VersionOrLatest::Latest => {
+      db.get_latest_unyanked_version_for_package(&scope, &package_name)
+        .await?
+    }
+  };
+  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
+
+  let docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
+  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
+  let docs = docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
+  let docs_info = crate::docs::get_docs_info(&version, None);
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let docs = crate::docs::generate_docs_html(
+    doc_nodes,
+    docs_info.main_entrypoint,
+    docs_info.rewrite_map,
+    DocsRequest::AllSymbols,
+    scope.clone(),
+    package_name.clone(),
+    version.version.clone(),
+    version_or_latest == VersionOrLatest::Latest,
+    None,
+    package.runtime_compat,
+    registry_url,
+  )
+  .map_err(|e| {
+    error!("failed to generate docs: {}", e);
+    ApiError::InternalServerError
+  })?
+  .unwrap();
+
+  let search = match docs {
+    GeneratedDocsOutput::Docs(docs) => docs.main,
+    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+  };
+
+  Ok(search)
 }
 
 #[instrument(

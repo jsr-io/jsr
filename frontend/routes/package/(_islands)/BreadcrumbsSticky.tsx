@@ -5,6 +5,7 @@ import { LocalSymbolSearch } from "./LocalSymbolSearch.tsx";
 
 export interface BreadcrumbsStickyProps {
   content: string;
+  searchContent?: string;
   scope: string;
   package: string;
   version: string;
@@ -55,6 +56,7 @@ export function BreadcrumbsSticky(
             scope={props.scope}
             pkg={props.package}
             version={props.version}
+            content={props.searchContent}
           />
         </div>
       </div>
