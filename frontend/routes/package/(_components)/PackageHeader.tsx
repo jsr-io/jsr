@@ -142,7 +142,7 @@ export function PackageHeader(
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
-                  <ExternalLink />
+                  <ExternalLink strokeWidth="2.25" />
                 </a>
               )}
             </div>
