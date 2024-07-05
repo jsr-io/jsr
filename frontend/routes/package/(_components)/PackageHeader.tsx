@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
+import { ExternalLink } from "../../../components/icons/ExternalLink.tsx";
 import { GitHub } from "../../../components/icons/GitHub.tsx";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
@@ -141,6 +142,7 @@ export function PackageHeader(
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
+                  <ExternalLink strokeWidth="2.25" />
                 </a>
               )}
             </div>
