@@ -394,7 +394,11 @@ export const handler: Handlers<undefined, State> = {
       HEIGHT - JSR_LOGO_HEIGHT - PADDING,
     );
 
-    return new Response(await ogpImage.encode());
+    return new Response(await ogpImage.encode(), {
+      headers: {
+        'Content-Type': 'image/png'
+      }
+    });
   },
 };
 
