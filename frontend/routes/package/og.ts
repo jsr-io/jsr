@@ -396,8 +396,8 @@ export const handler: Handlers<undefined, State> = {
 
     return new Response(await ogpImage.encode(), {
       headers: {
-        'Content-Type': 'image/png'
-      }
+        "Content-Type": "image/png",
+      },
     });
   },
 };
