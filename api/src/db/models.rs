@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
+#![allow(dead_code)]
 
 use chrono::DateTime;
 use chrono::Utc;
@@ -172,7 +173,6 @@ pub struct ScopeMember {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct NewScopeMember<'s> {
   pub scope: &'s ScopeName,
   pub user_id: Uuid,
@@ -220,7 +220,6 @@ pub struct PackageVersion {
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
   pub newer_versions_count: i64,
-  #[allow(dead_code)]
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
   pub updated_at: DateTime<Utc>,
@@ -284,7 +283,6 @@ impl sqlx::Type<sqlx::Postgres> for PackageVersionMeta {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct PackageFile {
   pub scope: ScopeName,
   pub name: PackageName,
@@ -332,9 +330,7 @@ pub struct OauthState {
   pub csrf_token: String,
   pub pkce_code_verifier: String,
   pub redirect_url: String,
-  #[allow(dead_code)]
   pub updated_at: DateTime<Utc>,
-  #[allow(dead_code)]
   pub created_at: DateTime<Utc>,
 }
 
@@ -359,9 +355,7 @@ pub struct GithubIdentity {
   pub access_token_expires_at: Option<DateTime<Utc>>,
   pub refresh_token: Option<String>,
   pub refresh_token_expires_at: Option<DateTime<Utc>>,
-  #[allow(dead_code)]
   pub updated_at: DateTime<Utc>,
-  #[allow(dead_code)]
   pub created_at: DateTime<Utc>,
 }
 
@@ -389,7 +383,6 @@ impl From<GithubIdentity> for NewGithubIdentity {
 #[derive(Debug, Clone)]
 pub struct Token {
   pub id: Uuid,
-  #[allow(dead_code)]
   pub hash: String,
   pub user_id: Uuid,
   pub r#type: TokenType,
@@ -589,9 +582,7 @@ pub struct Authorization {
 
   pub expires_at: DateTime<Utc>,
 
-  #[allow(dead_code)]
   pub updated_at: DateTime<Utc>,
-  #[allow(dead_code)]
   pub created_at: DateTime<Utc>,
 }
 

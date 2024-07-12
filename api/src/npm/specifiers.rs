@@ -159,7 +159,6 @@ pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
 
 pub enum Extension {
   Js,
-  #[allow(dead_code)]
   Dts,
 }
 
