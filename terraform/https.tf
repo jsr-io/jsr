@@ -152,7 +152,7 @@ resource "google_compute_url_map" "frontend_https" {
     }
 
 
-    # Punch Googlebot through to the frontend.
+    # Punch Googlebot and other crawlers through to the frontend.
     route_rules {
       priority = 2
       service  = google_compute_backend_service.registry_frontend.self_link
@@ -161,6 +161,36 @@ resource "google_compute_url_map" "frontend_https" {
         header_matches {
           header_name  = "from"
           prefix_match = "googlebot(at)googlebot.com"
+        }
+      }
+      match_rules {
+        header_matches {
+          header_name  = "user-agent"
+          prefix_match = "Slack" # Slackbot & Slack-ImgProxy
+        }
+      }
+      match_rules {
+        header_matches {
+          header_name  = "user-agent"
+          prefix_match = "Iframely" // Use by Notion
+        }
+      }
+      match_rules {
+        header_matches {
+          header_name  = "user-agent"
+          prefix_match = "Twitter"
+        }
+      }
+      match_rules {
+        header_matches {
+          header_name  = "user-agent"
+          prefix_match = "WhatsApp"
+        }
+      }
+      match_rules {
+        header_matches {
+          header_name  = "user-agent"
+          prefix_match = "Mozilla/5.0 (compatible; Discordbot"
         }
       }
     }
