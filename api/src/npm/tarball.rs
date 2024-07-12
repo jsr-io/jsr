@@ -795,7 +795,7 @@ mod tests {
     }
 
     if std::env::var("UPDATE").is_ok() {
-      spec.output_file.text = output.clone();
+      spec.output_file.text.clone_from(&output);
       std::fs::write(spec_path, spec.emit())?;
     } else {
       assert_eq!(

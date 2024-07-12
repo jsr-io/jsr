@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
+#![allow(dead_code)]
 
 use chrono::DateTime;
 use chrono::Utc;
@@ -341,6 +342,7 @@ pub struct NewOauthState<'a> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct OauthDeviceState {
   pub id: Uuid,
   pub auth: String,
@@ -664,6 +666,7 @@ pub enum DependencyKind {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PackageVersionDependency {
   pub package_scope: ScopeName,
   pub package_name: PackageName,
@@ -677,6 +680,7 @@ pub struct PackageVersionDependency {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PackageVersionReference {
   pub scope: ScopeName,
   pub name: PackageName,
@@ -706,6 +710,7 @@ pub type PackageWithGitHubRepoAndMeta =
   (Package, Option<GithubRepository>, PackageVersionMeta);
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct NpmTarball {
   pub scope: ScopeName,
   pub name: PackageName,
