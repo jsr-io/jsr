@@ -193,7 +193,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Source,
@@ -214,7 +214,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Declaration,
@@ -234,12 +234,9 @@ pub async fn create_npm_tarball<'a>(
         let (source, source_map) =
           transpile_to_js(&parsed_source, specifier_rewriter, source_target)
             .unwrap();
+        package_files.insert(source_target.path().to_owned(), source);
         package_files
-          .insert(source_target.path().to_owned(), source.into_bytes());
-        package_files.insert(
-          format!("{}.map", source_target.path()),
-          source_map.into_bytes(),
-        );
+          .insert(format!("{}.map", source_target.path()), source_map);
       }
       deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
@@ -254,7 +251,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Source,
@@ -273,12 +270,9 @@ pub async fn create_npm_tarball<'a>(
         let (source, source_map) =
           transpile_to_js(&parsed_source, specifier_rewriter, source_target)
             .unwrap();
+        package_files.insert(source_target.path().to_owned(), source);
         package_files
-          .insert(source_target.path().to_owned(), source.into_bytes());
-        package_files.insert(
-          format!("{}.map", source_target.path()),
-          source_map.into_bytes(),
-        );
+          .insert(format!("{}.map", source_target.path()), source_map);
 
         if let Some(fast_check_module) = js.fast_check_module() {
           let declaration_target =
@@ -295,13 +289,11 @@ pub async fn create_npm_tarball<'a>(
             specifier_rewriter,
             declaration_target,
           )?;
-          package_files.insert(
-            declaration_target.path().to_owned(),
-            declaration.into_bytes(),
-          );
+          package_files
+            .insert(declaration_target.path().to_owned(), declaration);
           package_files.insert(
             format!("{}.map", declaration_target.path()),
-            declaration_map.into_bytes(),
+            declaration_map,
           );
         }
       }

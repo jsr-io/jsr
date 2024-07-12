@@ -705,7 +705,7 @@ fn check_for_banned_syntax(
       line_number,
       column_number,
     } = parsed_source
-      .text_info()
+      .text_info_lazy()
       .line_and_column_display(range.start);
     (line_number, column_number)
   };
@@ -747,7 +747,7 @@ fn check_for_banned_syntax(
             let range =
               Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
                 .range();
-            let keyword = parsed_source.text_info().range_text(&range);
+            let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
               return Err(PublishError::BannedImportAssertion {
@@ -763,7 +763,7 @@ fn check_for_banned_syntax(
             let src = n.src.as_ref().unwrap();
             let range =
               Span::new(src.span.hi(), with.span.lo(), src.span.ctxt).range();
-            let keyword = parsed_source.text_info().range_text(&range);
+            let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
               return Err(PublishError::BannedImportAssertion {
@@ -779,7 +779,7 @@ fn check_for_banned_syntax(
             let range =
               Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
                 .range();
-            let keyword = parsed_source.text_info().range_text(&range);
+            let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
               return Err(PublishError::BannedImportAssertion {
@@ -840,7 +840,7 @@ fn check_for_banned_triple_slash_directives(
     }
     if TRIPLE_SLASH_RE.is_match(&comment.text) {
       let lc = parsed_source
-        .text_info()
+        .text_info_lazy()
         .line_and_column_display(comment.range().start);
       return Err(PublishError::BannedTripleSlashDirectives {
         specifier: parsed_source.specifier().to_string(),
@@ -859,7 +859,7 @@ mod tests {
     let media_type = deno_ast::MediaType::TypeScript;
     deno_ast::parse_module(deno_ast::ParseParams {
       specifier,
-      text_info: deno_ast::SourceTextInfo::new(source.into()),
+      text: source.into(),
       media_type,
       capture_tokens: false,
       scope_analysis: false,

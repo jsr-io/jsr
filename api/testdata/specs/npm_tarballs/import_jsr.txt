@@ -34,7 +34,6 @@ await import("jsr:@luca/flag@1")
 
 # output
 == /_dist/baz.d.ts ==
-
 //# sourceMappingURL=baz.d.ts.map
 
 == /_dist/baz.d.ts.map ==
