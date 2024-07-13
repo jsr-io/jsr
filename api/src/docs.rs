@@ -814,12 +814,20 @@ impl HrefResolver for DocResolver {
       UrlResolveKind::Symbol { file, symbol } => {
         format!(
           "{doc_base}{}/~/{symbol}",
-          if file.path == "." { "" } else { &file.path }
+          if file.is_main {
+            String::new()
+          } else {
+            format!("/{}", file.path)
+          }
         )
       }
       UrlResolveKind::File(file) => format!(
         "{doc_base}{}/~/",
-        if file.path == "." { "" } else { &file.path }
+        if file.is_main {
+          String::new()
+        } else {
+          format!("/{}", file.path)
+        }
       ),
       UrlResolveKind::Category(_) => unreachable!(),
     }
@@ -926,10 +934,11 @@ mod tests {
       web_types: Default::default(),
     };
 
+    let specifier = ModuleSpecifier::parse("file:///mod.ts").unwrap();
     let short_path = ShortPath::new(
-      ModuleSpecifier::parse("file:///mod.ts").unwrap(),
+      specifier.clone(),
       None,
-      None,
+      Some(&IndexMap::from([(specifier, "mod".to_string())])),
       None,
     );
 
@@ -947,7 +956,7 @@ mod tests {
           UrlResolveKind::Root,
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/"
+        "/@foo/bar@0.0.1/doc/mod/~/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -957,7 +966,7 @@ mod tests {
             symbol: "bar",
           }
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/bar"
+        "/@foo/bar@0.0.1/doc/mod/~/bar"
       );
     }
 
@@ -976,7 +985,7 @@ mod tests {
           UrlResolveKind::AllSymbols,
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/"
+        "/@foo/bar@0.0.1/doc/mod/~/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -986,7 +995,7 @@ mod tests {
             symbol: "bar",
           }
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/bar"
+        "/@foo/bar@0.0.1/doc/mod/~/bar"
       );
     }
 
@@ -1010,7 +1019,7 @@ mod tests {
           UrlResolveKind::File(&short_path),
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/"
+        "/@foo/bar@0.0.1/doc/mod/~/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1020,7 +1029,7 @@ mod tests {
             symbol: "bar",
           }
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/bar"
+        "/@foo/bar@0.0.1/doc/mod/~/bar"
       );
     }
 
@@ -1053,7 +1062,7 @@ mod tests {
           },
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/"
+        "/@foo/bar@0.0.1/doc/mod/~/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1066,7 +1075,7 @@ mod tests {
             symbol: "bar",
           }
         ),
-        "/@foo/bar@0.0.1/doc/mod.ts/~/bar"
+        "/@foo/bar@0.0.1/doc/mod/~/bar"
       );
     }
   }
