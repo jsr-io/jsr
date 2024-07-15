@@ -56,9 +56,18 @@ resource "google_compute_url_map" "frontend_https" {
 
   path_matcher {
     name = "api"
+
     default_route_action {
       url_rewrite {
         path_prefix_rewrite = "/api"
+      }
+      cors_policy {
+        allow_methods     = ["HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"]
+        allow_credentials = false
+        expose_headers    = ["*"]
+        allow_origins     = ["*"]
+        allow_headers     = ["Authorization", "X-Cloud-Trace-Context"]
+        max_age           = 3600
       }
     }
     default_service = google_compute_backend_service.registry_api.self_link
@@ -83,6 +92,16 @@ resource "google_compute_url_map" "frontend_https" {
     }
 
     default_service = google_compute_backend_bucket.npm.self_link
+    default_route_action {
+      cors_policy {
+        allow_methods     = ["HEAD", "GET"]
+        allow_credentials = false
+        expose_headers    = ["*"]
+        allow_origins     = ["*"]
+        allow_headers     = ["Authorization", "X-Cloud-Trace-Context"]
+        max_age           = 3600
+      }
+    }
   }
 
   host_rule {
@@ -198,6 +217,16 @@ resource "google_compute_url_map" "frontend_https" {
     route_rules {
       priority = 3
       service  = google_compute_backend_bucket.modules.self_link
+      route_action {
+        cors_policy {
+          allow_methods     = ["HEAD", "GET"]
+          allow_credentials = false
+          expose_headers    = ["*"]
+          allow_origins     = ["*"]
+          allow_headers     = ["Authorization", "X-Cloud-Trace-Context"]
+          max_age           = 3600
+        }
+      }
 
       # HEAD requests with no Accept header, and no Sec-Fetch-Dest header
       match_rules {
