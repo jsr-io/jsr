@@ -89,7 +89,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
     serde_json::from_str(reserved_scopes).unwrap()
   });
 
-  if reserved_scopes.contains(&scope_without_hyphens) && !user.is_staff {
+  if reserved_scopes.contains(&scope_without_hyphens) {
     return Err(ApiError::ScopeNameReserved);
   }
 

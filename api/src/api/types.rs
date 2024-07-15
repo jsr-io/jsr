@@ -904,3 +904,10 @@ pub struct ApiCreatedToken {
   pub secret: String,
   pub token: ApiToken,
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAssignScopeRequest {
+  pub scope: ScopeName,
+  pub user_id: Uuid,
+}

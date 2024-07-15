@@ -22,6 +22,7 @@ use crate::util::search;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 
+use super::map_unique_violation;
 use super::types::*;
 use super::ApiError;
 use super::PublishQueue;
@@ -33,6 +34,7 @@ pub fn admin_router() -> Router<Body, ApiError> {
     .get("/users", util::auth(util::json(list_users)))
     .patch("/users/:user_id", util::auth(util::json(update_user)))
     .get("/scopes", util::auth(util::json(list_scopes)))
+    .post("/scopes", util::auth(util::json(assign_scope)))
     .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
     .get(
       "/publishing_tasks",
@@ -201,6 +203,36 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
   Ok(scope.into())
 }
 
+#[instrument(
+  name = "POST /api/admin/scopes",
+  skip(req),
+  err,
+  fields(scope, user_id)
+)]
+pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let ApiAssignScopeRequest { scope, user_id } = decode_json(&mut req).await?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("user_id", &field::display(&user_id));
+
+  let db = req.data::<Database>().unwrap();
+
+  let scope_without_hyphens = scope.replace('-', "");
+
+  if db.check_is_bad_word(&scope_without_hyphens).await? {
+    return Err(ApiError::ScopeNameNotAllowed);
+  }
+
+  let scope = db
+    .create_scope(&scope, user_id)
+    .await
+    .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
+
+  Ok(scope.into())
+}
+
 #[instrument(name = "GET /api/admin/publishing_tasks", skip(req), err)]
 pub async fn list_publishing_tasks(
   req: Request<Body>,
@@ -286,8 +318,10 @@ mod tests {
   use crate::api::ApiFullScope;
   use crate::api::ApiFullUser;
   use crate::api::ApiList;
+  use crate::api::ApiScope;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
+  use hyper::StatusCode;
   use serde_json::json;
 
   #[tokio::test]
@@ -347,5 +381,59 @@ mod tests {
     assert_eq!(res_scope.quotas.package_limit, 101);
     assert_eq!(res_scope.quotas.new_package_per_week_limit, 101);
     assert_eq!(res_scope.quotas.publish_attempts_per_week_limit, 101);
+  }
+
+  #[tokio::test]
+  async fn assign_scope() {
+    let mut t = TestSetup::new().await;
+
+    // create a scope for a user2
+    let path = "/api/admin/scopes";
+    let token = t.staff_user.token.clone();
+    let user2_id = t.user2.user.id;
+    let scope = t
+      .http()
+      .post(path)
+      .body_json(json!({
+        "scope": "test-scope",
+        "userId": user2_id,
+      }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiScope>()
+      .await;
+    assert_eq!(scope.scope.to_string(), "test-scope");
+
+    // create a scope with a reserved name
+    let res = t
+      .http()
+      .post(path)
+      .body_json(json!({
+        "scope": "react",
+        "userId": user2_id,
+      }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiScope>()
+      .await;
+    assert_eq!(res.scope.to_string(), "react");
+
+    // create a scope with an existing name
+    t.http()
+      .post(path)
+      .body_json(json!({
+        "scope": "test-scope",
+        "userId": user2_id,
+      }))
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::CONFLICT, "scopeAlreadyExists")
+      .await;
   }
 }
