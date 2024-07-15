@@ -501,7 +501,7 @@ pub enum PublishError {
   #[error("path '{path}' is invalid: .git files are not allowed")]
   InvalidGitPath { path: String },
 
-  #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed ({info})")]
+  #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed ({info})")]
   InvalidExternalImport { specifier: String, info: String },
 
   #[error("modifying global types is not allowed {specifier}:{line}:{column}")]
