@@ -128,6 +128,8 @@ resource "google_compute_backend_service" "registry_api" {
     "X-Robots-Tag: noindex",
     "access-control-allow-origin: *",
     "access-control-expose-headers: *",
+    "Cross-Origin-Resource-Policy: cross-origin",
+    "X-Content-Type-Options: nosniff",
   ]
 
   enable_cdn = true
