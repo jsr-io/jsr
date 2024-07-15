@@ -854,6 +854,7 @@ impl HrefResolver for DocResolver {
     if let Ok(url) = Url::parse(src) {
       match url.scheme() {
         "node" => Some(format!("https://nodejs.org/api/{}.html", url.path())),
+        "bun" => None,
         "npm" => {
           let npm_package_req =
             deno_semver::npm::NpmPackageReqReference::from_str(src).ok()?;

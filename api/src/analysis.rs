@@ -392,7 +392,7 @@ impl<'a> SyncLoader<'a> {
           maybe_headers: None,
         }))
       }
-      "http" | "https" | "node" | "npm" | "jsr" => {
+      "http" | "https" | "node" | "npm" | "jsr" | "bun" => {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier: specifier.clone(),
         }))
@@ -577,7 +577,7 @@ impl<'a> GcsLoader<'a> {
         }
         .boxed()
       }
-      "http" | "https" | "node" | "npm" | "jsr" => async move {
+      "http" | "https" | "node" | "npm" | "jsr" | "bun" => async move {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier,
         }))
@@ -676,7 +676,7 @@ fn collect_dependencies(
           }
         }
       }
-      "file" | "data" | "node" => {}
+      "file" | "data" | "node" | "bun" => {}
       "http" | "https" => {
         return Err(PublishError::InvalidExternalImport {
           specifier: module.specifier().to_string(),

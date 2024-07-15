@@ -74,8 +74,8 @@ Path rules are as follows:
 ### `invalidExternalImport`
 
 The package being published contains an external import that is not allowed by
-JSR. JSR only allows external imports that are `jsr:`, `npm:`, `data:`, or
-`node:` specifiers.
+JSR. JSR only allows external imports that are `jsr:`, `npm:`, `data:`, `bun:`,
+or `node:` specifiers.
 
 You can fix this error by removing the external import from your package, or by
 replacing it with an external import from a supported source.
