@@ -900,7 +900,11 @@ impl HrefResolver for DocResolver {
       "@{}/{}{}",
       self.scope,
       self.package,
-      if is_main { "" } else { path }
+      if is_main {
+        String::new()
+      } else {
+        format!("/{path}")
+      }
     ))
   }
 
