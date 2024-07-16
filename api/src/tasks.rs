@@ -13,6 +13,8 @@ use routerify::ext::RequestExt;
 use routerify::Router;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::json;
+use tracing::error;
 use tracing::field;
 use tracing::instrument;
 use tracing::Span;
@@ -42,6 +44,7 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
+pub struct LogsBigQuery(pub Option<(gcp::BigQuery, /* dataset id */ String)>);
 
 pub fn tasks_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -50,6 +53,10 @@ pub fn tasks_router() -> Router<Body, ApiError> {
     .post(
       "/npm_tarball_enqueue",
       util::json(npm_tarball_enqueue_handler),
+    )
+    .post(
+      "/scrape_download_counts",
+      util::json(scrape_download_counts_handler),
     )
     .build()
     .unwrap()
@@ -221,6 +228,112 @@ pub async fn npm_tarball_enqueue_handler(req: Request<Body>) -> ApiResult<()> {
   while let Some(result) = futs.next().await {
     result?;
   }
+
+  Ok(())
+}
+
+#[instrument(name = "POST /tasks/scrape_download_counts", skip(req), err)]
+pub async fn scrape_download_counts_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let bigquery = req.data::<LogsBigQuery>().unwrap();
+  let Some((bigquery, logs_dataset_id)) = bigquery.0.as_ref() else {
+    error!("BigQuery not configured");
+    return Err(ApiError::InternalServerError);
+  };
+
+  let time_window = req
+    .param("intervalHrs")
+    .ok_or_else(|| ApiError::MalformedRequest {
+      msg: "intervalHrs is required".into(),
+    })?
+    .parse()
+    .map_err(|_| ApiError::MalformedRequest {
+      msg: "intervalHrs must be an integer".into(),
+    })?;
+
+  let current_timestamp = chrono::Utc::now();
+  let start_timestamp =
+    current_timestamp - chrono::Duration::hours(time_window);
+
+  let params = vec![
+    json!({
+      "name": "start_timestamp",
+      "parameterType": {
+        "type": "TIMESTAMP"
+      },
+      "parameterValue": {
+        "value": start_timestamp.to_rfc3339()
+      }
+    }),
+    json!({
+      "name": "end_timestamp",
+      "parameterType": {
+        "type": "TIMESTAMP"
+      },
+      "parameterValue": {
+        "value": current_timestamp.to_rfc3339()
+      }
+    }),
+    json!({
+      "name": "dataset",
+      "parameterType": {
+        "type": "STRING"
+      },
+      "parameterValue": {
+        "value": logs_dataset_id.clone()
+      }
+    }),
+  ];
+
+  let res = bigquery.query(r#"
+SELECT
+  t1.time_bucket,
+  t1.scope,
+  t1.package,
+  t1.version,
+  COUNT(*) AS count
+FROM (
+  SELECT
+    TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
+    REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@([^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') AS scope,
+    REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
+    REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
+  FROM
+    @dataset AS t2
+  WHERE
+    t2.timestamp BETWEEN @start_timestamp
+    AND @end_timestamp
+    AND t2.log_id = "requests"
+    AND REGEXP_CONTAINS(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') ) AS t1
+GROUP BY
+  1,
+  2,
+  3,
+  4
+ORDER BY
+  time_bucket,
+  scope,
+  package,
+  version"#, params).await?;
+  let mut rows = res.rows;
+  let mut page_token = res.page_token;
+  while !page_token.is_empty() {
+    let res = bigquery
+      .get_query_results(&res.job_reference.job_id, &page_token)
+      .await?;
+    rows.extend(res.rows);
+    page_token = res.page_token;
+  }
+
+  let mut entries = Vec::with_capacity(rows.len());
+  for row in rows {
+    let entry = serde_json::from_value(row)?;
+    entries.push(entry);
+  }
+
+  db.insert_download_entries(entries).await?;
 
   Ok(())
 }
