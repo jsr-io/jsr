@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, count)\n      SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::INT[]) as temp(scope, package, version, time_bucket, count)\n      WHERE (SELECT COUNT(*) FROM package_versions WHERE package_versions.scope = temp.scope AND package_versions.name = temp.package AND version = temp.version) > 0\n      ON CONFLICT (scope, package, version, time_bucket) DO UPDATE SET count = EXCLUDED.count\n      ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TimestamptzArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "09af98f00bb154ccf800cf4e0c69175ffe93494357ef13695432e2ae12024221"
+}
