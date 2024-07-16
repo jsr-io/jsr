@@ -2957,7 +2957,6 @@ impl Database {
     )
     .execute(&mut *tx)
     .await?;
-    assert_eq!(res.rows_affected(), entries_count as u64);
 
     // Compute data in version_download_counts_24h from version_download_counts_4h between smallest_timestamp and largest_timestamp.
     // smallest_timestamp must be truncated down to the nearest day and largest_timestamp must be truncated up to the nearest day.
