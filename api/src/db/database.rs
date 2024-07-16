@@ -2977,6 +2977,58 @@ impl Database {
 
     Ok(())
   }
+
+  pub async fn get_package_version_downloads_4h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<VersionDownloadCount>> {
+    sqlx::query_as!(
+      VersionDownloadCount,
+      r#"
+      SELECT scope as "scope: ScopeName", package as "package: PackageName", version as "version: Version", time_bucket, count
+      FROM version_download_counts_4h
+      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
+      ORDER BY time_bucket ASC
+      "#,
+      scope as _,
+      name as _,
+      version as _,
+      start,
+      end,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  pub async fn get_package_version_downloads_24h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<VersionDownloadCount>> {
+    sqlx::query_as!(
+      VersionDownloadCount,
+      r#"
+      SELECT scope as "scope: ScopeName", package as "package: PackageName", version as "version: Version", time_bucket, count
+      FROM version_download_counts_24h
+      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
+      ORDER BY time_bucket ASC
+      "#,
+      scope as _,
+      name as _,
+      version as _,
+      start,
+      end,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
 }
 
 async fn finalize_package_creation(

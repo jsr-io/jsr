@@ -338,6 +338,13 @@ ORDER BY
     page_token = res.page_token;
   }
 
+  insert_bigquery_download_entries(&db, rows).await
+}
+
+async fn insert_bigquery_download_entries(
+  db: &Database,
+  rows: Vec<serde_json::Value>,
+) -> Result<(), ApiError> {
   let mut entries = Vec::with_capacity(rows.len());
   for row in rows {
     let entry = deserialize_version_download_count_from_bigquery(&row)
@@ -373,26 +380,203 @@ fn deserialize_version_download_count_from_bigquery(
   })
 }
 
-#[test]
-fn test_deserialize_row() {
-  let value = json!({
-    "f": [
-      {
-        "v": "1721131200000000"
-      },
-      {
-        "v": "luca"
-      },
-      {
-        "v": "flag"
-      },
-      {
-        "v": "1.0.0"
-      },
-      {
-        "v": "154"
-      }
-    ]
-  });
-  deserialize_version_download_count_from_bigquery(&value);
+#[cfg(test)]
+mod tests {
+  use chrono::DateTime;
+  use chrono::Utc;
+  use serde_json::json;
+  use uuid::Uuid;
+
+  use crate::db::EphemeralDatabase;
+  use crate::db::ExportsMap;
+  use crate::db::NewPackageVersion;
+  use crate::db::PackageVersionMeta;
+  use crate::gcp::BigQueryQueryResult;
+  use crate::ids::PackageName;
+  use crate::ids::ScopeName;
+  use crate::ids::Version;
+
+  use super::deserialize_version_download_count_from_bigquery;
+
+  #[test]
+  fn test_deserialize_version_download_count_from_bigquery() {
+    let value = json!({
+      "f": [
+        {
+          "v": "1721131200000000"
+        },
+        {
+          "v": "luca"
+        },
+        {
+          "v": "flag"
+        },
+        {
+          "v": "1.0.0"
+        },
+        {
+          "v": "154"
+        }
+      ]
+    });
+    let res = deserialize_version_download_count_from_bigquery(&value);
+    let data = res.unwrap();
+    assert_eq!(data.time_bucket.timestamp_micros(), 1721131200000000);
+    assert_eq!(data.scope.as_str(), "luca");
+    assert_eq!(data.package.as_str(), "flag");
+    assert_eq!(data.version.to_string(), "1.0.0");
+    assert_eq!(data.count, 154);
+  }
+
+  #[tokio::test]
+  async fn test_insert_bigquery_download_entries() {
+    let db = EphemeralDatabase::create().await;
+
+    let res: BigQueryQueryResult = serde_json::from_str(include_str!(
+      "../testdata/bigquery_query_results.json"
+    ))
+    .unwrap();
+
+    let std = ScopeName::new("std".to_owned()).unwrap();
+    let fs = PackageName::new("fs".to_owned()).unwrap();
+    let luca = ScopeName::new("luca".to_owned()).unwrap();
+    let flag = PackageName::new("flag".to_owned()).unwrap();
+    let v0_215_0 = Version::new("0.215.0").unwrap();
+    let v0_219_3 = Version::new("0.219.3").unwrap();
+    let v1_0_0 = Version::new("1.0.0").unwrap();
+
+    db.create_scope(&std, Uuid::nil()).await.unwrap();
+    db.create_scope(&luca, Uuid::nil()).await.unwrap();
+    db.create_package(&std, &fs).await.unwrap();
+    db.create_package(&luca, &flag).await.unwrap();
+    db.create_package_version_for_test(NewPackageVersion {
+      scope: &std,
+      name: &fs,
+      version: &v0_215_0,
+      exports: &ExportsMap::mock(),
+      user_id: None,
+      readme_path: None,
+      uses_npm: false,
+      meta: PackageVersionMeta::default(),
+    })
+    .await
+    .unwrap();
+    db.create_package_version_for_test(NewPackageVersion {
+      scope: &luca,
+      name: &flag,
+      version: &v1_0_0,
+      exports: &ExportsMap::mock(),
+      user_id: None,
+      readme_path: None,
+      uses_npm: false,
+      meta: PackageVersionMeta::default(),
+    })
+    .await
+    .unwrap();
+
+    let rows = res.rows;
+    super::insert_bigquery_download_entries(&db, rows)
+      .await
+      .unwrap();
+
+    let downloads = db
+      .get_package_version_downloads_4h(
+        &std,
+        &fs,
+        &v0_215_0,
+        "2024-06-01T00:00:00Z".parse().unwrap(),
+        "2024-07-31T00:00:00Z".parse().unwrap(),
+      )
+      .await
+      .unwrap();
+    assert_eq!(downloads.len(), 1, "{:?}", downloads);
+    assert_eq!(
+      downloads[0].time_bucket,
+      "2024-07-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap()
+    );
+    assert_eq!(downloads[0].count, 13);
+
+    let downloads = db
+      .get_package_version_downloads_4h(
+        &luca,
+        &flag,
+        &v1_0_0,
+        "2024-06-01T00:00:00Z".parse().unwrap(),
+        "2024-07-31T00:00:00Z".parse().unwrap(),
+      )
+      .await
+      .unwrap();
+    assert_eq!(downloads.len(), 2, "{:?}", downloads);
+    assert_eq!(
+      downloads[0].time_bucket,
+      "2024-07-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap()
+    );
+    assert_eq!(downloads[0].count, 196);
+    assert_eq!(
+      downloads[1].time_bucket,
+      "2024-07-16T16:00:00Z".parse::<DateTime<Utc>>().unwrap()
+    );
+    assert_eq!(downloads[1].count, 42);
+
+    // non existant version
+    let downloads = db
+      .get_package_version_downloads_4h(
+        &std,
+        &fs,
+        &v0_219_3,
+        "2024-06-01T00:00:00Z".parse().unwrap(),
+        "2024-07-31T00:00:00Z".parse().unwrap(),
+      )
+      .await
+      .unwrap();
+    assert_eq!(downloads.len(), 0, "{:?}", downloads);
+
+    // time window with no data
+    let downloads = db
+      .get_package_version_downloads_4h(
+        &std,
+        &fs,
+        &v0_215_0,
+        "2024-06-01T00:00:00Z".parse().unwrap(),
+        "2024-06-30T00:00:00Z".parse().unwrap(),
+      )
+      .await
+      .unwrap();
+    assert_eq!(downloads.len(), 0, "{:?}", downloads);
+
+    // 24 hour window
+    let downloads = db
+      .get_package_version_downloads_24h(
+        &std,
+        &fs,
+        &v0_215_0,
+        "2024-06-01T00:00:00Z".parse().unwrap(),
+        "2024-07-31T00:00:00Z".parse().unwrap(),
+      )
+      .await
+      .unwrap();
+    assert_eq!(downloads.len(), 1, "{:?}", downloads);
+    assert_eq!(
+      downloads[0].time_bucket,
+      "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+    );
+    assert_eq!(downloads[0].count, 13);
+
+    let downloads = db
+      .get_package_version_downloads_24h(
+        &luca,
+        &flag,
+        &v1_0_0,
+        "2024-06-01T00:00:00Z".parse().unwrap(),
+        "2024-07-31T00:00:00Z".parse().unwrap(),
+      )
+      .await
+      .unwrap();
+    assert_eq!(downloads.len(), 1, "{:?}", downloads);
+    assert_eq!(
+      downloads[0].time_bucket,
+      "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+    );
+    assert_eq!(downloads[0].count, 238);
+  }
 }
