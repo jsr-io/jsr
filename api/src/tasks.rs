@@ -11,6 +11,7 @@ use hyper::Body;
 use hyper::Request;
 use routerify::ext::RequestExt;
 use routerify::Router;
+use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
@@ -246,13 +247,13 @@ pub async fn scrape_download_counts_handler(
   };
 
   let time_window = req
-    .param("intervalHrs")
+    .query("intervalHrs")
     .ok_or_else(|| ApiError::MalformedRequest {
-      msg: "intervalHrs is required".into(),
+      msg: "intervalHrs query param is required".into(),
     })?
     .parse()
     .map_err(|_| ApiError::MalformedRequest {
-      msg: "intervalHrs must be an integer".into(),
+      msg: "intervalHrs query param must be an integer".into(),
     })?;
 
   let current_timestamp = chrono::Utc::now();
