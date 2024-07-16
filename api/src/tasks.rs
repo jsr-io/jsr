@@ -19,6 +19,7 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::error;
 use tracing::field;
+use tracing::info;
 use tracing::instrument;
 use tracing::Span;
 
@@ -326,6 +327,7 @@ ORDER BY
     return Err(ApiError::InternalServerError);
   }
   let mut rows = res.rows;
+  info!("BigQuery job complete, got rows: {rows:?}");
   let mut page_token = res.page_token;
   while let Some(token) = page_token {
     let res = bigquery
