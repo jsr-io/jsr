@@ -285,18 +285,10 @@ pub async fn scrape_download_counts_handler(
         "value": bigquery_timestamp_serialization(current_timestamp)
       }
     }),
-    json!({
-      "name": "table_id",
-      "parameterType": {
-        "type": "STRING"
-      },
-      "parameterValue": {
-        "value": logs_table_id.clone()
-      }
-    }),
   ];
 
-  let res = bigquery.query(r#"
+  let query = format!(
+    r#"
 SELECT
   t1.time_bucket,
   t1.scope,
@@ -310,7 +302,7 @@ FROM (
     REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
     REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
   FROM
-    @table_id AS t2
+    `{logs_table_id}` AS t2
   WHERE
     t2.timestamp BETWEEN @start_timestamp
     AND @end_timestamp
@@ -325,7 +317,9 @@ ORDER BY
   time_bucket,
   scope,
   package,
-  version"#, params).await?;
+  version"#
+  );
+  let res = bigquery.query(&query, params).await?;
   let mut rows = res.rows;
   let mut page_token = res.page_token;
   while !page_token.is_empty() {
