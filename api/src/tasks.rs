@@ -267,7 +267,7 @@ pub async fn scrape_download_counts_handler(
         "type": "TIMESTAMP"
       },
       "parameterValue": {
-        "value": start_timestamp.to_rfc3339()
+        "value": start_timestamp.to_rfc3339().replace("+00:00", "Z")
       }
     }),
     json!({
@@ -276,7 +276,7 @@ pub async fn scrape_download_counts_handler(
         "type": "TIMESTAMP"
       },
       "parameterValue": {
-        "value": current_timestamp.to_rfc3339()
+        "value": current_timestamp.to_rfc3339().replace("+00:00", "Z")
       }
     }),
     json!({
