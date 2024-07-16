@@ -446,7 +446,7 @@ pub struct BigQueryJobReference {
 #[serde(rename_all = "camelCase")]
 pub struct BigQueryQueryResult {
   pub job_reference: BigQueryJobReference,
-  pub page_token: String,
+  pub page_token: Option<String>,
   pub rows: Vec<serde_json::Value>,
 }
 

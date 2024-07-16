@@ -322,9 +322,9 @@ ORDER BY
   let res = bigquery.query(&query, params).await?;
   let mut rows = res.rows;
   let mut page_token = res.page_token;
-  while !page_token.is_empty() {
+  while let Some(token) = page_token {
     let res = bigquery
-      .get_query_results(&res.job_reference.job_id, &page_token)
+      .get_query_results(&res.job_reference.job_id, &token)
       .await?;
     rows.extend(res.rows);
     page_token = res.page_token;
