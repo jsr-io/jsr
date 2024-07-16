@@ -565,7 +565,7 @@ pub mod test {
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
-        logs_bigquery_dataset: None,   // no bigquery locally
+        logs_bigquery_table: None,     // no bigquery locally
         expose_api: true,              // api enabled
         expose_tasks: true,            // task endpoints enabled
       });
