@@ -30,6 +30,7 @@ use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::NewNpmTarball;
+use crate::db::VersionDownloadCount;
 use crate::gcp;
 use crate::gcp::GcsUploadOptions;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
@@ -337,9 +338,31 @@ ORDER BY
     page_token = res.page_token;
   }
 
+  fn deserialize_row(row: &serde_json::Value) -> Option<VersionDownloadCount> {
+    let f = row.get("f")?;
+    let time_bucket_micros: i64 = f.get(0)?.get("v")?.as_str()?.parse().ok()?;
+    let time_bucket = DateTime::from_timestamp_micros(time_bucket_micros)?;
+    let scope =
+      ScopeName::new(f.get(1)?.get("v")?.as_str()?.to_owned()).ok()?;
+    let package =
+      PackageName::new(f.get(2)?.get("v")?.as_str()?.to_owned()).ok()?;
+    let version = Version::new(f.get(2)?.get("v")?.as_str()?).ok()?;
+    let count = f.get(4)?.get("v")?.as_str()?.parse().ok()?;
+    Some(VersionDownloadCount {
+      time_bucket,
+      scope,
+      package,
+      version,
+      count,
+    })
+  }
+
   let mut entries = Vec::with_capacity(rows.len());
   for row in rows {
-    let entry = serde_json::from_value(row)?;
+    let entry = deserialize_row(&row).ok_or_else(|| {
+      error!("Failed to deserialize row: {:?}", row);
+      ApiError::InternalServerError
+    })?;
     entries.push(entry);
   }
 

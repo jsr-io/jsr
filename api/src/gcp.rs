@@ -490,7 +490,7 @@ impl BigQuery {
       .http()
       .post(url)
       .bearer_auth(token)
-      .json(&json!({ "query": query, "useLegacySql": false, "parameterMode": "NAMED", "queryParameters": params }))
+      .json(&json!({ "query": query, "useLegacySql": false, "parameterMode": "NAMED", "queryParameters": params, "formatOptions": { "useInt64Timestamp": true } }))
       .send()
       .await?;
     let status = resp.status();
@@ -511,7 +511,7 @@ impl BigQuery {
     page_token: &str,
   ) -> Result<BigQueryQueryResult, anyhow::Error> {
     let url = format!(
-      "{}/bigquery/v2/projects/{}/queries/{}?pageToken={}",
+      "{}/bigquery/v2/projects/{}/queries/{}?pageToken={}&formatOptions.useInt64Timestamp=true",
       self.endpoint, self.project, job_id, page_token
     );
     let token = self.client.get_access_token().await?;
