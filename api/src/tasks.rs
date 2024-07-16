@@ -338,35 +338,61 @@ ORDER BY
     page_token = res.page_token;
   }
 
-  fn deserialize_row(row: &serde_json::Value) -> Option<VersionDownloadCount> {
-    let f = row.get("f")?;
-    let time_bucket_micros: i64 = f.get(0)?.get("v")?.as_str()?.parse().ok()?;
-    let time_bucket = DateTime::from_timestamp_micros(time_bucket_micros)?;
-    let scope =
-      ScopeName::new(f.get(1)?.get("v")?.as_str()?.to_owned()).ok()?;
-    let package =
-      PackageName::new(f.get(2)?.get("v")?.as_str()?.to_owned()).ok()?;
-    let version = Version::new(f.get(3)?.get("v")?.as_str()?).ok()?;
-    let count = f.get(4)?.get("v")?.as_str()?.parse().ok()?;
-    Some(VersionDownloadCount {
-      time_bucket,
-      scope,
-      package,
-      version,
-      count,
-    })
-  }
-
   let mut entries = Vec::with_capacity(rows.len());
   for row in rows {
-    let entry = deserialize_row(&row).ok_or_else(|| {
-      error!("Failed to deserialize row: {:?}", row);
-      ApiError::InternalServerError
-    })?;
+    let entry = deserialize_version_download_count_from_bigquery(&row)
+      .ok_or_else(|| {
+        error!("Failed to deserialize row: {:?}", row);
+        ApiError::InternalServerError
+      })?;
     entries.push(entry);
   }
 
   db.insert_download_entries(entries).await?;
 
   Ok(())
+}
+
+fn deserialize_version_download_count_from_bigquery(
+  row: &serde_json::Value,
+) -> Option<VersionDownloadCount> {
+  let f = row.get("f")?;
+  let time_bucket_micros: i64 = f.get(0)?.get("v")?.as_str()?.parse().ok()?;
+  let time_bucket = DateTime::from_timestamp_micros(time_bucket_micros)?;
+  let scope = ScopeName::new(f.get(1)?.get("v")?.as_str()?.to_owned()).ok()?;
+  let package =
+    PackageName::new(f.get(2)?.get("v")?.as_str()?.to_owned()).ok()?;
+  let version = Version::new(f.get(3)?.get("v")?.as_str()?).ok()?;
+  let count = f.get(4)?.get("v")?.as_str()?.parse().ok()?;
+  Some(VersionDownloadCount {
+    time_bucket,
+    scope,
+    package,
+    version,
+    count,
+  })
+}
+
+#[test]
+fn test_deserialize_row() {
+  let value = json!({
+    "f": [
+      {
+        "v": "1721131200000000"
+      },
+      {
+        "v": "luca"
+      },
+      {
+        "v": "flag"
+      },
+      {
+        "v": "1.0.0"
+      },
+      {
+        "v": "154"
+      }
+    ]
+  });
+  deserialize_version_download_count_from_bigquery(&value);
 }
