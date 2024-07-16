@@ -130,9 +130,9 @@ pub struct Config {
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
 
-  #[clap(long = "logs_bigquery_dataset_id", env = "LOGS_BIGQUERY_DATASET_ID")]
-  /// The ID of the logs dataset in BigQuery that is used for download analysis.
-  pub logs_bigquery_dataset_id: Option<String>,
+  #[clap(long = "logs_bigquery_table_id", env = "LOGS_BIGQUERY_TABLE_ID")]
+  /// The ID of the logs table in BigQuery that is used for download analysis.
+  pub logs_bigquery_table_id: Option<String>,
 
   #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
   /// The ID of the project.

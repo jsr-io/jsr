@@ -27,7 +27,7 @@ locals {
     "PUBLISH_QUEUE_ID"           = google_cloud_tasks_queue.publishing_tasks.id
     "NPM_TARBALL_BUILD_QUEUE_ID" = google_cloud_tasks_queue.npm_tarball_build_tasks.id
 
-    "LOGS_BIGQUERY_DATASET_ID" = google_logging_linked_dataset.default.bigquery_dataset.dataset_id
+    "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
     "GCP_PROJECT_ID"           = var.gcp_project
   }
 }
@@ -332,7 +332,7 @@ resource "google_project_iam_member" "bigquery" {
 }
 
 resource "google_bigquery_dataset_iam_member" "registry_api_logs" {
-  dataset_id = google_logging_linked_dataset.default.bigquery_dataset.dataset_id
+  dataset_id = data.google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataViewer"
   member     = "serviceAccount:${google_service_account.registry_api.email}"
 }

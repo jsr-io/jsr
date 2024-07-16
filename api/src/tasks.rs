@@ -44,7 +44,9 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
-pub struct LogsBigQuery(pub Option<(gcp::BigQuery, /* dataset id */ String)>);
+pub struct LogsBigQueryTable(
+  pub Option<(gcp::BigQuery, /* logs table id */ String)>,
+);
 
 pub fn tasks_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -237,8 +239,8 @@ pub async fn scrape_download_counts_handler(
   req: Request<Body>,
 ) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
-  let bigquery = req.data::<LogsBigQuery>().unwrap();
-  let Some((bigquery, logs_dataset_id)) = bigquery.0.as_ref() else {
+  let bigquery = req.data::<LogsBigQueryTable>().unwrap();
+  let Some((bigquery, logs_table_id)) = bigquery.0.as_ref() else {
     error!("BigQuery not configured");
     return Err(ApiError::InternalServerError);
   };
@@ -277,12 +279,12 @@ pub async fn scrape_download_counts_handler(
       }
     }),
     json!({
-      "name": "dataset",
+      "name": "table_id",
       "parameterType": {
         "type": "STRING"
       },
       "parameterValue": {
-        "value": logs_dataset_id.clone()
+        "value": logs_table_id.clone()
       }
     }),
   ];
@@ -301,7 +303,7 @@ FROM (
     REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
     REGEXP_EXTRACT(t2.http_request.request_url, 'https://jsr.io/@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
   FROM
-    @dataset AS t2
+    @table_id AS t2
   WHERE
     t2.timestamp BETWEEN @start_timestamp
     AND @end_timestamp

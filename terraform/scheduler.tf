@@ -22,7 +22,7 @@ resource "google_cloud_scheduler_job" "scrape_download_counts" {
 
   http_target {
     http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/scrape_download_counts"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/scrape_download_counts?intervalHrs=12"
     oidc_token {
       service_account_email = google_service_account.task_dispatcher.email
     }
