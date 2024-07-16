@@ -299,16 +299,16 @@ SELECT
 FROM (
   SELECT
     TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@([^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') AS scope,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
+    REGEXP_EXTRACT(t2.http_request.request_url, 'https://{registry_root}@([^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') AS scope,
+    REGEXP_EXTRACT(t2.http_request.request_url, 'https://{registry_root}@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
+    REGEXP_EXTRACT(t2.http_request.request_url, 'https://{registry_root}@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
   FROM
     `{logs_table_id}` AS t2
   WHERE
     t2.timestamp BETWEEN @start_timestamp
     AND @end_timestamp
     AND t2.log_id = "requests"
-    AND REGEXP_CONTAINS(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') ) AS t1
+    AND REGEXP_CONTAINS(t2.http_request.request_url, 'https://{registry_root}@(?:[^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') ) AS t1
 GROUP BY
   1,
   2,
