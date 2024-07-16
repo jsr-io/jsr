@@ -447,7 +447,11 @@ pub struct BigQueryJobReference {
 pub struct BigQueryQueryResult {
   pub job_reference: BigQueryJobReference,
   pub page_token: Option<String>,
+  #[serde(default)]
   pub rows: Vec<serde_json::Value>,
+  #[serde(default)]
+  pub errors: Option<serde_json::Value>,
+  pub job_complete: bool,
 }
 
 pub struct BigQuery {

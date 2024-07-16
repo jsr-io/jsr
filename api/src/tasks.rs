@@ -320,6 +320,10 @@ ORDER BY
   version"#
   );
   let res = bigquery.query(&query, params).await?;
+  if !res.job_complete {
+    error!("BigQuery job did not complete, errors: {:?}", res.errors);
+    return Err(ApiError::InternalServerError);
+  }
   let mut rows = res.rows;
   let mut page_token = res.page_token;
   while let Some(token) = page_token {
