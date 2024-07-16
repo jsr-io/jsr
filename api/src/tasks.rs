@@ -2,6 +2,8 @@
 use std::collections::HashSet;
 
 use bytes::Bytes;
+use chrono::DateTime;
+use chrono::Utc;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::VersionReq;
@@ -260,6 +262,10 @@ pub async fn scrape_download_counts_handler(
   let start_timestamp =
     current_timestamp - chrono::Duration::hours(time_window);
 
+  fn bigquery_timestamp_serialization(timestamp: DateTime<Utc>) -> String {
+    timestamp.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+  }
+
   let params = vec![
     json!({
       "name": "start_timestamp",
@@ -267,7 +273,7 @@ pub async fn scrape_download_counts_handler(
         "type": "TIMESTAMP"
       },
       "parameterValue": {
-        "value": start_timestamp.to_rfc3339().replace("+00:00", "Z")
+        "value": bigquery_timestamp_serialization(start_timestamp)
       }
     }),
     json!({
@@ -276,7 +282,7 @@ pub async fn scrape_download_counts_handler(
         "type": "TIMESTAMP"
       },
       "parameterValue": {
-        "value": current_timestamp.to_rfc3339().replace("+00:00", "Z")
+        "value": bigquery_timestamp_serialization(current_timestamp)
       }
     }),
     json!({
