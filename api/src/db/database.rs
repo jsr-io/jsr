@@ -2915,8 +2915,6 @@ impl Database {
 
     let mut tx = self.pool.begin().await?;
 
-    let entries_count = entries.len();
-
     let mut scopes = Vec::with_capacity(entries.len());
     let mut packages = Vec::with_capacity(entries.len());
     let mut versions = Vec::with_capacity(entries.len());
@@ -2942,7 +2940,7 @@ impl Database {
     }
 
     // Upsert data into version_download_counts_4h
-    let res = sqlx::query!(
+    sqlx::query!(
       r#"
       INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, count)
       SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::INT[]) as temp(scope, package, version, time_bucket, count)
