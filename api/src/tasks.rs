@@ -346,7 +346,7 @@ ORDER BY
       ScopeName::new(f.get(1)?.get("v")?.as_str()?.to_owned()).ok()?;
     let package =
       PackageName::new(f.get(2)?.get("v")?.as_str()?.to_owned()).ok()?;
-    let version = Version::new(f.get(2)?.get("v")?.as_str()?).ok()?;
+    let version = Version::new(f.get(3)?.get("v")?.as_str()?).ok()?;
     let count = f.get(4)?.get("v")?.as_str()?.parse().ok()?;
     Some(VersionDownloadCount {
       time_bucket,
