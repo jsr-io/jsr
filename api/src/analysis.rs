@@ -20,6 +20,7 @@ use deno_graph::source::NullFileSystem;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
 use deno_graph::CapturingModuleAnalyzer;
+use deno_graph::DefaultModuleParser;
 use deno_graph::GraphKind;
 use deno_graph::ModuleGraph;
 use deno_graph::ModuleInfo;
@@ -600,9 +601,36 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
+pub struct ModuleParser(DefaultModuleParser);
+
+impl deno_graph::ModuleParser for ModuleParser {
+  fn parse_module(
+    &self,
+    options: deno_graph::ParseOptions,
+  ) -> Result<ParsedSource, deno_ast::ParseDiagnostic> {
+    let source = self.0.parse_module(options)?;
+    if let Some(err) = source.diagnostics().first() {
+      return Err(err.clone());
+    }
+    Ok(source)
+  }
+}
+
 pub struct ModuleAnalyzer {
   pub analyzer: CapturingModuleAnalyzer,
   pub module_info: RefCell<HashMap<Url, ModuleInfo>>,
+}
+
+impl Default for ModuleAnalyzer {
+  fn default() -> Self {
+    Self {
+      analyzer: CapturingModuleAnalyzer::new(
+        Some(Box::new(ModuleParser::default())),
+        None,
+      ),
+      module_info: Default::default(),
+    }
+  }
 }
 
 impl ModuleAnalyzer {
