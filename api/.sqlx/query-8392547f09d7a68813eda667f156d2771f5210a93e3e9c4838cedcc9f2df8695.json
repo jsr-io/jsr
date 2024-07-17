@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      INSERT INTO version_download_counts_24h (scope, package, version, time_bucket, count)\n      SELECT scope, package, version, date_trunc('day', time_bucket), SUM(count)\n      FROM version_download_counts_4h\n      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'\n      GROUP BY scope, package, version, date_trunc('day', time_bucket)\n      ON CONFLICT (scope, package, version, time_bucket) DO UPDATE SET count = EXCLUDED.count\n      ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8392547f09d7a68813eda667f156d2771f5210a93e3e9c4838cedcc9f2df8695"
+}

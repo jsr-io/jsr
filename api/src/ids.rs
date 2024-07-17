@@ -112,6 +112,12 @@ impl sqlx::Type<Postgres> for ScopeName {
   }
 }
 
+impl sqlx::postgres::PgHasArrayType for ScopeName {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
+  }
+}
+
 impl std::ops::Deref for ScopeName {
   type Target = String;
 
@@ -242,6 +248,12 @@ impl<'q> sqlx::Encode<'q, Postgres> for PackageName {
 impl sqlx::Type<Postgres> for PackageName {
   fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
     <String as sqlx::Type<Postgres>>::type_info()
+  }
+}
+
+impl sqlx::postgres::PgHasArrayType for PackageName {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
   }
 }
 
@@ -433,6 +445,12 @@ impl<'q> sqlx::Encode<'q, Postgres> for Version {
 impl sqlx::Type<Postgres> for Version {
   fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
     <String as sqlx::Type<Postgres>>::type_info()
+  }
+}
+
+impl sqlx::postgres::PgHasArrayType for Version {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
   }
 }
 

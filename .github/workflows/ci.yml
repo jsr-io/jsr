@@ -92,7 +92,7 @@ jobs:
         working-directory: api
 
   docker-images:
-    if: github.event_name == 'merge_group' || github.event_name == 'push'
+    if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -157,7 +157,7 @@ jobs:
         run: echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
 
   staging:
-    if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
     needs: docker-images
     environment:

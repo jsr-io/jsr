@@ -778,3 +778,13 @@ impl sqlx::Type<sqlx::Postgres> for RuntimeCompat {
     )
   }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionDownloadCount {
+  pub scope: ScopeName,
+  pub package: PackageName,
+  pub version: Version,
+  pub time_bucket: DateTime<Utc>,
+  pub count: i64,
+}
