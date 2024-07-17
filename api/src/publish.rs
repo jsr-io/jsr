@@ -1207,6 +1207,17 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn syntax_error_two() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("syntax_error_two");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:1\n\n  +\n  ~");
+  }
+
+  #[tokio::test]
   async fn syntax_error_extra_file() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("syntax_error_extra_file");
