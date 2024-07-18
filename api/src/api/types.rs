@@ -571,7 +571,8 @@ pub struct ApiPackageVersion {
   pub version: Version,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: i64,
+  pub newer_versions_count: u64,
+  pub lifetime_download_count: u64,
   pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
@@ -603,7 +604,8 @@ impl From<PackageVersion> for ApiPackageVersion {
       version: value.version,
       yanked: value.is_yanked,
       uses_npm: value.uses_npm,
-      newer_versions_count: value.newer_versions_count,
+      newer_versions_count: value.newer_versions_count as u64,
+      lifetime_download_count: value.lifetime_download_count as u64,
       rekor_log_id: value.rekor_log_id,
       readme_path: value.readme_path,
       updated_at: value.updated_at,
@@ -652,6 +654,7 @@ pub struct ApiPackageVersionWithUser {
   pub yanked: bool,
   pub uses_npm: bool,
   pub newer_versions_count: i64,
+  pub lifetime_download_count: i64,
   pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
@@ -674,6 +677,7 @@ impl From<(PackageVersion, Option<UserPublic>)> for ApiPackageVersionWithUser {
       yanked: package_version.is_yanked,
       uses_npm: package_version.uses_npm,
       newer_versions_count: package_version.newer_versions_count,
+      lifetime_download_count: package_version.lifetime_download_count,
       rekor_log_id: package_version.rekor_log_id,
       readme_path: package_version.readme_path,
       updated_at: package_version.updated_at,
@@ -839,6 +843,40 @@ impl From<Dependent> for ApiDependent {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ApiDownloadDataPoint {
+  pub time_bucket: DateTime<Utc>,
+  pub kind: ApiDownloadKind,
+  pub count: u64,
+}
+
+impl From<DownloadDataPoint> for ApiDownloadDataPoint {
+  fn from(value: DownloadDataPoint) -> Self {
+    Self {
+      time_bucket: value.time_bucket,
+      kind: value.kind.into(),
+      count: value.count as u64,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApiDownloadKind {
+  JsrMeta,
+  NpmTarball,
+}
+
+impl From<DownloadKind> for ApiDownloadKind {
+  fn from(value: DownloadKind) -> Self {
+    match value {
+      DownloadKind::JsrMeta => ApiDownloadKind::JsrMeta,
+      DownloadKind::NpmTgz => ApiDownloadKind::NpmTarball,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApiList<T> {
   pub items: Vec<T>,
   pub total: usize,
@@ -910,4 +948,18 @@ pub struct ApiCreatedToken {
 pub struct ApiAssignScopeRequest {
   pub scope: ScopeName,
   pub user_id: Uuid,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiPackageDownloads {
+  pub total: Vec<ApiDownloadDataPoint>,
+  pub recent_versions: Vec<ApiPackageDownloadsRecentVersion>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiPackageDownloadsRecentVersion {
+  pub version: Version,
+  pub downloads: Vec<ApiDownloadDataPoint>,
 }
