@@ -2919,6 +2919,7 @@ impl Database {
     let mut packages = Vec::with_capacity(entries.len());
     let mut versions = Vec::with_capacity(entries.len());
     let mut time_buckets = Vec::with_capacity(entries.len());
+    let mut kinds = Vec::with_capacity(entries.len());
     let mut counts = Vec::with_capacity(entries.len());
 
     let mut smallest_time_bucket = Utc::now();
@@ -2929,6 +2930,7 @@ impl Database {
       packages.push(entry.package);
       versions.push(entry.version);
       time_buckets.push(entry.time_bucket);
+      kinds.push(entry.kind);
       counts.push(entry.count);
 
       if entry.time_bucket < smallest_time_bucket {
@@ -2942,15 +2944,16 @@ impl Database {
     // Upsert data into version_download_counts_4h
     sqlx::query!(
       r#"
-      INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, count)
-      SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::INT[]) as temp(scope, package, version, time_bucket, count)
+      INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, kind, count)
+      SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::download_kind[], $6::INT[]) as temp(scope, package, version, time_bucket, kind, count)
       WHERE (SELECT COUNT(*) FROM package_versions WHERE package_versions.scope = temp.scope AND package_versions.name = temp.package AND version = temp.version) > 0
-      ON CONFLICT (scope, package, version, time_bucket) DO UPDATE SET count = EXCLUDED.count
+      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
       "#,
       &scopes as _,
       &packages as _,
       &versions as _,
       &time_buckets,
+      &kinds as _,
       &counts as _,
     )
     .execute(&mut *tx)
@@ -2989,7 +2992,7 @@ impl Database {
     sqlx::query_as!(
       VersionDownloadCount,
       r#"
-      SELECT scope as "scope: ScopeName", package as "package: PackageName", version as "version: Version", time_bucket, count
+      SELECT scope as "scope: ScopeName", package as "package: PackageName", version as "version: Version", time_bucket, kind as "kind: DownloadKind", count
       FROM version_download_counts_4h
       WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
       ORDER BY time_bucket ASC
@@ -3015,7 +3018,7 @@ impl Database {
     sqlx::query_as!(
       VersionDownloadCount,
       r#"
-      SELECT scope as "scope: ScopeName", package as "package: PackageName", version as "version: Version", time_bucket, count
+      SELECT scope as "scope: ScopeName", package as "package: PackageName", version as "version: Version", time_bucket, kind as "kind: DownloadKind", count
       FROM version_download_counts_24h
       WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
       ORDER BY time_bucket ASC

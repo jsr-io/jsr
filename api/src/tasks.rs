@@ -19,7 +19,6 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::error;
 use tracing::field;
-use tracing::info;
 use tracing::instrument;
 use tracing::Span;
 
@@ -29,6 +28,7 @@ use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
 use crate::db::Database;
+use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
 use crate::gcp;
@@ -290,7 +290,7 @@ pub async fn scrape_download_counts_handler(
   ];
 
   let registry_root = req.data::<RegistryUrl>().unwrap().0.to_string();
-  let query = format!(
+  let jsr_meta_query = format!(
     r#"
 SELECT
   t1.time_bucket,
@@ -322,37 +322,98 @@ ORDER BY
   package,
   version"#
   );
-  let res = bigquery.query(&query, params).await?;
-  if !res.job_complete {
-    error!("BigQuery job did not complete, errors: {:?}", res.errors);
+  let jsr_meta_res = bigquery.query(&jsr_meta_query, &params).await?;
+  if !jsr_meta_res.job_complete {
+    error!(
+      "BigQuery job did not complete, errors: {:?}",
+      jsr_meta_res.errors
+    );
     return Err(ApiError::InternalServerError);
   }
-  let mut rows = res.rows;
-  info!("BigQuery job complete, got rows: {rows:?}");
-  let mut page_token = res.page_token;
+  let mut jsr_meta_rows = jsr_meta_res.rows;
+  let mut page_token = jsr_meta_res.page_token;
   while let Some(token) = page_token {
     let res = bigquery
-      .get_query_results(&res.job_reference.job_id, &token)
+      .get_query_results(&jsr_meta_res.job_reference.job_id, &token)
       .await?;
-    rows.extend(res.rows);
+    jsr_meta_rows.extend(res.rows);
     page_token = res.page_token;
   }
 
-  insert_bigquery_download_entries(&db, rows).await
+  insert_bigquery_download_entries(&db, jsr_meta_rows, DownloadKind::JsrMeta)
+    .await?;
+
+  let npm_root = req.data::<NpmUrl>().unwrap().0.to_string();
+  let npm_tgz_query = format!(
+    r#"
+SELECT
+  t1.time_bucket,
+  t1.scope,
+  t1.package,
+  t1.version,
+  COUNT(*) AS count
+FROM (
+  SELECT
+    TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
+    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/([^/]*?)__(?:[^/]*?)/(?:[^/]*?)\\.tgz') AS scope,
+    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__([^/]*?)/(?:[^/]*?)\\.tgz') AS package,
+    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__(?:[^/]*?)/([^/]*?)\\.tgz') AS version
+  FROM
+    `{logs_table_id}` AS t2
+  WHERE
+    t2.timestamp BETWEEN @start_timestamp
+    AND @end_timestamp
+    AND t2.log_id = "requests"
+    AND REGEXP_CONTAINS(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__(?:[^/]*?)/(?:[^/]*?)\\.tgz') ) AS t1
+GROUP BY
+  1,
+  2,
+  3,
+  4
+ORDER BY
+  time_bucket,
+  scope,
+  package,
+  version"#
+  );
+  let npm_tgz_res = bigquery.query(&npm_tgz_query, &params).await?;
+  if !npm_tgz_res.job_complete {
+    error!(
+      "BigQuery job did not complete, errors: {:?}",
+      npm_tgz_res.errors
+    );
+    return Err(ApiError::InternalServerError);
+  }
+  let mut npm_tgz_rows = npm_tgz_res.rows;
+  let mut page_token = npm_tgz_res.page_token;
+  while let Some(token) = page_token {
+    let res = bigquery
+      .get_query_results(&npm_tgz_res.job_reference.job_id, &token)
+      .await?;
+    npm_tgz_rows.extend(res.rows);
+    page_token = res.page_token;
+  }
+
+  insert_bigquery_download_entries(&db, npm_tgz_rows, DownloadKind::NpmTgz)
+    .await?;
+
+  Ok(())
 }
 
 async fn insert_bigquery_download_entries(
   db: &Database,
   rows: Vec<serde_json::Value>,
+  kind: DownloadKind,
 ) -> Result<(), ApiError> {
   let mut entries = Vec::with_capacity(rows.len());
   for row in rows {
-    if let Some(entry) = deserialize_version_download_count_from_bigquery(&row)
-      .ok_or_else(|| {
-        error!("Failed to deserialize row: {:?}", row);
-        ApiError::InternalServerError
-      })?
-    {
+    if let Some(entry) = deserialize_version_download_count_from_bigquery(
+      &row, kind,
+    )
+    .ok_or_else(|| {
+      error!("Failed to deserialize row: {:?}", row);
+      ApiError::InternalServerError
+    })? {
       entries.push(entry);
     }
   }
@@ -366,6 +427,7 @@ async fn insert_bigquery_download_entries(
 // Inner option: failed to deserialize because scope / package / version was not formatted correctly
 fn deserialize_version_download_count_from_bigquery(
   row: &serde_json::Value,
+  kind: DownloadKind,
 ) -> Option<Option<VersionDownloadCount>> {
   let f = row.get("f")?;
   let time_bucket_micros: i64 = f.get(0)?.get("v")?.as_str()?.parse().ok()?;
@@ -387,6 +449,7 @@ fn deserialize_version_download_count_from_bigquery(
     scope,
     package,
     version,
+    kind,
     count,
   }))
 }
@@ -398,6 +461,7 @@ mod tests {
   use serde_json::json;
   use uuid::Uuid;
 
+  use crate::db::DownloadKind;
   use crate::db::EphemeralDatabase;
   use crate::db::ExportsMap;
   use crate::db::NewPackageVersion;
@@ -430,7 +494,10 @@ mod tests {
         }
       ]
     });
-    let res = deserialize_version_download_count_from_bigquery(&value);
+    let res = deserialize_version_download_count_from_bigquery(
+      &value,
+      DownloadKind::JsrMeta,
+    );
     let data = res.unwrap().unwrap();
     assert_eq!(data.time_bucket.timestamp_micros(), 1721131200000000);
     assert_eq!(data.scope.as_str(), "luca");
@@ -460,7 +527,10 @@ mod tests {
         }
       ]
     });
-    let res = deserialize_version_download_count_from_bigquery(&value);
+    let res = deserialize_version_download_count_from_bigquery(
+      &value,
+      DownloadKind::JsrMeta,
+    );
     let data = res.unwrap();
     assert!(data.is_none());
   }
@@ -512,7 +582,7 @@ mod tests {
     .unwrap();
 
     let rows = res.rows;
-    super::insert_bigquery_download_entries(&db, rows)
+    super::insert_bigquery_download_entries(&db, rows, DownloadKind::JsrMeta)
       .await
       .unwrap();
 
