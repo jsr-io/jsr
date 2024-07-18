@@ -478,7 +478,7 @@ impl BigQuery {
   pub async fn query(
     &self,
     query: &str,
-    params: Vec<serde_json::Value>,
+    params: &[serde_json::Value],
   ) -> Result<BigQueryQueryResult, anyhow::Error> {
     let url = format!(
       "{}/bigquery/v2/projects/{}/queries",

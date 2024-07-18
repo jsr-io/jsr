@@ -786,5 +786,24 @@ pub struct VersionDownloadCount {
   pub package: PackageName,
   pub version: Version,
   pub time_bucket: DateTime<Utc>,
+  pub kind: DownloadKind,
   pub count: i64,
+}
+
+#[derive(
+  Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize, Deserialize,
+)]
+#[sqlx(type_name = "download_kind", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadKind {
+  /// A download of the version's JSR $version_meta.json file.
+  JsrMeta,
+  /// A download of the NPM tarball.
+  NpmTgz,
+}
+
+impl sqlx::postgres::PgHasArrayType for DownloadKind {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    sqlx::postgres::PgTypeInfo::with_name("_download_kind")
+  }
 }
