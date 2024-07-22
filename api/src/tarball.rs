@@ -279,7 +279,7 @@ pub async fn process_tarball(
   let PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes,
+    doc_nodes_json,
     dependencies,
     npm_tarball,
     readme_path,
@@ -357,11 +357,7 @@ pub async fn process_tarball(
         &publishing_task.package_version,
       )
       .into(),
-      UploadTaskBody::Bytes(
-        serde_json::to_vec(&doc_nodes)
-          .expect("failed to serialize doc_nodes")
-          .into(),
-      ),
+      UploadTaskBody::Bytes(doc_nodes_json),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use bytes::Bytes;
 use deno_ast::swc::common::comments::CommentKind;
 use deno_ast::swc::common::Span;
 use deno_ast::LineAndColumnDisplay;
@@ -63,7 +64,7 @@ pub struct PackageAnalysisData {
 pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
   pub module_graph_2: HashMap<String, ModuleInfo>,
-  pub doc_nodes: DocNodesByUrl,
+  pub doc_nodes_json: Bytes,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
   pub readme_path: Option<PackagePath>,
@@ -232,10 +233,12 @@ async fn analyze_package_inner(
     )
   };
 
+  let doc_nodes_json = serde_json::to_vec(&doc_nodes).unwrap().into();
+
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes,
+    doc_nodes_json,
     dependencies,
     npm_tarball,
     readme_path,
@@ -258,7 +261,7 @@ fn generate_score(
         .get(main_entrypoint)
         .unwrap()
         .iter()
-        .find(|node| node.kind == DocNodeKind::ModuleDoc)
+        .find(|node| node.kind() == DocNodeKind::ModuleDoc)
         .map(|node| &node.js_doc)
     });
 
@@ -303,7 +306,7 @@ fn all_entrypoints_have_module_doc(
 ) -> bool {
   'modules: for (specifier, nodes) in doc_nodes_by_url {
     for node in nodes {
-      if node.kind == DocNodeKind::ModuleDoc {
+      if node.kind() == DocNodeKind::ModuleDoc {
         continue 'modules;
       }
     }
@@ -328,8 +331,8 @@ fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
 
   for (_specifier, nodes) in doc_nodes_by_url {
     for node in nodes {
-      if node.kind == DocNodeKind::ModuleDoc
-        || node.kind == DocNodeKind::Import
+      if node.kind() == DocNodeKind::ModuleDoc
+        || node.kind() == DocNodeKind::Import
         || node.declaration_kind == deno_doc::node::DeclarationKind::Private
       {
         continue;
