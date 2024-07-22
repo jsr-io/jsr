@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n    SELECT time_bucket, kind as \"kind: DownloadKind\", count\n    FROM version_download_counts_24h\n    WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4\n    ORDER BY time_bucket ASC\n    ",
+  "query": "\n    SELECT time_bucket, kind as \"kind: DownloadKind\", SUM(count) as \"count!\"\n    FROM version_download_counts_24h\n    WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4\n    GROUP BY time_bucket, kind\n    ORDER BY time_bucket ASC\n    ",
   "describe": {
     "columns": [
       {
@@ -25,8 +25,8 @@
       },
       {
         "ordinal": 2,
-        "name": "count",
-        "type_info": "Int4"
+        "name": "count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -40,8 +40,8 @@
     "nullable": [
       false,
       false,
-      false
+      null
     ]
   },
-  "hash": "4c11c74ded7b3d7b79706409282ff9b3637416ba9c2f5ba2acdfef0b03174372"
+  "hash": "c8571766c91d628dc3befa8e69278a9e49db767ed3fd331e5a91f94fc8da22b3"
 }
