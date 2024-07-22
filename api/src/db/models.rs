@@ -220,6 +220,7 @@ pub struct PackageVersion {
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
   pub newer_versions_count: i64,
+  pub lifetime_download_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
   pub updated_at: DateTime<Utc>,
@@ -786,6 +787,21 @@ pub struct VersionDownloadCount {
   pub package: PackageName,
   pub version: Version,
   pub time_bucket: DateTime<Utc>,
+  pub kind: DownloadKind,
+  pub count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct DownloadDataPoint {
+  pub time_bucket: DateTime<Utc>,
+  pub kind: DownloadKind,
+  pub count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct VersionDownloadDataPoint {
+  pub time_bucket: DateTime<Utc>,
+  pub version: Version,
   pub kind: DownloadKind,
   pub count: i64,
 }

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
+use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use futures::future::Either;
 use futures::StreamExt;
@@ -67,10 +68,13 @@ use crate::RegistryUrl;
 
 use super::ApiDependency;
 use super::ApiDependent;
+use super::ApiDownloadDataPoint;
 use super::ApiError;
 use super::ApiList;
 use super::ApiMetrics;
 use super::ApiPackage;
+use super::ApiPackageDownloads;
+use super::ApiPackageDownloadsRecentVersion;
 use super::ApiPackageVersion;
 use super::ApiPackageVersionDocs;
 use super::ApiPackageVersionSource;
@@ -102,6 +106,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
     )
     .get("/:package/dependents", util::json(list_dependents_handler))
+    .get("/:package/downloads", util::json(get_downloads_handler))
     .get(
       "/:package/versions/:version",
       util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
@@ -1382,6 +1387,64 @@ pub async fn list_dependents_handler(
   Ok(ApiList {
     items: dependents,
     total,
+  })
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/downloads",
+  skip(req),
+  err,
+  fields(scope, package)
+)]
+pub async fn get_downloads_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageDownloads> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+
+  let db = req.data::<Database>().unwrap();
+  db.get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let current = Utc::now();
+  let start = current - chrono::Duration::days(90);
+
+  let total = db
+    .get_package_downloads_24h(&scope, &package, start, current)
+    .await?;
+
+  let recent_versions = db
+    .list_latest_unyanked_versions_for_package(&scope, &package, 5)
+    .await?;
+
+  let versions = futures::stream::iter(recent_versions.into_iter())
+    .then(|version| async {
+      let res = db
+        .get_package_version_downloads_24h(
+          &scope, &package, &version, start, current,
+        )
+        .await;
+      (version, res)
+    })
+    .collect::<Vec<_>>()
+    .await;
+
+  let mut recent_versions = Vec::with_capacity(versions.len());
+  for (version, downloads) in versions {
+    let downloads = downloads?
+      .into_iter()
+      .map(ApiDownloadDataPoint::from)
+      .collect();
+    recent_versions
+      .push(ApiPackageDownloadsRecentVersion { version, downloads });
+  }
+
+  Ok(ApiPackageDownloads {
+    total: total.into_iter().map(ApiDownloadDataPoint::from).collect(),
+    recent_versions,
   })
 }
 

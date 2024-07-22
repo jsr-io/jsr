@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE package_versions\n      SET is_yanked = $4\n      WHERE scope = $1 AND name = $2 AND version = $3\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"newer_versions_count!\"",
+  "query": "INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)\n      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"newer_versions_count!\",\n      (SELECT COALESCE(SUM(dl.count), 0)\n        FROM version_download_counts_24h as dl\n        WHERE dl.scope = package_versions.scope\n        AND dl.package = package_versions.name\n        AND dl.version = package_versions.version) as \"lifetime_download_count!\"",
   "describe": {
     "columns": [
       {
@@ -67,6 +67,11 @@
         "ordinal": 12,
         "name": "newer_versions_count!",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "lifetime_download_count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -74,7 +79,11 @@
         "Text",
         "Text",
         "Text",
-        "Bool"
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -90,8 +99,9 @@
       false,
       false,
       true,
+      null,
       null
     ]
   },
-  "hash": "a5487c56ddaf5cb082ef1676e76145995c4594a96cc563ba740f492cebc1ef2d"
+  "hash": "30441825bf3627e9fd7b99368f0b185da1afcd31f3e2762329dd2cbf0fd3c610"
 }
