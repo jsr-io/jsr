@@ -22,6 +22,7 @@ const staticRedirects = new Map([
   ],
   ["unsupported-file-type", "/docs/troubleshooting#invalidentrytype"],
   ["invalid-external-import", "/docs/troubleshooting#invalidexternalimport"],
+  ["missing-license", "/docs/troubleshooting#missinglicense"],
   ["slow-type", "/docs/about-slow-types"],
 ]);
 

@@ -265,6 +265,25 @@ If you are not publishing from GitHub Actions, you can fix this error by
 authenticating as a user that is a member of the scope, or by adding the user to
 the scope with at least the "member" role.
 
+### `missingLicense`
+
+The package being published does not contain a license file. JSR requires all
+packages to contain a license file.
+
+The license file must be at the root of your package, and must be named one of
+the following:
+
+- `LICENSE`
+- `LICENSE.md`
+- `LICENSE.txt`
+- `LICENCE`
+- `LICENCE.md`
+- `LICENCE.txt`
+
+You can fix this error by adding a license file to your package. Some common
+open source licenses can be found at
+[choosealicense.com](https://choosealicense.com/).
+
 ## Excluded module error
 
 After filtering files, you may encounter an `excluded-module` error saying that
