@@ -13,6 +13,7 @@ use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
+use deno_doc::html::HANDLEBARS;
 use deno_doc::DocNode;
 use deno_doc::DocNodeKind;
 use deno_doc::Location;
@@ -166,7 +167,7 @@ fn get_url_rewriter(
     registry_url
   )
 )]
-pub fn get_generate_ctx<'a, 'ctx>(
+pub fn get_generate_ctx<'a>(
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -177,7 +178,7 @@ pub fn get_generate_ctx<'a, 'ctx>(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
-) -> GenerateCtx<'ctx> {
+) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
 
@@ -342,26 +343,21 @@ pub fn generate_docs_html(
 
       let sections = deno_doc::html::namespace::render_namespace(
         &render_ctx,
-        partitions_by_kind
-          .into_iter()
-          .map(|(path, nodes)| {
-            (
-              deno_doc::html::SectionHeaderCtx::new_for_namespace(
-                &render_ctx,
-                &path,
-              ),
-              nodes,
-            )
-          })
-          .collect(),
+        partitions_by_kind.into_iter().map(|(path, nodes)| {
+          (
+            deno_doc::html::SectionHeaderCtx::new_for_namespace(
+              &render_ctx,
+              &path,
+            ),
+            nodes,
+          )
+        }),
       );
 
-      let breadcrumbs = ctx
-        .hbs
+      let breadcrumbs = HANDLEBARS
         .render("breadcrumbs", &render_ctx.get_breadcrumbs())
         .context("failed to render breadcrumbs")?;
-      let main = ctx
-        .hbs
+      let main = HANDLEBARS
         .render(
           "symbol_content",
           &deno_doc::html::SymbolContentCtx {
@@ -417,15 +413,13 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let main = ctx
-        .hbs
+      let main = HANDLEBARS
         .render("module_doc", &index_module_doc)
         .context("failed to render index module doc")?;
 
       let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
 
-      let toc = ctx
-        .hbs
+      let toc = HANDLEBARS
         .render("toc", &toc_ctx)
         .context("failed to render toc")?;
 
@@ -448,20 +442,17 @@ pub fn generate_docs_html(
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
 
-      let breadcrumbs = ctx
-        .hbs
+      let breadcrumbs = HANDLEBARS
         .render("breadcrumbs", &render_ctx.get_breadcrumbs())
         .context("failed to render breadcrumbs")?;
 
-      let main = ctx
-        .hbs
+      let main = HANDLEBARS
         .render("module_doc", &module_doc)
         .context("failed to render module doc")?;
 
       let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
-      let toc = ctx
-        .hbs
+      let toc = HANDLEBARS
         .render("toc", &toc_ctx)
         .context("failed to render toc")?;
 
@@ -491,18 +482,15 @@ pub fn generate_docs_html(
           toc_ctx,
           categories_panel: _categories_panel,
         } => {
-          let breadcrumbs = ctx
-            .hbs
+          let breadcrumbs = HANDLEBARS
             .render("breadcrumbs", &breadcrumbs_ctx)
             .context("failed to render breadcrumbs")?;
 
-          let main = ctx
-            .hbs
+          let main = HANDLEBARS
             .render("symbol_group", &symbol_group_ctx)
             .context("failed to render symbol group")?;
 
-          let toc = ctx
-            .hbs
+          let toc = HANDLEBARS
             .render("toc", &toc_ctx)
             .context("failed to render toc")?;
 
@@ -535,7 +523,7 @@ fn generate_symbol_page(
     let nodes = doc_nodes
       .iter()
       .filter(|node| {
-        !(matches!(node.kind, DocNodeKind::ModuleDoc | DocNodeKind::Import)
+        !(matches!(node.kind(), DocNodeKind::ModuleDoc | DocNodeKind::Import)
           || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
           && node.get_name() == next_part
       })
@@ -545,7 +533,7 @@ fn generate_symbol_page(
     if name_parts.peek().is_some() {
       for node in &nodes {
         let drilldown_node =
-          match node.kind {
+          match node.kind() {
             DocNodeKind::Class => {
               let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
               let mut is_static = true;
@@ -564,13 +552,13 @@ fn generate_symbol_page(
 
               let drilldown_name = drilldown_parts.join(".");
 
-              let class = node.class_def.as_ref().unwrap();
+              let class = node.class_def().unwrap();
 
               class
                 .methods
                 .iter()
                 .find_map(|method| {
-                  if method.name == drilldown_name
+                  if *method.name == drilldown_name
                     && method.is_static == is_static
                   {
                     Some(node.create_child_method(
@@ -590,7 +578,7 @@ fn generate_symbol_page(
                 })
                 .or_else(|| {
                   class.properties.iter().find_map(|property| {
-                    if property.name == drilldown_name
+                    if *property.name == drilldown_name
                       && property.is_static == is_static
                     {
                       Some(node.create_child_property(
@@ -607,7 +595,7 @@ fn generate_symbol_page(
               let drilldown_name =
                 name_parts.clone().collect::<Vec<_>>().join(".");
 
-              let interface = node.interface_def.as_ref().unwrap();
+              let interface = node.interface_def().unwrap();
 
               interface
                 .methods
@@ -638,7 +626,7 @@ fn generate_symbol_page(
                 })
             }
             DocNodeKind::TypeAlias => {
-              let type_alias = node.type_alias_def.as_ref().unwrap();
+              let type_alias = node.type_alias_def().unwrap();
 
               if let Some(ts_type_literal) =
                 type_alias.ts_type.type_literal.as_ref()
@@ -676,7 +664,7 @@ fn generate_symbol_page(
               }
             }
             DocNodeKind::Variable => {
-              let variable = node.variable_def.as_ref().unwrap();
+              let variable = node.variable_def().unwrap();
 
               if let Some(ts_type_literal) = variable
                 .ts_type
@@ -734,13 +722,13 @@ fn generate_symbol_page(
 
     if let Some(namespace_node) = nodes
       .iter()
-      .find(|node| matches!(node.kind, DocNodeKind::Namespace))
+      .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
     {
       namespace_paths.push(next_part.to_string());
 
-      let namespace = namespace_node.namespace_def.as_ref().unwrap();
+      let namespace = namespace_node.namespace_def().unwrap();
 
-      let parts = Rc::new(namespace_paths.clone());
+      let parts: Rc<[String]> = namespace_paths.clone().into();
 
       doc_nodes = namespace
         .elements
