@@ -283,13 +283,6 @@ body .ddoc {
   }
 
   /* Hides the link to code button unless you hover over the section or are on mobile */
-  .symbolGroup article > div:hover .context_button {
-    @apply md:visible;
-  }
-
-  .docEntryHeader:hover > .context_button {
-    @apply md:visible;
-  }
 
   .context_button {
     @apply flex flex-row gap-2 items-center md:invisible;
@@ -302,6 +295,11 @@ body .ddoc {
   .context_button::before {
     content: "View code";
     @apply hidden md:block text-xs;
+  }
+
+  .symbolGroup article > div:hover .context_button,
+  .docEntryHeader:hover > .context_button {
+    @apply md:visible;
   }
 
   /* Style overrides for a better single column layout on symbol pages */
