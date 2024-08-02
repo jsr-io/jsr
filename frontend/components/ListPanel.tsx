@@ -22,7 +22,7 @@ export function ListPanel(
           </h3>
         )}
         {subtitle && (
-          <div class="text-base text-gray-500">
+          <div class="text-base text-jsr-gray-500">
             {subtitle}
           </div>
         )}

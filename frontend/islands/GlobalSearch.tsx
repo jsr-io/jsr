@@ -306,10 +306,10 @@ function SuggestionList(
   return (
     <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
-        ? <div class="bg-white text-gray-500 px-4">...</div>
+        ? <div class="bg-white text-jsr-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
         ? (
-          <div class="bg-white text-gray-500 px-4 py-2">
+          <div class="bg-white text-jsr-gray-500 px-4 py-2">
             No matching results to display
           </div>
         )
@@ -324,7 +324,7 @@ function SuggestionList(
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
+                  class="p-2 hover:bg-jsr-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
                   aria-selected={selected}
                 >
                   <a href={hit.href} class="bg-red-600">
@@ -335,8 +335,8 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-gray-100 flex items-center justify-end py-1 px-2 gap-1">
-        <span class="text-sm text-gray-500">
+      <div class="bg-jsr-gray-100 flex items-center justify-end py-1 px-2 gap-1">
+        <span class="text-sm text-jsr-gray-500">
           powered by <span class="sr-only">Orama</span>
         </span>
         <img class="h-4" src="/logos/orama-dark.svg" alt="" />
@@ -377,7 +377,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
           </div>
         )}
         <div
-          class="text-sm text-gray-600"
+          class="text-sm text-jsr-gray-600"
           dangerouslySetInnerHTML={{
             __html: highlighter.highlight(hit.content, input.value)
               .trim(100),

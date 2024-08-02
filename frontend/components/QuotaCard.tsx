@@ -12,8 +12,8 @@ export function QuotaCard(
   return (
     <div class="border-1.5 border-jsr-cyan-950 rounded-md px-4 py-5 flex flex-col justify-between">
       <div>
-        <p class="font-semibold text-gray-900">{props.title}</p>
-        <p class="text-gray-600 text-sm">{props.description}</p>
+        <p class="font-semibold text-jsr-gray-900">{props.title}</p>
+        <p class="text-jsr-gray-600 text-sm">{props.description}</p>
       </div>
       <QuotaUsage limit={props.limit} usage={props.usage} />
     </div>
@@ -40,7 +40,7 @@ function QuotaUsage(props: { limit: number; usage: number }) {
         >
         </div>
       </div>
-      <div class="text-xs text-gray-600">{props.usage}/{props.limit}</div>
+      <div class="text-xs text-jsr-gray-600">{props.usage}/{props.limit}</div>
     </div>
   );
 }

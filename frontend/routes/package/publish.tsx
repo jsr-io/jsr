@@ -64,7 +64,7 @@ export default function PackagePage({
                   config file:
                 </p>
                 <div class="mt-2 -mb-2">
-                  <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+                  <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
                     jsr.json / deno.json
                   </div>
                 </div>
@@ -124,12 +124,12 @@ export default function PackagePage({
             <p>To publish your package from your terminal, run:</p>
             <pre class="bg-slate-900 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
                   <code>
-                    <span class="select-none sr-none text-gray-500">$ </span>
+                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
                     {`npx jsr publish`}
                     <br />
-                    <span class="select-none sr-none text-gray-500 italic">or</span>
+                    <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
                     <br />
-                    <span class="select-none sr-none text-gray-500">$ </span>
+                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
                     {`deno publish`}
                   </code>
             </pre>
@@ -184,7 +184,7 @@ function GitHubActions({ pkg, canEdit, user }: {
           </p>
           <p>
             You will need to run{" "}
-            <code class="bg-gray-200 px-1.5 py-0.5 rounded-sm">
+            <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
               deno publish
             </code>{" "}
             in your action.
@@ -235,7 +235,7 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
 
       <div class="mt-2 -mb-2">
-        <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+        <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
           .github/workflows/publish.yml
         </div>
       </div>

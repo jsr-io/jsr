@@ -46,7 +46,7 @@ export default function AccountInvitesPage(
             </Table>
           )
           : (
-            <div class="p-3 text-gray-500 text-center italic">
+            <div class="p-3 text-jsr-gray-500 text-center italic">
               You do not have any pending scope invites.
             </div>
           )}

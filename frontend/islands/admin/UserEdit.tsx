@@ -90,7 +90,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
                     }
                   });
                 }}
-                class="link disabled:text-gray-500 disabled:cursor-wait"
+                class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
               >
                 Save<span class="sr-only">, {user.name}</span>
               </button>
@@ -102,7 +102,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
                   setIsBlocked(user.isBlocked);
                   setScopeLimit(user.scopeLimit);
                 }}
-                class="link disabled:text-gray-500 disabled:cursor-wait"
+                class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
               >
                 Cancel<span class="sr-only">, {user.name}</span>
               </button>
@@ -111,7 +111,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
           : (
             <button
               onClick={() => setEdit(true)}
-              class="link disabled:text-gray-500 disabled:cursor-wait"
+              class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
             >
               Edit<span class="sr-only">, {user.name}</span>
             </button>

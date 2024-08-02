@@ -88,7 +88,7 @@ function Pagination(
       </Head>
 
       <div class="hidden sm:block">
-        <p class="text-sm text-gray-700">
+        <p class="text-sm text-jsr-gray-700">
           {start + itemsCount === 0 ? "No results found" : (
             <>
               Showing <span class="font-semibold">{start + 1}</span> to{" "}
@@ -104,7 +104,7 @@ function Pagination(
           ? (
             <a
               href={prevURL.pathname + prevURL.search}
-              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none"
+              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-jsr-gray-900 ring-1 ring-inset ring-jsr-gray-300 hover:bg-jsr-gray-50 focus-visible:outline-offset-0 select-none"
             >
               Previous
             </a>
@@ -114,7 +114,7 @@ function Pagination(
           ? (
             <a
               href={nextURL.pathname + nextURL.search}
-              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-offset-0 select-none"
+              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-jsr-gray-900 ring-1 ring-inset ring-jsr-gray-300 hover:bg-jsr-gray-50 focus-visible:outline-offset-0 select-none"
             >
               Next
             </a>

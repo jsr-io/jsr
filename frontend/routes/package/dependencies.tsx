@@ -72,7 +72,7 @@ export default function Deps(
       <div class="space-y-4 mt-8">
         {list.length === 0
           ? (
-            <div class="text-gray-500 text-center">
+            <div class="text-jsr-gray-500 text-center">
               @{data.package.scope}/{data.package.name}@{data.selectedVersion
                 .version} has no dependencies. 🎉
             </div>

@@ -61,7 +61,7 @@
   body {
     font-size: 1.125rem;
     font-weight: 400;
-    color: theme("colors.jsr-gray.700");
+    color: theme("colors.jsr-gray.800");
     @apply opsize-normal;
   }
 
@@ -109,8 +109,8 @@
   .button-primary {
     @apply button border-1.5 border-cyan-900 hover:border-cyan-600 bg-jsr-yellow text-cyan-950
       font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-cyan-700
-      outline-offset-2 disabled:bg-gray-100 disabled:text-gray-300 shadow-accent-sm disabled:shadow-transparent
-    disabled:border-gray-300;
+      outline-offset-2 disabled:bg-jsr-gray-100 disabled:text-jsr-gray-300 shadow-accent-sm disabled:shadow-transparent
+    disabled:border-jsr-gray-300;
   }
 
   .button-primary:not(:disabled) {
@@ -118,7 +118,7 @@
   }
 
   .button-danger {
-    @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-gray-100
+    @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-jsr-gray-100
     outline-red-600 disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent disabled:border-red-300
     transition-all duration-75 ease-in-out;
   }
@@ -173,18 +173,18 @@
   input:not([data-locked="true"]):disabled.input-container,
   .input-container input:not([data-locked="true"]):disabled,
   .input-container select:not([data-locked="true"]):disabled {
-    @apply border-gray-300 text-jsr-gray-300 cursor-not-allowed bg-gray-50;
+    @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed bg-jsr-gray-50;
   }
 
   select[data-locked="true"].input-container,
   input[data-locked="true"].input-container,
   .input-container input[data-locked="true"],
   .input-container select[data-locked="true"] {
-    @apply text-jsr-gray-500 cursor-not-allowed bg-gray-50;
+    @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50;
   }
 
   .input {
-    @apply placeholder:text-jsr-gray-300 disabled:placeholder:text-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
+    @apply placeholder:text-jsr-gray-300 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
   }
 
   .search-input {
@@ -282,6 +282,7 @@ body .ddoc {
     @apply max-w-full;
   }
 
+  /* START Upstream to deno_doc  */
   /* Hides the link to code button unless you hover over the section or are on mobile */
 
   .context_button {
@@ -313,6 +314,8 @@ body .ddoc {
   .docNodeKindIcon div {
     @apply h-4 w-4 leading-4;
   }
+
+  /* END Upstream to deno_doc  */
 
   .markdown_summary p {
     @apply leading-normal;

@@ -18,7 +18,7 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-0 text-black";
+    return "bg-jsr-gray-100 text-black";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>
@@ -55,7 +55,7 @@ export function ScopeSelect(
   if (scopes.value.length === 0) {
     return (
       <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
-        <span class="text-gray-700">
+        <span class="text-jsr-gray-700">
           You are not a member of any scopes. Create a new scope to publish your
           package.
         </span>
@@ -97,7 +97,7 @@ export function ScopeSelect(
             </button>
           </p>
         )}
-        <p class="text-gray-700 text-sm mt-2">
+        <p class="text-jsr-gray-700 text-sm mt-2">
           You can create {scopesLeft === 0 ? "no" : scopesLeft}{" "}
           more scope{scopesLeft !== 1 && "s"}.{" "}
           <a href="/account/settings" class="link">View quotas</a> or{" "}
@@ -116,14 +116,14 @@ export function ScopeSelect(
         disabled={locked}
         data-locked={locked || undefined}
       >
-        <option value="" disabled selected class="hidden text-gray-100">
+        <option value="" disabled selected class="hidden text-jsr-gray-100">
           ---
         </option>
         {scopes.value.map((scope) => <option value={scope}>{scope}</option>)}
       </select>
 
       {!locked && (
-        <p class="text-gray-500">
+        <p class="text-jsr-gray-500">
           or{" "}
           <button
             class="inline link mt-2"
@@ -405,11 +405,11 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </a>
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
-              <p class="text-gray-500">
+              <p class="text-jsr-gray-500">
                 Created {twas(new Date(pkg.value.createdAt))}.
               </p>
               {fromCli && (
-                <p class="mt-2 text-gray-500">
+                <p class="mt-2 text-jsr-gray-500">
                   You can now close this page and go back to your terminal to
                   continue publishing.
                 </p>

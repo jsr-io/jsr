@@ -129,5 +129,6 @@ export function Header({
 }
 
 function Divider() {
-  return <span class="text-gray-200 select-none" aria-hidden="true">|</span>;
+  return <span class="text-jsr-gray-200 select-none" aria-hidden="true">|
+  </span>;
 }
