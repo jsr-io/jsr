@@ -297,7 +297,10 @@ body .ddoc {
     @apply hidden md:block text-xs;
   }
 
-  .symbolGroup article > div:hover .context_button,
+  .symbolGroup article > div:hover > div + a.context_button {
+    @apply md:visible;
+  }
+
   .docEntryHeader:hover > .context_button {
     @apply md:visible;
   }
