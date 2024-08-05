@@ -281,7 +281,8 @@ body .ddoc {
   .usageContent .markdown {
     @apply max-w-full;
   }
-
+    
+  /* START Upstream to deno_doc  */
   /* Hides the link to code button unless you hover over the section or are on mobile */
 
   .context_button {
@@ -314,6 +315,8 @@ body .ddoc {
     @apply h-4 w-4 leading-4;
   }
 
+  /* END Upstream to deno_doc  */
+    
   .markdown_summary p {
     @apply leading-normal;
   }
