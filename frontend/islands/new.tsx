@@ -209,7 +209,7 @@ function CreateScope(
       </form>
       {newScope.value.includes("_")
         ? (
-          <p class="text-sm text-yellow-600">
+          <p class="text-sm text-jsr-yellow-600">
             Scope names can not contain _, use - instead.{" "}
             {!props.locked && (
               <button
@@ -223,7 +223,7 @@ function CreateScope(
             )}
           </p>
         )
-        : message.value && <p class="text-sm text-yellow-600">{message}</p>}
+        : message.value && <p class="text-sm text-jsr-yellow-600">{message}</p>}
     </>
   );
 }
@@ -317,7 +317,7 @@ export function PackageName(
       />
       {name.value.includes("_")
         ? (
-          <p class="text-sm text-yellow-600">
+          <p class="text-sm text-jsr-yellow-600">
             Package names can not contain _, use - instead. {!locked && (
               <button
                 class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
@@ -330,7 +330,7 @@ export function PackageName(
             )}
           </p>
         )
-        : message.value && <p class="text-sm text-yellow-600">{message}</p>}
+        : message.value && <p class="text-sm text-jsr-yellow-600">{message}</p>}
     </>
   );
 }
@@ -365,7 +365,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.
               </p>
-              {error && <p class="text-sm text-yellow-600">{error}</p>}
+              {error && <p class="text-sm text-jsr-yellow-600">{error}</p>}
             </div>
             <div>
               <button

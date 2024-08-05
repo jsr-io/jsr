@@ -262,7 +262,7 @@ function ScoreItem(
         : (status === "partial"
           ? (
             <>
-              <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
+              <ErrorIcon class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
               <span class="sr-only">Partial score</span>
             </>
           )

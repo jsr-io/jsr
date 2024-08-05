@@ -371,7 +371,7 @@ body .ddoc:has(.toc) {
 }
 
 .score-ring-yellow {
-  @apply bg-yellow-500;
+  @apply bg-jsr-yellow-500;
 }
 
 .score-ring-green {
@@ -383,7 +383,7 @@ body .ddoc:has(.toc) {
 }
 
 .score-text-yellow {
-  @apply text-yellow-700;
+  @apply text-jsr-yellow-700;
 }
 
 .score-text-green {
