@@ -59,7 +59,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Setup postgres for tests
-        run: docker-compose up -d
+        run: docker compose up -d
 
       - name: Build
         run: cargo build --all-targets --tests
@@ -271,4 +271,3 @@ jobs:
           ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
           ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
         run: deno task tools:orama:docs_reindex
-

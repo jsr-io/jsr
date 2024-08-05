@@ -202,8 +202,15 @@
 /* !important seems necessary for taking precedent over current ddoc styling */
 body .ddoc {
   .markdown {
+    @apply max-w-prose;
+
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
+    }
+
+    /* Styles the first H1 in a readme a little differently */
+    h1:first-of-type {
+      @apply mt-0 border-none mb-6 !important;
     }
 
     h2 {
@@ -271,10 +278,59 @@ body .ddoc {
     }
   }
 
+  .usageContent .markdown {
+    @apply max-w-full;
+  }
+    
+  /* START Upstream to deno_doc  */
+  /* Hides the link to code button unless you hover over the section or are on mobile */
+
+  .context_button {
+    @apply flex flex-row gap-2 items-center md:invisible;
+  }
+
+  .context_button {
+    @apply rounded no-underline !important;
+  }
+
+  .context_button::before {
+    content: "View code";
+    @apply hidden md:block text-xs;
+  }
+
+  .symbolGroup article > div:hover > div + a.context_button {
+    @apply md:visible;
+  }
+
+  .docEntryHeader:hover > .context_button {
+    @apply md:visible;
+  }
+
+  /* Style overrides for a better single column layout on symbol pages */
+  .namespaceSection {
+    @apply grid-cols-1 gap-2 max-w-prose !important;
+  }
+
+  .docNodeKindIcon div {
+    @apply h-4 w-4 leading-4;
+  }
+
+  /* END Upstream to deno_doc  */
+    
+  .markdown_summary p {
+    @apply leading-normal;
+  }
+
+  .section > div:first-child > h2 {
+    @apply mb-4 !important;
+  }
+
   #module_doc,
   main {
     @apply pb-8;
   }
+
+  /* Table of contents adjustments */
 
   .toc .topSymbols {
     @apply max-lg:hidden;
