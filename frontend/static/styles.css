@@ -44,7 +44,7 @@
   *,
   *:before,
   *:after {
-    border-color: theme("colors.cyan.200");
+    border-color: theme("colors.jsr-cyan.200");
   }
 
   :root {
@@ -184,11 +184,11 @@
   }
 
   .input {
-    @apply placeholder:text-jsr-gray-300 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
+    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
   }
 
   .search-input {
-    @apply input-container border-1.5 border-jsr-cyan-950;
+    @apply input-container border-1.5 border-jsr-cyan-900/90;
   }
 
   .select {
@@ -382,10 +382,10 @@ body .ddoc:has(.toc) {
   :root {
     --color-accent-fg: theme(colors.slate.100) !important;
     --color-border-default: theme(colors.slate.300) !important;
-    --bgColor-neutral-muted: theme(colors.gray.100) !important;
-    --color-neutral-muted: theme(colors.gray.600) !important;
+    --bgColor-neutral-muted: theme(colors.jsr-gray.100) !important;
+    --color-neutral-muted: theme(colors.jsr-gray.600) !important;
     --color-accent-fg: theme(colors.cyan.700) !important;
-    --fgColor-muted: theme(colors.gray.600) !important;
+    --fgColor-muted: theme(colors.jsr-gray.600) !important;
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
     --bgColor-muted: theme(colors.slate.50);
