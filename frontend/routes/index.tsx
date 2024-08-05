@@ -223,7 +223,7 @@ export default function Home({ data }: PageProps<Data>) {
 
 function BenefitContainer({ children }: { children: ComponentChildren }) {
   return (
-    <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-cyan-900/10 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
+    <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-jsr-cyan-900/10 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
       {children}
     </div>
   );

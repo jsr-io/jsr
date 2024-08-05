@@ -120,7 +120,7 @@ export default function Versions({
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="space-y-4 mt-8">
+      <div class="space-y-3 mt-8">
         {versionsArray.length === 0
           ? (
             <div class="text-jsr-gray-500 text-center">
@@ -190,7 +190,7 @@ function Version({
 
   return (
     <div
-      class={`relative py-2 px-2 md:py-4 md:px-6 border rounded ${
+      class={`relative py-2 px-2 md:py-3 md:px-6 border rounded-lg ${
         (!isPublished && isFailed) || version?.yanked
           ? `bg-red-50 border-red-200 ${
             version?.yanked ? "hover:bg-red-100 hover:border-red-300" : ""
@@ -198,8 +198,8 @@ function Version({
           : (!isPublished
             ? "bg-blue-50 border-blue-200"
             : (isLatestInReleaseTrack
-              ? "bg-green-50 hover:bg-green-100 border-green-200 hover:border-green-300"
-              : "hover:bg-jsr-gray-100 border-jsr-gray-200 hover:border-jsr-gray-400"))
+              ? "bg-green-50 hover:bg-green-100 border-green-300 hover:border-green-400"
+              : "hover:bg-jsr-gray-100 border-jsr-gray-100 hover:border-jsr-gray-300"))
       }`}
     >
       <div class="flex items-center justify-between">

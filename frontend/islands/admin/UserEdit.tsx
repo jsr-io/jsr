@@ -56,7 +56,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
         {edit
           ? (
             <select
-              class="block w-16 p-1.5 input-container select"
+              class="block w-16 py-2 p-1.5 input-container select"
               onChange={(e) => setIsBlocked(e.currentTarget.value === "true")}
               value={String(isBlocked)}
               disabled={processing}

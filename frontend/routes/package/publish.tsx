@@ -140,7 +140,7 @@ export default function PackagePage({
           </div>
         </div>
         <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
-          <hr class="border-t-1.5 border-cyan-900 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
+          <hr class="border-t-1.5 border-jsr-cyan-900 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
           <div class="p-2 bg-white text-center w-max mx-auto font-bold">OR</div>
         </div>
         <div>

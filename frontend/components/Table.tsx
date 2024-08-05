@@ -26,12 +26,12 @@ export function Table(
   return (
     <>
       <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-950 sm:rounded overflow-hidden ${
+        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-700/30 sm:rounded overflow-hidden ${
           class_ ?? ""
         }`}
       >
         <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-900/10">
+          <table class="w-full divide-y divide-jsr-cyan-300/30">
             <thead class="bg-jsr-cyan-50">
               <TableRow class="children:font-semibold">
                 {columns.map((column) => (
@@ -44,7 +44,7 @@ export function Table(
                 ))}
               </TableRow>
             </thead>
-            <tbody class="divide-y divide-cyan-900/10 bg-white">
+            <tbody class="divide-y divide-jsr-cyan-300/30 bg-white">
               {children}
             </tbody>
           </table>
@@ -95,7 +95,7 @@ function Pagination(
       {hasPrevious && (
         <a
           href={prevURL.pathname + prevURL.search}
-          class="hover:text-black hover:bg-cyan-100 p-1 -m-1 rounded-full"
+          class="hover:text-black hover:bg-jsr-cyan-100 p-1 -m-1 rounded-full"
           title="Previous page"
         >
           <ChevronLeft />

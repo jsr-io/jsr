@@ -15,7 +15,7 @@ export default function Layout(
       >
         <a
           href="#main-content"
-          class="absolute p-4 -translate-y-full bg-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
+          class="absolute p-4 -translate-y-full bg-jsr-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
         >
           Skip to main content
         </a>
@@ -47,14 +47,14 @@ export default function Layout(
         -{" "}
         <a
           href="/docs"
-          class="text-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
         >
           Docs
         </a>{" "}
         -{" "}
         <a
           href="https://github.com/jsr-io/jsr"
-          class="text-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
         >
           <span>GitHub</span>
         </a>

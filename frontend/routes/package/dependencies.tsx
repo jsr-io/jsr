@@ -69,10 +69,10 @@ export default function Deps(
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="space-y-4 mt-8">
+      <div class="space-y-3 mt-8">
         {list.length === 0
           ? (
-            <div class="text-jsr-gray-500 text-center">
+            <div class="text-jsr-gray-500 text-lg text-center">
               @{data.package.scope}/{data.package.name}@{data.selectedVersion
                 .version} has no dependencies. 🎉
             </div>

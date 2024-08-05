@@ -240,7 +240,7 @@ export function GlobalSearch(
 
         <button
           type="submit"
-          class="button bg-cyan-950 text-white px-4 rounded-l-none hover:bg-cyan-800 focus-visible:bg-cyan-800 outline-cyan-600 transition-colors duration-150"
+          class="button bg-jsr-cyan-950 text-white px-4 rounded-l-none hover:bg-jsr-cyan-800 focus-visible:bg-jsr-cyan-800 outline-jsr-cyan-600 transition-colors duration-150"
           onMouseDown={() => {
             btnSubmit.value = true;
           }}
@@ -324,7 +324,7 @@ function SuggestionList(
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-jsr-gray-100 cursor-pointer aria-[selected=true]:bg-cyan-100"
+                  class="p-2 hover:bg-jsr-gray-100 cursor-pointer aria-[selected=true]:bg-jsr-cyan-100"
                   aria-selected={selected}
                 >
                   <a href={hit.href} class="bg-red-600">
@@ -335,7 +335,7 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-100 flex items-center justify-end py-1 px-2 gap-1">
+      <div class="bg-jsr-gray-50 flex items-center justify-end py-1 px-2 gap-1">
         <span class="text-sm text-jsr-gray-500">
           powered by <span class="sr-only">Orama</span>
         </span>
@@ -366,7 +366,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
               <>
                 {i !== 0 && <span>{">"}</span>}
                 <span
-                  class="text-cyan-700"
+                  class="text-jsr-cyan-700"
                   dangerouslySetInnerHTML={{
                     __html: highlighter.highlight(part, input.value)
                       .HTML,

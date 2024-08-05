@@ -219,10 +219,10 @@ function CardButton(props: CardButtonProps) {
           {props.title}
         </p>
         <div
-          class={`-mt-2 -mr-2 h-6 w-6 rounded-full flex-shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700 ${
+          class={`-mt-2 -mr-2 h-6 w-6 rounded-full flex-shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700/20 ${
             props.selected
-              ? "border-1.5 border-jsr-cyan-950 bg-jsr-cyan-950 text-jsr-yellow"
-              : "border"
+              ? "ring ring-jsr-cyan-950 bg-jsr-cyan-950 text-jsr-yellow"
+              : "ring"
           }`}
         >
           {props.selected && <Check class="stroke-2 size-9" />}

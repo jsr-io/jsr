@@ -82,7 +82,7 @@ function GitHubRepository(props: { package: Package }) {
         GitHub Actions using OIDC — no need to specify tokens or secrets.{" "}
         <a
           href={`/@${props.package.scope}/${props.package.name}/publish#from-ci`}
-          class="text-cyan-700 hover:underline"
+          class="text-jsr-cyan-700 hover:underline"
         >
           Set up publishing from GitHub Actions.
         </a>

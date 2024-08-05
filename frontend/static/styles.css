@@ -107,8 +107,8 @@
   }
 
   .button-primary {
-    @apply button border-1.5 border-cyan-900 hover:border-cyan-600 bg-jsr-yellow text-cyan-950
-      font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-cyan-700
+    @apply button border-1.5 border-jsr-cyan-900 hover:border-jsr-cyan-600 bg-jsr-yellow text-jsr-cyan-950
+      font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-jsr-cyan-700
       outline-offset-2 disabled:bg-jsr-gray-100 disabled:text-jsr-gray-300 shadow-accent-sm disabled:shadow-transparent
     disabled:border-jsr-gray-300;
   }
@@ -236,6 +236,14 @@ body .ddoc {
     .highlight .context_button {
       @apply border-none hover:bg-jsr-cyan-50;
     }
+
+    .highlight .lineNumbers {
+      @apply border-jsr-gray-100 text-jsr-gray-300 pr-3;
+    }
+
+    .highlight .lineNumbers {
+      @apply mr-3 !important;
+    }
   }
 
   .markdown_summary {
@@ -341,6 +349,11 @@ body .ddoc {
       @apply -left-8;
     }
   }
+}
+
+/* This is a utility class to make the ddoc content full width inside its container */
+.ddoc-full {
+  @apply max-w-full !important;
 }
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */

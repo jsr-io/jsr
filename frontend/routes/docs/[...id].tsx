@@ -34,7 +34,7 @@ export default function Page({ data }: PageProps<Data, State>) {
       </Head>
 
       <div class="grid grid-cols-1 md:grid-cols-10">
-        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
+        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-jsr-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
           <div>
             <p class="text-xl font-semibold" id="sidebar">Docs</p>
           </div>
@@ -49,7 +49,7 @@ export default function Page({ data }: PageProps<Data, State>) {
                       href={`/docs/${id}`}
                       class={`${
                         id === data.id
-                          ? "px-4 text-cyan-700 border-l-4 border-cyan-400 bg-cyan-100"
+                          ? "px-4 text-jsr-cyan-700 border-l-4 border-jsr-cyan-400 bg-jsr-cyan-100"
                           : "pl-5 pr-4"
                       } py-1.5 block leading-5 hover:text-jsr-gray-600 hover:underline`}
                     >

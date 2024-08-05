@@ -159,7 +159,7 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
   }
 
   return (
-    <div class="p-2 border-2 border-cyan-300 rounded-md flex items-center gap-2 col-span-2">
+    <div class="p-2 border-2 border-jsr-cyan-300 rounded-md flex items-center gap-2 col-span-2">
       {icon}
       <div>
         <div class="font-semibold text-lg">{title}</div>

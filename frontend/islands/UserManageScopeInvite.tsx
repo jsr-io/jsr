@@ -16,7 +16,7 @@ export default function UserManageScopeInvite(
     <TableRow key={invite.scope}>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 hover:underline"
           href={`/@${invite.scope}`}
         >
           {invite.scope}
@@ -24,7 +24,7 @@ export default function UserManageScopeInvite(
       </TableData>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 hover:underline"
           href={`/user/${invite.targetUser.id}`}
         >
           {invite.targetUser.name}

@@ -55,7 +55,7 @@ export function Header({
           {isHomepage ? <div></div> : (
             <a
               href="/"
-              class="outline-none focus-visible:ring-2 ring-cyan-700"
+              class="outline-none focus-visible:ring-2 ring-jsr-cyan700"
             >
               <span className="sr-only">Home</span>
               <HeaderLogo class="h-8 flex-none" />

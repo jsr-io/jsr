@@ -213,7 +213,7 @@ function CreateScope(
             Scope names can not contain _, use - instead.{" "}
             {!props.locked && (
               <button
-                class="text-cyan-700 hover:underline hover:text-blue-400"
+                class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   newScope.value = newScope.value.replace(/_/g, "-");
                 }}
@@ -320,7 +320,7 @@ export function PackageName(
           <p class="text-sm text-yellow-600">
             Package names can not contain _, use - instead. {!locked && (
               <button
-                class="text-cyan-700 hover:underline hover:text-blue-400"
+                class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   name.value = name.value.replace(/_/g, "-");
                 }}

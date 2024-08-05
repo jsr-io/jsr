@@ -33,7 +33,7 @@ export function ListPanel(
             <li class={children.length > 1 ? "odd:bg-jsr-cyan-50" : ""}>
               <a
                 class={`flex px-4 items-center py-3 group focus-visible:ring-2 ring-jsr-cyan-700 ring-inset outline-none hover:bg-jsr-yellow-200 focus-visible:bg-jsr-yellow-200 ${
-                  entry.value === selected ? "text-cyan-700 font-bold" : ""
+                  entry.value === selected ? "text-jsr-cyan-700 font-bold" : ""
                 }`}
                 href={entry.href}
               >
