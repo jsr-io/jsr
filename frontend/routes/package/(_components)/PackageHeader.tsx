@@ -82,7 +82,7 @@ export function PackageHeader(
                 <span>
                   <a
                     href={`/@${pkg.scope}`}
-                    class="link font-bold no-underline"
+                    class="link font-bold pr-1 no-underline"
                     aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
