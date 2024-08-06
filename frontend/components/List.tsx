@@ -18,10 +18,10 @@ export function ListDisplay(
   },
 ) {
   return (
-    <div class="mt-8 ring-1 ring-jsr-cyan-700/30 rounded overflow-hidden">
+    <div class="mt-8 ring-1 ring-jsr-cyan-100 rounded overflow-hidden">
       {title &&
         (
-          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-900/10 bg-jsr-gray-50 leading-none">
+          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-50 bg-jsr-gray-50 leading-none">
             <span class="font-semibold">{title}</span>
             <div />
           </div>
@@ -29,10 +29,10 @@ export function ListDisplay(
 
       <ul class="divide-y">
         {children.map((item) => (
-          <li class="border-jsr-cyan-300/30">
+          <li class="border-jsr-cyan-50">
             <a
               href={item.href}
-              class="flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-200 focus:bg-jsr-yellow-200 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none"
+              class="flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 focus:bg-jsr-yellow-100 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none"
             >
               {item.content}
 

@@ -26,12 +26,12 @@ export function Table(
   return (
     <>
       <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-700/30 sm:rounded overflow-hidden ${
+        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden ${
           class_ ?? ""
         }`}
       >
         <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-300/30">
+          <table class="w-full divide-y divide-jsr-cyan-50">
             <thead class="bg-jsr-cyan-50">
               <TableRow class="children:font-semibold">
                 {columns.map((column) => (
