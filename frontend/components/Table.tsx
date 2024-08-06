@@ -26,12 +26,12 @@ export function Table(
   return (
     <>
       <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-950 sm:rounded overflow-hidden ${
+        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden ${
           class_ ?? ""
         }`}
       >
         <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-900/10">
+          <table class="w-full divide-y divide-jsr-cyan-50">
             <thead class="bg-jsr-cyan-50">
               <TableRow class="children:font-semibold">
                 {columns.map((column) => (
@@ -44,7 +44,7 @@ export function Table(
                 ))}
               </TableRow>
             </thead>
-            <tbody class="divide-y divide-cyan-900/10 bg-white">
+            <tbody class="divide-y divide-jsr-cyan-300/30 bg-white">
               {children}
             </tbody>
           </table>
@@ -79,7 +79,7 @@ function Pagination(
   nextURL.searchParams.set("page", (pagination.page + 1).toString());
 
   return (
-    <div class="flex items-center gap-3 text-gray-700">
+    <div class="flex items-center gap-3 text-jsr-gray-700">
       <Head>
         {hasPrevious && (
           <link rel="prev" href={prevURL.pathname + prevURL.search} />
@@ -95,13 +95,13 @@ function Pagination(
       {hasPrevious && (
         <a
           href={prevURL.pathname + prevURL.search}
-          class="hover:text-black hover:bg-cyan-100 p-1 -m-1 rounded-full"
+          class="hover:text-black hover:bg-jsr-cyan-100 p-1 -m-1 rounded-full"
           title="Previous page"
         >
           <ChevronLeft />
         </a>
       )}
-      <div class="text-sm text-gray-600">
+      <div class="text-sm text-jsr-gray-600">
         Showing items {(pagination.page * pagination.limit) - pagination.limit +
           (Math.min(itemsCount, 1))}
         -
@@ -113,7 +113,7 @@ function Pagination(
       {hasNext && (
         <a
           href={nextURL.pathname + nextURL.search}
-          class="hover:text-black hover:bg-gray-100 p-1 -m-1 rounded-full"
+          class="hover:text-black hover:bg-jsr-gray-100 p-1 -m-1 rounded-full"
           title="Next page"
         >
           <ChevronRight />
@@ -134,7 +134,7 @@ export function TableRow({
 }: TableRowProps) {
   return (
     <tr
-      class={`children:whitespace-nowrap children:text-sm children:text-gray-700 ${
+      class={`children:whitespace-nowrap children:text-sm children:text-jsr-gray-700 ${
         _class ?? ""
       }`}
     >
@@ -156,7 +156,7 @@ export function TableHead({
 }: TableHeadProps) {
   return (
     <th
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-gray-900 ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
@@ -182,7 +182,7 @@ export function TableData(
 ) {
   return (
     <td
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-gray-900 ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
       title={title}

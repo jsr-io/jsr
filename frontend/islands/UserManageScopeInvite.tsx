@@ -16,7 +16,7 @@ export default function UserManageScopeInvite(
     <TableRow key={invite.scope}>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 hover:underline"
           href={`/@${invite.scope}`}
         >
           {invite.scope}
@@ -24,7 +24,7 @@ export default function UserManageScopeInvite(
       </TableData>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 hover:underline"
           href={`/user/${invite.targetUser.id}`}
         >
           {invite.targetUser.name}
@@ -47,7 +47,7 @@ export default function UserManageScopeInvite(
                 },
               );
             }}
-            class="text-indigo-600 hover:text-indigo-900 disabled:text-gray-500 disabled:cursor-wait"
+            class="text-indigo-600 hover:text-indigo-900 disabled:text-jsr-gray-500 disabled:cursor-wait"
           >
             Accept invite<span class="sr-only">, {invite.scope}</span>
           </button>
@@ -64,7 +64,7 @@ export default function UserManageScopeInvite(
                 }
               });
             }}
-            class="text-red-600 hover:text-red-900 disabled:text-gray-500 disabled:cursor-wait"
+            class="text-red-600 hover:text-red-900 disabled:text-jsr-gray-500 disabled:cursor-wait"
           >
             Decline invite<span class="sr-only">, {invite.scope}</span>
           </button>

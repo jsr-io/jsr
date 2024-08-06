@@ -44,7 +44,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           <div class="absolute rounded-full bg-orange-600 border-2 box-content border-white -top-0.5 -right-0.5 h-2 w-2" />
         )}
         <img
-          class="w-8 aspect-square rounded-full ring-2 ring-offset-1 ring-jsr-cyan-950"
+          class="w-8 aspect-square rounded-full ring-2 ring-offset-1 ring-jsr-cyan-700"
           src={user.avatarUrl}
           alt={user.name}
         />

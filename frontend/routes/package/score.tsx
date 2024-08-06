@@ -65,7 +65,7 @@ export default function Score(
           />
         )
         : (
-          <div class="mt-8 text-gray-500 text-center">
+          <div class="mt-8 text-jsr-gray-500 text-center">
             No score is available for this package, because it does not have a
             stable release.
           </div>
@@ -105,7 +105,7 @@ function ScoreInfo(props: {
             {scorePercentage}%
           </span>
         </div>
-        <div class="text-gray-500 text-sm text-center mt-6">
+        <div class="text-jsr-gray-500 text-sm text-center mt-6">
           The JSR score is a measure of the overall quality of a package, based
           on a number of factors such as documentation and runtime
           compatibility.
@@ -262,7 +262,7 @@ function ScoreItem(
         : (status === "partial"
           ? (
             <>
-              <ErrorIcon class="size-6 stroke-yellow-500 stroke-2 -mt-px" />
+              <ErrorIcon class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
               <span class="sr-only">Partial score</span>
             </>
           )
@@ -275,7 +275,9 @@ function ScoreItem(
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
-        <p class="text-gray-500 text-sm leading-tight mt-1">{props.children}</p>
+        <p class="text-jsr-gray-500 text-sm leading-tight mt-1">
+          {props.children}
+        </p>
       </div>
 
       <div class="text-sm text-jsr-gray-400 pt-[0.2em]">

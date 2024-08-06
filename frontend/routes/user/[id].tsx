@@ -36,7 +36,7 @@ export default function UserPage({ data, state }: PageProps<Data, State>) {
             />
           )
           : (
-            <div class="p-3 text-gray-500 text-center italic">
+            <div class="p-3 text-jsr-gray-500 text-center italic">
               {state.user?.id === data.user.id ? "You are" : "This user is"}
               {" "}
               not a member of any scopes.
@@ -46,7 +46,7 @@ export default function UserPage({ data, state }: PageProps<Data, State>) {
         {
           /*<div>
           <span class="font-semibold">Recently published</span>
-          <div class="text-gray-500 text-base">
+          <div class="text-jsr-gray-500 text-base">
             TODO: all packages recently published by this user
           </div>
         </div>*/

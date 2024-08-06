@@ -46,7 +46,7 @@ export default function AccountInvitesPage(
             </Table>
           )
           : (
-            <div class="p-3 text-gray-500 text-center italic">
+            <div class="p-3 text-jsr-gray-500 text-center italic">
               You do not have any pending scope invites.
             </div>
           )}
@@ -60,7 +60,7 @@ function InviteRow({ invite }: { invite: ScopeInvite }) {
     <TableRow key={invite.scope}>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 hover:underline"
           href={`/@${invite.scope}`}
         >
           {invite.scope}
@@ -68,7 +68,7 @@ function InviteRow({ invite }: { invite: ScopeInvite }) {
       </TableData>
       <TableData>
         <a
-          class="text-cyan-700 hover:text-blue-400 hover:underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 hover:underline"
           href={`/user/${invite.requestingUser.id}`}
         >
           {invite.requestingUser.name}

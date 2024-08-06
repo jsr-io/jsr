@@ -53,7 +53,7 @@ export default function Dep(
       <div class="space-y-4 mt-8">
         {data.dependents.length === 0
           ? (
-            <div class="text-gray-500 text-center">
+            <div class="text-jsr-gray-500 text-center">
               This package is not depended on by any other JSR packages.
             </div>
           )

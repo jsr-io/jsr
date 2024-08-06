@@ -94,7 +94,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
                     }
                   });
                 }}
-                class="link disabled:text-gray-500 disabled:hover:cursor-wait"
+                class="link disabled:text-jsr-gray-500 disabled:hover:cursor-wait"
               >
                 Save<span class="sr-only">, {scope.scope}</span>
               </button>
