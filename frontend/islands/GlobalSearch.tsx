@@ -113,6 +113,12 @@ export function GlobalSearch(
               where,
               limit: 5,
               mode: "fulltext",
+              boost: {
+                id: 3,
+                scope: 2,
+                name: 1,
+                description: 0.5,
+              },
             }, { abortController: abort.current! });
             if (
               abort.current?.signal.aborted ||

@@ -47,6 +47,7 @@ const entries: OramaPackageHit[] = packages
     description: entry.description,
     runtimeCompat: entry.runtimeCompat,
     score: entry.score,
+    _omc: entry.score ?? 0,
     id: `@${entry.scope}/${entry.name}`,
   }));
 

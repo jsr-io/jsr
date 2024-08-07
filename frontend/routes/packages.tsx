@@ -80,6 +80,12 @@ export const handler: Handlers<Data, State> = {
         limit,
         offset: (page - 1) * limit,
         mode: "fulltext",
+        boost: {
+          id: 3,
+          scope: 2,
+          name: 1,
+          description: 0.5,
+        },
       });
 
       packages = res?.hits.map((hit) =>
