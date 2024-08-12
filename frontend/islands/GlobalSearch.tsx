@@ -113,6 +113,7 @@ export function GlobalSearch(
               where,
               limit: 5,
               mode: "fulltext",
+              // @ts-ignore boost does exist
               boost: {
                 id: 3,
                 scope: 2,

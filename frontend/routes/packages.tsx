@@ -80,6 +80,7 @@ export const handler: Handlers<Data, State> = {
         limit,
         offset: (page - 1) * limit,
         mode: "fulltext",
+        // @ts-ignore boost does exist
         boost: {
           id: 3,
           scope: 2,
