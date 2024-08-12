@@ -301,13 +301,17 @@ body .ddoc {
     @apply rounded no-underline !important;
   }
 
-  .context_button::before {
-    content: "View code";
-    @apply hidden md:block text-xs;
+  code ~ .context_button:hover, code:hover ~ .context_button {
+    @apply md:visible;
   }
 
   .symbolGroup article > div:hover > div + a.context_button {
     @apply md:visible;
+  }
+
+  .symbolGroup article > div:hover > div + a.context_button:before {
+    content: "View code";
+    @apply hidden md:block text-xs;
   }
 
   .docEntryHeader:hover > .context_button {
