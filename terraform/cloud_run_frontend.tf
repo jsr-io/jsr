@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
   frontend_envs = {
+    "FRONTEND_ROOT"                 = "https://${var.domain_name}"
     "API_ROOT"                      = "https://${local.api_domain}"
     "CLOUD_TRACE"                   = "true"
     "ORAMA_PACKAGE_PUBLIC_API_KEY"  = var.orama_package_public_api_key
@@ -89,6 +90,11 @@ resource "google_compute_backend_service" "registry_frontend" {
     content {
       group = google_compute_region_network_endpoint_group.registry_frontend[backend.key].id
     }
+  }
+
+  log_config {
+    enable      = true
+    sample_rate = 1
   }
 
   lifecycle {

@@ -6,6 +6,7 @@ import { State } from "../util.ts";
 export default function Layout(
   { Component, state, url }: PageProps<undefined, State>,
 ) {
+  const currentDatetime = new Date();
   return (
     <>
       <div
@@ -14,7 +15,7 @@ export default function Layout(
       >
         <a
           href="#main-content"
-          class="absolute p-4 -translate-y-full bg-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
+          class="absolute p-4 -translate-y-full bg-jsr-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
         >
           Skip to main content
         </a>
@@ -34,22 +35,26 @@ export default function Layout(
       </div>
       <footer
         id="footer"
-        class="text-xs text-center mt-4 md:mt-6 p-4 text-gray-500"
+        class="text-xs text-center mt-4 md:mt-6 p-4 text-jsr-gray-500"
       >
-        JSR - It is {new Date().toLocaleString("en-ZA", {
-          timeZoneName: "short",
-          timeZone: "Etc/UTC",
-        })} -{" "}
+        JSR - It is{" "}
+        <time datetime={currentDatetime.toISOString()}>
+          {currentDatetime.toLocaleString("en-ZA", {
+            timeZoneName: "short",
+            timeZone: "Etc/UTC",
+          })}
+        </time>{" "}
+        -{" "}
         <a
           href="/docs"
-          class="text-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
         >
           Docs
         </a>{" "}
         -{" "}
         <a
           href="https://github.com/jsr-io/jsr"
-          class="text-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
         >
           <span>GitHub</span>
         </a>

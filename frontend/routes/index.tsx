@@ -98,7 +98,7 @@ export default function Home({ data }: PageProps<Data>) {
           <img
             loading="lazy"
             src="/logos/typescript.svg"
-            alt="TypeScript logo"
+            alt=""
             class="w-full max-w-16 lg:max-w-36 lg:col-span-2 lg:mx-auto select-none"
             draggable={false}
           />
@@ -125,21 +125,21 @@ export default function Home({ data }: PageProps<Data>) {
             <img
               loading="lazy"
               src="/logos/npm.svg"
-              alt="npm logo"
+              alt=""
               class="w-full max-w-16 lg:max-w-28 select-none"
               draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/yarn.svg"
-              alt="Yarn logo"
+              alt=""
               class="w-full max-w-16 lg:max-w-28 select-none"
               draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/pnpm.svg"
-              alt="pnpm logo"
+              alt=""
               class="w-full max-w-16 lg:max-w-28 select-none"
               draggable={false}
             />
@@ -166,28 +166,28 @@ export default function Home({ data }: PageProps<Data>) {
             <img
               loading="lazy"
               src="/logos/node.svg"
-              alt="Node.js logo"
+              alt=""
               class="w-full max-w-9 lg:max-w-20 select-none"
               draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/deno.svg"
-              alt="Deno logo"
+              alt=""
               class="w-full max-w-10 lg:max-w-20 select-none"
               draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/bun.svg"
-              alt="Bun logo"
+              alt=""
               class="w-full max-w-11 lg:max-w-20 select-none"
               draggable={false}
             />
             <img
               loading="lazy"
               src="/logos/cloudflare-workers.svg"
-              alt="Cloudflare Workers logo"
+              alt=""
               class="w-full max-w-10 lg:max-w-20 select-none"
               draggable={false}
             />
@@ -223,7 +223,7 @@ export default function Home({ data }: PageProps<Data>) {
 
 function BenefitContainer({ children }: { children: ComponentChildren }) {
   return (
-    <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-cyan-900/10 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
+    <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-jsr-cyan-900/10 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
       {children}
     </div>
   );
@@ -276,7 +276,7 @@ export const handler: Handlers<Data, State> = {
       if (jsrPosts.ok) {
         posts = await jsrPosts.json() as Post[];
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
 

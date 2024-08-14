@@ -27,7 +27,6 @@ export type Num = number;
 {"version":3,"file":"foo.d.ts","sources":["../foo.ts"],"names":[],"mappings":"AAAA,YAAY,MAAM,MAAM"}
 
 == /foo.js ==
-
 //# sourceMappingURL=foo.js.map
 
 == /foo.js.map ==

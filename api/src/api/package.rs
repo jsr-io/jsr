@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
+use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use futures::future::Either;
 use futures::StreamExt;
@@ -67,10 +68,13 @@ use crate::RegistryUrl;
 
 use super::ApiDependency;
 use super::ApiDependent;
+use super::ApiDownloadDataPoint;
 use super::ApiError;
 use super::ApiList;
 use super::ApiMetrics;
 use super::ApiPackage;
+use super::ApiPackageDownloads;
+use super::ApiPackageDownloadsRecentVersion;
 use super::ApiPackageVersion;
 use super::ApiPackageVersionDocs;
 use super::ApiPackageVersionSource;
@@ -102,6 +106,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
     )
     .get("/:package/dependents", util::json(list_dependents_handler))
+    .get("/:package/downloads", util::json(get_downloads_handler))
     .get(
       "/:package/versions/:version",
       util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
@@ -127,6 +132,13 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::cache(
         CacheDuration::ONE_MINUTE,
         util::json(get_docs_search_handler),
+      ),
+    )
+    .get(
+      "/:package/versions/:version/docs/search_html",
+      util::cache(
+        CacheDuration::ONE_MINUTE,
+        util::json(get_docs_search_html_handler),
       ),
     )
     .get(
@@ -1103,6 +1115,85 @@ pub async fn get_docs_search_handler(
 }
 
 #[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  skip(req),
+  err,
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_docs_search_html_handler(
+  req: Request<Body>,
+) -> ApiResult<String> {
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  let version_or_latest = req.param_version_or_latest()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&version_or_latest));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, _, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let maybe_version = match &version_or_latest {
+    VersionOrLatest::Version(version) => {
+      db.get_package_version(&scope, &package_name, version)
+        .await?
+    }
+    VersionOrLatest::Latest => {
+      db.get_latest_unyanked_version_for_package(&scope, &package_name)
+        .await?
+    }
+  };
+  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
+
+  let docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
+  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
+  let docs = docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
+  let docs_info = crate::docs::get_docs_info(&version, None);
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let docs = crate::docs::generate_docs_html(
+    doc_nodes,
+    docs_info.main_entrypoint,
+    docs_info.rewrite_map,
+    DocsRequest::AllSymbols,
+    scope.clone(),
+    package_name.clone(),
+    version.version.clone(),
+    version_or_latest == VersionOrLatest::Latest,
+    None,
+    package.runtime_compat,
+    registry_url,
+  )
+  .map_err(|e| {
+    error!("failed to generate docs: {}", e);
+    ApiError::InternalServerError
+  })?
+  .unwrap();
+
+  let search = match docs {
+    GeneratedDocsOutput::Docs(docs) => docs.main,
+    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+  };
+
+  Ok(search)
+}
+
+#[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/source",
   skip(req),
   err,
@@ -1275,8 +1366,7 @@ pub async fn list_dependents_handler(
     .query("versions_per_package_limit")
     .and_then(|page| page.parse::<i64>().ok())
     .unwrap_or(10)
-    .max(1)
-    .min(10);
+    .clamp(1, 10);
 
   let db = req.data::<Database>().unwrap();
   db.get_package(&scope, &package)
@@ -1297,6 +1387,64 @@ pub async fn list_dependents_handler(
   Ok(ApiList {
     items: dependents,
     total,
+  })
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/downloads",
+  skip(req),
+  err,
+  fields(scope, package)
+)]
+pub async fn get_downloads_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageDownloads> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+
+  let db = req.data::<Database>().unwrap();
+  db.get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let current = Utc::now();
+  let start = current - chrono::Duration::days(90);
+
+  let total = db
+    .get_package_downloads_24h(&scope, &package, start, current)
+    .await?;
+
+  let recent_versions = db
+    .list_latest_unyanked_versions_for_package(&scope, &package, 5)
+    .await?;
+
+  let versions = futures::stream::iter(recent_versions.into_iter())
+    .then(|version| async {
+      let res = db
+        .get_package_version_downloads_24h(
+          &scope, &package, &version, start, current,
+        )
+        .await;
+      (version, res)
+    })
+    .collect::<Vec<_>>()
+    .await;
+
+  let mut recent_versions = Vec::with_capacity(versions.len());
+  for (version, downloads) in versions {
+    let downloads = downloads?
+      .into_iter()
+      .map(ApiDownloadDataPoint::from)
+      .collect();
+    recent_versions
+      .push(ApiPackageDownloadsRecentVersion { version, downloads });
+  }
+
+  Ok(ApiPackageDownloads {
+    total: total.into_iter().map(ApiDownloadDataPoint::from).collect(),
+    recent_versions,
   })
 }
 
@@ -2577,7 +2725,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","doc":"This is a test constant.","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"url":"/@scope/foo@1.2.3/doc/~/hello","category":"","declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","doc":"","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"url":"/@scope/foo@1.2.3/doc/~/读取多键1","category":"","declarationKind":"export","deprecated":false}]}),
     );
 
     // symbol doesn't exist

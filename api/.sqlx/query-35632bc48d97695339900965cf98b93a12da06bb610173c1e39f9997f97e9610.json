@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT time_bucket, kind as \"kind: DownloadKind\", count\n      FROM version_download_counts_4h\n      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5\n      ORDER BY time_bucket ASC\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "time_bucket",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind: DownloadKind",
+        "type_info": {
+          "Custom": {
+            "name": "download_kind",
+            "kind": {
+              "Enum": [
+                "npm_tgz",
+                "jsr_meta"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "35632bc48d97695339900965cf98b93a12da06bb610173c1e39f9997f97e9610"
+}

@@ -26,9 +26,10 @@ export default function AuthPage({ data }: PageProps<Data>) {
           <title>
             Authorize - JSR
           </title>
+          <meta property="og:image" content="/images/og-image.webp" />
         </Head>
         <h1 class="text-lg font-semibold">Authorization</h1>
-        <p class="mt-2 text-gray-600 max-w-3xl">
+        <p class="mt-2 text-jsr-gray-600 max-w-3xl">
           To authorize a request, enter the code shown in the application.
         </p>
         <form action="/auth" method="GET" class="mt-8">
@@ -158,7 +159,7 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
   }
 
   return (
-    <div class="p-2 border-2 border-cyan-300 rounded-md flex items-center gap-2 col-span-2">
+    <div class="p-2 border-2 border-jsr-cyan-300 rounded-md flex items-center gap-2 col-span-2">
       {icon}
       <div>
         <div class="font-semibold text-lg">{title}</div>

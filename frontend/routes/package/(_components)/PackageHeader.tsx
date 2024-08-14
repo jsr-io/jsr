@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
+import { ExternalLink } from "../../../components/icons/ExternalLink.tsx";
 import { GitHub } from "../../../components/icons/GitHub.tsx";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
@@ -20,7 +21,6 @@ export function PackageHeader(
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
-  const isYanked = selectedVersion && selectedVersion.yanked;
 
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
@@ -82,12 +82,14 @@ export function PackageHeader(
                 <span>
                   <a
                     href={`/@${pkg.scope}`}
-                    class="link font-bold no-underline"
+                    class="link font-bold pr-1 no-underline"
+                    aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
                   </a>/<a
                     href={`/@${pkg.scope}/${pkg.name}`}
                     class="link font-semibold no-underline"
+                    aria-label={`Package: ${pkg.name}`}
                   >
                     {pkg.name}
                   </a>
@@ -95,7 +97,10 @@ export function PackageHeader(
 
                 {selectedVersion &&
                   (
-                    <span class="text-lg md:text-[0.75em] font-bold">
+                    <span
+                      class="text-lg md:text-[0.75em] font-bold"
+                      aria-label={`Version: ${selectedVersion.version}`}
+                    >
                       <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
                         @
                       </span>
@@ -127,22 +132,26 @@ export function PackageHeader(
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-0 !inline-flex items-center gap-1 select-none"
+                  class="chip sm:big-chip bg-jsr-gray-100 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" />
+                  <GitHub class="text-black !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
+                  <ExternalLink strokeWidth="2.25" />
                 </a>
               )}
             </div>
           </div>
 
           {pkg.description && (
-            <p class="text-gray-600 max-w-3xl md:!mb-8">{pkg.description}</p>
+            <p class="text-jsr-gray-600 max-w-3xl md:!mb-8">
+              {pkg.description}
+            </p>
           )}
         </div>
 
@@ -151,7 +160,7 @@ export function PackageHeader(
             {runtimeCompat &&
               (
                 <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
-                  <div>Works with</div>
+                  <div aria-hidden="true">Works with</div>
                   {runtimeCompat}
                 </div>
               )}

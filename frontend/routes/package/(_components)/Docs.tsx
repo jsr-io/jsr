@@ -13,6 +13,23 @@ interface DocsProps {
   showProvenanceBadge?: boolean;
 }
 
+const USAGE_SELECTOR_SCRIPT = `(() => {
+const preferredUsage = localStorage.getItem('preferredUsage');
+
+if (preferredUsage) {
+  document.querySelectorAll('input[name="usage"]').forEach((el) => {
+    if (el.id === preferredUsage) el.checked = true;
+  });
+}
+
+document.querySelector('.usages').addEventListener('change', (e) => {
+  const target = e.target;
+  if (target instanceof HTMLInputElement && target.name === 'usage') {
+    localStorage.setItem('preferredUsage', target.id);
+  } 
+});
+})()`;
+
 export function DocsView(
   { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
 ) {
@@ -25,6 +42,7 @@ export function DocsView(
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
+          searchContent={!docs.toc ? docs.main : undefined}
           content={docs.breadcrumbs}
           scope={params.scope}
           package={params.package}
@@ -38,7 +56,12 @@ export function DocsView(
             docs.toc ? "lg:col-span-7 lg:row-start-1" : "col-span-full"
           }`}
         >
-          <div class="ddoc" dangerouslySetInnerHTML={{ __html: docs.main }} />
+          <div
+            class="ddoc"
+            id="docMain"
+            dangerouslySetInnerHTML={{ __html: docs.main }}
+          />
+          <div class="ddoc hidden" id="docSearchResults" />
 
           {showProvenanceBadge && selectedVersion.rekorLogId && (
             <div class="mt-8 mb-8 border-2 border-jsr-cyan-500 max-w-xl rounded-md py-4 px-6">
@@ -98,6 +121,9 @@ export function DocsView(
             <div
               class="ddoc w-full lg:overflow-y-auto pb-4"
               dangerouslySetInnerHTML={{ __html: docs.toc }}
+            />
+            <script
+              dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
             />
           </div>
         )}

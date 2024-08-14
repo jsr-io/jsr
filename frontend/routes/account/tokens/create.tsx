@@ -1,11 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { Handlers } from "$fresh/server.ts";
 import { State } from "../../../util.ts";
-import { path } from "../../../utils/api.ts";
-import { FullUser, Scope, Token } from "../../../utils/api_types.ts";
-import { AccountLayout } from "../(_components)/AccountLayout.tsx";
+import { FullUser } from "../../../utils/api_types.ts";
 import { Head } from "$fresh/runtime.ts";
-import twas from "$twas";
 import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
 import { CreateToken } from "./(_islands)/CreateToken.tsx";
 
@@ -13,9 +10,7 @@ interface Data {
   user: FullUser;
 }
 
-export default function AccountCreateTokenPage(
-  { data, url }: PageProps<Data, State>,
-) {
+export default function AccountCreateTokenPage() {
   return (
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
       <Head>
@@ -33,11 +28,11 @@ export default function AccountCreateTokenPage(
         <h2 class="text-xl font-bold">
           Create a personal access token
         </h2>
-        <p class="text-gray-600 max-w-2xl mt-2">
+        <p class="text-jsr-gray-600 max-w-2xl mt-2">
           Personal access tokens can be used to authenticate with JSR from the
           command line or from other applications.
         </p>
-        <p class="text-gray-600 max-w-2xl mt-3">
+        <p class="text-jsr-gray-600 max-w-2xl mt-3">
           Actions performed by personal access tokens are attributed to your
           account.
         </p>

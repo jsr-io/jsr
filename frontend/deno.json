@@ -29,6 +29,7 @@
     "$oak_commons": "https://deno.land/x/oak_commons@0.3.1/negotiation.ts",
     "$marked-smartypants": "https://esm.sh/marked-smartypants@1.0.1",
     "$tabler_icons/": "https://deno.land/x/tabler_icons_tsx@0.0.5/tsx/",
+    "$imagescript": "https://deno.land/x/imagescript@1.3.0/mod.ts",
     "@orama/orama": "npm:@orama/orama@^2",
     "@orama/highlight": "npm:@orama/highlight@^0.1",
     "@oramacloud/client": "npm:@oramacloud/client@^1",

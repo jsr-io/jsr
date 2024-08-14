@@ -1100,7 +1100,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "invalidExternalImport");
-    assert_eq!(error.message, "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:' and 'node:' imports are allowed (http(s) import)");
+    assert_eq!(error.message, "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed (http(s) import)");
   }
 
   async fn uses_npm(t: &TestSetup, task: &crate::db::PublishingTask) -> bool {
@@ -1123,6 +1123,15 @@ pub mod tests {
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
     assert!(uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn bun_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("bun_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
   }
 
   #[tokio::test]
@@ -1198,6 +1207,17 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn syntax_error_two() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("syntax_error_two");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:1\n\n  +\n  ~");
+  }
+
+  #[tokio::test]
   async fn syntax_error_extra_file() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("syntax_error_extra_file");
@@ -1224,7 +1244,7 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: invalid data");
+    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~");
   }
 
   #[tokio::test]

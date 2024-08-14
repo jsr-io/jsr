@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
+#![allow(dead_code)]
 
 use chrono::DateTime;
 use chrono::Utc;
@@ -219,6 +220,7 @@ pub struct PackageVersion {
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
   pub newer_versions_count: i64,
+  pub lifetime_download_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
   pub updated_at: DateTime<Utc>,
@@ -341,6 +343,7 @@ pub struct NewOauthState<'a> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct OauthDeviceState {
   pub id: Uuid,
   pub auth: String,
@@ -664,6 +667,7 @@ pub enum DependencyKind {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PackageVersionDependency {
   pub package_scope: ScopeName,
   pub package_name: PackageName,
@@ -677,6 +681,7 @@ pub struct PackageVersionDependency {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PackageVersionReference {
   pub scope: ScopeName,
   pub name: PackageName,
@@ -706,6 +711,7 @@ pub type PackageWithGitHubRepoAndMeta =
   (Package, Option<GithubRepository>, PackageVersionMeta);
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct NpmTarball {
   pub scope: ScopeName,
   pub name: PackageName,
@@ -771,5 +777,49 @@ impl sqlx::Type<sqlx::Postgres> for RuntimeCompat {
   fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
     <sqlx::types::Json<RuntimeCompat> as sqlx::Type<sqlx::Postgres>>::type_info(
     )
+  }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionDownloadCount {
+  pub scope: ScopeName,
+  pub package: PackageName,
+  pub version: Version,
+  pub time_bucket: DateTime<Utc>,
+  pub kind: DownloadKind,
+  pub count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct DownloadDataPoint {
+  pub time_bucket: DateTime<Utc>,
+  pub kind: DownloadKind,
+  pub count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct VersionDownloadDataPoint {
+  pub time_bucket: DateTime<Utc>,
+  pub version: Version,
+  pub kind: DownloadKind,
+  pub count: i64,
+}
+
+#[derive(
+  Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize, Deserialize,
+)]
+#[sqlx(type_name = "download_kind", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadKind {
+  /// A download of the version's JSR $version_meta.json file.
+  JsrMeta,
+  /// A download of the NPM tarball.
+  NpmTgz,
+}
+
+impl sqlx::postgres::PgHasArrayType for DownloadKind {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    sqlx::postgres::PgTypeInfo::with_name("_download_kind")
   }
 }

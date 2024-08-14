@@ -16,11 +16,17 @@ interface Data {
   docs: Docs | null;
   member: ScopeMember | null;
 }
+const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
 
 export default function PackagePage(
   { data, params, state }: PageProps<Data, State>,
 ) {
   const iam = scopeIAM(state, data.member);
+
+  const title = `@${params.scope}/${params.package} - JSR`;
+  const description = `@${params.scope}/${params.package} on JSR${
+    data.package.description ? `: ${data.package.description}` : ""
+  }`;
 
   return (
     <div>
@@ -33,6 +39,18 @@ export default function PackagePage(
           content={`@${params.scope}/${params.package} on JSR${
             data.package.description ? `: ${data.package.description}` : ""
           }`}
+        />
+        <meta
+          property="og:url"
+          content={`${FRONTEND_ROOT}/@${params.scope}/${params.package}`}
+        />
+        <meta property="og:type" content="article" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:site_name" content="JSR" />
+        <meta
+          property="og:image"
+          content={`${FRONTEND_ROOT}/@${params.scope}/${params.package}/og`}
         />
       </Head>
 
@@ -58,7 +76,7 @@ export default function PackagePage(
           />
         )
         : (
-          <div class="mt-8 text-gray-500 text-center">
+          <div class="mt-8 text-jsr-gray-500 text-center">
             This package has not published{" "}
             {data.package.versionCount > 0
               ? "a stable release"

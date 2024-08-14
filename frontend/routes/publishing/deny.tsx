@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { Handlers, RouteConfig } from "$fresh/server.ts";
+import { Handlers } from "$fresh/server.ts";
 import { State } from "../../util.ts";
 import { Head } from "$fresh/runtime.ts";
 
@@ -11,6 +11,7 @@ export default function PublishDeniedPage() {
         <title>
           Publishing package(s) - JSR
         </title>
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <h1 class="text-4xl font-bold">Publishing has been denied</h1>
       <p class="text-lg mt-2">

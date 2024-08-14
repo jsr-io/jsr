@@ -35,6 +35,7 @@ export default function PublishApprovePage({ data }: PageProps<Data>) {
         <title>
           Publishing package{singular ? "s" : ""} - JSR
         </title>
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <section>
         <h1 class="text-4xl font-bold">Publishing progress</h1>
@@ -67,10 +68,10 @@ function PackageListItem(props: {
   status: Signal<VersionPublishStatus>;
 }) {
   return (
-    <li class="py-1 px-4 mt-1 border-gray-200 border">
+    <li class="py-1 px-4 mt-1 border-jsr-gray-200 border">
       <p class="font-semibold text-xl">
         {props.name}
-        <span class="text-gray-600 text-base">@{props.version}</span>
+        <span class="text-jsr-gray-600 text-base">@{props.version}</span>
 
         <PackageLink status={props.status} />
       </p>

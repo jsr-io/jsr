@@ -1,9 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { GlobalSearch } from "./GlobalSearch.tsx";
-import { Plus } from "../components/icons/Plus.tsx";
 import { useEffect } from "preact/hooks";
-import { asset, Head } from "$fresh/runtime.ts";
-import { AnimatedLogo } from "../components/AnimatedLogo.tsx";
 
 declare global {
   interface Window {
@@ -126,6 +122,7 @@ export function HomepageHeroParticles() {
           ".particles-js-canvas-el",
         ) as HTMLCanvasElement;
         canvas.style.opacity = "1";
+        canvas.ariaHidden = "true";
       },
     );
   }, []);

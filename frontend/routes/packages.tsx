@@ -28,6 +28,7 @@ export default function PackageListPage({
           name="description"
           content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
         />
+        <meta property="og:image" content="/images/og-image.webp" />
       </Head>
       <div>
         <ListDisplay
@@ -39,13 +40,14 @@ export default function PackageListPage({
         </ListDisplay>
 
         <div className="mt-2 flex flex-wrap items-start justify-between px-2">
-          <span className="text-sm text-gray-400 block">
+          <span className="text-sm text-jsr-gray-400 block">
             Changes made in the last 15 minutes may not be visible yet. Packages
             with no published versions are not shown.
           </span>
           <div class="flex items-center gap-1">
-            <span className="text-sm text-gray-500">powered by</span>
-            <img className="h-4" src="/logos/orama-dark.svg" />
+            <span className="text-sm text-jsr-gray-500">powered by</span>
+            <span className="sr-only">Orama</span>
+            <img className="h-4" src="/logos/orama-dark.svg" alt="" />
           </div>
         </div>
       </div>
@@ -78,9 +80,18 @@ export const handler: Handlers<Data, State> = {
         limit,
         offset: (page - 1) * limit,
         mode: "fulltext",
+        // @ts-ignore boost does exist
+        boost: {
+          id: 3,
+          scope: 2,
+          name: 1,
+          description: 0.5,
+        },
       });
 
-      packages = res?.hits.map((hit) => hit.document) ?? [];
+      packages = res?.hits.map((hit) =>
+        hit.document
+      ).filter((document) => document) ?? [];
       total = res?.count ?? 0;
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(
