@@ -246,6 +246,11 @@ body .ddoc {
     }
   }
 
+  .namespaceItemContent {
+    flex: 1;
+    width: 0;
+  }
+
   .markdown_summary {
     a:not(.no_color) {
       @apply link;
@@ -253,6 +258,10 @@ body .ddoc {
 
     :not(pre) > code {
       @apply bg-jsr-cyan-100/50 !important;
+    }
+
+    p {
+      max-width: 100%;
     }
   }
 
