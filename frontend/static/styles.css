@@ -44,7 +44,7 @@
   *,
   *:before,
   *:after {
-    border-color: theme("colors.cyan.200");
+    border-color: theme("colors.jsr-cyan.200");
   }
 
   :root {
@@ -61,7 +61,7 @@
   body {
     font-size: 1.125rem;
     font-weight: 400;
-    color: theme("colors.jsr-gray.700");
+    color: theme("colors.jsr-gray.800");
     @apply opsize-normal;
   }
 
@@ -107,10 +107,10 @@
   }
 
   .button-primary {
-    @apply button border-1.5 border-cyan-900 hover:border-cyan-600 bg-jsr-yellow text-cyan-950
-      font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-cyan-700
-      outline-offset-2 disabled:bg-gray-100 disabled:text-gray-300 shadow-accent-sm disabled:shadow-transparent
-    disabled:border-gray-300;
+    @apply button border-1.5 border-jsr-cyan-900 hover:border-jsr-cyan-600 bg-jsr-yellow text-jsr-cyan-950
+      font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-jsr-cyan-700
+      outline-offset-2 disabled:bg-jsr-gray-100 disabled:text-jsr-gray-300 shadow-accent-sm disabled:shadow-transparent
+    disabled:border-jsr-gray-300;
   }
 
   .button-primary:not(:disabled) {
@@ -118,7 +118,7 @@
   }
 
   .button-danger {
-    @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-gray-100
+    @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-jsr-gray-100
     outline-red-600 disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent disabled:border-red-300
     transition-all duration-75 ease-in-out;
   }
@@ -173,22 +173,22 @@
   input:not([data-locked="true"]):disabled.input-container,
   .input-container input:not([data-locked="true"]):disabled,
   .input-container select:not([data-locked="true"]):disabled {
-    @apply border-gray-300 text-jsr-gray-300 cursor-not-allowed bg-gray-50;
+    @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed bg-jsr-gray-50;
   }
 
   select[data-locked="true"].input-container,
   input[data-locked="true"].input-container,
   .input-container input[data-locked="true"],
   .input-container select[data-locked="true"] {
-    @apply text-jsr-gray-500 cursor-not-allowed bg-gray-50;
+    @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50;
   }
 
   .input {
-    @apply placeholder:text-jsr-gray-300 disabled:placeholder:text-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
+    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
   }
 
   .search-input {
-    @apply input-container border-1.5 border-jsr-cyan-950;
+    @apply input-container border-1.5 border-jsr-cyan-900/90;
   }
 
   .select {
@@ -202,8 +202,15 @@
 /* !important seems necessary for taking precedent over current ddoc styling */
 body .ddoc {
   .markdown {
+    @apply max-w-prose;
+
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
+    }
+
+    /* Styles the first H1 in a readme a little differently */
+    h1:first-of-type {
+      @apply mt-0 border-none mb-6 !important;
     }
 
     h2 {
@@ -228,6 +235,14 @@ body .ddoc {
 
     .highlight .context_button {
       @apply border-none hover:bg-jsr-cyan-50;
+    }
+
+    .highlight .lineNumbers {
+      @apply border-jsr-gray-100 text-jsr-gray-300 pr-3;
+    }
+
+    .highlight .lineNumbers {
+      @apply mr-3 !important;
     }
   }
 
@@ -271,10 +286,59 @@ body .ddoc {
     }
   }
 
+  .usageContent .markdown {
+    @apply max-w-full;
+  }
+
+  /* START Upstream to deno_doc  */
+  /* Hides the link to code button unless you hover over the section or are on mobile */
+
+  .context_button {
+    @apply flex flex-row gap-2 items-center md:invisible;
+  }
+
+  .context_button {
+    @apply rounded no-underline !important;
+  }
+
+  .context_button::before {
+    content: "View code";
+    @apply hidden md:block text-xs;
+  }
+
+  .symbolGroup article > div:hover > div + a.context_button {
+    @apply md:visible;
+  }
+
+  .docEntryHeader:hover > .context_button {
+    @apply md:visible;
+  }
+
+  /* Style overrides for a better single column layout on symbol pages */
+  .namespaceSection {
+    @apply grid-cols-1 gap-2 max-w-prose !important;
+  }
+
+  .docNodeKindIcon div {
+    @apply h-4 w-4 leading-4;
+  }
+
+  /* END Upstream to deno_doc  */
+
+  .markdown_summary p {
+    @apply leading-normal;
+  }
+
+  .section > div:first-child > h2 {
+    @apply mb-4 !important;
+  }
+
   #module_doc,
   main {
     @apply pb-8;
   }
+
+  /* Table of contents adjustments */
 
   .toc .topSymbols {
     @apply max-lg:hidden;
@@ -285,6 +349,11 @@ body .ddoc {
       @apply -left-8;
     }
   }
+}
+
+/* This is a utility class to make the ddoc content full width inside its container */
+.ddoc-full {
+  @apply max-w-full !important;
 }
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
@@ -302,7 +371,7 @@ body .ddoc:has(.toc) {
 }
 
 .score-ring-yellow {
-  @apply bg-yellow-500;
+  @apply bg-jsr-yellow-500;
 }
 
 .score-ring-green {
@@ -314,7 +383,7 @@ body .ddoc:has(.toc) {
 }
 
 .score-text-yellow {
-  @apply text-yellow-700;
+  @apply text-jsr-yellow-700;
 }
 
 .score-text-green {
@@ -326,10 +395,10 @@ body .ddoc:has(.toc) {
   :root {
     --color-accent-fg: theme(colors.slate.100) !important;
     --color-border-default: theme(colors.slate.300) !important;
-    --bgColor-neutral-muted: theme(colors.gray.100) !important;
-    --color-neutral-muted: theme(colors.gray.600) !important;
+    --bgColor-neutral-muted: theme(colors.jsr-gray.100) !important;
+    --color-neutral-muted: theme(colors.jsr-gray.600) !important;
     --color-accent-fg: theme(colors.cyan.700) !important;
-    --fgColor-muted: theme(colors.gray.600) !important;
+    --fgColor-muted: theme(colors.jsr-gray.600) !important;
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
     --bgColor-muted: theme(colors.slate.50);

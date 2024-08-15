@@ -54,6 +54,7 @@ use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
 use std::time::Duration;
+use tasks::LogsBigQueryTable;
 use url::Url;
 
 pub struct MainRouterOptions {
@@ -66,6 +67,7 @@ pub struct MainRouterOptions {
   npm_url: Url,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
+  logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -84,6 +86,7 @@ pub(crate) fn main_router(
     npm_url,
     publish_queue,
     npm_tarball_build_queue,
+    logs_bigquery_table,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -98,6 +101,7 @@ pub(crate) fn main_router(
     .data(NpmUrl(npm_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
+    .data(LogsBigQueryTable(logs_bigquery_table))
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
 
@@ -180,7 +184,21 @@ async fn main() {
 
   let npm_tarball_build_queue = config
     .npm_tarball_build_queue_id
-    .map(|id: String| Queue::new(gcp_client, id, None));
+    .map(|id: String| Queue::new(gcp_client.clone(), id, None));
+
+  let logs_bigquery_table =
+    config.logs_bigquery_table_id.map(|logs_table_id| {
+      (
+        gcp::BigQuery::new(
+          gcp_client.clone(),
+          config.gcp_project_id.clone().expect(
+            "gcp_project_id must be set when logs_bigquery_table_id is set",
+          ),
+          None,
+        ),
+        logs_table_id,
+      )
+    });
 
   let github_client = GithubOauth2Client::new(
     oauth2::ClientId::new(config.github_client_id),
@@ -234,6 +252,7 @@ async fn main() {
     npm_url: config.npm_url,
     publish_queue,
     npm_tarball_build_queue,
+    logs_bigquery_table,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

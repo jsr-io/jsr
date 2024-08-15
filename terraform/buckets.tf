@@ -72,6 +72,10 @@ resource "google_compute_backend_bucket" "modules" {
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
     "X-Robots-Tag: noindex",
+    "access-control-allow-origin: *",
+    "access-control-expose-headers: *",
+    "Cross-Origin-Resource-Policy: cross-origin",
+    "X-Content-Type-Options: nosniff",
   ]
 
   cdn_policy {
@@ -104,6 +108,10 @@ resource "google_compute_backend_bucket" "npm" {
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
     "X-Robots-Tag: noindex",
+    "access-control-allow-origin: *",
+    "access-control-expose-headers: *",
+    "Cross-Origin-Resource-Policy: cross-origin",
+    "X-Content-Type-Options: nosniff",
   ]
 
   cdn_policy {

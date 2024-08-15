@@ -19,7 +19,8 @@ import * as $account_tokens_index from "./routes/account/tokens/index.tsx";
 import * as $admin_middleware from "./routes/admin/_middleware.ts";
 import * as $admin_index from "./routes/admin/index.tsx";
 import * as $admin_publishingTasks from "./routes/admin/publishingTasks.tsx";
-import * as $admin_scopes from "./routes/admin/scopes.tsx";
+import * as $admin_scopes_assign from "./routes/admin/scopes/assign.tsx";
+import * as $admin_scopes_index from "./routes/admin/scopes/index.tsx";
 import * as $admin_users from "./routes/admin/users.tsx";
 import * as $auth from "./routes/auth.tsx";
 import * as $badges_package from "./routes/badges/package.ts";
@@ -95,7 +96,8 @@ const manifest = {
     "./routes/admin/_middleware.ts": $admin_middleware,
     "./routes/admin/index.tsx": $admin_index,
     "./routes/admin/publishingTasks.tsx": $admin_publishingTasks,
-    "./routes/admin/scopes.tsx": $admin_scopes,
+    "./routes/admin/scopes/assign.tsx": $admin_scopes_assign,
+    "./routes/admin/scopes/index.tsx": $admin_scopes_index,
     "./routes/admin/users.tsx": $admin_users,
     "./routes/auth.tsx": $auth,
     "./routes/badges/package.ts": $badges_package,

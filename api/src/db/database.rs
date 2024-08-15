@@ -1162,7 +1162,12 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!",
+      (SELECT COALESCE(SUM(dl.count), 0)
+        FROM version_download_counts_24h as dl
+        WHERE dl.scope = package_versions.scope
+        AND dl.package = package_versions.name
+        AND dl.version = package_versions.version) as "lifetime_download_count!"
       FROM package_versions
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
@@ -1306,6 +1311,11 @@ impl Database {
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
         AND pv.is_yanked = false) as "package_version_newer_versions_count!",
+      (SELECT COALESCE(SUM(dl.count), 0)
+        FROM version_download_counts_24h as dl
+        WHERE dl.scope = package_versions.scope
+        AND dl.package = package_versions.name
+        AND dl.version = package_versions.version) as "package_version_lifetime_download_count!",
       users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
@@ -1325,6 +1335,7 @@ impl Database {
         readme_path: r.package_version_readme_path,
         uses_npm: r.package_version_uses_npm,
         newer_versions_count: r.package_version_newer_versions_count,
+        lifetime_download_count: r.package_version_lifetime_download_count,
         meta: r.package_version_meta,
         updated_at: r.package_version_updated_at,
         created_at: r.package_version_created_at,
@@ -1371,7 +1382,12 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!",
+      (SELECT COALESCE(SUM(dl.count), 0)
+        FROM version_download_counts_24h as dl
+        WHERE dl.scope = package_versions.scope
+        AND dl.package = package_versions.name
+        AND dl.version = package_versions.version) as "lifetime_download_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
@@ -1380,6 +1396,32 @@ impl Database {
       name as _,
     )
     .fetch_optional(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::list_latest_package_versions",
+    skip(self),
+    err
+  )]
+  pub async fn list_latest_unyanked_versions_for_package(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    limit: u32,
+  ) -> Result<Vec<Version>> {
+    sqlx::query!(
+      r#"
+      SELECT version as "version: Version"
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
+      ORDER BY version DESC
+      "#,
+      scope as _,
+      name as _,
+    )
+    .map(|r| r.version)
+    .fetch_all(&self.pool)
     .await
   }
 
@@ -1399,7 +1441,12 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!",
+      (SELECT COALESCE(SUM(dl.count), 0)
+        FROM version_download_counts_24h as dl
+        WHERE dl.scope = package_versions.scope
+        AND dl.package = package_versions.name
+        AND dl.version = package_versions.version) as "lifetime_download_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
@@ -1513,7 +1560,12 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!""#,
+        AND pv.is_yanked = false) as "newer_versions_count!",
+      (SELECT COALESCE(SUM(dl.count), 0)
+        FROM version_download_counts_24h as dl
+        WHERE dl.scope = package_versions.scope
+        AND dl.package = package_versions.name
+        AND dl.version = package_versions.version) as "lifetime_download_count!""#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -1547,7 +1599,12 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!""#,
+        AND pv.is_yanked = false) as "newer_versions_count!",
+      (SELECT COALESCE(SUM(dl.count), 0)
+        FROM version_download_counts_24h as dl
+        WHERE dl.scope = package_versions.scope
+        AND dl.package = package_versions.name
+        AND dl.version = package_versions.version) as "lifetime_download_count!""#,
       scope as _,
       name as _,
       version as _,
@@ -2862,6 +2919,8 @@ impl Database {
     .await
   }
 
+  #[instrument(name = "Database::list_all_scopes_for_sitemap", skip(self), err)]
+  #[allow(clippy::type_complexity)]
   pub async fn list_all_scopes_for_sitemap(
     &self,
   ) -> Result<Vec<(ScopeName, DateTime<Utc>, Option<DateTime<Utc>>)>> {
@@ -2881,6 +2940,12 @@ impl Database {
     .await
   }
 
+  #[instrument(
+    name = "Database::list_all_packages_for_sitemap",
+    skip(self),
+    err
+  )]
+  #[allow(clippy::type_complexity)]
   pub async fn list_all_packages_for_sitemap(
     &self,
   ) -> Result<Vec<(ScopeName, PackageName, DateTime<Utc>, DateTime<Utc>)>> {
@@ -2901,6 +2966,175 @@ impl Database {
         r.latest_version_updated_at,
       )
     })
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::insert_download_entries",
+    skip(self, entries),
+    err
+  )]
+  pub async fn insert_download_entries(
+    &self,
+    entries: Vec<VersionDownloadCount>,
+  ) -> Result<()> {
+    if entries.is_empty() {
+      return Ok(());
+    }
+
+    let mut tx = self.pool.begin().await?;
+
+    let mut scopes = Vec::with_capacity(entries.len());
+    let mut packages = Vec::with_capacity(entries.len());
+    let mut versions = Vec::with_capacity(entries.len());
+    let mut time_buckets = Vec::with_capacity(entries.len());
+    let mut kinds = Vec::with_capacity(entries.len());
+    let mut counts = Vec::with_capacity(entries.len());
+
+    let mut smallest_time_bucket = Utc::now();
+    let mut largest_time_bucket = DateTime::from_timestamp_nanos(0);
+
+    for entry in entries {
+      scopes.push(entry.scope);
+      packages.push(entry.package);
+      versions.push(entry.version);
+      time_buckets.push(entry.time_bucket);
+      kinds.push(entry.kind);
+      counts.push(entry.count);
+
+      if entry.time_bucket < smallest_time_bucket {
+        smallest_time_bucket = entry.time_bucket;
+      }
+      if entry.time_bucket > largest_time_bucket {
+        largest_time_bucket = entry.time_bucket;
+      }
+    }
+
+    // Upsert data into version_download_counts_4h
+    sqlx::query!(
+      r#"
+      INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, kind, count)
+      SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::download_kind[], $6::INT[]) as temp(scope, package, version, time_bucket, kind, count)
+      WHERE (SELECT COUNT(*) FROM package_versions WHERE package_versions.scope = temp.scope AND package_versions.name = temp.package AND version = temp.version) > 0
+      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      &scopes as _,
+      &packages as _,
+      &versions as _,
+      &time_buckets,
+      &kinds as _,
+      &counts as _,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // Compute data in version_download_counts_24h from version_download_counts_4h between smallest_timestamp and largest_timestamp.
+    // smallest_timestamp must be truncated down to the nearest day and largest_timestamp must be truncated up to the nearest day.
+    sqlx::query!(
+      r#"
+      INSERT INTO version_download_counts_24h (scope, package, version, time_bucket, kind, count)
+      SELECT scope, package, version, date_trunc('day', time_bucket), kind, SUM(count)
+      FROM version_download_counts_4h
+      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
+      GROUP BY scope, package, version, date_trunc('day', time_bucket), kind
+      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      smallest_time_bucket,
+      largest_time_bucket,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(())
+  }
+
+  #[instrument(
+    name = "Database::get_package_version_downloads_4h",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_version_downloads_4h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<DownloadDataPoint>> {
+    sqlx::query_as!(
+      DownloadDataPoint,
+      r#"
+      SELECT time_bucket, kind as "kind: DownloadKind", count
+      FROM version_download_counts_4h
+      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
+      ORDER BY time_bucket ASC
+      "#,
+      scope as _,
+      name as _,
+      version as _,
+      start,
+      end,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::get_package_version_downloads_24h",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_version_downloads_24h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<DownloadDataPoint>> {
+    sqlx::query_as!(
+      DownloadDataPoint,
+      r#"
+      SELECT time_bucket, kind as "kind: DownloadKind", count
+      FROM version_download_counts_24h
+      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
+      ORDER BY time_bucket ASC
+      "#,
+      scope as _,
+      name as _,
+      version as _,
+      start,
+      end,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::get_package_downloads_24h", skip(self), err)]
+  pub async fn get_package_downloads_24h(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+  ) -> Result<Vec<DownloadDataPoint>> {
+    sqlx::query_as!(
+      DownloadDataPoint,
+      r#"
+    SELECT time_bucket, kind as "kind: DownloadKind", SUM(count) as "count!"
+    FROM version_download_counts_24h
+    WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4
+    GROUP BY time_bucket, kind
+    ORDER BY time_bucket ASC
+    "#,
+      scope as _,
+      name as _,
+      start,
+      end,
+    )
     .fetch_all(&self.pool)
     .await
   }

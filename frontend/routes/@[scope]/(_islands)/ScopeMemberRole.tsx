@@ -39,7 +39,7 @@ export function ScopeMemberRole(props: ScopeMemberRoleProps) {
   return (
     <div class="flex flex-col items-start">
       <select
-        class={"block w-32 px-3 py-1 input-container select" +
+        class={"block w-32 px-3 py-1.5 input-container select" +
           (props.isLastAdmin ? " cursor-not-allowed" : " disabled:cursor-wait")}
         value={selected}
         onInput={(e) => selected.value = e.currentTarget.value}

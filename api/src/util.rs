@@ -281,8 +281,7 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
     .query("limit")
     .and_then(|page| page.parse::<i64>().ok())
     .unwrap_or(100)
-    .max(1)
-    .min(100);
+    .clamp(1, 100);
   let page = req
     .query("page")
     .and_then(|page| page.parse::<i64>().ok())
@@ -455,6 +454,7 @@ pub mod test {
     pub staff_user: TestUser,
     #[allow(dead_code)]
     pub scope: crate::db::Scope,
+    #[allow(dead_code)]
     pub github_oauth2_client: GithubOauth2Client,
     pub service: RequestService<Body, ApiError>,
   }
@@ -565,6 +565,7 @@ pub mod test {
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
+        logs_bigquery_table: None,     // no bigquery locally
         expose_api: true,              // api enabled
         expose_tasks: true,            // task endpoints enabled
       });

@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export function URLQuerySearch({ query }: { query: string }) {
   return (
-    <form method="GET" class="flex mt-4">
+    <form method="GET" class="flex mt-4 flex-grow">
       <input
         type="text"
         name="search"
