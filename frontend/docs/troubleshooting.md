@@ -267,11 +267,24 @@ the scope with at least the "member" role.
 
 ### `missingLicense`
 
-The package being published does not contain a license file. JSR requires all
-packages to contain a license file.
+The package being published has not specified its license. JSR requires all
+packages to specify a `"license"` field in the configuration or contain a
+license file.
 
-The license file must be at the root of your package, and must be named one of
-the following:
+You can fix this error by adding a `"license"` field to your configuration. For
+example:
+
+```json
+{
+  "name": "@scope/pkg",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": "./mod.ts"
+}
+```
+
+Alternatively, you may include a license file. This file must be at the root of
+your package and must be named one of the following:
 
 - `LICENSE`
 - `LICENSE.md`
@@ -280,8 +293,7 @@ the following:
 - `LICENCE.md`
 - `LICENCE.txt`
 
-You can fix this error by adding a license file to your package. Some common
-open source licenses can be found at
+Some common open source licenses can be found at
 [choosealicense.com](https://choosealicense.com/).
 
 ## Excluded module error
