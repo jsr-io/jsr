@@ -271,7 +271,8 @@ The package being published has not specified its license. JSR requires all
 packages to specify a `"license"` field in the configuration or contain a
 license file.
 
-You can fix this error by adding a `"license"` field. For example:
+You can fix this error by adding a `"license"` field containing an
+[SPDX identifier](https://spdx.org/licenses/). For example:
 
 ```json
 {
