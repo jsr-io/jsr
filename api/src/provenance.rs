@@ -119,7 +119,7 @@ pub fn verify(
   };
 
   let subject = subject
-    .get(0)
+    .first()
     .ok_or_else(|| anyhow::anyhow!("Invalid subject"))?;
 
   if subject.name != subject_name {
