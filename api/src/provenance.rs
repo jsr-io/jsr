@@ -116,9 +116,11 @@ pub fn verify(
     let payload =
       BASE64_STANDARD.decode(&bundle.content.dsse_envelope.payload)?;
     serde_json::from_slice::<ProvenanceAttestation>(&payload)?.subject
-  }
-  .get(0)
-  .ok_or_else(|| anyhow::anyhow!("Invalid subject"))?;
+  };
+
+  let subject = subject
+    .get(0)
+    .ok_or_else(|| anyhow::anyhow!("Invalid subject"))?;
 
   if subject.name != subject_name {
     bail!("Invalid subject name");
