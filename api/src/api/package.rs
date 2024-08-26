@@ -1973,7 +1973,7 @@ mod test {
       .unwrap();
 
     fn update_bundle_subject(bundle: &mut ProvenanceBundle, subject: Subject) {
-      let subject = serde_json::json!({ "subject": subject });
+      let subject = serde_json::json!({ "subject": [subject] });
       bundle.content.dsse_envelope.payload = BASE64_STANDARD
         .encode(serde_json::to_string(&subject).unwrap().as_bytes());
     }
