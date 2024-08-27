@@ -249,7 +249,7 @@ An OpenAPI 3.0 specification for the management API is available at
 https://api.jsr.io/.well-known/openapi.
 
 A rendered version of the OpenAPI specification is available at
-https://jsr.redoc.ly/.
+[/docs/api-reference](/docs/api-reference).
 
 ### Usage restrictions
 
