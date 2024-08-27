@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run -A --watch=static/,routes/
+#!/usr/bin/env -S deno -A --watch=static/,routes/
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import dev from "$fresh/dev.ts";

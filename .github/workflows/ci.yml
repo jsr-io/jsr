@@ -28,7 +28,7 @@ jobs:
           deno-version: 1.x
 
       - name: Check license headers
-        run: deno task lint:license
+        run: deno run lint:license
 
       - name: Format
         run: deno fmt --check
@@ -43,7 +43,7 @@ jobs:
         working-directory: frontend
 
       - name: Build Fresh
-        run: deno task build
+        run: deno run build
         working-directory: frontend
 
   test:
@@ -191,9 +191,9 @@ jobs:
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
-          deno task tf:staging:init
+          deno run tf:staging:init
           terraform version
-          deno task tf:staging:plan
+          deno run tf:staging:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
@@ -203,16 +203,16 @@ jobs:
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
 
       - name: terraform apply
-        run: deno task tf:staging:apply
+        run: deno run tf:staging:apply
 
       - name: Run e2e tests
-        run: deno task e2e:staging
+        run: deno run e2e:staging
 
       - name: Reindex orama docs search
         env:
           ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
           ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
-        run: deno task tools:orama:docs_reindex
+        run: deno run tools:orama:docs_reindex
 
   prod:
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
@@ -249,9 +249,9 @@ jobs:
       - name: terraform plan
         run: |
           touch terraform/prod.secret.tfvars
-          deno task tf:prod:init
+          deno run tf:prod:init
           terraform version
-          deno task tf:prod:plan
+          deno run tf:prod:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
@@ -261,13 +261,13 @@ jobs:
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
 
       - name: terraform apply
-        run: deno task tf:prod:apply
+        run: deno run tf:prod:apply
 
       - name: Run e2e tests
-        run: deno task e2e:prod
+        run: deno run e2e:prod
 
       - name: Reindex orama docs search
         env:
           ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
           ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
-        run: deno task tools:orama:docs_reindex
+        run: deno run tools:orama:docs_reindex

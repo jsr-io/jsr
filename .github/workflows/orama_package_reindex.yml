@@ -24,4 +24,4 @@ jobs:
           ORAMA_PACKAGE_INDEX_ID: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
           ORAMA_PACKAGE_PRIVATE_API_KEY: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
           JSR_URL: ${{ vars.ENVIRONMENT_URL }}
-        run: deno task tools:orama:package_reindex
+        run: deno run tools:orama:package_reindex

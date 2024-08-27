@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run -A --watch
+#!/usr/bin/env -S deno -A --watch
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 const FRONTEND_SERVER = "http://localhost:8000";

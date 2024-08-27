@@ -54,7 +54,7 @@ Then, from within your package folder (probably the one with your `deno.json` or
 `mod.ts`), execute the following command:
 
 ```bash
-deno run -Ar jsr:@deno/x-to-jsr
+deno -Ar jsr:@deno/x-to-jsr
 ```
 
 This will automatically refactor code where possible, and provide instructions

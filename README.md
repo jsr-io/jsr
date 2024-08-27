@@ -55,7 +55,7 @@ frontend in a development mode that connects to the production API.
 
 ### Running jsr
 
-1. `deno task prod:frontend`
+1. `deno run prod:frontend`
 
 You can view the registry at `http://jsr.test`. This frontend is connected to
 the production API - use it with the same care that you would use the live
@@ -114,9 +114,9 @@ making changes to the API.
 
 ### Running jsr
 
-1. `deno task services:macos` or `deno task services:linux` in one terminal
-2. `deno task dev:api` in another terminal
-3. `deno task dev:frontend` in another terminal
+1. `deno run services:macos` or `deno run services:linux` in one terminal
+2. `deno run dev:api` in another terminal
+3. `deno run dev:frontend` in another terminal
 
 You can view the registry at `http://jsr.test`. The API can be found at
 `http://api.jsr.test`.
