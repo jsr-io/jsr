@@ -221,7 +221,7 @@ pub fn get_generate_ctx<'a>(
             UsageComposerEntry {
               name: "Deno".to_string(),
               icon: Some(
-                r#"<img src="/logos/deno.svg" alt="deno logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
               ),
             },
             format!("Add Package\n```\ndeno add {scoped_name}\n```{import}"),
@@ -233,7 +233,7 @@ pub fn get_generate_ctx<'a>(
             UsageComposerEntry {
               name: "npm".to_string(),
               icon: Some(
-                r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
               ),
             },
             format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
@@ -242,7 +242,7 @@ pub fn get_generate_ctx<'a>(
             UsageComposerEntry {
               name: "Yarn".to_string(),
               icon: Some(
-                r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
               ),
             },
             format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
@@ -251,7 +251,7 @@ pub fn get_generate_ctx<'a>(
             UsageComposerEntry {
               name: "pnpm".to_string(),
               icon: Some(
-                r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
               ),
             },
             format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
@@ -263,7 +263,7 @@ pub fn get_generate_ctx<'a>(
             UsageComposerEntry {
               name: "Bun".to_string(),
               icon: Some(
-                r#"<img src="/logos/bun.svg" alt="bun logo" draggable={false} />"#.into(),
+                r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#.into(),
               ),
             },
             format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
