@@ -32,7 +32,7 @@ camelCase("hello world"); // "helloWorld"
 
 In Deno, you can optionally use JSR packages without an install step using
 `jsr:` specifiers and Deno's
-[native support for JSR](/docs/using-packages#native-jsr-imports).
+[native support for JSR](/docs/native-imports).
 
 ```ts
 import { camelCase } from "jsr:@luca/cases@1";
