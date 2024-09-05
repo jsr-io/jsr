@@ -55,7 +55,7 @@ export function Header({
           {isHomepage ? <div></div> : (
             <a
               href="/"
-              class="outline-none focus-visible:ring-2 ring-cyan-700"
+              class="outline-none focus-visible:ring-2 ring-jsr-cyan-700"
             >
               <span className="sr-only">Home</span>
               <HeaderLogo class="h-8 flex-none" />
@@ -129,5 +129,9 @@ export function Header({
 }
 
 function Divider() {
-  return <span class="text-gray-200 select-none" aria-hidden="true">|</span>;
+  return (
+    <span class="text-jsr-gray-200 select-none" aria-hidden="true">
+      |
+    </span>
+  );
 }

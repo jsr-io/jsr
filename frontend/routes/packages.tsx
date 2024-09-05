@@ -45,7 +45,7 @@ export default function PackageListPage({
             with no published versions are not shown.
           </span>
           <div class="flex items-center gap-1">
-            <span className="text-sm text-gray-500">powered by</span>
+            <span className="text-sm text-jsr-gray-500">powered by</span>
             <span className="sr-only">Orama</span>
             <img className="h-4" src="/logos/orama-dark.svg" alt="" />
           </div>
@@ -80,6 +80,13 @@ export const handler: Handlers<Data, State> = {
         limit,
         offset: (page - 1) * limit,
         mode: "fulltext",
+        // @ts-ignore boost does exist
+        boost: {
+          id: 3,
+          scope: 2,
+          name: 1,
+          description: 0.5,
+        },
       });
 
       packages = res?.hits.map((hit) =>

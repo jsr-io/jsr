@@ -19,13 +19,15 @@ import * as $account_tokens_index from "./routes/account/tokens/index.tsx";
 import * as $admin_middleware from "./routes/admin/_middleware.ts";
 import * as $admin_index from "./routes/admin/index.tsx";
 import * as $admin_publishingTasks from "./routes/admin/publishingTasks.tsx";
-import * as $admin_scopes from "./routes/admin/scopes.tsx";
+import * as $admin_scopes_assign from "./routes/admin/scopes/assign.tsx";
+import * as $admin_scopes_index from "./routes/admin/scopes/index.tsx";
 import * as $admin_users from "./routes/admin/users.tsx";
 import * as $auth from "./routes/auth.tsx";
 import * as $badges_package from "./routes/badges/package.ts";
 import * as $badges_package_score from "./routes/badges/package_score.ts";
 import * as $badges_scope from "./routes/badges/scope.ts";
 import * as $docs_id_ from "./routes/docs/[...id].tsx";
+import * as $docs_api_reference from "./routes/docs/api-reference.tsx";
 import * as $docs_index from "./routes/docs/index.ts";
 import * as $go_id_ from "./routes/go/[id].ts";
 import * as $index from "./routes/index.tsx";
@@ -95,13 +97,15 @@ const manifest = {
     "./routes/admin/_middleware.ts": $admin_middleware,
     "./routes/admin/index.tsx": $admin_index,
     "./routes/admin/publishingTasks.tsx": $admin_publishingTasks,
-    "./routes/admin/scopes.tsx": $admin_scopes,
+    "./routes/admin/scopes/assign.tsx": $admin_scopes_assign,
+    "./routes/admin/scopes/index.tsx": $admin_scopes_index,
     "./routes/admin/users.tsx": $admin_users,
     "./routes/auth.tsx": $auth,
     "./routes/badges/package.ts": $badges_package,
     "./routes/badges/package_score.ts": $badges_package_score,
     "./routes/badges/scope.ts": $badges_scope,
     "./routes/docs/[...id].tsx": $docs_id_,
+    "./routes/docs/api-reference.tsx": $docs_api_reference,
     "./routes/docs/index.ts": $docs_index,
     "./routes/go/[id].ts": $go_id_,
     "./routes/index.tsx": $index,

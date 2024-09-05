@@ -1,0 +1,1 @@
+CREATE INDEX version_download_counts_24h_package_idx ON version_download_counts_24h (scope, package, time_bucket DESC);

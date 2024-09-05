@@ -132,7 +132,7 @@ export function MemberItem(props: MemberItemProps) {
             <form method="POST" class="contents">
               <input type="hidden" name="userId" value={member.user.id} />
               <button
-                class="hover:underline disabled:text-gray-300 disabled:cursor-not-allowed"
+                class="hover:underline disabled:text-jsr-gray-300 disabled:cursor-not-allowed"
                 name="action"
                 value="deleteMember"
                 disabled={props.isLastAdmin}
@@ -197,7 +197,7 @@ function MemberInvite({ scope }: { scope: string }) {
   return (
     <div class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-8">
       <h2 class="text-lg font-semibold">Invite member</h2>
-      <p class="mt-2 text-gray-600">
+      <p class="mt-2 text-jsr-gray-600">
         Inviting users to this scope grants them access to publish all packages
         in this scope and create new packages. They will not be able to manage
         members unless they are granted admin status.
@@ -216,7 +216,7 @@ function MemberLeave(
       class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-12"
     >
       <h2 class="text-lg font-semibold">Leave scope</h2>
-      <p class="mt-2 text-gray-600">
+      <p class="mt-2 text-jsr-gray-600">
         Leaving this scope will revoke your access to all packages in this
         scope. You will no longer be able to publish packages to this
         scope{props.isAdmin && " or manage members"}.

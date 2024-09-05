@@ -64,7 +64,7 @@ export default function PackagePage({
                   config file:
                 </p>
                 <div class="mt-2 -mb-2">
-                  <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+                  <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
                     jsr.json / deno.json
                   </div>
                 </div>
@@ -124,12 +124,12 @@ export default function PackagePage({
             <p>To publish your package from your terminal, run:</p>
             <pre class="bg-slate-900 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
                   <code>
-                    <span class="select-none sr-none text-gray-500">$ </span>
+                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
                     {`npx jsr publish`}
                     <br />
-                    <span class="select-none sr-none text-gray-500 italic">or</span>
+                    <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
                     <br />
-                    <span class="select-none sr-none text-gray-500">$ </span>
+                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
                     {`deno publish`}
                   </code>
             </pre>
@@ -140,7 +140,7 @@ export default function PackagePage({
           </div>
         </div>
         <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
-          <hr class="border-t-1.5 border-cyan-900 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
+          <hr class="border-t-1.5 border-jsr-cyan-900 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
           <div class="p-2 bg-white text-center w-max mx-auto font-bold">OR</div>
         </div>
         <div>
@@ -184,7 +184,7 @@ function GitHubActions({ pkg, canEdit, user }: {
           </p>
           <p>
             You will need to run{" "}
-            <code class="bg-gray-200 px-1.5 py-0.5 rounded-sm">
+            <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
               deno publish
             </code>{" "}
             in your action.
@@ -235,7 +235,7 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
 
       <div class="mt-2 -mb-2">
-        <div class="bg-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+        <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
           .github/workflows/publish.yml
         </div>
       </div>

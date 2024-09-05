@@ -74,8 +74,8 @@ Path rules are as follows:
 ### `invalidExternalImport`
 
 The package being published contains an external import that is not allowed by
-JSR. JSR only allows external imports that are `jsr:`, `npm:`, `data:`, or
-`node:` specifiers.
+JSR. JSR only allows external imports that are `jsr:`, `npm:`, `data:`, `bun:`,
+or `node:` specifiers.
 
 You can fix this error by removing the external import from your package, or by
 replacing it with an external import from a supported source.
@@ -264,6 +264,37 @@ a member of the scope.
 If you are not publishing from GitHub Actions, you can fix this error by
 authenticating as a user that is a member of the scope, or by adding the user to
 the scope with at least the "member" role.
+
+### `missingLicense`
+
+The package being published has not specified its license. JSR requires all
+packages to specify a `"license"` field in the configuration or contain a
+license file.
+
+You can fix this error by adding a `"license"` field containing an
+[SPDX identifier](https://spdx.org/licenses/). For example:
+
+```json
+{
+  "name": "@scope/pkg",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": "./mod.ts"
+}
+```
+
+Alternatively, you may include a license file. This file must be at the root of
+your package and must be named one of the following:
+
+- `LICENSE`
+- `LICENSE.md`
+- `LICENSE.txt`
+- `LICENCE`
+- `LICENCE.md`
+- `LICENCE.txt`
+
+Some common open source licenses can be found at
+[choosealicense.com](https://choosealicense.com/).
 
 ## Excluded module error
 

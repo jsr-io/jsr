@@ -86,3 +86,22 @@ To include it in a Markdown document, use the following code, replacing
   <img src="https://jsr.io/badges/@<scope>" alt="" />
 </a>
 ```
+
+## Custom Badge Styling
+
+These badges can be customized by adding query parameters to the URL, for
+example:
+
+```
+https://jsr.io/badges/@luca?logoColor=f7fd1e&color=f7fd1e&labelColor=083344
+```
+
+Here's how it looks:
+
+[![JSR Scope](https://jsr.io/badges/@luca?logoColor=f7fd1e&color=f7fd1e&labelColor=083344)](https://jsr.io/@luca)
+
+The supported style-related query parameters can be found in the
+[Shields.io documentation](https://shields.io/badges/endpoint-badge#:~:text=Query%20Parameters).
+
+> Note: `logoSize`, `logo`, `url`, `message` and `cacheSeconds` are not
+> supported and if provided, they will be ignored.

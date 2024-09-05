@@ -56,7 +56,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
         {edit
           ? (
             <select
-              class="block w-16 p-1.5 input-container select"
+              class="block w-16 py-2 p-1.5 input-container select"
               onChange={(e) => setIsBlocked(e.currentTarget.value === "true")}
               value={String(isBlocked)}
               disabled={processing}
@@ -90,7 +90,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
                     }
                   });
                 }}
-                class="link disabled:text-gray-500 disabled:cursor-wait"
+                class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
               >
                 Save<span class="sr-only">, {user.name}</span>
               </button>
@@ -102,7 +102,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
                   setIsBlocked(user.isBlocked);
                   setScopeLimit(user.scopeLimit);
                 }}
-                class="link disabled:text-gray-500 disabled:cursor-wait"
+                class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
               >
                 Cancel<span class="sr-only">, {user.name}</span>
               </button>
@@ -111,7 +111,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
           : (
             <button
               onClick={() => setEdit(true)}
-              class="link disabled:text-gray-500 disabled:cursor-wait"
+              class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
             >
               Edit<span class="sr-only">, {user.name}</span>
             </button>

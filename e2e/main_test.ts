@@ -332,18 +332,17 @@ Deno.test("[GET /badges/@luca/flag] works", async (t) => {
     assertNotMatch(text, /please use https/);
   });
 
-  // Skipping: These are not registered with shields.io yet
-  // await t.step("Package score badge", async () => {
-  //   const res = await fetch(`${JSR_URL}badges/@luca/flag/score`);
-  //   const text = await res.text();
-  //   assertEquals(res.status, 200);
-  //   assertNotMatch(text, /please use https/);
-  // });
+  await t.step("Package score badge", async () => {
+    const res = await fetch(`${JSR_URL}badges/@luca/flag/score`);
+    const text = await res.text();
+    assertEquals(res.status, 200);
+    assertNotMatch(text, /please use https/);
+  });
 
-  // await t.step("Scope badge", async () => {
-  //   const res = await fetch(`${JSR_URL}badges/@luca`);
-  //   const text = await res.text();
-  //   assertEquals(res.status, 200);
-  //   assertNotMatch(text, /please use https/);
-  // });
+  await t.step("Scope badge", async () => {
+    const res = await fetch(`${JSR_URL}badges/@luca`);
+    const text = await res.text();
+    assertEquals(res.status, 200);
+    assertNotMatch(text, /please use https/);
+  });
 });

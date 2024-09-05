@@ -58,7 +58,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
           <select
             name="kind"
             id="kind-select"
-            class="inline-block p-1.5 input-container input rounded-r-none border-r-0"
+            class="inline-block text-base px-2 py-1.5 input-container input rounded-r-none border-r-0"
             disabled={submitting}
             onChange={(e) => {
               if (kind.value !== e.currentTarget.value) {

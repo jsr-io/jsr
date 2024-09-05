@@ -18,7 +18,7 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-0 text-black";
+    return "bg-jsr-gray-100 text-black";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>
@@ -55,7 +55,7 @@ export function ScopeSelect(
   if (scopes.value.length === 0) {
     return (
       <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
-        <span class="text-gray-700">
+        <span class="text-jsr-gray-700">
           You are not a member of any scopes. Create a new scope to publish your
           package.
         </span>
@@ -97,7 +97,7 @@ export function ScopeSelect(
             </button>
           </p>
         )}
-        <p class="text-gray-700 text-sm mt-2">
+        <p class="text-jsr-gray-700 text-sm mt-2">
           You can create {scopesLeft === 0 ? "no" : scopesLeft}{" "}
           more scope{scopesLeft !== 1 && "s"}.{" "}
           <a href="/account/settings" class="link">View quotas</a> or{" "}
@@ -116,14 +116,14 @@ export function ScopeSelect(
         disabled={locked}
         data-locked={locked || undefined}
       >
-        <option value="" disabled selected class="hidden text-gray-100">
+        <option value="" disabled selected class="hidden text-jsr-gray-100">
           ---
         </option>
         {scopes.value.map((scope) => <option value={scope}>{scope}</option>)}
       </select>
 
       {!locked && (
-        <p class="text-gray-500">
+        <p class="text-jsr-gray-500">
           or{" "}
           <button
             class="inline link mt-2"
@@ -209,11 +209,11 @@ function CreateScope(
       </form>
       {newScope.value.includes("_")
         ? (
-          <p class="text-sm text-yellow-600">
+          <p class="text-sm text-jsr-yellow-600">
             Scope names can not contain _, use - instead.{" "}
             {!props.locked && (
               <button
-                class="text-cyan-700 hover:underline hover:text-blue-400"
+                class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   newScope.value = newScope.value.replace(/_/g, "-");
                 }}
@@ -223,7 +223,7 @@ function CreateScope(
             )}
           </p>
         )
-        : message.value && <p class="text-sm text-yellow-600">{message}</p>}
+        : message.value && <p class="text-sm text-jsr-yellow-600">{message}</p>}
     </>
   );
 }
@@ -317,10 +317,10 @@ export function PackageName(
       />
       {name.value.includes("_")
         ? (
-          <p class="text-sm text-yellow-600">
+          <p class="text-sm text-jsr-yellow-600">
             Package names can not contain _, use - instead. {!locked && (
               <button
-                class="text-cyan-700 hover:underline hover:text-blue-400"
+                class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   name.value = name.value.replace(/_/g, "-");
                 }}
@@ -330,7 +330,7 @@ export function PackageName(
             )}
           </p>
         )
-        : message.value && <p class="text-sm text-yellow-600">{message}</p>}
+        : message.value && <p class="text-sm text-jsr-yellow-600">{message}</p>}
     </>
   );
 }
@@ -365,7 +365,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.
               </p>
-              {error && <p class="text-sm text-yellow-600">{error}</p>}
+              {error && <p class="text-sm text-jsr-yellow-600">{error}</p>}
             </div>
             <div>
               <button
@@ -405,11 +405,11 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </a>
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
-              <p class="text-gray-500">
+              <p class="text-jsr-gray-500">
                 Created {twas(new Date(pkg.value.createdAt))}.
               </p>
               {fromCli && (
-                <p class="mt-2 text-gray-500">
+                <p class="mt-2 text-jsr-gray-500">
                   You can now close this page and go back to your terminal to
                   continue publishing.
                 </p>

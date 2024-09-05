@@ -82,7 +82,7 @@ export function PackageHeader(
                 <span>
                   <a
                     href={`/@${pkg.scope}`}
-                    class="link font-bold no-underline"
+                    class="link font-bold pr-1 no-underline"
                     aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
@@ -132,7 +132,7 @@ export function PackageHeader(
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-0 !inline-flex items-center gap-1 select-none"
+                  class="chip sm:big-chip bg-jsr-gray-100 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -149,7 +149,9 @@ export function PackageHeader(
           </div>
 
           {pkg.description && (
-            <p class="text-gray-600 max-w-3xl md:!mb-8">{pkg.description}</p>
+            <p class="text-jsr-gray-600 max-w-3xl md:!mb-8">
+              {pkg.description}
+            </p>
           )}
         </div>
 

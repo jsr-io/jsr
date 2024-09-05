@@ -12,7 +12,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
       <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
         <div class="grow-1">
           <div class="flex gap-2">
-            <span class="text-cyan-700 font-semibold">
+            <span class="text-jsr-cyan-700 font-semibold">
               {`@${pkg.scope}/${pkg.name}`}
             </span>
             {(pkg as Package).latestVersion && (
@@ -21,7 +21,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
               </span>
             )}
           </div>
-          <div class="text-sm text-gray-600">
+          <div class="text-sm text-jsr-gray-600">
             {pkg.description}
           </div>
         </div>

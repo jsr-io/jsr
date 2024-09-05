@@ -34,7 +34,6 @@ await import("npm:lit@^2.2.7")
 
 # output
 == /_dist/baz.d.ts ==
-
 //# sourceMappingURL=baz.d.ts.map
 
 == /_dist/baz.d.ts.map ==

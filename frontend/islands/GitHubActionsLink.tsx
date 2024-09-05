@@ -58,7 +58,7 @@ export function GitHubActionsLink(
           {linking.value ? "Linking..." : "Link"}
         </button>
       </form>
-      {error.value && <p class="text-sm text-yellow-600">{error}</p>}
+      {error.value && <p class="text-sm text-jsr-yellow-600">{error}</p>}
     </>
   );
 }
