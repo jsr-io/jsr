@@ -246,6 +246,11 @@ body .ddoc {
     }
   }
 
+  .namespaceItemContent {
+    flex: 1;
+    width: 0;
+  }
+
   .markdown_summary {
     a:not(.no_color) {
       @apply link;
@@ -253,6 +258,10 @@ body .ddoc {
 
     :not(pre) > code {
       @apply bg-jsr-cyan-100/50 !important;
+    }
+
+    p {
+      max-width: 100%;
     }
   }
 
@@ -301,13 +310,17 @@ body .ddoc {
     @apply rounded no-underline !important;
   }
 
-  .context_button::before {
-    content: "View code";
-    @apply hidden md:block text-xs;
+  code ~ .context_button:hover, code:hover ~ .context_button {
+    @apply md:visible;
   }
 
   .symbolGroup article > div:hover > div + a.context_button {
     @apply md:visible;
+  }
+
+  .symbolGroup article > div:hover > div + a.context_button:before {
+    content: "View code";
+    @apply hidden md:block text-xs;
   }
 
   .docEntryHeader:hover > .context_button {
