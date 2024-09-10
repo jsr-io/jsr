@@ -883,7 +883,7 @@ impl HrefResolver for DocResolver {
     let (is_main, path) = current_resolve
       .get_file()
       .map(|short_path| (short_path.is_main, &*short_path.path))
-      .unwrap_or_default();
+      .unwrap_or((true, ""));
 
     Some(format!(
       "@{}/{}{}",
