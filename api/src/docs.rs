@@ -400,8 +400,7 @@ pub fn generate_docs_html(
               &render_ctx,
               readme,
               deno_doc::html::jsdoc::MarkdownToHTMLOptions {
-                summary: false,
-                summary_prefer_title: false,
+                title_only: false,
                 no_toc: false,
               },
             )
@@ -907,6 +906,14 @@ impl HrefResolver for DocResolver {
       url.path(),
       location.line,
     ))
+  }
+
+  fn resolve_external_jsdoc_module(
+    &self,
+    _module: &str,
+    _symbol: Option<&str>,
+  ) -> Option<(String, String)> {
+    None
   }
 }
 
