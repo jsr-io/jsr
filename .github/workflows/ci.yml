@@ -25,7 +25,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.x
+          deno-version: rc
 
       - name: Check license headers
         run: deno task lint:license
@@ -173,7 +173,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.x
+          deno-version: rc
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
@@ -231,7 +231,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.x
+          deno-version: rc
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
