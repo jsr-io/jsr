@@ -224,7 +224,7 @@ pub fn get_generate_ctx<'a>(
                 r#"<img src="/logos/deno.svg" alt="deno logo" draggable={false} />"#.into(),
               ),
             },
-            format!("Add Package\n```\ndeno add {scoped_name}\n```{import}"),
+            format!("Add Package\n```\ndeno add {scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
           );
         }
 
@@ -883,7 +883,7 @@ impl HrefResolver for DocResolver {
     let (is_main, path) = current_resolve
       .get_file()
       .map(|short_path| (short_path.is_main, &*short_path.path))
-      .unwrap_or_default();
+      .unwrap_or((true, ""));
 
     Some(format!(
       "@{}/{}{}",
