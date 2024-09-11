@@ -130,29 +130,29 @@ async fn analyze_package_inner(
 
   let module_analyzer = ModuleAnalyzer::default();
 
-  let workspace_members = vec![WorkspaceMember {
+  let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
+    name: format!("@{}/{}", scope, name),
+    version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
-    nv: PackageNv {
-      name: format!("@{}/{}", scope, name),
-      version: version.0.clone(),
-    },
-  }];
+  };
+  let workspace_members = vec![workspace_member.clone()];
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
-  let diagnostics = graph
+  graph
     .build(
       roots.clone(),
       &SyncLoader { files: &files },
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        workspace_members: &workspace_members,
         imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
         passthrough_jsr_specifiers: true,
-        resolver: None,
+        resolver: Some(&JsrResolver {
+          member: workspace_member,
+        }),
         npm_resolver: None,
         reporter: None,
         executor: Default::default(),
@@ -160,7 +160,6 @@ async fn analyze_package_inner(
       },
     )
     .await;
-  assert!(diagnostics.is_empty());
   graph
     .valid()
     .map_err(|e| PublishError::GraphError(Box::new(e)))?;
@@ -373,6 +372,48 @@ impl JsrUrlProvider for PassthroughJsrUrlProvider {
   }
 }
 
+#[derive(Debug)]
+pub struct JsrResolver {
+  pub member: WorkspaceMember,
+}
+
+impl deno_graph::source::Resolver for JsrResolver {
+  fn resolve(
+    &self,
+    specifier_text: &str,
+    referrer_range: &deno_graph::Range,
+    _mode: deno_graph::source::ResolutionMode,
+  ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
+    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text) {
+      if self.member.name == package_ref.req().name
+        && self
+          .member
+          .version
+          .as_ref()
+          .map(|v| package_ref.req().version_req.matches(v))
+          .unwrap_or(true)
+      {
+        let export_name = package_ref.sub_path().unwrap_or(".");
+        let Some(export) = self.member.exports.get(export_name) else {
+          return Err(deno_graph::source::ResolveError::Other(
+            anyhow::anyhow!(
+              "export '{}' not found in jsr:{}",
+              export_name,
+              self.member.name
+            ),
+          ));
+        };
+        return Ok(self.member.base.join(export).unwrap());
+      }
+    }
+
+    Ok(deno_graph::resolve_import(
+      specifier_text,
+      &referrer_range.specifier,
+    )?)
+  }
+}
+
 struct SyncLoader<'a> {
   files: &'a HashMap<PackagePath, Vec<u8>>,
 }
@@ -478,15 +519,14 @@ async fn rebuild_npm_tarball_inner(
   let module_analyzer = ModuleAnalyzer::default();
 
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
-  let workspace_members = vec![WorkspaceMember {
+  let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
+    name: format!("@{}/{}", scope, name),
+    version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
-    nv: PackageNv {
-      name: format!("@{}/{}", scope, name),
-      version: version.0.clone(),
-    },
-  }];
-  let diagnostics = graph
+  };
+  let workspace_members = vec![workspace_member.clone()];
+  graph
     .build(
       roots.clone(),
       &GcsLoader {
@@ -499,13 +539,14 @@ async fn rebuild_npm_tarball_inner(
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        workspace_members: &workspace_members,
         imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
         passthrough_jsr_specifiers: true,
-        resolver: Default::default(),
+        resolver: Some(&JsrResolver {
+          member: workspace_member,
+        }),
         npm_resolver: Default::default(),
         reporter: Default::default(),
         executor: Default::default(),
@@ -513,7 +554,6 @@ async fn rebuild_npm_tarball_inner(
       },
     )
     .await;
-  assert!(diagnostics.is_empty());
   graph.valid()?;
   graph.build_fast_check_type_graph(BuildFastCheckTypeGraphOptions {
     fast_check_cache: Default::default(),
@@ -775,9 +815,7 @@ fn check_for_banned_syntax(
         },
         ast::ModuleDecl::Import(n) => {
           if let Some(with) = &n.with {
-            let range =
-              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
-                .range();
+            let range = Span::new(n.src.span.hi(), with.span.lo()).range();
             let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
@@ -792,8 +830,7 @@ fn check_for_banned_syntax(
         ast::ModuleDecl::ExportNamed(n) => {
           if let Some(with) = &n.with {
             let src = n.src.as_ref().unwrap();
-            let range =
-              Span::new(src.span.hi(), with.span.lo(), src.span.ctxt).range();
+            let range = Span::new(src.span.hi(), with.span.lo()).range();
             let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
@@ -807,9 +844,7 @@ fn check_for_banned_syntax(
         }
         ast::ModuleDecl::ExportAll(n) => {
           if let Some(with) = &n.with {
-            let range =
-              Span::new(n.src.span.hi(), with.span.lo(), n.src.span.ctxt)
-                .range();
+            let range = Span::new(n.src.span.hi(), with.span.lo()).range();
             let keyword = parsed_source.text_info_lazy().range_text(&range);
             if keyword.contains("assert") {
               let (line, column) = line_col(&with.span.range());
