@@ -26,6 +26,7 @@ pub fn transpile_to_js(
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Separate,
     source_map_file: Some(basename.to_owned()),
+    source_map_base: None,
     inline_sources: false,
     remove_comments: false,
   };
@@ -94,6 +95,7 @@ pub fn transpile_to_dts(
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Separate,
     source_map_file: Some(basename.to_owned()),
+    source_map_base: None,
     inline_sources: false,
     remove_comments: false,
   };
