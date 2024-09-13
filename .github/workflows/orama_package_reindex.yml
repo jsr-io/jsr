@@ -18,7 +18,7 @@ jobs:
       name: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@v2
-      - uses: denoland/setup-deno@5c79ed5749d08ffeb8d5239d5a6eaca8e4319513
+      - uses: denoland/setup-deno@v1
         with:
           deno-version: 2.0.0-rc.1
       - name: Deploy
