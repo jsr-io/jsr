@@ -138,7 +138,10 @@ export function PackageHeader(
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black dark:text-white !size-4" aria-hidden={true} />
+                  <GitHub
+                    class="text-black dark:text-white !size-4"
+                    aria-hidden={true}
+                  />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>

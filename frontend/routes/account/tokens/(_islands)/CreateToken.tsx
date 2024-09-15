@@ -347,7 +347,9 @@ function CreateTokenForm() {
 function DescriptionInput({ description }: { description: Signal<string> }) {
   return (
     <label class="block">
-      <span class="text-jsr-gray-600 dark:text-jsr-gray-200 font-semibold block">Description</span>
+      <span class="text-jsr-gray-600 dark:text-jsr-gray-200 font-semibold block">
+        Description
+      </span>
       <span class="text-jsr-gray-500 dark:text-jsr-gray-300 text-sm block">
         A description helps you remember what this token is for.
       </span>
@@ -367,7 +369,9 @@ function DescriptionInput({ description }: { description: Signal<string> }) {
 function ExpiryInput({ expiry }: { expiry: Signal<number> }) {
   return (
     <label class="block mt-8">
-      <span class="text-jsr-gray-600 dark:text-jsr-gray-200 font-semibold block">Expires in</span>
+      <span class="text-jsr-gray-600 dark:text-jsr-gray-200 font-semibold block">
+        Expires in
+      </span>
       <span class="text-jsr-gray-500 dark:text-jsr-gray-300 text-sm block">
         Tokens that expire are more secure than tokens that never expire.
       </span>
@@ -421,7 +425,9 @@ function PermissionsInput(
 
   return (
     <div class="block mt-8" onInput={onInput}>
-      <p class="text-jsr-gray-600 dark:text-jsr-gray-200 font-semibold">Permissions</p>
+      <p class="text-jsr-gray-600 dark:text-jsr-gray-200 font-semibold">
+        Permissions
+      </p>
       <p class="text-jsr-gray-500 dark:text-jsr-gray-300 text-sm max-w-2xl">
         Choose the permissions this token should have. More restrictive
         permissions are more secure.
