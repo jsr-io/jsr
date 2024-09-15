@@ -21,7 +21,7 @@ export function ListDisplay(
     <div class="mt-8 ring-1 ring-jsr-cyan-100 rounded overflow-hidden">
       {title &&
         (
-          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-50 bg-jsr-gray-50 leading-none">
+          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-50 bg-jsr-gray-50 dark:bg-jsr-gray-600 leading-none">
             <span class="font-semibold">{title}</span>
             <div />
           </div>
@@ -36,7 +36,7 @@ export function ListDisplay(
             >
               {item.content}
 
-              <ChevronRight class="text-jsr-cyan-800 flex-shrink-0" />
+              <ChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-200 flex-shrink-0" />
             </a>
           </li>
         ))}
@@ -50,6 +50,20 @@ export function ListDisplay(
         />
       )}
     </div>
+  );
+}
+
+function PaginationButton(props: {
+  children: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={props.href}
+      class="relative inline-flex items-center rounded-md bg-white dark:bg-jsr-cyan-950 px-3 py-2 text-sm font-semibold text-jsr-gray-900 dark:text-white ring-1 ring-inset ring-jsr-gray-300 dark:ring-jsr-gray-100 hover:bg-jsr-gray-50 hover:dark:bg-jsr-cyan-800 focus-visible:outline-offset-0 select-none"
+    >
+      {props.children}
+    </a>
   );
 }
 
@@ -72,7 +86,7 @@ function Pagination(
 
   return (
     <nav
-      class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-white px-4 py-3 sm:px-6"
+      class="flex items-center justify-between border-t border-jsr-cyan-900/10 dark:border-jsr-cyan-100 bg-white dark:bg-jsr-cyan-950 px-4 py-3 sm:px-6"
       aria-label="Pagination"
     >
       <Head>
@@ -88,7 +102,7 @@ function Pagination(
       </Head>
 
       <div class="hidden sm:block">
-        <p class="text-sm text-jsr-gray-700">
+        <p class="text-sm text-jsr-gray-700 dark:text-jsr-gray-200">
           {start + itemsCount === 0 ? "No results found" : (
             <>
               Showing <span class="font-semibold">{start + 1}</span> to{" "}
@@ -99,25 +113,23 @@ function Pagination(
           )}
         </p>
       </div>
-      <div class="flex flex-1 justify-between sm:justify-end">
+      <div class="flex flex-1 justify-between sm:justify-end gap-2">
         {pagination.page > 1
           ? (
-            <a
+            <PaginationButton
               href={prevURL.pathname + prevURL.search}
-              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-jsr-gray-900 ring-1 ring-inset ring-jsr-gray-300 hover:bg-jsr-gray-50 focus-visible:outline-offset-0 select-none"
             >
               Previous
-            </a>
+            </PaginationButton>
           )
           : <span />}
         {itemsCount >= pagination.limit
           ? (
-            <a
+            <PaginationButton
               href={nextURL.pathname + nextURL.search}
-              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-jsr-gray-900 ring-1 ring-inset ring-jsr-gray-300 hover:bg-jsr-gray-50 focus-visible:outline-offset-0 select-none"
             >
               Next
-            </a>
+            </PaginationButton>
           )
           : <span />}
       </div>

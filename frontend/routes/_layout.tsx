@@ -11,7 +11,7 @@ export default function Layout(
     <>
       <div
         class="min-h-[calc(100vh-3rem)]"
-        data-dark-theme="light"
+        data-dark-theme="dark"
       >
         <a
           href="#main-content"
@@ -35,7 +35,7 @@ export default function Layout(
       </div>
       <footer
         id="footer"
-        class="text-xs text-center mt-4 md:mt-6 p-4 text-jsr-gray-500"
+        class="text-xs text-center mt-4 md:mt-6 p-4 text-jsr-gray-500 dark:bg-jsr-cyan-950 dark:text-jsr-gray-200"
       >
         JSR - It is{" "}
         <time datetime={currentDatetime.toISOString()}>

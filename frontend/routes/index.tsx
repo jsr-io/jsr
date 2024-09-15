@@ -43,7 +43,7 @@ export default function Home({ data }: PageProps<Data>) {
       />
       {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">
-          <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center">
+          <h2 class="text-3xl md:text-4xl mb-4 md:mb-8 font-semibold text-center dark:text-white">
             Latest updates
           </h2>
           <ul class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
@@ -239,7 +239,7 @@ function BenefitHeading({ children }: { children: ComponentChildren }) {
 
 function BenefitText({ children }: { children: ComponentChildren }) {
   return (
-    <div class="text-xl space-y-4 md:text-2xl lg:text-[1.75rem] lg:leading-snug text-jsr-gray-400">
+    <div class="text-xl space-y-4 md:text-2xl lg:text-[1.75rem] lg:leading-snug text-jsr-gray-400 dark:text-jsr-gray-200">
       {children}
     </div>
   );

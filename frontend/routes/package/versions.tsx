@@ -198,7 +198,7 @@ function Version({
           : (!isPublished
             ? "bg-blue-50 border-blue-200"
             : (isLatestInReleaseTrack
-              ? "bg-green-50 hover:bg-green-100 border-green-300 hover:border-green-400"
+              ? "bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 border-green-300 hover:border-green-400"
               : "hover:bg-jsr-gray-100 border-jsr-gray-100 hover:border-jsr-gray-300"))
       }`}
     >
@@ -246,7 +246,7 @@ function Version({
                 </span>
               )}
             {isPublished && (
-              <div class="text-sm select-none text-jsr-gray-500 z-0">
+              <div class="text-sm select-none text-jsr-gray-500 dark:text-jsr-gray-300 z-0">
                 Released {version?.user && (
                   <>
                     {"by "}

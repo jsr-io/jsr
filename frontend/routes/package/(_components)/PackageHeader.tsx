@@ -119,7 +119,7 @@ export function PackageHeader(
             <div class="flex items-center gap-2">
               {selectedVersion &&
                 pkg.latestVersion === selectedVersion?.version && (
-                <div class="chip sm:big-chip bg-jsr-yellow-400 select-none">
+                <div class="chip sm:big-chip bg-jsr-yellow-400 dark:bg-jsr-yellow-600 select-none">
                   latest
                 </div>
               )}
@@ -132,13 +132,13 @@ export function PackageHeader(
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-100 !inline-flex items-center gap-1 select-none"
+                  class="chip sm:big-chip bg-jsr-gray-100 dark:bg-jsr-gray-800 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" aria-hidden={true} />
+                  <GitHub class="text-black dark:text-white !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
@@ -149,7 +149,7 @@ export function PackageHeader(
           </div>
 
           {pkg.description && (
-            <p class="text-jsr-gray-600 max-w-3xl md:!mb-8">
+            <p class="text-jsr-gray-600 dark:text-jsr-gray-200 max-w-3xl md:!mb-8">
               {pkg.description}
             </p>
           )}

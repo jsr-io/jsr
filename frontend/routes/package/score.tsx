@@ -101,11 +101,11 @@ function ScoreInfo(props: {
           }`}
           style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, #e7e8e8 ${scorePercentage}%)`}
         >
-          <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
+          <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold text-black">
             {scorePercentage}%
           </span>
         </div>
-        <div class="text-jsr-gray-500 text-sm text-center mt-6">
+        <div class="text-jsr-gray-500 dark:text-jsr-gray-200 text-sm text-center mt-6">
           The JSR score is a measure of the overall quality of a package, based
           on a number of factors such as documentation and runtime
           compatibility.
@@ -275,12 +275,12 @@ function ScoreItem(
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
-        <p class="text-jsr-gray-500 text-sm leading-tight mt-1">
+        <p class="text-jsr-gray-500 dark:text-jsr-gray-300 text-sm leading-tight mt-1">
           {props.children}
         </p>
       </div>
 
-      <div class="text-sm text-jsr-gray-400 pt-[0.2em]">
+      <div class="text-sm text-jsr-gray-400 dark:text-jsr-gray-300 pt-[0.2em]">
         {typeof props.value === "number"
           ? (
             <span>

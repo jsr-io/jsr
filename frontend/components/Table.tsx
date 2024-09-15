@@ -32,7 +32,7 @@ export function Table(
       >
         <div class="overflow-x-auto">
           <table class="w-full divide-y divide-jsr-cyan-50">
-            <thead class="bg-jsr-cyan-50">
+            <thead class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950">
               <TableRow class="children:font-semibold">
                 {columns.map((column) => (
                   <TableHead
@@ -134,7 +134,7 @@ export function TableRow({
 }: TableRowProps) {
   return (
     <tr
-      class={`children:whitespace-nowrap children:text-sm children:text-jsr-gray-700 ${
+      class={`dark:bg-jsr-cyan-950 dark:text-white children:whitespace-nowrap children:text-sm children:text-jsr-gray-700 ${
         _class ?? ""
       }`}
     >
@@ -156,7 +156,7 @@ export function TableHead({
 }: TableHeadProps) {
   return (
     <th
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 dark:text-jsr-gray-50 ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
@@ -182,7 +182,7 @@ export function TableData(
 ) {
   return (
     <td
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 dark:text-jsr-gray-100 ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
       title={title}

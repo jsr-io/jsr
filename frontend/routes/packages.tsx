@@ -40,7 +40,7 @@ export default function PackageListPage({
         </ListDisplay>
 
         <div className="mt-2 flex flex-wrap items-start justify-between px-2">
-          <span className="text-sm text-jsr-gray-400 block">
+          <span className="text-sm light:text-jsr-gray-400 dark:text-jsr-gray-200 block">
             Changes made in the last 15 minutes may not be visible yet. Packages
             with no published versions are not shown.
           </span>

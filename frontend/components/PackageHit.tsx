@@ -11,10 +11,10 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
     content: (
       <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
         <div class="grow-1">
-          <div class="text-jsr-cyan-700 font-semibold">
+          <div class="text-jsr-cyan-700 dark:text-jsr-cyan-300 font-semibold">
             {`@${pkg.scope}/${pkg.name}`}
           </div>
-          <div class="text-sm text-jsr-gray-600">
+          <div class="text-sm text-jsr-gray-600 dark:text-jsr-gray-200">
             {pkg.description}
           </div>
         </div>
@@ -34,7 +34,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
               style={`background-image: conic-gradient(transparent, transparent ${pkg.score}%, #e7e8e8 ${pkg.score}%)`}
               title="Package score"
             >
-              <div class="rounded-full aspect-square bg-white text-xs flex items-center justify-center font-semibold min-w-6">
+              <div class="rounded-full aspect-square bg-white text-black text-xs flex items-center justify-center font-semibold min-w-6">
                 {pkg.score}
               </div>
             </div>

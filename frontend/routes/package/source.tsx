@@ -140,7 +140,7 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
         <div class="text-jsr-gray-500">
           {entry.kind === "dir" ? <Folder /> : <SourceIcon />}
         </div>
-        <div class="text-cyan-700 font-semibold">
+        <div class="link font-semibold">
           {entry.name}
         </div>
       </div>

@@ -156,7 +156,7 @@
   }
 
   .link {
-    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline decoration-jsr-cyan-700/50 underline-offset-2
+    @apply text-jsr-cyan-700 dark:text-jsr-cyan-300 hover:text-jsr-cyan-900 hover:dark:text-jsr-cyan-100 underline decoration-jsr-cyan-700/50 underline-offset-2
       outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm;
   }
 
@@ -184,7 +184,7 @@
   }
 
   .input {
-    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
+    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed dark:text-black dark:bg-white;
   }
 
   .search-input {
@@ -192,7 +192,7 @@
   }
 
   .select {
-    @apply appearance-none outline-none opacity-100;
+    @apply appearance-none outline-none opacity-100 dark:text-white;
     background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>')
       no-repeat;
     background-position: center right 0.5rem;
@@ -401,6 +401,27 @@ body .ddoc:has(.toc) {
 
 .score-text-green {
   @apply text-green-600;
+}
+
+.breadcrumbs svg {
+  @apply dark:text-white;
+}
+.breadcrumbs .contextLink {
+  @apply dark:text-jsr-cyan-300;
+}
+#usageSelector {
+  @apply text-black;
+}
+
+/* Overwrite GFM Style for Dark Mode */
+.markdown-body {
+  @apply dark:bg-jsr-cyan-950 dark:text-white !important;
+}
+.markdown-body a {
+  @apply dark:text-jsr-cyan-300 !important;
+}
+.markdown-body code:not(pre code) {
+  @apply dark:bg-jsr-gray-500 !important;
 }
 
 @layer base {

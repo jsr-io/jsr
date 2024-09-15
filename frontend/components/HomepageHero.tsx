@@ -25,7 +25,7 @@ export function HomepageHero(
 ) {
   return (
     <div
-      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none"
+      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white dark:before:from-jsr-cyan-950 before:bottom-0 before:z-10 before:pointer-events-none"
       id="particles-js"
     >
       <HomepageHeroParticles />

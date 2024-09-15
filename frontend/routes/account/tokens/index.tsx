@@ -27,7 +27,7 @@ export default function AccountTokensPage({ data }: PageProps<Data, State>) {
       </Head>
       <div>
         <h2 class="text-xl mb-2 font-bold">Personal access tokens</h2>
-        <p class="text-jsr-gray-600 max-w-2xl">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-200 max-w-2xl">
           Personal access tokens can be used to authenticate with JSR from the
           command line or from other applications.
         </p>
@@ -49,7 +49,7 @@ export default function AccountTokensPage({ data }: PageProps<Data, State>) {
           )
           : (
             <div class="mt-6">
-              <p class="italic text-jsr-gray-600">
+              <p class="italic text-jsr-gray-600 dark:text-jsr-gray-200">
                 You have no personal access tokens.
               </p>
               <p class="mt-2">
@@ -66,7 +66,7 @@ export default function AccountTokensPage({ data }: PageProps<Data, State>) {
       </div>
       <div class="mt-8">
         <h2 class="text-xl mt-4 mb-2 font-bold">Sessions</h2>
-        <p class="text-jsr-gray-600 max-w-2xl">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-200 max-w-2xl">
           Sessions keep you logged in to JSR on the web, and are used during
           interactive authentication during publishing.
         </p>
@@ -75,7 +75,7 @@ export default function AccountTokensPage({ data }: PageProps<Data, State>) {
           {sessions.map((token) => <SessionRow token={token} />)}
         </ul>
 
-        <p class="text-jsr-gray-600 text-sm mt-4">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-200 text-sm mt-4">
           Only sessions that are active, or have expired within the last 24
           hours are shown here.
         </p>
@@ -149,7 +149,7 @@ function SessionRow({ token }: { token: Token }) {
 
   return (
     <li class="py-2">
-      <p class="text-jsr-gray-600">
+      <p class="text-jsr-gray-600 dark:text-jsr-gray-200">
         {token.type === "web" ? "Web" : token.type === "device" ? "CLI" : ""}
         {" "}
         session
