@@ -10,6 +10,7 @@ import { Head } from "$fresh/runtime.ts";
 import { GitHub } from "../../components/icons/GitHub.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 import { ScopeIAM } from "../../utils/iam.ts";
+import { CopyButton } from "../../islands/CopyButton.tsx";
 
 interface Data {
   package: Package;
@@ -123,15 +124,15 @@ export default function PackagePage({
           <div class="flex flex-col mt-4 gap-2">
             <p>To publish your package from your terminal, run:</p>
             <pre class="bg-slate-900 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
-                  <code>
-                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
-                    {`npx jsr publish`}
-                    <br />
-                    <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
-                    <br />
-                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
-                    {`deno publish`}
-                  </code>
+              <code>
+                <span class="select-none sr-none text-jsr-gray-500">$ </span>
+                {`npx jsr publish`}
+                <br />
+                <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
+                <br />
+                <span class="select-none sr-none text-jsr-gray-500">$ </span>
+                {`deno publish`}
+              </code>
             </pre>
             <p>
               You will be prompted to interactively authenticate in your
@@ -187,6 +188,10 @@ function GitHubActions({ pkg, canEdit, user }: {
             <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
               deno publish
             </code>{" "}
+            or{" "}
+            <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
+              npx jsr publish
+            </code>{" "}
             in your action.
           </p>
 
@@ -234,10 +239,14 @@ function GitHubActions({ pkg, canEdit, user }: {
         </code>:
       </p>
 
-      <div class="mt-2 -mb-2">
+      <div class="mt-2 -mb-2 flex items-center gap-1">
         <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
           .github/workflows/publish.yml
         </div>
+        <CopyButton
+          text=".github/workflows/publish.yml"
+          title="Copy workflow path"
+        />
       </div>
       <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
         <code>
@@ -262,6 +271,18 @@ jobs:
           <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`        run: npx jsr publish\n`}</span>
         </code>
       </pre>
+
+      <p class="mt-4">
+        You can also use{" "}
+        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+          deno publish
+        </code>{" "}
+        instead of{" "}
+        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+          npx jsr publish
+        </code>. When doing that, make sure to install Deno in your workflow
+        first.
+      </p>
     </>
   );
 }

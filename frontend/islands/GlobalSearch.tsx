@@ -114,12 +114,14 @@ export function GlobalSearch(
               limit: 5,
               mode: "fulltext",
               // @ts-ignore boost does exist
-              boost: {
-                id: 3,
-                scope: 2,
-                name: 1,
-                description: 0.5,
-              },
+              boost: kind === "packages"
+                ? {
+                  id: 3,
+                  scope: 2,
+                  name: 1,
+                  description: 0.5,
+                }
+                : {},
             }, { abortController: abort.current! });
             if (
               abort.current?.signal.aborted ||
