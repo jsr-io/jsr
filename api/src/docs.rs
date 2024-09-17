@@ -224,7 +224,7 @@ pub fn get_generate_ctx<'a>(
                 r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
               ),
             },
-            format!("Add Package\n```\ndeno add {scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
+            format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
           );
         }
 

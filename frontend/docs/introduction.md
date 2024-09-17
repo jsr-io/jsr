@@ -16,7 +16,7 @@ project.
 
 ```bash
 # deno
-deno add @luca/cases
+deno add jsr:@luca/cases
 
 # npm (use any of npx, yarn dlx, pnpm dlx, or bunx)
 npx jsr add @luca/cases
