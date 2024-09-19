@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::db::GithubRepository;
 use crate::db::RuntimeCompat;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
@@ -129,12 +130,44 @@ pub fn get_docs_info(
 
 fn get_url_rewriter(
   base: String,
+  github_repository: Option<GithubRepository>,
   is_readme: bool,
 ) -> deno_doc::html::comrak_adapters::URLRewriter {
   Arc::new(move |current_file, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
     }
+
+    let base = if let Some(github_repository) = &github_repository {
+      if url.rsplit_once('.').is_some_and(|(_path, extension)| {
+        matches!(
+          extension,
+          "png"
+            | "jpg"
+            | "jpeg"
+            | "svg"
+            | "webm"
+            | "webp"
+            | "mp4"
+            | "mov"
+            | "avif"
+            | "gif"
+            | "ico"
+        )
+      }) {
+        format!(
+          "https://raw.githubusercontent.com/{}/{}/HEAD",
+          github_repository.owner, github_repository.name
+        )
+      } else {
+        format!(
+          "https://github.com/{}/{}/blob/HEAD",
+          github_repository.owner, github_repository.name
+        )
+      }
+    } else {
+      base.clone()
+    };
 
     if !is_readme {
       if let Some(current_file) = current_file {
@@ -175,6 +208,7 @@ pub fn get_generate_ctx<'a>(
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  github_repository: Option<GithubRepository>,
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
@@ -285,8 +319,11 @@ pub fn get_generate_ctx<'a>(
   )
   .unwrap();
 
-  generate_ctx.url_rewriter =
-    Some(get_url_rewriter(url_rewriter_base, has_readme));
+  generate_ctx.url_rewriter = Some(get_url_rewriter(
+    url_rewriter_base,
+    github_repository,
+    has_readme,
+  ));
 
   generate_ctx
 }
@@ -306,6 +343,7 @@ pub fn generate_docs_html(
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  github_repository: Option<GithubRepository>,
   readme: Option<String>,
   runtime_compat: RuntimeCompat,
   registry_url: String,
@@ -318,6 +356,7 @@ pub fn generate_docs_html(
     package,
     version,
     version_is_latest,
+    github_repository,
     readme.is_some(),
     runtime_compat,
     registry_url,
@@ -1083,7 +1122,7 @@ mod tests {
   #[test]
   fn test_url_rewriter() {
     let base = String::from("/@foo/bar/1.2.3");
-    let rewriter = get_url_rewriter(base.clone(), false);
+    let rewriter = get_url_rewriter(base.clone(), None, false);
 
     assert_eq!(rewriter(None, "#hello"), "#hello");
 
@@ -1105,7 +1144,7 @@ mod tests {
       "/@foo/bar/1.2.3/src/./logo.svg"
     );
 
-    let rewriter = get_url_rewriter(base, true);
+    let rewriter = get_url_rewriter(base.clone(), None, true);
 
     assert_eq!(rewriter(None, "#hello"), "#hello");
 
@@ -1125,6 +1164,43 @@ mod tests {
         "./src/assets/logo.svg"
       ),
       "/@foo/bar/1.2.3/./src/assets/logo.svg"
+    );
+
+    let rewriter = get_url_rewriter(
+      base,
+      Some(GithubRepository {
+        id: 0,
+        owner: "foo".to_string(),
+        name: "bar".to_string(),
+        updated_at: Default::default(),
+        created_at: Default::default(),
+      }),
+      true,
+    );
+
+    assert_eq!(rewriter(None, "#hello"), "#hello");
+
+    assert_eq!(
+      rewriter(None, "src/assets/foo"),
+      "https://github.com/foo/bar/blob/HEAD/src/assets/foo"
+    );
+
+    assert_eq!(
+      rewriter(None, "src/assets/logo.svg"),
+      "https://raw.githubusercontent.com/foo/bar/HEAD/src/assets/logo.svg"
+    );
+
+    assert_eq!(
+      rewriter(
+        Some(&ShortPath::new(
+          ModuleSpecifier::parse("file:///esm").unwrap(),
+          None,
+          None,
+          None,
+        )),
+        "./src/assets/logo.svg"
+      ),
+      "https://raw.githubusercontent.com/foo/bar/HEAD/./src/assets/logo.svg"
     );
   }
 }
