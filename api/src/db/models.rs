@@ -565,6 +565,12 @@ pub struct GithubRepository {
   pub created_at: DateTime<Utc>,
 }
 
+impl GithubRepository {
+  pub fn get_head_url(&self) -> String {
+    format!("https://github.com/{}/{}/blob/HEAD", self.owner, self.name)
+  }
+}
+
 pub struct NewGithubRepository<'s> {
   pub id: i64,
   pub owner: &'s str,

@@ -934,7 +934,7 @@ pub async fn get_docs_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1019,6 +1019,7 @@ pub async fn get_docs_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     readme,
     package.runtime_compat,
     registry_url,
@@ -1062,7 +1063,7 @@ pub async fn get_docs_search_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1104,6 +1105,7 @@ pub async fn get_docs_search_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     false,
     package.runtime_compat,
     registry_url,
@@ -1132,7 +1134,7 @@ pub async fn get_docs_search_html_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1175,6 +1177,7 @@ pub async fn get_docs_search_html_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     None,
     package.runtime_compat,
     registry_url,

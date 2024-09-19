@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::db::GithubRepository;
 use crate::db::RuntimeCompat;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
@@ -175,12 +176,18 @@ pub fn get_generate_ctx<'a>(
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  github_repository: Option<GithubRepository>,
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
 ) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
-  let url_rewriter_base = format!("/{package_name}/{version}");
+
+  let url_rewriter_base = if let Some(github_repository) = github_repository {
+    github_repository.get_head_url()
+  } else {
+    format!("/{package_name}/{version}")
+  };
 
   let mut generate_ctx = GenerateCtx::new(
     deno_doc::html::GenerateOptions {
@@ -306,6 +313,7 @@ pub fn generate_docs_html(
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  github_repository: Option<GithubRepository>,
   readme: Option<String>,
   runtime_compat: RuntimeCompat,
   registry_url: String,
@@ -318,6 +326,7 @@ pub fn generate_docs_html(
     package,
     version,
     version_is_latest,
+    github_repository,
     readme.is_some(),
     runtime_compat,
     registry_url,
@@ -1125,6 +1134,36 @@ mod tests {
         "./src/assets/logo.svg"
       ),
       "/@foo/bar/1.2.3/./src/assets/logo.svg"
+    );
+
+    let github_repo = GithubRepository {
+      id: 0,
+      owner: "foo".to_string(),
+      name: "bar".to_string(),
+      updated_at: Default::default(),
+      created_at: Default::default(),
+    };
+
+    let rewriter = get_url_rewriter(github_repo.get_head_url(), true);
+
+    assert_eq!(rewriter(None, "#hello"), "#hello");
+
+    assert_eq!(
+      rewriter(None, "src/assets/logo.svg"),
+      "https://github.com/foo/bar/blob/HEAD/src/assets/logo.svg"
+    );
+
+    assert_eq!(
+      rewriter(
+        Some(&ShortPath::new(
+          ModuleSpecifier::parse("file:///esm").unwrap(),
+          None,
+          None,
+          None,
+        )),
+        "./src/assets/logo.svg"
+      ),
+      "https://github.com/foo/bar/blob/HEAD/./src/assets/logo.svg"
     );
   }
 }
