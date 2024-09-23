@@ -7,6 +7,7 @@ import { ComponentChildren } from "preact";
 export interface ListDisplayItem {
   href: string;
   content: ComponentChildren;
+  parentOverwrite?: string;
 }
 
 export function ListDisplay(
@@ -32,7 +33,9 @@ export function ListDisplay(
           <li class="border-jsr-cyan-50">
             <a
               href={item.href}
-              class="flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 focus:bg-jsr-yellow-100 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none"
+              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 focus:bg-jsr-yellow-100 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none ${
+                item.parentOverwrite ?? ""
+              }`}
             >
               {item.content}
 

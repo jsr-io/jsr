@@ -49,6 +49,8 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
 
       <GitHubRepository package={data.package} />
 
+      <ArchivePackage isArchived={data.package.isArchived} />
+
       <DeletePackage hasVersions={data.package.versionCount > 0} />
 
       {data.iam.isStaff && (
@@ -170,6 +172,55 @@ function RuntimeCompatEditorItem({ name, id, value }: {
   );
 }
 
+function ArchivePackage(props: { isArchived: boolean }) {
+  if (!props.isArchived) {
+    return (
+      <form class="border-t pt-8 mt-12" method="POST">
+        <h2 class="text-xl font-sans font-bold">Archive package</h2>
+
+        <p className="mt-2 text-jsr-gray-600 max-w-3xl">
+          Archiving a package removes it from search indexing and the scope
+          page, making it undiscoverable to users.
+          <br />
+          Additionally, you won’t be able to publish new versions to this
+          package until you unarchive it.
+        </p>
+
+        <button
+          class="button-danger mt-4"
+          type="submit"
+          name="action"
+          value="archivePackage"
+        >
+          Archive package
+        </button>
+      </form>
+    );
+  } else {
+    return (
+      <form class="border-t pt-8 mt-12" method="POST">
+        <h2 class="text-xl font-sans font-bold">Unarchive package</h2>
+
+        <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+          Unarchiving a package restores its availability in search results and
+          makes it visible on the scope page again.
+          <br />
+          This also allows you to publish new versions to the package.
+        </p>
+
+        <button
+          class="button-danger mt-4"
+          type="submit"
+          name="action"
+          value="unarchivePackage"
+        >
+          Unarchive package
+        </button>
+      </form>
+    );
+  }
+}
+
 function DeletePackage(props: { hasVersions: boolean }) {
   return (
     <form class="border-t pt-8 mt-12" method="POST">
@@ -255,6 +306,28 @@ export const handler: Handlers<Data, State> = {
     const action = String(data.get("action"));
 
     switch (action) {
+      case "archivePackage": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isArchived: true },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
+      case "unarchivePackage": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isArchived: false },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
       case "deletePackage": {
         const deleteRes = await api.delete(
           path`/scopes/${scope}/packages/${packageName}`,

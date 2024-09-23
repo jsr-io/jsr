@@ -207,6 +207,7 @@ pub struct Package {
   pub version_count: i64,
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
+  pub is_archived: bool,
 }
 
 #[derive(Debug)]
