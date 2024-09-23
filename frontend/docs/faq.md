@@ -66,6 +66,10 @@ You can "yank" a version of a package, which will hide the version from the
 default view, but it will still be available to users who depend on it.
 [Learn more about yanking.](/docs/packages#yanking-versions)
 
+You may archive a package, which will prevent new versions from being published
+and hide the package from search results and the scope page.
+[Learn more about archiving a package.](/docs/packages#archiving-a-package)
+
 You may delete a package if it has no published versions.
 [Learn more about deleting empty packages.](/docs/packages#deleting-a-package)
 

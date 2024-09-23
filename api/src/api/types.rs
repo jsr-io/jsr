@@ -441,6 +441,7 @@ pub struct ApiPackage {
   pub score: Option<u32>,
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
+  pub is_archived: bool,
 }
 
 impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
@@ -464,6 +465,7 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
         .map(|_| score.score_percentage()),
       latest_version: package.latest_version,
       when_featured: package.when_featured,
+      is_archived: package.is_archived,
     }
   }
 }
@@ -481,6 +483,7 @@ pub enum ApiUpdatePackageRequest {
   GithubRepository(Option<ApiUpdatePackageGithubRepositoryRequest>),
   RuntimeCompat(ApiRuntimeCompat),
   IsFeatured(bool),
+  IsArchived(bool),
 }
 
 #[derive(Debug, Deserialize)]
