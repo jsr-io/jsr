@@ -943,7 +943,7 @@ impl Database {
   pub async fn list_packages_by_scope(
     &self,
     scope: &ScopeName,
-    is_archived: bool,
+    show_archived: bool,
     start: i64,
     limit: i64,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
@@ -957,11 +957,11 @@ impl Database {
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1 AND packages.is_archived = $2
+      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
       ORDER BY packages.name
       OFFSET $3 LIMIT $4"#,
       scope as _,
-      is_archived,
+      show_archived,
       start,
       limit
     )
@@ -999,8 +999,9 @@ impl Database {
     .await?;
 
     let total_packages = sqlx::query!(
-      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND is_archived = false;"#,
+      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false);"#,
       scope as _,
+      show_archived,
     )
     .map(|r| r.count.unwrap())
     .fetch_one(&mut *tx)
