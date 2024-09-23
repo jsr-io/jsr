@@ -8,7 +8,7 @@ import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
 export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
-    parentOverwrite: ("isArchived" in pkg && pkg.isArchived)
+    parentClass: ("isArchived" in pkg && pkg.isArchived)
       ? "bg-red-100"
       : undefined,
     content: (

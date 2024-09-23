@@ -943,6 +943,7 @@ impl Database {
   pub async fn list_packages_by_scope(
     &self,
     scope: &ScopeName,
+    is_archived: bool,
     start: i64,
     limit: i64,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
@@ -956,10 +957,11 @@ impl Database {
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1 AND packages.is_archived = false
+      WHERE packages.scope = $1 AND packages.is_archived = $2
       ORDER BY packages.name
-      OFFSET $2 LIMIT $3"#,
+      OFFSET $3 LIMIT $4"#,
       scope as _,
+      is_archived,
       start,
       limit
     )
@@ -998,80 +1000,6 @@ impl Database {
 
     let total_packages = sqlx::query!(
       r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND is_archived = false;"#,
-      scope as _,
-    )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-
-    Ok((total_packages as usize, packages))
-  }
-
-  #[instrument(
-    name = "Database::list_packages_by_scope_with_archived",
-    skip(self),
-    err
-  )]
-  pub async fn list_packages_by_scope_with_archived(
-    &self,
-    scope: &ScopeName,
-    start: i64,
-    limit: i64,
-  ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
-    let mut tx = self.pool.begin().await?;
-
-    let packages = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
-      FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1
-      ORDER BY packages.is_archived, packages.name
-      OFFSET $2 LIMIT $3"#,
-      scope as _,
-      start,
-      limit
-    )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-        is_archived: r.package_is_archived,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-
-      let meta = r.package_version_meta.unwrap_or_default();
-
-      (package, github_repository, meta)
-    })
-    .fetch_all(&mut *tx)
-    .await?;
-
-    let total_packages = sqlx::query!(
-      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1;"#,
       scope as _,
     )
     .map(|r| r.count.unwrap())

@@ -230,13 +230,10 @@ pub async fn list_handler(
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  let (total, packages) = if iam.check_scope_admin_access(&scope).await.is_ok()
-  {
-    db.list_packages_by_scope_with_archived(&scope, start, limit)
-      .await?
-  } else {
-    db.list_packages_by_scope(&scope, start, limit).await?
-  };
+  let can_see_archived = iam.check_scope_admin_access(&scope).await.is_ok();
+  let (total, packages) = db
+    .list_packages_by_scope(&scope, can_see_archived, start, limit)
+    .await?;
 
   Ok(ApiList {
     items: packages.into_iter().map(ApiPackage::from).collect(),
