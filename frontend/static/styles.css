@@ -97,39 +97,47 @@
 
 @layer components {
   .button {
-    @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5 rounded-md leading-tight font-medium
-      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2 select-none;
+    @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5
+      rounded-md leading-tight font-medium whitespace-nowrap
+      hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4
+      focus:outline-offset-2 select-none;
   }
 
   .button-sm {
-    @apply gap-2 py-2 px-4.5 rounded-md text-sm leading-tight font-medium whitespace-nowrap
-      hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4 focus:outline-offset-2;
+    @apply gap-2 py-2 px-4.5 rounded-md text-sm leading-tight font-medium
+      whitespace-nowrap hover:cursor-pointer disabled:cursor-not-allowed
+      focus:outline-4 focus:outline-offset-2;
   }
 
   .button-primary {
-    @apply button border-1.5 border-jsr-cyan-900 hover:border-jsr-cyan-600 bg-jsr-yellow text-jsr-cyan-950
-      font-bold hover:bg-jsr-yellow-300 transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300 outline-jsr-cyan-700
-      outline-offset-2 disabled:bg-jsr-gray-100 disabled:text-jsr-gray-300 shadow-accent-sm disabled:shadow-transparent
-    disabled:border-jsr-gray-300;
+    @apply button border-1.5 border-jsr-cyan-900 hover:border-jsr-cyan-600
+      bg-jsr-yellow text-jsr-cyan-950 font-bold hover:bg-jsr-yellow-300
+      transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300
+      outline-jsr-cyan-700 outline-offset-2 disabled:bg-jsr-gray-100
+      disabled:text-jsr-gray-300 shadow-accent-sm disabled:shadow-transparent
+      disabled:border-jsr-gray-300;
   }
 
   .button-primary:not(:disabled) {
-    @apply active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+    @apply active:shadow-accent-sm-close active:translate-x-[3px]
+      active:translate-y-[4px];
   }
 
   .button-danger {
-    @apply button border-1.5 border-red-950 bg-red-500 text-white hover:bg-red-700 disabled:bg-jsr-gray-100
-    outline-red-600 disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent disabled:border-red-300
-    transition-all duration-75 ease-in-out;
+    @apply button border-1.5 border-red-950 bg-red-500 text-white
+      hover:bg-red-700 disabled:bg-jsr-gray-100 outline-red-600
+      disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent
+      disabled:border-red-300 transition-all duration-75 ease-in-out;
   }
 
   .button-danger:not(:disabled) {
-    @apply active:shadow-accent-sm-close active:translate-x-[3px] active:translate-y-[4px];
+    @apply active:shadow-accent-sm-close active:translate-x-[3px]
+      active:translate-y-[4px];
   }
 
   .chip {
-    @apply inline-block py-1 px-2.5 rounded-full whitespace-nowrap
-      leading-none font-semibold text-sm;
+    @apply inline-block py-1 px-2.5 rounded-full whitespace-nowrap leading-none
+      font-semibold text-sm;
   }
 
   .big-chip {
@@ -142,38 +150,41 @@
   }
 
   .-section-x-inset-xl {
-    margin: 0 calc(((100vw - (min(1280px, 100vw) - 32px)) / 2) * -1);
+    margin: 0 calc((100vw - (min(1280px, 100vw) - 32px)) / 2 * -1);
 
     @media screen(md) {
-      margin: 0 calc(((100vw - (min(1280px, 100vw) - 64px)) / 2) * -1);
+      margin: 0 calc((100vw - (min(1280px, 100vw) - 64px)) / 2 * -1);
     }
     @media screen(lg) {
-      margin: 0 calc(((100vw - (min(1280px, 100vw) - 80px)) / 2) * -1);
+      margin: 0 calc((100vw - (min(1280px, 100vw) - 80px)) / 2 * -1);
     }
     @media screen(xl) {
-      margin: 0 calc(((100vw - (min(1280px, 100vw) - 112px)) / 2) * -1);
+      margin: 0 calc((100vw - (min(1280px, 100vw) - 112px)) / 2 * -1);
     }
   }
 
   .link {
-    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline decoration-jsr-cyan-700/50 underline-offset-2
-      outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm;
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm;
   }
 
   .link-header {
-    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700 underline-offset-2;
+    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25
+      hover:decoration-jsr-cyan-700 underline-offset-2;
   }
 
   .input-container {
-    @apply bg-white rounded-md leading-snug
-      border-1 border-jsr-cyan-900/30 focus-within:border-jsr-cyan-500;
+    @apply bg-white rounded-md leading-snug border-1 border-jsr-cyan-900/30
+      focus-within:border-jsr-cyan-500;
   }
 
   select:not([data-locked="true"]):disabled.input-container,
   input:not([data-locked="true"]):disabled.input-container,
   .input-container input:not([data-locked="true"]):disabled,
   .input-container select:not([data-locked="true"]):disabled {
-    @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed bg-jsr-gray-50;
+    @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed
+      bg-jsr-gray-50;
   }
 
   select[data-locked="true"].input-container,
@@ -184,7 +195,8 @@
   }
 
   .input {
-    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300 outline-none bg-transparent disabled:cursor-not-allowed;
+    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300
+      outline-none bg-transparent disabled:cursor-not-allowed;
   }
 
   .search-input {
@@ -205,7 +217,8 @@ body .ddoc {
     @apply max-w-prose;
 
     h1 {
-      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold !important;
+      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
+        !important;
     }
 
     /* Styles the first H1 in a readme a little differently */
@@ -214,15 +227,18 @@ body .ddoc {
     }
 
     h2 {
-      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-xl md:text-2xl font-bold md:font-medium !important;
+      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-xl md:text-2xl font-bold
+        md:font-medium !important;
     }
 
     h3 {
-      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
+      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium
+        !important;
     }
 
     h4 {
-      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium !important;
+      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium
+        !important;
     }
 
     :not(pre) > code {
@@ -406,14 +422,14 @@ body .ddoc:has(.toc) {
 @layer base {
   /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
   :root {
-    --color-accent-fg: theme(colors.slate.100) !important;
-    --color-border-default: theme(colors.slate.300) !important;
-    --bgColor-neutral-muted: theme(colors.jsr-gray.100) !important;
-    --color-neutral-muted: theme(colors.jsr-gray.600) !important;
-    --color-accent-fg: theme(colors.cyan.700) !important;
-    --fgColor-muted: theme(colors.jsr-gray.600) !important;
+    --color-accent-fg: theme(colors . slate 0.100) !important;
+    --color-border-default: theme(colors . slate 0.300) !important;
+    --bgColor-neutral-muted: theme(colors . jsr-gray 0.100) !important;
+    --color-neutral-muted: theme(colors . jsr-gray 0.600) !important;
+    --color-accent-fg: theme(colors . cyan 0.700) !important;
+    --fgColor-muted: theme(colors . jsr-gray 0.600) !important;
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
-    --bgColor-muted: theme(colors.slate.50);
+    --bgColor-muted: theme(colors . slate 0.50);
   }
 }
