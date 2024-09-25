@@ -24,10 +24,10 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
           <h1 class="text-2xl leading-none font-semibold">
             {user.name}
           </h1>
-          <p class="text-xs text-jsr-gray-600">
+          <p class="text-xs text-jsr-gray-600 dark:text-jsr-gray-200">
             Created account {twas(new Date(user.createdAt))}
           </p>
-          <p class="text-xs text-jsr-gray-600">
+          <p class="text-xs text-jsr-gray-600 dark:text-jsr-gray-200">
             <GitHubUserLink user={user} />
           </p>
         </div>

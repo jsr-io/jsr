@@ -57,7 +57,7 @@ export function PackageNav(
       <NavItem href={`${base}/versions`} active={currentTab === "Versions"}>
         <span class="flex items-center">
           Versions
-          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
+          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 dark:bg-jsr-cyan-800 ml-2 flex items-center justify-center">
             {versionCount}
           </span>
         </span>

@@ -54,8 +54,8 @@ export function ScopeSelect(
 
   if (scopes.value.length === 0) {
     return (
-      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
-        <span class="text-jsr-gray-700">
+      <div class="space-y-4 bg-jsr-cyan-50 dark:bg-jsr-cyan-900 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
+        <span class="text-jsr-gray-700 dark:text-jsr-gray-200">
           You are not a member of any scopes. Create a new scope to publish your
           package.
         </span>
@@ -97,7 +97,7 @@ export function ScopeSelect(
             </button>
           </p>
         )}
-        <p class="text-jsr-gray-700 text-sm mt-2">
+        <p class="text-jsr-gray-700 dark:text-jsr-gray-200 text-sm mt-2">
           You can create {scopesLeft === 0 ? "no" : scopesLeft}{" "}
           more scope{scopesLeft !== 1 && "s"}.{" "}
           <a href="/account/settings" class="link">View quotas</a> or{" "}
@@ -353,14 +353,14 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
   ) return null;
 
   return (
-    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
+    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 dark:bg-jsr-cyan-900 border-1.5 border-jsr-cyan-200 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
       {pkg.value === null
         ? (
           <>
             <div>
               <p>
                 The package{" "}
-                <code class="text-jsr-cyan-800">
+                <code class="text-jsr-cyan-800 dark:text-jsr-cyan-300">
                   @{scope}/{name}
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.

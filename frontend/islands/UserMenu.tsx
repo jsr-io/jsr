@@ -7,7 +7,7 @@ import IconArrowRight from "$tabler_icons/arrow-right.tsx";
 const SHARED_ITEM_CLASSES =
   "flex items-center px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 const DEFAULT_ITEM_CLASSES =
-  "hover:bg-jsr-cyan-50 focus-visible:bg-jsr-cyan-200 ring-jsr-cyan-700";
+  "hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-500 focus-visible:bg-jsr-cyan-200 ring-jsr-cyan-700";
 
 const SUDO_CONFIRMATION =
   "Are you sure you want to enable sudo mode? Sudo mode will be enabled for 5 minutes.";
@@ -52,7 +52,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <div
         aria-labelledby={`${prefix}-user-menu`}
         role="region"
-        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white w-56 shadow overflow-hidden ${
+        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-cyan-950 w-56 shadow overflow-hidden ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-5 pointer-events-none"
@@ -99,7 +99,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           <a
             href="/new"
             tabIndex={open ? undefined : -1}
-            class={`${SHARED_ITEM_CLASSES} justify-start gap-2 font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
+            class={`${SHARED_ITEM_CLASSES} justify-start gap-2 font-bold bg-jsr-yellow dark:bg-jsr-yellow-600 border-jsr-yellow dark:border-jsr-yellow-600 hover:bg-jsr-yellow-300 hover:dark:bg-jsr-yellow-700 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
           >
             <Plus />
             Publish a package

@@ -46,7 +46,7 @@ export default function New(props: PageProps<Data, State>) {
           <h1 class="mb-8 font-bold text-3xl leading-none">
             Publish a package
           </h1>
-          <p class="text-jsr-gray-900 max-w-screen-md">
+          <p class="text-jsr-gray-900 dark:text-jsr-gray-50 max-w-screen-md">
             Publish your package to the JSR to share it with the world!
           </p>
           <p>
@@ -65,7 +65,7 @@ export default function New(props: PageProps<Data, State>) {
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Scope</h2>
-              <p class="mt-2 mb-4 text-jsr-gray-500 text-base">
+              <p class="mt-2 mb-4 text-jsr-gray-500 dark:text-jsr-gray-200 text-base">
                 Choose which scope your package will be published to. Scopes are
                 namespaces for packages.
               </p>
@@ -101,7 +101,7 @@ export default function New(props: PageProps<Data, State>) {
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Package name</h2>
-              <p class="mt-1 mb-4 text-jsr-gray-500 text-base">
+              <p class="mt-1 mb-4 text-jsr-gray-500 dark:text-jsr-gray-200 text-base">
                 The name of your package must be unique within the scope you
                 selected.
               </p>
