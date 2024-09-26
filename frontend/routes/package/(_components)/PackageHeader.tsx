@@ -54,8 +54,7 @@ export function PackageHeader(
                 ? (
                   <>
                     is a pre-release — the latest non-prerelease version of
-                    @{pkg
-                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                    @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (

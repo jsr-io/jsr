@@ -40,7 +40,10 @@ while (true) {
 }
 
 const entries: OramaPackageHit[] = packages
-  .filter((entry) => entry.versionCount > 0 || !entry.isArchived)
+  .filter((entry) =>
+    entry.versionCount > 0 || !entry.isArchived ||
+    !entry.description.startsWith("INTERNAL")
+  )
   .map((entry) => ({
     scope: entry.scope,
     name: entry.name,

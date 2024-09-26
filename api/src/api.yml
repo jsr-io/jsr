@@ -2160,12 +2160,12 @@ components:
         total:
           type: integer
       required:
-          - hasReadme
-          - hasReadmeExamples
-          - allEntrypointsDocs
-          - percentageDocumentedSymbols
-          - allFastCheck
-          - hasProvenance
-          - hasDescription
-          - atLeastOneRuntimeCompatible
-          - multipleRuntimesCompatible
+        - hasReadme
+        - hasReadmeExamples
+        - allEntrypointsDocs
+        - percentageDocumentedSymbols
+        - allFastCheck
+        - hasProvenance
+        - hasDescription
+        - atLeastOneRuntimeCompatible
+        - multipleRuntimesCompatible

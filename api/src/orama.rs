@@ -46,7 +46,10 @@ impl OramaClient {
 
   #[instrument(name = "OramaClient::upsert_package", skip(self))]
   pub fn upsert_package(&self, package: &Package, meta: &PackageVersionMeta) {
-    if package.version_count == 0 || package.is_archived {
+    if package.version_count == 0
+      || package.is_archived
+      || package.description.starts_with("INTERNAL")
+    {
       return;
     }
     let id = format!("@{}/{}", package.scope, package.name);
