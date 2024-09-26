@@ -9,12 +9,12 @@ const output = await (new Deno.Command(Deno.execPath(), {
 })).output();
 
 const docNodes = await doc("asset:types.ts", {
-  async load(specifier) {
-    return {
+  load(specifier) {
+    return Promise.resolve({
       kind: "module",
       specifier,
       content: output.stdout,
-    };
+    });
   },
 });
 
