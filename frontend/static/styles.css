@@ -422,14 +422,14 @@ body .ddoc:has(.toc) {
 @layer base {
   /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
   :root {
-    --color-accent-fg: theme(colors . slate 0.100) !important;
-    --color-border-default: theme(colors . slate 0.300) !important;
-    --bgColor-neutral-muted: theme(colors . jsr-gray 0.100) !important;
-    --color-neutral-muted: theme(colors . jsr-gray 0.600) !important;
-    --color-accent-fg: theme(colors . cyan 0.700) !important;
-    --fgColor-muted: theme(colors . jsr-gray 0.600) !important;
+    --color-accent-fg: theme("colors.slate.100") !important;
+    --color-border-default: theme("colors.slate.300") !important;
+    --bgColor-neutral-muted: theme("colors.jsr-gray.100") !important;
+    --color-neutral-muted: theme("colors.jsr-gray.600") !important;
+    --color-accent-fg: theme("colors.cyan.700") !important;
+    --fgColor-muted: theme("colors.jsr-gray.600") !important;
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
-    --bgColor-muted: theme(colors . slate 0.50);
+    --bgColor-muted: theme("colors.slate.50");
   }
 }
