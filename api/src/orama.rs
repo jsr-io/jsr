@@ -46,12 +46,15 @@ impl OramaClient {
 
   #[instrument(name = "OramaClient::upsert_package", skip(self))]
   pub fn upsert_package(&self, package: &Package, meta: &PackageVersionMeta) {
-    if package.version_count == 0
-      || package.is_archived
-      || package.description.starts_with("INTERNAL")
-    {
+    if package.version_count == 0 || package.is_archived {
       return;
     }
+
+    if package.description.starts_with("INTERNAL") {
+      self.delete_package(&package.scope, &package.name);
+      return;
+    }
+
     let id = format!("@{}/{}", package.scope, package.name);
     let score = package
       .latest_version
