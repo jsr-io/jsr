@@ -848,7 +848,7 @@ impl HrefResolver for DocResolver {
         )
       }
       UrlResolveKind::File(file) => format!(
-        "{doc_base}{}/~/",
+        "{doc_base}{}/",
         if file.is_main {
           String::new()
         } else {
@@ -995,7 +995,7 @@ mod tests {
           UrlResolveKind::Root,
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1024,7 +1024,7 @@ mod tests {
           UrlResolveKind::AllSymbols,
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1058,7 +1058,7 @@ mod tests {
           UrlResolveKind::File(&short_path),
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1101,7 +1101,7 @@ mod tests {
           },
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
