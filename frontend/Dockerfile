@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-2.0.0
+FROM denoland/deno:alpine-2.0.1
 WORKDIR /app
 RUN mkdir /deno_dir
 ENV DENO_DIR /deno_dir
