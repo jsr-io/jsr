@@ -326,7 +326,8 @@ body .ddoc {
     @apply rounded no-underline !important;
   }
 
-  code ~ .context_button:hover, code:hover ~ .context_button {
+  code ~ .context_button:hover,
+  code:hover ~ .context_button {
     @apply md:visible;
   }
 

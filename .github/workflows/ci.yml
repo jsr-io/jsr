@@ -25,7 +25,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.0.0-rc.1
+          deno-version: v2.x
 
       - name: Check license headers
         run: deno task lint:license
@@ -39,7 +39,7 @@ jobs:
         working-directory: frontend
 
       - name: Typecheck
-        run: deno check main.ts
+        run: deno check --allow-import main.ts
         working-directory: frontend
 
       - name: Build Fresh
@@ -173,7 +173,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.0.0-rc.1
+          deno-version: v2.x
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
@@ -231,7 +231,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.0.0-rc.1
+          deno-version: v2.x
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
