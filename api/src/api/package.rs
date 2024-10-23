@@ -2757,7 +2757,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","doc":"This is a test constant.","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"url":"/@scope/foo@1.2.3/doc/~/hello","category":"","declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","doc":"","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"url":"/@scope/foo@1.2.3/doc/~/读取多键1","category":"","declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable","title_lowercase":"variable","title_plural":"Variables"}],"name":"hello","file":".","doc":"This is a test constant.","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"url":"/@scope/foo@1.2.3/doc/~/hello","category":"","declarationKind":"export","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable","title_lowercase":"variable","title_plural":"Variables"}],"name":"读取多键1","file":".","doc":"","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"url":"/@scope/foo@1.2.3/doc/~/读取多键1","category":"","declarationKind":"export","deprecated":false}]}),
     );
 
     // symbol doesn't exist
