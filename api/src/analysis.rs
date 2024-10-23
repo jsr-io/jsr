@@ -249,7 +249,7 @@ async fn analyze_package_inner(
     scope,
     name,
     version,
-    false,
+    true,
     None,
     false,
     crate::db::RuntimeCompat {
