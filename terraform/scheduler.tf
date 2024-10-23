@@ -42,4 +42,12 @@ resource "google_cloud_scheduler_job" "orama_deploy" {
       "Authorization" = "Bearer ${var.orama_package_private_api_key}"
     }
   }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://api.oramasearch.com/api/v1/webhooks/${var.orama_symbols_index_id}/deploy"
+    headers = {
+      "Authorization" = "Bearer ${var.orama_package_private_api_key}"
+    }
+  }
 }

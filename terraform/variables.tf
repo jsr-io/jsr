@@ -45,6 +45,11 @@ variable "orama_package_index_id" {
   sensitive = true
 }
 
+variable "orama_symbols_index_id" {
+  type      = string
+  sensitive = true
+}
+
 variable "orama_package_public_api_key" {
   type = string
 }

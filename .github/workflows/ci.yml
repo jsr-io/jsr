@@ -200,6 +200,7 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
           TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
+          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
 
       - name: terraform apply
@@ -258,6 +259,7 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
           TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
+          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
 
       - name: terraform apply

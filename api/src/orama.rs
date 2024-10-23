@@ -136,7 +136,7 @@ impl OramaClient {
     &self,
     scope_name: &ScopeName,
     package_name: &PackageName,
-    search: serde_json::Value,
+    mut search: serde_json::Value,
   ) {
     let package = format!("{scope_name}/{package_name}");
     let body = serde_json::json!({
@@ -170,23 +170,11 @@ impl OramaClient {
         .instrument(span),
     );
 
-    let search = if let serde_json::Value::Array(entries) = search {
-      entries
-        .into_iter()
-        .map(|entry| {
-          if let serde_json::Value::Object(mut obj) = entry {
-            obj.insert("scope".to_string(), scope_name.to_string().into());
-            obj.insert("package".to_string(), package_name.to_string().into());
-
-            obj
-          } else {
-            unreachable!()
-          }
-        })
-        .collect::<Vec<_>>()
-    } else {
-      unreachable!()
-    };
+    for entry in search.as_array_mut().unwrap() {
+      let obj = entry.as_object_mut().unwrap();
+      obj.insert("scope".to_string(), scope_name.to_string().into());
+      obj.insert("package".to_string(), package_name.to_string().into());
+    }
 
     let body = serde_json::json!({ "upsert": search });
     let package = format!("{scope_name}/{package_name}");
