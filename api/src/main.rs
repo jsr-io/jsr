@@ -223,6 +223,9 @@ async fn main() {
       config
         .orama_package_index_id
         .expect("orama_package_private_api_key was provided but no orama_package_index_id"),
+      config
+        .orama_symbols_index_id
+        .expect("orama_package_private_api_key was provided but no orama_symbols_index_id"),
     ))
   } else {
     None

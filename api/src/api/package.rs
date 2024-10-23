@@ -66,6 +66,7 @@ use crate::util::VersionOrLatest;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 
+use super::ApiCreatePackageRequest;
 use super::ApiDependency;
 use super::ApiDependent;
 use super::ApiDownloadDataPoint;
@@ -75,6 +76,7 @@ use super::ApiMetrics;
 use super::ApiPackage;
 use super::ApiPackageDownloads;
 use super::ApiPackageDownloadsRecentVersion;
+use super::ApiPackageScore;
 use super::ApiPackageVersion;
 use super::ApiPackageVersionDocs;
 use super::ApiPackageVersionSource;
@@ -88,7 +90,6 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
-use super::{ApiCreatePackageRequest, ApiPackageScore};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -1014,7 +1015,7 @@ pub async fn get_docs_handler(
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
 
-  let docs_info = crate::docs::get_docs_info(&version, entrypoint);
+  let docs_info = crate::docs::get_docs_info(&version.exports, entrypoint);
 
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
@@ -1121,7 +1122,7 @@ pub async fn get_docs_search_handler(
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version, None);
+  let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
@@ -1192,7 +1193,7 @@ pub async fn get_docs_search_html_handler(
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version, None);
+  let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
