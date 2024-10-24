@@ -4,7 +4,7 @@ import { chunk } from "jsr:@std/collections";
 
 const index = Deno.env.get("ORAMA_SYMBOLS_INDEX_ID");
 const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");
-const jsr_url = Deno.env.get("JSR_URL");
+const jsr_url = Deno.env.get("JSR_ENDPOINT_URL");
 
 const MAX_ORAMA_INSERT_SIZE = 3 * 1024 * 1024;
 

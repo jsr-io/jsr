@@ -5,7 +5,7 @@ import { chunk } from "jsr:@std/collections";
 
 const index = Deno.env.get("ORAMA_PACKAGE_INDEX_ID");
 const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");
-const jsr_url = Deno.env.get("JSR_URL");
+const jsr_url = Deno.env.get("JSR_ENDPOINT_URL");
 
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
 

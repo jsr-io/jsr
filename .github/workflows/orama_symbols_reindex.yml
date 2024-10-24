@@ -25,5 +25,5 @@ jobs:
         env:
           ORAMA_SYMBOLS_INDEX_ID: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           ORAMA_PACKAGE_PRIVATE_API_KEY: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
-          JSR_URL: ${{ vars.ENVIRONMENT_URL }}
+          JSR_ENDPOINT_URL: ${{ vars.ENVIRONMENT_URL }}
         run: deno task tools:orama:symbols_reindex
