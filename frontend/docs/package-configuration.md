@@ -20,7 +20,7 @@ file can instead be placed in the
 ### `name`
 
 The `name` field is the name of your package, prefixed with a JSR scope.
-[Learn more about scope and package names](#creating-a-scope-and-package).
+[Learn more about scope and package names](/docs/publishing-packages#creating-a-scope-and-package).
 
 ### `version`
 
