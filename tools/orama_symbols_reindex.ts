@@ -6,7 +6,7 @@ const index = Deno.env.get("ORAMA_SYMBOLS_INDEX_ID");
 const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");
 const jsr_url = Deno.env.get("JSR_URL");
 
-const MAX_ORAMA_INSERT_SIZE = 4 * 1024 * 1024;
+const MAX_ORAMA_INSERT_SIZE = 3 * 1024 * 1024;
 
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
 
