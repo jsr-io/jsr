@@ -878,9 +878,9 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.154.0"
+version = "0.154.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17e204e45b0d79750880114e37b34abe19ad0710d8435a8da8f23a528fe98de4"
+checksum = "c1b4e434f1dc92ed14e1a8bfceba6a5d885839f9526d88e1e94b27d28b2fefe1"
 dependencies = [
  "ammonia",
  "anyhow",
