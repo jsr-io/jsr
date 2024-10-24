@@ -14,6 +14,8 @@ use tracing::instrument;
 use tracing::Instrument;
 use tracing::Span;
 
+const MAX_ORAMA_INSERT_SIZE: f64 = 4f64 * 1024f64 * 1024f64;
+
 #[derive(Clone)]
 pub struct OramaClient {
   private_api_key: Arc<str>,
@@ -136,7 +138,7 @@ impl OramaClient {
     &self,
     scope_name: &ScopeName,
     package_name: &PackageName,
-    mut search: serde_json::Value,
+    search: serde_json::Value,
   ) {
     let package = format!("{scope_name}/{package_name}");
     let body = serde_json::json!({
@@ -170,35 +172,48 @@ impl OramaClient {
         .instrument(span),
     );
 
-    for entry in search.as_array_mut().unwrap() {
-      let obj = entry.as_object_mut().unwrap();
-      obj.insert("scope".to_string(), scope_name.to_string().into());
-      obj.insert("package".to_string(), package_name.to_string().into());
-    }
+    let search = if let serde_json::Value::Array(mut array) = search {
+      for entry in &mut array {
+        let obj = entry.as_object_mut().unwrap();
+        obj.insert("scope".to_string(), scope_name.to_string().into());
+        obj.insert("package".to_string(), package_name.to_string().into());
+      }
 
-    let body = serde_json::json!({ "upsert": search });
-    let package = format!("{scope_name}/{package_name}");
-    let span = Span::current();
-    let client = self.clone();
-    let path = format!("/webhooks/{}/notify", self.symbols_index_id);
-    tokio::spawn(
-      async move {
-        let res = match client.request(&path, body).await {
-          Ok(res) => res,
-          Err(err) => {
-            error!("failed to insert on OramaClient::upsert_symbols: {err}");
-            return;
-          }
-        };
-        let status = res.status();
-        if !status.is_success() {
-          let response = res.text().await.unwrap_or_default();
-          error!(
+      array
+    } else {
+      unreachable!()
+    };
+
+    let chunks = {
+      let str_data = serde_json::to_string(&search).unwrap();
+      (str_data.len() as f64 / MAX_ORAMA_INSERT_SIZE).ceil() as usize
+    };
+
+    for chunk in search.chunks(search.len() / chunks) {
+      let body = serde_json::json!({ "upsert": &chunk });
+      let package = format!("{scope_name}/{package_name}");
+      let span = Span::current();
+      let client = self.clone();
+      let path = format!("/webhooks/{}/notify", self.symbols_index_id);
+      tokio::spawn(
+        async move {
+          let res = match client.request(&path, body).await {
+            Ok(res) => res,
+            Err(err) => {
+              error!("failed to insert on OramaClient::upsert_symbols: {err}");
+              return;
+            }
+          };
+          let status = res.status();
+          if !status.is_success() {
+            let response = res.text().await.unwrap_or_default();
+            error!(
             "failed to insert on OramaClient::upsert_symbols for {package} (status {status}): {response}"
           );
+          }
         }
-      }
-      .instrument(span),
-    );
+          .instrument(span),
+      );
+    }
   }
 }
