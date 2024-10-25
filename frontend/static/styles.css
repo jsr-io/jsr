@@ -252,6 +252,7 @@ body .ddoc {
     .highlight .context_button {
       @apply border-none hover:bg-jsr-cyan-50;
     }
+    
     .highlight:has(.context_button) {
       @apply pr-7;
     }
