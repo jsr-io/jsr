@@ -23,9 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: 2.0.0-rc.1
+        uses: denoland/setup-deno@v2
 
       - name: Check license headers
         run: deno task lint:license
@@ -171,9 +169,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: 2.0.0-rc.1
+        uses: denoland/setup-deno@v2
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
@@ -230,9 +226,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: 2.0.0-rc.1
+        uses: denoland/setup-deno@v2
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3

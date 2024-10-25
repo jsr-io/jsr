@@ -2,7 +2,7 @@
 import { defineConfig, Plugin, PluginRoute } from "$fresh/server.ts";
 import { asset } from "$fresh/runtime.ts";
 import tailwind from "$fresh/plugins/tailwind.ts";
-import { join } from "$std/path/mod.ts";
+import { join } from "$std/path";
 import { CSS } from "$gfm";
 
 export default defineConfig({
