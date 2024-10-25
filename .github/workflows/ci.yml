@@ -33,12 +33,7 @@ jobs:
         working-directory: frontend
 
       - name: Lint
-        run: deno lint
-        working-directory: frontend
-
-      - name: Typecheck
-        run: deno check main.ts
-        working-directory: frontend
+        run: deno task lint:frontend
 
       - name: Build Fresh
         run: deno task build
