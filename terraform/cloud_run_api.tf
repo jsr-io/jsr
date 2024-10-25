@@ -55,6 +55,13 @@ resource "google_cloud_run_v2_service" "registry_api" {
         "--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"
       ]
 
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
       dynamic "env" {
         for_each = local.api_envs
         content {
