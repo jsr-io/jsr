@@ -31,6 +31,12 @@ export function PackageHeader(
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
+      {pkg.isArchived && (
+        <div class="rounded border border-red-300 bg-red-100 flex items-center justify-center p-4">
+          This package has been archived, and as such it is read-only.
+        </div>
+      )}
+
       {selectedVersion && pkg.latestVersion &&
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
@@ -48,8 +54,7 @@ export function PackageHeader(
                 ? (
                   <>
                     is a pre-release — the latest non-prerelease version of
-                    @{pkg
-                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                    @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (

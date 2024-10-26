@@ -1,4 +1,4 @@
-name: Orama Package Reindex
+name: Orama Symbols Reindex
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
           deno-version: 2.0.0-rc.1
       - name: Deploy
         env:
-          ORAMA_PACKAGE_INDEX_ID: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
+          ORAMA_SYMBOLS_INDEX_ID: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           ORAMA_PACKAGE_PRIVATE_API_KEY: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
           JSR_URL: ${{ vars.ENVIRONMENT_URL }}
-        run: deno task tools:orama:package_reindex
+        run: deno task tools:orama:symbols_reindex

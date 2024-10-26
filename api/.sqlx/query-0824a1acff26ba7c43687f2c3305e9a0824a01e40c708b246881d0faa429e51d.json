@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(created_at) FROM packages WHERE scope = $1;",
+  "query": "SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false);",
   "describe": {
     "columns": [
       {
@@ -11,12 +11,13 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
       null
     ]
   },
-  "hash": "fba4402286e38ef68d51a6c93999210901313fd7d257ea918d9504964b46debb"
+  "hash": "0824a1acff26ba7c43687f2c3305e9a0824a01e40c708b246881d0faa429e51d"
 }

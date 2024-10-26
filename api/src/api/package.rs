@@ -66,6 +66,7 @@ use crate::util::VersionOrLatest;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 
+use super::ApiCreatePackageRequest;
 use super::ApiDependency;
 use super::ApiDependent;
 use super::ApiDownloadDataPoint;
@@ -75,6 +76,7 @@ use super::ApiMetrics;
 use super::ApiPackage;
 use super::ApiPackageDownloads;
 use super::ApiPackageDownloadsRecentVersion;
+use super::ApiPackageScore;
 use super::ApiPackageVersion;
 use super::ApiPackageVersionDocs;
 use super::ApiPackageVersionSource;
@@ -88,7 +90,6 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
-use super::{ApiCreatePackageRequest, ApiPackageScore};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -229,8 +230,11 @@ pub async fn list_handler(
   let db = req.data::<Database>().unwrap();
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
-  let (total, packages) =
-    db.list_packages_by_scope(&scope, start, limit).await?;
+  let iam = req.iam();
+  let can_see_archived = iam.check_scope_admin_access(&scope).await.is_ok();
+  let (total, packages) = db
+    .list_packages_by_scope(&scope, can_see_archived, start, limit)
+    .await?;
 
   Ok(ApiList {
     items: packages.into_iter().map(ApiPackage::from).collect(),
@@ -314,7 +318,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
 )]
 pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let scope = req.param_scope()?;
-  let package = req.param_package()?;
+  let package_name = req.param_package()?;
 
   let body: ApiUpdatePackageRequest = decode_json(&mut req).await?;
 
@@ -322,8 +326,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
-  let (_, repo, meta) = db
-    .get_package(&scope, &package)
+  let (package, repo, meta) = db
+    .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
@@ -340,6 +344,12 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     iam.check_scope_admin_access(&scope).await?;
   }
 
+  if package.is_archived
+    && !matches!(body, ApiUpdatePackageRequest::IsArchived(_))
+  {
+    return Err(ApiError::PackageArchived);
+  }
+
   match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
@@ -350,7 +360,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         &buckets,
         orama_client,
         &scope,
-        &package,
+        &package_name,
         description,
       )
       .await?;
@@ -358,7 +368,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
       let package = db
-        .delete_package_github_repository(&scope, &package)
+        .delete_package_github_repository(&scope, &package_name)
         .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
@@ -369,7 +379,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         db,
         github_oauth2_client,
         scope,
-        package,
+        package_name,
         repo,
       )
       .await
@@ -377,7 +387,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     ApiUpdatePackageRequest::RuntimeCompat(runtime_compat) => {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
       let package = db
-        .update_package_runtime_compat(&scope, &package, &runtime_compat)
+        .update_package_runtime_compat(&scope, &package_name, &runtime_compat)
         .await?;
       if let Some(orama_client) = orama_client {
         orama_client.upsert_package(&package, &meta);
@@ -386,8 +396,23 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::IsFeatured(is_featured) => {
       let package = db
-        .update_package_is_featured(&scope, &package, is_featured)
+        .update_package_is_featured(&scope, &package_name, is_featured)
         .await?;
+      Ok(ApiPackage::from((package, repo, meta)))
+    }
+    ApiUpdatePackageRequest::IsArchived(is_archived) => {
+      let package = db
+        .update_package_is_archived(&scope, &package_name, is_archived)
+        .await?;
+
+      if let Some(orama_client) = orama_client {
+        if package.is_archived {
+          orama_client.delete_package(&scope, &package.name);
+        } else {
+          orama_client.upsert_package(&package, &meta);
+        }
+      }
+
       Ok(ApiPackage::from((package, repo, meta)))
     }
   }
@@ -671,6 +696,10 @@ pub async fn version_publish_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  if package.is_archived {
+    return Err(ApiError::PackageArchived);
+  }
+
   let res = db
     .create_publishing_task(NewPublishingTask {
       user_id,
@@ -934,7 +963,7 @@ pub async fn get_docs_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -986,7 +1015,7 @@ pub async fn get_docs_handler(
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
 
-  let docs_info = crate::docs::get_docs_info(&version, entrypoint);
+  let docs_info = crate::docs::get_docs_info(&version.exports, entrypoint);
 
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
@@ -1019,6 +1048,7 @@ pub async fn get_docs_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     readme,
     package.runtime_compat,
     registry_url,
@@ -1062,7 +1092,7 @@ pub async fn get_docs_search_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1092,7 +1122,7 @@ pub async fn get_docs_search_handler(
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version, None);
+  let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
@@ -1104,6 +1134,7 @@ pub async fn get_docs_search_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     false,
     package.runtime_compat,
     registry_url,
@@ -1132,7 +1163,7 @@ pub async fn get_docs_search_html_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1162,7 +1193,7 @@ pub async fn get_docs_search_html_handler(
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version, None);
+  let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
@@ -1175,6 +1206,7 @@ pub async fn get_docs_search_html_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     None,
     package.runtime_compat,
     registry_url,
@@ -2725,7 +2757,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","doc":"This is a test constant.","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"url":"/@scope/foo@1.2.3/doc/~/hello","category":"","declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","doc":"","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"url":"/@scope/foo@1.2.3/doc/~/读取多键1","category":"","declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist
@@ -3116,6 +3148,80 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::CONFLICT, "packageNotEmpty")
       .await;
+  }
+
+  #[tokio::test]
+  async fn archive_package() {
+    let mut t = TestSetup::new().await;
+
+    let scope = t.scope.scope.clone();
+
+    let name = PackageName::try_from("foo").unwrap();
+    let res = t
+      .ephemeral_database
+      .create_package(&scope, &name)
+      .await
+      .unwrap();
+    assert!(matches!(res, CreatePackageResult::Ok(_)));
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(!package.is_archived);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "isArchived": true
+      }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.is_archived);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "description": "foo"
+      }))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "packageArchived")
+      .await;
+
+    let data = create_mock_tarball("ok");
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "packageArchived")
+      .await;
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "isArchived": false
+      }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(!package.is_archived);
   }
 
   #[tokio::test]

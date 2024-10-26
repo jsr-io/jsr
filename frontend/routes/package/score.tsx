@@ -153,12 +153,12 @@ function ScoreInfo(props: {
           scoreValue={5}
           title="Has docs for most symbols"
         >
-          At least 80% of the packages' symbols should have{" "}
+          At least 80% of the packages' exported symbols should have{" "}
           <a class="link" href="/docs/writing-docs#symbol-documentation">
             symbol documentation
           </a>. Currently{" "}
-          {(score.percentageDocumentedSymbols * 100).toFixed(0)}% of symbols are
-          documented.
+          {(score.percentageDocumentedSymbols * 100).toFixed(0)}% of exported
+          symbols are documented.
         </ScoreItem>
         <ScoreItem
           value={score.allFastCheck}

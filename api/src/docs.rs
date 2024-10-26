@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::db::GithubRepository;
 use crate::db::RuntimeCompat;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
@@ -91,7 +92,7 @@ pub struct DocsInfo {
 }
 
 pub fn get_docs_info(
-  version: &crate::db::PackageVersion,
+  exports: &crate::db::ExportsMap,
   entrypoint: Option<&str>,
 ) -> DocsInfo {
   let mut main_entrypoint = None;
@@ -100,7 +101,7 @@ pub fn get_docs_info(
 
   let base_url = Url::parse("file:///").unwrap();
 
-  for (name, path) in version.exports.iter() {
+  for (name, path) in exports.iter() {
     let specifier = Url::options()
       .base_url(Some(&base_url))
       .parse(path)
@@ -129,12 +130,44 @@ pub fn get_docs_info(
 
 fn get_url_rewriter(
   base: String,
+  github_repository: Option<GithubRepository>,
   is_readme: bool,
 ) -> deno_doc::html::comrak_adapters::URLRewriter {
   Arc::new(move |current_file, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
     }
+
+    let base = if let Some(github_repository) = &github_repository {
+      if url.rsplit_once('.').is_some_and(|(_path, extension)| {
+        matches!(
+          extension,
+          "png"
+            | "jpg"
+            | "jpeg"
+            | "svg"
+            | "webm"
+            | "webp"
+            | "mp4"
+            | "mov"
+            | "avif"
+            | "gif"
+            | "ico"
+        )
+      }) {
+        format!(
+          "https://raw.githubusercontent.com/{}/{}/HEAD",
+          github_repository.owner, github_repository.name
+        )
+      } else {
+        format!(
+          "https://github.com/{}/{}/blob/HEAD",
+          github_repository.owner, github_repository.name
+        )
+      }
+    } else {
+      base.clone()
+    };
 
     if !is_readme {
       if let Some(current_file) = current_file {
@@ -175,6 +208,7 @@ pub fn get_generate_ctx<'a>(
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  github_repository: Option<GithubRepository>,
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
@@ -224,7 +258,7 @@ pub fn get_generate_ctx<'a>(
                 r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
               ),
             },
-            format!("Add Package\n```\ndeno add {scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
+            format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
           );
         }
 
@@ -273,7 +307,6 @@ pub fn get_generate_ctx<'a>(
         map
       })),
       rewrite_map: Some(rewrite_map),
-      composable_output: false,
       category_docs: None,
       disable_search: false,
       symbol_redirect_map: None,
@@ -285,8 +318,11 @@ pub fn get_generate_ctx<'a>(
   )
   .unwrap();
 
-  generate_ctx.url_rewriter =
-    Some(get_url_rewriter(url_rewriter_base, has_readme));
+  generate_ctx.url_rewriter = Some(get_url_rewriter(
+    url_rewriter_base,
+    github_repository,
+    has_readme,
+  ));
 
   generate_ctx
 }
@@ -306,6 +342,7 @@ pub fn generate_docs_html(
   package: PackageName,
   version: Version,
   version_is_latest: bool,
+  github_repository: Option<GithubRepository>,
   readme: Option<String>,
   runtime_compat: RuntimeCompat,
   registry_url: String,
@@ -318,6 +355,7 @@ pub fn generate_docs_html(
     package,
     version,
     version_is_latest,
+    github_repository,
     readme.is_some(),
     runtime_compat,
     registry_url,
@@ -332,19 +370,18 @@ pub fn generate_docs_html(
         .doc_nodes
         .values()
         .flatten()
-        .cloned()
-        .collect::<Vec<_>>();
+        .map(std::borrow::Cow::Borrowed);
 
       let partitions_by_kind =
         deno_doc::html::partition::partition_nodes_by_entrypoint(
-          &all_doc_nodes,
+          all_doc_nodes,
           true,
         );
 
       let sections = deno_doc::html::namespace::render_namespace(
-        &render_ctx,
         partitions_by_kind.into_iter().map(|(path, nodes)| {
           (
+            render_ctx.clone(),
             deno_doc::html::SectionHeaderCtx::new_for_namespace(
               &render_ctx,
               &path,
@@ -531,88 +568,123 @@ fn generate_symbol_page(
 
     if name_parts.peek().is_some() {
       for node in &nodes {
-        let drilldown_node =
-          match node.kind() {
-            DocNodeKind::Class => {
-              let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
-              let mut is_static = true;
+        let drilldown_node = match node.kind() {
+          DocNodeKind::Class => {
+            let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
+            let mut is_static = true;
 
-              if drilldown_parts[0] == "prototype" {
-                if drilldown_parts.len() == 1 {
-                  return Some(SymbolPage::Redirect {
-                    current_symbol: name.to_string(),
-                    href: name.rsplit_once('.').unwrap().0.to_string(),
-                  });
-                } else {
-                  is_static = false;
-                  drilldown_parts.remove(0);
-                }
+            if drilldown_parts[0] == "prototype" {
+              if drilldown_parts.len() == 1 {
+                return Some(SymbolPage::Redirect {
+                  current_symbol: name.to_string(),
+                  href: name.rsplit_once('.').unwrap().0.to_string(),
+                });
+              } else {
+                is_static = false;
+                drilldown_parts.remove(0);
               }
+            }
 
-              let drilldown_name = drilldown_parts.join(".");
+            let drilldown_name = drilldown_parts.join(".");
 
-              let class = node.class_def().unwrap();
+            let class = node.class_def().unwrap();
 
-              class
-                .methods
-                .iter()
-                .find_map(|method| {
-                  if *method.name == drilldown_name
-                    && method.is_static == is_static
+            class
+              .methods
+              .iter()
+              .find_map(|method| {
+                if *method.name == drilldown_name
+                  && method.is_static == is_static
+                {
+                  Some(node.create_child_method(
+                    DocNode::function(
+                      method.name.clone(),
+                      false,
+                      method.location.clone(),
+                      node.declaration_kind,
+                      method.js_doc.clone(),
+                      method.function_def.clone(),
+                    ),
+                    is_static,
+                    method.kind,
+                  ))
+                } else {
+                  None
+                }
+              })
+              .or_else(|| {
+                class.properties.iter().find_map(|property| {
+                  if *property.name == drilldown_name
+                    && property.is_static == is_static
                   {
-                    Some(node.create_child_method(
-                      DocNode::function(
-                        method.name.clone(),
-                        false,
-                        method.location.clone(),
-                        node.declaration_kind,
-                        method.js_doc.clone(),
-                        method.function_def.clone(),
-                      ),
+                    Some(node.create_child_property(
+                      DocNode::from(property.clone()),
                       is_static,
                     ))
                   } else {
                     None
                   }
                 })
-                .or_else(|| {
-                  class.properties.iter().find_map(|property| {
-                    if *property.name == drilldown_name
-                      && property.is_static == is_static
-                    {
-                      Some(node.create_child_property(
-                        DocNode::from(property.clone()),
-                        is_static,
-                      ))
-                    } else {
-                      None
-                    }
-                  })
+              })
+          }
+          DocNodeKind::Interface => {
+            let drilldown_name =
+              name_parts.clone().collect::<Vec<_>>().join(".");
+
+            let interface = node.interface_def().unwrap();
+
+            interface
+              .methods
+              .iter()
+              .find_map(|method| {
+                if method.name == drilldown_name {
+                  Some(node.create_child_method(
+                    DocNode::from(method.clone()),
+                    true,
+                    method.kind,
+                  ))
+                } else {
+                  None
+                }
+              })
+              .or_else(|| {
+                interface.properties.iter().find_map(|property| {
+                  if property.name == drilldown_name {
+                    Some(node.create_child_property(
+                      DocNode::from(property.clone()),
+                      true,
+                    ))
+                  } else {
+                    None
+                  }
                 })
-            }
-            DocNodeKind::Interface => {
+              })
+          }
+          DocNodeKind::TypeAlias => {
+            let type_alias = node.type_alias_def().unwrap();
+
+            if let Some(ts_type_literal) =
+              type_alias.ts_type.type_literal.as_ref()
+            {
               let drilldown_name =
                 name_parts.clone().collect::<Vec<_>>().join(".");
 
-              let interface = node.interface_def().unwrap();
-
-              interface
+              ts_type_literal
                 .methods
                 .iter()
                 .find_map(|method| {
                   if method.name == drilldown_name {
-                    Some(
-                      node.create_child_method(
-                        DocNode::from(method.clone()),
-                        true,
-                      ),
-                    )
+                    Some(node.create_child_method(
+                      DocNode::from(method.clone()),
+                      true,
+                      method.kind,
+                    ))
                   } else {
                     None
                   }
                 })
                 .or_else(|| {
-                  interface.properties.iter().find_map(|property| {
+                  ts_type_literal.properties.iter().find_map(|property| {
                     if property.name == drilldown_name {
                       Some(node.create_child_property(
                         DocNode::from(property.clone()),
@@ -623,91 +695,57 @@ fn generate_symbol_page(
                     }
                   })
                 })
+            } else {
+              None
             }
-            DocNodeKind::TypeAlias => {
-              let type_alias = node.type_alias_def().unwrap();
+          }
+          DocNodeKind::Variable => {
+            let variable = node.variable_def().unwrap();
 
-              if let Some(ts_type_literal) =
-                type_alias.ts_type.type_literal.as_ref()
-              {
-                let drilldown_name =
-                  name_parts.clone().collect::<Vec<_>>().join(".");
+            if let Some(ts_type_literal) = variable
+              .ts_type
+              .as_ref()
+              .and_then(|ts_type| ts_type.type_literal.as_ref())
+            {
+              let drilldown_name =
+                name_parts.clone().collect::<Vec<_>>().join(".");
 
-                ts_type_literal
-                  .methods
-                  .iter()
-                  .find_map(|method| {
-                    if method.name == drilldown_name {
-                      Some(node.create_child_method(
-                        DocNode::from(method.clone()),
+              ts_type_literal
+                .methods
+                .iter()
+                .find_map(|method| {
+                  if method.name == drilldown_name {
+                    Some(node.create_child_method(
+                      DocNode::from(method.clone()),
+                      true,
+                      method.kind,
+                    ))
+                  } else {
+                    None
+                  }
+                })
+                .or_else(|| {
+                  ts_type_literal.properties.iter().find_map(|property| {
+                    if property.name == drilldown_name {
+                      Some(node.create_child_property(
+                        DocNode::from(property.clone()),
                         true,
                       ))
                     } else {
                       None
                     }
                   })
-                  .or_else(|| {
-                    ts_type_literal.properties.iter().find_map(|property| {
-                      if property.name == drilldown_name {
-                        Some(node.create_child_property(
-                          DocNode::from(property.clone()),
-                          true,
-                        ))
-                      } else {
-                        None
-                      }
-                    })
-                  })
-              } else {
-                None
-              }
+                })
+            } else {
+              None
             }
-            DocNodeKind::Variable => {
-              let variable = node.variable_def().unwrap();
-
-              if let Some(ts_type_literal) = variable
-                .ts_type
-                .as_ref()
-                .and_then(|ts_type| ts_type.type_literal.as_ref())
-              {
-                let drilldown_name =
-                  name_parts.clone().collect::<Vec<_>>().join(".");
-
-                ts_type_literal
-                  .methods
-                  .iter()
-                  .find_map(|method| {
-                    if method.name == drilldown_name {
-                      Some(node.create_child_method(
-                        DocNode::from(method.clone()),
-                        true,
-                      ))
-                    } else {
-                      None
-                    }
-                  })
-                  .or_else(|| {
-                    ts_type_literal.properties.iter().find_map(|property| {
-                      if property.name == drilldown_name {
-                        Some(node.create_child_property(
-                          DocNode::from(property.clone()),
-                          true,
-                        ))
-                      } else {
-                        None
-                      }
-                    })
-                  })
-              } else {
-                None
-              }
-            }
-            DocNodeKind::Import
-            | DocNodeKind::Enum
-            | DocNodeKind::ModuleDoc
-            | DocNodeKind::Function
-            | DocNodeKind::Namespace => None,
-          };
+          }
+          DocNodeKind::Import
+          | DocNodeKind::Enum
+          | DocNodeKind::ModuleDoc
+          | DocNodeKind::Function
+          | DocNodeKind::Namespace => None,
+        };
 
         if let Some(drilldown_node) = drilldown_node {
           break 'outer vec![drilldown_node];
@@ -809,7 +847,7 @@ impl HrefResolver for DocResolver {
         )
       }
       UrlResolveKind::File(file) => format!(
-        "{doc_base}{}/~/",
+        "{doc_base}{}/",
         if file.is_main {
           String::new()
         } else {
@@ -956,7 +994,7 @@ mod tests {
           UrlResolveKind::Root,
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -985,7 +1023,7 @@ mod tests {
           UrlResolveKind::AllSymbols,
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1019,7 +1057,7 @@ mod tests {
           UrlResolveKind::File(&short_path),
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1062,7 +1100,7 @@ mod tests {
           },
           UrlResolveKind::File(&short_path)
         ),
-        "/@foo/bar@0.0.1/doc/mod/~/"
+        "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1083,7 +1121,7 @@ mod tests {
   #[test]
   fn test_url_rewriter() {
     let base = String::from("/@foo/bar/1.2.3");
-    let rewriter = get_url_rewriter(base.clone(), false);
+    let rewriter = get_url_rewriter(base.clone(), None, false);
 
     assert_eq!(rewriter(None, "#hello"), "#hello");
 
@@ -1105,7 +1143,7 @@ mod tests {
       "/@foo/bar/1.2.3/src/./logo.svg"
     );
 
-    let rewriter = get_url_rewriter(base, true);
+    let rewriter = get_url_rewriter(base.clone(), None, true);
 
     assert_eq!(rewriter(None, "#hello"), "#hello");
 
@@ -1125,6 +1163,43 @@ mod tests {
         "./src/assets/logo.svg"
       ),
       "/@foo/bar/1.2.3/./src/assets/logo.svg"
+    );
+
+    let rewriter = get_url_rewriter(
+      base,
+      Some(GithubRepository {
+        id: 0,
+        owner: "foo".to_string(),
+        name: "bar".to_string(),
+        updated_at: Default::default(),
+        created_at: Default::default(),
+      }),
+      true,
+    );
+
+    assert_eq!(rewriter(None, "#hello"), "#hello");
+
+    assert_eq!(
+      rewriter(None, "src/assets/foo"),
+      "https://github.com/foo/bar/blob/HEAD/src/assets/foo"
+    );
+
+    assert_eq!(
+      rewriter(None, "src/assets/logo.svg"),
+      "https://raw.githubusercontent.com/foo/bar/HEAD/src/assets/logo.svg"
+    );
+
+    assert_eq!(
+      rewriter(
+        Some(&ShortPath::new(
+          ModuleSpecifier::parse("file:///esm").unwrap(),
+          None,
+          None,
+          None,
+        )),
+        "./src/assets/logo.svg"
+      ),
+      "https://raw.githubusercontent.com/foo/bar/HEAD/./src/assets/logo.svg"
     );
   }
 }

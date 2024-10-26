@@ -62,6 +62,15 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
 
 export const handler: Handlers<Data, State> = {
   async GET(_, ctx) {
+    if (ctx.url.pathname.endsWith("/~")) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: ctx.url.pathname.slice(0, -2),
+        },
+      });
+    }
+
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,
@@ -100,5 +109,5 @@ export const handler: Handlers<Data, State> = {
 };
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package{@:version}?/doc/:entrypoint*/~",
+  routeOverride: "/@:scope/:package{@:version}?/doc/:entrypoint([^~]*){/~}?",
 };

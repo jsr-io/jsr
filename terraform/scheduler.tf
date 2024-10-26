@@ -29,15 +29,30 @@ resource "google_cloud_scheduler_job" "scrape_download_counts" {
   }
 }
 
-resource "google_cloud_scheduler_job" "orama_deploy" {
-  name        = "orama-deploy"
-  description = "Deploy the Orama index with any new changes"
+resource "google_cloud_scheduler_job" "orama_package_deploy" {
+  name        = "orama-package-deploy"
+  description = "Deploy the package Orama index with any new changes"
   schedule    = "*/15 * * * *"
   region      = "us-central1"
 
   http_target {
     http_method = "POST"
     uri         = "https://api.oramasearch.com/api/v1/webhooks/${var.orama_package_index_id}/deploy"
+    headers = {
+      "Authorization" = "Bearer ${var.orama_package_private_api_key}"
+    }
+  }
+  }
+
+resource "google_cloud_scheduler_job" "orama_symbols_deploy" {
+  name        = "orama-symbols-deploy"
+  description = "Deploy the symbols Orama index with any new changes"
+  schedule    = "*/15 * * * *"
+  region      = "us-central1"
+
+    http_target {
+    http_method = "POST"
+    uri         = "https://api.oramasearch.com/api/v1/webhooks/${var.orama_symbols_index_id}/deploy"
     headers = {
       "Authorization" = "Bearer ${var.orama_package_private_api_key}"
     }

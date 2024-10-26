@@ -78,10 +78,10 @@ deno_semver = "0.5.2"
 flate2 = "1"
 thiserror = "1"
 async-tar = "0.4.2"
-deno_graph = "0.82.1"
+deno_graph = "0.83.3"
 deno_ast = { version = "0.42.0", features = ["view"] }
-deno_doc = { version = "0.148.0", features = ["tree-sitter"] }
-comrak = { version = "0.26.0", default-features = false }
+deno_doc = { version = "0.155.0" }
+comrak = { version = "0.28.0", default-features = false }
 async-trait = "0.1.73"
 jsonwebkey = { version = "0.3.5", features = ["jsonwebtoken", "jwt-convert"] }
 jsonwebtoken = "8.3.0"

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n      INSERT INTO packages (scope, name)\n      VALUES ($1, $2)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", when_featured, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"latest_version\"\n      ",
+  "query": "UPDATE packages\n      SET github_repository_id = NULL\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
   "describe": {
     "columns": [
       {
@@ -35,21 +35,26 @@
       },
       {
         "ordinal": 6,
+        "name": "is_archived",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "version_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "latest_version",
         "type_info": "Text"
       }
@@ -69,9 +74,10 @@
       true,
       false,
       false,
+      false,
       null,
       null
     ]
   },
-  "hash": "aed1965063539a80106f1c1ab6e2f90a32d4934d0a6a0d4c5b1f0856f2f7a489"
+  "hash": "07034b49dc67039c72b124b4dc3fded2006a8c84eec11dda88ada257681d5824"
 }
