@@ -233,6 +233,10 @@ errors!(
     status: BAD_REQUEST,
     "The provided package name is not allowed.",
   },
+  PackageArchived {
+    status: BAD_REQUEST,
+    "The requested package is archived. Unarchive it to modify settings or publish to it.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {

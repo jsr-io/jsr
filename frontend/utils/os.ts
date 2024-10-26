@@ -4,5 +4,5 @@ import { IS_BROWSER } from "$fresh/runtime.ts";
 
 export function useMacLike(): boolean | undefined {
   if (!IS_BROWSER) return undefined;
-  return !!window.navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i);
+  return !!navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i);
 }

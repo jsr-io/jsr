@@ -3,6 +3,7 @@ export function Source(props: { class?: string }) {
   return (
     <svg
       class={`w-4 h-4 ${props.class ?? ""}`}
+      aria-hidden="true"
       viewBox="0 0 14 14"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

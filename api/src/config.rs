@@ -66,14 +66,18 @@ pub struct Config {
   pub github_client_secret: String,
 
   #[clap(long = "orama_package_index_id", env = "ORAMA_PACKAGE_INDEX_ID")]
-  /// The GitHub Client ID
+  /// The Orama index for package search
   pub orama_package_index_id: Option<String>,
+
+  #[clap(long = "orama_symbols_index_id", env = "ORAMA_SYMBOLS_INDEX_ID")]
+  /// The Orama index for symbol search
+  pub orama_symbols_index_id: Option<String>,
 
   #[clap(
     long = "orama_package_private_api_key",
     env = "ORAMA_PACKAGE_PRIVATE_API_KEY"
   )]
-  /// The GitHub Client Secret
+  /// The private API key for Orama
   pub orama_package_private_api_key: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
@@ -129,6 +133,14 @@ pub struct Config {
   )]
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
+
+  #[clap(long = "logs_bigquery_table_id", env = "LOGS_BIGQUERY_TABLE_ID")]
+  /// The ID of the logs table in BigQuery that is used for download analysis.
+  pub logs_bigquery_table_id: Option<String>,
+
+  #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
+  /// The ID of the project.
+  pub gcp_project_id: Option<String>,
 
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.

@@ -49,13 +49,15 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
 
       <GitHubRepository package={data.package} />
 
+      <ArchivePackage isArchived={data.package.isArchived} />
+
       <DeletePackage hasVersions={data.package.versionCount > 0} />
 
       {data.iam.isStaff && (
         <div class="border-t pt-8 mt-12">
           <h2 class="text-xl font-sans font-bold">Staff area</h2>
 
-          <p class="mt-2 text-gray-600 max-w-3xl">
+          <p class="mt-2 text-jsr-gray-600 max-w-3xl">
             Feature a package on the homepage.
           </p>
 
@@ -73,16 +75,16 @@ function GitHubRepository(props: { package: Package }) {
     <div class="border-t pt-8 mt-12">
       <h2 class="text-xl font-sans font-bold">GitHub Repository</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
         The GitHub repository is shown publicly on the package page.
       </p>
 
-      <p class="mt-2 mb-4 text-gray-600 max-w-3xl">
+      <p class="mt-2 mb-4 text-jsr-gray-600 max-w-3xl">
         Specifying a GitHub repository also enables securely publishing from
         GitHub Actions using OIDC — no need to specify tokens or secrets.{" "}
         <a
           href={`/@${props.package.scope}/${props.package.name}/publish#from-ci`}
-          class="text-cyan-700 hover:underline"
+          class="text-jsr-cyan-700 hover:underline"
         >
           Set up publishing from GitHub Actions.
         </a>
@@ -102,7 +104,7 @@ function DescriptionEditor(props: { description: string }) {
     <form class="mt-8" method="POST">
       <h2 class="text-xl font-sans font-bold" id="description">Description</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
         The package description is shown on the package page and in search
         results.
       </p>
@@ -121,7 +123,7 @@ function RuntimeCompatEditor(props: { runtimeCompat: RuntimeCompat }) {
         Runtime Compat
       </h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
         Set which packages this package is compatible with. This information is
         shown on the package page and in search results.
       </p>
@@ -155,7 +157,7 @@ function RuntimeCompatEditorItem({ name, id, value }: {
   value: boolean | undefined;
 }) {
   return (
-    <label class="block text-gray-600 font-bold" htmlFor={id}>
+    <label class="block text-jsr-gray-600 font-bold" htmlFor={id}>
       {name}
       <select
         class="block w-64 py-1.5 px-2 input-container select text-sm font-normal mt-1"
@@ -170,12 +172,61 @@ function RuntimeCompatEditorItem({ name, id, value }: {
   );
 }
 
+function ArchivePackage(props: { isArchived: boolean }) {
+  if (!props.isArchived) {
+    return (
+      <form class="border-t pt-8 mt-12" method="POST">
+        <h2 class="text-xl font-sans font-bold">Archive package</h2>
+
+        <p className="mt-2 text-jsr-gray-600 max-w-3xl">
+          Archiving a package removes it from search indexing and the scope
+          page, making it undiscoverable to users.
+          <br />
+          Additionally, you won’t be able to publish new versions to this
+          package until you unarchive it.
+        </p>
+
+        <button
+          class="button-danger mt-4"
+          type="submit"
+          name="action"
+          value="archivePackage"
+        >
+          Archive package
+        </button>
+      </form>
+    );
+  } else {
+    return (
+      <form class="border-t pt-8 mt-12" method="POST">
+        <h2 class="text-xl font-sans font-bold">Unarchive package</h2>
+
+        <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+          Unarchiving a package restores its availability in search results and
+          makes it visible on the scope page again.
+          <br />
+          This also allows you to publish new versions to the package.
+        </p>
+
+        <button
+          class="button-danger mt-4"
+          type="submit"
+          name="action"
+          value="unarchivePackage"
+        >
+          Unarchive package
+        </button>
+      </form>
+    );
+  }
+}
+
 function DeletePackage(props: { hasVersions: boolean }) {
   return (
     <form class="border-t pt-8 mt-12" method="POST">
       <h2 class="text-xl font-sans font-bold">Delete package</h2>
 
-      <p class="mt-2 text-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
         A package can only be deleted if it has no published versions.
         <br />
         This action cannot be undone.
@@ -255,6 +306,28 @@ export const handler: Handlers<Data, State> = {
     const action = String(data.get("action"));
 
     switch (action) {
+      case "archivePackage": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isArchived: true },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
+      case "unarchivePackage": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isArchived: false },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
       case "deletePackage": {
         const deleteRes = await api.delete(
           path`/scopes/${scope}/packages/${packageName}`,

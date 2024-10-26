@@ -37,9 +37,12 @@ export const handler: Handlers<unknown, State> = {
       shieldsUrl.search = url.search;
       shieldsUrl.searchParams.set("url", url.href);
       shieldsUrl.searchParams.set("logo", "jsr");
-      shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
       shieldsUrl.searchParams.set("logoSize", "auto");
       shieldsUrl.searchParams.set("cacheSeconds", "300");
+
+      if (!ctx.url.searchParams.has("logoColor")) {
+        shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
+      }
 
       const res = await fetch(shieldsUrl);
 

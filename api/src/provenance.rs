@@ -104,7 +104,17 @@ pub struct Subject {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProvenanceAttestation {
-  pub subject: Subject,
+  pub subject: ProvenanceAttestationSubject,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ProvenanceAttestationSubject {
+  Subjects(Vec<Subject>),
+  // NOTE: this should be removed in the future. It is only here to support
+  // old Deno CLI versions that sent invalid SLSA attestations where the subject
+  // was not wrapped in an array.
+  Subject(Subject),
 }
 
 pub fn verify(
@@ -116,6 +126,16 @@ pub fn verify(
     let payload =
       BASE64_STANDARD.decode(&bundle.content.dsse_envelope.payload)?;
     serde_json::from_slice::<ProvenanceAttestation>(&payload)?.subject
+  };
+
+  let subject = match subject {
+    ProvenanceAttestationSubject::Subjects(subjects) => {
+      if subjects.len() != 1 {
+        bail!("Invalid subject");
+      }
+      subjects.into_iter().next().unwrap()
+    }
+    ProvenanceAttestationSubject::Subject(subject) => subject,
   };
 
   if subject.name != subject_name {

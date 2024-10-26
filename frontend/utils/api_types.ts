@@ -118,6 +118,7 @@ export interface Package {
   score: number | null;
   latestVersion: string | null;
   whenFeatured: string | null;
+  isArchived: boolean;
 }
 
 export interface PackageVersion {

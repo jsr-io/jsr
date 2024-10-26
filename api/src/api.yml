@@ -464,6 +464,12 @@ paths:
             type: integer
             minimum: 1
             default: 1
+        - name: query
+          in: query
+          required: false
+          description: The search query
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -799,7 +805,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-
+  /scopes/{scope}/packages/{package}/score:
+    get:
+      summary: Get package score
+      description: Returns the package score details
+      operationId: getPackageScore
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageScore"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /scopes/{scope}/packages/{package}/versions:
     get:
       summary: List package versions
@@ -839,7 +881,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-
   /scopes/{scope}/packages/{package}/versions/{version}:
     get:
       summary: Get package version details
@@ -1711,6 +1752,8 @@ components:
           description: The date and time when the package was last updated.
         githubRepository:
           $ref: "#/components/schemas/GitHubRepository"
+        score:
+          type: number
       required:
         - scope
         - name
@@ -1761,6 +1804,13 @@ components:
               $ref: "#/components/schemas/RuntimeCompat"
           required:
             - runtimeCompat
+        - type: object
+          properties:
+            isArchived:
+              type: boolean
+              description: Whether this package should be archived or not.
+          required:
+            - isArchived
 
     RuntimeCompat:
       type: object
@@ -1816,7 +1866,7 @@ components:
       properties:
         scope:
           $ref: "#/components/schemas/ScopeName"
-        name:
+        package:
           $ref: "#/components/schemas/PackageName"
         version:
           $ref: "#/components/schemas/Version"
@@ -1831,6 +1881,9 @@ components:
           type: string
           format: date-time
           description: The date and time when the package version was last updated.
+        rekorLogId:
+          type: string
+          description: Rekor log ID for the published package version.
       required:
         - scope
         - name
@@ -2073,6 +2126,46 @@ components:
           description: The recently uploaded package versions.
           items:
             $ref: "#/components/schemas/PackageVersion"
+        featured:
+          type: array
+          description: The featured packages
+          items:
+            $ref: "#/components/schemas/Package"
       required:
         - newest
         - updated
+        - featured
+
+    PackageScore:
+      type: object
+      properties:
+        hasReadme:
+          type: boolean
+        hasReadmeExamples:
+          type: boolean
+        allEntrypointsDocs:
+          type: boolean
+        percentageDocumentedSymbols:
+          type: number
+        allFastCheck:
+          type: boolean
+        hasProvenance:
+          type: boolean
+        hasDescription:
+          type: boolean
+        atLeastOneRuntimeCompatible:
+          type: boolean
+        multipleRuntimesCompatible:
+          type: boolean
+        total:
+          type: integer
+      required:
+        - hasReadme
+        - hasReadmeExamples
+        - allEntrypointsDocs
+        - percentageDocumentedSymbols
+        - allFastCheck
+        - hasProvenance
+        - hasDescription
+        - atLeastOneRuntimeCompatible
+        - multipleRuntimesCompatible

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET when_featured = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", when_featured, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
+  "query": "UPDATE packages\n      SET description = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\",\n        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"package_version_meta: PackageVersionMeta\"",
   "describe": {
     "columns": [
       {
@@ -35,30 +35,40 @@
       },
       {
         "ordinal": 6,
+        "name": "is_archived",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "version_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "latest_version",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "package_version_meta: PackageVersionMeta",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
       "Left": [
         "Text",
         "Text",
-        "Timestamptz"
+        "Text"
       ]
     },
     "nullable": [
@@ -70,9 +80,11 @@
       true,
       false,
       false,
+      false,
+      null,
       null,
       null
     ]
   },
-  "hash": "5a36aaecf21189735d40a12aa5f9025a8eda85b72ad9bda54b3ed438e16f965c"
+  "hash": "10f4f8d85111c52949d4ad77f8b7456c14ad8acc9714754c094c875ab0aa9877"
 }

@@ -8,13 +8,16 @@ import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
 export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
+    parentClass: ("isArchived" in pkg && pkg.isArchived)
+      ? "bg-red-100"
+      : undefined,
     content: (
       <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
         <div class="grow-1">
-          <div class="text-cyan-700 font-semibold">
+          <div class="text-jsr-cyan-700 font-semibold">
             {`@${pkg.scope}/${pkg.name}`}
           </div>
-          <div class="text-sm text-gray-600">
+          <div class="text-sm text-jsr-gray-600">
             {pkg.description}
           </div>
         </div>

@@ -62,19 +62,23 @@ export default function PackagePage(
       />
 
       <div class="space-y-3 pt-3">
-        <div class="pl-2">
+        <div class="flex flex-row gap-1 items-center pt-1 pl-3">
           {data.sourcePath.split("/").filter((part, i) =>
             !(part === "" && i !== 0)
           ).map((part, i, arr) => {
             if (part === "") {
               // @ts-ignore ok
-              part = <span class="italic">root</span>;
+              part = (
+                <span class="text-lg font-semibold">
+                  Package root
+                </span>
+              );
             }
             return (
               <>
                 {i !== 0 && (
-                  <span class="px-1.5 text-xs text-gray-600 select-none">
-                    &#x25B6;
+                  <span class="px-2 text-md text-jsr-gray-600 select-none">
+                    {"\u003E"}
                   </span>
                 )}
 
@@ -111,9 +115,9 @@ export default function PackagePage(
               : (
                 data.source.source.view
                   ? (
-                    <div class="ddoc border border-cyan-300 rounded">
+                    <div class="ddoc">
                       <div
-                        class="markdown children:!bg-transparent"
+                        class="markdown ddoc-full children:!bg-transparent"
                         dangerouslySetInnerHTML={{
                           __html: data.source.source.view,
                         }}
@@ -133,14 +137,14 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
   return (
     <div class="grow-1 flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
-        <div class="text-gray-500">
+        <div class="text-jsr-gray-500">
           {entry.kind === "dir" ? <Folder /> : <SourceIcon />}
         </div>
         <div class="text-cyan-700 font-semibold">
           {entry.name}
         </div>
       </div>
-      <div class="text-sm text-gray-600">
+      <div class="text-sm text-jsr-gray-600">
         {bytesToSize(entry.size)}
       </div>
     </div>

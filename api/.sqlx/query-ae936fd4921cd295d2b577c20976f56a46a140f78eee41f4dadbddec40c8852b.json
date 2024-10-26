@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"newer_versions_count!\"\n      FROM package_versions\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
+  "query": "SELECT package_versions.scope as \"scope: ScopeName\", package_versions.name as \"name: PackageName\", package_versions.version as \"version: Version\", package_versions.user_id, package_versions.readme_path as \"readme_path: PackagePath\", package_versions.exports as \"exports: ExportsMap\", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as \"meta: PackageVersionMeta\", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"newer_versions_count!\",\n      (SELECT COALESCE(SUM(dl.count), 0)\n        FROM version_download_counts_24h as dl\n        WHERE dl.scope = package_versions.scope\n        AND dl.package = package_versions.name\n        AND dl.version = package_versions.version) as \"lifetime_download_count!\"\n      FROM package_versions\n      JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name\n      WHERE NOT packages.is_archived\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
   "describe": {
     "columns": [
       {
@@ -67,6 +67,11 @@
         "ordinal": 12,
         "name": "newer_versions_count!",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "lifetime_download_count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -85,8 +90,9 @@
       false,
       false,
       true,
+      null,
       null
     ]
   },
-  "hash": "5c2db2f89be685fa37d4ff432e2743ec7e72301f00cf20da8dcbdf0f6c1b5a7b"
+  "hash": "ae936fd4921cd295d2b577c20976f56a46a140f78eee41f4dadbddec40c8852b"
 }

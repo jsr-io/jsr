@@ -26,6 +26,9 @@ locals {
 
     "PUBLISH_QUEUE_ID"           = google_cloud_tasks_queue.publishing_tasks.id
     "NPM_TARBALL_BUILD_QUEUE_ID" = google_cloud_tasks_queue.npm_tarball_build_tasks.id
+
+    "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
+    "GCP_PROJECT_ID"         = var.gcp_project
   }
 }
 
@@ -51,6 +54,13 @@ resource "google_cloud_run_v2_service" "registry_api" {
       args = [
         "--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"
       ]
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
 
       dynamic "env" {
         for_each = local.api_envs
@@ -99,6 +109,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
           }
         }
       }
+
+      env {
+        name = "ORAMA_SYMBOLS_INDEX_ID"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.orama_symbols_index_id.id
+            version = "latest"
+          }
+        }
+      }
     }
 
     vpc_access {
@@ -126,6 +146,10 @@ resource "google_compute_backend_service" "registry_api" {
     "x-jsr-cache-id: {cdn_cache_id}",
     "x-jsr-cache-status: {cdn_cache_status}",
     "X-Robots-Tag: noindex",
+    "access-control-allow-origin: *",
+    "access-control-expose-headers: *",
+    "Cross-Origin-Resource-Policy: cross-origin",
+    "X-Content-Type-Options: nosniff",
   ]
 
   enable_cdn = true
@@ -223,6 +247,16 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
           }
         }
       }
+
+      env {
+        name = "ORAMA_SYMBOLS_INDEX_ID"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.orama_symbols_index_id.id
+            version = "latest"
+          }
+        }
+      }
     }
 
     vpc_access {
@@ -294,6 +328,12 @@ resource "google_secret_manager_secret_iam_member" "orama_package_index_id" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "orama_symbols_index_id" {
+  secret_id = google_secret_manager_secret.orama_symbols_index_id.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
 resource "google_project_iam_member" "api_cloud_trace" {
   project = google_cloud_run_v2_service.registry_api.project
   role    = "roles/cloudtrace.agent"
@@ -316,4 +356,16 @@ resource "google_service_account_iam_member" "act_as_task_dispatcher" {
   service_account_id = google_service_account.task_dispatcher.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_project_iam_member" "bigquery" {
+  project = var.gcp_project
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "registry_api_logs" {
+  dataset_id = data.google_bigquery_dataset.default.dataset_id
+  role       = "roles/bigquery.dataViewer"
+  member     = "serviceAccount:${google_service_account.registry_api.email}"
 }

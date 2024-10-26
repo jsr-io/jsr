@@ -94,7 +94,7 @@ imposes on TypeScript code:
    `export =` or `import foo = require("foo")`.
 
 1. All types in exported functions, classes, variables, and types must be simply
-   inferred or explicit. If an expression is too complex to be inferred, it's
+   inferred or explicit. If an expression is too complex to be inferred, its
    type should be explicitly assigned to an intermediate type.
 
 1. Destructuring in exports is not supported. Instead of destructuring, export
@@ -177,7 +177,7 @@ Use ESM syntax instead:
 
 All types in exported functions, classes, variables, and types must be
 [simply inferred](#simple-inference) or explicit. If an expression is too
-complex to be inferred, it's type should be explicitly assigned to an
+complex to be inferred, its type should be explicitly assigned to an
 intermediate type.
 
 For example, in the following case the type of the default export is too complex

@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
+import { ExternalLink } from "../../../components/icons/ExternalLink.tsx";
 import { GitHub } from "../../../components/icons/GitHub.tsx";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
@@ -30,6 +31,12 @@ export function PackageHeader(
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
+      {pkg.isArchived && (
+        <div class="rounded border border-red-300 bg-red-100 flex items-center justify-center p-4">
+          This package has been archived, and as such it is read-only.
+        </div>
+      )}
+
       {selectedVersion && pkg.latestVersion &&
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
@@ -47,8 +54,7 @@ export function PackageHeader(
                 ? (
                   <>
                     is a pre-release — the latest non-prerelease version of
-                    @{pkg
-                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                    @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (
@@ -73,7 +79,7 @@ export function PackageHeader(
         </div>
       )}
 
-      <div class="flex flex-col md:flex-row items-start justify-between gap-6">
+      <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6">
         <div class="space-y-3.5 flex-shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
@@ -81,12 +87,14 @@ export function PackageHeader(
                 <span>
                   <a
                     href={`/@${pkg.scope}`}
-                    class="link font-bold no-underline"
+                    class="link font-bold pr-1 no-underline"
+                    aria-label={`Scope: @${pkg.scope}`}
                   >
                     @{pkg.scope}
                   </a>/<a
                     href={`/@${pkg.scope}/${pkg.name}`}
                     class="link font-semibold no-underline"
+                    aria-label={`Package: ${pkg.name}`}
                   >
                     {pkg.name}
                   </a>
@@ -94,7 +102,10 @@ export function PackageHeader(
 
                 {selectedVersion &&
                   (
-                    <span class="text-lg md:text-[0.75em] font-bold">
+                    <span
+                      class="text-lg md:text-[0.75em] font-bold"
+                      aria-label={`Version: ${selectedVersion.version}`}
+                    >
                       <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
                         @
                       </span>
@@ -126,31 +137,35 @@ export function PackageHeader(
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-0 !inline-flex items-center gap-1 select-none"
+                  class="chip sm:big-chip bg-jsr-gray-100 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" />
+                  <GitHub class="text-black !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
+                  <ExternalLink strokeWidth="2.25" />
                 </a>
               )}
             </div>
           </div>
 
           {pkg.description && (
-            <p class="text-gray-600 max-w-3xl md:!mb-8">{pkg.description}</p>
+            <p class="text-jsr-gray-600 max-w-3xl md:!mb-8">
+              {pkg.description}
+            </p>
           )}
         </div>
 
-        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
+        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4 md:ml-auto">
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
             {runtimeCompat &&
               (
                 <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
-                  <div>Works with</div>
+                  <div aria-hidden="true">Works with</div>
                   {runtimeCompat}
                 </div>
               )}

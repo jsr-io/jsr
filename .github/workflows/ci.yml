@@ -25,7 +25,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 1.x
+          deno-version: 2.0.0-rc.1
 
       - name: Check license headers
         run: deno task lint:license
@@ -59,7 +59,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Setup postgres for tests
-        run: docker-compose up -d
+        run: docker compose up -d
 
       - name: Build
         run: cargo build --all-targets --tests
@@ -92,7 +92,7 @@ jobs:
         working-directory: api
 
   docker-images:
-    if: github.event_name == 'merge_group' || github.event_name == 'push'
+    if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -157,7 +157,7 @@ jobs:
         run: echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
 
   staging:
-    if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
     needs: docker-images
     environment:
@@ -173,7 +173,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 1.x
+          deno-version: 2.0.0-rc.1
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
@@ -200,6 +200,7 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
           TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
+          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
 
       - name: terraform apply
@@ -231,7 +232,7 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: 1.x
+          deno-version: 2.0.0-rc.1
 
       - name: Install terraform
         uses: hashicorp/setup-terraform@v3
@@ -258,6 +259,7 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
           TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
+          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
 
       - name: terraform apply
@@ -271,4 +273,3 @@ jobs:
           ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
           ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
         run: deno task tools:orama:docs_reindex
-

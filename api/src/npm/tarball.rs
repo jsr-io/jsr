@@ -193,7 +193,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Source,
@@ -214,7 +214,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Declaration,
@@ -234,12 +234,9 @@ pub async fn create_npm_tarball<'a>(
         let (source, source_map) =
           transpile_to_js(&parsed_source, specifier_rewriter, source_target)
             .unwrap();
+        package_files.insert(source_target.path().to_owned(), source);
         package_files
-          .insert(source_target.path().to_owned(), source.into_bytes());
-        package_files.insert(
-          format!("{}.map", source_target.path()),
-          source_map.into_bytes(),
-        );
+          .insert(format!("{}.map", source_target.path()), source_map);
       }
       deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
@@ -254,7 +251,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Source,
@@ -273,12 +270,9 @@ pub async fn create_npm_tarball<'a>(
         let (source, source_map) =
           transpile_to_js(&parsed_source, specifier_rewriter, source_target)
             .unwrap();
+        package_files.insert(source_target.path().to_owned(), source);
         package_files
-          .insert(source_target.path().to_owned(), source.into_bytes());
-        package_files.insert(
-          format!("{}.map", source_target.path()),
-          source_map.into_bytes(),
-        );
+          .insert(format!("{}.map", source_target.path()), source_map);
 
         if let Some(fast_check_module) = js.fast_check_module() {
           let declaration_target =
@@ -295,13 +289,11 @@ pub async fn create_npm_tarball<'a>(
             specifier_rewriter,
             declaration_target,
           )?;
-          package_files.insert(
-            declaration_target.path().to_owned(),
-            declaration.into_bytes(),
-          );
+          package_files
+            .insert(declaration_target.path().to_owned(), declaration);
           package_files.insert(
             format!("{}.map", declaration_target.path()),
-            declaration_map.into_bytes(),
+            declaration_map,
           );
         }
       }
@@ -630,12 +622,12 @@ mod tests {
   use deno_graph::ModuleGraph;
   use deno_graph::WorkspaceFastCheckOption;
   use deno_graph::WorkspaceMember;
-  use deno_semver::package::PackageNv;
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
   use url::Url;
 
+  use crate::analysis::JsrResolver;
   use crate::analysis::ModuleAnalyzer;
   use crate::analysis::PassthroughJsrUrlProvider;
   use crate::db::DependencyKind;
@@ -693,14 +685,13 @@ mod tests {
 
     let loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
-    let workspace_members = vec![WorkspaceMember {
+    let workspace_member = WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
+      name: format!("@{}/{}", scope, package),
+      version: Some(version.0.clone()),
       exports: exports.clone().into_inner(),
-      nv: PackageNv {
-        name: format!("@{}/{}", scope, package),
-        version: version.0.clone(),
-      },
-    }];
+    };
+    let workspace_members = vec![workspace_member.clone()];
 
     let mut roots: Vec<ModuleSpecifier> = vec![];
     for ex in exports.iter() {
@@ -717,9 +708,10 @@ mod tests {
         BuildOptions {
           is_dynamic: false,
           module_analyzer: &module_analyzer,
-          workspace_members: &workspace_members,
           file_system: &NullFileSystem,
-          resolver: None,
+          resolver: Some(&JsrResolver {
+            member: workspace_member,
+          }),
           npm_resolver: None,
           reporter: None,
           jsr_url_provider: &PassthroughJsrUrlProvider,
@@ -795,7 +787,7 @@ mod tests {
     }
 
     if std::env::var("UPDATE").is_ok() {
-      spec.output_file.text = output.clone();
+      spec.output_file.text.clone_from(&output);
       std::fs::write(spec_path, spec.emit())?;
     } else {
       assert_eq!(

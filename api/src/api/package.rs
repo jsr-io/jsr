@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
+use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use futures::future::Either;
 use futures::StreamExt;
@@ -65,12 +66,17 @@ use crate::util::VersionOrLatest;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 
+use super::ApiCreatePackageRequest;
 use super::ApiDependency;
 use super::ApiDependent;
+use super::ApiDownloadDataPoint;
 use super::ApiError;
 use super::ApiList;
 use super::ApiMetrics;
 use super::ApiPackage;
+use super::ApiPackageDownloads;
+use super::ApiPackageDownloadsRecentVersion;
+use super::ApiPackageScore;
 use super::ApiPackageVersion;
 use super::ApiPackageVersionDocs;
 use super::ApiPackageVersionSource;
@@ -84,7 +90,6 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
-use super::{ApiCreatePackageRequest, ApiPackageScore};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -102,6 +107,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
     )
     .get("/:package/dependents", util::json(list_dependents_handler))
+    .get("/:package/downloads", util::json(get_downloads_handler))
     .get(
       "/:package/versions/:version",
       util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
@@ -127,6 +133,13 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::cache(
         CacheDuration::ONE_MINUTE,
         util::json(get_docs_search_handler),
+      ),
+    )
+    .get(
+      "/:package/versions/:version/docs/search_html",
+      util::cache(
+        CacheDuration::ONE_MINUTE,
+        util::json(get_docs_search_html_handler),
       ),
     )
     .get(
@@ -217,8 +230,11 @@ pub async fn list_handler(
   let db = req.data::<Database>().unwrap();
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
-  let (total, packages) =
-    db.list_packages_by_scope(&scope, start, limit).await?;
+  let iam = req.iam();
+  let can_see_archived = iam.check_scope_admin_access(&scope).await.is_ok();
+  let (total, packages) = db
+    .list_packages_by_scope(&scope, can_see_archived, start, limit)
+    .await?;
 
   Ok(ApiList {
     items: packages.into_iter().map(ApiPackage::from).collect(),
@@ -302,7 +318,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
 )]
 pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let scope = req.param_scope()?;
-  let package = req.param_package()?;
+  let package_name = req.param_package()?;
 
   let body: ApiUpdatePackageRequest = decode_json(&mut req).await?;
 
@@ -310,8 +326,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
-  let (_, repo, meta) = db
-    .get_package(&scope, &package)
+  let (package, repo, meta) = db
+    .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
@@ -328,6 +344,12 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     iam.check_scope_admin_access(&scope).await?;
   }
 
+  if package.is_archived
+    && !matches!(body, ApiUpdatePackageRequest::IsArchived(_))
+  {
+    return Err(ApiError::PackageArchived);
+  }
+
   match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
@@ -338,7 +360,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         &buckets,
         orama_client,
         &scope,
-        &package,
+        &package_name,
         description,
       )
       .await?;
@@ -346,7 +368,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
       let package = db
-        .delete_package_github_repository(&scope, &package)
+        .delete_package_github_repository(&scope, &package_name)
         .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
@@ -357,7 +379,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         db,
         github_oauth2_client,
         scope,
-        package,
+        package_name,
         repo,
       )
       .await
@@ -365,7 +387,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     ApiUpdatePackageRequest::RuntimeCompat(runtime_compat) => {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
       let package = db
-        .update_package_runtime_compat(&scope, &package, &runtime_compat)
+        .update_package_runtime_compat(&scope, &package_name, &runtime_compat)
         .await?;
       if let Some(orama_client) = orama_client {
         orama_client.upsert_package(&package, &meta);
@@ -374,8 +396,23 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::IsFeatured(is_featured) => {
       let package = db
-        .update_package_is_featured(&scope, &package, is_featured)
+        .update_package_is_featured(&scope, &package_name, is_featured)
         .await?;
+      Ok(ApiPackage::from((package, repo, meta)))
+    }
+    ApiUpdatePackageRequest::IsArchived(is_archived) => {
+      let package = db
+        .update_package_is_archived(&scope, &package_name, is_archived)
+        .await?;
+
+      if let Some(orama_client) = orama_client {
+        if package.is_archived {
+          orama_client.delete_package(&scope, &package.name);
+        } else {
+          orama_client.upsert_package(&package, &meta);
+        }
+      }
+
       Ok(ApiPackage::from((package, repo, meta)))
     }
   }
@@ -659,6 +696,10 @@ pub async fn version_publish_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  if package.is_archived {
+    return Err(ApiError::PackageArchived);
+  }
+
   let res = db
     .create_publishing_task(NewPublishingTask {
       user_id,
@@ -922,7 +963,7 @@ pub async fn get_docs_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -974,7 +1015,7 @@ pub async fn get_docs_handler(
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
 
-  let docs_info = crate::docs::get_docs_info(&version, entrypoint);
+  let docs_info = crate::docs::get_docs_info(&version.exports, entrypoint);
 
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
@@ -1007,6 +1048,7 @@ pub async fn get_docs_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     readme,
     package.runtime_compat,
     registry_url,
@@ -1050,7 +1092,7 @@ pub async fn get_docs_search_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let (package, _, _) = db
+  let (package, repo, _) = db
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
@@ -1080,7 +1122,7 @@ pub async fn get_docs_search_handler(
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version, None);
+  let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
@@ -1092,6 +1134,7 @@ pub async fn get_docs_search_handler(
     package_name.clone(),
     version.version.clone(),
     version_or_latest == VersionOrLatest::Latest,
+    repo,
     false,
     package.runtime_compat,
     registry_url,
@@ -1100,6 +1143,86 @@ pub async fn get_docs_search_handler(
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  skip(req),
+  err,
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_docs_search_html_handler(
+  req: Request<Body>,
+) -> ApiResult<String> {
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  let version_or_latest = req.param_version_or_latest()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&version_or_latest));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, repo, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let maybe_version = match &version_or_latest {
+    VersionOrLatest::Version(version) => {
+      db.get_package_version(&scope, &package_name, version)
+        .await?
+    }
+    VersionOrLatest::Latest => {
+      db.get_latest_unyanked_version_for_package(&scope, &package_name)
+        .await?
+    }
+  };
+  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
+
+  let docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
+  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
+  let docs = docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
+  let docs_info = crate::docs::get_docs_info(&version.exports, None);
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let docs = crate::docs::generate_docs_html(
+    doc_nodes,
+    docs_info.main_entrypoint,
+    docs_info.rewrite_map,
+    DocsRequest::AllSymbols,
+    scope.clone(),
+    package_name.clone(),
+    version.version.clone(),
+    version_or_latest == VersionOrLatest::Latest,
+    repo,
+    None,
+    package.runtime_compat,
+    registry_url,
+  )
+  .map_err(|e| {
+    error!("failed to generate docs: {}", e);
+    ApiError::InternalServerError
+  })?
+  .unwrap();
+
+  let search = match docs {
+    GeneratedDocsOutput::Docs(docs) => docs.main,
+    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+  };
+
+  Ok(search)
 }
 
 #[instrument(
@@ -1275,8 +1398,7 @@ pub async fn list_dependents_handler(
     .query("versions_per_package_limit")
     .and_then(|page| page.parse::<i64>().ok())
     .unwrap_or(10)
-    .max(1)
-    .min(10);
+    .clamp(1, 10);
 
   let db = req.data::<Database>().unwrap();
   db.get_package(&scope, &package)
@@ -1297,6 +1419,64 @@ pub async fn list_dependents_handler(
   Ok(ApiList {
     items: dependents,
     total,
+  })
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/downloads",
+  skip(req),
+  err,
+  fields(scope, package)
+)]
+pub async fn get_downloads_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageDownloads> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+
+  let db = req.data::<Database>().unwrap();
+  db.get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let current = Utc::now();
+  let start = current - chrono::Duration::days(90);
+
+  let total = db
+    .get_package_downloads_24h(&scope, &package, start, current)
+    .await?;
+
+  let recent_versions = db
+    .list_latest_unyanked_versions_for_package(&scope, &package, 5)
+    .await?;
+
+  let versions = futures::stream::iter(recent_versions.into_iter())
+    .then(|version| async {
+      let res = db
+        .get_package_version_downloads_24h(
+          &scope, &package, &version, start, current,
+        )
+        .await;
+      (version, res)
+    })
+    .collect::<Vec<_>>()
+    .await;
+
+  let mut recent_versions = Vec::with_capacity(versions.len());
+  for (version, downloads) in versions {
+    let downloads = downloads?
+      .into_iter()
+      .map(ApiDownloadDataPoint::from)
+      .collect();
+    recent_versions
+      .push(ApiPackageDownloadsRecentVersion { version, downloads });
+  }
+
+  Ok(ApiPackageDownloads {
+    total: total.into_iter().map(ApiDownloadDataPoint::from).collect(),
+    recent_versions,
   })
 }
 
@@ -1825,7 +2005,7 @@ mod test {
       .unwrap();
 
     fn update_bundle_subject(bundle: &mut ProvenanceBundle, subject: Subject) {
-      let subject = serde_json::json!({ "subject": subject });
+      let subject = serde_json::json!({ "subject": [subject] });
       bundle.content.dsse_envelope.payload = BASE64_STANDARD
         .encode(serde_json::to_string(&subject).unwrap().as_bytes());
     }
@@ -2577,7 +2757,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":["variable"],"name":"hello","file":".","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"declarationKind":"export","deprecated":false},{"kind":["variable"],"name":"读取多键1","file":".","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist
@@ -2968,6 +3148,80 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::CONFLICT, "packageNotEmpty")
       .await;
+  }
+
+  #[tokio::test]
+  async fn archive_package() {
+    let mut t = TestSetup::new().await;
+
+    let scope = t.scope.scope.clone();
+
+    let name = PackageName::try_from("foo").unwrap();
+    let res = t
+      .ephemeral_database
+      .create_package(&scope, &name)
+      .await
+      .unwrap();
+    assert!(matches!(res, CreatePackageResult::Ok(_)));
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(!package.is_archived);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "isArchived": true
+      }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.is_archived);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "description": "foo"
+      }))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "packageArchived")
+      .await;
+
+    let data = create_mock_tarball("ok");
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope/packages/foo/versions/1.2.3?config=/jsr.json")
+      .gzip()
+      .body(Body::from(data))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "packageArchived")
+      .await;
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "isArchived": false
+      }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(!package.is_archived);
   }
 
   #[tokio::test]

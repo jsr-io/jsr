@@ -19,7 +19,7 @@ In this example, we add the most recent version of
 [`@luca/flag`](https://jsr.io/@luca/flag) to your project.
 
 ```bash
-deno add @luca/flag
+deno add jsr:@luca/flag
 ```
 
 After executing this command, you will have an import map entry in `deno.json`
