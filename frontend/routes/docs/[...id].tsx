@@ -4,7 +4,7 @@ import { Markdown } from "../../components/Markdown.tsx";
 import { Head } from "$fresh/src/runtime/head.ts";
 import { State } from "../../util.ts";
 
-import { extract } from "$std/front_matter/yaml.ts";
+import { extract } from "$std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
 
@@ -97,7 +97,9 @@ export const handler: Handlers<Data, State> = {
     const path = new URL(`../../docs/${id}.md`, import.meta.url);
     const markdown = await Deno.readTextFile(path);
 
-    const { body, attrs } = extract(markdown);
+    const { body, attrs } = extract<{ title: string; description: string }>(
+      markdown,
+    );
 
     return ctx.render({
       content: body,
