@@ -8,4 +8,4 @@ COPY . .
 RUN deno task build
 RUN deno cache --allow-import main.ts
 
-CMD ["run", "-A", "--cached-only", "--allow-import", "main.ts"]
+CMD ["run", "-A", "--cached-only", "main.ts"]
