@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { MiddlewareHandler } from "$fresh/server.ts";
-import { deleteCookie, getCookies } from "$std/http/cookie.ts";
+import { deleteCookie, getCookies } from "$std/http/cookie";
 import { State } from "../util.ts";
 import { API, path } from "../utils/api.ts";
 import { FullUser } from "../utils/api_types.ts";

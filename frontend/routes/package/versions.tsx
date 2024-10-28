@@ -8,7 +8,7 @@ import type {
   ScopeMember,
 } from "../../utils/api_types.ts";
 import { State } from "../../util.ts";
-import { compare, eq, format, lt, parse, SemVer } from "$std/semver/mod.ts";
+import { compare, equals, format, lessThan, parse, SemVer } from "$std/semver";
 import twas from "$twas";
 import IconTrashX from "$tabler_icons/trash-x.tsx";
 import { packageData } from "../../utils/data.ts";
@@ -60,9 +60,9 @@ export default function Versions({
     });
     if (version.yanked) continue;
     if (
-      semver.prerelease.length === 0 &&
+      (!semver.prerelease || semver.prerelease.length === 0) &&
       (latestVersionInReleaseTrack[releaseTrack] === undefined ||
-        lt(latestVersionInReleaseTrack[releaseTrack], semver))
+        lessThan(latestVersionInReleaseTrack[releaseTrack], semver))
     ) {
       latestVersionInReleaseTrack[releaseTrack] = semver;
     }
@@ -131,7 +131,7 @@ export default function Versions({
             const latestVersion =
               latestVersionInReleaseTrack[version.releaseTrack];
             const isLatestInReleaseTrack = latestVersion
-              ? eq(version.semver, latestVersion)
+              ? equals(version.semver, latestVersion)
               : false;
             return (
               <Version
