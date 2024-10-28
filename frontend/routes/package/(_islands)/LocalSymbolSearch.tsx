@@ -48,6 +48,10 @@ async function createOrama(): Promise<Orama<any>> {
         ) {
           if (prop === "name") {
             const tokens = raw.split(/(?=[A-Z])/).map((s) => s.toLowerCase());
+            tokens.forEach((token, index) =>
+              tokens[index + 1] &&
+              tokens.push(token + tokens[index + 1])
+            );
             tokens.push(raw.toLowerCase());
             return tokens;
           }
