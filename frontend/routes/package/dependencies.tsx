@@ -22,6 +22,20 @@ interface Data {
   member: ScopeMember | null;
 }
 
+function getDependencyLink(dep: Dependency) {
+  if (dep.kind === "jsr") {
+    return `/${dep.name}`;
+  }
+  const result = /^@jsr\/(?<scope>[a-z0-9-]+)__(?<package>[a-z0-9-]+)/
+    .exec(
+      dep.name,
+    );
+  if (result?.groups?.scope && result?.groups?.package) {
+    return `/@${result.groups.scope}/${result.groups.package}`;
+  }
+  return `https://www.npmjs.com/package/${dep.name}`;
+}
+
 export default function Deps(
   { data, params, state, url }: PageProps<Data, State>,
 ) {
@@ -32,9 +46,7 @@ export default function Deps(
   for (const dep of data.deps) {
     const key = `${dep.kind}:${dep.name}`;
     deps[key] ??= {
-      link: `${
-        dep.kind === "jsr" ? "/" : "https://www.npmjs.com/package/"
-      }${dep.name}`,
+      link: getDependencyLink(dep),
       constraints: new Set(),
     };
     deps[key].constraints.add(dep.constraint);
