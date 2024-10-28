@@ -249,8 +249,12 @@ body .ddoc {
       @apply link;
     }
 
-    .highlight .context_button {
-      @apply border-none hover:bg-jsr-cyan-50;
+    pre.highlight > code:first-child {
+      @apply pr-9;
+    }
+
+    pre.highlight .context_button {
+      @apply right-0 border-r-4 border-white hover:bg-jsr-cyan-50;
     }
 
     .highlight .lineNumbers {
