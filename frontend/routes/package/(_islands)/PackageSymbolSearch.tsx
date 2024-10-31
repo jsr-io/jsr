@@ -15,7 +15,7 @@ import { Highlight } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
 
-export interface LocalSymbolSearchProps {
+export interface PackageSymbolSearchProps {
   scope: string;
   pkg: string;
   version: string;
@@ -76,16 +76,20 @@ function getSearchItemNameAndDescription(searchItem: HTMLElement) {
 
 const highlighter = new Highlight();
 
-export function LocalSymbolSearch(
-  props: LocalSymbolSearchProps,
+export function PackageSymbolSearch(
+  props: PackageSymbolSearchProps,
 ) {
-  const useCloud = props.versionIsLatest && !!props.oramaSymbolsIndex && !!props.oramaSymbolsApiKey;
+  const useCloud = props.versionIsLatest && !!props.oramaSymbolsIndex &&
+    !!props.oramaSymbolsApiKey;
   // deno-lint-ignore no-explicit-any
   const db = useSignal<undefined | Orama<any> | OramaClient>(
-    useCloud ? new OramaClient({
-      endpoint: `https://cloud.orama.run/v1/indexes/${props.oramaSymbolsIndex!}`,
-      api_key: props.oramaSymbolsApiKey!,
-    }) : undefined,
+    useCloud
+      ? new OramaClient({
+        endpoint: `https://cloud.orama.run/v1/indexes/${props
+          .oramaSymbolsIndex!}`,
+        api_key: props.oramaSymbolsApiKey!,
+      })
+      : undefined,
   );
   const showResults = useSignal(false);
   const macLike = useMacLike();
@@ -125,7 +129,7 @@ export function LocalSymbolSearch(
         section.hidden = true;
       }
 
-      if (!props.versionIsLatest) {
+      if (!useCloud) {
         const searchItems: SearchItem[] = Array.from(
           searchResults
             .getElementsByClassName("namespaceItem") as HTMLCollectionOf<
@@ -172,7 +176,7 @@ export function LocalSymbolSearch(
 
       let searchResult: SearchItem[];
 
-      if (props.versionIsLatest) {
+      if (useCloud) {
         searchResult = (await (db.value as OramaClient).search({
           term,
           where: {
@@ -205,115 +209,125 @@ export function LocalSymbolSearch(
       }
       previousSections.current.clear();
 
-      for (const doc of searchResult) {
-        // TODO(@crowlKats): figure out how to handle symbol drilldown for the pre-generated search content page
-        const nodes = Array.from(
-          document.getElementById("docSearchResults")!.getElementsByClassName(
-            "namespaceItem",
-          ) as HTMLCollectionOf<HTMLElement>,
-        ).filter((node) =>
-          getSearchItemNameAndDescription(node).name === doc.name
+      if (searchResult.length === 0) {
+        document.getElementById("docSearchResultsEmpty")!.classList.remove(
+          "hidden",
+        );
+      } else {
+        document.getElementById("docSearchResultsEmpty")!.classList.add(
+          "hidden",
         );
 
-        for (const node of nodes) {
-          const section = node.parentElement!.parentElement!;
+        for (const doc of searchResult) {
+          // TODO(@crowlKats): figure out how to handle symbol drilldown for the pre-generated search content page
+          const nodes = Array.from(
+            document.getElementById("docSearchResults")!.getElementsByClassName(
+              "namespaceItem",
+            ) as HTMLCollectionOf<HTMLElement>,
+          ).filter((node) =>
+            getSearchItemNameAndDescription(node).name === doc.name
+          );
 
-          section.hidden = false;
-          previousSections.current.add(section);
+          for (const node of nodes) {
+            const section = node.parentElement!.parentElement!;
 
-          node.style.removeProperty("display");
-          previousResultNodes.current.push(node);
+            section.hidden = false;
+            previousSections.current.add(section);
 
-          const titleElement = node.getElementsByClassName(
-            "namespaceItemContent",
-          )[0]
-            .children[0] as HTMLAnchorElement;
-          titleElement.innerHTML =
-            highlighter.highlight(titleElement.title, term).HTML;
+            node.style.removeProperty("display");
+            previousResultNodes.current.push(node);
 
-          const description = node.getElementsByClassName(
-            "markdown_summary",
-          )[0] as HTMLElement;
+            const titleElement = node.getElementsByClassName(
+              "namespaceItemContent",
+            )[0]
+              .children[0] as HTMLAnchorElement;
+            titleElement.innerHTML =
+              highlighter.highlight(titleElement.title, term).HTML;
 
-          if (description) {
-            const positions = highlighter.highlight(doc.doc, term).positions;
+            const description = node.getElementsByClassName(
+              "markdown_summary",
+            )[0] as HTMLElement;
 
-            if (positions.length > 0) {
-              const walker = document.createTreeWalker(
-                description,
-                NodeFilter.SHOW_TEXT,
-              );
+            if (description) {
+              const positions = highlighter.highlight(doc.doc, term).positions;
 
-              let currentPosition = 0;
-              let node = walker.nextNode();
-              while (node && positions.length) {
-                const currentNode = walker.currentNode as Text;
-                const textContent = currentNode.textContent!;
-                const length = textContent.length;
+              if (positions.length > 0) {
+                const walker = document.createTreeWalker(
+                  description,
+                  NodeFilter.SHOW_TEXT,
+                );
 
-                const fragments = [];
-                let start = 0;
+                let currentPosition = 0;
+                let node = walker.nextNode();
+                while (node && positions.length) {
+                  const currentNode = walker.currentNode as Text;
+                  const textContent = currentNode.textContent!;
+                  const length = textContent.length;
 
-                positionsLoop: for (let i = 0; i < positions.length; i++) {
-                  const position = positions[i];
-                  const localStart = position.start - currentPosition;
-                  const localEnd = position.end - currentPosition;
+                  const fragments = [];
+                  let start = 0;
 
-                  if (localStart >= length) {
-                    // if the start is after the current node, there cannot be more highlights for this node
-                    break positionsLoop;
+                  positionsLoop: for (let i = 0; i < positions.length; i++) {
+                    const position = positions[i];
+                    const localStart = position.start - currentPosition;
+                    const localEnd = position.end - currentPosition;
+
+                    if (localStart >= length) {
+                      // if the start is after the current node, there cannot be more highlights for this node
+                      break positionsLoop;
+                    }
+
+                    if ((localStart >= 0) && (localEnd < length)) {
+                      fragments.push(
+                        textContent.slice(start, localStart),
+                        textContent.slice(localStart, localEnd + 1),
+                      );
+                      start = localEnd + 1;
+                      positions.shift();
+                      i--; // we need to recheck the current position
+                    } else if (localStart >= 0) {
+                      fragments.push(
+                        textContent.slice(start, localStart),
+                        textContent.slice(localStart),
+                      );
+                      start = length;
+                      // if the end is not in this node, there cannot be more highlights for this node
+                      break positionsLoop;
+                    } else if (localEnd < length) {
+                      fragments.push(
+                        "",
+                        textContent.slice(start, localEnd + 1),
+                      );
+                      start = localEnd + 1;
+                      positions.shift();
+                      i--; // we need to recheck the current position
+                    } else {
+                      break positionsLoop;
+                    }
                   }
 
-                  if ((localStart >= 0) && (localEnd < length)) {
-                    fragments.push(
-                      textContent.slice(start, localStart),
-                      textContent.slice(localStart, localEnd + 1),
-                    );
-                    start = localEnd + 1;
-                    positions.shift();
-                    i--; // we need to recheck the current position
-                  } else if (localStart >= 0) {
-                    fragments.push(
-                      textContent.slice(start, localStart),
-                      textContent.slice(localStart),
-                    );
-                    start = length;
-                    // if the end is not in this node, there cannot be more highlights for this node
-                    break positionsLoop;
-                  } else if (localEnd < length) {
-                    fragments.push(
-                      "",
-                      textContent.slice(start, localEnd + 1),
-                    );
-                    start = localEnd + 1;
-                    positions.shift();
-                    i--; // we need to recheck the current position
-                  } else {
-                    break positionsLoop;
+                  if (start !== length) {
+                    fragments.push(textContent.slice(start));
                   }
-                }
 
-                if (start !== length) {
-                  fragments.push(textContent.slice(start));
-                }
+                  currentPosition += length;
 
-                currentPosition += length;
-
-                node = walker.nextNode();
-                if (fragments.length > 1) {
-                  currentNode.replaceWith(
-                    document.createRange().createContextualFragment(
-                      fragments
-                        .map((fragment, i) =>
-                          i % 2 === 0
-                            ? fragment
-                            : fragment !== ""
-                            ? `<mark class="orama-highlight">${fragment}</mark>`
-                            : ""
-                        )
-                        .join(""),
-                    ),
-                  );
+                  node = walker.nextNode();
+                  if (fragments.length > 1) {
+                    currentNode.replaceWith(
+                      document.createRange().createContextualFragment(
+                        fragments
+                          .map((fragment, i) =>
+                            i % 2 === 0
+                              ? fragment
+                              : fragment !== ""
+                              ? `<mark class="orama-highlight">${fragment}</mark>`
+                              : ""
+                          )
+                          .join(""),
+                      ),
+                    );
+                  }
                 }
               }
             }
@@ -332,11 +346,16 @@ export function LocalSymbolSearch(
     if (showResults.value && searchCounter.value) {
       document.getElementById("docMain")!.classList.add("hidden");
       document.getElementById("docSearchResults")!.classList.remove("hidden");
-      document.getElementById("docSearchResultsOramaLogo")!.classList.remove("hidden");
+      document.getElementById("docSearchResultsOramaLogo")!.classList.remove(
+        "hidden",
+      );
     } else {
       document.getElementById("docMain")!.classList.remove("hidden");
       document.getElementById("docSearchResults")!.classList.add("hidden");
-      document.getElementById("docSearchResultsOramaLogo")!.classList.add("hidden");
+      document.getElementById("docSearchResultsEmpty")!.classList.add("hidden");
+      document.getElementById("docSearchResultsOramaLogo")!.classList.add(
+        "hidden",
+      );
     }
   }
 

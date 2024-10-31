@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Head } from "$fresh/src/runtime/head.ts";
 import type { PackageVersionWithUser } from "../../../utils/api_types.ts";
-import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
+import { PackageSymbolSearch } from "../(_islands)/PackageSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
 import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
@@ -33,7 +33,6 @@ document.querySelector('.usages').addEventListener('change', (e) => {
 
 const oramaSymbolsIndex = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_INDEX_ID");
 const oramaSymbolsApiKey = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_API_KEY");
-
 
 export function DocsView(
   { docs, params, selectedVersion, showProvenanceBadge, latestVersion }:
@@ -71,8 +70,14 @@ export function DocsView(
             dangerouslySetInnerHTML={{ __html: docs.main }}
           />
           <div class="ddoc hidden" id="docSearchResults" />
+          <div class="hidden text-sm" id="docSearchResultsEmpty">
+            No symbols found for the provided search
+          </div>
 
-          <div class="hidden flex items-center justify-start py-1 px-2 gap-1" id="docSearchResultsOramaLogo">
+          <div
+            class="hidden flex items-center justify-start py-1 px-2 gap-1 mt-6 mb-3"
+            id="docSearchResultsOramaLogo"
+          >
             <span class="text-sm text-jsr-gray-700">
               powered by <span class="sr-only">Orama</span>
             </span>
@@ -127,7 +132,7 @@ export function DocsView(
             }`}
           >
             {!docs.breadcrumbs && (
-              <LocalSymbolSearch
+              <PackageSymbolSearch
                 scope={params.scope}
                 pkg={params.package}
                 version={selectedVersion.version}

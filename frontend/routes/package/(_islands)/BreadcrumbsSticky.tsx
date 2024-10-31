@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { LocalSymbolSearch } from "./LocalSymbolSearch.tsx";
+import { PackageSymbolSearch } from "./PackageSymbolSearch.tsx";
 
 export interface BreadcrumbsStickyProps {
   content: string;
@@ -55,14 +55,15 @@ export function BreadcrumbsSticky(
         />
 
         <div class="lg:col-[span_3/_-1]">
-          <LocalSymbolSearch
+          <PackageSymbolSearch
             scope={props.scope}
             pkg={props.package}
             version={props.version}
             content={props.searchContent}
             versionIsLatest={props.versionIsLatest}
             oramaSymbolsIndex={props.oramaSymbolsIndex}
-            oramaSymbolsApiKey={props.oramaSymbolsApiKey} />
+            oramaSymbolsApiKey={props.oramaSymbolsApiKey}
+          />
         </div>
       </div>
     </div>
