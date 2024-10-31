@@ -58,6 +58,14 @@ variable "orama_package_public_index_id" {
   type = string
 }
 
+variable "orama_symbols_public_api_key" {
+  type = string
+}
+
+variable "orama_symbols_public_index_id" {
+  type = string
+}
+
 variable "orama_docs_public_api_key" {
   type = string
 }

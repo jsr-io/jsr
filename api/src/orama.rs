@@ -14,7 +14,7 @@ use tracing::instrument;
 use tracing::Instrument;
 use tracing::Span;
 
-const MAX_ORAMA_INSERT_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
+const MAX_ORAMA_INSERT_SIZE: f64 = 800f64 * 1000f64;
 
 #[derive(Clone)]
 pub struct OramaClient {

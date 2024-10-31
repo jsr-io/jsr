@@ -10,6 +10,7 @@ import {
   type Orama,
   search,
 } from "@orama/orama";
+import { OramaClient } from "npm:@oramacloud/client";
 import { Highlight } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
@@ -18,14 +19,15 @@ export interface LocalSymbolSearchProps {
   scope: string;
   pkg: string;
   version: string;
+  versionIsLatest: boolean;
   content?: string;
+  oramaSymbolsIndex: string | undefined;
+  oramaSymbolsApiKey: string | undefined;
 }
 
 interface SearchItem {
   name: string;
-  description: string;
-  node: HTMLElement;
-  section: HTMLElement;
+  doc: string;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -35,7 +37,7 @@ async function createOrama(): Promise<Orama<any>> {
   return create({
     schema: {
       name: "string",
-      description: "string",
+      doc: "string",
     },
     components: {
       tokenizer: {
@@ -62,13 +64,29 @@ async function createOrama(): Promise<Orama<any>> {
   });
 }
 
+function getSearchItemNameAndDescription(searchItem: HTMLElement) {
+  const name = (searchItem.getElementsByClassName("namespaceItemContent")[0]
+    .children[0] as HTMLAnchorElement).title;
+  const description = searchItem.getElementsByClassName(
+    "markdown_summary",
+  )[0] as HTMLElement | undefined;
+
+  return { name, description };
+}
+
 const highlighter = new Highlight();
 
 export function LocalSymbolSearch(
   props: LocalSymbolSearchProps,
 ) {
+  const useCloud = props.versionIsLatest && !!props.oramaSymbolsIndex && !!props.oramaSymbolsApiKey;
   // deno-lint-ignore no-explicit-any
-  const db = useSignal<undefined | Orama<any>>(undefined);
+  const db = useSignal<undefined | Orama<any> | OramaClient>(
+    useCloud ? new OramaClient({
+      endpoint: `https://cloud.orama.run/v1/indexes/${props.oramaSymbolsIndex!}`,
+      api_key: props.oramaSymbolsApiKey!,
+    }) : undefined,
+  );
   const showResults = useSignal(false);
   const macLike = useMacLike();
   const searchCounter = useSignal(0);
@@ -76,7 +94,7 @@ export function LocalSymbolSearch(
   useEffect(() => {
     (async () => {
       const [oramaDb, searchResp] = await Promise.all([
-        createOrama(),
+        useCloud ? null : createOrama(),
         !props.content
           ? api.get<string>(
             path`/scopes/${props.scope}/packages/${props.pkg}/versions/${
@@ -97,32 +115,37 @@ export function LocalSymbolSearch(
       const searchResults = document.getElementById("docSearchResults")!;
       searchResults.innerHTML = searchContent;
 
-      const searchItems: SearchItem[] = Array.from(
-        searchResults
-          .getElementsByClassName("namespaceItem") as HTMLCollectionOf<
-            HTMLElement
-          >,
-      )
-        .map((searchItem) => {
-          const name =
-            (searchItem.getElementsByClassName("namespaceItemContent")[0]
-              .children[0] as HTMLAnchorElement).title;
-          const description = searchItem.getElementsByClassName(
-            "markdown_summary",
-          )[0] as HTMLElement | undefined;
-          searchItem.style.setProperty("display", "none");
-          const section = searchItem.parentElement!.parentElement!;
-          section.hidden = true;
-          return {
-            name,
-            description: description?.innerText.replaceAll("\n", " ") ?? "",
-            node: searchItem,
-            section: section,
-          };
-        });
+      for (
+        const searchItem of searchResults.getElementsByClassName(
+          "namespaceItem",
+        ) as HTMLCollectionOf<HTMLElement>
+      ) {
+        searchItem.style.setProperty("display", "none");
+        const section = searchItem.parentElement!.parentElement!;
+        section.hidden = true;
+      }
 
-      await insertMultiple(oramaDb, searchItems);
-      db.value = oramaDb;
+      if (!props.versionIsLatest) {
+        const searchItems: SearchItem[] = Array.from(
+          searchResults
+            .getElementsByClassName("namespaceItem") as HTMLCollectionOf<
+              HTMLElement
+            >,
+        )
+          .map((searchItem) => {
+            const { name, description } = getSearchItemNameAndDescription(
+              searchItem,
+            );
+
+            return {
+              name,
+              doc: description?.innerText.replaceAll("\n", " ") ?? "",
+            };
+          });
+
+        await insertMultiple(oramaDb!, searchItems);
+        db.value = oramaDb!;
+      }
     })();
   }, []);
 
@@ -146,12 +169,27 @@ export function LocalSymbolSearch(
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
       const term = e.currentTarget.value;
-      const searchResult = await search(db.value!, {
-        term,
-        properties: ["name", "description"],
-        threshold: 0.2,
-        limit: 50,
-      });
+
+      let searchResult: SearchItem[];
+
+      if (props.versionIsLatest) {
+        searchResult = (await (db.value as OramaClient).search({
+          term,
+          where: {
+            scope: props.scope,
+            package: props.pkg,
+          },
+          mode: "fulltext",
+        }))?.hits.map((hit) => hit.document) ?? [];
+      } else {
+        // deno-lint-ignore no-explicit-any
+        searchResult = (await search(db.value! as Orama<any>, {
+          term,
+          properties: ["name", "doc"],
+          threshold: 0.2,
+          limit: 50,
+        })).hits.map((hit) => hit.document as unknown as SearchItem);
+      }
 
       for (const node of previousResultNodes.current) {
         node.style.setProperty("display", "none");
@@ -167,106 +205,116 @@ export function LocalSymbolSearch(
       }
       previousSections.current.clear();
 
-      for (const hit of searchResult.hits) {
-        const doc = hit.document as unknown as SearchItem;
+      for (const doc of searchResult) {
+        // TODO(@crowlKats): figure out how to handle symbol drilldown for the pre-generated search content page
+        const nodes = Array.from(
+          document.getElementById("docSearchResults")!.getElementsByClassName(
+            "namespaceItem",
+          ) as HTMLCollectionOf<HTMLElement>,
+        ).filter((node) =>
+          getSearchItemNameAndDescription(node).name === doc.name
+        );
 
-        doc.section.hidden = false;
-        previousSections.current.add(doc.section);
+        for (const node of nodes) {
+          const section = node.parentElement!.parentElement!;
 
-        doc.node.style.removeProperty("display");
-        previousResultNodes.current.push(doc.node);
+          section.hidden = false;
+          previousSections.current.add(section);
 
-        const titleElement = doc.node.getElementsByClassName(
-          "namespaceItemContent",
-        )[0]
-          .children[0] as HTMLAnchorElement;
-        titleElement.innerHTML =
-          highlighter.highlight(titleElement.title, term).HTML;
+          node.style.removeProperty("display");
+          previousResultNodes.current.push(node);
 
-        const description = doc.node.getElementsByClassName(
-          "markdown_summary",
-        )[0] as HTMLElement;
+          const titleElement = node.getElementsByClassName(
+            "namespaceItemContent",
+          )[0]
+            .children[0] as HTMLAnchorElement;
+          titleElement.innerHTML =
+            highlighter.highlight(titleElement.title, term).HTML;
 
-        if (description) {
-          const positions =
-            highlighter.highlight(doc.description, term).positions;
+          const description = node.getElementsByClassName(
+            "markdown_summary",
+          )[0] as HTMLElement;
 
-          if (positions.length > 0) {
-            const walker = document.createTreeWalker(
-              description,
-              NodeFilter.SHOW_TEXT,
-            );
+          if (description) {
+            const positions = highlighter.highlight(doc.doc, term).positions;
 
-            let currentPosition = 0;
-            let node = walker.nextNode();
-            while (node && positions.length) {
-              const currentNode = walker.currentNode as Text;
-              const textContent = currentNode.textContent!;
-              const length = textContent.length;
+            if (positions.length > 0) {
+              const walker = document.createTreeWalker(
+                description,
+                NodeFilter.SHOW_TEXT,
+              );
 
-              const fragments = [];
-              let start = 0;
+              let currentPosition = 0;
+              let node = walker.nextNode();
+              while (node && positions.length) {
+                const currentNode = walker.currentNode as Text;
+                const textContent = currentNode.textContent!;
+                const length = textContent.length;
 
-              positionsLoop: for (let i = 0; i < positions.length; i++) {
-                const position = positions[i];
-                const localStart = position.start - currentPosition;
-                const localEnd = position.end - currentPosition;
+                const fragments = [];
+                let start = 0;
 
-                if (localStart >= length) {
-                  // if the start is after the current node, there cannot be more highlights for this node
-                  break positionsLoop;
+                positionsLoop: for (let i = 0; i < positions.length; i++) {
+                  const position = positions[i];
+                  const localStart = position.start - currentPosition;
+                  const localEnd = position.end - currentPosition;
+
+                  if (localStart >= length) {
+                    // if the start is after the current node, there cannot be more highlights for this node
+                    break positionsLoop;
+                  }
+
+                  if ((localStart >= 0) && (localEnd < length)) {
+                    fragments.push(
+                      textContent.slice(start, localStart),
+                      textContent.slice(localStart, localEnd + 1),
+                    );
+                    start = localEnd + 1;
+                    positions.shift();
+                    i--; // we need to recheck the current position
+                  } else if (localStart >= 0) {
+                    fragments.push(
+                      textContent.slice(start, localStart),
+                      textContent.slice(localStart),
+                    );
+                    start = length;
+                    // if the end is not in this node, there cannot be more highlights for this node
+                    break positionsLoop;
+                  } else if (localEnd < length) {
+                    fragments.push(
+                      "",
+                      textContent.slice(start, localEnd + 1),
+                    );
+                    start = localEnd + 1;
+                    positions.shift();
+                    i--; // we need to recheck the current position
+                  } else {
+                    break positionsLoop;
+                  }
                 }
 
-                if ((localStart >= 0) && (localEnd < length)) {
-                  fragments.push(
-                    textContent.slice(start, localStart),
-                    textContent.slice(localStart, localEnd + 1),
-                  );
-                  start = localEnd + 1;
-                  positions.shift();
-                  i--; // we need to recheck the current position
-                } else if (localStart >= 0) {
-                  fragments.push(
-                    textContent.slice(start, localStart),
-                    textContent.slice(localStart),
-                  );
-                  start = length;
-                  // if the end is not in this node, there cannot be more highlights for this node
-                  break positionsLoop;
-                } else if (localEnd < length) {
-                  fragments.push(
-                    "",
-                    textContent.slice(start, localEnd + 1),
-                  );
-                  start = localEnd + 1;
-                  positions.shift();
-                  i--; // we need to recheck the current position
-                } else {
-                  break positionsLoop;
+                if (start !== length) {
+                  fragments.push(textContent.slice(start));
                 }
-              }
 
-              if (start !== length) {
-                fragments.push(textContent.slice(start));
-              }
+                currentPosition += length;
 
-              currentPosition += length;
-
-              node = walker.nextNode();
-              if (fragments.length > 1) {
-                currentNode.replaceWith(
-                  document.createRange().createContextualFragment(
-                    fragments
-                      .map((fragment, i) =>
-                        i % 2 === 0
-                          ? fragment
-                          : fragment !== ""
-                          ? `<mark class="orama-highlight">${fragment}</mark>`
-                          : ""
-                      )
-                      .join(""),
-                  ),
-                );
+                node = walker.nextNode();
+                if (fragments.length > 1) {
+                  currentNode.replaceWith(
+                    document.createRange().createContextualFragment(
+                      fragments
+                        .map((fragment, i) =>
+                          i % 2 === 0
+                            ? fragment
+                            : fragment !== ""
+                            ? `<mark class="orama-highlight">${fragment}</mark>`
+                            : ""
+                        )
+                        .join(""),
+                    ),
+                  );
+                }
               }
             }
           }
@@ -284,9 +332,11 @@ export function LocalSymbolSearch(
     if (showResults.value && searchCounter.value) {
       document.getElementById("docMain")!.classList.add("hidden");
       document.getElementById("docSearchResults")!.classList.remove("hidden");
+      document.getElementById("docSearchResultsOramaLogo")!.classList.remove("hidden");
     } else {
       document.getElementById("docMain")!.classList.remove("hidden");
       document.getElementById("docSearchResults")!.classList.add("hidden");
+      document.getElementById("docSearchResultsOramaLogo")!.classList.add("hidden");
     }
   }
 

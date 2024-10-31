@@ -9,6 +9,9 @@ export interface BreadcrumbsStickyProps {
   scope: string;
   package: string;
   version: string;
+  versionIsLatest: boolean;
+  oramaSymbolsIndex: string | undefined;
+  oramaSymbolsApiKey: string | undefined;
 }
 
 export function BreadcrumbsSticky(
@@ -57,7 +60,9 @@ export function BreadcrumbsSticky(
             pkg={props.package}
             version={props.version}
             content={props.searchContent}
-          />
+            versionIsLatest={props.versionIsLatest}
+            oramaSymbolsIndex={props.oramaSymbolsIndex}
+            oramaSymbolsApiKey={props.oramaSymbolsApiKey} />
         </div>
       </div>
     </div>

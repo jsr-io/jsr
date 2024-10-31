@@ -55,6 +55,7 @@ export default function File({ data, params, state }: PageProps<Data, State>) {
         docs={data.docs}
         params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
+        latestVersion={data.package.latestVersion}
       />
     </div>
   );

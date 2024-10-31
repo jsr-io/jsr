@@ -11,6 +11,7 @@ interface DocsProps {
   params: Params;
   selectedVersion: PackageVersionWithUser;
   showProvenanceBadge?: boolean;
+  latestVersion: string | null;
 }
 
 const USAGE_SELECTOR_SCRIPT = `(() => {
@@ -30,8 +31,13 @@ document.querySelector('.usages').addEventListener('change', (e) => {
 });
 })()`;
 
+const oramaSymbolsIndex = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_INDEX_ID");
+const oramaSymbolsApiKey = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_API_KEY");
+
+
 export function DocsView(
-  { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
+  { docs, params, selectedVersion, showProvenanceBadge, latestVersion }:
+    DocsProps,
 ) {
   return (
     <div class="pt-6 space-y-8">
@@ -47,6 +53,9 @@ export function DocsView(
           scope={params.scope}
           package={params.package}
           version={selectedVersion.version}
+          versionIsLatest={latestVersion === selectedVersion.version}
+          oramaSymbolsIndex={oramaSymbolsIndex}
+          oramaSymbolsApiKey={oramaSymbolsApiKey}
         />
       )}
 
@@ -62,6 +71,13 @@ export function DocsView(
             dangerouslySetInnerHTML={{ __html: docs.main }}
           />
           <div class="ddoc hidden" id="docSearchResults" />
+
+          <div class="hidden flex items-center justify-start py-1 px-2 gap-1" id="docSearchResultsOramaLogo">
+            <span class="text-sm text-jsr-gray-700">
+              powered by <span class="sr-only">Orama</span>
+            </span>
+            <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+          </div>
 
           {showProvenanceBadge && selectedVersion.rekorLogId && (
             <div class="mt-8 mb-8 border-2 border-jsr-cyan-500 max-w-xl rounded-md py-4 px-6">
@@ -115,6 +131,9 @@ export function DocsView(
                 scope={params.scope}
                 pkg={params.package}
                 version={selectedVersion.version}
+                versionIsLatest={latestVersion === selectedVersion.version}
+                oramaSymbolsIndex={oramaSymbolsIndex}
+                oramaSymbolsApiKey={oramaSymbolsApiKey}
               />
             )}
 

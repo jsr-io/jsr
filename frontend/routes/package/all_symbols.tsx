@@ -53,6 +53,7 @@ export default function All_symbols(
         docs={data.docs}
         params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
+        latestVersion={data.package.latestVersion}
       />
     </div>
   );

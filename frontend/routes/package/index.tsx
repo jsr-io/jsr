@@ -72,6 +72,7 @@ export default function PackagePage(
             docs={data.docs}
             params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            latestVersion={data.package.latestVersion}
             showProvenanceBadge
           />
         )
