@@ -460,6 +460,7 @@ function tokenizeFilter(search: string): Token[] {
   for (const part of search.split(" ")) {
     if (part.startsWith("scope:")) {
       tokens.push({ kind: "scope", value: part.slice(6), raw: part });
+      continue;
     } else if (part.startsWith("runtime:")) {
       const runtime = part.slice(8);
       if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
@@ -468,10 +469,11 @@ function tokenizeFilter(search: string): Token[] {
           value: true,
           raw: part,
         });
+        continue;
       }
-    } else {
-      tokens.push({ kind: "text", value: part, raw: part });
     }
+
+    tokens.push({ kind: "text", value: part, raw: part });
   }
 
   return tokens;
