@@ -458,7 +458,7 @@ function tokenizeFilter(search: string): Token[] {
   const tokens: Token[] = [];
 
   for (const part of search.split(" ")) {
-    if (part.startsWith("scope:")) {
+    if (part.startsWith("scope:") && part.slice(6).length > 0) {
       tokens.push({ kind: "scope", value: part.slice(6), raw: part });
       continue;
     } else if (part.startsWith("runtime:")) {
