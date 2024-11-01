@@ -47,6 +47,7 @@ export function GlobalSearch(
   const isFocused = useSignal(false);
   const search = useSignal(query ?? "");
   const btnSubmit = useSignal(false);
+  const inputOverlayContentRef = useRef<HTMLDivElement>(null);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
@@ -90,6 +91,8 @@ export function GlobalSearch(
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
     search.value = value;
+    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
+
     if (value.length >= 1) {
       const searchN = ++searchNRef.current.started;
       const oldAborter = abort.current;
@@ -177,6 +180,7 @@ export function GlobalSearch(
       tokenizeFilter(search.value).at(-1)?.kind !== "text"
     ) {
       search.value += " ";
+      updateOverlayScroll(e.currentTarget! as HTMLInputElement);
       return;
     }
 
@@ -189,6 +193,17 @@ export function GlobalSearch(
     } else if (e.key === "ArrowUp") {
       selectionIdx.value = Math.max(0, selectionIdx.value - 1);
     }
+  }
+
+  function updateOverlayScroll(element: HTMLElement) {
+    if (inputOverlayContentRef.current) {
+      inputOverlayContentRef.current.style.transform = `translateX(${-element
+        .scrollLeft}px)`;
+    }
+  }
+
+  function onScroll(e: Event) {
+    updateOverlayScroll(e.currentTarget! as HTMLInputElement);
   }
 
   function onSubmit(e: JSX.TargetedEvent<HTMLFormElement>) {
@@ -250,6 +265,7 @@ export function GlobalSearch(
             onInput={onInput}
             onKeyUp={onKeyUp}
             onFocus={() => isFocused.value = true}
+            onScroll={onScroll}
             autoComplete="off"
             aria-expanded={showSuggestions}
             aria-autocomplete="list"
@@ -259,16 +275,22 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
             >
-              {tokenizeFilter(search.value).map((token, i, arr) => (
-                <span>
-                  <span class={token.kind === "text" ? "" : "search-input-tag"}>
-                    {token.raw}
-                  </span>
-                  {((arr.length - 1) !== i) && " "}
-                </span>
-              ))}
+              <div class="whitespace-nowrap overflow-hidden">
+                <div ref={inputOverlayContentRef}>
+                  {tokenizeFilter(search.value).map((token, i, arr) => (
+                    <span>
+                      <span
+                        class={token.kind === "text" ? "" : "search-input-tag"}
+                      >
+                        {token.raw}
+                      </span>
+                      {((arr.length - 1) !== i) && " "}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

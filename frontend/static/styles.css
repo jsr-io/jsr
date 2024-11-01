@@ -204,7 +204,7 @@
   }
 
   .search-input-tag {
-    @apply bg-blue-300/40 rounded text-blue-500 px-0.5 -mx-0.5;
+    @apply bg-blue-300/40 rounded-sm text-blue-500 px-0.5 -mx-0.5;
   }
 
   .select {
