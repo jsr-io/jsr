@@ -7,7 +7,7 @@ import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
-import { List, Package } from "../utils/api_types.ts";
+import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
@@ -170,6 +170,16 @@ export function GlobalSearch(
   };
 
   function onKeyUp(e: KeyboardEvent) {
+    if (
+      e.key === "ArrowRight" &&
+      (e.currentTarget! as HTMLInputElement).selectionStart ===
+        search.value.length &&
+      tokenizeFilter(search.value).at(-1)?.kind !== "text"
+    ) {
+      search.value += " ";
+      return;
+    }
+
     if (suggestions.value === null) return;
     if (e.key === "ArrowDown") {
       selectionIdx.value = Math.min(
@@ -230,22 +240,38 @@ export function GlobalSearch(
         <label htmlFor="global-search-input" class="sr-only">
           {kindPlaceholder}
         </label>
-        <input
-          type="search"
-          name="search"
-          class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses} relative`}
-          placeholder={placeholder}
-          value={query}
-          onInput={onInput}
-          onKeyUp={onKeyUp}
-          onFocus={() => isFocused.value = true}
-          autoComplete="off"
-          aria-expanded={showSuggestions}
-          aria-autocomplete="list"
-          aria-controls="package-search-results"
-          role="combobox"
-          id="global-search-input"
-        />
+        <div class="relative w-full">
+          <input
+            type="search"
+            name="search"
+            class={`w-full h-full search-input bg-white/90 !text-transparent !caret-black input rounded-r-none ${sizeClasses} relative`}
+            placeholder={placeholder}
+            value={search.value}
+            onInput={onInput}
+            onKeyUp={onKeyUp}
+            onFocus={() => isFocused.value = true}
+            autoComplete="off"
+            aria-expanded={showSuggestions}
+            aria-autocomplete="list"
+            aria-controls="package-search-results"
+            role="combobox"
+            id="global-search-input"
+          />
+          {kind === "packages" && (
+            <div
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
+            >
+              {tokenizeFilter(search.value).map((token, i, arr) => (
+                <span>
+                  <span class={token.kind === "text" ? "" : "search-input-tag"}>
+                    {token.raw}
+                  </span>
+                  {((arr.length - 1) !== i) && " "}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           type="submit"
@@ -344,11 +370,24 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-50 flex items-center justify-end py-1 px-2 gap-1">
-        <span class="text-sm text-jsr-gray-500">
-          powered by <span class="sr-only">Orama</span>
-        </span>
-        <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+      <div class="bg-jsr-gray-50 flex items-center justify-between py-1 px-2 text-sm">
+        <div>
+          {kind === "packages" && (
+            <a
+              class="link"
+              href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
+              target="_blank"
+            >
+              Search syntax
+            </a>
+          )}
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-jsr-gray-500">
+            powered by <span class="sr-only">Orama</span>
+          </span>
+          <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+        </div>
       </div>
     </div>
   );
@@ -397,21 +436,57 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
   };
 }
 
+interface TextToken {
+  kind: "text";
+  value: string;
+  raw: string;
+}
+interface ScopeToken {
+  kind: "scope";
+  value: string;
+  raw: string;
+}
+interface RuntimeToken {
+  kind: `runtimeCompat.${keyof RuntimeCompat}`;
+  value: true;
+  raw: string;
+}
+
+type Token = TextToken | ScopeToken | RuntimeToken;
+
+function tokenizeFilter(search: string): Token[] {
+  const tokens: Token[] = [];
+
+  for (const part of search.split(" ")) {
+    if (part.startsWith("scope:")) {
+      tokens.push({ kind: "scope", value: part.slice(6), raw: part });
+    } else if (part.startsWith("runtime:")) {
+      const runtime = part.slice(8);
+      if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
+        tokens.push({
+          kind: `runtimeCompat.${runtime as keyof RuntimeCompat}`,
+          value: true,
+          raw: part,
+        });
+      }
+    } else {
+      tokens.push({ kind: "text", value: part, raw: part });
+    }
+  }
+
+  return tokens;
+}
+
 export function processFilter(
   search: string,
 ): { query: string; where: Record<string, boolean | string> | undefined } {
   const filters: [string, boolean | string][] = [];
   let query = "";
-  for (const part of search.split(" ")) {
-    if (part.startsWith("scope:")) {
-      filters.push(["scope", part.slice(6)]);
-    } else if (part.startsWith("runtime:")) {
-      const runtime = part.slice(8);
-      if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
-        filters.push([`runtimeCompat.${runtime}`, true]);
-      }
+  for (const part of tokenizeFilter(search)) {
+    if (part.kind === "text") {
+      query += part.value + " ";
     } else {
-      query += part + " ";
+      filters.push([part.kind, part.value]);
     }
   }
   const where = Object.fromEntries(filters);
