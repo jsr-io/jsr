@@ -52,6 +52,7 @@ export default function PackagePage(
           property="og:image"
           content={`${FRONTEND_ROOT}/@${params.scope}/${params.package}/og`}
         />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
 
       <PackageHeader

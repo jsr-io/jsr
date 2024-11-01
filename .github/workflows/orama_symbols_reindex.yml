@@ -18,12 +18,10 @@ jobs:
       name: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@v2
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: 2.0.0-rc.1
+      - uses: denoland/setup-deno@v2
       - name: Deploy
         env:
           ORAMA_SYMBOLS_INDEX_ID: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           ORAMA_PACKAGE_PRIVATE_API_KEY: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
-          JSR_URL: ${{ vars.ENVIRONMENT_URL }}
+          JSR_ENDPOINT_URL: ${{ vars.ENVIRONMENT_URL }}
         run: deno task tools:orama:symbols_reindex

@@ -76,7 +76,7 @@ import * as $package_islands_PackageDescriptionEditor from "./routes/package/(_i
 import * as $package_islands_PackageGitHubSettings from "./routes/package/(_islands)/PackageGitHubSettings.tsx";
 import * as $publishing_islands_OverallStatus from "./routes/publishing/(_islands)/OverallStatus.tsx";
 import * as $publishing_islands_publishing from "./routes/publishing/(_islands)/publishing.tsx";
-import { type Manifest } from "$fresh/server.ts";
+import type { Manifest } from "$fresh/server.ts";
 
 const manifest = {
   routes: {

@@ -370,12 +370,11 @@ pub fn generate_docs_html(
         .doc_nodes
         .values()
         .flatten()
-        .cloned()
-        .collect::<Vec<_>>();
+        .map(std::borrow::Cow::Borrowed);
 
       let partitions_by_kind =
         deno_doc::html::partition::partition_nodes_by_entrypoint(
-          &all_doc_nodes,
+          all_doc_nodes,
           true,
         );
 
