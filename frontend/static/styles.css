@@ -250,8 +250,8 @@ body .ddoc {
     }
 
     pre.highlight > code:first-child {
-        @apply pr-9;
-        display: flex;
+      @apply pr-9;
+      display: flex;
     }
 
     pre.highlight .context_button {
