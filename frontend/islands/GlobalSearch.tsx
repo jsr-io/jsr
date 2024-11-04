@@ -48,6 +48,7 @@ export function GlobalSearch(
   const search = useSignal(query ?? "");
   const btnSubmit = useSignal(false);
   const inputOverlayContentRef = useRef<HTMLDivElement>(null);
+  const inputOverlayContent2Ref = useRef<HTMLDivElement>(null);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
@@ -196,9 +197,9 @@ export function GlobalSearch(
   }
 
   function updateOverlayScroll(element: HTMLElement) {
-    if (inputOverlayContentRef.current) {
-      inputOverlayContentRef.current.style.transform = `translateX(${-element
-        .scrollLeft}px)`;
+    if (inputOverlayContentRef.current && inputOverlayContent2Ref.current) {
+      inputOverlayContentRef.current.style.transform = `translateX(${-element.scrollLeft}px)`;
+      inputOverlayContent2Ref.current.style.transform = `translateX(${-element.scrollLeft}px)`;
     }
   }
 
@@ -275,14 +276,34 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${jumbo ? "!px-3.5" : "!px-1.5"}`}
             >
-              <div class="whitespace-nowrap overflow-hidden">
+              <div class="whitespace-nowrap overflow-hidden !text-transparent px-0.5">
                 <div ref={inputOverlayContentRef}>
                   {tokenizeFilter(search.value).map((token, i, arr) => (
                     <span>
                       <span
                         class={token.kind === "text" ? "" : "search-input-tag"}
+                      >
+                        {token.raw}
+                      </span>
+                      {((arr.length - 1) !== i) && " "}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {kind === "packages" && (
+            <div
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+            >
+              <div class="whitespace-nowrap overflow-hidden">
+                <div ref={inputOverlayContent2Ref}>
+                  {tokenizeFilter(search.value).map((token, i, arr) => (
+                    <span>
+                      <span
+                        class={token.kind === "text" ? "" : "text-blue-500"}
                       >
                         {token.raw}
                       </span>
