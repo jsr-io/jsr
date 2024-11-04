@@ -198,8 +198,10 @@ export function GlobalSearch(
 
   function updateOverlayScroll(element: HTMLElement) {
     if (inputOverlayContentRef.current && inputOverlayContent2Ref.current) {
-      inputOverlayContentRef.current.style.transform = `translateX(${-element.scrollLeft}px)`;
-      inputOverlayContent2Ref.current.style.transform = `translateX(${-element.scrollLeft}px)`;
+      inputOverlayContentRef.current.style.transform = `translateX(${-element
+        .scrollLeft}px)`;
+      inputOverlayContent2Ref.current.style.transform = `translateX(${-element
+        .scrollLeft}px)`;
     }
   }
 
@@ -276,7 +278,9 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${jumbo ? "!px-3.5" : "!px-1.5"}`}
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${
+                jumbo ? "!px-3.5" : "!px-1.5"
+              }`}
             >
               <div class="whitespace-nowrap overflow-hidden !text-transparent px-0.5">
                 <div ref={inputOverlayContentRef}>
