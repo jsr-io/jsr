@@ -53,7 +53,11 @@ export default [
     "id": "faq",
     group: "Guide",
   },
-
+  {
+    "title": "Governance",
+    "id": "governance",
+    group: "Guide",
+  },
   {
     title: "Scopes",
     id: "scopes",
