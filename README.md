@@ -114,7 +114,7 @@ making changes to the API.
 
 ### Running jsr
 
-1. `deno task services:macos` or `deno task services:linux` in one terminal
+1. `deno task services:macos`, `deno task services:macos:amd` or `deno task services:linux` in one terminal
 2. `deno task dev:api` in another terminal
 3. `deno task dev:frontend` in another terminal
 
