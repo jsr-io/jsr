@@ -65,6 +65,14 @@ export function GlobalSearch(
     }
   }, [indexId, apiKey]);
 
+  // focus the "search for packages" input box when the site loads
+  useEffect(() => {
+    if (kind === "packages") {
+      (document.querySelector("#global-search-input") as HTMLInputElement)
+        ?.focus();
+    }
+  }, []);
+
   useEffect(() => {
     const outsideClick = (e: Event) => {
       if (!ref.current) return;
