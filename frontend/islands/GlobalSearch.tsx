@@ -262,7 +262,9 @@ export function GlobalSearch(
           <input
             type="search"
             name="search"
-            class={`w-full h-full search-input bg-white/90 ${kind === "packages" ? "!text-transparent" : ""} !caret-black input rounded-r-none ${sizeClasses} relative`}
+            class={`w-full h-full search-input bg-white/90 ${
+              kind === "packages" ? "!text-transparent" : ""
+            } !caret-black input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
             onInput={onInput}
