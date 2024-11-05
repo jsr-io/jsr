@@ -17,7 +17,7 @@ export const RUNTIME_COMPAT_KEYS: [
   ["node", "Node.js", "/logos/node.svg", 256, 292],
   ["workerd", "Cloudflare Workers", "/logos/cloudflare-workers.svg", 416, 375],
   ["bun", "Bun", "/logos/bun.svg", 435, 435],
-] as const;
+];
 
 export function RuntimeCompatIndicator(
   { runtimeCompat, hideUnknown, compact }: {
