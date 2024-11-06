@@ -524,9 +524,7 @@ pub enum PublishError {
   },
 
   #[error("CommonJS is not allowed {specifier}")]
-  BannedCommonJsExtension {
-    specifier: String,
-  },
+  BannedCommonJsExtension { specifier: String },
 
   #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
   BannedTripleSlashDirectives {
@@ -649,7 +647,7 @@ impl PublishError {
       PublishError::CommonJs { .. } => Some("commonJs"),
       PublishError::BannedCommonJsExtension { .. } => {
         Some("bannedCommonJsExtension")
-      },
+      }
       PublishError::BannedTripleSlashDirectives { .. } => {
         Some("bannedTripleSlashDirectives")
       }

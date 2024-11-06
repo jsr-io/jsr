@@ -808,12 +808,13 @@ fn check_for_banned_extensions(
 ) -> Result<(), PublishError> {
   match parsed_source.media_type() {
     deno_ast::MediaType::Cjs | deno_ast::MediaType::Cts => {
-      return Err(PublishError::BannedCommonJsExtension { specifier: parsed_source.specifier().to_string() } );
-    },
-    _ => {
-      Ok(())
+      return Err(PublishError::BannedCommonJsExtension {
+        specifier: parsed_source.specifier().to_string(),
+      });
     }
-  }}
+    _ => Ok(()),
+  }
+}
 
 fn check_for_banned_syntax(
   parsed_source: &ParsedSource,
@@ -992,7 +993,8 @@ mod tests {
 
   #[test]
   fn banned_extensions() {
-    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::TypeScript);
+    let x =
+      parse_with_media_type("let x = 1;", deno_ast::MediaType::TypeScript);
     assert!(super::check_for_banned_extensions(&x).is_ok());
 
     let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cjs);
