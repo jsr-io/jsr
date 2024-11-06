@@ -49,13 +49,13 @@ export default [
     group: "Guide",
   },
   {
-    "title": "FAQ",
-    "id": "faq",
+    "title": "Governance",
+    "id": "governance",
     group: "Guide",
   },
   {
-    "title": "Governance",
-    "id": "governance",
+    "title": "FAQ",
+    "id": "faq",
     group: "Guide",
   },
   {
