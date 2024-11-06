@@ -811,7 +811,7 @@ fn check_for_banned_extensions(
       return Err(PublishError::BannedCommonJsExtension { specifier: parsed_source.specifier().to_string() } );
     },
     _ => {
-      return Ok(())
+      Ok(())
     }
   }}
 
