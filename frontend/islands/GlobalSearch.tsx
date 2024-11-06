@@ -136,6 +136,7 @@ export function GlobalSearch(
             searchNRef.current.displayed = searchN;
             batch(() => {
               selectionIdx.value = -1;
+              // @ts-ignore orama's return type doesn't match our type
               suggestions.value = res?.hits.map((hit) => hit.document) ?? [];
             });
           } else if (kind === "packages") {

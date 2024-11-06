@@ -109,6 +109,7 @@ export const handler: Handlers<Data, State> = {
     }
 
     return ctx.render({
+      // @ts-ignore orama's return type doesn't match our type
       packages,
       query: search,
       page,
