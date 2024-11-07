@@ -136,7 +136,7 @@ registry with data is to publish
 done via the following steps:
 
 1. Make sure to [make yourself a staff user/admin](#making-yourself-a-staff-useradmin).
-2. Run `SELECT id, name FROM users;` in the `registry` database to get your user's UUID.
+2. Navigate to your profile page and copy the UUID from the URL.
 3. Assign the `std` scope to your user through the [admin panel](http://jsr.test/admin/scopes/assign)
    by using the UUID from the previous step.
 4. Clone https://github.com/denoland/deno_std in the same parent folder as the
