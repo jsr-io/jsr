@@ -136,7 +136,9 @@ export function GlobalSearch(
             searchNRef.current.displayed = searchN;
             batch(() => {
               selectionIdx.value = -1;
-              suggestions.value = res?.hits.map((hit) => hit.document) ?? [];
+              // deno-lint-ignore no-explicit-any
+              suggestions.value = res?.hits.map((hit) => hit.document) as any ??
+                [];
             });
           } else if (kind === "packages") {
             const res = await api.get<List<Package>>(path`/packages`, {
