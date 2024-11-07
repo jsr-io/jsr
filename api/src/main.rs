@@ -25,6 +25,7 @@ mod tasks;
 mod token;
 mod traced_router;
 mod tracing;
+mod tree_sitter;
 mod util;
 
 use crate::api::api_router;

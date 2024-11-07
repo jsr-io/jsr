@@ -1300,7 +1300,9 @@ pub async fn get_source_handler(
   let source = if let Some(file) = file {
     let size = file.len();
 
-    let highlighter = deno_doc::html::setup_highlighter(true);
+    let highlighter = crate::tree_sitter::ComrakAdapter {
+      show_line_numbers: true,
+    };
 
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
       let mut out = vec![];
