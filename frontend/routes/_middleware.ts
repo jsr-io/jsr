@@ -31,7 +31,10 @@ const tracing = define.middleware(async (ctx) => {
 });
 
 const auth = define.middleware(async (ctx) => {
-  const interactive = true;
+  const pathname = ctx.url.pathname;
+  const interactive = !pathname.startsWith("/_fresh") &&
+    !pathname.startsWith("/api") &&
+    !ctx.url.searchParams.has("__frsh_c");
   const { token, sudo } = getCookies(ctx.req.headers);
   if (interactive) {
     ctx.state.sudo = sudo === "1";
