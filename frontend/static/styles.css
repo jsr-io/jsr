@@ -253,16 +253,17 @@ body .ddoc {
       @apply link;
     }
 
-    .highlight .context_button {
-      @apply border-none hover:bg-jsr-cyan-50;
-    }
-
-    .highlight .lineNumbers {
-      @apply border-jsr-gray-100 text-jsr-gray-300 pr-3;
-    }
-
-    .highlight .lineNumbers {
-      @apply mr-3 !important;
+    .highlight {
+      @apply relative;
+      
+      .lineNumbers {
+        @apply border-r-2 border-jsr-gray-100 text-jsr-gray-300 pr-3 text-right flex-none;
+        @apply mr-3 !important;
+      }
+      
+      .context_button {
+        @apply absolute top-3 right-4 opacity-60 hover:opacity-100 border-none hover:bg-jsr-cyan-50;
+      }
     }
   }
 
