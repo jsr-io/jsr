@@ -10,7 +10,7 @@ export default function Layout(
   return (
     <>
       <div
-        class="min-h-[calc(100vh-3rem)]"
+        class="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-4.5rem)]"
         data-dark-theme="light"
       >
         <a

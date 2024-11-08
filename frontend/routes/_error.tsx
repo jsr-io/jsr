@@ -5,6 +5,9 @@ import { ErrorDisplay } from "../components/ErrorDisplay.tsx";
 
 export default function Error({ error }: { error: unknown }) {
   if (error instanceof HttpError) {
+    if (error.status === 404 && error.message === "Not Found") {
+      error.message = "Couldn't find what you're looking for.";
+    }
     return (
       <>
         <style
