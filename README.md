@@ -114,7 +114,8 @@ making changes to the API.
 
 ### Running jsr
 
-1. `deno task services:macos`, `deno task services:macos:amd` or `deno task services:linux` in one terminal
+1. `deno task services:macos`, `deno task services:macos:amd` or
+   `deno task services:linux` in one terminal
 2. `deno task dev:api` in another terminal
 3. `deno task dev:frontend` in another terminal
 
@@ -135,10 +136,12 @@ registry with data is to publish
 [deno_std](https://github.com/denoland/deno_std) to the registry. This can be
 done via the following steps:
 
-1. Make sure to [make yourself a staff user/admin](#making-yourself-a-staff-useradmin).
+1. Make sure to
+   [make yourself a staff user/admin](#making-yourself-a-staff-useradmin).
 2. Navigate to your profile page and copy the UUID from the URL.
-3. Assign the `std` scope to your user through the [admin panel](http://jsr.test/admin/scopes/assign)
-   by using the UUID from the previous step.
+3. Assign the `std` scope to your user through the
+   [admin panel](http://jsr.test/admin/scopes/assign) by using the UUID from the
+   previous step.
 4. Clone https://github.com/denoland/deno_std in the same parent folder as the
    `jsr` project.
 5. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
