@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::OnceLock;
