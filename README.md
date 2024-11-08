@@ -135,16 +135,19 @@ registry with data is to publish
 [deno_std](https://github.com/denoland/deno_std) to the registry. This can be
 done via the following steps:
 
-1. Clone https://github.com/denoland/deno_std in the same parent folder as the
-   `jsr` project
-2. Make sure to [make yourself a staff user/admin](#making-yourself-a-staff-useradmin)
-3. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
+1. Make sure to [make yourself a staff user/admin](#making-yourself-a-staff-useradmin).
+2. Navigate to your profile page and copy the UUID from the URL.
+3. Assign the `std` scope to your user through the [admin panel](http://jsr.test/admin/scopes/assign)
+   by using the UUID from the previous step.
+4. Clone https://github.com/denoland/deno_std in the same parent folder as the
+   `jsr` project.
+5. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
    packages to your local dev environment.
 
 ### Making yourself a staff user/admin
 
 1. Run `psql registry`
-2. Run `SELECT name,github_id from users;`
+2. Run `SELECT name, github_id FROM users;`
 3. You should see a table with your name and GitHub ID. Copy your GitHub ID.
 4. Run `UPDATE users SET is_staff = true WHERE github_id = xxxxxxx;`, replacing
    `xxxxxxx` with your copied GitHub ID from the previous step.
