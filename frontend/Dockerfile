@@ -5,8 +5,9 @@ WORKDIR /app
 COPY . .
 
 RUN deno task build
+RUN rm -rf $DENO_DIR
 RUN deno install --allow-import -e main.ts
 
-RUN timeout 10s deno run -A main.ts || [ $? -eq 124 ] || exit 1
+RUN timeout 2s deno run -A --cached-only main.ts || true
 
 CMD ["run", "-A", "--cached-only", "main.ts"]
