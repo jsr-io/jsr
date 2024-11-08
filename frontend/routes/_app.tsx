@@ -36,7 +36,7 @@ export default async function App(
           title="JSR"
         />
       </head>
-      <body>
+      <body class="dark:bg-jsr-cyan-950 dark:text-white">
         <Component />
       </body>
     </html>

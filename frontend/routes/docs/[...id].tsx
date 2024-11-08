@@ -66,7 +66,7 @@ export default function Page({ data }: PageProps<Data, State>) {
           <p class="text-sm mb-6 -mt-2 md:hidden">
             <a href="#sidebar" class="link">View table of contents</a>
           </p>
-          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-jsr-gray-900">
+          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-jsr-gray-900 dark:text-jsr-gray-100">
             {data.title}
           </h1>
           <Markdown source={data.content} />
