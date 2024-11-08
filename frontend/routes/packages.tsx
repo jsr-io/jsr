@@ -64,7 +64,7 @@ export const handler: Handlers<Data, State> = {
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
-    let packages;
+    let packages: Package[];
     let total;
     if (apiKey) {
       const orama = new OramaClient({
@@ -89,9 +89,9 @@ export const handler: Handlers<Data, State> = {
         },
       });
 
-      packages = res?.hits.map((hit) =>
-        hit.document
-      ).filter((document) => document) ?? [];
+      packages = res?.hits
+        // deno-lint-ignore no-explicit-any
+        .map((hit) => hit.document).filter((document) => document) as any ?? [];
       total = res?.count ?? 0;
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(

@@ -29,6 +29,12 @@ export default async function App(
           type="image/svg+xml"
           href={asset("/logo-square.svg")}
         />
+        <link
+          rel="search"
+          type="application/opensearchdescription+xml"
+          href="/opensearch.xml"
+          title="JSR"
+        />
       </head>
       <body>
         <Component />
