@@ -1062,6 +1062,7 @@ pub async fn get_docs_handler(
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
       css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
@@ -2646,6 +2647,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2671,6 +2673,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2700,6 +2703,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2732,6 +2736,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,

@@ -9,23 +9,6 @@ pub struct ComrakAdapter {
   pub show_line_numbers: bool,
 }
 
-impl ComrakAdapter {
-  fn write_button(
-    &self,
-    output: &mut dyn Write,
-    source: &str,
-  ) -> std::io::Result<()> {
-    write!(output, "</code>")?;
-    write!(
-      output,
-      r#"<button class="context_button" data-copy="{}">{}</button>"#,
-      html_escape::encode_double_quoted_attribute(source),
-      deno_doc::html::COPY_BUTTON
-    )?;
-    write!(output, "<code>")
-  }
-}
-
 impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
   fn write_highlighted(
     &self,
@@ -79,8 +62,7 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
                 lines
               };
 
-              output.write_all(html.as_bytes())?;
-              return self.write_button(output, code);
+              return output.write_all(html.as_bytes());
             }
             Err(err) => {
               eprintln!("Error rendering code: {}", err);
@@ -92,19 +74,15 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
         }
       }
     }
-    comrak::html::escape(output, source)?;
-    self.write_button(output, code)
+
+    comrak::html::escape(output, source)
   }
 
   fn write_pre_tag(
     &self,
     output: &mut dyn Write,
-    mut attributes: HashMap<String, String>,
+    attributes: HashMap<String, String>,
   ) -> std::io::Result<()> {
-    attributes
-      .entry("class".into())
-      .or_default()
-      .push_str(" highlight");
     comrak::html::write_opening_tag(output, "pre", attributes)
   }
 

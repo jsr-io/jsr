@@ -17,6 +17,7 @@ export type SearchKind = "packages" | "docs";
 
 export interface Docs {
   css: string;
+  comrakCss: string;
   script: string;
   // null only on index page
   breadcrumbs: string | null;

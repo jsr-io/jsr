@@ -255,10 +255,10 @@ pub fn get_generate_ctx<'a>(
       symbol_redirect_map: None,
       default_symbol_map: None,
       markdown_renderer: deno_doc::html::comrak::create_renderer(
-        Some(Rc::new(super::tree_sitter::ComrakAdapter {
+        Some(Arc::new(super::tree_sitter::ComrakAdapter {
           show_line_numbers: false,
         })),
-        Some(Rc::new(|ammonia| {
+        Some(Box::new(|ammonia| {
           ammonia.add_allowed_classes("span", crate::tree_sitter::CLASSES);
         })),
         Some(get_url_rewriter(
@@ -268,6 +268,7 @@ pub fn get_generate_ctx<'a>(
         )),
       ),
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
+      head_inject: None,
     },
     None,
     deno_doc::html::FileMode::Normal,
@@ -922,7 +923,10 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       }
     );
 
-    let import = format!("\nImport symbol\n{}", usage_to_md(doc_nodes, &url));
+    let import = format!(
+      "\nImport symbol\n{}",
+      usage_to_md(doc_nodes, &url, Some(self.package.as_str()))
+    );
 
     if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
       map.insert(
@@ -932,7 +936,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
               r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
             ),
           },
-          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(doc_nodes, &format!("jsr:{url}"))),
+          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(doc_nodes, &format!("jsr:{url}"), Some(self.package.as_str()))),
         );
     }
 

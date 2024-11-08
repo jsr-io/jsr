@@ -37,6 +37,7 @@ export function DocsView(
     <div class="pt-6 space-y-8">
       <Head>
         <style dangerouslySetInnerHTML={{ __html: docs.css }} />
+        <style dangerouslySetInnerHTML={{ __html: docs.comrakCss }} />
         <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
       </Head>
 
