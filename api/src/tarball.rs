@@ -158,12 +158,6 @@ pub async fn process_tarball(
       });
     }
 
-    if path.ends_with(".cjs") | path.ends_with(".cts") {
-      return Err(PublishError::BannedCommonJsExtension {
-        specifier: path.to_string(),
-      });
-    }
-
     let size = header.size().map_err(PublishError::UntarError)?;
     if size > max_file_size {
       return Err(PublishError::FileTooLarge {
@@ -523,9 +517,6 @@ pub enum PublishError {
     column: usize,
   },
 
-  #[error("CommonJS is not allowed {specifier}")]
-  BannedCommonJsExtension { specifier: String },
-
   #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
   BannedTripleSlashDirectives {
     specifier: String,
@@ -645,9 +636,6 @@ impl PublishError {
         Some("globalTypeAugmentation")
       }
       PublishError::CommonJs { .. } => Some("commonJs"),
-      PublishError::BannedCommonJsExtension { .. } => {
-        Some("bannedCommonJsExtension")
-      }
       PublishError::BannedTripleSlashDirectives { .. } => {
         Some("bannedTripleSlashDirectives")
       }
