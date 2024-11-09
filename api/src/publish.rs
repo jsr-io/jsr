@@ -1309,6 +1309,16 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn graph_error() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("graph_error");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "graphError");
+  }
+
+  #[tokio::test]
   async fn npm_tarball() {
     let t = TestSetup::new().await;
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
