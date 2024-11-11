@@ -9,6 +9,7 @@
     "prod:frontend": "deno run -A --watch ./tools/prod_proxy.ts & cd frontend && API_ROOT=https://api.jsr.io deno task dev",
     "lint": "deno task lint:frontend && deno task lint:license",
     "lint:frontend": "cd frontend && deno lint && deno check --allow-import=googleapis.deno.dev,deno.land,jsr.io dev.ts main.ts routes/**/*.tsx routes/**/*.ts",
+    "lint:tools": "deno lint tools/ && deno check --allow-import=googleapis.deno.dev,deno.land,jsr.io tools/**/*.ts",
     "lint:license": "deno run --allow-read jsr:@kt3k/license-checker@3.2.11/main -q",
     "lint:license:fix": "deno run --allow-read --allow-write jsr:@kt3k/license-checker@3.2.11/main -q --inject",
     "tools:orama:package_reindex": "deno run --allow-env --allow-net tools/orama_package_reindex.ts",
@@ -36,5 +37,12 @@
     ".gcs/",
     "frontend/_fresh",
     "e2e/vendor"
-  ]
+  ],
+  "imports": {
+    "@deno/gfm": "jsr:@deno/gfm@^0.10.0",
+    "@std/async": "jsr:@std/async@^1.0.8",
+    "@std/front-matter": "jsr:@std/front-matter@^1.0.5",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "github-slugger": "npm:github-slugger@^2.0.0"
+  }
 }
