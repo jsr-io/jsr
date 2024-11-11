@@ -264,6 +264,10 @@ body .ddoc {
     .highlight .lineNumbers {
       @apply mr-3 !important;
     }
+
+    code {
+      @apply w-full;
+    }
   }
 
   .namespaceItemContent {
