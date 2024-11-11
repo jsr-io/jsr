@@ -1,10 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import type { State } from "../../../util.ts";
 import { AdminNav } from "../(_components)/AdminNav.tsx";
+import { define } from "../../../util.ts";
 import { path } from "../../../utils/api.ts";
 
-export default function Scopes({}: PageProps<void, State>) {
+export default define.page<typeof handler>(function Scopes() {
   return (
     <div class="mb-20">
       <AdminNav currentTab="scopes" />
@@ -35,11 +34,11 @@ export default function Scopes({}: PageProps<void, State>) {
       </form>
     </div>
   );
-}
+});
 
-export const handler: Handlers<void, State> = {
-  async POST(req, ctx) {
-    const form = await req.formData();
+export const handler = define.handlers({
+  async POST(ctx) {
+    const form = await ctx.req.formData();
     const scope = form.get("scope");
     const userId = form.get("user_id");
 
@@ -54,4 +53,4 @@ export const handler: Handlers<void, State> = {
       headers: { Location: "/admin/scopes" },
     });
   },
-};
+});

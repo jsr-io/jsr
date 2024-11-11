@@ -1,30 +1,22 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { State } from "../../../util.ts";
+
+import { HttpError } from "fresh";
+import { define } from "../../../util.ts";
 import { path } from "../../../utils/api.ts";
-import { FullUser, Token } from "../../../utils/api_types.ts";
+import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
-import { Head } from "$fresh/runtime.ts";
-import twas from "$twas";
+import twas from "twas";
 import { RevokeToken } from "./(_islands)/RevokeToken.tsx";
 import { Plus } from "../../../components/icons/Plus.tsx";
 
-interface Data {
-  user: FullUser;
-  tokens: Token[];
-}
-
-export default function AccountTokensPage({ data }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function AccountTokensPage({
+  data,
+}) {
   const personal = data.tokens.filter((token) => token.type === "personal");
   const sessions = data.tokens.filter((token) => token.type !== "personal");
 
   return (
     <AccountLayout user={data.user} active="Tokens">
-      <Head>
-        <title>
-          Your tokens - JSR
-        </title>
-      </Head>
       <div>
         <h2 class="text-xl mb-2 font-bold">Personal access tokens</h2>
         <p class="text-jsr-gray-600 max-w-2xl">
@@ -82,7 +74,7 @@ export default function AccountTokensPage({ data }: PageProps<Data, State>) {
       </div>
     </AccountLayout>
   );
-}
+});
 
 function PersonalTokenRow({ token }: { token: Token }) {
   const expiresAt = token.expiresAt ? new Date(token.expiresAt) : null;
@@ -111,18 +103,21 @@ function PersonalTokenRow({ token }: { token: Token }) {
                 <b>Active</b> {expiresAt === null
                   ? "forever"
                   : `– expires ${
-                    twas(new Date(), expiresAt).replace("ago", "from now")
+                    twas(new Date().getTime(), expiresAt.getTime()).replace(
+                      "ago",
+                      "from now",
+                    )
                   }`}
               </span>
             )
             : (
               <span class="text-red-600">
-                <b>Inactive</b> - expired {twas(expiresAt)}
+                <b>Inactive</b> - expired {twas(expiresAt.getTime())}
               </span>
             )}
         </p>
         <p class="text-sm sm:text-right">
-          Created {twas(new Date(token.createdAt))}
+          Created {twas(new Date(token.createdAt).getTime())}
         </p>
       </div>
       <p class="text-sm text-jsr-gray-600">
@@ -163,13 +158,16 @@ function SessionRow({ token }: { token: Token }) {
                   <b>Active</b> {expiresAt === null
                     ? "forever"
                     : `– expires ${
-                      twas(new Date(), expiresAt).replace("ago", "from now")
+                      twas(new Date().getTime(), expiresAt.getTime()).replace(
+                        "ago",
+                        "from now",
+                      )
                     }`}
                 </span>
               )
               : (
                 <span class="text-red-600">
-                  <b>Inactive</b> - expired {twas(expiresAt)}
+                  <b>Inactive</b> - expired {twas(expiresAt.getTime())}
                 </span>
               )}
 
@@ -178,7 +176,7 @@ function SessionRow({ token }: { token: Token }) {
         </div>
         <div>
           <p class="text-sm sm:text-right">
-            Created {twas(new Date(token.createdAt))}
+            Created {twas(new Date(token.createdAt).getTime())}
           </p>
         </div>
       </div>
@@ -186,20 +184,23 @@ function SessionRow({ token }: { token: Token }) {
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [currentUser, tokensRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<Token[]>(path`/user/tokens`),
     ]);
     if (currentUser instanceof Response) return currentUser;
-    if (!currentUser) return ctx.renderNotFound();
+    if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
     if (!tokensRes.ok) throw tokensRes; // gracefully handle errors
 
-    return ctx.render({
-      user: currentUser,
-      tokens: tokensRes.data,
-    });
+    ctx.state.meta = { title: "Your tokens - JSR" };
+    return {
+      data: {
+        user: currentUser,
+        tokens: tokensRes.data,
+      },
+    };
   },
-};
+});
