@@ -1,8 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers } from "$fresh/server.ts";
 
-export const handler: Handlers = {
-  GET(_req, ctx) {
+import { define } from "../util.ts";
+
+export const handler = define.handlers({
+  GET(ctx) {
     const redirectPath = ctx.url.searchParams.get("redirect") ?? "/";
     return new Response(null, {
       status: 302,
@@ -12,4 +13,4 @@ export const handler: Handlers = {
       },
     });
   },
-};
+});
