@@ -13,5 +13,5 @@ await fsRoutes(app, {
 });
 
 if (import.meta.main) {
-  await app.listen();
+  await app.listen({ port: Number(Deno.env.get("PORT") ?? 8080) });
 }
