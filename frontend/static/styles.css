@@ -253,8 +253,8 @@ body .ddoc {
       @apply link;
     }
 
-    .highlight .context_button {
-      @apply border-none hover:bg-jsr-cyan-50;
+    pre.highlight .context_button {
+      @apply right-0 border-r-4 border-white hover:bg-jsr-cyan-50;
     }
 
     .highlight .lineNumbers {
@@ -263,6 +263,20 @@ body .ddoc {
 
     .highlight .lineNumbers {
       @apply mr-3 !important;
+    }
+  }
+
+  .usageContent pre.highlight > code:first-child {
+    @apply pr-9;
+    display: flex;
+
+    * {
+      margin-left: 0.5rem;
+    }
+
+    span:first-child,
+    span:nth-child(4) {
+      margin-left: 0;
     }
   }
 
