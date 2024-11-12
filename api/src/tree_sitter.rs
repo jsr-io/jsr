@@ -22,8 +22,11 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
     let source = code.as_bytes();
     if let Some(config) = config {
       let mut highlighter = tree_sitter_highlight::Highlighter::new();
+      // unsure why exactly, but without the closure it doesnt compile
+      // seems to be related to the static aspect of tree_sitter_language_cb
+      #[allow(clippy::redundant_closure)]
       let res = highlighter
-        .highlight(&*config, source, None, |e| tree_sitter_language_cb(e));
+        .highlight(config, source, None, |e| tree_sitter_language_cb(e));
 
       match res {
         Ok(highlighter) => {
