@@ -1,19 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import type { PaginationData, State } from "../../util.ts";
 import UserEdit from "../../islands/admin/UserEdit.tsx";
 import { Table } from "../../components/Table.tsx";
 import { path } from "../../utils/api.ts";
 import { FullUser, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "../../components/URLQuerySearch.tsx";
+import { define } from "../../util.ts";
 
-interface Data extends PaginationData {
-  users: FullUser[];
-  query: string;
-}
-
-export default function Users({ data, url }: PageProps<Data>) {
+export default define.page<typeof handler>(function Users({ data, url }) {
   return (
     <div class="mb-20">
       <AdminNav currentTab="users" />
@@ -37,10 +31,10 @@ export default function Users({ data, url }: PageProps<Data>) {
       </Table>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
@@ -52,12 +46,14 @@ export const handler: Handlers<Data, State> = {
     });
     if (!resp.ok) throw resp; // gracefully handle this
 
-    return ctx.render({
-      users: resp.data.items,
-      query,
-      page,
-      limit,
-      total: resp.data.total,
-    });
+    return {
+      data: {
+        users: resp.data.items,
+        query,
+        page,
+        limit,
+        total: resp.data.total,
+      },
+    };
   },
-};
+});

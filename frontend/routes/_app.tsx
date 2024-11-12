@@ -1,12 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { PageProps } from "$fresh/server.ts";
-import { asset } from "$fresh/runtime.ts";
+import { PageProps } from "fresh";
+import { asset } from "fresh/runtime";
 import { State } from "../util.ts";
 
-export default async function App(
-  _req: Request,
-  { Component, state }: PageProps<undefined, State>,
-) {
+const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
+
+export default async function App({
+  Component,
+  state,
+  url,
+}: PageProps<undefined, State>) {
   const user = await state.userPromise;
   if (user instanceof Response) return user;
   Object.defineProperty(state, "user", { value: user });
@@ -15,9 +18,35 @@ export default async function App(
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {state.meta?.title && (
+          <>
+            <title>{state.meta.title}</title>
+            <meta property="og:title" content={state.meta.title} />
+          </>
+        )}
+        {state.meta?.description && (
+          <>
+            <meta name="description" content={state.meta.description} />
+            <meta property="og:description" content={state.meta.description} />
+          </>
+        )}
+
+        <meta
+          property="og:url"
+          content={`${FRONTEND_ROOT}${url.pathname}`}
+        />
+        <meta property="og:type" content="article" />
+        <meta property="og:site_name" content="JSR" />
+        <meta
+          property="og:image"
+          content={state.meta?.ogImage ??
+            `${FRONTEND_ROOT}/images/og-image.webp`}
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+
         <link
           rel="preload"
-          href="/fonts/DMSans/DMSans-Variable.woff2"
+          href={asset("/fonts/DMSans/DMSans-Variable.woff2")}
           as="font"
           type="font/woff2"
           crossOrigin="true"

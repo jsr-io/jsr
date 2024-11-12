@@ -1,9 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { State } from "../../util.ts";
-import { Head } from "$fresh/runtime.ts";
 import { Signal, signal } from "@preact/signals";
+import { define } from "../../util.ts";
 import {
   OverallStatus,
   PackageLink,
@@ -11,14 +9,9 @@ import {
   VersionPublishStatus,
 } from "./(_islands)/publishing.tsx";
 
-interface Data {
-  authorizedVersions: string[];
-  date: string;
-}
-
-export default function PublishApprovePage({ data }: PageProps<Data>) {
-  const singular = data.authorizedVersions.length > 1;
-
+export default define.page<typeof handler>(function PublishApprovePage({
+  data,
+}) {
   const packages = data.authorizedVersions.map((id) => {
     const separator = id.lastIndexOf("@");
 
@@ -31,18 +24,12 @@ export default function PublishApprovePage({ data }: PageProps<Data>) {
 
   return (
     <div class="pb-8 mb-16">
-      <Head>
-        <title>
-          Publishing package{singular ? "s" : ""} - JSR
-        </title>
-        <meta property="og:image" content="/images/og-image.webp" />
-      </Head>
       <section>
         <h1 class="text-4xl font-bold">Publishing progress</h1>
         <p class="text-lg mt-4">
           You have approved the publishing of {data.authorizedVersions.length}
           {" "}
-          package{singular ? "s" : ""}.
+          package{data.authorizedVersions.length > 1 ? "s" : ""}.
         </p>
         <OverallStatus packages={packages} />
 
@@ -59,7 +46,7 @@ export default function PublishApprovePage({ data }: PageProps<Data>) {
       </section>
     </div>
   );
-}
+});
 
 function PackageListItem(props: {
   name: string;
@@ -85,8 +72,8 @@ function PackageListItem(props: {
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const authorizedVersions = ctx.url.searchParams.getAll("v");
     const date = ctx.url.searchParams.get("date");
     if (authorizedVersions.length === 0 || !date) {
@@ -109,8 +96,14 @@ export const handler: Handlers<Data, State> = {
       });
     }
 
-    return ctx.render({ authorizedVersions, date }, {
+    ctx.state.meta = {
+      title: `Publishing package${
+        authorizedVersions.length > 1 ? "s" : ""
+      } - JSR`,
+    };
+    return {
+      data: { authorizedVersions, date },
       headers: { "X-Robots-Tag": "noindex" },
-    });
+    };
   },
-};
+});

@@ -1,8 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { API } from "./utils/api.ts";
+import type { API } from "./utils/api.ts";
 import type { FullUser, RuntimeCompat } from "./utils/api_types.ts";
 import type { TraceSpan } from "./utils/tracing.ts";
-import { SourceDir, SourceFile } from "./utils/api_types.ts";
+import type { SourceDir, SourceFile } from "./utils/api_types.ts";
+import { createDefine } from "fresh";
+
+export const define = createDefine<State>();
 
 export interface State {
   api: API;
@@ -10,7 +13,14 @@ export interface State {
   userPromise: Promise<FullUser | null | Response>;
   user: FullUser | null;
   sudo: boolean;
+  meta: Meta;
   searchKind?: SearchKind;
+}
+
+export interface Meta {
+  title?: string;
+  description?: string;
+  ogImage?: string;
 }
 
 export type SearchKind = "packages" | "docs";
