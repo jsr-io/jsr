@@ -586,11 +586,10 @@ pub struct ApiPackageVersion {
 #[serde(rename_all = "camelCase", tag = "kind")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiPackageVersionDocs {
+  #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
     css: Cow<'static, str>,
-    #[serde(rename = "comrakCss")]
-    // not sure why, but the rename_all is not renaming this
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<String>,
