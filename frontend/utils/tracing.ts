@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { FreshContext } from "$fresh/server.ts";
 import {
   AttributeValue,
   CloudTrace,
@@ -83,18 +82,11 @@ export class Tracer {
     }
   }
 
-  spanForRequest(
-    req: Request,
-    destination: FreshContext["destination"],
-  ) {
+  spanForRequest(req: Request) {
     let parentSpan: TraceSpan | null = null;
     const traceparent = req.headers.get("traceparent");
     if (traceparent !== null) {
       parentSpan = parseTraceParent(traceparent, this);
-    }
-
-    if (destination !== "route" && destination !== "notFound") {
-      return TraceSpan.root(false, this);
     }
 
     const url = new URL(req.url);

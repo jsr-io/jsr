@@ -1,41 +1,22 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { HttpError, RouteConfig } from "fresh";
 import type { FullUser, Package } from "../../utils/api_types.ts";
-import { State } from "../../util.ts";
+import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { GitHub } from "../../components/icons/GitHub.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
-import { ScopeIAM } from "../../utils/iam.ts";
 import { CopyButton } from "../../islands/CopyButton.tsx";
 
-interface Data {
-  package: Package;
-  iam: ScopeIAM;
-}
-
-export default function PackagePage({
+export default define.page<typeof handler>(function PackagePage({
   data,
   params,
   state,
-}: PageProps<Data, State>) {
+}) {
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Publish instructions - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader package={data.package} />
 
       <PackageNav
@@ -162,7 +143,7 @@ export default function PackagePage({
       </div>
     </div>
   );
-}
+});
 
 function GitHubActions({ pkg, canEdit, user }: {
   pkg: Package;
@@ -287,26 +268,38 @@ jobs:
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [user, data] = await Promise.all([
       ctx.state.userPromise,
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
     ]);
     if (user instanceof Response) return user;
-    if (!data) return ctx.renderNotFound();
+    if (!data) {
+      throw new HttpError(404, "This package was not found.");
+    }
 
     const { pkg, scopeMember } = data;
 
     const iam = scopeIAM(ctx.state, scopeMember, user);
-    if (!iam.canWrite) return ctx.renderNotFound();
+    if (!iam.canWrite) {
+      throw new HttpError(404, "This package was not found.");
+    }
 
-    return ctx.render({
-      package: pkg,
-      iam,
-    });
+    ctx.state.meta = {
+      title: `Publish instructions - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        iam,
+      },
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package/publish",

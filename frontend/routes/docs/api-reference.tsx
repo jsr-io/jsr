@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RouteConfig } from "$fresh/server.ts";
+import { RouteConfig } from "fresh";
 
 const style = `body:not(:has(div[data-v-app])) {
   margin: 0;

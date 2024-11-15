@@ -586,9 +586,11 @@ pub struct ApiPackageVersion {
 #[serde(rename_all = "camelCase", tag = "kind")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiPackageVersionDocs {
+  #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
     css: Cow<'static, str>,
+    comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<String>,
     toc: Option<String>,

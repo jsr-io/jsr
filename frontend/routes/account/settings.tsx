@@ -1,16 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { State } from "../../util.ts";
-import { FullUser } from "../../utils/api_types.ts";
+import { HttpError } from "fresh";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
 import { QuotaCard } from "../../components/QuotaCard.tsx";
-import { Head } from "$fresh/runtime.ts";
+import { define } from "../../util.ts";
 
-interface Data {
-  user: FullUser;
-}
-
-export default function AccountInvitesPage({ data }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function AccountInvitesPage({
+  data,
+}) {
   const requestLimitIncreaseBody = `Hello JSR team,
 I would like to request a scope quota increase for my account.
 My user ID is '${data.user!.id}'.
@@ -19,11 +15,6 @@ Reason: `;
 
   return (
     <AccountLayout user={data.user} active="Settings">
-      <Head>
-        <title>
-          Account Settings - JSR
-        </title>
-      </Head>
       <div class="flex flex-col gap-12">
         <div>
           <h2 class="text-xl mb-2 font-bold">Quotas</h2>
@@ -74,18 +65,21 @@ Reason: `;
       </div>
     </AccountLayout>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [currentUser] = await Promise.all([
       ctx.state.userPromise,
     ]);
     if (currentUser instanceof Response) return currentUser;
-    if (!currentUser) return ctx.renderNotFound();
+    if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
-    return ctx.render({
-      user: currentUser,
-    });
+    ctx.state.meta = { title: "Account Settings - JSR" };
+    return {
+      data: {
+        user: currentUser,
+      },
+    };
   },
-};
+});

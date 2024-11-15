@@ -1,11 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { State } from "../util.ts";
+import { define } from "../util.ts";
 import { path } from "../utils/api.ts";
 import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { ComponentChildren } from "preact";
 import { HomepageHero } from "../components/HomepageHero.tsx";
 import { Logo } from "../components/Logo.tsx";
@@ -18,25 +16,9 @@ interface Post {
   link: string;
 }
 
-interface Data {
-  stats: Stats;
-  posts: Post[];
-}
-
-export default function Home({ data }: PageProps<Data>) {
+export default define.page<typeof handler>(function Home({ data }) {
   return (
     <div class="flex flex-col">
-      <Head>
-        <title>
-          JSR: the JavaScript Registry
-        </title>
-        <meta
-          name="description"
-          content="JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers."
-        />
-        <meta property="og:image" content="/images/og-image.webp" />
-      </Head>
-
       <HomepageHero
         apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
         indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
@@ -219,7 +201,7 @@ export default function Home({ data }: PageProps<Data>) {
       </div>
     </div>
   );
-}
+});
 
 function BenefitContainer({ children }: { children: ComponentChildren }) {
   return (
@@ -264,8 +246,8 @@ function PackageVersionToPanelEntry(
   };
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
       anonymous: true,
     });
@@ -281,10 +263,18 @@ export const handler: Handlers<Data, State> = {
     }
 
     if (!statsResp.ok) throw statsResp; // gracefully handle this
-    return ctx.render({ stats: statsResp.data, posts: posts || [] }, {
+
+    ctx.state.meta = {
+      title: "JSR: the JavaScript Registry",
+      description:
+        "JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers.",
+    };
+
+    return {
+      data: { stats: statsResp.data, posts: posts || [] },
       headers: ctx.state.api.hasToken()
         ? undefined
         : { "Cache-Control": "public, s-maxage=60" },
-    });
+    };
   },
-};
+});

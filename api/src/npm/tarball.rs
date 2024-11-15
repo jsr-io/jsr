@@ -725,7 +725,7 @@ mod tests {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
       jsr_url_provider: &PassthroughJsrUrlProvider,
-      module_parser: Some(&module_analyzer.analyzer),
+      es_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,
       workspace_fast_check: WorkspaceFastCheckOption::Enabled(

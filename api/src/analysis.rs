@@ -21,7 +21,7 @@ use deno_graph::source::NullFileSystem;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
 use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::DefaultModuleParser;
+use deno_graph::DefaultEsParser;
 use deno_graph::GraphKind;
 use deno_graph::ModuleGraph;
 use deno_graph::ModuleInfo;
@@ -168,7 +168,7 @@ async fn analyze_package_inner(
     fast_check_cache: None,
     fast_check_dts: true,
     jsr_url_provider: &PassthroughJsrUrlProvider,
-    module_parser: Some(&module_analyzer.analyzer),
+    es_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
     npm_resolver: Default::default(),
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
@@ -595,7 +595,7 @@ async fn rebuild_npm_tarball_inner(
     fast_check_cache: Default::default(),
     fast_check_dts: true,
     jsr_url_provider: &PassthroughJsrUrlProvider,
-    module_parser: Some(&module_analyzer.analyzer),
+    es_parser: Some(&module_analyzer.analyzer),
     resolver: None,
     npm_resolver: None,
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
@@ -680,14 +680,14 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
-pub struct ModuleParser(DefaultModuleParser);
+pub struct ModuleParser(DefaultEsParser);
 
-impl deno_graph::ModuleParser for ModuleParser {
-  fn parse_module(
+impl deno_graph::EsParser for ModuleParser {
+  fn parse_program(
     &self,
     options: deno_graph::ParseOptions,
   ) -> Result<ParsedSource, deno_ast::ParseDiagnostic> {
-    let source = self.0.parse_module(options)?;
+    let source = self.0.parse_program(options)?;
     if let Some(err) = source.diagnostics().first() {
       return Err(err.clone());
     }
@@ -817,9 +817,9 @@ fn check_for_banned_syntax(
     (line_number, column_number)
   };
 
-  for i in parsed_source.module().body.iter() {
+  for i in parsed_source.program_ref().body() {
     match i {
-      ast::ModuleItem::ModuleDecl(n) => match n {
+      deno_ast::ModuleItemRef::ModuleDecl(n) => match n {
         ast::ModuleDecl::TsNamespaceExport(n) => {
           let (line, column) = line_col(&n.range());
           return Err(PublishError::GlobalTypeAugmentation {
@@ -894,7 +894,7 @@ fn check_for_banned_syntax(
         }
         _ => continue,
       },
-      ast::ModuleItem::Stmt(n) => match n {
+      deno_ast::ModuleItemRef::Stmt(n) => match n {
         ast::Stmt::Decl(ast::Decl::TsModule(n)) => {
           if n.global {
             let (line, column) = line_col(&n.range());
