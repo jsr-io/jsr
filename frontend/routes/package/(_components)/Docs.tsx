@@ -38,6 +38,7 @@ export function DocsView({
   return (
     <div class="pt-6 space-y-8">
       <style hidden dangerouslySetInnerHTML={{ __html: docs.css }} />
+      <style dangerouslySetInnerHTML={{ __html: docs.comrakCss }} />
       <script hidden dangerouslySetInnerHTML={{ __html: docs.script }} defer />
 
       {docs.breadcrumbs && (
