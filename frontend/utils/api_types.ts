@@ -142,6 +142,7 @@ export interface PackageVersionDocsContent {
   kind: "content";
   version: PackageVersionWithUser;
   css: string;
+  comrakCss: string;
   script: string;
   breadcrumbs: string | null;
   toc: string | null;

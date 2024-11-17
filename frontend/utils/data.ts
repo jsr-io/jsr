@@ -134,6 +134,7 @@ export async function packageDataWithDocs(
       selectedVersionIsLatestUnyanked: !version,
       docs: {
         css: pkgDocsResp.data.css,
+        comrakCss: pkgDocsResp.data.comrakCss,
         script: pkgDocsResp.data.script,
         breadcrumbs: pkgDocsResp.data.breadcrumbs,
         toc: pkgDocsResp.data.toc,

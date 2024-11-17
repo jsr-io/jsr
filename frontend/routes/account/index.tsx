@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers } from "$fresh/server.ts";
-import { State } from "../../util.ts";
+import { HttpError } from "fresh";
+import { define } from "../../util.ts";
 
-export const handler: Handlers<undefined, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const currentUser = await ctx.state.userPromise;
 
     if (currentUser instanceof Response) return currentUser;
-    if (!currentUser) return ctx.renderNotFound();
+    if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
     return new Response("", {
       headers: {
@@ -16,4 +16,4 @@ export const handler: Handlers<undefined, State> = {
       status: 303,
     });
   },
-};
+});

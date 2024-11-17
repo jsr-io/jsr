@@ -822,6 +822,7 @@ pub mod tests {
         HashMap::from_iter([(
           "/mod.ts".to_string(),
           ModuleInfo {
+            is_script: false,
             dependencies: vec![],
             ts_references: vec![],
             self_types_specifier: None,
