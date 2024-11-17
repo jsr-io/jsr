@@ -1310,13 +1310,13 @@ pub mod tests {
   }
 
   #[tokio::test]
-  async fn graph_error() {
+  async fn cjs_import() {
     let t = TestSetup::new().await;
-    let bytes = create_mock_tarball("graph_error");
+    let bytes = create_mock_tarball("cjs_import");
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
-    assert_eq!(error.code, "graphError");
+    assert_eq!(error.code, "commonJs");
   }
 
   #[tokio::test]
