@@ -38,6 +38,8 @@ export interface Docs {
 
 export interface Source {
   css: string;
+  comrakCss: string;
+  script: string;
   source: SourceDir | SourceFile;
 }
 
