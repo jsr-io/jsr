@@ -260,6 +260,16 @@ body .ddoc {
         @apply border-r-2 border-jsr-gray-100 text-jsr-gray-300 pr-3 text-right
           flex-none;
         @apply mr-3 !important;
+
+        > a {
+          @apply block;
+        }
+      }
+
+      .lineNumbersHighlight {
+        > span {
+          @apply block target:bg-yellow-200;
+        }
       }
 
       .context_button {
@@ -384,6 +394,10 @@ body .ddoc {
         color: #f6f8fa;
         background-color: #005cc5;
       }
+    }
+
+    code {
+      @apply w-full;
     }
   }
 

@@ -21,7 +21,15 @@ export default define.page<typeof handler>(function PackagePage(
   return (
     <div class="mb-20">
       {data.source && (
-        <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
+        <>
+          <style dangerouslySetInnerHTML={{ __html: data.source.comrakCss }} />
+          <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
+          <script
+            hidden
+            dangerouslySetInnerHTML={{ __html: data.source.script }}
+            defer
+          />
+        </>
       )}
       <PackageHeader
         package={data.package}

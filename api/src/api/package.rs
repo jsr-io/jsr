@@ -1301,9 +1301,11 @@ pub async fn get_source_handler(
   let source = if let Some(file) = file {
     let size = file.len();
 
-    let highlighter = crate::tree_sitter::ComrakAdapter {
-      show_line_numbers: true,
-    };
+    let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
+      Some(Arc::new(crate::tree_sitter::ComrakAdapter {
+        show_line_numbers: true,
+      })),
+    );
 
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
       let mut out = vec![];
@@ -1378,6 +1380,8 @@ pub async fn get_source_handler(
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
     css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+    comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
+    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
 }

@@ -43,12 +43,10 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
 
                 if self.show_line_numbers {
                   line_numbers.push_str(&format!(
-                    r##"<a href="#L{n}" class="no_color block">{n}</a>"##,
+                    r##"<a href="#L{n}" class="no_color">{n}</a>"##,
                   ));
 
-                  lines.push_str(&format!(
-                    r#"<span id="L{n}" class="block target:bg-yellow-200">"#
-                  ));
+                  lines.push_str(&format!(r#"<span id="L{n}">"#));
                 }
 
                 lines.push_str(line);
@@ -60,7 +58,7 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
 
               let html = if self.show_line_numbers {
                 format!(
-                  r##"<div class="lineNumbers">{line_numbers}</div><div class="grow overflow-x-auto">{lines}</div>"##
+                  r##"<div class="lineNumbers">{line_numbers}</div><div class="grow overflow-x-auto lineNumbersHighlight">{lines}</div>"##
                 )
               } else {
                 lines
