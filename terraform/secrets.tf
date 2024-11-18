@@ -42,8 +42,20 @@ resource "google_secret_manager_secret" "orama_package_index_id" {
   }
 }
 
+resource "google_secret_manager_secret" "orama_symbols_index_id" {
+  secret_id = "orama-symbols-index-id"
+  replication {
+    auto {}
+  }
+}
+
 resource "google_secret_manager_secret_version" "orama_package_index_id" {
   secret      = google_secret_manager_secret.orama_package_index_id.id
   secret_data = var.orama_package_index_id
+}
+
+resource "google_secret_manager_secret_version" "orama_symbols_index_id" {
+  secret      = google_secret_manager_secret.orama_symbols_index_id.id
+  secret_data = var.orama_symbols_index_id
 }
 

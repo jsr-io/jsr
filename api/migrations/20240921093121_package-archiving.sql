@@ -1,0 +1,1 @@
+ALTER TABLE packages ADD is_archived BOOLEAN NOT NULL DEFAULT FALSE;

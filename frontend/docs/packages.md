@@ -59,6 +59,27 @@ Linking a GitHub repository also enables tokenless publishing from GitHub
 Actions using OIDC.
 [Learn more about publishing from GitHub Actions.](/docs/publishing-packages#publishing-from-github-actions)
 
+## Archiving a package
+
+A package can be archived from the "Settings" tab on the package page. Only
+scope admins can archive a package.
+
+Archiving a package does multiple things:
+
+- It prevents new versions of the package from being published.
+- It shows a warning on the package page that the package has been archived.
+- It prevents the package from being shown in search results.
+- It prevents the package from being shown in the package list on the scope
+  page.
+
+Archiving a package does not prevent users from downloading the package. If a
+user has already downloaded the package, have it in their lock file, or are
+explicitly specifying the package in their import, they can still use it.
+
+Archived packages can be unarchived by clicking the "Unarchive" button on the
+package page. Only scope admins can unarchive a package. This restores the
+package back to its regular behaviour.
+
 ## Deleting a package
 
 A package can be deleted from the "Settings" tab on the package page. Only scope
@@ -67,6 +88,12 @@ admins can delete a package.
 Packages can only be deleted if they have no published versions. If a package
 has published versions, it can not be deleted.
 [Learn more about registry immutability.](/docs/immutability)
+
+When you have a package that you no longer want to maintain, we recommend
+[archiving it](#archiving-a-package). Archiving a package prevents new versions
+from being published and hides the package from search results and the scope
+page, but still allows users to download the package if they already know about
+the package.
 
 ## Versions
 

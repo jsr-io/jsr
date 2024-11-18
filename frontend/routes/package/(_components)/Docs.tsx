@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Head } from "$fresh/src/runtime/head.ts";
 import type { PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
@@ -30,15 +29,17 @@ document.querySelector('.usages').addEventListener('change', (e) => {
 });
 })()`;
 
-export function DocsView(
-  { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
-) {
+export function DocsView({
+  docs,
+  params,
+  selectedVersion,
+  showProvenanceBadge,
+}: DocsProps) {
   return (
     <div class="pt-6 space-y-8">
-      <Head>
-        <style dangerouslySetInnerHTML={{ __html: docs.css }} />
-        <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
-      </Head>
+      <style hidden dangerouslySetInnerHTML={{ __html: docs.css }} />
+      <style dangerouslySetInnerHTML={{ __html: docs.comrakCss }} />
+      <script hidden dangerouslySetInnerHTML={{ __html: docs.script }} defer />
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky

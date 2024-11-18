@@ -1,11 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { Handlers, RouteConfig } from "$fresh/server.ts";
+import { HttpError, RouteConfig } from "fresh";
 import { Image } from "$imagescript";
+import twas from "twas";
 
 import { packageDataWithVersion } from "../../utils/data.ts";
-import { State } from "../../util.ts";
-import twas from "$twas";
+import { define } from "../../util.ts";
 import { getScoreTextColorClass } from "../../utils/score_ring_color.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
 
@@ -36,8 +36,8 @@ const JSR_LOGO_HEIGHT = 100;
 
 const DESCRIPTION_MAX_BREAK_POINT = 60;
 
-export const handler: Handlers<undefined, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     if (!dmmonoFont) {
       dmmonoFont = await Deno.readFile(
         "./static/fonts/DMMono/DMMono-Medium.ttf",
@@ -49,14 +49,13 @@ export const handler: Handlers<undefined, State> = {
       ctx.params.package,
       ctx.params.version,
     );
-    if (!pkgData) {
-      return ctx.renderNotFound();
+    if (!pkgData || !pkgData.selectedVersion) {
+      throw new HttpError(
+        404,
+        "This package or this package version was not found.",
+      );
     }
     const { pkg, selectedVersion } = pkgData;
-
-    if (!selectedVersion) {
-      return ctx.renderNotFound();
-    }
 
     const packageScope = pkg.scope;
     const packageName = pkg.name;
@@ -264,7 +263,7 @@ export const handler: Handlers<undefined, State> = {
       const publishDateText = Image.renderText(
         dmmonoFont,
         25,
-        twas(new Date(selectedVersion.createdAt)),
+        twas(new Date(selectedVersion.createdAt).getTime()),
         COLOR_GRAY,
       );
       const result = new Image(
@@ -400,7 +399,7 @@ export const handler: Handlers<undefined, State> = {
       },
     });
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package{@:version}?/og",

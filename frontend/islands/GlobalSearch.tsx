@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { OramaClient } from "@oramacloud/client";
 import { Highlight } from "@orama/highlight";
-import { IS_BROWSER } from "$fresh/runtime.ts";
+import { IS_BROWSER } from "fresh/runtime";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
-import { List, Package } from "../utils/api_types.ts";
+import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
@@ -47,6 +47,8 @@ export function GlobalSearch(
   const isFocused = useSignal(false);
   const search = useSignal(query ?? "");
   const btnSubmit = useSignal(false);
+  const inputOverlayContentRef = useRef<HTMLDivElement>(null);
+  const inputOverlayContent2Ref = useRef<HTMLDivElement>(null);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
@@ -90,6 +92,8 @@ export function GlobalSearch(
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
     search.value = value;
+    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
+
     if (value.length >= 1) {
       const searchN = ++searchNRef.current.started;
       const oldAborter = abort.current;
@@ -114,12 +118,14 @@ export function GlobalSearch(
               limit: 5,
               mode: "fulltext",
               // @ts-ignore boost does exist
-              boost: {
-                id: 3,
-                scope: 2,
-                name: 1,
-                description: 0.5,
-              },
+              boost: kind === "packages"
+                ? {
+                  id: 3,
+                  scope: 2,
+                  name: 1,
+                  description: 0.5,
+                }
+                : {},
             }, { abortController: abort.current! });
             if (
               abort.current?.signal.aborted ||
@@ -130,7 +136,9 @@ export function GlobalSearch(
             searchNRef.current.displayed = searchN;
             batch(() => {
               selectionIdx.value = -1;
-              suggestions.value = res?.hits.map((hit) => hit.document) ?? [];
+              // deno-lint-ignore no-explicit-any
+              suggestions.value = res?.hits.map((hit) => hit.document) as any ??
+                [];
             });
           } else if (kind === "packages") {
             const res = await api.get<List<Package>>(path`/packages`, {
@@ -168,6 +176,17 @@ export function GlobalSearch(
   };
 
   function onKeyUp(e: KeyboardEvent) {
+    if (
+      e.key === "ArrowRight" &&
+      (e.currentTarget! as HTMLInputElement).selectionStart ===
+        search.value.length &&
+      tokenizeFilter(search.value).at(-1)?.kind !== "text"
+    ) {
+      search.value += " ";
+      updateOverlayScroll(e.currentTarget! as HTMLInputElement);
+      return;
+    }
+
     if (suggestions.value === null) return;
     if (e.key === "ArrowDown") {
       selectionIdx.value = Math.min(
@@ -177,6 +196,19 @@ export function GlobalSearch(
     } else if (e.key === "ArrowUp") {
       selectionIdx.value = Math.max(0, selectionIdx.value - 1);
     }
+  }
+
+  function updateOverlayScroll(element: HTMLElement) {
+    if (inputOverlayContentRef.current && inputOverlayContent2Ref.current) {
+      inputOverlayContentRef.current.style.transform = `translateX(${-element
+        .scrollLeft}px)`;
+      inputOverlayContent2Ref.current.style.transform = `translateX(${-element
+        .scrollLeft}px)`;
+    }
+  }
+
+  function onScroll(e: Event) {
+    updateOverlayScroll(e.currentTarget! as HTMLInputElement);
   }
 
   function onSubmit(e: JSX.TargetedEvent<HTMLFormElement>) {
@@ -228,22 +260,69 @@ export function GlobalSearch(
         <label htmlFor="global-search-input" class="sr-only">
           {kindPlaceholder}
         </label>
-        <input
-          type="search"
-          name="search"
-          class={`block w-full search-input bg-white/90 input rounded-r-none ${sizeClasses} relative`}
-          placeholder={placeholder}
-          value={query}
-          onInput={onInput}
-          onKeyUp={onKeyUp}
-          onFocus={() => isFocused.value = true}
-          autoComplete="off"
-          aria-expanded={showSuggestions}
-          aria-autocomplete="list"
-          aria-controls="package-search-results"
-          role="combobox"
-          id="global-search-input"
-        />
+        <div class="relative w-full">
+          <input
+            type="search"
+            name="search"
+            class={`w-full h-full search-input bg-white/90 ${
+              kind === "packages" ? "!text-transparent" : ""
+            } !caret-black input rounded-r-none ${sizeClasses} relative`}
+            placeholder={placeholder}
+            value={search.value}
+            onInput={onInput}
+            onKeyUp={onKeyUp}
+            onFocus={() => isFocused.value = true}
+            onScroll={onScroll}
+            autoComplete="off"
+            aria-expanded={showSuggestions}
+            aria-autocomplete="list"
+            aria-controls="package-search-results"
+            role="combobox"
+            id="global-search-input"
+          />
+          {kind === "packages" && (
+            <div
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${
+                jumbo ? "!px-3.5" : "!px-1.5"
+              }`}
+            >
+              <div class="whitespace-nowrap overflow-hidden !text-transparent px-0.5">
+                <div ref={inputOverlayContentRef}>
+                  {tokenizeFilter(search.value).map((token, i, arr) => (
+                    <span>
+                      <span
+                        class={token.kind === "text" ? "" : "search-input-tag"}
+                      >
+                        {token.raw}
+                      </span>
+                      {((arr.length - 1) !== i) && " "}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {kind === "packages" && (
+            <div
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+            >
+              <div class="whitespace-nowrap overflow-hidden">
+                <div ref={inputOverlayContent2Ref}>
+                  {tokenizeFilter(search.value).map((token, i, arr) => (
+                    <span>
+                      <span
+                        class={token.kind === "text" ? "" : "text-blue-500"}
+                      >
+                        {token.raw}
+                      </span>
+                      {((arr.length - 1) !== i) && " "}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <button
           type="submit"
@@ -342,11 +421,24 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-50 flex items-center justify-end py-1 px-2 gap-1">
-        <span class="text-sm text-jsr-gray-500">
-          powered by <span class="sr-only">Orama</span>
-        </span>
-        <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+      <div class="bg-jsr-gray-50 flex items-center justify-between py-1 px-2 text-sm">
+        <div>
+          {kind === "packages" && (
+            <a
+              class="link"
+              href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
+              target="_blank"
+            >
+              Search syntax
+            </a>
+          )}
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-jsr-gray-500">
+            powered by <span class="sr-only">Orama</span>
+          </span>
+          <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+        </div>
       </div>
     </div>
   );
@@ -395,21 +487,59 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
   };
 }
 
+interface TextToken {
+  kind: "text";
+  value: string;
+  raw: string;
+}
+interface ScopeToken {
+  kind: "scope";
+  value: string;
+  raw: string;
+}
+interface RuntimeToken {
+  kind: `runtimeCompat.${keyof RuntimeCompat}`;
+  value: true;
+  raw: string;
+}
+
+type Token = TextToken | ScopeToken | RuntimeToken;
+
+function tokenizeFilter(search: string): Token[] {
+  const tokens: Token[] = [];
+
+  for (const part of search.split(" ")) {
+    if (part.startsWith("scope:") && part.slice(6).length > 0) {
+      tokens.push({ kind: "scope", value: part.slice(6), raw: part });
+      continue;
+    } else if (part.startsWith("runtime:")) {
+      const runtime = part.slice(8);
+      if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
+        tokens.push({
+          kind: `runtimeCompat.${runtime as keyof RuntimeCompat}`,
+          value: true,
+          raw: part,
+        });
+        continue;
+      }
+    }
+
+    tokens.push({ kind: "text", value: part, raw: part });
+  }
+
+  return tokens;
+}
+
 export function processFilter(
   search: string,
 ): { query: string; where: Record<string, boolean | string> | undefined } {
   const filters: [string, boolean | string][] = [];
   let query = "";
-  for (const part of search.split(" ")) {
-    if (part.startsWith("scope:")) {
-      filters.push(["scope", part.slice(6)]);
-    } else if (part.startsWith("runtime:")) {
-      const runtime = part.slice(8);
-      if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
-        filters.push([`runtimeCompat.${runtime}`, true]);
-      }
+  for (const part of tokenizeFilter(search)) {
+    if (part.kind === "text") {
+      query += part.value + " ";
     } else {
-      query += part + " ";
+      filters.push([part.kind, part.value]);
     }
   }
   const where = Object.fromEntries(filters);

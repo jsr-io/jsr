@@ -1804,6 +1804,13 @@ components:
               $ref: "#/components/schemas/RuntimeCompat"
           required:
             - runtimeCompat
+        - type: object
+          properties:
+            isArchived:
+              type: boolean
+              description: Whether this package should be archived or not.
+          required:
+            - isArchived
 
     RuntimeCompat:
       type: object
@@ -2153,12 +2160,12 @@ components:
         total:
           type: integer
       required:
-          - hasReadme
-          - hasReadmeExamples
-          - allEntrypointsDocs
-          - percentageDocumentedSymbols
-          - allFastCheck
-          - hasProvenance
-          - hasDescription
-          - atLeastOneRuntimeCompatible
-          - multipleRuntimesCompatible
+        - hasReadme
+        - hasReadmeExamples
+        - allEntrypointsDocs
+        - percentageDocumentedSymbols
+        - allFastCheck
+        - hasProvenance
+        - hasDescription
+        - atLeastOneRuntimeCompatible
+        - multipleRuntimesCompatible

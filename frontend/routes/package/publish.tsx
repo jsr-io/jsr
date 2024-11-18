@@ -1,40 +1,22 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { HttpError, RouteConfig } from "fresh";
 import type { FullUser, Package } from "../../utils/api_types.ts";
-import { State } from "../../util.ts";
+import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { GitHub } from "../../components/icons/GitHub.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
-import { ScopeIAM } from "../../utils/iam.ts";
+import { CopyButton } from "../../islands/CopyButton.tsx";
 
-interface Data {
-  package: Package;
-  iam: ScopeIAM;
-}
-
-export default function PackagePage({
+export default define.page<typeof handler>(function PackagePage({
   data,
   params,
   state,
-}: PageProps<Data, State>) {
+}) {
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Publish instructions - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader package={data.package} />
 
       <PackageNav
@@ -123,15 +105,15 @@ export default function PackagePage({
           <div class="flex flex-col mt-4 gap-2">
             <p>To publish your package from your terminal, run:</p>
             <pre class="bg-slate-900 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
-                  <code>
-                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
-                    {`npx jsr publish`}
-                    <br />
-                    <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
-                    <br />
-                    <span class="select-none sr-none text-jsr-gray-500">$ </span>
-                    {`deno publish`}
-                  </code>
+              <code>
+                <span class="select-none sr-none text-jsr-gray-500">$ </span>
+                {`npx jsr publish`}
+                <br />
+                <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
+                <br />
+                <span class="select-none sr-none text-jsr-gray-500">$ </span>
+                {`deno publish`}
+              </code>
             </pre>
             <p>
               You will be prompted to interactively authenticate in your
@@ -161,7 +143,7 @@ export default function PackagePage({
       </div>
     </div>
   );
-}
+});
 
 function GitHubActions({ pkg, canEdit, user }: {
   pkg: Package;
@@ -186,6 +168,10 @@ function GitHubActions({ pkg, canEdit, user }: {
             You will need to run{" "}
             <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
               deno publish
+            </code>{" "}
+            or{" "}
+            <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
+              npx jsr publish
             </code>{" "}
             in your action.
           </p>
@@ -234,10 +220,14 @@ function GitHubActions({ pkg, canEdit, user }: {
         </code>:
       </p>
 
-      <div class="mt-2 -mb-2">
+      <div class="mt-2 -mb-2 flex items-center gap-1">
         <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
           .github/workflows/publish.yml
         </div>
+        <CopyButton
+          text=".github/workflows/publish.yml"
+          title="Copy workflow path"
+        />
       </div>
       <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
         <code>
@@ -262,30 +252,54 @@ jobs:
           <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`        run: npx jsr publish\n`}</span>
         </code>
       </pre>
+
+      <p class="mt-4">
+        You can also use{" "}
+        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+          deno publish
+        </code>{" "}
+        instead of{" "}
+        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+          npx jsr publish
+        </code>. When doing that, make sure to install Deno in your workflow
+        first.
+      </p>
     </>
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [user, data] = await Promise.all([
       ctx.state.userPromise,
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
     ]);
     if (user instanceof Response) return user;
-    if (!data) return ctx.renderNotFound();
+    if (!data) {
+      throw new HttpError(404, "This package was not found.");
+    }
 
     const { pkg, scopeMember } = data;
 
     const iam = scopeIAM(ctx.state, scopeMember, user);
-    if (!iam.canWrite) return ctx.renderNotFound();
+    if (!iam.canWrite) {
+      throw new HttpError(404, "This package was not found.");
+    }
 
-    return ctx.render({
-      package: pkg,
-      iam,
-    });
+    ctx.state.meta = {
+      title: `Publish instructions - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        iam,
+      },
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package/publish",
