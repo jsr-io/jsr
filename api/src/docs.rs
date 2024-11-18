@@ -422,8 +422,11 @@ pub fn generate_docs_html(
         .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
 
-      let render_ctx =
-        RenderContext::new(&ctx, doc_nodes, UrlResolveKind::File(short_path));
+      let render_ctx = RenderContext::new(
+        &ctx,
+        doc_nodes,
+        UrlResolveKind::File { file: short_path },
+      );
 
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
@@ -736,7 +739,7 @@ fn generate_symbol_page(
   let render_ctx = RenderContext::new(
     ctx,
     doc_nodes_for_module,
-    UrlResolveKind::File(short_path),
+    UrlResolveKind::File { file: short_path },
   );
 
   let (breadcrumbs_ctx, symbol_group_ctx, toc_ctx, _category_panel) =
@@ -796,7 +799,7 @@ impl HrefResolver for DocResolver {
           }
         )
       }
-      UrlResolveKind::File(file) => format!(
+      UrlResolveKind::File { file } => format!(
         "{doc_base}{}/",
         if file.is_main {
           String::new()
@@ -804,7 +807,7 @@ impl HrefResolver for DocResolver {
           format!("/{}", file.path)
         }
       ),
-      UrlResolveKind::Category(_) => unreachable!(),
+      UrlResolveKind::Category { .. } => unreachable!(),
     }
   }
 
@@ -900,7 +903,6 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 
   fn compose(
     &self,
-    doc_nodes: &[DocNodeWithContext],
     current_resolve: UrlResolveKind,
     usage_to_md: deno_doc::html::UsageToMd,
   ) -> IndexMap<UsageComposerEntry, String> {
@@ -925,7 +927,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 
     let import = format!(
       "\nImport symbol\n{}",
-      usage_to_md(doc_nodes, &url, Some(self.package.as_str()))
+      usage_to_md(&url, Some(self.package.as_str()))
     );
 
     if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
@@ -936,7 +938,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
               r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
             ),
           },
-          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(doc_nodes, &format!("jsr:{url}"), Some(self.package.as_str()))),
+          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
         );
     }
 
@@ -1024,7 +1026,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Root,
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1053,7 +1055,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::AllSymbols,
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1072,28 +1074,28 @@ mod tests {
     {
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::Root
         ),
         "/@foo/bar@0.0.1"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::AllSymbols
         ),
         "/@foo/bar@0.0.1/doc"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path },
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::Symbol {
             file: &short_path,
             symbol: "bar",
@@ -1130,7 +1132,7 @@ mod tests {
             file: &short_path,
             symbol: "bar"
           },
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );

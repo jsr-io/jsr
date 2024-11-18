@@ -878,9 +878,9 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.157.0"
+version = "0.159.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c674b0065e17685297f271f5e323b8886981e5e24c08564d55f26bad5f6e9fa"
+checksum = "3522d34540ce1053fc35d61776a090b7007f76d0a9a5222579718cce28ec800d"
 dependencies = [
  "ammonia",
  "anyhow",
@@ -888,17 +888,23 @@ dependencies = [
  "comrak",
  "deno_ast",
  "deno_graph",
+ "deno_path_util",
  "futures",
  "handlebars 6.1.0",
  "html-escape",
  "import_map",
  "indexmap 2.5.0",
  "itoa",
+ "js-sys",
  "lazy_static",
+ "percent-encoding",
  "regex",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "termcolor",
+ "url",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -968,6 +974,17 @@ dependencies = [
  "monch",
  "serde",
  "serde_json",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "deno_path_util"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff25f6e08e7a0214bbacdd6f7195c7f1ebcd850c87a624e4ff06326b68b42d99"
+dependencies = [
+ "percent-encoding",
  "thiserror",
  "url",
 ]
@@ -3344,6 +3361,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8e3592472072e6e22e0a54d5904d9febf8508f65fb8552499a1abc7d1078c3a"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3b143e2833c57ab9ad3ea280d21fd34e285a42837aeb0ee301f4f41890fa00e"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]
