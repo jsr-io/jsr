@@ -28,15 +28,32 @@ export default define.page<typeof handler>(function Deps(
 ) {
   const iam = scopeIAM(state, data.member);
 
-  const deps: Record<string, { link: string; constraints: Set<string> }> = {};
+  const deps: Record<
+    string,
+    {
+      link: string;
+      constraints: Set<string>;
+      modules: Record<string, string | undefined>;
+      defaultModule: boolean;
+    }
+  > = {};
 
   for (const dep of data.deps) {
     const key = `${dep.kind}:${dep.name}`;
     deps[key] ??= {
       link: getDependencyLink(dep),
       constraints: new Set(),
+      modules: {},
+      defaultModule: false,
     };
     deps[key].constraints.add(dep.constraint);
+    if (dep.path) {
+      deps[key].modules[dep.path] = dep.kind === "jsr"
+        ? `/${dep.name}/doc/${dep.path}/~`
+        : undefined;
+    } else {
+      deps[key].defaultModule = true;
+    }
   }
 
   const list = Object.entries(deps);
@@ -67,8 +84,9 @@ export default define.page<typeof handler>(function Deps(
           : (
             <Table
               columns={[
-                { title: "Name", class: "w-1/3" },
-                { title: "Versions", class: "w-auto" },
+                { title: "Package", class: "w-1/3" },
+                { title: "Versions", class: "w-1/3" },
+                { title: "Modules", class: "w-auto" },
               ]}
               currentUrl={url}
             >
@@ -77,6 +95,8 @@ export default define.page<typeof handler>(function Deps(
                   name={name}
                   link={info.link}
                   constraints={[...info.constraints]}
+                  modules={Object.entries(info.modules)}
+                  defaultModule={info.defaultModule}
                 />
               ))}
             </Table>
@@ -87,10 +107,12 @@ export default define.page<typeof handler>(function Deps(
 });
 
 function Dependency(
-  { name, link, constraints }: {
+  { name, link, constraints, modules, defaultModule }: {
     name: string;
     link: string;
     constraints: string[];
+    modules: [path: string, link?: string][];
+    defaultModule: boolean;
   },
 ) {
   return (
@@ -102,6 +124,28 @@ function Dependency(
       </TableData>
       <TableData class="space-x-4">
         {constraints.map((constraint) => <span>{constraint}</span>)}
+      </TableData>
+      <TableData>
+        {modules.length > 0 && (
+          <ul>
+            {defaultModule && <li class="italic">(default)</li>}
+            {modules.map(([path, link]) => (
+              <li>
+                {link
+                  ? (
+                    <a href={link} class="link">
+                      {path}
+                    </a>
+                  )
+                  : (
+                    <span>
+                      {path}
+                    </span>
+                  )}
+              </li>
+            ))}
+          </ul>
+        )}
       </TableData>
     </TableRow>
   );
