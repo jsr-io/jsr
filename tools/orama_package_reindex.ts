@@ -1,5 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { List, Package, RuntimeCompat } from "../frontend/utils/api_types.ts";
+import type {
+  List,
+  Package,
+  RuntimeCompat,
+} from "../frontend/utils/api_types.ts";
 import { chunk } from "jsr:@std/collections";
 
 const index = Deno.env.get("ORAMA_PACKAGE_INDEX_ID");
