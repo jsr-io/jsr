@@ -1,11 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { OramaPackageHit } from "../util.ts";
-import type { Package } from "../utils/api_types.ts";
+import type { Package, RuntimeCompat } from "../utils/api_types.ts";
 import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
 import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
 
-const runtimeCompatExists = (compat: RuntimeCompat): boolean => {
+const runtimeCompatExists = (compat: RuntimeCompat) => {
   return compat?.browser || compat?.deno || compat?.node || compat?.workerd ||
     compat?.bun;
 };
