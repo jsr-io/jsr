@@ -1,20 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { MiddlewareHandler } from "$fresh/server.ts";
-import { deleteCookie, getCookies } from "$std/http/cookie.ts";
+import type { Middleware } from "fresh";
+import { deleteCookie, getCookies } from "@std/http/cookie";
 import { State } from "../util.ts";
 import { API, path } from "../utils/api.ts";
 import { FullUser } from "../utils/api_types.ts";
 import { Tracer } from "../utils/tracing.ts";
+import { define } from "../util.ts";
 
 export const API_ROOT = Deno.env.get("API_ROOT") ?? "http://api.jsr.test";
 
 export const tracer = new Tracer();
 
-const tracing: MiddlewareHandler<State> = async (req, ctx) => {
-  ctx.state.span = tracer.spanForRequest(req, ctx.destination);
+const tracing = define.middleware(async (ctx) => {
+  ctx.state.span = tracer.spanForRequest(ctx.req);
   const attributes: Record<string, string | bigint> = {
     "http.url": ctx.url.href,
-    "http.method": req.method,
+    "http.method": ctx.req.method,
     "http.host": ctx.url.host,
   };
   const start = new Date();
@@ -27,14 +28,14 @@ const tracing: MiddlewareHandler<State> = async (req, ctx) => {
     const end = new Date();
     ctx.state.span.record(ctx.url.pathname, start, end, attributes);
   }
-};
+});
 
-const auth: MiddlewareHandler<State> = async (req, ctx) => {
-  const interactive =
-    (ctx.destination === "route" || ctx.destination === "notFound") &&
-    !(ctx.url.pathname === "/gfm.css" ||
-      ctx.url.pathname === "/_frsh/client.js.map");
-  const { token, sudo } = getCookies(req.headers);
+const auth = define.middleware(async (ctx) => {
+  const pathname = ctx.url.pathname;
+  const interactive = !pathname.startsWith("/_fresh") &&
+    !pathname.startsWith("/api") &&
+    !ctx.url.searchParams.has("__frsh_c");
+  const { token, sudo } = getCookies(ctx.req.headers);
   if (interactive) {
     ctx.state.sudo = sudo === "1";
     ctx.state.api = new API(API_ROOT, {
@@ -81,6 +82,6 @@ const auth: MiddlewareHandler<State> = async (req, ctx) => {
     });
   }
   return await ctx.next();
-};
+});
 
-export const handler: MiddlewareHandler<State>[] = [tracing, auth];
+export const handler: Middleware<State> = [tracing, auth];

@@ -622,12 +622,12 @@ mod tests {
   use deno_graph::ModuleGraph;
   use deno_graph::WorkspaceFastCheckOption;
   use deno_graph::WorkspaceMember;
-  use deno_semver::package::PackageNv;
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
   use url::Url;
 
+  use crate::analysis::JsrResolver;
   use crate::analysis::ModuleAnalyzer;
   use crate::analysis::PassthroughJsrUrlProvider;
   use crate::db::DependencyKind;
@@ -685,14 +685,13 @@ mod tests {
 
     let loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
-    let workspace_members = vec![WorkspaceMember {
+    let workspace_member = WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
+      name: format!("@{}/{}", scope, package),
+      version: Some(version.0.clone()),
       exports: exports.clone().into_inner(),
-      nv: PackageNv {
-        name: format!("@{}/{}", scope, package),
-        version: version.0.clone(),
-      },
-    }];
+    };
+    let workspace_members = vec![workspace_member.clone()];
 
     let mut roots: Vec<ModuleSpecifier> = vec![];
     for ex in exports.iter() {
@@ -709,9 +708,10 @@ mod tests {
         BuildOptions {
           is_dynamic: false,
           module_analyzer: &module_analyzer,
-          workspace_members: &workspace_members,
           file_system: &NullFileSystem,
-          resolver: None,
+          resolver: Some(&JsrResolver {
+            member: workspace_member,
+          }),
           npm_resolver: None,
           reporter: None,
           jsr_url_provider: &PassthroughJsrUrlProvider,
@@ -725,7 +725,7 @@ mod tests {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
       jsr_url_provider: &PassthroughJsrUrlProvider,
-      module_parser: Some(&module_analyzer.analyzer),
+      es_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,
       workspace_fast_check: WorkspaceFastCheckOption::Enabled(

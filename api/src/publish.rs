@@ -5,16 +5,17 @@ use std::collections::HashSet;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
+use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::NewNpmTarball;
 use crate::db::NewPackageFile;
 use crate::db::NewPackageVersion;
 use crate::db::NewPackageVersionDependency;
+use crate::db::PackageVersionMeta;
 use crate::db::PublishingTask;
 use crate::db::PublishingTaskError;
 use crate::db::PublishingTaskStatus;
-use crate::db::{Database, PackageVersionMeta};
 use crate::gcp::GcsUploadOptions;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
@@ -98,6 +99,7 @@ pub async fn publish_task(
         let res = process_publishing_task(
           &db,
           &buckets,
+          &orama_client,
           registry_url.clone(),
           &mut publishing_task,
         )
@@ -152,6 +154,7 @@ pub async fn publish_task(
 async fn process_publishing_task(
   db: &Database,
   buckets: &Buckets,
+  orama_client: &Option<OramaClient>,
   registry_url: Url,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
@@ -199,6 +202,7 @@ async fn process_publishing_task(
     npm_tarball_info,
     readme_path,
     meta,
+    doc_search_json,
   } = output;
 
   upload_version_manifest(
@@ -221,6 +225,14 @@ async fn process_publishing_task(
     meta,
   )
   .await?;
+
+  if let Some(orama_client) = orama_client {
+    orama_client.upsert_symbols(
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+      doc_search_json,
+    );
+  }
 
   Ok(())
 }
@@ -810,6 +822,7 @@ pub mod tests {
         HashMap::from_iter([(
           "/mod.ts".to_string(),
           ModuleInfo {
+            is_script: false,
             dependencies: vec![],
             ts_references: vec![],
             self_types_specifier: None,

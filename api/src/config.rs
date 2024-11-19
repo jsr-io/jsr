@@ -66,14 +66,18 @@ pub struct Config {
   pub github_client_secret: String,
 
   #[clap(long = "orama_package_index_id", env = "ORAMA_PACKAGE_INDEX_ID")]
-  /// The GitHub Client ID
+  /// The Orama index for package search
   pub orama_package_index_id: Option<String>,
+
+  #[clap(long = "orama_symbols_index_id", env = "ORAMA_SYMBOLS_INDEX_ID")]
+  /// The Orama index for symbol search
+  pub orama_symbols_index_id: Option<String>,
 
   #[clap(
     long = "orama_package_private_api_key",
     env = "ORAMA_PACKAGE_PRIVATE_API_KEY"
   )]
-  /// The GitHub Client Secret
+  /// The private API key for Orama
   pub orama_package_private_api_key: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]

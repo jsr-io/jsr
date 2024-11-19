@@ -3,7 +3,7 @@
 use deno_ast::emit;
 use deno_ast::fold_program;
 use deno_ast::swc::visit::VisitMutWith;
-use deno_ast::EmittedSourceBytes;
+use deno_ast::EmittedSourceText;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
@@ -26,6 +26,7 @@ pub fn transpile_to_js(
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Separate,
     source_map_file: Some(basename.to_owned()),
+    source_map_base: None,
     inline_sources: false,
     remove_comments: false,
   };
@@ -34,7 +35,7 @@ pub fn transpile_to_js(
     relative_import_specifier(target_specifier, source.specifier());
   let source_map = SourceMap::single(file_name, source.text().to_string());
 
-  let mut program = source.program_ref().clone();
+  let mut program = source.program_ref().to_owned();
 
   // needs to align with what's done internally in source map
   assert_eq!(1, source.range().start.as_byte_pos().0);
@@ -64,10 +65,9 @@ pub fn transpile_to_js(
       source.diagnostics(),
     )?;
 
-    let EmittedSourceBytes {
-      mut source,
-      source_map,
-    } = emit(&program, &comments, &source_map, &emit_options)?;
+    let EmittedSourceText { text, source_map } =
+      emit((&program).into(), &comments, &source_map, &emit_options)?;
+    let mut source = text.into_bytes();
 
     if let Some(last) = source.last() {
       if *last != b'\n' {
@@ -78,7 +78,7 @@ pub fn transpile_to_js(
     source
       .extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());
 
-    Ok((source, source_map.unwrap()))
+    Ok((source, source_map.unwrap().into_bytes()))
   })
 }
 
@@ -94,6 +94,7 @@ pub fn transpile_to_dts(
   let emit_options = deno_ast::EmitOptions {
     source_map: SourceMapOption::Separate,
     source_map_file: Some(basename.to_owned()),
+    source_map_base: None,
     inline_sources: false,
     remove_comments: false,
   };
@@ -112,10 +113,9 @@ pub fn transpile_to_dts(
   };
   program.visit_mut_with(&mut import_rewrite_transformer);
 
-  let EmittedSourceBytes {
-    mut source,
-    source_map,
-  } = emit(&program, &comments, &source_map, &emit_options)?;
+  let EmittedSourceText { text, source_map } =
+    emit((&program).into(), &comments, &source_map, &emit_options)?;
+  let mut source = text.into_bytes();
 
   if let Some(last) = source.last() {
     if *last != b'\n' {
@@ -125,5 +125,5 @@ pub fn transpile_to_dts(
 
   source.extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());
 
-  Ok((source, source_map.unwrap()))
+  Ok((source, source_map.unwrap().into_bytes()))
 }

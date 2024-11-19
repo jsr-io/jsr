@@ -1,38 +1,19 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
+import { HttpError, RouteConfig } from "fresh";
 import type { Package, RuntimeCompat } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
-import { State } from "../../util.ts";
+import { define } from "../../util.ts";
 import { PackageGitHubSettings } from "./(_islands)/PackageGitHubSettings.tsx";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageDescriptionEditor } from "./(_islands)/PackageDescriptionEditor.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
-import { ScopeIAM } from "../../utils/iam.ts";
 
-interface Data {
-  package: Package;
-  iam: ScopeIAM;
-}
-
-export default function Settings({ data, params }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function Settings({ data, params }) {
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Settings - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader package={data.package} />
 
       <PackageNav
@@ -48,6 +29,8 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
       <RuntimeCompatEditor runtimeCompat={data.package.runtimeCompat} />
 
       <GitHubRepository package={data.package} />
+
+      <ArchivePackage isArchived={data.package.isArchived} />
 
       <DeletePackage hasVersions={data.package.versionCount > 0} />
 
@@ -66,7 +49,7 @@ export default function Settings({ data, params }: PageProps<Data, State>) {
       )}
     </div>
   );
-}
+});
 
 function GitHubRepository(props: { package: Package }) {
   return (
@@ -170,6 +153,55 @@ function RuntimeCompatEditorItem({ name, id, value }: {
   );
 }
 
+function ArchivePackage(props: { isArchived: boolean }) {
+  if (!props.isArchived) {
+    return (
+      <form class="border-t pt-8 mt-12" method="POST">
+        <h2 class="text-xl font-sans font-bold">Archive package</h2>
+
+        <p className="mt-2 text-jsr-gray-600 max-w-3xl">
+          Archiving a package removes it from search indexing and the scope
+          page, making it undiscoverable to users.
+          <br />
+          Additionally, you won’t be able to publish new versions to this
+          package until you unarchive it.
+        </p>
+
+        <button
+          class="button-danger mt-4"
+          type="submit"
+          name="action"
+          value="archivePackage"
+        >
+          Archive package
+        </button>
+      </form>
+    );
+  } else {
+    return (
+      <form class="border-t pt-8 mt-12" method="POST">
+        <h2 class="text-xl font-sans font-bold">Unarchive package</h2>
+
+        <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+          Unarchiving a package restores its availability in search results and
+          makes it visible on the scope page again.
+          <br />
+          This also allows you to publish new versions to the package.
+        </p>
+
+        <button
+          class="button-danger mt-4"
+          type="submit"
+          name="action"
+          value="unarchivePackage"
+        >
+          Unarchive package
+        </button>
+      </form>
+    );
+  }
+}
+
 function DeletePackage(props: { hasVersions: boolean }) {
   return (
     <form class="border-t pt-8 mt-12" method="POST">
@@ -227,24 +259,31 @@ function FeaturePackage(props: { package: Package }) {
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [user, data] = await Promise.all([
       ctx.state.userPromise,
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
     ]);
     if (user instanceof Response) return user;
-    if (!data) return ctx.renderNotFound();
+    if (!data) throw new HttpError(404, "This package was not found.");
 
     const { pkg, scopeMember } = data;
 
     const iam = scopeIAM(ctx.state, scopeMember, user);
 
-    if (!iam.canAdmin) return ctx.renderNotFound();
+    if (!iam.canAdmin) throw new HttpError(404, "This package was not found.");
 
-    return ctx.render({ package: pkg, iam });
+    ctx.state.meta = {
+      title: `Settings - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return { data: { package: pkg, iam } };
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const {
       scope,
       package: packageName,
@@ -255,6 +294,28 @@ export const handler: Handlers<Data, State> = {
     const action = String(data.get("action"));
 
     switch (action) {
+      case "archivePackage": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isArchived: true },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
+      case "unarchivePackage": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isArchived: false },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
       case "deletePackage": {
         const deleteRes = await api.delete(
           path`/scopes/${scope}/packages/${packageName}`,
@@ -351,7 +412,7 @@ export const handler: Handlers<Data, State> = {
       }
     }
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package/settings",

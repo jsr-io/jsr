@@ -16,7 +16,7 @@ example below will add the most recent version of
 
 ```bash
 # deno
-deno add @luca/cases
+deno add jsr:@luca/cases
 
 # npm (one of the below, depending on your package manager)
 npx jsr add @luca/cases
@@ -100,7 +100,7 @@ version:
 
 ```bash
 # deno
-deno add @luca/cases@1
+deno add jsr:@luca/cases@1
 
 # npm (and npm-like systems)
 npx jsr add @luca/cases@1
@@ -110,7 +110,7 @@ If you want to use a specific minor version, you can specify the minor version:
 
 ```bash
 # deno
-deno add @luca/cases@1.0
+deno add jsr:@luca/cases@1.0
 
 # npm (and npm-like systems)
 npx jsr add @luca/cases@1.0
@@ -120,7 +120,7 @@ If you want to use a specific patch version, you can specify the patch version:
 
 ```bash
 # deno
-deno add @luca/cases@1.0.1
+deno add jsr:@luca/cases@1.0.1
 
 # npm (and npm-like systems)
 npx jsr add @luca/cases@1.0.1
@@ -131,7 +131,7 @@ updates, you can specify the patch version with a `^` prefix:
 
 ```bash
 # deno
-deno add @luca/cases@^1.0.1
+deno add jsr:@luca/cases@^1.0.1
 
 # npm (and npm-like systems)
 npx jsr add @luca/cases@^1.0.1

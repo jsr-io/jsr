@@ -25,6 +25,7 @@ mod tasks;
 mod token;
 mod traced_router;
 mod tracing;
+mod tree_sitter;
 mod util;
 
 use crate::api::api_router;
@@ -223,6 +224,9 @@ async fn main() {
       config
         .orama_package_index_id
         .expect("orama_package_private_api_key was provided but no orama_package_index_id"),
+      config
+        .orama_symbols_index_id
+        .expect("orama_package_private_api_key was provided but no orama_symbols_index_id"),
     ))
   } else {
     None

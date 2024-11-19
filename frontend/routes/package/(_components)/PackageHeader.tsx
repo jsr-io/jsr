@@ -7,17 +7,18 @@ import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
 import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
 import { Tooltip } from "../../../components/Tooltip.tsx";
-import twas from "$twas";
-import { gt, parse } from "$std/semver/mod.ts";
+import twas from "twas";
+import { greaterThan, parse } from "@std/semver";
 
 interface PackageHeaderProps {
   package: Package;
   selectedVersion?: PackageVersionWithUser;
 }
 
-export function PackageHeader(
-  { package: pkg, selectedVersion }: PackageHeaderProps,
-) {
+export function PackageHeader({
+  package: pkg,
+  selectedVersion,
+}: PackageHeaderProps) {
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
@@ -25,12 +26,19 @@ export function PackageHeader(
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
   const isNewerPrerelease = selectedVersionSemver &&
+    selectedVersionSemver.prerelease &&
     selectedVersionSemver.prerelease.length !== 0 &&
     (pkg.latestVersion === null ||
-      gt(selectedVersionSemver, parse(pkg.latestVersion)));
+      greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
+      {pkg.isArchived && (
+        <div class="rounded border border-red-300 bg-red-100 flex items-center justify-center p-4">
+          This package has been archived, and as such it is read-only.
+        </div>
+      )}
+
       {selectedVersion && pkg.latestVersion &&
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
@@ -48,8 +56,7 @@ export function PackageHeader(
                 ? (
                   <>
                     is a pre-release — the latest non-prerelease version of
-                    @{pkg
-                      .scope}/{pkg.name} is {pkg.latestVersion}.
+                    @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
                   </>
                 )
                 : (
@@ -74,7 +81,7 @@ export function PackageHeader(
         </div>
       )}
 
-      <div class="flex flex-col md:flex-row items-start justify-between gap-6">
+      <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6">
         <div class="space-y-3.5 flex-shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
@@ -155,7 +162,7 @@ export function PackageHeader(
           )}
         </div>
 
-        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4">
+        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4 md:ml-auto">
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
             {runtimeCompat &&
               (
@@ -195,7 +202,7 @@ export function PackageHeader(
                     )}
                 >
                   {`${
-                    twas(new Date(selectedVersion.createdAt))
+                    twas(new Date(selectedVersion.createdAt).getTime())
                   } (${selectedVersion.version})`}
                 </div>
               </div>
