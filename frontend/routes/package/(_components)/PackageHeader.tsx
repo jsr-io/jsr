@@ -7,17 +7,18 @@ import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
 import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
 import { Tooltip } from "../../../components/Tooltip.tsx";
-import twas from "$twas";
-import { gt, parse } from "$std/semver/mod.ts";
+import twas from "twas";
+import { greaterThan, parse } from "@std/semver";
 
 interface PackageHeaderProps {
   package: Package;
   selectedVersion?: PackageVersionWithUser;
 }
 
-export function PackageHeader(
-  { package: pkg, selectedVersion }: PackageHeaderProps,
-) {
+export function PackageHeader({
+  package: pkg,
+  selectedVersion,
+}: PackageHeaderProps) {
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
@@ -25,9 +26,10 @@ export function PackageHeader(
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
   const isNewerPrerelease = selectedVersionSemver &&
+    selectedVersionSemver.prerelease &&
     selectedVersionSemver.prerelease.length !== 0 &&
     (pkg.latestVersion === null ||
-      gt(selectedVersionSemver, parse(pkg.latestVersion)));
+      greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -200,7 +202,7 @@ export function PackageHeader(
                     )}
                 >
                   {`${
-                    twas(new Date(selectedVersion.createdAt))
+                    twas(new Date(selectedVersion.createdAt).getTime())
                   } (${selectedVersion.version})`}
                 </div>
               </div>

@@ -1,11 +1,13 @@
-FROM denoland/deno:alpine-2.0.0-rc.1
+FROM denoland/deno:alpine-2.0.5
+
 WORKDIR /app
-RUN mkdir /deno_dir
-ENV DENO_DIR /deno_dir
 
 COPY . .
 
 RUN deno task build
-RUN deno cache main.ts
+RUN rm -rf $DENO_DIR
+RUN deno install --allow-import -e main.ts
+
+RUN timeout 2s deno run -A --cached-only main.ts || true
 
 CMD ["run", "-A", "--cached-only", "main.ts"]

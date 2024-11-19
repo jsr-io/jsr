@@ -132,7 +132,7 @@ fn get_url_rewriter(
   base: String,
   github_repository: Option<GithubRepository>,
   is_readme: bool,
-) -> deno_doc::html::comrak_adapters::URLRewriter {
+) -> deno_doc::html::comrak::URLRewriter {
   Arc::new(move |current_file, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
@@ -216,7 +216,7 @@ pub fn get_generate_ctx<'a>(
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
 
-  let mut generate_ctx = GenerateCtx::new(
+  GenerateCtx::new(
     deno_doc::html::GenerateOptions {
       package_name: Some(package_name),
       main_entrypoint,
@@ -244,87 +244,37 @@ pub fn get_generate_ctx<'a>(
           })
           .clone(),
       }),
-      usage_composer: Some(Rc::new(move |ctx, doc_nodes, url| {
-        let mut map = IndexMap::new();
-        let scoped_name = format!("@{scope}/{package}");
-
-        let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
-
-        if !runtime_compat.deno.is_some_and(|compat| !compat) {
-          map.insert(
-            UsageComposerEntry {
-              name: "Deno".to_string(),
-              icon: Some(
-                r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
-          );
-        }
-
-        if !runtime_compat.node.is_some_and(|compat| !compat) {
-          map.insert(
-            UsageComposerEntry {
-              name: "npm".to_string(),
-              icon: Some(
-                r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
-          );
-          map.insert(
-            UsageComposerEntry {
-              name: "Yarn".to_string(),
-              icon: Some(
-                r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
-          );
-          map.insert(
-            UsageComposerEntry {
-              name: "pnpm".to_string(),
-              icon: Some(
-                r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
-          );
-        }
-
-        if !runtime_compat.bun.is_some_and(|compat| !compat) {
-          map.insert(
-            UsageComposerEntry {
-              name: "Bun".to_string(),
-              icon: Some(
-                r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
-          );
-        }
-
-        map
+      usage_composer: (Rc::new(DocUsageComposer {
+        runtime_compat,
+        scope,
+        package,
       })),
       rewrite_map: Some(rewrite_map),
       category_docs: None,
       disable_search: false,
       symbol_redirect_map: None,
       default_symbol_map: None,
+      markdown_renderer: deno_doc::html::comrak::create_renderer(
+        Some(Arc::new(super::tree_sitter::ComrakAdapter {
+          show_line_numbers: false,
+        })),
+        Some(Box::new(|ammonia| {
+          ammonia.add_allowed_classes("span", crate::tree_sitter::CLASSES);
+        })),
+        Some(get_url_rewriter(
+          url_rewriter_base,
+          github_repository,
+          has_readme,
+        )),
+      ),
+      markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
+      head_inject: None,
     },
     None,
     deno_doc::html::FileMode::Normal,
     doc_nodes_by_url,
   )
-  .unwrap();
-
-  generate_ctx.url_rewriter = Some(get_url_rewriter(
-    url_rewriter_base,
-    github_repository,
-    has_readme,
-  ));
-
-  generate_ctx
+  .unwrap()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -472,8 +422,11 @@ pub fn generate_docs_html(
         .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
 
-      let render_ctx =
-        RenderContext::new(&ctx, doc_nodes, UrlResolveKind::File(short_path));
+      let render_ctx = RenderContext::new(
+        &ctx,
+        doc_nodes,
+        UrlResolveKind::File { file: short_path },
+      );
 
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
@@ -786,7 +739,7 @@ fn generate_symbol_page(
   let render_ctx = RenderContext::new(
     ctx,
     doc_nodes_for_module,
-    UrlResolveKind::File(short_path),
+    UrlResolveKind::File { file: short_path },
   );
 
   let (breadcrumbs_ctx, symbol_group_ctx, toc_ctx, _category_panel) =
@@ -846,7 +799,7 @@ impl HrefResolver for DocResolver {
           }
         )
       }
-      UrlResolveKind::File(file) => format!(
+      UrlResolveKind::File { file } => format!(
         "{doc_base}{}/",
         if file.is_main {
           String::new()
@@ -854,7 +807,7 @@ impl HrefResolver for DocResolver {
           format!("/{}", file.path)
         }
       ),
-      UrlResolveKind::Category(_) => unreachable!(),
+      UrlResolveKind::Category { .. } => unreachable!(),
     }
   }
 
@@ -916,24 +869,6 @@ impl HrefResolver for DocResolver {
     }
   }
 
-  fn resolve_usage(&self, current_resolve: UrlResolveKind) -> Option<String> {
-    let (is_main, path) = current_resolve
-      .get_file()
-      .map(|short_path| (short_path.is_main, &*short_path.path))
-      .unwrap_or((true, ""));
-
-    Some(format!(
-      "@{}/{}{}",
-      self.scope,
-      self.package,
-      if is_main {
-        String::new()
-      } else {
-        format!("/{path}")
-      }
-    ))
-  }
-
   fn resolve_source(&self, location: &Location) -> Option<String> {
     let url = Url::parse(&location.filename).ok()?;
     Some(format!(
@@ -952,6 +887,105 @@ impl HrefResolver for DocResolver {
     _symbol: Option<&str>,
   ) -> Option<(String, String)> {
     None
+  }
+}
+
+struct DocUsageComposer {
+  runtime_compat: RuntimeCompat,
+  scope: ScopeName,
+  package: PackageName,
+}
+
+impl deno_doc::html::UsageComposer for DocUsageComposer {
+  fn is_single_mode(&self) -> bool {
+    false
+  }
+
+  fn compose(
+    &self,
+    current_resolve: UrlResolveKind,
+    usage_to_md: deno_doc::html::UsageToMd,
+  ) -> IndexMap<UsageComposerEntry, String> {
+    let mut map = IndexMap::new();
+    let scoped_name = format!("@{}/{}", self.scope, self.package);
+
+    let (is_main, path) = current_resolve
+      .get_file()
+      .map(|short_path| (short_path.is_main, &*short_path.path))
+      .unwrap_or((true, ""));
+
+    let url = format!(
+      "@{}/{}{}",
+      self.scope,
+      self.package,
+      if is_main {
+        String::new()
+      } else {
+        format!("/{path}")
+      }
+    );
+
+    let import = format!(
+      "\nImport symbol\n{}",
+      usage_to_md(&url, Some(self.package.as_str()))
+    );
+
+    if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
+      map.insert(
+          UsageComposerEntry {
+            name: "Deno".to_string(),
+            icon: Some(
+              r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
+        );
+    }
+
+    if !self.runtime_compat.node.is_some_and(|compat| !compat) {
+      map.insert(
+          UsageComposerEntry {
+            name: "npm".to_string(),
+            icon: Some(
+              r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
+        );
+      map.insert(
+          UsageComposerEntry {
+            name: "Yarn".to_string(),
+            icon: Some(
+              r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+        );
+      map.insert(
+          UsageComposerEntry {
+            name: "pnpm".to_string(),
+            icon: Some(
+              r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
+        );
+    }
+
+    if !self.runtime_compat.bun.is_some_and(|compat| !compat) {
+      map.insert(
+        UsageComposerEntry {
+          name: "Bun".to_string(),
+          icon: Some(
+            r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#
+              .into(),
+          ),
+        },
+        format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
+      );
+    }
+
+    map
   }
 }
 
@@ -992,7 +1026,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Root,
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1021,7 +1055,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::AllSymbols,
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1040,28 +1074,28 @@ mod tests {
     {
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::Root
         ),
         "/@foo/bar@0.0.1"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::AllSymbols
         ),
         "/@foo/bar@0.0.1/doc"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path },
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::Symbol {
             file: &short_path,
             symbol: "bar",
@@ -1098,7 +1132,7 @@ mod tests {
             file: &short_path,
             symbol: "bar"
           },
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );

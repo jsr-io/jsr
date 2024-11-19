@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
-import { Head } from "$fresh/runtime.ts";
 import { ChevronLeft } from "./icons/ChevronLeft.tsx";
 import { ChevronRight } from "./icons/ChevronRight.tsx";
 import { PaginationData } from "../util.ts";
@@ -80,18 +79,6 @@ function Pagination(
 
   return (
     <div class="flex items-center gap-3 text-jsr-gray-700">
-      <Head>
-        {hasPrevious && (
-          <link rel="prev" href={prevURL.pathname + prevURL.search} />
-        )}
-        {hasNext && (
-          <link
-            rel="next"
-            href={nextURL.pathname + nextURL.search}
-          />
-        )}
-      </Head>
-
       {hasPrevious && (
         <a
           href={prevURL.pathname + prevURL.search}

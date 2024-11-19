@@ -53,7 +53,6 @@ export default [
     "id": "faq",
     group: "Guide",
   },
-
   {
     title: "Scopes",
     id: "scopes",
@@ -117,6 +116,11 @@ export default [
   {
     title: "Usage policy",
     id: "usage-policy",
+    group: "Reference",
+  },
+  {
+    title: "Governance",
+    id: "governance",
     group: "Reference",
   },
   {

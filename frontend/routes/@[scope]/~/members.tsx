@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { Head } from "$fresh/runtime.ts";
+import { HttpError } from "fresh";
+import { define } from "../../../util.ts";
 import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../(_components)/ScopeNav.tsx";
 import { ScopePendingInvite } from "../(_components)/ScopePendingInvite.tsx";
@@ -8,12 +8,9 @@ import { ScopeInviteForm } from "../(_islands)/ScopeInviteForm.tsx";
 import { ScopeMemberRole } from "../(_islands)/ScopeMemberRole.tsx";
 import { Table, TableData, TableRow } from "../../../components/Table.tsx";
 import { CopyButton } from "../../../islands/CopyButton.tsx";
-import { State } from "../../../util.ts";
 import { path } from "../../../utils/api.ts";
 import {
-  FullScope,
   FullUser,
-  Scope,
   ScopeInvite,
   ScopeMember,
 } from "../../../utils/api_types.ts";
@@ -22,20 +19,14 @@ import { TrashCan } from "../../../components/icons/TrashCan.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ScopeIAM } from "../../../utils/iam.ts";
 
-interface Data {
-  scope: Scope | FullScope;
-  scopeMember: ScopeMember | null;
-  members: ScopeMember[];
-  invites: ScopeInvite[];
-}
-
-export default function ScopeMembersPage(
-  { params, data, state, url }: PageProps<Data, State>,
+export default define.page<typeof handler>(function ScopeMembersPage(
+  { params, data, state, url },
 ) {
   const iam = scopeIAM(state, data.scopeMember);
 
-  const hasOneAdmin =
-    data.members.filter((member) => member.isAdmin).length === 1;
+  const hasOneAdmin = data.members.filter((member) =>
+    member.isAdmin
+  ).length === 1;
 
   const isLastAdmin = (data.scopeMember?.isAdmin || false) && hasOneAdmin;
 
@@ -43,11 +34,6 @@ export default function ScopeMembersPage(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Members - @{params.scope} - JSR
-        </title>
-      </Head>
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Members" iam={iam} scope={data.scope.scope} />
       <ScopePendingInvite
@@ -92,7 +78,7 @@ export default function ScopeMembersPage(
       )}
     </div>
   );
-}
+});
 
 interface MemberItemProps {
   isLastAdmin: boolean;
@@ -244,8 +230,8 @@ function MemberLeave(
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     let [user, data, membersResp, invitesResp] = await Promise.all([
       ctx.state.userPromise,
       scopeData(ctx.state, ctx.params.scope),
@@ -259,9 +245,11 @@ export const handler: Handlers<Data, State> = {
         : Promise.resolve(null),
     ]);
     if (user instanceof Response) return user;
-    if (data === null) return ctx.renderNotFound();
+    if (data === null) throw new HttpError(404, "The scope was not found.");
     if (!membersResp.ok) {
-      if (membersResp.code === "scopeNotFound") return ctx.renderNotFound();
+      if (membersResp.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
+      }
       throw membersResp; // graceful handle errors
     }
     if (invitesResp && !invitesResp.ok) {
@@ -271,24 +259,32 @@ export const handler: Handlers<Data, State> = {
       ) {
         invitesResp = null;
       } else {
-        if (invitesResp.code === "scopeNotFound") return ctx.renderNotFound();
+        if (invitesResp.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
+        }
         throw invitesResp; // graceful handle errors
       }
     }
 
-    const scopeMember =
-      membersResp.data.find((member) =>
-        member.user.id === (user as FullUser | null)?.id
-      ) ?? null;
+    const scopeMember = membersResp.data.find((member) =>
+      member.user.id === (user as FullUser | null)?.id
+    ) ?? null;
 
-    return ctx.render({
-      scope: data.scope,
-      scopeMember: scopeMember,
-      members: membersResp.data,
-      invites: invitesResp?.data ?? [],
-    });
+    ctx.state.meta = {
+      title: `Members - @${ctx.params.scope} - JSR`,
+      description: `List of members of the @${ctx.params.scope} scope on JSR.`,
+    };
+    return {
+      data: {
+        scope: data.scope,
+        scopeMember: scopeMember,
+        members: membersResp.data,
+        invites: invitesResp?.data ?? [],
+      },
+    };
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const scope = ctx.params.scope;
     const form = await req.formData();
     const action = form.get("action");
@@ -298,7 +294,9 @@ export const handler: Handlers<Data, State> = {
         path`/scopes/${scope}/invites/${userId}`,
       );
       if (!res.ok) {
-        if (res.code === "scopeNotFound") return ctx.renderNotFound();
+        if (res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
+        }
         throw res; // graceful handle errors
       }
     } else if (action === "deleteMember") {
@@ -307,7 +305,9 @@ export const handler: Handlers<Data, State> = {
         path`/scopes/${scope}/members/${userId}`,
       );
       if (!res.ok) {
-        if (res.code === "scopeNotFound") return ctx.renderNotFound();
+        if (res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
+        }
         throw res; // graceful handle errors
       }
     } else if (action === "invite") {
@@ -317,7 +317,9 @@ export const handler: Handlers<Data, State> = {
         { githubLogin },
       );
       if (!res.ok) {
-        if (res.code === "scopeNotFound") return ctx.renderNotFound();
+        if (res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
+        }
         throw res; // graceful handle errors
       }
     } else {
@@ -328,4 +330,4 @@ export const handler: Handlers<Data, State> = {
       headers: { Location: `/@${scope}/~/members` },
     });
   },
-};
+});

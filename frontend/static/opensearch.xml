@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+  <ShortName>JSR</ShortName>
+  <Description>Search for packages on JSR</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image width="16" height="16" type="image/x-icon">https://jsr.io/favicon.ico</Image>
+  <Url type="text/html" method="get" template="https://jsr.io/packages?search={searchTerms}"/>
+  <moz:SearchForm>https://jsr.io</moz:SearchForm>
+</OpenSearchDescription>

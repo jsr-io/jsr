@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PaginationData } from "../util.ts";
-import { Head } from "$fresh/src/runtime/head.ts";
 import { ChevronRight } from "./icons/ChevronRight.tsx";
 import { ComponentChildren } from "preact";
 
@@ -78,18 +77,6 @@ function Pagination(
       class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-white px-4 py-3 sm:px-6"
       aria-label="Pagination"
     >
-      <Head>
-        {hasPrevious && (
-          <link rel="prev" href={prevURL.pathname + prevURL.search} />
-        )}
-        {hasNext && (
-          <link
-            rel="next"
-            href={nextURL.pathname + nextURL.search}
-          />
-        )}
-      </Head>
-
       <div class="hidden sm:block">
         <p class="text-sm text-jsr-gray-700">
           {start + itemsCount === 0 ? "No results found" : (
@@ -103,7 +90,7 @@ function Pagination(
         </p>
       </div>
       <div class="flex flex-1 justify-between sm:justify-end">
-        {pagination.page > 1
+        {hasPrevious
           ? (
             <a
               href={prevURL.pathname + prevURL.search}
@@ -113,7 +100,7 @@ function Pagination(
             </a>
           )
           : <span />}
-        {itemsCount >= pagination.limit
+        {hasNext
           ? (
             <a
               href={nextURL.pathname + nextURL.search}

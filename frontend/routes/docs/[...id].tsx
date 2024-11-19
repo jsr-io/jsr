@@ -1,10 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { HttpError } from "fresh";
 import { Markdown } from "../../components/Markdown.tsx";
-import { Head } from "$fresh/src/runtime/head.ts";
-import { State } from "../../util.ts";
+import { define } from "../../util.ts";
 
-import { extract } from "$std/front_matter/yaml.ts";
+import { extract } from "@std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
 
@@ -18,21 +17,9 @@ for (const { id, title, group } of TOC) {
   files.set(id, title);
 }
 
-interface Data {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-}
-
-export default function Page({ data }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function Page({ data }) {
   return (
     <div class="mb-20">
-      <Head>
-        <title>{data.title} - Docs - JSR</title>
-        <meta name="description" content={data.description} />
-      </Head>
-
       <div class="grid grid-cols-1 md:grid-cols-10">
         <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-jsr-cyan-900 md:border-t-0 md:border-slate-300 pt-4 md:pt-0">
           <div>
@@ -84,26 +71,35 @@ export default function Page({ data }: PageProps<Data, State>) {
       </div>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     ctx.state.searchKind = "docs";
 
     const { id } = ctx.params;
-    if (!files.has(id)) return ctx.renderNotFound();
+    if (!files.has(id)) {
+      throw new HttpError(404, "This docs page was not found.");
+    }
 
-    const title = files.get(id)!;
     const path = new URL(`../../docs/${id}.md`, import.meta.url);
     const markdown = await Deno.readTextFile(path);
 
-    const { body, attrs } = extract(markdown);
+    const { body, attrs } = extract<{ title: string; description: string }>(
+      markdown,
+    );
+    const title = attrs.title as string ?? files.get(id)!;
 
-    return ctx.render({
-      content: body,
-      id,
-      title: attrs.title as string ?? title,
+    ctx.state.meta = {
+      title: `${title} - Docs - JSR`,
       description: attrs.description as string,
-    });
+    };
+    return {
+      data: {
+        content: body,
+        id,
+        title,
+      },
+    };
   },
-};
+});
