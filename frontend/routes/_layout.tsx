@@ -57,6 +57,13 @@ export default function Layout(
           class="text-jsr-cyan-700 hover:text-blue-400 underline"
         >
           <span>GitHub</span>
+        </a>{" "}
+        -{" "}
+        <a
+          href="https://discord.gg/hMqvhAn9xG"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>Discord</span>
         </a>
         {state.span?.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
       </footer>
