@@ -58,6 +58,13 @@ export function HomepageHero(
             <a class="underline text-sm relative z-10" href="#why-jsr">
               Why JSR?
             </a>
+            <span class="w-px h-[1em] bg-jsr-cyan-200"></span>
+            <a
+              class="underline text-sm relative z-10"
+              href="https://discord.gg/hMqvhAn9xG"
+            >
+              Discord
+            </a>
           </div>
         </div>
         <div class="w-full md:w-3/4 relative z-20">
