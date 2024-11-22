@@ -268,7 +268,7 @@ body .ddoc {
 
       .lineNumbersHighlight {
         > span {
-          @apply block target:bg-yellow-200;
+          @apply block target:bg-yellow-200 target:w-fit;
         }
       }
 
