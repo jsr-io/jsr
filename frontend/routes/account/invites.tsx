@@ -65,6 +65,9 @@ function InviteRow({ invite }: { invite: ScopeInvite }) {
       </TableData>
       <TableData>
         <div class="space-x-4">
+          <form id="reject-form" method="POST">
+            <input type="hidden" name="scope" value={invite.scope} />
+          </form>
           <form
             class="flex gap-4"
             action={`/@${invite.scope}`}
@@ -77,6 +80,7 @@ function InviteRow({ invite }: { invite: ScopeInvite }) {
               title={`Reject invite to @${invite.scope}`}
               name="action"
               value="reject"
+              form="reject-form"
             >
               Reject
             </button>

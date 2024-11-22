@@ -646,6 +646,8 @@ pub enum ApiSource {
 pub struct ApiPackageVersionSource {
   pub version: ApiPackageVersion,
   pub css: Cow<'static, str>,
+  pub comrak_css: Cow<'static, str>,
+  pub script: Cow<'static, str>,
   pub source: ApiSource,
 }
 

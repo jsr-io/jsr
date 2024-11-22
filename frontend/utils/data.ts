@@ -189,6 +189,8 @@ export async function packageDataWithSource(
     source: pkgSourceResp
       ? ({
         css: pkgSourceResp.data.css,
+        comrakCss: pkgSourceResp.data.comrakCss,
+        script: pkgSourceResp.data.script,
         source: pkgSourceResp.data.source,
       } satisfies Source)
       : null,
