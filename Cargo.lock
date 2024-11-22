@@ -878,11 +878,8 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.159.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3522d34540ce1053fc35d61776a090b7007f76d0a9a5222579718cce28ec800d"
+version = "0.160.0"
 dependencies = [
- "ammonia",
  "anyhow",
  "cfg-if",
  "comrak",
@@ -909,9 +906,9 @@ dependencies = [
 
 [[package]]
 name = "deno_graph"
-version = "0.84.1"
+version = "0.85.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd4f4a14aa069087be41c2998077b0453f0191747898f96e6343f700abfc2c18"
+checksum = "4c11027d9b4e9ff4f8bcb8316a1a5dd5241dc267380507e177457bc491696189"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -934,6 +931,7 @@ dependencies = [
  "thiserror",
  "twox-hash",
  "url",
+ "wasm_dep_analyzer",
 ]
 
 [[package]]
@@ -2947,6 +2945,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 name = "registry_api"
 version = "0.1.0"
 dependencies = [
+ "ammonia",
  "anyhow",
  "async-tar",
  "async-trait",
@@ -2973,6 +2972,7 @@ dependencies = [
  "jsonc-parser",
  "jsonwebkey",
  "jsonwebtoken",
+ "lazy_static",
  "oauth2",
  "once_cell",
  "opentelemetry",
@@ -5188,6 +5188,15 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "wasm_dep_analyzer"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f270206a91783fd90625c8bb0d8fbd459d0b1d1bf209b656f713f01ae7c04b8"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
