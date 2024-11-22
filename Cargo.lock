@@ -878,7 +878,9 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.160.0"
+version = "0.161.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "994f95dddc99d7757772ca8f97c9dc7cca6e34a3d354fa77783041edf1366453"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -886,7 +888,6 @@ dependencies = [
  "deno_ast",
  "deno_graph",
  "deno_path_util",
- "futures",
  "handlebars 6.1.0",
  "html-escape",
  "import_map",
