@@ -115,6 +115,8 @@ export interface Package {
   updatedAt: string;
   createdAt: string;
   versionCount: number;
+  dependencyCount: number;
+  dependentCount: number;
   score: number | null;
   latestVersion: string | null;
   whenFeatured: string | null;
