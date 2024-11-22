@@ -37,6 +37,10 @@ export async function packageData(
     }
   }
 
+  pkgResp.data.dependencyCount = 4;
+  pkgResp.data.dependentCount = 2;
+  // console.log("DATA", pkgResp.data);
+  
   return {
     pkg: pkgResp.data,
     scopeMember: scopeMemberResp?.data ?? null,
