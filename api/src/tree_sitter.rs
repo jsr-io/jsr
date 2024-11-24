@@ -58,7 +58,7 @@ impl comrak::adapters::SyntaxHighlighterAdapter for ComrakAdapter {
 
               let html = if self.show_line_numbers {
                 format!(
-                  r##"<div class="lineNumbers">{line_numbers}</div><div class="grow overflow-x-auto lineNumbersHighlight">{lines}</div>"##
+                  r##"<div class="lineNumbers">{line_numbers}</div><div class="grow overflow-x-auto"><div class="w-max lineNumbersHighlight">{lines}</div></div>"##
                 )
               } else {
                 lines
