@@ -1,14 +1,24 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
-use std::io;
+use std::collections::HashSet;
+use std::fmt::Write;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::{fmt, io};
 
-use anyhow::Context;
+use anyhow::{bail, Context, Error as AnyError};
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
+use deno_ast::{MediaType, ModuleSpecifier, ParseDiagnostic};
+use deno_graph::source::{
+  load_data_url, JsrUrlProvider, LoadOptions, NullFileSystem,
+};
+use deno_graph::{
+  BuildOptions, CapturingModuleAnalyzer, GraphKind, Module, ModuleError,
+  ModuleInfo, Resolution, WorkspaceMember,
+};
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
@@ -16,6 +26,7 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use indexmap::IndexMap;
 use routerify::prelude::RequestExt;
 use routerify::Router;
 use routerify_query::RequestQueryExt;
@@ -27,6 +38,7 @@ use tracing::Instrument;
 use tracing::Span;
 use url::Url;
 
+use crate::analysis::{JsrResolver, ModuleAnalyzer, ModuleParser};
 use crate::auth::access_token;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::Buckets;
@@ -149,6 +161,10 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/dependencies",
       util::json(list_dependencies_handler),
+    )
+    .get(
+      "/:package/versions/:version/dependencies/graph",
+      util::json(get_dependencies_graph_handler),
     )
     .get(
       "/:package/publishing_tasks",
@@ -1518,6 +1534,571 @@ pub async fn list_dependencies_handler(
     .collect::<Vec<_>>();
 
   Ok(deps)
+}
+
+struct DepTreeLoader {
+  scope: ScopeName,
+  package: PackageName,
+  version: crate::ids::Version,
+  bucket: crate::buckets::BucketWithQueue,
+}
+
+impl DepTreeLoader {
+  fn load_inner(
+    &self,
+    specifier: &ModuleSpecifier,
+  ) -> deno_graph::source::LoadFuture {
+    use futures::FutureExt;
+    let specifier = specifier.clone();
+
+    match specifier.scheme() {
+      "file" => {
+        let Ok(path) = PackagePath::new(specifier.path().to_string()) else {
+          return async move { Ok(None) }.boxed();
+        };
+
+        let scope = self.scope.clone();
+        let package = self.package.clone();
+        let version = self.version.clone();
+        let bucket = self.bucket.clone();
+
+        async move {
+          let Some(bytes) = bucket
+            .download(
+              crate::gcs_paths::file_path(&scope, &package, &version, &path)
+                .into(),
+            )
+            .await
+            .expect("hello")
+          else {
+            return Ok(None);
+          };
+
+          Ok(Some(deno_graph::source::LoadResponse::Module {
+            content: bytes.to_vec().into(),
+            specifier: specifier.clone(),
+            maybe_headers: None,
+          }))
+        }
+        .boxed()
+      }
+      "http" | "https" => async move {
+        // TODO: dont use reqwest, call to bucket directly.
+        let s = reqwest::Client::builder()
+          .build()
+          .unwrap()
+          .get(specifier.clone())
+          .send()
+          .await
+          .unwrap();
+        let bytes = s.bytes().await.unwrap();
+        Ok(Some(deno_graph::source::LoadResponse::Module {
+          content: bytes.to_vec().into(),
+          specifier: specifier.clone(),
+          maybe_headers: None,
+        }))
+      }
+      .boxed(),
+      "jsr" => unreachable!("{specifier}"),
+      // TODO: handle npm specifiers
+      "npm" | "node" | "bun" => async move {
+        Ok(Some(deno_graph::source::LoadResponse::External {
+          specifier: specifier.clone(),
+        }))
+      }
+      .boxed(),
+      _ => async move { Ok(None) }.boxed(),
+    }
+  }
+}
+
+impl deno_graph::source::Loader for DepTreeLoader {
+  fn load(
+    &self,
+    specifier: &ModuleSpecifier,
+    _options: LoadOptions,
+  ) -> deno_graph::source::LoadFuture {
+    self.load_inner(specifier)
+  }
+}
+
+struct DepTreeJsrUrlProvider(Url);
+
+impl JsrUrlProvider for DepTreeJsrUrlProvider {
+  fn url(&self) -> &Url {
+    &self.0
+  }
+}
+
+struct DepTreeAnalyzer {
+  pub analyzer: CapturingModuleAnalyzer,
+  pub module_info:
+    std::cell::RefCell<std::collections::HashMap<Url, Vec<String>>>,
+}
+
+impl Default for DepTreeAnalyzer {
+  fn default() -> Self {
+    Self {
+      analyzer: CapturingModuleAnalyzer::new(
+        Some(Box::new(ModuleParser::default())),
+        None,
+      ),
+      module_info: Default::default(),
+    }
+  }
+}
+
+#[async_trait::async_trait(?Send)]
+impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
+  async fn analyze(
+    &self,
+    specifier: &ModuleSpecifier,
+    source: Arc<str>,
+    media_type: MediaType,
+  ) -> Result<ModuleInfo, ParseDiagnostic> {
+    let module_info =
+      self.analyzer.analyze(specifier, source, media_type).await?;
+
+    let deps = module_info
+      .dependencies
+      .iter()
+      .filter_map(|dep| {
+        dep.as_static().and_then(|dep| {
+          if dep.specifier.starts_with("jsr:") {
+            Some(dep.specifier.clone())
+          } else {
+            None
+          }
+        })
+      })
+      .collect::<Vec<_>>();
+
+    if !deps.is_empty() {
+      self
+        .module_info
+        .borrow_mut()
+        .insert(specifier.clone(), deps.clone());
+    }
+
+    Ok(module_info)
+  }
+}
+
+// We have to spawn another tokio runtime, because
+// `deno_graph::ModuleGraph::build` is not thread-safe.
+#[tokio::main(flavor = "current_thread")]
+async fn analyze_deps_tree(
+  registry_url: Url,
+  scope: ScopeName,
+  package: PackageName,
+  version: crate::ids::Version,
+  bucket: crate::buckets::BucketWithQueue,
+  exports: IndexMap<String, String>,
+) -> Result<(), deno_graph::ModuleGraphError> {
+  let roots = exports
+    .values()
+    .map(|path| Url::parse(&format!("file://{}", path)).unwrap())
+    .collect::<Vec<_>>();
+
+  let member = WorkspaceMember {
+    base: Url::parse("file:///").unwrap(),
+    name: format!("@{}/{}", scope, package),
+    version: Some(version.0.clone()),
+    exports,
+  };
+
+  let module_analyzer = DepTreeAnalyzer::default();
+  let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
+  let loader = DepTreeLoader {
+    scope,
+    package,
+    version,
+    bucket,
+  };
+  graph
+    .build(
+      roots.clone(),
+      &loader,
+      BuildOptions {
+        is_dynamic: false,
+        module_analyzer: &module_analyzer,
+        imports: Default::default(),
+        // todo: use the data in the package for the file system
+        file_system: &NullFileSystem,
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        passthrough_jsr_specifiers: false,
+        resolver: Some(&JsrResolver { member }),
+        npm_resolver: None,
+        reporter: None,
+        executor: Default::default(),
+        locker: None,
+      },
+    )
+    .await;
+  graph.valid()?;
+
+  for root_specifier in roots {
+    let mut output = String::new();
+    GraphDisplayContext::write(&graph, &mut output, &root_specifier).unwrap();
+    println!("{output}");
+  }
+
+  Ok(())
+}
+
+struct GraphDisplayContext<'a> {
+  graph: &'a deno_graph::ModuleGraph,
+  seen: HashSet<String>,
+  root: &'a ModuleSpecifier,
+}
+
+impl<'a> GraphDisplayContext<'a> {
+  pub fn write<TWrite: Write>(
+    graph: &'a deno_graph::ModuleGraph,
+    writer: &mut TWrite,
+    root: &'a ModuleSpecifier,
+  ) -> Result<(), AnyError> {
+    Self {
+      graph,
+      seen: Default::default(),
+      root,
+    }
+    .into_writer(writer)
+  }
+
+  fn into_writer<TWrite: Write>(
+    mut self,
+    writer: &mut TWrite,
+  ) -> Result<(), AnyError> {
+    let root_specifier = self.graph.resolve(&self.root);
+    match self.graph.try_get(root_specifier) {
+      Ok(Some(root)) => {
+        let maybe_cache_info = match root {
+          Module::Js(module) => module.maybe_cache_info.as_ref(),
+          Module::Json(module) => module.maybe_cache_info.as_ref(),
+          Module::Node(_) | Module::Npm(_) | Module::External(_) => None,
+        };
+        if let Some(cache_info) = maybe_cache_info {
+          if let Some(local) = &cache_info.local {
+            writeln!(writer, "{} {}", "local:", local.to_string_lossy())?;
+          }
+        }
+        if let Some(module) = root.js() {
+          writeln!(writer, "{} {}", "type:", module.media_type)?;
+        }
+        let total_modules_size = self
+          .graph
+          .modules()
+          .map(|m| {
+            let size = match m {
+              Module::Js(module) => module.size(),
+              Module::Json(module) => module.size(),
+              Module::Node(_) | Module::Npm(_) | Module::External(_) => 0,
+            };
+            size as f64
+          })
+          .sum::<f64>();
+        let dep_count = self.graph.modules().count() - 1 // -1 for the root module
+          ;
+        writeln!(writer, "{} {} unique", "dependencies:", dep_count,)?;
+        writeln!(writer, "{} {}", "size:", total_modules_size,)?;
+        writeln!(writer)?;
+        let root_node = self.build_module_info(root, false);
+        print_tree_node(&root_node, writer)?;
+        Ok(())
+      }
+      Err(err) => {
+        if let ModuleError::Missing(_, _) = *err {
+          bail!("module could not be found");
+        } else {
+          bail!("{:#}", err);
+        }
+      }
+      Ok(None) => {
+        bail!("an internal error occurred");
+      }
+    }
+  }
+
+  fn build_dep_info(&mut self, dep: &deno_graph::Dependency) -> Vec<TreeNode> {
+    let mut children = Vec::with_capacity(2);
+    if !dep.maybe_code.is_none() {
+      if let Some(child) = self.build_resolved_info(&dep.maybe_code, false) {
+        children.push(child);
+      }
+    }
+    if !dep.maybe_type.is_none() {
+      if let Some(child) = self.build_resolved_info(&dep.maybe_type, true) {
+        children.push(child);
+      }
+    }
+    children
+  }
+
+  fn build_module_info(&mut self, module: &Module, type_dep: bool) -> TreeNode {
+    let specifier = module.specifier();
+    let was_seen = !self.seen.insert(specifier.to_string());
+    let header_text = if was_seen {
+      let specifier_str = if type_dep {
+        module.specifier().to_string()
+      } else {
+        module.specifier().to_string()
+      };
+      format!("{} {}", specifier_str, "*")
+    } else {
+      let header_text = if type_dep {
+        module.specifier().to_string()
+      } else {
+        module.specifier().to_string()
+      };
+      let maybe_size = match module {
+        Module::Js(module) => Some(module.size() as u64),
+        Module::Json(module) => Some(module.size() as u64),
+        Module::Node(_) | Module::Npm(_) | Module::External(_) => None,
+      };
+      format!("{} {}", header_text, maybe_size_to_text(maybe_size))
+    };
+
+    let mut tree_node = TreeNode::from_text(header_text);
+
+    if !was_seen {
+      match module {
+        Module::Js(module) => {
+          if let Some(types_dep) = &module.maybe_types_dependency {
+            if let Some(child) =
+              self.build_resolved_info(&types_dep.dependency, true)
+            {
+              tree_node.children.push(child);
+            }
+          }
+          for dep in module.dependencies.values() {
+            tree_node.children.extend(self.build_dep_info(dep));
+          }
+        }
+        Module::Json(_)
+        | Module::Npm(_)
+        | Module::Node(_)
+        | Module::External(_) => {}
+      }
+    }
+    tree_node
+  }
+
+  fn build_error_info(
+    &mut self,
+    err: &ModuleError,
+    specifier: &ModuleSpecifier,
+  ) -> TreeNode {
+    self.seen.insert(specifier.to_string());
+    match err {
+      ModuleError::InvalidTypeAssertion { .. } => {
+        self.build_error_msg(specifier, "(invalid import attribute)")
+      }
+      ModuleError::LoadingErr(_, _, err) => {
+        use deno_graph::ModuleLoadError::*;
+        let message = match err {
+          HttpsChecksumIntegrity(_) => "(checksum integrity error)",
+          Decode(_) => "(loading decode error)",
+          Loader(err) => "(loading error)",
+          Jsr(_) => "(loading error)",
+          NodeUnknownBuiltinModule(_) => "(unknown node built-in error)",
+          Npm(_) => "(npm loading error)",
+          TooManyRedirects => "(too many redirects error)",
+        };
+        self.build_error_msg(specifier, message.as_ref())
+      }
+      ModuleError::ParseErr(_, _) => {
+        self.build_error_msg(specifier, "(parsing error)")
+      }
+      ModuleError::UnsupportedImportAttributeType { .. } => {
+        self.build_error_msg(specifier, "(unsupported import attribute)")
+      }
+      ModuleError::UnsupportedMediaType { .. } => {
+        self.build_error_msg(specifier, "(unsupported)")
+      }
+      ModuleError::Missing(_, _) | ModuleError::MissingDynamic(_, _) => {
+        self.build_error_msg(specifier, "(missing)")
+      }
+    }
+  }
+
+  fn build_error_msg(
+    &self,
+    specifier: &ModuleSpecifier,
+    error_msg: &str,
+  ) -> TreeNode {
+    TreeNode::from_text(format!("{specifier} {error_msg}",))
+  }
+
+  fn build_resolved_info(
+    &mut self,
+    resolution: &Resolution,
+    type_dep: bool,
+  ) -> Option<TreeNode> {
+    match resolution {
+      Resolution::Ok(resolved) => {
+        let specifier = &resolved.specifier;
+        let resolved_specifier = self.graph.resolve(specifier);
+        Some(match self.graph.try_get(resolved_specifier) {
+          Ok(Some(module)) => self.build_module_info(module, type_dep),
+          Err(err) => self.build_error_info(err, resolved_specifier),
+          Ok(None) => {
+            TreeNode::from_text(format!("{} {}", specifier, "(missing)"))
+          }
+        })
+      }
+      Resolution::Err(err) => Some(TreeNode::from_text(format!(
+        "{} {}",
+        err.to_string(),
+        "(resolve error)"
+      ))),
+      _ => None,
+    }
+  }
+}
+
+struct TreeNode {
+  text: String,
+  children: Vec<TreeNode>,
+}
+
+impl TreeNode {
+  pub fn from_text(text: String) -> Self {
+    Self {
+      text,
+      children: Default::default(),
+    }
+  }
+}
+
+fn maybe_size_to_text(maybe_size: Option<u64>) -> String {
+  format!(
+    "({})",
+    match maybe_size {
+      Some(size) => human_size(size as f64),
+      None => "unknown".to_string(),
+    }
+  )
+}
+
+fn print_tree_node<TWrite: Write>(
+  tree_node: &TreeNode,
+  writer: &mut TWrite,
+) -> fmt::Result {
+  fn print_children<TWrite: Write>(
+    writer: &mut TWrite,
+    prefix: &str,
+    children: &[TreeNode],
+  ) -> fmt::Result {
+    const SIBLING_CONNECTOR: char = '├';
+    const LAST_SIBLING_CONNECTOR: char = '└';
+    const CHILD_DEPS_CONNECTOR: char = '┬';
+    const CHILD_NO_DEPS_CONNECTOR: char = '─';
+    const VERTICAL_CONNECTOR: char = '│';
+    const EMPTY_CONNECTOR: char = ' ';
+
+    let child_len = children.len();
+    for (index, child) in children.iter().enumerate() {
+      let is_last = index + 1 == child_len;
+      let sibling_connector = if is_last {
+        LAST_SIBLING_CONNECTOR
+      } else {
+        SIBLING_CONNECTOR
+      };
+      let child_connector = if child.children.is_empty() {
+        CHILD_NO_DEPS_CONNECTOR
+      } else {
+        CHILD_DEPS_CONNECTOR
+      };
+      writeln!(
+        writer,
+        "{} {}",
+        format!("{prefix}{sibling_connector}─{child_connector}"),
+        child.text
+      )?;
+      let child_prefix = format!(
+        "{}{}{}",
+        prefix,
+        if is_last {
+          EMPTY_CONNECTOR
+        } else {
+          VERTICAL_CONNECTOR
+        },
+        EMPTY_CONNECTOR
+      );
+      print_children(writer, &child_prefix, &child.children)?;
+    }
+
+    Ok(())
+  }
+
+  writeln!(writer, "{}", tree_node.text)?;
+  print_children(writer, "", &tree_node.children)?;
+  Ok(())
+}
+
+/// A function that converts a float to a string the represents a human
+/// readable version of that number.
+pub fn human_size(size: f64) -> String {
+  let negative = if size.is_sign_positive() { "" } else { "-" };
+  let size = size.abs();
+  let units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  if size < 1_f64 {
+    return format!("{}{}{}", negative, size, "B");
+  }
+  let delimiter = 1024_f64;
+  let exponent = std::cmp::min(
+    (size.ln() / delimiter.ln()).floor() as i32,
+    (units.len() - 1) as i32,
+  );
+  let pretty_bytes = format!("{:.2}", size / delimiter.powi(exponent))
+    .parse::<f64>()
+    .unwrap()
+    * 1_f64;
+  let unit = units[exponent as usize];
+  format!("{negative}{pretty_bytes}{unit}")
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies/graph",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn get_dependencies_graph_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiDependency>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version));
+
+  let buckets = req.data::<Buckets>().unwrap().clone();
+  let gcs_path =
+    crate::gcs_paths::version_metadata(&scope, &package, &version).into();
+  let version_meta = buckets.modules_bucket.download(gcs_path).await?.unwrap();
+  let version_meta =
+    serde_json::from_slice::<crate::metadata::VersionMetadata>(&version_meta)?;
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+
+  tokio::task::spawn_blocking(|| {
+    analyze_deps_tree(
+      registry_url,
+      scope,
+      package,
+      version,
+      buckets.modules_bucket,
+      version_meta.exports,
+    )
+  })
+  .await
+  .unwrap()
+  .unwrap();
+
+  Ok(vec![])
 }
 
 #[instrument(
