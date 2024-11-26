@@ -77,7 +77,7 @@ impl OramaClient {
           "description": &package.description,
           "runtimeCompat": &package.runtime_compat,
           "score": score,
-          "_omc": score.unwrap_or(0),
+          "_omc:number": score.unwrap_or(0),
         }
       ]
     });
