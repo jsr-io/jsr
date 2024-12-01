@@ -81,6 +81,36 @@ impl From<PublishingTask> for ApiPublishingTask {
   }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiDependencyGraphItem {
+  pub dependency: super::package::DependencyKind,
+  pub children: Vec<usize>,
+  pub size: Option<u64>,
+  pub media_type: Option<String>,
+}
+
+impl
+  From<(
+    super::package::DependencyKind,
+    super::package::DependencyInfo,
+  )> for ApiDependencyGraphItem
+{
+  fn from(
+    (kind, info): (
+      super::package::DependencyKind,
+      super::package::DependencyInfo,
+    ),
+  ) -> Self {
+    Self {
+      dependency: kind,
+      children: info.children,
+      size: info.size,
+      media_type: info.media_type.map(|media_type| media_type.to_string()),
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiUser {

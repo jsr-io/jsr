@@ -1,14 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::borrow::Cow;
-use std::collections::HashSet;
-use std::fmt::Write;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::{fmt, io};
-
-use anyhow::{bail, Context, Error as AnyError};
+use anyhow::Context;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::{MediaType, ModuleSpecifier, ParseDiagnostic};
@@ -16,8 +7,8 @@ use deno_graph::source::{
   load_data_url, JsrUrlProvider, LoadOptions, NullFileSystem,
 };
 use deno_graph::{
-  BuildOptions, CapturingModuleAnalyzer, GraphKind, Module, ModuleError,
-  ModuleInfo, Resolution, WorkspaceMember,
+  BuildOptions, CapturingModuleAnalyzer, GraphKind, Module, ModuleInfo,
+  Resolution, WorkspaceMember,
 };
 use futures::future::Either;
 use futures::StreamExt;
@@ -27,10 +18,18 @@ use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 use indexmap::IndexMap;
+use regex::Regex;
 use routerify::prelude::RequestExt;
 use routerify::Router;
 use routerify_query::RequestQueryExt;
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
+use std::borrow::Cow;
+use std::io;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::Mutex;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
@@ -38,7 +37,8 @@ use tracing::Instrument;
 use tracing::Span;
 use url::Url;
 
-use crate::analysis::{JsrResolver, ModuleAnalyzer, ModuleParser};
+use crate::analysis::JsrResolver;
+use crate::analysis::ModuleParser;
 use crate::auth::access_token;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::Buckets;
@@ -78,7 +78,6 @@ use crate::util::VersionOrLatest;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 
-use super::ApiCreatePackageRequest;
 use super::ApiDependency;
 use super::ApiDependent;
 use super::ApiDownloadDataPoint;
@@ -102,6 +101,7 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
+use super::{ApiCreatePackageRequest, ApiDependencyGraphItem};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -1582,23 +1582,40 @@ impl DepTreeLoader {
         }
         .boxed()
       }
-      "http" | "https" => async move {
-        // TODO: dont use reqwest, call to bucket directly.
-        let s = reqwest::Client::builder()
-          .build()
-          .unwrap()
-          .get(specifier.clone())
-          .send()
-          .await
-          .unwrap();
-        let bytes = s.bytes().await.unwrap();
-        Ok(Some(deno_graph::source::LoadResponse::Module {
-          content: bytes.to_vec().into(),
-          specifier: specifier.clone(),
-          maybe_headers: None,
-        }))
+      "http" | "https" => {
+        let bucket = self.bucket.clone();
+        async move {
+          let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
+
+          let scope = jsr_matches.name("scope").unwrap();
+          let package = jsr_matches.name("package").unwrap();
+          let version = jsr_matches.name("version");
+          let path = jsr_matches.name("path").unwrap();
+
+          let Some(bytes) = bucket
+            .download(
+              format!(
+                "@{}/{}/{}{}",
+                scope.as_str(),
+                package.as_str(),
+                version.map(|version| version.as_str()).unwrap_or_default(),
+                path.as_str()
+              )
+              .into(),
+            )
+            .await?
+          else {
+            return Ok(None);
+          };
+
+          Ok(Some(deno_graph::source::LoadResponse::Module {
+            content: bytes.to_vec().into(),
+            specifier: specifier.clone(),
+            maybe_headers: None,
+          }))
+        }
+        .boxed()
       }
-      .boxed(),
       "jsr" => unreachable!("{specifier}"),
       // TODO: handle npm specifiers
       "npm" | "node" | "bun" => async move {
@@ -1684,6 +1701,10 @@ impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
   }
 }
 
+lazy_static::lazy_static! {
+  static ref JSR_DEP_PATH_RE: Regex = Regex::new(r"/@(?<scope>.+?)/(?<package>.+?)(?:/(?<version>.+?))?(?<path>/.+)").unwrap();
+}
+
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
 #[tokio::main(flavor = "current_thread")]
@@ -1694,7 +1715,10 @@ async fn analyze_deps_tree(
   version: crate::ids::Version,
   bucket: crate::buckets::BucketWithQueue,
   exports: IndexMap<String, String>,
-) -> Result<(), deno_graph::ModuleGraphError> {
+) -> Result<
+  IndexMap<DependencyKind, DependencyInfo>,
+  deno_graph::ModuleGraphError,
+> {
   let roots = exports
     .values()
     .map(|path| Url::parse(&format!("file://{}", path)).unwrap())
@@ -1737,142 +1761,112 @@ async fn analyze_deps_tree(
     .await;
   graph.valid()?;
 
-  for root_specifier in roots {
-    let mut output = String::new();
-    GraphDisplayContext::write(&graph, &mut output, &root_specifier).unwrap();
-    println!("{output}");
+  let mut index = 0;
+  let mut dependencies = Default::default();
+
+  for root in roots {
+    GraphDependencyCollector::collect(
+      &graph,
+      &root,
+      &mut index,
+      &mut dependencies,
+    );
   }
 
-  Ok(())
+  Ok(dependencies)
 }
 
-struct GraphDisplayContext<'a> {
+struct GraphDependencyCollector<'a> {
   graph: &'a deno_graph::ModuleGraph,
-  seen: HashSet<String>,
-  root: &'a ModuleSpecifier,
+  dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  id_index: &'a mut usize,
 }
 
-impl<'a> GraphDisplayContext<'a> {
-  pub fn write<TWrite: Write>(
+impl<'a> GraphDependencyCollector<'a> {
+  pub fn collect(
     graph: &'a deno_graph::ModuleGraph,
-    writer: &mut TWrite,
     root: &'a ModuleSpecifier,
-  ) -> Result<(), AnyError> {
+    id_index: &'a mut usize,
+    dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  ) {
+    let root_module = graph.try_get(root).unwrap().unwrap();
+
     Self {
       graph,
-      seen: Default::default(),
-      root,
+      dependencies,
+      id_index,
     }
-    .into_writer(writer)
+    .build_module_info(root_module)
+    .unwrap();
   }
 
-  fn into_writer<TWrite: Write>(
-    mut self,
-    writer: &mut TWrite,
-  ) -> Result<(), AnyError> {
-    let root_specifier = self.graph.resolve(&self.root);
-    match self.graph.try_get(root_specifier) {
-      Ok(Some(root)) => {
-        let maybe_cache_info = match root {
-          Module::Js(module) => module.maybe_cache_info.as_ref(),
-          Module::Json(module) => module.maybe_cache_info.as_ref(),
-          Module::Node(_) | Module::Npm(_) | Module::External(_) => None,
-        };
-        if let Some(cache_info) = maybe_cache_info {
-          if let Some(local) = &cache_info.local {
-            writeln!(writer, "{} {}", "local:", local.to_string_lossy())?;
+  fn build_module_info(&mut self, module: &Module) -> Option<usize> {
+    let specifier = module.specifier();
+
+    let dependency = match module {
+      Module::Js(_) | Module::Json(_) => {
+        if let Some(jsr_matches) = JSR_DEP_PATH_RE.captures(specifier.as_str())
+        {
+          let scope = jsr_matches.name("scope").unwrap();
+          let package = jsr_matches.name("package").unwrap();
+          let version = jsr_matches.name("version").unwrap();
+          let path = jsr_matches.name("path").unwrap();
+
+          DependencyKind::Jsr {
+            scope: scope.as_str().to_string(),
+            package: package.as_str().to_string(),
+            version: version.as_str().to_string(),
+            path: path.as_str().to_string(),
+          }
+        } else {
+          DependencyKind::Root {
+            path: specifier.path().to_string(),
           }
         }
-        if let Some(module) = root.js() {
-          writeln!(writer, "{} {}", "type:", module.media_type)?;
-        }
-        let total_modules_size = self
-          .graph
-          .modules()
-          .map(|m| {
-            let size = match m {
-              Module::Js(module) => module.size(),
-              Module::Json(module) => module.size(),
-              Module::Node(_) | Module::Npm(_) | Module::External(_) => 0,
-            };
-            size as f64
-          })
-          .sum::<f64>();
-        let dep_count = self.graph.modules().count() - 1 // -1 for the root module
-          ;
-        writeln!(writer, "{} {} unique", "dependencies:", dep_count,)?;
-        writeln!(writer, "{} {}", "size:", total_modules_size,)?;
-        writeln!(writer)?;
-        let root_node = self.build_module_info(root, false);
-        print_tree_node(&root_node, writer)?;
-        Ok(())
       }
-      Err(err) => {
-        if let ModuleError::Missing(_, _) = *err {
-          bail!("module could not be found");
-        } else {
-          bail!("{:#}", err);
-        }
+      Module::Npm(_) => {
+        return None;
       }
-      Ok(None) => {
-        bail!("an internal error occurred");
+      Module::Node(_) | Module::External(_) => {
+        return None;
       }
-    }
-  }
+    };
 
-  fn build_dep_info(&mut self, dep: &deno_graph::Dependency) -> Vec<TreeNode> {
-    let mut children = Vec::with_capacity(2);
-    if !dep.maybe_code.is_none() {
-      if let Some(child) = self.build_resolved_info(&dep.maybe_code, false) {
-        children.push(child);
-      }
-    }
-    if !dep.maybe_type.is_none() {
-      if let Some(child) = self.build_resolved_info(&dep.maybe_type, true) {
-        children.push(child);
-      }
-    }
-    children
-  }
-
-  fn build_module_info(&mut self, module: &Module, type_dep: bool) -> TreeNode {
-    let specifier = module.specifier();
-    let was_seen = !self.seen.insert(specifier.to_string());
-    let header_text = if was_seen {
-      let specifier_str = if type_dep {
-        module.specifier().to_string()
-      } else {
-        module.specifier().to_string()
-      };
-      format!("{} {}", specifier_str, "*")
+    if let Some(info) = self.dependencies.get(&dependency) {
+      Some(info.id)
     } else {
-      let header_text = if type_dep {
-        module.specifier().to_string()
-      } else {
-        module.specifier().to_string()
-      };
       let maybe_size = match module {
         Module::Js(module) => Some(module.size() as u64),
         Module::Json(module) => Some(module.size() as u64),
         Module::Node(_) | Module::Npm(_) | Module::External(_) => None,
       };
-      format!("{} {}", header_text, maybe_size_to_text(maybe_size))
-    };
 
-    let mut tree_node = TreeNode::from_text(header_text);
+      let media_type = match module {
+        Module::Js(js) => Some(js.media_type),
+        Module::Json(json) => Some(json.media_type),
+        Module::Npm(_) | Module::Node(_) | Module::External(_) => None,
+      };
 
-    if !was_seen {
+      let mut children = vec![];
       match module {
         Module::Js(module) => {
           if let Some(types_dep) = &module.maybe_types_dependency {
-            if let Some(child) =
-              self.build_resolved_info(&types_dep.dependency, true)
+            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
             {
-              tree_node.children.push(child);
+              children.push(child);
             }
           }
           for dep in module.dependencies.values() {
-            tree_node.children.extend(self.build_dep_info(dep));
+            if !dep.maybe_code.is_none() {
+              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
+                children.push(child);
+              }
+            }
+            if !dep.maybe_type.is_none() {
+              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
+                children.push(child);
+              }
+            }
           }
         }
         Module::Json(_)
@@ -1880,183 +1874,85 @@ impl<'a> GraphDisplayContext<'a> {
         | Module::Node(_)
         | Module::External(_) => {}
       }
-    }
-    tree_node
-  }
 
-  fn build_error_info(
-    &mut self,
-    err: &ModuleError,
-    specifier: &ModuleSpecifier,
-  ) -> TreeNode {
-    self.seen.insert(specifier.to_string());
-    match err {
-      ModuleError::InvalidTypeAssertion { .. } => {
-        self.build_error_msg(specifier, "(invalid import attribute)")
-      }
-      ModuleError::LoadingErr(_, _, err) => {
-        use deno_graph::ModuleLoadError::*;
-        let message = match err {
-          HttpsChecksumIntegrity(_) => "(checksum integrity error)",
-          Decode(_) => "(loading decode error)",
-          Loader(err) => "(loading error)",
-          Jsr(_) => "(loading error)",
-          NodeUnknownBuiltinModule(_) => "(unknown node built-in error)",
-          Npm(_) => "(npm loading error)",
-          TooManyRedirects => "(too many redirects error)",
-        };
-        self.build_error_msg(specifier, message.as_ref())
-      }
-      ModuleError::ParseErr(_, _) => {
-        self.build_error_msg(specifier, "(parsing error)")
-      }
-      ModuleError::UnsupportedImportAttributeType { .. } => {
-        self.build_error_msg(specifier, "(unsupported import attribute)")
-      }
-      ModuleError::UnsupportedMediaType { .. } => {
-        self.build_error_msg(specifier, "(unsupported)")
-      }
-      ModuleError::Missing(_, _) | ModuleError::MissingDynamic(_, _) => {
-        self.build_error_msg(specifier, "(missing)")
-      }
+      let id = *self.id_index;
+
+      self.dependencies.insert(
+        dependency,
+        DependencyInfo {
+          id,
+          children,
+          size: maybe_size,
+          media_type,
+        },
+      );
+
+      *self.id_index += 1;
+
+      Some(id)
     }
   }
 
-  fn build_error_msg(
-    &self,
-    specifier: &ModuleSpecifier,
-    error_msg: &str,
-  ) -> TreeNode {
-    TreeNode::from_text(format!("{specifier} {error_msg}",))
-  }
-
-  fn build_resolved_info(
-    &mut self,
-    resolution: &Resolution,
-    type_dep: bool,
-  ) -> Option<TreeNode> {
+  fn build_resolved_info(&mut self, resolution: &Resolution) -> Option<usize> {
     match resolution {
       Resolution::Ok(resolved) => {
         let specifier = &resolved.specifier;
         let resolved_specifier = self.graph.resolve(specifier);
-        Some(match self.graph.try_get(resolved_specifier) {
-          Ok(Some(module)) => self.build_module_info(module, type_dep),
-          Err(err) => self.build_error_info(err, resolved_specifier),
-          Ok(None) => {
-            TreeNode::from_text(format!("{} {}", specifier, "(missing)"))
+        match self.graph.try_get(resolved_specifier) {
+          Ok(Some(module)) => self.build_module_info(module),
+          Err(err) => {
+            let id = *self.id_index;
+
+            self.dependencies.insert(
+              DependencyKind::Error {
+                error: err.to_string(),
+              },
+              DependencyInfo {
+                id,
+                children: vec![],
+                size: None,
+                media_type: None,
+              },
+            );
+
+            *self.id_index += 1;
+
+            Some(id)
           }
-        })
+          Ok(None) => None,
+        }
       }
-      Resolution::Err(err) => Some(TreeNode::from_text(format!(
-        "{} {}",
-        err.to_string(),
-        "(resolve error)"
-      ))),
       _ => None,
     }
   }
 }
 
-struct TreeNode {
-  text: String,
-  children: Vec<TreeNode>,
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum DependencyKind {
+  Jsr {
+    scope: String,
+    package: String,
+    version: String,
+    path: String,
+  },
+  Npm {
+    package: String,
+  },
+  Root {
+    path: String,
+  },
+  Error {
+    error: String,
+  },
 }
 
-impl TreeNode {
-  pub fn from_text(text: String) -> Self {
-    Self {
-      text,
-      children: Default::default(),
-    }
-  }
-}
-
-fn maybe_size_to_text(maybe_size: Option<u64>) -> String {
-  format!(
-    "({})",
-    match maybe_size {
-      Some(size) => human_size(size as f64),
-      None => "unknown".to_string(),
-    }
-  )
-}
-
-fn print_tree_node<TWrite: Write>(
-  tree_node: &TreeNode,
-  writer: &mut TWrite,
-) -> fmt::Result {
-  fn print_children<TWrite: Write>(
-    writer: &mut TWrite,
-    prefix: &str,
-    children: &[TreeNode],
-  ) -> fmt::Result {
-    const SIBLING_CONNECTOR: char = '├';
-    const LAST_SIBLING_CONNECTOR: char = '└';
-    const CHILD_DEPS_CONNECTOR: char = '┬';
-    const CHILD_NO_DEPS_CONNECTOR: char = '─';
-    const VERTICAL_CONNECTOR: char = '│';
-    const EMPTY_CONNECTOR: char = ' ';
-
-    let child_len = children.len();
-    for (index, child) in children.iter().enumerate() {
-      let is_last = index + 1 == child_len;
-      let sibling_connector = if is_last {
-        LAST_SIBLING_CONNECTOR
-      } else {
-        SIBLING_CONNECTOR
-      };
-      let child_connector = if child.children.is_empty() {
-        CHILD_NO_DEPS_CONNECTOR
-      } else {
-        CHILD_DEPS_CONNECTOR
-      };
-      writeln!(
-        writer,
-        "{} {}",
-        format!("{prefix}{sibling_connector}─{child_connector}"),
-        child.text
-      )?;
-      let child_prefix = format!(
-        "{}{}{}",
-        prefix,
-        if is_last {
-          EMPTY_CONNECTOR
-        } else {
-          VERTICAL_CONNECTOR
-        },
-        EMPTY_CONNECTOR
-      );
-      print_children(writer, &child_prefix, &child.children)?;
-    }
-
-    Ok(())
-  }
-
-  writeln!(writer, "{}", tree_node.text)?;
-  print_children(writer, "", &tree_node.children)?;
-  Ok(())
-}
-
-/// A function that converts a float to a string the represents a human
-/// readable version of that number.
-pub fn human_size(size: f64) -> String {
-  let negative = if size.is_sign_positive() { "" } else { "-" };
-  let size = size.abs();
-  let units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
-  if size < 1_f64 {
-    return format!("{}{}{}", negative, size, "B");
-  }
-  let delimiter = 1024_f64;
-  let exponent = std::cmp::min(
-    (size.ln() / delimiter.ln()).floor() as i32,
-    (units.len() - 1) as i32,
-  );
-  let pretty_bytes = format!("{:.2}", size / delimiter.powi(exponent))
-    .parse::<f64>()
-    .unwrap()
-    * 1_f64;
-  let unit = units[exponent as usize];
-  format!("{negative}{pretty_bytes}{unit}")
+#[derive(Debug, Eq, PartialEq)]
+pub struct DependencyInfo {
+  pub id: usize,
+  pub children: Vec<usize>,
+  pub size: Option<u64>,
+  pub media_type: Option<MediaType>,
 }
 
 #[instrument(
@@ -2067,7 +1963,7 @@ pub fn human_size(size: f64) -> String {
 )]
 pub async fn get_dependencies_graph_handler(
   req: Request<Body>,
-) -> ApiResult<Vec<ApiDependency>> {
+) -> ApiResult<Vec<ApiDependencyGraphItem>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version()?;
@@ -2084,7 +1980,7 @@ pub async fn get_dependencies_graph_handler(
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
 
-  tokio::task::spawn_blocking(|| {
+  let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
       registry_url,
       scope,
@@ -2098,7 +1994,16 @@ pub async fn get_dependencies_graph_handler(
   .unwrap()
   .unwrap();
 
-  Ok(vec![])
+  let api_deps = deps
+    .into_iter()
+    .enumerate()
+    .map(|(i, dep)| {
+      assert_eq!(i, dep.1.id);
+      ApiDependencyGraphItem::from(dep)
+    })
+    .collect::<Vec<_>>();
+
+  Ok(api_deps)
 }
 
 #[instrument(

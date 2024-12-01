@@ -2973,6 +2973,7 @@ dependencies = [
  "jsonc-parser",
  "jsonwebkey",
  "jsonwebtoken",
+ "lazy_static",
  "oauth2",
  "once_cell",
  "opentelemetry",

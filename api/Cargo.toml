@@ -109,6 +109,7 @@ tree-sitter-rust = "0.21.2"
 tree-sitter-html = "0.20.3"
 tree-sitter-bash = "0.21.0"
 tree-sitter-xml = "0.6.4"
+lazy_static = "1.5.0"
 
 [dev-dependencies]
 flate2 = "1"
