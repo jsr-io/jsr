@@ -439,6 +439,7 @@ pub struct ApiPackage {
   pub created_at: DateTime<Utc>,
   pub version_count: u64,
   pub dependency_count: u64,
+  pub dependent_count: u64,
   pub score: Option<u32>,
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
@@ -461,6 +462,7 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       created_at: package.created_at,
       version_count: package.version_count as u64,
       dependency_count: 0,
+      dependent_count: 0,
       score: package
         .latest_version
         .as_ref()
