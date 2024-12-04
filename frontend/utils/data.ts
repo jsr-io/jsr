@@ -23,6 +23,7 @@ export async function packageData(
       ? state.api.get<ScopeMember>(path`/user/member/${scope}`)
       : Promise.resolve(null),
   ]);
+
   if (!pkgResp.ok) {
     if (pkgResp.code === "scopeNotFound") return null;
     if (pkgResp.code === "packageNotFound") return null;
@@ -37,10 +38,6 @@ export async function packageData(
     }
   }
 
-  pkgResp.data.dependencyCount = 4;
-  pkgResp.data.dependentCount = 2;
-  // console.log("DATA", pkgResp.data);
-  
   return {
     pkg: pkgResp.data,
     scopeMember: scopeMemberResp?.data ?? null,
