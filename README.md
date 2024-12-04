@@ -184,6 +184,33 @@ INSERT INTO bad_words (word) VALUES
    `psql postgres://127.0.0.1:5433/registry --user [your username] -f bad_words.sql`,
    and provide the password for the provided username.
 
+### Contributing to documentation generation
+
+The documentation generation is done via
+[`deno_doc`](https://github.com/denoland/deno_doc).
+
+To be able to use a local `deno_doc` clone in jsr, you need to add this to the
+root `Cargo.toml` in this repository:
+
+```toml
+[patch.crates-io]
+deno_doc = { path = "../deno_doc" }
+```
+
+Please make sure that the version of `deno_doc` you have locally is the same
+version as the one referenced in `api/Cargo.toml`, else the patching will not
+work.
+
+Please open PRs in the `deno_doc` repository when it is changes that should
+affect the overall documentation generation system, even if it is only for css
+changes, with a few minor exceptions when the css changes are related to the
+integration and layouting specific for jsr alone.
+
+For more information on how the HTML documentation generation works and how to
+locally work on it, please see the
+[HTML development section](https://github.com/denoland/deno_doc?tab=readme-ov-file#html-generation)
+of `deno_doc`.
+
 ### Other
 
 During local dev, traces are sent to Jaeger. You can view them at
