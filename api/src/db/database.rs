@@ -2864,8 +2864,6 @@ impl Database {
     kind: DependencyKind,
     name: &str,
   ) -> Result<usize> {
-    let mut tx = self.pool.begin().await?;
-
     let total_unique_package_dependents = sqlx::query!(
       r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
       WHERE dependency_kind = $1 AND dependency_name = $2;"#,
@@ -2873,10 +2871,8 @@ impl Database {
       name,
     )
     .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
+    .fetch_one(&self.pool)
     .await?;
-
-    tx.commit().await?;
 
     Ok(total_unique_package_dependents as usize)
   }
