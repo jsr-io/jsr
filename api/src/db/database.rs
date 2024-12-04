@@ -2858,6 +2858,29 @@ impl Database {
     Ok((total_unique_package_dependents as usize, dependents))
   }
 
+  #[instrument(name = "Database::count_package_dependents", skip(self), err)]
+  pub async fn count_package_dependents(
+    &self,
+    kind: DependencyKind,
+    name: &str,
+  ) -> Result<usize> {
+    let mut tx = self.pool.begin().await?;
+
+    let total_unique_package_dependents = sqlx::query!(
+      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
+      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      kind as _,
+      name,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(total_unique_package_dependents as usize)
+  }
+
   #[instrument(name = "Database::check_bad_word", skip(self), err)]
   pub async fn check_is_bad_word(&self, word: &str) -> Result<bool> {
     let res = sqlx::query!("SELECT * FROM bad_words WHERE word = $1", word)
