@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::io;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -49,6 +50,7 @@ use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
+use crate::ids::Version;
 use crate::metadata::PackageMetadata;
 use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
@@ -302,12 +304,30 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   Span::current().record("package", &field::display(&package));
 
   let db = req.data::<Database>().unwrap();
-  let package = db
+  let res_package = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  Ok(ApiPackage::from(package))
+  let mut api_package = ApiPackage::from(res_package);
+
+  if let Some(latest_v) = &api_package.latest_version {
+    let latest_version = Version::new(latest_v).unwrap();
+
+    let deps = db
+      .list_package_version_dependencies(&scope, &package, &latest_version)
+      .await?;
+
+    api_package.dependency_count = {
+      let mut unique_deps = HashSet::new();
+      deps
+        .iter()
+        .filter(|dep| unique_deps.insert(&dep.dependency_name))
+        .count() as u64
+    };
+  }
+
+  Ok(ApiPackage::from(api_package))
 }
 
 #[instrument(
