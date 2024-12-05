@@ -23,6 +23,7 @@ export async function packageData(
       ? state.api.get<ScopeMember>(path`/user/member/${scope}`)
       : Promise.resolve(null),
   ]);
+
   if (!pkgResp.ok) {
     if (pkgResp.code === "scopeNotFound") return null;
     if (pkgResp.code === "packageNotFound") return null;
