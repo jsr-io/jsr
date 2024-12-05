@@ -312,7 +312,6 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   let mut api_package = ApiPackage::from(res_package);
 
   if let Some(latest_v) = &api_package.latest_version {
-    // export next lines as a function ? Where ? utils ?
     let latest_version = Version::new(latest_v).unwrap();
 
     let deps = db
@@ -336,7 +335,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
     .await?;
   api_package.dependent_count = dependent_count as u64;
 
-  Ok(ApiPackage::from(api_package))
+  Ok(api_package)
 }
 
 #[instrument(
