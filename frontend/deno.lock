@@ -31,6 +31,7 @@
     "npm:@oramacloud/client@1": "1.3.20",
     "npm:@preact/signals@1.2.1": "1.2.1_preact@10.24.3",
     "npm:@preact/signals@^1.2.3": "1.3.0_preact@10.24.3",
+    "npm:@viz-js/viz@^3.11.0": "3.11.0",
     "npm:autoprefixer@10.4.17": "10.4.17_postcss@8.4.35",
     "npm:cssnano@6.0.3": "6.0.3_postcss@8.4.35",
     "npm:esbuild-wasm@0.23.1": "0.23.1",
@@ -389,6 +390,9 @@
       "dependencies": [
         "undici-types@6.19.8"
       ]
+    },
+    "@viz-js/viz@3.11.0": {
+      "integrity": "sha512-3zoKLQUqShIhTPvBAIIgJUf5wO9aY0q+Ftzw1u26KkJX1OJjT7Z5VUqgML2GIzXJYFgjqS6a2VREMwrgChuubA=="
     },
     "@vue/compiler-core@3.5.12": {
       "integrity": "sha512-ISyBTRMmMYagUxhcpyEH0hpXRd/KqDU4ymofPgl2XAkY9ZhQ+h0ovEZJIiPop13UmR/54oA2cgMDjgroRelaEw==",
@@ -1813,6 +1817,7 @@
       "npm:@orama/orama@2",
       "npm:@oramacloud/client@1",
       "npm:@preact/signals@1.2.1",
+      "npm:@viz-js/viz@^3.11.0",
       "npm:marked-smartypants@1.1.6",
       "npm:postcss@8.4",
       "npm:preact-render-to-string@6.3.1",
