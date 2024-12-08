@@ -99,16 +99,17 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
     }
     case "error":
     default:
-      return renderErrorDependency(dependency);
+      content = tooltip = dependency.error;
+      break;
   }
 
-  return `[href="${href}", label="${content}", tooltip="${tooltip}", color="${color}"]`;
-}
-
-function renderErrorDependency(dependency: DependencyGraphKindError) {
-  const label = dependency.error;
-
-  return `[label="${label}", tooltip="${label}"]`;
+  return `[${
+    Object
+      .entries({ href, tooltip, label: content, color })
+      .filter(([_, v]) => v)
+      .map(([k, v]) => `${k}="${v}"`)
+      .join(", ")
+  }]`;
 }
 
 function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
