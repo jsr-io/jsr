@@ -55,9 +55,9 @@ function createDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   node [fontname="Courier", shape="box"]
 
 ${
-    dependencies.map(({ children, dependency }, index) => {
+    dependencies.map(({ children, size, dependency }, index) => {
       return [
-        `  ${index} ${renderDependency(dependency)}`,
+        `  ${index} ${renderDependency(dependency, size)}`,
         ...children.map((child) => `  ${index} -> ${child}`),
       ].filter(Boolean).join("\n");
     }).join("\n")
@@ -65,39 +65,43 @@ ${
 }`;
 }
 
-function renderDependency(dependency: DependencyGraphKind) {
+function bytesToSize(bytes: number) {
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  if (bytes == 0) return "0 B";
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(0) + " " + sizes[i];
+}
+
+function renderDependency(dependency: DependencyGraphKind, size?: number) {
+  let href;
+  let content;
+  let tooltip;
+  let color;
   switch (dependency.type) {
-    case "jsr":
-      return renderJsrDependency(dependency);
-    case "npm":
-      return renderNpmDependency(dependency);
-    case "root":
-      return renderRootDependency(dependency);
+    case "jsr": {
+      tooltip = `@${dependency.scope}/${dependency.package}@${dependency.version}`;
+      href = `/${tooltip}`;
+      content = tooltip + `\n${dependency.path}\n${bytesToSize(size ?? 0)}`;
+      color = "#faee4a";
+      break;
+    }
+    case "npm": {
+      content = tooltip = `${dependency.package}@${dependency.version}`;
+      href = `https://www.npmjs.com/package/${dependency.package}`;
+      color = "#cb3837";
+      break;
+    }
+    case "root": {
+      tooltip = content = dependency.path;
+      color = "#67bef9";
+      break;
+    }
     case "error":
     default:
       return renderErrorDependency(dependency);
   }
-}
 
-function renderJsrDependency(dependency: DependencyGraphKindJsr) {
-  const label =
-    `@${dependency.scope}/${dependency.package}@${dependency.version}`;
-  const href = `/${label}`;
-
-  return `[href="${href}", label="${label}", tooltip="${label}"]`;
-}
-
-function renderNpmDependency(dependency: DependencyGraphKindNpm) {
-  const label = `${dependency.package}@${dependency.version}`;
-  const href = `https://www.npmjs.com/package/${dependency.package}`;
-
-  return `[href="${href}", label="${label}", tooltip="${label}"]`;
-}
-
-function renderRootDependency(dependency: DependencyGraphKindRoot) {
-  const label = dependency.path;
-
-  return `[label="${label}", tooltip="${label}"]`;
+  return `[href="${href}", label="${content}", tooltip="${tooltip}", style="filled,rounded", color="${color}"]`;
 }
 
 function renderErrorDependency(dependency: DependencyGraphKindError) {
@@ -122,10 +126,12 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   }, [controls]);
 
   const zoom = useCallback((zoom: number) => {
-    controls.value.zoom += zoom;
-    if (svg.current) {
-      svg.current.style.transform =
-        `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
+    if (controls.value.zoom + zoom > 0) {
+      controls.value.zoom += zoom;
+      if (svg.current) {
+        svg.current.style.transform =
+          `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
+      }
     }
   }, [controls]);
 
@@ -196,7 +202,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
   }
 
   return (
-    <div class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative">
+    <div class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative max-h-[90vh]">
       <div
         ref={ref}
         onMouseDown={enableDrag}
