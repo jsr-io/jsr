@@ -113,6 +113,7 @@ function renderErrorDependency(dependency: DependencyGraphKindError) {
 
 function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   const controls = useSignal({ pan: { x: 0, y: 0 }, zoom: 1 });
+  const defaults = useSignal({ pan: { x: 0, y: 0 }, zoom: 1 });
   const ref = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement | null>(null);
   const viz = useSignal<Viz | undefined>(undefined);
@@ -124,10 +125,10 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
       const { width: rWidth, height: rHeight } = ref.current
         .getBoundingClientRect();
 
-      controls.value.pan.x = (rWidth - sWidth) / 2;
-      controls.value.pan.y = (rHeight - sHeight) / 2;
-      controls.value.zoom = Math.min(rWidth / sWidth, rHeight / sHeight);
-
+      defaults.value.pan.x = (rWidth - sWidth) / 2;
+      defaults.value.pan.y = (rHeight - sHeight) / 2;
+      defaults.value.zoom = Math.min(rWidth / sWidth, rHeight / sHeight);
+      controls.value = { ...defaults.value };
       svg.current.style.transform =
         `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
     }
@@ -140,7 +141,7 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
       svg.current.style.transform =
         `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
     }
-  }, [controls]);
+  }, []);
 
   const zoom = useCallback((zoom: number) => {
     controls.value.zoom = Math.max(
@@ -152,12 +153,13 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
       svg.current.style.transform =
         `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
     }
-  }, [controls]);
+  }, []);
 
   const reset = useCallback(() => {
-    controls.value = { pan: { x: 0, y: 0 }, zoom: 1 };
+    controls.value = { ...defaults.value };
     if (svg.current) {
-      svg.current.style.transform = "";
+      svg.current.style.transform =
+        `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
     }
   }, []);
 
