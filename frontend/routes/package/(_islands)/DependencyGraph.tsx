@@ -117,6 +117,22 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   const svg = useRef<SVGSVGElement | null>(null);
   const viz = useSignal<Viz | undefined>(undefined);
 
+  const center = useCallback(() => {
+    if (svg.current && ref.current) {
+      const { width: sWidth, height: sHeight } = svg.current
+        .getBoundingClientRect();
+      const { width: rWidth, height: rHeight } = ref.current
+        .getBoundingClientRect();
+
+      controls.value.pan.x = (rWidth - sWidth) / 2;
+      controls.value.pan.y = (rHeight - sHeight) / 2;
+      controls.value.zoom = Math.min(rWidth / sWidth, rHeight / sHeight);
+
+      svg.current.style.transform =
+        `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
+    }
+  }, []);
+
   const pan = useCallback((x: number, y: number) => {
     controls.value.pan.x += x;
     controls.value.pan.y += y;
@@ -153,7 +169,9 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
         const digraph = createDigraph(dependencies);
 
         svg.current = viz.value.renderSVGElement(digraph);
-        ref.current.appendChild(svg.current);
+        ref.current.prepend(svg.current);
+
+        center();
       }
     })();
   }, [dependencies]);
@@ -205,15 +223,15 @@ export function DependencyGraph(props: DependencyGraphProps) {
   }
 
   return (
-    <div class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative h-[90vh]">
-      <div
-        ref={ref}
-        onMouseDown={enableDrag}
-        onMouseMove={onMouseMove}
-        onMouseUp={disableDrag}
-        onMouseLeave={disableDrag}
-        onWheel={wheelZoom}
-      />
+    <div
+      class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative h-[90vh]"
+      onMouseDown={enableDrag}
+      onMouseMove={onMouseMove}
+      onMouseUp={disableDrag}
+      onMouseLeave={disableDrag}
+      onWheel={wheelZoom}
+      ref={ref}
+    >
       <div class="absolute gap-1 grid grid-cols-3 bottom-4 right-4">
         {/* zoom */}
         <GraphControlButton
