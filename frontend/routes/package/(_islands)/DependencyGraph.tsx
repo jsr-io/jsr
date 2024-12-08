@@ -52,7 +52,7 @@ export interface DependencyGraphProps {
 function createDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   return `digraph "dependencies" {
   graph [rankdir="LR"]
-  node [fontname="Courier", shape="box"]
+  node [fontname="Courier", shape="box", style="filled,rounded"]
 
 ${
     dependencies.map(({ children, size, dependency }, index) => {
@@ -79,7 +79,8 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
   let color;
   switch (dependency.type) {
     case "jsr": {
-      tooltip = `@${dependency.scope}/${dependency.package}@${dependency.version}`;
+      tooltip =
+        `@${dependency.scope}/${dependency.package}@${dependency.version}`;
       href = `/${tooltip}`;
       content = tooltip + `\n${dependency.path}\n${bytesToSize(size ?? 0)}`;
       color = "#faee4a";
@@ -101,7 +102,7 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
       return renderErrorDependency(dependency);
   }
 
-  return `[href="${href}", label="${content}", tooltip="${tooltip}", style="filled,rounded", color="${color}"]`;
+  return `[href="${href}", label="${content}", tooltip="${tooltip}", color="${color}"]`;
 }
 
 function renderErrorDependency(dependency: DependencyGraphKindError) {
@@ -126,12 +127,14 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   }, [controls]);
 
   const zoom = useCallback((zoom: number) => {
-    if (controls.value.zoom + zoom > 0) {
-      controls.value.zoom += zoom;
-      if (svg.current) {
-        svg.current.style.transform =
-          `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
-      }
+    controls.value.zoom = Math.max(
+      0.1,
+      Math.min(controls.value.zoom + zoom, 2.5),
+    );
+
+    if (svg.current) {
+      svg.current.style.transform =
+        `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
     }
   }, [controls]);
 
@@ -202,7 +205,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
   }
 
   return (
-    <div class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative max-h-[90vh]">
+    <div class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative h-[90vh]">
       <div
         ref={ref}
         onMouseDown={enableDrag}
