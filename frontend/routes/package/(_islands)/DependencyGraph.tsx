@@ -51,6 +51,7 @@ export interface DependencyGraphProps {
 
 function createDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   return `digraph "dependencies" {
+  graph [rankdir="LR"]
   node [fontname="Courier", shape="box"]
 
 ${
@@ -182,13 +183,13 @@ export function DependencyGraph(props: DependencyGraphProps) {
     dragActive.value = false;
   }
 
-  function OnMouseMove(event) {
+  function onMouseMove(event: MouseEvent) {
     if (dragActive.value) {
       pan(event.movementX, event.movementY);
     }
   }
 
-  function wheelZoom(event) {
+  function wheelZoom(event: WheelEvent) {
     event.preventDefault();
     // TODO: zoom on pointer
     zoom(event.deltaY / 250);
@@ -199,7 +200,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
       <div
         ref={ref}
         onMouseDown={enableDrag}
-        onMouseMove={OnMouseMove}
+        onMouseMove={onMouseMove}
         onMouseUp={disableDrag}
         onMouseLeave={disableDrag}
         onWheel={wheelZoom}
