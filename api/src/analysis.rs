@@ -418,7 +418,7 @@ impl deno_graph::source::Resolver for JsrResolver {
     &self,
     specifier_text: &str,
     referrer_range: &deno_graph::Range,
-    _mode: deno_graph::source::ResolutionMode,
+    _kind: deno_graph::source::ResolutionKind,
   ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
     if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text) {
       if self.member.name == package_ref.req().name

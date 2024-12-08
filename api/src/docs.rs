@@ -270,21 +270,19 @@ pub fn generate_docs(
   graph: &deno_graph::ModuleGraph,
   analyzer: &deno_graph::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
+  source_files.sort();
+
   let parser = deno_doc::DocParser::new(
     graph,
     analyzer,
+    &source_files,
     deno_doc::DocParserOptions {
       diagnostics: false,
       private: false,
     },
   )?;
 
-  source_files.sort();
-  let mut doc_nodes_by_url = IndexMap::with_capacity(source_files.len());
-  for source_file in &source_files {
-    let nodes = parser.parse_with_reexports(source_file)?;
-    doc_nodes_by_url.insert(source_file.to_owned(), nodes);
-  }
+  let doc_nodes_by_url = parser.parse()?;
 
   Ok(doc_nodes_by_url)
 }
@@ -563,6 +561,7 @@ pub fn generate_docs_html(
 
       let partitions_by_kind =
         deno_doc::html::partition::partition_nodes_by_entrypoint(
+          &ctx,
           all_doc_nodes,
           true,
         );
@@ -936,7 +935,8 @@ fn generate_symbol_page(
           | DocNodeKind::Enum
           | DocNodeKind::ModuleDoc
           | DocNodeKind::Function
-          | DocNodeKind::Namespace => None,
+          | DocNodeKind::Namespace
+          | DocNodeKind::Reference => None,
         };
 
         if let Some(drilldown_node) = drilldown_node {
