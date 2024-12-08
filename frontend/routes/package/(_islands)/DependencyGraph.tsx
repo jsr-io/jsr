@@ -173,10 +173,37 @@ function GraphControlButton(props: GraphControlButtonProps) {
 
 export function DependencyGraph(props: DependencyGraphProps) {
   const { pan, zoom, reset, ref } = useDigraph(props.dependencies);
+  const dragActive = useSignal(false);
+
+  function enableDrag() {
+    dragActive.value = true;
+  }
+  function disableDrag() {
+    dragActive.value = false;
+  }
+
+  function OnMouseMove(event) {
+    if (dragActive.value) {
+      pan(event.movementX, event.movementY);
+    }
+  }
+
+  function wheelZoom(event) {
+    event.preventDefault();
+    // TODO: zoom on pointer
+    zoom(event.deltaY / 250);
+  }
 
   return (
     <div class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative">
-      <div ref={ref} />
+      <div
+        ref={ref}
+        onMouseDown={enableDrag}
+        onMouseMove={OnMouseMove}
+        onMouseUp={disableDrag}
+        onMouseLeave={disableDrag}
+        onWheel={wheelZoom}
+      />
       <div class="absolute gap-1 grid grid-cols-3 bottom-4 right-4">
         {/* zoom */}
         <GraphControlButton
