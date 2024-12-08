@@ -38,7 +38,7 @@ type DependencyGraphKind =
   | DependencyGraphKindRoot
   | DependencyGraphKindError;
 
-interface DependencyGraphItem {
+export interface DependencyGraphItem {
   dependency: DependencyGraphKind;
   children: number[];
   size: number | undefined;
