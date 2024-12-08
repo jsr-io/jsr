@@ -55,7 +55,7 @@ function createDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   node [fontname="Courier", shape="box", style="filled,rounded"]
 
 ${
-    dependencies.map(({ children, size, dependency }, index) => {
+    dependencies.map(({ children, dependency, size }, index) => {
       return [
         `  ${index} ${renderDependency(dependency, size)}`,
         ...children.map((child) => `  ${index} -> ${child}`),
@@ -82,7 +82,7 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
       tooltip =
         `@${dependency.scope}/${dependency.package}@${dependency.version}`;
       href = `/${tooltip}`;
-      content = tooltip + `\n${dependency.path}\n${bytesToSize(size ?? 0)}`;
+      content = `${tooltip}\n${dependency.path}\n${bytesToSize(size ?? 0)}`;
       color = "#faee4a";
       break;
     }
@@ -93,7 +93,7 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
       break;
     }
     case "root": {
-      tooltip = content = dependency.path;
+      content = tooltip = dependency.path;
       color = "#67bef9";
       break;
     }
@@ -128,7 +128,7 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
       defaults.value.pan.x = (rWidth - sWidth) / 2;
       defaults.value.pan.y = (rHeight - sHeight) / 2;
       defaults.value.zoom = Math.min(rWidth / sWidth, rHeight / sHeight);
-      controls.value = { ...defaults.value };
+      controls.value = structuredClone(defaults.value);
       svg.current.style.transform =
         `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
     }
@@ -156,7 +156,7 @@ function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
   }, []);
 
   const reset = useCallback(() => {
-    controls.value = { ...defaults.value };
+    controls.value = structuredClone(defaults.value);
     if (svg.current) {
       svg.current.style.transform =
         `translate(${controls.value.pan.x}px, ${controls.value.pan.y}px) scale(${controls.value.zoom})`;
