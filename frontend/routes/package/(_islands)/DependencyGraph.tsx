@@ -182,18 +182,32 @@ export function groupDependencies(
 function createDigraph(dependencies: DependencyGraphItem[]) {
   const groupedDependencies = groupDependencies(dependencies);
 
-  return `digraph "dependencies" {
-  graph [rankdir="LR"]
-  node [fontname="Courier", shape="box", style="filled,rounded"]
+  const nodesWithNoParent = new Set(
+    Object.keys(groupedDependencies).map(Number),
+  );
 
-${
-    groupedDependencies.map(({ children, dependency, size }, index) => {
+  const depsGraph = groupedDependencies.map(
+    ({ children, dependency, size }, index) => {
       return [
         `  ${index} ${renderDependency(dependency, size)}`,
-        ...children.map((child) => `  ${index} -> ${child}`),
+        ...children.map((child) => {
+          nodesWithNoParent.delete(child);
+          return `  ${index} -> ${child}`;
+        }),
       ].filter(Boolean).join("\n");
-    }).join("\n")
+    },
+  ).join("\n");
+
+  return `digraph "dependencies" {
+  graph [rankdir="LR", concentrate=true]
+  node [fontname="Courier", shape="box", style="filled,rounded"]
+  
+  {
+    rank=same
+    ${Array.from(nodesWithNoParent).join("; ")}
   }
+
+  ${depsGraph}
 }`;
 }
 
@@ -308,7 +322,9 @@ function useDigraph(dependencies: DependencyGraphItem[]) {
       if (ref.current && viz.value) {
         const digraph = createDigraph(dependencies);
 
-        svg.current = viz.value.renderSVGElement(digraph);
+        svg.current = viz.value.renderSVGElement(digraph, {
+          engine: "dot",
+        });
         ref.current.prepend(svg.current);
 
         center();
