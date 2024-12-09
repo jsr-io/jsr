@@ -10,13 +10,18 @@ import { ChevronUp } from "../../../components/icons/ChevronUp.tsx";
 import { Minus } from "../../../components/icons/Minus.tsx";
 import { Plus } from "../../../components/icons/Plus.tsx";
 import { Reset } from "../../../components/icons/Reset.tsx";
+import { DependencyGraphItem } from "../../../utils/api_types.ts";
 
-interface DependencyGraphKindJsr {
+export interface DependencyGraphProps {
+  dependencies: DependencyGraphItem[];
+}
+
+interface DependencyGraphKindGroupedJsr {
   type: "jsr";
   scope: string;
   package: string;
   version: string;
-  path: string;
+  paths: string[];
 }
 interface DependencyGraphKindNpm {
   type: "npm";
@@ -32,30 +37,157 @@ interface DependencyGraphKindError {
   error: string;
 }
 
-type DependencyGraphKind =
-  | DependencyGraphKindJsr
+type GroupedDependencyGraphKind =
+  | DependencyGraphKindGroupedJsr
   | DependencyGraphKindNpm
   | DependencyGraphKindRoot
   | DependencyGraphKindError;
 
-export interface DependencyGraphItem {
-  dependency: DependencyGraphKind;
+export interface GroupedDependencyGraphItem {
+  dependency: GroupedDependencyGraphKind;
   children: number[];
   size: number | undefined;
   mediaType: string | undefined;
 }
 
-export interface DependencyGraphProps {
-  dependencies: DependencyGraphItem[];
+interface JsrPackage {
+  scope: string;
+  package: string;
+  version: string;
 }
 
-function createDigraph(dependencies: DependencyGraphProps["dependencies"]) {
+export function groupDependencies(
+  items: DependencyGraphItem[],
+): GroupedDependencyGraphItem[] {
+  const referencedBy = new Map<number, Set<number>>();
+  for (let i = 0; i < items.length; i++) {
+    for (const child of items[i].children) {
+      if (!referencedBy.has(child)) {
+        referencedBy.set(child, new Set());
+      }
+      referencedBy.get(child)!.add(i);
+    }
+  }
+
+  const jsrGroups = new Map<string, {
+    key: JsrPackage;
+    paths: { path: string; oldIndex: number }[];
+    children: number[];
+    size: number | undefined;
+    mediaType: string | undefined;
+    oldIndices: number[];
+  }>();
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.dependency.type === "jsr") {
+      const groupKey =
+        `${item.dependency.scope}/${item.dependency.package}@${item.dependency.version}`;
+      const group = jsrGroups.get(groupKey) ?? {
+        key: {
+          scope: item.dependency.scope,
+          package: item.dependency.package,
+          version: item.dependency.version,
+        },
+        paths: [],
+        children: [],
+        size: undefined,
+        mediaType: undefined,
+        oldIndices: [],
+      };
+      group.paths.push({ path: item.dependency.path, oldIndex: i });
+      group.children.push(...item.children);
+      if (item.size !== undefined) {
+        group.size ??= 0;
+        group.size += item.size;
+      }
+      group.oldIndices.push(i);
+      jsrGroups.set(groupKey, group);
+    }
+  }
+
+  const oldIndexToNewIndex = new Map<number, number>();
+  const placedJsrGroups = new Set<string>();
+  const out: GroupedDependencyGraphItem[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.dependency.type === "jsr") {
+      const groupKey =
+        `${item.dependency.scope}/${item.dependency.package}@${item.dependency.version}`;
+      const group = jsrGroups.get(groupKey)!;
+
+      if (!placedJsrGroups.has(groupKey)) {
+        placedJsrGroups.add(groupKey);
+
+        const groupIndicesSet = new Set(group.oldIndices);
+        const filteredPaths = group.paths.filter(({ oldIndex }) => {
+          const refs = referencedBy.get(oldIndex)!;
+
+          for (const ref of refs) {
+            if (!groupIndicesSet.has(ref)) {
+              return true;
+            }
+          }
+
+          return false; // all references are from within the same jsr package
+        }).map((p) => p.path);
+
+        const uniqueChildren = Array.from(new Set(group.children));
+        const newIndex = out.length;
+        out.push({
+          dependency: {
+            type: "jsr",
+            scope: group.key.scope,
+            package: group.key.package,
+            version: group.key.version,
+            paths: Array.from(new Set(filteredPaths)),
+          },
+          children: uniqueChildren,
+          size: group.size,
+          mediaType: group.mediaType,
+        });
+
+        for (const oldIdx of group.oldIndices) {
+          oldIndexToNewIndex.set(oldIdx, newIndex);
+        }
+      } else {
+        oldIndexToNewIndex.set(
+          i,
+          oldIndexToNewIndex.get(jsrGroups.get(groupKey)!.oldIndices[0])!,
+        );
+      }
+    } else {
+      out.push({
+        dependency: item.dependency,
+        children: item.children,
+        size: item.size,
+        mediaType: item.mediaType,
+      });
+      oldIndexToNewIndex.set(i, out.length - 1);
+    }
+  }
+
+  for (let index = 0; index < out.length; index++) {
+    const newItem = out[index];
+    const remappedChildren = newItem.children
+      .map((childIdx) => oldIndexToNewIndex.get(childIdx)!)
+      .filter((childNewIdx) => childNewIdx !== index);
+    newItem.children = Array.from(new Set(remappedChildren));
+  }
+
+  return out;
+}
+
+function createDigraph(dependencies: DependencyGraphItem[]) {
+  const groupedDependencies = groupDependencies(dependencies);
+
   return `digraph "dependencies" {
   graph [rankdir="LR"]
   node [fontname="Courier", shape="box", style="filled,rounded"]
 
 ${
-    dependencies.map(({ children, dependency, size }, index) => {
+    groupedDependencies.map(({ children, dependency, size }, index) => {
       return [
         `  ${index} ${renderDependency(dependency, size)}`,
         ...children.map((child) => `  ${index} -> ${child}`),
@@ -72,7 +204,10 @@ function bytesToSize(bytes: number) {
   return (bytes / Math.pow(1024, i)).toFixed(0) + " " + sizes[i];
 }
 
-function renderDependency(dependency: DependencyGraphKind, size?: number) {
+function renderDependency(
+  dependency: GroupedDependencyGraphKind,
+  size?: number,
+) {
   let href;
   let content;
   let tooltip;
@@ -82,7 +217,9 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
       tooltip =
         `@${dependency.scope}/${dependency.package}@${dependency.version}`;
       href = `/${tooltip}`;
-      content = `${tooltip}\n${dependency.path}\n${bytesToSize(size ?? 0)}`;
+      content = `${tooltip}\n${dependency.paths.join("\n")}\n${
+        bytesToSize(size ?? 0)
+      }`;
       color = "#faee4a";
       break;
     }
@@ -112,7 +249,7 @@ function renderDependency(dependency: DependencyGraphKind, size?: number) {
   }]`;
 }
 
-function useDigraph(dependencies: DependencyGraphProps["dependencies"]) {
+function useDigraph(dependencies: DependencyGraphItem[]) {
   const controls = useSignal({ pan: { x: 0, y: 0 }, zoom: 1 });
   const defaults = useSignal({ pan: { x: 0, y: 0 }, zoom: 1 });
   const ref = useRef<HTMLDivElement>(null);

@@ -3,13 +3,11 @@ import { HttpError, type RouteConfig } from "fresh";
 import { path } from "../../../utils/api.ts";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { define } from "../../../util.ts";
-import {
-  DependencyGraph,
-  type DependencyGraphItem,
-} from "../(_islands)/DependencyGraph.tsx";
+import { DependencyGraph } from "../(_islands)/DependencyGraph.tsx";
 import { packageDataWithVersion } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
 import { PackageNav, type Params } from "../(_components)/PackageNav.tsx";
+import type { DependencyGraphItem } from "../../../utils/api_types.ts";
 
 export default define.page<typeof handler>(
   function DepsGraph({ data, params, state }) {
