@@ -1,14 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::borrow::Cow;
-use std::io;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use anyhow::Context;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
+use deno_ast::{MediaType, ModuleSpecifier, ParseDiagnostic};
+use deno_graph::source::{
+  load_data_url, JsrUrlProvider, LoadOptions, NullFileSystem,
+};
+use deno_graph::{
+  BuildOptions, CapturingModuleAnalyzer, GraphKind, Module, ModuleInfo,
+  Resolution, WorkspaceMember,
+};
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
@@ -16,10 +17,19 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use indexmap::IndexMap;
+use regex::Regex;
 use routerify::prelude::RequestExt;
 use routerify::Router;
 use routerify_query::RequestQueryExt;
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
+use std::borrow::Cow;
+use std::io;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::Mutex;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
@@ -27,6 +37,8 @@ use tracing::Instrument;
 use tracing::Span;
 use url::Url;
 
+use crate::analysis::JsrResolver;
+use crate::analysis::ModuleParser;
 use crate::auth::access_token;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::Buckets;
@@ -66,7 +78,6 @@ use crate::util::VersionOrLatest;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 
-use super::ApiCreatePackageRequest;
 use super::ApiDependency;
 use super::ApiDependent;
 use super::ApiDownloadDataPoint;
@@ -90,6 +101,7 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
+use super::{ApiCreatePackageRequest, ApiDependencyGraphItem};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -149,6 +161,10 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/dependencies",
       util::json(list_dependencies_handler),
+    )
+    .get(
+      "/:package/versions/:version/dependencies/graph",
+      util::json(get_dependencies_graph_handler),
     )
     .get(
       "/:package/publishing_tasks",
@@ -1518,6 +1534,476 @@ pub async fn list_dependencies_handler(
     .collect::<Vec<_>>();
 
   Ok(deps)
+}
+
+struct DepTreeLoader {
+  scope: ScopeName,
+  package: PackageName,
+  version: crate::ids::Version,
+  bucket: crate::buckets::BucketWithQueue,
+}
+
+impl DepTreeLoader {
+  fn load_inner(
+    &self,
+    specifier: &ModuleSpecifier,
+  ) -> deno_graph::source::LoadFuture {
+    use futures::FutureExt;
+    let specifier = specifier.clone();
+
+    match specifier.scheme() {
+      "file" => {
+        let Ok(path) = PackagePath::new(specifier.path().to_string()) else {
+          return async move { Ok(None) }.boxed();
+        };
+
+        let scope = self.scope.clone();
+        let package = self.package.clone();
+        let version = self.version.clone();
+        let bucket = self.bucket.clone();
+
+        async move {
+          let Some(bytes) = bucket
+            .download(
+              crate::gcs_paths::file_path(&scope, &package, &version, &path)
+                .into(),
+            )
+            .await
+            .expect("hello")
+          else {
+            return Ok(None);
+          };
+
+          Ok(Some(deno_graph::source::LoadResponse::Module {
+            content: bytes.to_vec().into(),
+            specifier: specifier.clone(),
+            maybe_headers: None,
+          }))
+        }
+        .boxed()
+      }
+      "http" | "https" => {
+        let bucket = self.bucket.clone();
+        async move {
+          let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
+
+          let scope = jsr_matches.name("scope").unwrap();
+          let package = jsr_matches.name("package").unwrap();
+          let version = jsr_matches.name("version");
+          let path = jsr_matches.name("path").unwrap();
+
+          let Some(bytes) = bucket
+            .download(
+              format!(
+                "@{}/{}/{}{}",
+                scope.as_str(),
+                package.as_str(),
+                version.map(|version| version.as_str()).unwrap_or_default(),
+                path.as_str()
+              )
+              .into(),
+            )
+            .await?
+          else {
+            return Ok(None);
+          };
+
+          Ok(Some(deno_graph::source::LoadResponse::Module {
+            content: bytes.to_vec().into(),
+            specifier: specifier.clone(),
+            maybe_headers: None,
+          }))
+        }
+        .boxed()
+      }
+      "jsr" => unreachable!("{specifier}"),
+      // TODO: handle npm specifiers
+      "npm" | "node" | "bun" => async move {
+        Ok(Some(deno_graph::source::LoadResponse::External {
+          specifier: specifier.clone(),
+        }))
+      }
+      .boxed(),
+      _ => async move { Ok(None) }.boxed(),
+    }
+  }
+}
+
+impl deno_graph::source::Loader for DepTreeLoader {
+  fn load(
+    &self,
+    specifier: &ModuleSpecifier,
+    _options: LoadOptions,
+  ) -> deno_graph::source::LoadFuture {
+    self.load_inner(specifier)
+  }
+}
+
+struct DepTreeJsrUrlProvider(Url);
+
+impl JsrUrlProvider for DepTreeJsrUrlProvider {
+  fn url(&self) -> &Url {
+    &self.0
+  }
+}
+
+struct DepTreeAnalyzer {
+  pub analyzer: CapturingModuleAnalyzer,
+  pub module_info:
+    std::cell::RefCell<std::collections::HashMap<Url, Vec<String>>>,
+}
+
+impl Default for DepTreeAnalyzer {
+  fn default() -> Self {
+    Self {
+      analyzer: CapturingModuleAnalyzer::new(
+        Some(Box::new(ModuleParser::default())),
+        None,
+      ),
+      module_info: Default::default(),
+    }
+  }
+}
+
+#[async_trait::async_trait(?Send)]
+impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
+  async fn analyze(
+    &self,
+    specifier: &ModuleSpecifier,
+    source: Arc<str>,
+    media_type: MediaType,
+  ) -> Result<ModuleInfo, ParseDiagnostic> {
+    let module_info =
+      self.analyzer.analyze(specifier, source, media_type).await?;
+
+    let deps = module_info
+      .dependencies
+      .iter()
+      .filter_map(|dep| {
+        dep.as_static().and_then(|dep| {
+          if dep.specifier.starts_with("jsr:") {
+            Some(dep.specifier.clone())
+          } else {
+            None
+          }
+        })
+      })
+      .collect::<Vec<_>>();
+
+    if !deps.is_empty() {
+      self
+        .module_info
+        .borrow_mut()
+        .insert(specifier.clone(), deps.clone());
+    }
+
+    Ok(module_info)
+  }
+}
+
+lazy_static::lazy_static! {
+  static ref JSR_DEP_PATH_RE: Regex = Regex::new(r"/@(?<scope>.+?)/(?<package>.+?)(?:/(?<version>.+?))?(?<path>/.+)").unwrap();
+}
+
+// We have to spawn another tokio runtime, because
+// `deno_graph::ModuleGraph::build` is not thread-safe.
+#[tokio::main(flavor = "current_thread")]
+async fn analyze_deps_tree(
+  registry_url: Url,
+  scope: ScopeName,
+  package: PackageName,
+  version: crate::ids::Version,
+  bucket: crate::buckets::BucketWithQueue,
+  exports: IndexMap<String, String>,
+) -> Result<
+  IndexMap<DependencyKind, DependencyInfo>,
+  deno_graph::ModuleGraphError,
+> {
+  let roots = exports
+    .values()
+    .map(|path| Url::parse(&format!("file://{}", path)).unwrap())
+    .collect::<Vec<_>>();
+
+  let member = WorkspaceMember {
+    base: Url::parse("file:///").unwrap(),
+    name: format!("@{}/{}", scope, package),
+    version: Some(version.0.clone()),
+    exports,
+  };
+
+  let module_analyzer = DepTreeAnalyzer::default();
+  let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
+  let loader = DepTreeLoader {
+    scope,
+    package,
+    version,
+    bucket,
+  };
+  graph
+    .build(
+      roots.clone(),
+      &loader,
+      BuildOptions {
+        is_dynamic: false,
+        module_analyzer: &module_analyzer,
+        imports: Default::default(),
+        // todo: use the data in the package for the file system
+        file_system: &NullFileSystem,
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        passthrough_jsr_specifiers: false,
+        resolver: Some(&JsrResolver { member }),
+        npm_resolver: None,
+        reporter: None,
+        executor: Default::default(),
+        locker: None,
+      },
+    )
+    .await;
+  graph.valid()?;
+
+  let mut index = 0;
+  let mut dependencies = Default::default();
+
+  for root in roots {
+    GraphDependencyCollector::collect(
+      &graph,
+      &root,
+      &mut index,
+      &mut dependencies,
+    );
+  }
+
+  Ok(dependencies)
+}
+
+struct GraphDependencyCollector<'a> {
+  graph: &'a deno_graph::ModuleGraph,
+  dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  id_index: &'a mut usize,
+}
+
+impl<'a> GraphDependencyCollector<'a> {
+  pub fn collect(
+    graph: &'a deno_graph::ModuleGraph,
+    root: &'a ModuleSpecifier,
+    id_index: &'a mut usize,
+    dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  ) {
+    let root_module = graph.try_get(root).unwrap().unwrap();
+
+    Self {
+      graph,
+      dependencies,
+      id_index,
+    }
+    .build_module_info(root_module)
+    .unwrap();
+  }
+
+  fn build_module_info(&mut self, module: &Module) -> Option<usize> {
+    let specifier = module.specifier();
+
+    let dependency = match module {
+      Module::Js(_) | Module::Json(_) => {
+        if let Some(jsr_matches) = JSR_DEP_PATH_RE.captures(specifier.as_str())
+        {
+          let scope = jsr_matches.name("scope").unwrap();
+          let package = jsr_matches.name("package").unwrap();
+          let version = jsr_matches.name("version").unwrap();
+          let path = jsr_matches.name("path").unwrap();
+
+          DependencyKind::Jsr {
+            scope: scope.as_str().to_string(),
+            package: package.as_str().to_string(),
+            version: version.as_str().to_string(),
+            path: path.as_str().to_string(),
+          }
+        } else {
+          DependencyKind::Root {
+            path: specifier.path().to_string(),
+          }
+        }
+      }
+      Module::Npm(_) => {
+        return None;
+      }
+      Module::Node(_) | Module::External(_) => {
+        return None;
+      }
+    };
+
+    if let Some(info) = self.dependencies.get(&dependency) {
+      Some(info.id)
+    } else {
+      let maybe_size = match module {
+        Module::Js(module) => Some(module.size() as u64),
+        Module::Json(module) => Some(module.size() as u64),
+        Module::Node(_) | Module::Npm(_) | Module::External(_) => None,
+      };
+
+      let media_type = match module {
+        Module::Js(js) => Some(js.media_type),
+        Module::Json(json) => Some(json.media_type),
+        Module::Npm(_) | Module::Node(_) | Module::External(_) => None,
+      };
+
+      let mut children = vec![];
+      match module {
+        Module::Js(module) => {
+          if let Some(types_dep) = &module.maybe_types_dependency {
+            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+            {
+              children.push(child);
+            }
+          }
+          for dep in module.dependencies.values() {
+            if !dep.maybe_code.is_none() {
+              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
+                children.push(child);
+              }
+            }
+            if !dep.maybe_type.is_none() {
+              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
+                children.push(child);
+              }
+            }
+          }
+        }
+        Module::Json(_)
+        | Module::Npm(_)
+        | Module::Node(_)
+        | Module::External(_) => {}
+      }
+
+      let id = *self.id_index;
+
+      self.dependencies.insert(
+        dependency,
+        DependencyInfo {
+          id,
+          children,
+          size: maybe_size,
+          media_type,
+        },
+      );
+
+      *self.id_index += 1;
+
+      Some(id)
+    }
+  }
+
+  fn build_resolved_info(&mut self, resolution: &Resolution) -> Option<usize> {
+    match resolution {
+      Resolution::Ok(resolved) => {
+        let specifier = &resolved.specifier;
+        let resolved_specifier = self.graph.resolve(specifier);
+        match self.graph.try_get(resolved_specifier) {
+          Ok(Some(module)) => self.build_module_info(module),
+          Err(err) => {
+            let id = *self.id_index;
+
+            self.dependencies.insert(
+              DependencyKind::Error {
+                error: err.to_string(),
+              },
+              DependencyInfo {
+                id,
+                children: vec![],
+                size: None,
+                media_type: None,
+              },
+            );
+
+            *self.id_index += 1;
+
+            Some(id)
+          }
+          Ok(None) => None,
+        }
+      }
+      _ => None,
+    }
+  }
+}
+
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum DependencyKind {
+  Jsr {
+    scope: String,
+    package: String,
+    version: String,
+    path: String,
+  },
+  Npm {
+    package: String,
+  },
+  Root {
+    path: String,
+  },
+  Error {
+    error: String,
+  },
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DependencyInfo {
+  pub id: usize,
+  pub children: Vec<usize>,
+  pub size: Option<u64>,
+  pub media_type: Option<MediaType>,
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies/graph",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn get_dependencies_graph_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiDependencyGraphItem>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version));
+
+  let buckets = req.data::<Buckets>().unwrap().clone();
+  let gcs_path =
+    crate::gcs_paths::version_metadata(&scope, &package, &version).into();
+  let version_meta = buckets.modules_bucket.download(gcs_path).await?.unwrap();
+  let version_meta =
+    serde_json::from_slice::<crate::metadata::VersionMetadata>(&version_meta)?;
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+
+  let deps = tokio::task::spawn_blocking(|| {
+    analyze_deps_tree(
+      registry_url,
+      scope,
+      package,
+      version,
+      buckets.modules_bucket,
+      version_meta.exports,
+    )
+  })
+  .await
+  .unwrap()
+  .unwrap();
+
+  let api_deps = deps
+    .into_iter()
+    .enumerate()
+    .map(|(i, dep)| {
+      assert_eq!(i, dep.1.id);
+      ApiDependencyGraphItem::from(dep)
+    })
+    .collect::<Vec<_>>();
+
+  Ok(api_deps)
 }
 
 #[instrument(

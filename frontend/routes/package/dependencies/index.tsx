@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { HttpError, RouteConfig } from "fresh";
-import type { Dependency } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
-import { define } from "../../util.ts";
-import { packageDataWithVersion } from "../../utils/data.ts";
-import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { scopeIAM } from "../../utils/iam.ts";
+import { HttpError, type RouteConfig } from "fresh";
+import type { Dependency } from "../../../utils/api_types.ts";
+import { path } from "../../../utils/api.ts";
+import { define } from "../../../util.ts";
+import { packageDataWithVersion } from "../../../utils/data.ts";
+import { PackageHeader } from "../(_components)/PackageHeader.tsx";
+import { PackageNav, type Params } from "../(_components)/PackageNav.tsx";
+import { Table, TableData, TableRow } from "../../../components/Table.tsx";
+import { scopeIAM } from "../../../utils/iam.ts";
 
 function getDependencyLink(dep: Dependency) {
   if (dep.kind === "jsr") {
