@@ -754,7 +754,16 @@ fn generate_symbol_page(
           || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
           && node.get_name() == next_part
       })
-      .cloned()
+      .flat_map(|node| {
+        if let Some(reference) = node.reference_def() {
+          ctx
+            .resolve_reference(&reference.target)
+            .map(|node| node.into_owned())
+            .collect::<Vec<_>>()
+        } else {
+          vec![node.clone()]
+        }
+      })
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_some() {
@@ -954,18 +963,7 @@ fn generate_symbol_page(
       .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
     {
       namespace_paths.push(next_part.to_string());
-
-      let namespace = namespace_node.namespace_def().unwrap();
-
-      let parts: Rc<[String]> = namespace_paths.clone().into();
-
-      doc_nodes = namespace
-        .elements
-        .iter()
-        .map(|element| {
-          namespace_node.create_namespace_child(element.clone(), parts.clone())
-        })
-        .collect();
+      doc_nodes = namespace_node.namespace_children.clone().unwrap();
     } else {
       return None;
     }
