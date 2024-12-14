@@ -647,7 +647,7 @@ mod tests {
   ) -> Result<(), anyhow::Error> {
     let scope = spec.jsr_json.name.scope.clone();
     let package = spec.jsr_json.name.package.clone();
-    let version = spec.jsr_json.version.clone();
+    let version = spec.jsr_json.version.clone().unwrap();
 
     let exports = match exports_map_from_json(spec.jsr_json.exports.clone()) {
       Ok(exports) => exports,

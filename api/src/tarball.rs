@@ -251,7 +251,7 @@ pub async fn process_tarball(
     if config_file_version != publishing_task.package_version {
       return Err(PublishError::ConfigFileVersionMismatch {
         path: Box::new(publishing_task.config_file.clone()),
-        deno_json_version: Box::new(config_file.version),
+        deno_json_version: Box::new(config_file_version),
         publish_task_version: Box::new(publishing_task.package_version.clone()),
       });
     }

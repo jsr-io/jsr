@@ -791,7 +791,7 @@ pub mod tests {
       .unwrap();
     let deno_json: ConfigFile = serde_json::from_slice(&json).unwrap();
     assert_eq!(deno_json.name.to_string(), "@scope/foo");
-    assert_eq!(deno_json.version.to_string(), "1.2.3");
+    assert_eq!(deno_json.version.unwrap().to_string(), "1.2.3");
     {
       let metadata_json = t
         .buckets
