@@ -91,8 +91,9 @@ source.
 
 ### `commonJs`
 
-The package being published contains CommonJS code like `require()`. This is
-disallowed because JSR is ESM only.
+The package being published imports code from CommonJS files with a `.cjs` or
+`.cts` extension or contains CommonJS code like `require()`. This is disallowed
+because JSR is ESM only.
 
 You can fix this error by removing the CommonJS code from your source.
 
