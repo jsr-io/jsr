@@ -247,7 +247,6 @@ pub async fn process_tarball(
       publish_task_name: publishing_task_scoped_package_name,
     });
   }
-
   if let Some(config_file_version) = config_file.version {
     if config_file_version != publishing_task.package_version {
       return Err(PublishError::ConfigFileVersionMismatch {
