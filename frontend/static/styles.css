@@ -479,7 +479,7 @@ body .ddoc {
 
   .symbolGroup article > div:hover > div + a.context_button:before {
     content: "View code";
-    @apply hidden md:block text-xs;
+    @apply hidden md:block text-xs leading-none;
   }
 
   .docEntryHeader:hover > .context_button {

@@ -5,6 +5,7 @@ use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
+use comrak::nodes::{Ast, AstNode, NodeValue};
 use deno_ast::ModuleSpecifier;
 use deno_doc::html::pages::SymbolPage;
 use deno_doc::html::DocNodeWithContext;
@@ -20,6 +21,8 @@ use deno_doc::DocNodeKind;
 use deno_doc::Location;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
+use std::borrow::Cow;
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -27,6 +30,228 @@ use tracing::instrument;
 use url::Url;
 
 pub type DocNodesByUrl = IndexMap<ModuleSpecifier, Vec<DocNode>>;
+
+pub type URLRewriter =
+  Arc<dyn (Fn(Option<&ShortPath>, &str) -> String) + Send + Sync>;
+
+thread_local! {
+  static CURRENT_FILE: RefCell<Option<Option<ShortPath>>> = const { RefCell::new(None) };
+  static URL_REWRITER: RefCell<Option<URLRewriter>> = const { RefCell::new(None) };
+}
+
+lazy_static::lazy_static! {
+  static ref AMMONIA: ammonia::Builder<'static> = {
+    let mut ammonia_builder = ammonia::Builder::default();
+
+    ammonia_builder
+      .add_tags(["video", "button", "svg", "path", "rect"])
+      .add_generic_attributes(["id", "align"])
+      .add_tag_attributes("button", ["data-copy"])
+      .add_tag_attributes(
+        "svg",
+        [
+          "class",
+          "width",
+          "height",
+          "viewBox",
+          "fill",
+          "xmlns",
+          "stroke",
+          "stroke-width",
+          "stroke-linecap",
+          "stroke-linejoin",
+        ],
+      )
+      .add_tag_attributes(
+        "path",
+        [
+          "d",
+          "fill",
+          "fill-rule",
+          "clip-rule",
+          "stroke",
+          "stroke-width",
+          "stroke-linecap",
+          "stroke-linejoin",
+        ],
+      )
+      .add_tag_attributes("rect", ["x", "y", "width", "height", "fill"])
+      .add_tag_attributes("video", ["src", "controls"])
+      .add_allowed_classes("pre", ["highlight"])
+      .add_allowed_classes("button", ["context_button"])
+      .add_allowed_classes(
+        "div",
+        [
+          "alert",
+          "alert-note",
+          "alert-tip",
+          "alert-important",
+          "alert-warning",
+          "alert-caution",
+        ],
+      )
+      .link_rel(Some("nofollow"))
+      .url_relative(ammonia::UrlRelative::Custom(Box::new(
+        AmmoniaRelativeUrlEvaluator(),
+      )))
+      .add_allowed_classes("span", crate::tree_sitter::CLASSES);
+
+    ammonia_builder
+  };
+}
+
+struct AmmoniaRelativeUrlEvaluator();
+
+impl<'b> ammonia::UrlRelativeEvaluate<'b> for AmmoniaRelativeUrlEvaluator {
+  fn evaluate<'a>(&self, url: &'a str) -> Option<Cow<'a, str>> {
+    URL_REWRITER.with(|url_rewriter| {
+      let rewriter = url_rewriter.borrow();
+      let url_rewriter = rewriter.as_ref().unwrap();
+      CURRENT_FILE.with(|current_file| {
+        Some(
+          url_rewriter(current_file.borrow().as_ref().unwrap().as_ref(), url)
+            .into(),
+        )
+      })
+    })
+  }
+}
+
+enum Alert {
+  Note,
+  Tip,
+  Important,
+  Warning,
+  Caution,
+}
+
+fn match_node_value<'a>(
+  arena: &'a comrak::Arena<AstNode<'a>>,
+  node: &'a AstNode<'a>,
+  options: &comrak::Options,
+  plugins: &comrak::Plugins,
+) {
+  match &node.data.borrow().value {
+    NodeValue::BlockQuote => {
+      if let Some(paragraph_child) = node.first_child() {
+        if paragraph_child.data.borrow().value == NodeValue::Paragraph {
+          let alert = paragraph_child.first_child().and_then(|text_child| {
+            if let NodeValue::Text(text) = &text_child.data.borrow().value {
+              match text
+                .split_once(' ')
+                .map_or((text.as_str(), None), |(kind, title)| {
+                  (kind, Some(title))
+                }) {
+                ("[!NOTE]", title) => {
+                  Some((Alert::Note, title.unwrap_or("Note").to_string()))
+                }
+                ("[!TIP]", title) => {
+                  Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
+                }
+                ("[!IMPORTANT]", title) => Some((
+                  Alert::Important,
+                  title.unwrap_or("Important").to_string(),
+                )),
+                ("[!WARNING]", title) => {
+                  Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
+                }
+                ("[!CAUTION]", title) => {
+                  Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
+                }
+                _ => None,
+              }
+            } else {
+              None
+            }
+          });
+
+          if let Some((alert, title)) = alert {
+            let start_col = node.data.borrow().sourcepos.start;
+
+            let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+              NodeValue::Document,
+              start_col,
+            ))));
+
+            let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
+              Ast::new(NodeValue::Paragraph, start_col),
+            )));
+
+            for child_node in paragraph_child.children().skip(1) {
+              node_without_alert.append(child_node);
+            }
+            for child_node in node.children().skip(1) {
+              node_without_alert.append(child_node);
+            }
+
+            document.append(node_without_alert);
+
+            let html =
+              deno_doc::html::comrak::render_node(document, options, plugins);
+
+            let alert_title = match alert {
+              Alert::Note => {
+                format!("{}{title}", include_str!("./docs/info-circle.svg"))
+              }
+              Alert::Tip => {
+                format!("{}{title}", include_str!("./docs/bulb.svg"))
+              }
+              Alert::Important => {
+                format!("{}{title}", include_str!("./docs/warning-message.svg"))
+              }
+              Alert::Warning => format!(
+                "{}{title}",
+                include_str!("./docs/warning-triangle.svg")
+              ),
+              Alert::Caution => {
+                format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
+              }
+            };
+
+            let html = format!(
+              r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
+              match alert {
+                Alert::Note => "note",
+                Alert::Tip => "tip",
+                Alert::Important => "important",
+                Alert::Warning => "warning",
+                Alert::Caution => "caution",
+              }
+            );
+
+            let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+              NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+                block_type: 6,
+                literal: html,
+              }),
+              start_col,
+            ))));
+            node.insert_before(alert_node);
+            node.detach();
+          }
+        }
+      }
+    }
+    NodeValue::Link(link) => {
+      if link.url.ends_with(".mov") || link.url.ends_with(".mp4") {
+        let start_col = node.data.borrow().sourcepos.start;
+
+        let html = format!(r#"<video src="{}" controls></video>"#, link.url);
+
+        let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+          NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+            block_type: 6,
+            literal: html,
+          }),
+          start_col,
+        ))));
+        node.insert_before(alert_node);
+        node.detach();
+      }
+    }
+    _ => {}
+  }
+}
 
 static DENO_TYPES: OnceLock<std::collections::HashSet<Vec<String>>> =
   OnceLock::new();
@@ -132,7 +357,7 @@ fn get_url_rewriter(
   base: String,
   github_repository: Option<GithubRepository>,
   is_readme: bool,
-) -> deno_doc::html::comrak::URLRewriter {
+) -> URLRewriter {
   Arc::new(move |current_file, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
@@ -216,6 +441,36 @@ pub fn get_generate_ctx<'a>(
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
 
+  let url_rewriter =
+    get_url_rewriter(url_rewriter_base, github_repository, has_readme);
+
+  let markdown_renderer = deno_doc::html::comrak::create_renderer(
+    Some(Arc::new(super::tree_sitter::ComrakAdapter {
+      show_line_numbers: false,
+    })),
+    Some(Box::new(match_node_value)),
+    Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
+  );
+
+  let markdown_renderer = Rc::new(
+    move |md: &str,
+          title_only: bool,
+          file_path: Option<ShortPath>,
+          anchorizer: deno_doc::html::jsdoc::Anchorizer| {
+      CURRENT_FILE.set(Some(file_path));
+      URL_REWRITER.set(Some(url_rewriter.clone()));
+
+      // we pass None as we know that the comrak renderer doesnt use this option
+      // and as such can save a clone. careful if comrak renderer changes.
+      let rendered = markdown_renderer(md, title_only, None, anchorizer);
+
+      CURRENT_FILE.set(None);
+      URL_REWRITER.set(None);
+
+      rendered
+    },
+  );
+
   GenerateCtx::new(
     deno_doc::html::GenerateOptions {
       package_name: Some(package_name),
@@ -254,19 +509,7 @@ pub fn get_generate_ctx<'a>(
       disable_search: false,
       symbol_redirect_map: None,
       default_symbol_map: None,
-      markdown_renderer: deno_doc::html::comrak::create_renderer(
-        Some(Arc::new(super::tree_sitter::ComrakAdapter {
-          show_line_numbers: false,
-        })),
-        Some(Box::new(|ammonia| {
-          ammonia.add_allowed_classes("span", crate::tree_sitter::CLASSES);
-        })),
-        Some(get_url_rewriter(
-          url_rewriter_base,
-          github_repository,
-          has_readme,
-        )),
-      ),
+      markdown_renderer,
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
     },
@@ -316,11 +559,7 @@ pub fn generate_docs_html(
       let render_ctx =
         RenderContext::new(&ctx, &[], UrlResolveKind::AllSymbols);
 
-      let all_doc_nodes = ctx
-        .doc_nodes
-        .values()
-        .flatten()
-        .map(std::borrow::Cow::Borrowed);
+      let all_doc_nodes = ctx.doc_nodes.values().flatten().map(Cow::Borrowed);
 
       let partitions_by_kind =
         deno_doc::html::partition::partition_nodes_by_entrypoint(
