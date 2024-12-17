@@ -747,7 +747,7 @@ fn generate_symbol_page(
 
   let doc_nodes = 'outer: loop {
     let next_part = name_parts.next()?;
-    let nodes = doc_nodes
+    let mut nodes = doc_nodes
       .iter()
       .filter(|node| {
         !(matches!(node.kind(), DocNodeKind::ModuleDoc | DocNodeKind::Import)
@@ -757,7 +757,7 @@ fn generate_symbol_page(
       .flat_map(|node| {
         if let Some(reference) = node.reference_def() {
           ctx
-            .resolve_reference(&reference.target)
+            .resolve_reference(node.parent.as_deref(), &reference.target)
             .map(|node| node.into_owned())
             .collect::<Vec<_>>()
         } else {
@@ -954,6 +954,20 @@ fn generate_symbol_page(
       }
     }
 
+    nodes = nodes
+      .into_iter()
+      .flat_map(|node| {
+        if let Some(reference) = node.reference_def() {
+          ctx
+            .resolve_reference(node.parent.as_deref(), &reference.target)
+            .map(|node| node.into_owned())
+            .collect::<Vec<_>>()
+        } else {
+          vec![node]
+        }
+      })
+      .collect::<Vec<_>>();
+
     if name_parts.peek().is_none() {
       break nodes;
     }
@@ -963,7 +977,26 @@ fn generate_symbol_page(
       .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
     {
       namespace_paths.push(next_part.to_string());
-      doc_nodes = namespace_node.namespace_children.clone().unwrap();
+      doc_nodes = namespace_node
+        .namespace_children
+        .clone()
+        .unwrap()
+        .into_iter()
+        .flat_map(|node| {
+          if let Some(reference_def) = node.reference_def() {
+            ctx
+              .resolve_reference(Some(namespace_node), &reference_def.target)
+              .map(|node| {
+                let x = node.into_owned();
+                dbg!(x.get_qualified_name());
+                x
+              })
+              .collect()
+          } else {
+            vec![node]
+          }
+        })
+        .collect();
     } else {
       return None;
     }
