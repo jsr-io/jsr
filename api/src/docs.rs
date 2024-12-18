@@ -102,7 +102,7 @@ lazy_static::lazy_static! {
 
 struct AmmoniaRelativeUrlEvaluator();
 
-impl<'b> ammonia::UrlRelativeEvaluate<'b> for AmmoniaRelativeUrlEvaluator {
+impl ammonia::UrlRelativeEvaluate<'_> for AmmoniaRelativeUrlEvaluator {
   fn evaluate<'a>(&self, url: &'a str) -> Option<Cow<'a, str>> {
     URL_REWRITER.with(|url_rewriter| {
       let rewriter = url_rewriter.borrow();
@@ -1171,6 +1171,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
     false
   }
 
+  #[allow(clippy::nonminimal_bool)]
   fn compose(
     &self,
     current_resolve: UrlResolveKind,

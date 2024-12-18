@@ -454,7 +454,7 @@ struct SyncLoader<'a> {
   files: &'a HashMap<PackagePath, Vec<u8>>,
 }
 
-impl<'a> SyncLoader<'a> {
+impl SyncLoader<'_> {
   fn load_sync(
     &self,
     specifier: &ModuleSpecifier,
@@ -484,7 +484,7 @@ impl<'a> SyncLoader<'a> {
   }
 }
 
-impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
+impl deno_graph::source::Loader for SyncLoader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
@@ -628,7 +628,7 @@ struct GcsLoader<'a> {
   version: &'a Version,
 }
 
-impl<'a> GcsLoader<'a> {
+impl GcsLoader<'_> {
   fn load_inner(
     &self,
     specifier: &ModuleSpecifier,
@@ -669,7 +669,7 @@ impl<'a> GcsLoader<'a> {
   }
 }
 
-impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
+impl deno_graph::source::Loader for GcsLoader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
