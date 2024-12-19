@@ -1,6 +1,6 @@
 # This Dockerfile is adapted from https://whitfin.io/blog/speeding-up-rust-docker-builds/
 
-FROM rust:1.77 as build
+FROM rust:1.83 as build
 
 # create a new empty shell project
 RUN USER=root cargo new --bin registry_api
