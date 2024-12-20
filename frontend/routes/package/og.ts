@@ -395,6 +395,7 @@ export const handler = define.handlers({
 
     return new Response(await ogpImage.encode(), {
       headers: {
+        "access-control-allow-origin": "*",
         "Content-Type": "image/png",
       },
     });
