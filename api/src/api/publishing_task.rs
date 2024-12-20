@@ -31,7 +31,7 @@ pub fn publishing_task_router() -> Router<Body, ApiError> {
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPublishingTask> {
   let publishing_task_id = req.param_uuid("publishing_task_id")?;
   Span::current()
-    .record("publishing_task_id", field::display(&publishing_task_id));
+    .record("publishing_task_id", &field::display(&publishing_task_id));
 
   let db = req.data::<Database>().unwrap();
 

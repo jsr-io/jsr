@@ -27,7 +27,7 @@ pub struct SpecifierRewriter<'a> {
   pub dependencies: &'a IndexMap<String, Dependency>,
 }
 
-impl SpecifierRewriter<'_> {
+impl<'a> SpecifierRewriter<'a> {
   pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
     let source_text_specifier = specifier;
     let dep = self.dependencies.get(specifier)?;

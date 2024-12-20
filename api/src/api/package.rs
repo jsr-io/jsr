@@ -223,7 +223,7 @@ pub async fn list_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiPackage>> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", field::display(&scope));
+  Span::current().record("scope", &field::display(&scope));
 
   let (start, limit) = pagination(&req);
 
@@ -250,12 +250,12 @@ pub async fn list_handler(
 )]
 pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", field::display(&scope));
+  Span::current().record("scope", &field::display(&scope));
 
   let ApiCreatePackageRequest {
     package: package_name,
   } = decode_json(&mut req).await?;
-  Span::current().record("package", field::display(&package_name));
+  Span::current().record("package", &field::display(&package_name));
 
   let iam = req.iam();
   iam.check_scope_write_access(&scope).await?;
@@ -298,8 +298,8 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
 
   let db = req.data::<Database>().unwrap();
   let package = db
@@ -540,8 +540,8 @@ pub async fn list_versions_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
 
   let db = req.data::<Database>().unwrap();
 
@@ -608,9 +608,9 @@ pub async fn get_version_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version_or_latest()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
-  Span::current().record("version", field::display(&version));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version));
 
   let db = req.data::<Database>().unwrap();
   let _ = db
@@ -645,9 +645,9 @@ pub async fn version_publish_handler(
   let package_scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let package_version = req.param_version()?;
-  Span::current().record("scope", field::display(&package_scope));
-  Span::current().record("package", field::display(&package_name));
-  Span::current().record("version", field::display(&package_version));
+  Span::current().record("scope", &field::display(&package_scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&package_version));
   let config_file =
     PackagePath::try_from(&**req.query("config").ok_or_else(|| {
       let msg = "Missing query parameter 'config'".into();
@@ -813,9 +813,9 @@ pub async fn version_provenance_statements_handler(
   let package = req.param_package()?;
   let version = req.param_version()?;
 
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
-  Span::current().record("version", field::display(&version));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version));
 
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
@@ -835,7 +835,7 @@ pub async fn version_provenance_statements_handler(
     let (package, _, meta) = db
       .get_package(&scope, &package)
       .await?
-      .ok_or(ApiError::InternalServerError)?;
+      .ok_or_else(|| ApiError::InternalServerError)?;
     orama_client.upsert_package(&package, &meta);
   }
 
@@ -859,9 +859,9 @@ pub async fn version_update_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
-  Span::current().record("version", field::display(&version));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version));
 
   // WARNING: if an additional option gets added, then yanked time rendering needs to be changed in package/versions.tsx
   let body: ApiUpdatePackageVersionRequest = decode_json(&mut req).await?;
@@ -933,17 +933,17 @@ pub async fn get_docs_handler(
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package_name));
-  Span::current().record("version", field::display(&version_or_latest));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&version_or_latest));
   let all_symbols = req.query("all_symbols").is_some();
-  Span::current().record("all_symbols", field::display(&all_symbols));
+  Span::current().record("all_symbols", &field::display(&all_symbols));
   let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
     "" => None,
     s => Some(s),
   });
   Span::current()
-    .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
+    .record("entrypoint", &field::display(&entrypoint.unwrap_or("")));
 
   let symbol = req
     .query("symbol")
@@ -953,7 +953,7 @@ pub async fn get_docs_handler(
     })
     .transpose()?;
   Span::current()
-    .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
+    .record("symbol", &field::display(&symbol.as_deref().unwrap_or("")));
 
   if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
     return Err(ApiError::MalformedRequest {
@@ -1087,9 +1087,9 @@ pub async fn get_docs_search_handler(
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package_name));
-  Span::current().record("version", field::display(&version_or_latest));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&version_or_latest));
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1158,9 +1158,9 @@ pub async fn get_docs_search_html_handler(
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package_name));
-  Span::current().record("version", field::display(&version_or_latest));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("version", &field::display(&version_or_latest));
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1240,10 +1240,10 @@ pub async fn get_source_handler(
   let version_or_latest = req.param_version_or_latest()?;
   let path = req.query("path").cloned().unwrap_or("/".to_string());
 
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
-  Span::current().record("version", field::display(&version_or_latest));
-  Span::current().record("path", field::display(&path));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version_or_latest));
+  Span::current().record("path", &field::display(&path));
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1397,8 +1397,8 @@ pub async fn list_dependents_handler(
 ) -> ApiResult<ApiList<ApiDependent>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
 
   let (start, limit) = pagination(&req);
   let versions_per_package_limit = req
@@ -1440,8 +1440,8 @@ pub async fn get_downloads_handler(
 ) -> ApiResult<ApiPackageDownloads> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
 
   let db = req.data::<Database>().unwrap();
   db.get_package(&scope, &package)
@@ -1499,9 +1499,9 @@ pub async fn list_dependencies_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
-  Span::current().record("version", field::display(&version));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
+  Span::current().record("version", &field::display(&version));
 
   let db = req.data::<Database>().unwrap();
 
@@ -1531,8 +1531,8 @@ pub async fn list_publishing_tasks_handler(
 ) -> ApiResult<Vec<ApiPublishingTask>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
 
   let db = req.data::<Database>().unwrap();
 
@@ -1562,8 +1562,8 @@ pub async fn get_score_handler(
 ) -> ApiResult<ApiPackageScore> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("package", field::display(&package));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("package", &field::display(&package));
 
   let db = req.data::<Database>().unwrap();
   let (pkg, _, meta) = db
@@ -3359,7 +3359,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     assert_eq!(tasks.len(), 1);
 
     t.http()
-      .delete(format!(
+      .delete(&format!(
         "/api/scopes/{}/packages/{}",
         scope_name, package_name
       ))

@@ -156,7 +156,7 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
   let iam_info =
     match token {
       Some((AuthorizationToken::Bearer(token), sudo)) => {
-        span.record("token.kind", field::display("bearer"));
+        span.record("token.kind", &field::display("bearer"));
         if let Some(token) =
           db.get_token_by_hash(&crate::token::hash(token)).await?
         {
@@ -167,7 +167,7 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
           }
 
           let user = db.get_user(token.user_id).await?.unwrap();
-          span.record("user.id", field::display(user.id));
+          span.record("user.id", &field::display(user.id));
 
           if user.is_blocked {
             return Err(ApiError::Blocked);
@@ -179,10 +179,10 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
         }
       }
       Some((AuthorizationToken::GithubOIDC(token), _)) => {
-        span.record("token.kind", field::display("githuboidc"));
+        span.record("token.kind", &field::display("githuboidc"));
 
         let claims = verify_oidc_token(token).await?;
-        span.record("repo.id", field::display(claims.repository_id));
+        span.record("repo.id", &field::display(claims.repository_id));
 
         let aud: GithubOidcTokenAud = serde_json::from_str(&claims.aud)
           .map_err(|err| ApiError::InvalidOidcToken {
@@ -191,7 +191,7 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
 
         let user = db.get_user_by_github_id(claims.actor_id).await?;
         if let Some(user) = &user {
-          span.record("user.id", field::display(user.id));
+          span.record("user.id", &field::display(user.id));
         }
 
         IamInfo::from((claims.repository_id, aud, user))
@@ -659,7 +659,7 @@ pub mod test {
     auth: Option<&'t str>,
   }
 
-  impl<'s> TestHttpClient<'s, '_> {
+  impl<'s, 't> TestHttpClient<'s, 't> {
     pub fn get<U: AsRef<str>>(&'s mut self, uri: U) -> TestHttpCall<'s> {
       TestHttpCall::new(
         self.service,

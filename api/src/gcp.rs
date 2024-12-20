@@ -587,7 +587,7 @@ impl FakeGcsTester {
 
     println!("starting fake gcs server: {}", p);
     let mut proc = std::process::Command::new(p)
-      .arg(format!("-port={}", self.port))
+      .arg(&format!("-port={}", self.port))
       .arg("-scheme=http")
       .arg("-backend=memory")
       .process_group(0)

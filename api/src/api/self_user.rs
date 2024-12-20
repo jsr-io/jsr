@@ -82,7 +82,7 @@ pub async fn get_member_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiScopeMember> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", field::display(&scope));
+  Span::current().record("scope", &field::display(&scope));
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;
@@ -126,7 +126,7 @@ pub async fn accept_invite_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiScopeMember> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", field::display(&scope));
+  Span::current().record("scope", &field::display(&scope));
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?.to_owned();
@@ -151,7 +151,7 @@ pub async fn decline_invite_handler(
   req: Request<Body>,
 ) -> ApiResult<Response<Body>> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", field::display(&scope));
+  Span::current().record("scope", &field::display(&scope));
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;
@@ -423,7 +423,7 @@ mod tests {
       .await;
 
     t.http()
-      .delete(format!("/api/user/tokens/{}", token.id))
+      .delete(&format!("/api/user/tokens/{}", token.id))
       .call()
       .await
       .unwrap()
@@ -448,7 +448,7 @@ mod tests {
 
     // can't delete the token again
     t.http()
-      .delete(format!("/api/user/tokens/{}", token.id))
+      .delete(&format!("/api/user/tokens/{}", token.id))
       .call()
       .await
       .unwrap()

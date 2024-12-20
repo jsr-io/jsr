@@ -114,7 +114,7 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
   iam.check_admin_access()?;
 
   let user_id = req.param_uuid("user_id")?;
-  Span::current().record("user_id", field::display(&user_id));
+  Span::current().record("user_id", &field::display(&user_id));
   let ApiAdminUpdateUserRequest {
     is_staff,
     is_blocked,
@@ -172,7 +172,7 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
   iam.check_admin_access()?;
 
   let scope = req.param_scope()?;
-  Span::current().record("scope", field::display(&scope));
+  Span::current().record("scope", &field::display(&scope));
 
   let ApiAdminUpdateScopeRequest {
     package_limit,
@@ -214,8 +214,8 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   iam.check_admin_access()?;
 
   let ApiAssignScopeRequest { scope, user_id } = decode_json(&mut req).await?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("user_id", field::display(&user_id));
+  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("user_id", &field::display(&user_id));
 
   let db = req.data::<Database>().unwrap();
 
@@ -268,7 +268,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
 
   let publishing_task_id = req.param_uuid("publishing_task")?;
   Span::current()
-    .record("publishing_task", field::display(&publishing_task_id));
+    .record("publishing_task", &field::display(&publishing_task_id));
 
   let db = req.data::<Database>().unwrap().clone();
   let task = db

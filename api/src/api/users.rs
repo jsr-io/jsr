@@ -27,7 +27,7 @@ pub fn users_router() -> Router<Body, ApiError> {
 #[instrument(name = "GET /api/users/:id", skip(req), err, fields(id))]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiUser> {
   let id = req.param_uuid("id")?;
-  Span::current().record("id", field::display(id));
+  Span::current().record("id", &field::display(id));
 
   let db = req.data::<Database>().unwrap();
   let user = db
@@ -43,7 +43,7 @@ pub async fn get_scopes_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScope>> {
   let id = req.param_uuid("id")?;
-  Span::current().record("id", field::display(id));
+  Span::current().record("id", &field::display(id));
 
   let db = req.data::<Database>().unwrap();
   db.get_user_public(id)

@@ -418,7 +418,7 @@ impl deno_graph::source::Resolver for JsrResolver {
     &self,
     specifier_text: &str,
     referrer_range: &deno_graph::Range,
-    _kind: deno_graph::source::ResolutionKind,
+    _mode: deno_graph::source::ResolutionMode,
   ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
     if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text) {
       if self.member.name == package_ref.req().name
@@ -454,7 +454,7 @@ struct SyncLoader<'a> {
   files: &'a HashMap<PackagePath, Vec<u8>>,
 }
 
-impl SyncLoader<'_> {
+impl<'a> SyncLoader<'a> {
   fn load_sync(
     &self,
     specifier: &ModuleSpecifier,
@@ -484,7 +484,7 @@ impl SyncLoader<'_> {
   }
 }
 
-impl deno_graph::source::Loader for SyncLoader<'_> {
+impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
@@ -628,7 +628,7 @@ struct GcsLoader<'a> {
   version: &'a Version,
 }
 
-impl GcsLoader<'_> {
+impl<'a> GcsLoader<'a> {
   fn load_inner(
     &self,
     specifier: &ModuleSpecifier,
@@ -669,7 +669,7 @@ impl GcsLoader<'_> {
   }
 }
 
-impl deno_graph::source::Loader for GcsLoader<'_> {
+impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,

@@ -20,7 +20,7 @@ pub struct ImportRewriteTransformer<'a> {
   pub kind: RewriteKind,
 }
 
-impl VisitMut for ImportRewriteTransformer<'_> {
+impl<'a> VisitMut for ImportRewriteTransformer<'a> {
   fn visit_mut_import_decl(&mut self, node: &mut ImportDecl) {
     node.visit_mut_children_with(self);
 
