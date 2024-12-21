@@ -145,9 +145,15 @@ function RuntimeCompatEditorItem({ name, id, value }: {
         name={id}
         value={value === undefined ? "" : value ? "true" : "false"}
       >
-        <option value="">Compatibility unknown</option>
-        <option value="true">✅ Supported</option>
-        <option value="false">❌ Not supported</option>
+        <option value="" selected={value === undefined}>
+          Compatibility unknown
+        </option>
+        <option value="true" selected={value === true}>
+          ✅ Supported
+        </option>
+        <option value="false" selected={value === false}>
+          ❌ Not supported
+        </option>
       </select>
     </label>
   );
