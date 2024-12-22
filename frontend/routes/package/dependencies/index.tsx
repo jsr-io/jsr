@@ -82,24 +82,33 @@ export default define.page<typeof handler>(function Deps(
             </div>
           )
           : (
-            <Table
-              columns={[
-                { title: "Package", class: "w-1/3" },
-                { title: "Versions", class: "w-1/3" },
-                { title: "Modules", class: "w-auto" },
-              ]}
-              currentUrl={url}
-            >
-              {list.map(([name, info]) => (
-                <Dependency
-                  name={name}
-                  link={info.link}
-                  constraints={[...info.constraints]}
-                  modules={Object.entries(info.modules)}
-                  defaultModule={info.defaultModule}
-                />
-              ))}
-            </Table>
+            <>
+              <Table
+                columns={[
+                  { title: "Package", class: "w-1/3" },
+                  { title: "Versions", class: "w-1/3" },
+                  { title: "Modules", class: "w-auto" },
+                ]}
+                currentUrl={url}
+              >
+                {list.map(([name, info]) => (
+                  <Dependency
+                    name={name}
+                    link={info.link}
+                    constraints={[...info.constraints]}
+                    modules={Object.entries(info.modules)}
+                    defaultModule={info.defaultModule}
+                  />
+                ))}
+              </Table>
+              <p class="text-jsr-gray-700">
+                You can find a visualization of the dependencies by clicking the
+                button below.
+              </p>
+              <a class="button-primary" href={`${url.pathname}/graph`}>
+                Dependency Graph
+              </a>
+            </>
           )}
       </div>
     </div>
