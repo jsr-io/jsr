@@ -3,9 +3,7 @@ use anyhow::Context;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::{MediaType, ModuleSpecifier, ParseDiagnostic};
-use deno_graph::source::{
-  load_data_url, JsrUrlProvider, LoadOptions, NullFileSystem,
-};
+use deno_graph::source::{JsrUrlProvider, LoadOptions, NullFileSystem};
 use deno_graph::{
   BuildOptions, CapturingModuleAnalyzer, GraphKind, Module, ModuleInfo,
   Resolution, WorkspaceMember,

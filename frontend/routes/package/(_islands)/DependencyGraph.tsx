@@ -10,7 +10,12 @@ import { ChevronUp } from "../../../components/icons/ChevronUp.tsx";
 import { Minus } from "../../../components/icons/Minus.tsx";
 import { Plus } from "../../../components/icons/Plus.tsx";
 import { Reset } from "../../../components/icons/Reset.tsx";
-import { DependencyGraphItem } from "../../../utils/api_types.ts";
+import type {
+  DependencyGraphItem,
+  DependencyGraphKindError,
+  DependencyGraphKindNpm,
+  DependencyGraphKindRoot,
+} from "../../../utils/api_types.ts";
 
 export interface DependencyGraphProps {
   dependencies: DependencyGraphItem[];
@@ -22,19 +27,6 @@ interface DependencyGraphKindGroupedJsr {
   package: string;
   version: string;
   paths: string[];
-}
-interface DependencyGraphKindNpm {
-  type: "npm";
-  package: string;
-  version: string;
-}
-interface DependencyGraphKindRoot {
-  type: "root";
-  path: string;
-}
-interface DependencyGraphKindError {
-  type: "error";
-  error: string;
 }
 
 type GroupedDependencyGraphKind =

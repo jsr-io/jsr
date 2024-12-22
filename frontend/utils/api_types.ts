@@ -267,28 +267,30 @@ export interface CreatedToken {
   secret: string;
 }
 
-interface DependencyGraphKindJsr {
+export interface DependencyGraphKindJsr {
   type: "jsr";
   scope: string;
   package: string;
   version: string;
   path: string;
 }
-interface DependencyGraphKindNpm {
+
+export interface DependencyGraphKindNpm {
   type: "npm";
   package: string;
   version: string;
 }
-interface DependencyGraphKindRoot {
+export interface DependencyGraphKindRoot {
   type: "root";
   path: string;
 }
-interface DependencyGraphKindError {
+
+export interface DependencyGraphKindError {
   type: "error";
   error: string;
 }
 
-type DependencyGraphKind =
+export type DependencyGraphKind =
   | DependencyGraphKindJsr
   | DependencyGraphKindNpm
   | DependencyGraphKindRoot
