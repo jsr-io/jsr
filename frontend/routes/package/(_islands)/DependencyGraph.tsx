@@ -324,7 +324,7 @@ function useDigraph(dependencies: DependencyGraphItem[]) {
     })();
   }, [dependencies]);
 
-  return { pan, zoom, reset, ref };
+  return { pan, zoom, reset, svg, ref };
 }
 
 interface GraphControlButtonProps {
@@ -347,18 +347,36 @@ function GraphControlButton(props: GraphControlButtonProps) {
   );
 }
 
-export function DependencyGraph(props: DependencyGraphProps) {
-  const { pan, zoom, reset, ref } = useDigraph(props.dependencies);
-  const dragActive = useSignal(false);
+const DRAG_THRESHOLD = 5;
 
-  function enableDrag() {
-    dragActive.value = true;
+export function DependencyGraph(props: DependencyGraphProps) {
+  const { pan, zoom, reset, svg, ref } = useDigraph(props.dependencies);
+  const dragActive = useSignal(false);
+  const dragStart = useSignal({ x: 0, y: 0 });
+
+  function enableDrag(event: MouseEvent) {
+    dragStart.value = { x: event.clientX, y: event.clientY };
   }
+
   function disableDrag() {
     dragActive.value = false;
+    dragStart.value = { x: 0, y: 0 };
+    svg.current?.querySelectorAll("a").forEach((link) => {
+      link.style.pointerEvents = "auto";
+    });
   }
 
   function onMouseMove(event: MouseEvent) {
+    if (!dragActive.value && (dragStart.value.x || dragStart.value.y)) {
+      const dx = Math.abs(event.clientX - dragStart.value.x);
+      const dy = Math.abs(event.clientY - dragStart.value.y);
+      if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+        dragActive.value = true;
+        svg.current?.querySelectorAll("a").forEach((link) => {
+          link.style.pointerEvents = "none";
+        });
+      }
+    }
     if (dragActive.value) {
       pan(event.movementX, event.movementY);
     }
