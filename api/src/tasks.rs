@@ -107,7 +107,7 @@ pub async fn npm_tarball_build_handler(
     let version = db
       .get_package_version(&job.scope, &job.name, &job.version)
       .await?
-      .ok_or_else(|| ApiError::PackageVersionNotFound)?;
+      .ok_or(ApiError::PackageVersionNotFound)?;
     let dependencies = db
       .list_package_version_dependencies(&job.scope, &job.name, &job.version)
       .await?;
@@ -211,10 +211,7 @@ pub async fn npm_tarball_enqueue_handler(req: Request<Body>) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
   let queue = req.data::<NpmTarballBuildQueue>().unwrap();
 
-  let queue = queue
-    .0
-    .as_ref()
-    .ok_or_else(|| ApiError::InternalServerError)?;
+  let queue = queue.0.as_ref().ok_or(ApiError::InternalServerError)?;
 
   let missing_tarballs = db
     .list_missing_npm_tarballs(NPM_TARBALL_REVISION as i32)
