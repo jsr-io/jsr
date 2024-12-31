@@ -1972,9 +1972,9 @@ pub async fn get_dependencies_graph_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
-  Span::current().record("version", &field::display(&version));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
 
   let buckets = req.data::<Buckets>().unwrap().clone();
   let gcs_path =
