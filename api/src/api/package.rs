@@ -1822,10 +1822,10 @@ impl<'a> GraphDependencyCollector<'a> {
           }
         }
       }
-      Module::Npm(_) => {
-        return None;
-      }
-      Module::Node(_) | Module::External(_) => {
+      Module::Wasm(_)
+      | Module::Npm(_)
+      | Module::Node(_)
+      | Module::External(_) => {
         return None;
       }
     };
@@ -1834,15 +1834,21 @@ impl<'a> GraphDependencyCollector<'a> {
       Some(info.id)
     } else {
       let maybe_size = match module {
-        Module::Js(module) => Some(module.size() as u64),
-        Module::Json(module) => Some(module.size() as u64),
-        Module::Node(_) | Module::Npm(_) | Module::External(_) => None,
+        Module::Js(js) => Some(js.size() as u64),
+        Module::Json(json) => Some(json.size() as u64),
+        Module::Wasm(_)
+        | Module::Node(_)
+        | Module::Npm(_)
+        | Module::External(_) => None,
       };
 
       let media_type = match module {
         Module::Js(js) => Some(js.media_type),
         Module::Json(json) => Some(json.media_type),
-        Module::Npm(_) | Module::Node(_) | Module::External(_) => None,
+        Module::Wasm(_)
+        | Module::Npm(_)
+        | Module::Node(_)
+        | Module::External(_) => None,
       };
 
       let mut children = vec![];
@@ -1868,6 +1874,7 @@ impl<'a> GraphDependencyCollector<'a> {
           }
         }
         Module::Json(_)
+        | Module::Wasm(_)
         | Module::Npm(_)
         | Module::Node(_)
         | Module::External(_) => {}
