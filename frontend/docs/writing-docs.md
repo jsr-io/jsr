@@ -165,3 +165,7 @@ You can also include examples in module documentation:
    * @module
    */
 ````
+
+If a default entrypoint has a module documentation, it takes precedence over the
+README file in the "Overview" tab of the package page.
+[Learn more in the documentation section for packages](/docs/packages#documentation).
