@@ -59,7 +59,7 @@ foreseeable future - JSR is designed to be very cheap to run.
 
 ## Can I delete a package from JSR?
 
-Source code published to JSR can not be deleted.
+Source code published to JSR cannot be deleted.
 [Learn more about immutability.](/docs/immutability)
 
 You can "yank" a version of a package, which will hide the version from the
@@ -118,7 +118,7 @@ true.** JSR can act on your behalf only to read any resources you have granted
 it access to (your email addresses and public profile information). It cannot
 perform arbitrary actions on your behalf.
 
-JSR can not modify your GitHub account, create repositories, create comments, or
+JSR cannot modify your GitHub account, create repositories, create comments, or
 do anything else that would be considered "acting on your behalf". GitHub
 presents this "Act on your behalf" screen to all GitHub Apps, regardless of what
 permissions they actually request.
