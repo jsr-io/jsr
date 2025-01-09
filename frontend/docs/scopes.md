@@ -60,7 +60,7 @@ can also see all pending invitations on their
 Admins can change the role of other members. To change the role of a member,
 head to the "Members" tab of your scope, click the dropdown next to the member
 you want to change the role of, and select the new role. The new role will take
-effect immediately. Note that you can not demote the last admin of a scope to a
+effect immediately. Note that you cannot demote the last admin of a scope to a
 member. If you want to demote the last admin of a scope to a member, you must
 first promote another member to an admin. A scope must always have at least one
 admin.
