@@ -134,7 +134,7 @@ Not just symbols can be documented. Modules can also be documented. This is
 useful to give an overview of the module and its exported symbols.
 
 To document a module, add a JSDoc comment at the top of the module file, and
-include the `@module` tag anywhere in the comment:
+include the `@module` tag after the description:
 
 ```diff
 + /**
@@ -153,8 +153,6 @@ You can also include examples in module documentation:
 
 ````diff
   /**
-   * @module
-   *
    * This module contains functions to search the database.
    *
 +  * @example
@@ -163,5 +161,11 @@ You can also include examples in module documentation:
 +  *
 +  * search("Alan") // ["Alan Turing", "Alan Kay", ...]
 +  * ```
+   *
+   * @module
    */
 ````
+
+If a default entrypoint has a module documentation, it takes precedence over the
+README file in the "Overview" tab of the package page.
+[Learn more in the documentation section for packages](/docs/packages#documentation).
