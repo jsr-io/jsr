@@ -64,7 +64,7 @@ static RESERVED_SCOPES: OnceLock<std::collections::HashSet<String>> =
 #[instrument(name = "POST /api/scopes", skip(req), err, fields(scope))]
 async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   let ApiCreateScopeRequest { scope } = decode_json(&mut req).await?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let db = req.data::<Database>().unwrap();
 
@@ -104,7 +104,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
 #[instrument(name = "GET /api/scopes/:scope", skip(req), err, fields(scope))]
 async fn get_handler(req: Request<Body>) -> ApiResult<ApiScopeOrFullScope> {
   let scope_name = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope_name));
+  Span::current().record("scope", field::display(&scope_name));
 
   let db = req.data::<Database>().unwrap();
   let scope = db
@@ -130,7 +130,7 @@ async fn update_handler(
   mut req: Request<Body>,
 ) -> ApiResult<ApiScopeOrFullScope> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let update_req: ApiUpdateScopeRequest = decode_json(&mut req).await?;
 
@@ -202,7 +202,7 @@ async fn list_members_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScopeMember>> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let db = req.data::<Database>().unwrap();
   let scope_members = db.list_scope_members(&scope).await?;
@@ -228,7 +228,7 @@ async fn invite_member_handler(
   mut req: Request<Body>,
 ) -> ApiResult<ApiScopeInvite> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let invite = decode_json::<ApiAddScopeMemberRequest>(&mut req).await?;
 
@@ -313,8 +313,8 @@ async fn invite_member_handler(
 async fn get_member_handler(req: Request<Body>) -> ApiResult<ApiScopeMember> {
   let scope = req.param_scope()?;
   let member_id = req.param_uuid("member")?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("member", &field::display(&member_id));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("member", field::display(&member_id));
 
   let db = req.data::<Database>().unwrap();
 
@@ -341,8 +341,8 @@ async fn update_member_handler(
 ) -> ApiResult<ApiScopeMember> {
   let scope = req.param_scope()?;
   let member_id = req.param_uuid("member")?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("member", &field::display(&member_id));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("member", field::display(&member_id));
 
   let ApiUpdateScopeMemberRequest { is_admin } = decode_json(&mut req).await?;
 
@@ -389,8 +389,8 @@ pub async fn delete_member_handler(
 ) -> ApiResult<Response<Body>> {
   let scope = req.param_scope()?;
   let member_id = req.param_uuid("member")?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("member", &field::display(&member_id));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("member", field::display(&member_id));
 
   let db = req.data::<Database>().unwrap();
 
@@ -432,7 +432,7 @@ pub async fn list_invites_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScopeInvite>> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let db = req.data::<Database>().unwrap();
 
@@ -462,8 +462,8 @@ pub async fn delete_invite_handler(
 ) -> ApiResult<Response<Body>> {
   let scope = req.param_scope()?;
   let user_id = req.param_uuid("user_id")?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("user_id", &field::display(&user_id));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("user_id", field::display(&user_id));
 
   let db = req.data::<Database>().unwrap();
 

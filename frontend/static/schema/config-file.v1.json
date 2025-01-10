@@ -4,7 +4,6 @@
   "description": "A JSON representation of a JSR configuration file.",
   "required": [
     "name",
-    "version",
     "exports"
   ],
   "title": "JSR configuration file Schema",

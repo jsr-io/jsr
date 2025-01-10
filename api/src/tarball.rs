@@ -247,12 +247,14 @@ pub async fn process_tarball(
       publish_task_name: publishing_task_scoped_package_name,
     });
   }
-  if config_file.version != publishing_task.package_version {
-    return Err(PublishError::ConfigFileVersionMismatch {
-      path: Box::new(publishing_task.config_file.clone()),
-      deno_json_version: Box::new(config_file.version),
-      publish_task_version: Box::new(publishing_task.package_version.clone()),
-    });
+  if let Some(config_file_version) = config_file.version {
+    if config_file_version != publishing_task.package_version {
+      return Err(PublishError::ConfigFileVersionMismatch {
+        path: Box::new(publishing_task.config_file.clone()),
+        deno_json_version: Box::new(config_file_version),
+        publish_task_version: Box::new(publishing_task.package_version.clone()),
+      });
+    }
   }
 
   let exports =
@@ -690,7 +692,7 @@ pub struct FileInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
   pub name: ScopedPackageName,
-  pub version: Version,
+  pub version: Option<Version>,
   pub exports: Option<serde_json::Value>,
 }
 
