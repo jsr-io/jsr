@@ -808,11 +808,11 @@ fn check_for_banned_extensions(
 ) -> Result<(), PublishError> {
   match parsed_source.media_type() {
     deno_ast::MediaType::Cjs | deno_ast::MediaType::Cts => {
-      return Err(PublishError::CommonJs {
+      Err(PublishError::CommonJs {
         specifier: parsed_source.specifier().to_string(),
         line: 0,
         column: 0,
-      });
+      })
     }
     _ => Ok(()),
   }
