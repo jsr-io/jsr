@@ -5,15 +5,27 @@ import { getOrInsertItem } from "./client_cache.ts";
 export async function cachedGitHubLogin(user: User): Promise<string> {
   return await getOrInsertItem(
     `gh-login-${user.githubId}`,
-    () =>
-      fetch(`https://api.github.com/user/${user.githubId}`, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          return data.login;
-        }),
+    () => {
+      const fetchGithubUser = async () => {
+        const response = await fetch(
+          `https://api.github.com/user/${user.githubId}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        const data = await response.json();
+
+        if (!data.login) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return fetchGithubUser();
+        }
+        return data.login;
+      };
+
+      return fetchGithubUser();
+    },
   );
 }
