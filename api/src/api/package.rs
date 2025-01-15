@@ -2,12 +2,19 @@
 use anyhow::Context;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
-use deno_ast::{MediaType, ModuleSpecifier, ParseDiagnostic};
-use deno_graph::source::{JsrUrlProvider, LoadOptions, NullFileSystem};
-use deno_graph::{
-  BuildOptions, CapturingModuleAnalyzer, GraphKind, Module, ModuleInfo,
-  Resolution, WorkspaceMember,
-};
+use deno_ast::MediaType;
+use deno_ast::ModuleSpecifier;
+use deno_ast::ParseDiagnostic;
+use deno_graph::source::JsrUrlProvider;
+use deno_graph::source::LoadOptions;
+use deno_graph::source::NullFileSystem;
+use deno_graph::BuildOptions;
+use deno_graph::CapturingModuleAnalyzer;
+use deno_graph::GraphKind;
+use deno_graph::Module;
+use deno_graph::ModuleInfo;
+use deno_graph::Resolution;
+use deno_graph::WorkspaceMember;
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
@@ -20,7 +27,8 @@ use regex::Regex;
 use routerify::prelude::RequestExt;
 use routerify::Router;
 use routerify_query::RequestQueryExt;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
 use std::io;
@@ -60,6 +68,7 @@ use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::metadata::PackageMetadata;
+use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::provenance;
@@ -76,7 +85,9 @@ use crate::util::VersionOrLatest;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 
+use super::ApiCreatePackageRequest;
 use super::ApiDependency;
+use super::ApiDependencyGraphItem;
 use super::ApiDependent;
 use super::ApiDownloadDataPoint;
 use super::ApiError;
@@ -99,7 +110,6 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
-use super::{ApiCreatePackageRequest, ApiDependencyGraphItem};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -162,7 +172,10 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/dependencies/graph",
-      util::json(get_dependencies_graph_handler),
+      util::cache(
+        CacheDuration::ONE_HOUR,
+        util::json(get_dependencies_graph_handler),
+      ),
     )
     .get(
       "/:package/publishing_tasks",
@@ -1539,6 +1552,7 @@ struct DepTreeLoader {
   package: PackageName,
   version: crate::ids::Version,
   bucket: crate::buckets::BucketWithQueue,
+  exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
 }
 
 impl DepTreeLoader {
@@ -1566,8 +1580,7 @@ impl DepTreeLoader {
               crate::gcs_paths::file_path(&scope, &package, &version, &path)
                 .into(),
             )
-            .await
-            .expect("hello")
+            .await?
           else {
             return Ok(None);
           };
@@ -1582,6 +1595,8 @@ impl DepTreeLoader {
       }
       "http" | "https" => {
         let bucket = self.bucket.clone();
+        let exports = self.exports.clone();
+
         async move {
           let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
 
@@ -1590,21 +1605,44 @@ impl DepTreeLoader {
           let version = jsr_matches.name("version");
           let path = jsr_matches.name("path").unwrap();
 
-          let Some(bytes) = bucket
-            .download(
-              format!(
-                "@{}/{}/{}{}",
-                scope.as_str(),
-                package.as_str(),
-                version.map(|version| version.as_str()).unwrap_or_default(),
-                path.as_str()
-              )
-              .into(),
-            )
-            .await?
-          else {
+          let full_path: Arc<str> = format!(
+            "@{}/{}/{}{}",
+            scope.as_str(),
+            package.as_str(),
+            version
+              .as_ref()
+              .map(|version| version.as_str())
+              .unwrap_or_default(),
+            if path.as_str().starts_with('/') && version.is_none() {
+              &path.as_str()[1..]
+            } else {
+              path.as_str()
+            }
+          )
+          .into();
+
+          let Some(bytes) = bucket.download(full_path.clone()).await? else {
             return Ok(None);
           };
+
+          if version.is_none() {
+            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
+              let version = captures.name("version").unwrap();
+              let meta =
+                serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+
+              let mut lock = exports.lock().await;
+              lock.insert(
+                format!(
+                  "@{}/{}@{}",
+                  scope.as_str(),
+                  package.as_str(),
+                  version.as_str()
+                ),
+                meta.exports,
+              );
+            }
+          }
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
@@ -1615,7 +1653,7 @@ impl DepTreeLoader {
         .boxed()
       }
       "jsr" => unreachable!("{specifier}"),
-      // TODO: handle npm specifiers
+      // TODO(@crowlKats): handle npm specifiers
       "npm" | "node" | "bun" => async move {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier: specifier.clone(),
@@ -1701,6 +1739,7 @@ impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
 
 lazy_static::lazy_static! {
   static ref JSR_DEP_PATH_RE: Regex = Regex::new(r"/@(?<scope>.+?)/(?<package>.+?)(?:/(?<version>.+?))?(?<path>/.+)").unwrap();
+  static ref JSR_DEP_META_RE: Regex = Regex::new(r"/(?<version>.+?)_meta.json").unwrap();
 }
 
 // We have to spawn another tokio runtime, because
@@ -1726,7 +1765,7 @@ async fn analyze_deps_tree(
     base: Url::parse("file:///").unwrap(),
     name: format!("@{}/{}", scope, package),
     version: Some(version.0.clone()),
-    exports,
+    exports: exports.clone(),
   };
 
   let module_analyzer = DepTreeAnalyzer::default();
@@ -1736,6 +1775,7 @@ async fn analyze_deps_tree(
     package,
     version,
     bucket,
+    exports: Default::default(),
   };
   graph
     .build(
@@ -1762,10 +1802,32 @@ async fn analyze_deps_tree(
   let mut index = 0;
   let mut dependencies = Default::default();
 
+  let exports_by_identifier = Arc::into_inner(loader.exports)
+    .unwrap()
+    .into_inner()
+    .into_iter()
+    .map(|(p, exports)| {
+      // flips export keys->filepaths mapping, and removes leading . in filepaths
+      // and leading ./ in keys if the key is not the main entrypoint
+      let reversed_exports = exports
+        .into_iter()
+        .map(|(k, v)| {
+          (
+            v[1..].to_string(),
+            if k == "." { k } else { k[2..].to_string() },
+          )
+        })
+        .collect::<IndexMap<_, _>>();
+
+      (p, reversed_exports)
+    })
+    .collect();
+
   for root in roots {
     GraphDependencyCollector::collect(
       &graph,
       &root,
+      &exports_by_identifier,
       &mut index,
       &mut dependencies,
     );
@@ -1777,6 +1839,7 @@ async fn analyze_deps_tree(
 struct GraphDependencyCollector<'a> {
   graph: &'a deno_graph::ModuleGraph,
   dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  exports: &'a IndexMap<String, IndexMap<String, String>>,
   id_index: &'a mut usize,
 }
 
@@ -1784,6 +1847,7 @@ impl<'a> GraphDependencyCollector<'a> {
   pub fn collect(
     graph: &'a deno_graph::ModuleGraph,
     root: &'a ModuleSpecifier,
+    exports: &'a IndexMap<String, IndexMap<String, String>>,
     id_index: &'a mut usize,
     dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
   ) {
@@ -1792,6 +1856,7 @@ impl<'a> GraphDependencyCollector<'a> {
     Self {
       graph,
       dependencies,
+      exports,
       id_index,
     }
     .build_module_info(root_module)
@@ -1810,11 +1875,28 @@ impl<'a> GraphDependencyCollector<'a> {
           let version = jsr_matches.name("version").unwrap();
           let path = jsr_matches.name("path").unwrap();
 
+          let identifier = format!(
+            "@{}/{}@{}",
+            scope.as_str(),
+            package.as_str(),
+            version.as_str()
+          );
+
+          let entrypoint = if let Some(entrypoint) = self
+            .exports
+            .get(&identifier)
+            .and_then(|exports| exports.get(path.as_str()))
+          {
+            JsrEntrypoint::Entrypoint(entrypoint.to_string())
+          } else {
+            JsrEntrypoint::Path(path.as_str().to_string())
+          };
+
           DependencyKind::Jsr {
             scope: scope.as_str().to_string(),
             package: package.as_str().to_string(),
             version: version.as_str().to_string(),
-            path: path.as_str().to_string(),
+            entrypoint,
           }
         } else {
           DependencyKind::Root {
@@ -1933,13 +2015,20 @@ impl<'a> GraphDependencyCollector<'a> {
 }
 
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type", content = "value")]
+pub enum JsrEntrypoint {
+  Entrypoint(String),
+  Path(String),
+}
+
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum DependencyKind {
   Jsr {
     scope: String,
     package: String,
     version: String,
-    path: String,
+    entrypoint: JsrEntrypoint,
   },
   Npm {
     package: String,

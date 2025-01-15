@@ -267,12 +267,17 @@ export interface CreatedToken {
   secret: string;
 }
 
+export interface DependencyGraphJsrEntrypoint {
+  type: "entrypoint" | "path";
+  value: string;
+}
+
 export interface DependencyGraphKindJsr {
   type: "jsr";
   scope: string;
   package: string;
   version: string;
-  path: string;
+  entrypoint: DependencyGraphJsrEntrypoint;
 }
 
 export interface DependencyGraphKindNpm {

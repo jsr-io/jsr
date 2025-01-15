@@ -26,7 +26,7 @@ interface DependencyGraphKindGroupedJsr {
   scope: string;
   package: string;
   version: string;
-  paths: string[];
+  entrypoints: string[];
 }
 
 type GroupedDependencyGraphKind =
@@ -63,7 +63,7 @@ export function groupDependencies(
 
   const jsrGroups = new Map<string, {
     key: JsrPackage;
-    paths: { path: string; oldIndex: number }[];
+    entrypoints: { entrypoint: string; isEntrypoint: boolean; oldIndex: number }[];
     children: number[];
     size: number | undefined;
     mediaType: string | undefined;
@@ -81,13 +81,17 @@ export function groupDependencies(
           package: item.dependency.package,
           version: item.dependency.version,
         },
-        paths: [],
+        entrypoints: [],
         children: [],
         size: undefined,
         mediaType: undefined,
         oldIndices: [],
       };
-      group.paths.push({ path: item.dependency.path, oldIndex: i });
+      group.entrypoints.push({
+        entrypoint: item.dependency.entrypoint.value,
+        isEntrypoint: item.dependency.entrypoint.type == "entrypoint",
+        oldIndex: i,
+      });
       group.children.push(...item.children);
       if (item.size !== undefined) {
         group.size ??= 0;
@@ -113,7 +117,7 @@ export function groupDependencies(
         placedJsrGroups.add(groupKey);
 
         const groupIndicesSet = new Set(group.oldIndices);
-        const filteredPaths = group.paths.filter(({ oldIndex }) => {
+        const filteredEntrypoints = group.entrypoints.filter(({ oldIndex }) => {
           const refs = referencedBy.get(oldIndex)!;
 
           for (const ref of refs) {
@@ -123,7 +127,12 @@ export function groupDependencies(
           }
 
           return false; // all references are from within the same jsr package
-        }).map((p) => p.path);
+        }).map((p) => {
+          if (!p.isEntrypoint) {
+            throw new Error("unreachable");
+          }
+          return p.entrypoint;
+        });
 
         const uniqueChildren = Array.from(new Set(group.children));
         const newIndex = out.length;
@@ -133,7 +142,7 @@ export function groupDependencies(
             scope: group.key.scope,
             package: group.key.package,
             version: group.key.version,
-            paths: Array.from(new Set(filteredPaths)),
+            entrypoints: Array.from(new Set(filteredEntrypoints)),
           },
           children: uniqueChildren,
           size: group.size,
@@ -223,7 +232,13 @@ function renderDependency(
       tooltip =
         `@${dependency.scope}/${dependency.package}@${dependency.version}`;
       href = `/${tooltip}`;
-      content = `${tooltip}\n${dependency.paths.join("\n")}\n${
+      content = `${tooltip}\n${dependency.entrypoints.map((entrypoint) => {
+        if (entrypoint == ".") {
+          return "<I>default entrypoint</I>";
+        } else {
+           return entrypoint;
+        }
+      }).join("\n")}\n${
         bytesToSize(size ?? 0)
       }`;
       color = "#faee4a";
