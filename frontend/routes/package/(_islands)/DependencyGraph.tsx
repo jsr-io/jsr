@@ -63,7 +63,11 @@ export function groupDependencies(
 
   const jsrGroups = new Map<string, {
     key: JsrPackage;
-    entrypoints: { entrypoint: string; isEntrypoint: boolean; oldIndex: number }[];
+    entrypoints: {
+      entrypoint: string;
+      isEntrypoint: boolean;
+      oldIndex: number;
+    }[];
     children: number[];
     size: number | undefined;
     mediaType: string | undefined;
@@ -232,15 +236,15 @@ function renderDependency(
       tooltip =
         `@${dependency.scope}/${dependency.package}@${dependency.version}`;
       href = `/${tooltip}`;
-      content = `${tooltip}\n${dependency.entrypoints.map((entrypoint) => {
-        if (entrypoint == ".") {
-          return "<I>default entrypoint</I>";
-        } else {
-           return entrypoint;
-        }
-      }).join("\n")}\n${
-        bytesToSize(size ?? 0)
-      }`;
+      content = `${tooltip}\n${
+        dependency.entrypoints.map((entrypoint) => {
+          if (entrypoint == ".") {
+            return "<I>default entrypoint</I>";
+          } else {
+            return entrypoint;
+          }
+        }).join("\n")
+      }\n${bytesToSize(size ?? 0)}`;
       color = "#faee4a";
       break;
     }
