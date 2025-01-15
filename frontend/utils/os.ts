@@ -6,3 +6,10 @@ export function useMacLike(): boolean | undefined {
   if (!IS_BROWSER) return undefined;
   return !!navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i);
 }
+
+export function useIsMobileDevice(): boolean | undefined {
+  if (!IS_BROWSER) return undefined;
+  return !!navigator.userAgent.match(
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry/i,
+  );
+}

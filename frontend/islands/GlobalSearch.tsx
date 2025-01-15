@@ -9,7 +9,7 @@ import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
-import { useMacLike } from "../utils/os.ts";
+import { useIsMobileDevice, useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
 
@@ -55,6 +55,7 @@ export function GlobalSearch(
     isFocused.value && search.value.length > 0
   );
   const macLike = useMacLike();
+  const isMobileDevice = useIsMobileDevice();
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -64,6 +65,14 @@ export function GlobalSearch(
       });
     }
   }, [indexId, apiKey]);
+
+  // focus the "search for packages" input box when the site loads
+  useEffect(() => {
+    if (location.pathname === "/" && !isMobileDevice) {
+      (document.querySelector("#global-search-input") as HTMLInputElement)
+        ?.focus();
+    }
+  }, []);
 
   useEffect(() => {
     const outsideClick = (e: Event) => {
