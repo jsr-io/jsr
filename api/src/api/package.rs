@@ -2069,8 +2069,7 @@ pub async fn get_dependencies_graph_handler(
   let gcs_path =
     crate::gcs_paths::version_metadata(&scope, &package, &version).into();
   let version_meta = buckets.modules_bucket.download(gcs_path).await?.unwrap();
-  let version_meta =
-    serde_json::from_slice::<crate::metadata::VersionMetadata>(&version_meta)?;
+  let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
 
@@ -2090,11 +2089,7 @@ pub async fn get_dependencies_graph_handler(
 
   let api_deps = deps
     .into_iter()
-    .enumerate()
-    .map(|(i, dep)| {
-      assert_eq!(i, dep.1.id);
-      ApiDependencyGraphItem::from(dep)
-    })
+    .map(ApiDependencyGraphItem::from)
     .collect::<Vec<_>>();
 
   Ok(api_deps)
