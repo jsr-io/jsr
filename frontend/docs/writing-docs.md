@@ -4,7 +4,12 @@ description: This guide explains how to write documentation for JSR packages.
 
 Writing documentation is vital for the success of a package. JSR makes it very
 easy for package authors to have great documentation, because it generates
-documentation based on the JSDoc comments in the package source code.
+documentation based on the JSDoc-like comments in the package source code.
+
+The supported JSDoc-style features and tags are shared with Deno, and are listed
+out on
+[Deno's Supported JSDoc tags](https://docs.deno.com/runtime/reference/cli/doc/#supported-jsdoc-tags)
+page.
 
 This generated documentation is displayed on the package page. This
 documentation will also be shown to users in their editor in form of completions
