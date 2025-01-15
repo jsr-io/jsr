@@ -186,6 +186,7 @@ async fn analyze_package_inner(
       .analyzer
       .get_parsed_source(module.specifier())
     {
+      check_for_banned_extensions(&parsed_source)?;
       check_for_banned_syntax(&parsed_source)?;
       check_for_banned_triple_slash_directives(&parsed_source)?;
     }
@@ -802,6 +803,21 @@ fn collect_dependencies(
   Ok(dependencies)
 }
 
+fn check_for_banned_extensions(
+  parsed_source: &ParsedSource,
+) -> Result<(), PublishError> {
+  match parsed_source.media_type() {
+    deno_ast::MediaType::Cjs | deno_ast::MediaType::Cts => {
+      Err(PublishError::CommonJs {
+        specifier: parsed_source.specifier().to_string(),
+        line: 0,
+        column: 0,
+      })
+    }
+    _ => Ok(()),
+  }
+}
+
 fn check_for_banned_syntax(
   parsed_source: &ParsedSource,
 ) -> Result<(), PublishError> {
@@ -957,8 +973,15 @@ fn check_for_banned_triple_slash_directives(
 #[cfg(test)]
 mod tests {
   fn parse(source: &str) -> deno_ast::ParsedSource {
-    let specifier = deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap();
     let media_type = deno_ast::MediaType::TypeScript;
+    parse_with_media_type(source, media_type)
+  }
+
+  fn parse_with_media_type(
+    source: &str,
+    media_type: deno_ast::MediaType,
+  ) -> deno_ast::ParsedSource {
+    let specifier = deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap();
     deno_ast::parse_module(deno_ast::ParseParams {
       specifier,
       text: source.into(),
@@ -968,6 +991,27 @@ mod tests {
       maybe_syntax: None,
     })
     .unwrap()
+  }
+
+  #[test]
+  fn banned_extensions() {
+    let x =
+      parse_with_media_type("let x = 1;", deno_ast::MediaType::TypeScript);
+    assert!(super::check_for_banned_extensions(&x).is_ok());
+
+    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cjs);
+    let err = super::check_for_banned_extensions(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::CommonJs { .. }),
+      "{err:?}",
+    );
+
+    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cts);
+    let err = super::check_for_banned_extensions(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::CommonJs { .. }),
+      "{err:?}",
+    );
   }
 
   #[test]
