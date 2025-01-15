@@ -83,7 +83,7 @@ export default define.page<typeof handler>(function PackagePage({
                   You can specify multiple entry points by using an object
                   instead of a string.{" "}
                   <a
-                    href="/docs/publishing-packages#package-metadata"
+                    href="/docs/package-configuration#exports"
                     class="link"
                   >
                     Learn more about exports.

@@ -46,7 +46,7 @@ frontend in a development mode that connects to the production API.
 
 - Clone this repo
 - Install Deno (https://deno.land/#installation)
-- Add the following to your `/etc/hosts`
+- Add the following to your `/etc/hosts` file. If you're using WSL, you'll also need to update the `hosts` file located at `C:\Windows\System32\drivers\etc\hosts`.
   ```
   127.0.0.1       jsr.test
   127.0.0.1       api.jsr.test
@@ -71,7 +71,7 @@ making changes to the API.
 - Clone this repo
 - Install Deno (https://deno.land/#installation)
 - Install Rust (https://rustup.rs/)
-- Add the following to your `/etc/hosts`
+- Add the following to your `/etc/hosts` file. If you're using WSL, you'll also need to update the `hosts` file located at `C:\Windows\System32\drivers\etc\hosts`.
   ```
   127.0.0.1       jsr.test
   127.0.0.1       api.jsr.test

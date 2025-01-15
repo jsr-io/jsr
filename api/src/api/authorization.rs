@@ -302,7 +302,7 @@ mod tests {
 
   async fn details(t: &mut TestSetup, code: &str) -> Response<Body> {
     t.http()
-      .get(&format!("/api/authorizations/details/{}", code))
+      .get(format!("/api/authorizations/details/{}", code))
       .call()
       .await
       .unwrap()
@@ -335,7 +335,7 @@ mod tests {
 
     let mut resp = t
       .http()
-      .post(&format!("/api/authorizations/approve/{}", auth.code))
+      .post(format!("/api/authorizations/approve/{}", auth.code))
       .call()
       .await
       .unwrap();
@@ -399,7 +399,7 @@ mod tests {
 
     let mut resp = t
       .http()
-      .post(&format!("/api/authorizations/approve/{}", auth.code))
+      .post(format!("/api/authorizations/approve/{}", auth.code))
       .call()
       .await
       .unwrap();
@@ -454,7 +454,7 @@ mod tests {
 
     let mut resp = t
       .http()
-      .post(&format!("/api/authorizations/deny/{}", auth.code))
+      .post(format!("/api/authorizations/deny/{}", auth.code))
       .call()
       .await
       .unwrap();

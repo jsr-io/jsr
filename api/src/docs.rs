@@ -102,7 +102,7 @@ lazy_static::lazy_static! {
 
 struct AmmoniaRelativeUrlEvaluator();
 
-impl<'b> ammonia::UrlRelativeEvaluate<'b> for AmmoniaRelativeUrlEvaluator {
+impl ammonia::UrlRelativeEvaluate<'_> for AmmoniaRelativeUrlEvaluator {
   fn evaluate<'a>(&self, url: &'a str) -> Option<Cow<'a, str>> {
     URL_REWRITER.with(|url_rewriter| {
       let rewriter = url_rewriter.borrow();
@@ -270,21 +270,19 @@ pub fn generate_docs(
   graph: &deno_graph::ModuleGraph,
   analyzer: &deno_graph::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
+  source_files.sort();
+
   let parser = deno_doc::DocParser::new(
     graph,
     analyzer,
+    &source_files,
     deno_doc::DocParserOptions {
       diagnostics: false,
       private: false,
     },
   )?;
 
-  source_files.sort();
-  let mut doc_nodes_by_url = IndexMap::with_capacity(source_files.len());
-  for source_file in &source_files {
-    let nodes = parser.parse_with_reexports(source_file)?;
-    doc_nodes_by_url.insert(source_file.to_owned(), nodes);
-  }
+  let doc_nodes_by_url = parser.parse()?;
 
   Ok(doc_nodes_by_url)
 }
@@ -563,6 +561,7 @@ pub fn generate_docs_html(
 
       let partitions_by_kind =
         deno_doc::html::partition::partition_nodes_by_entrypoint(
+          &ctx,
           all_doc_nodes,
           true,
         );
@@ -748,14 +747,23 @@ fn generate_symbol_page(
 
   let doc_nodes = 'outer: loop {
     let next_part = name_parts.next()?;
-    let nodes = doc_nodes
+    let mut nodes = doc_nodes
       .iter()
       .filter(|node| {
         !(matches!(node.kind(), DocNodeKind::ModuleDoc | DocNodeKind::Import)
           || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
           && node.get_name() == next_part
       })
-      .cloned()
+      .flat_map(|node| {
+        if let Some(reference) = node.reference_def() {
+          ctx
+            .resolve_reference(node.parent.as_deref(), &reference.target)
+            .map(|node| node.into_owned())
+            .collect::<Vec<_>>()
+        } else {
+          vec![node.clone()]
+        }
+      })
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_some() {
@@ -936,7 +944,8 @@ fn generate_symbol_page(
           | DocNodeKind::Enum
           | DocNodeKind::ModuleDoc
           | DocNodeKind::Function
-          | DocNodeKind::Namespace => None,
+          | DocNodeKind::Namespace
+          | DocNodeKind::Reference => None,
         };
 
         if let Some(drilldown_node) = drilldown_node {
@@ -944,6 +953,20 @@ fn generate_symbol_page(
         }
       }
     }
+
+    nodes = nodes
+      .into_iter()
+      .flat_map(|node| {
+        if let Some(reference) = node.reference_def() {
+          ctx
+            .resolve_reference(node.parent.as_deref(), &reference.target)
+            .map(|node| node.into_owned())
+            .collect::<Vec<_>>()
+        } else {
+          vec![node]
+        }
+      })
+      .collect::<Vec<_>>();
 
     if name_parts.peek().is_none() {
       break nodes;
@@ -954,16 +977,24 @@ fn generate_symbol_page(
       .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
     {
       namespace_paths.push(next_part.to_string());
-
-      let namespace = namespace_node.namespace_def().unwrap();
-
-      let parts: Rc<[String]> = namespace_paths.clone().into();
-
-      doc_nodes = namespace
-        .elements
-        .iter()
-        .map(|element| {
-          namespace_node.create_namespace_child(element.clone(), parts.clone())
+      doc_nodes = namespace_node
+        .namespace_children
+        .clone()
+        .unwrap()
+        .into_iter()
+        .flat_map(|node| {
+          if let Some(reference_def) = node.reference_def() {
+            ctx
+              .resolve_reference(Some(namespace_node), &reference_def.target)
+              .map(|node| {
+                let x = node.into_owned();
+                dbg!(x.get_qualified_name());
+                x
+              })
+              .collect()
+          } else {
+            vec![node]
+          }
         })
         .collect();
     } else {
@@ -1140,6 +1171,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
     false
   }
 
+  #[allow(clippy::nonminimal_bool)]
   fn compose(
     &self,
     current_resolve: UrlResolveKind,

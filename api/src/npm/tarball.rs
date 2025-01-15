@@ -475,14 +475,14 @@ fn rewrite_specifiers(
           add_text_change(&mut text_changes, specifier, &s.range);
         }
       }
-      deno_graph::TypeScriptReference::Types(s) => {
+      deno_graph::TypeScriptReference::Types { specifier, .. } => {
         match kind {
           RewriteKind::Source => {
             // Type reference comments in JS are a Deno specific concept, and
             // are thus not relevant for the tarball. We remove them.
 
             let start_pos = source_text_info.range().start;
-            let start = s.range.start.as_source_pos(source_text_info);
+            let start = specifier.range.start.as_source_pos(source_text_info);
             let start = source_text_info.line_and_column_index(start);
 
             let line_start = source_text_info.line_start(start.line_index);
@@ -504,10 +504,14 @@ fn rewrite_specifiers(
             });
           }
           RewriteKind::Declaration => {
-            if let Some(specifier) =
-              specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+            if let Some(rewritten_specifier) = specifier_rewriter
+              .rewrite(&specifier.text, RewriteKind::Declaration)
             {
-              add_text_change(&mut text_changes, specifier, &s.range);
+              add_text_change(
+                &mut text_changes,
+                rewritten_specifier,
+                &specifier.range,
+              );
             }
           }
         }
@@ -517,9 +521,9 @@ fn rewrite_specifiers(
 
   for s in &module_info.jsdoc_imports {
     if let Some(specifier) =
-      specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+      specifier_rewriter.rewrite(&s.specifier.text, RewriteKind::Declaration)
     {
-      add_text_change(&mut text_changes, specifier, &s.range);
+      add_text_change(&mut text_changes, specifier, &s.specifier.range);
     }
   }
 
@@ -647,7 +651,7 @@ mod tests {
   ) -> Result<(), anyhow::Error> {
     let scope = spec.jsr_json.name.scope.clone();
     let package = spec.jsr_json.name.package.clone();
-    let version = spec.jsr_json.version.clone();
+    let version = spec.jsr_json.version.clone().unwrap();
 
     let exports = match exports_map_from_json(spec.jsr_json.exports.clone()) {
       Ok(exports) => exports,
