@@ -17,15 +17,20 @@ export async function cachedGitHubLogin(user: User): Promise<string> {
           },
         );
 
-        if(response.status === 403 && response.headers.get("x-ratelimit-remaining") === "0"){
+        if (
+          response.status === 403 &&
+          response.headers.get("x-ratelimit-remaining") === "0"
+        ) {
           throw new Error("Github API rate limit exceeded");
         }
 
         const data = await response.json();
 
         if (!data.login) {
-          if(retryCount >= MAX_RETRIES){
-            throw new Error("Failed to fetch GitHub login after maximum retries")
+          if (retryCount >= MAX_RETRIES) {
+            throw new Error(
+              "Failed to fetch GitHub login after maximum retries",
+            );
           }
 
           await new Promise((resolve) => setTimeout(resolve, 100));
