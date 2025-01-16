@@ -142,7 +142,7 @@ pub async fn publish_task(
               &publishing_task.package_name,
             )
             .await?
-            .ok_or_else(|| ApiError::InternalServerError)?;
+            .ok_or(ApiError::InternalServerError)?;
           orama_client.upsert_package(&package, &meta);
         }
         return Ok(());
@@ -1307,6 +1307,16 @@ pub mod tests {
     let bytes = create_mock_tarball("triple_slash_reference_in_jsdoc");
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn cjs_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("cjs_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "commonJs");
   }
 
   #[tokio::test]
