@@ -14,7 +14,7 @@ export function GitHubUserLink({ user }: { user?: User }) {
         .then((login_) => {
           login.value = login_;
         })
-        .catch(error_ =>{
+        .catch((error_) => {
           console.error(error_);
 
           error.value = true;
@@ -22,7 +22,7 @@ export function GitHubUserLink({ user }: { user?: User }) {
     }
   });
 
-  if(error.value){
+  if (error.value) {
     return <span>Could not load GitHub username</span>;
   }
 
