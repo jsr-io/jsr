@@ -6,6 +6,7 @@ import { cachedGitHubLogin } from "../utils/github.ts";
 
 export function GitHubUserLink({ user }: { user?: User }) {
   const login = useSignal("");
+  const error = useSignal(false);
 
   useEffect(() => {
     if (user) {
@@ -13,9 +14,19 @@ export function GitHubUserLink({ user }: { user?: User }) {
         .then((login_) => {
           login.value = login_;
         })
-        .catch(console.error);
+        .catch((error_) => {
+          console.error(error_);
+
+          error.value = true;
+        });
     }
   });
+
+  if (error.value) {
+    return (
+      <span class="italic text-[0.625rem]">Could not load GitHub username</span>
+    );
+  }
 
   return login.value == ""
     ? <span>loading...</span>
