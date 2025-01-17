@@ -173,7 +173,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/dependencies/graph",
       util::cache(
-        CacheDuration::ONE_HOUR,
+        CacheDuration::ONE_DAY,
         util::json(get_dependencies_graph_handler),
       ),
     )
