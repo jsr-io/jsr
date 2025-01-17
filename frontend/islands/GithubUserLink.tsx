@@ -23,7 +23,7 @@ export function GitHubUserLink({ user }: { user?: User }) {
   });
 
   if (error.value) {
-    return <span>Could not load GitHub username</span>;
+    return <span class="italic text-[0.625rem]">Could not load GitHub username</span>
   }
 
   return login.value == ""
