@@ -2068,7 +2068,11 @@ pub async fn get_dependencies_graph_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let gcs_path =
     crate::gcs_paths::version_metadata(&scope, &package, &version).into();
-  let version_meta = buckets.modules_bucket.download(gcs_path).await?.unwrap();
+  let version_meta = buckets
+    .modules_bucket
+    .download(gcs_path)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
@@ -2156,6 +2160,7 @@ mod test {
   use serde_json::json;
 
   use crate::api::ApiDependency;
+  use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
   use crate::api::ApiList;
@@ -3587,6 +3592,90 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ],
     );
     assert_eq!(dependents.total, 2);
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_graph() {
+    let mut t = TestSetup::new().await;
+
+    // unpublished package
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/0.0.1/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
+      .await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // Empty deps
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.2.3/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![ApiDependencyGraphItem {
+        dependency: super::DependencyKind::Root {
+          path: "/mod.ts".to_string(),
+        },
+        children: vec![],
+        size: Some(155),
+        media_type: Some("TypeScript".to_string()),
+      }]
+    );
+
+    // Now publish a package that has a few deps
+    let package_name = PackageName::try_from("bar").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("depends_on_ok"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/bar/versions/1.2.3/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![
+        ApiDependencyGraphItem {
+          dependency: super::DependencyKind::Jsr {
+            scope: "scope".to_string(),
+            package: "foo".to_string(),
+            version: "1.2.3".to_string(),
+            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
+          },
+          children: vec![],
+          size: Some(155),
+          media_type: Some("TypeScript".to_string())
+        },
+        ApiDependencyGraphItem {
+          dependency: super::DependencyKind::Root {
+            path: "/mod.ts".to_string()
+          },
+          children: vec![0],
+          size: Some(117),
+          media_type: Some("TypeScript".to_string())
+        }
+      ]
+    );
   }
 
   #[tokio::test]

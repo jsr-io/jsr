@@ -81,7 +81,7 @@ impl From<PublishingTask> for ApiPublishingTask {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiDependencyGraphItem {
   pub dependency: super::package::DependencyKind,
