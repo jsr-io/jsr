@@ -38,7 +38,9 @@
     "@oramacloud/client": "npm:@oramacloud/client@^1",
 
     "tailwindcss": "npm:tailwindcss@3.4",
-    "postcss": "npm:postcss@8.4"
+    "postcss": "npm:postcss@8.4",
+
+    "@viz-js/viz": "npm:@viz-js/viz@^3.11.0"
   },
   "compilerOptions": {
     "lib": [

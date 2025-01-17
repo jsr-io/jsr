@@ -266,3 +266,44 @@ export interface CreatedToken {
   token: Token;
   secret: string;
 }
+
+export interface DependencyGraphJsrEntrypoint {
+  type: "entrypoint" | "path";
+  value: string;
+}
+
+export interface DependencyGraphKindJsr {
+  type: "jsr";
+  scope: string;
+  package: string;
+  version: string;
+  entrypoint: DependencyGraphJsrEntrypoint;
+}
+
+export interface DependencyGraphKindNpm {
+  type: "npm";
+  package: string;
+  version: string;
+}
+export interface DependencyGraphKindRoot {
+  type: "root";
+  path: string;
+}
+
+export interface DependencyGraphKindError {
+  type: "error";
+  error: string;
+}
+
+export type DependencyGraphKind =
+  | DependencyGraphKindJsr
+  | DependencyGraphKindNpm
+  | DependencyGraphKindRoot
+  | DependencyGraphKindError;
+
+export interface DependencyGraphItem {
+  dependency: DependencyGraphKind;
+  children: number[];
+  size: number | undefined;
+  mediaType: string | undefined;
+}
