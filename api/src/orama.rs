@@ -191,7 +191,7 @@ impl OramaClient {
 
     let chunks_size = search.len() / chunks;
     if chunks_size != 0 {
-      for chunk in search.chunks(search.len() / chunks) {
+      for chunk in search.chunks(chunks_size) {
         let body = serde_json::json!({ "upsert": &chunk });
         let package = format!("{scope_name}/{package_name}");
         let span = Span::current();
