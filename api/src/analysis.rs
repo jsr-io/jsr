@@ -206,14 +206,11 @@ async fn analyze_package_inner(
     })
     .all(|js| js.fast_check_module().is_some());
 
-  dbg!();
   let doc_nodes =
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)
       .map_err(PublishError::DocError)?;
 
-  dbg!();
   let module_graph_2 = module_analyzer.take_module_graph_2();
-  dbg!();
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
     analyzer: &module_analyzer.analyzer,
@@ -227,7 +224,6 @@ async fn analyze_package_inner(
   })
   .await
   .map_err(PublishError::NpmTarballError)?;
-  dbg!();
 
   let (meta, readme_path) = {
     let readme = files

@@ -301,7 +301,6 @@ pub async fn process_tarball(
   })
   .await
   .unwrap()?;
-  dbg!();
 
   // ensure all of the JSR dependencies are resolvable
   for (kind, req) in dependencies.iter() {
