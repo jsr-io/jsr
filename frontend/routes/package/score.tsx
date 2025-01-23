@@ -166,8 +166,8 @@ function ScoreInfo(props: {
           scoreValue={1}
           title="At least one runtime is marked as compatible"
         >
-          The package should be marked with at least one runtime as "compatible"
-          in {canAdmin
+          The package should be marked with at least one runtime as{" "}
+          <span>"compatible"</span> in {canAdmin
             ? (
               <a class="link" href="settings#runtime_compat">
                 the package settings
