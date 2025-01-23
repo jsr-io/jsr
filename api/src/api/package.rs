@@ -5,7 +5,9 @@ use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
 use deno_ast::ParseDiagnostic;
+use deno_error::JsErrorBox;
 use deno_graph::source::JsrUrlProvider;
+use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_graph::BuildOptions;
@@ -15,6 +17,7 @@ use deno_graph::Module;
 use deno_graph::ModuleInfo;
 use deno_graph::Resolution;
 use deno_graph::WorkspaceMember;
+use deno_semver::StackString;
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
@@ -1580,7 +1583,8 @@ impl DepTreeLoader {
               crate::gcs_paths::file_path(&scope, &package, &version, &path)
                 .into(),
             )
-            .await?
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
           else {
             return Ok(None);
           };
@@ -1621,7 +1625,11 @@ impl DepTreeLoader {
           )
           .into();
 
-          let Some(bytes) = bucket.download(full_path.clone()).await? else {
+          let Some(bytes) = bucket
+            .download(full_path.clone())
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
+          else {
             return Ok(None);
           };
 
@@ -1763,7 +1771,7 @@ async fn analyze_deps_tree(
 
   let member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
-    name: format!("@{}/{}", scope, package),
+    name: StackString::from_string(format!("@{}/{}", scope, package)),
     version: Some(version.0.clone()),
     exports: exports.clone(),
   };

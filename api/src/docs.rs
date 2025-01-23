@@ -1023,7 +1023,7 @@ fn generate_symbol_page(
   Some(SymbolPage::Symbol {
     breadcrumbs_ctx,
     symbol_group_ctx,
-    toc_ctx,
+    toc_ctx: Box::new(toc_ctx),
     categories_panel: None,
   })
 }

@@ -301,11 +301,12 @@ pub async fn process_tarball(
   })
   .await
   .unwrap()?;
+  dbg!();
 
   // ensure all of the JSR dependencies are resolvable
   for (kind, req) in dependencies.iter() {
     if kind == &DependencyKind::Jsr {
-      let package_scope = ScopedPackageName::new(req.req.name.clone())
+      let package_scope = ScopedPackageName::new(req.req.name.to_string())
         .map_err(|e| {
           PublishError::InvalidJsrScopedPackageName(req.req.name.clone(), e)
         })?;
@@ -607,7 +608,10 @@ pub enum PublishError {
   NpmMissingConstraint(NpmPackageReqReference),
 
   #[error("invalid scoped package name in 'jsr:' specifier '{0}': {1}")]
-  InvalidJsrScopedPackageName(String, ScopedPackageNameValidateError),
+  InvalidJsrScopedPackageName(
+    deno_semver::StackString,
+    ScopedPackageNameValidateError,
+  ),
 
   #[error("unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint")]
   UnresolvableJsrDependency(PackageReq),

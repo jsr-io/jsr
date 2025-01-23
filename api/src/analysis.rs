@@ -14,8 +14,10 @@ use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
 use deno_doc::DocNodeKind;
+use deno_error::JsErrorBox;
 use deno_graph::source::load_data_url;
 use deno_graph::source::JsrUrlProvider;
+use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_graph::BuildFastCheckTypeGraphOptions;
@@ -32,6 +34,7 @@ use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageNv;
 use deno_semver::package::PackageReqReference;
+use deno_semver::StackString;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 use regex::bytes::Regex as BytesRegex;
@@ -133,7 +136,7 @@ async fn analyze_package_inner(
 
   let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
-    name: format!("@{}/{}", scope, name),
+    name: StackString::from_string(format!("@{}/{}", scope, name)),
     version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
   };
@@ -203,12 +206,14 @@ async fn analyze_package_inner(
     })
     .all(|js| js.fast_check_module().is_some());
 
+  dbg!();
   let doc_nodes =
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)
       .map_err(PublishError::DocError)?;
 
+  dbg!();
   let module_graph_2 = module_analyzer.take_module_graph_2();
-
+  dbg!();
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
     analyzer: &module_analyzer.analyzer,
@@ -222,6 +227,7 @@ async fn analyze_package_inner(
   })
   .await
   .map_err(PublishError::NpmTarballError)?;
+  dbg!();
 
   let (meta, readme_path) = {
     let readme = files
@@ -433,11 +439,10 @@ impl deno_graph::source::Resolver for JsrResolver {
         let export_name = package_ref.sub_path().unwrap_or(".");
         let Some(export) = self.member.exports.get(export_name) else {
           return Err(deno_graph::source::ResolveError::Other(
-            anyhow::anyhow!(
+            JsErrorBox::generic(format!(
               "export '{}' not found in jsr:{}",
-              export_name,
-              self.member.name
-            ),
+              export_name, self.member.name
+            )),
           ));
         };
         return Ok(self.member.base.join(export).unwrap());
@@ -479,7 +484,8 @@ impl SyncLoader<'_> {
           specifier: specifier.clone(),
         }))
       }
-      "data" => load_data_url(specifier),
+      "data" => load_data_url(specifier)
+        .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e)))),
       _ => Ok(None),
     }
   }
@@ -558,7 +564,7 @@ async fn rebuild_npm_tarball_inner(
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
   let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
-    name: format!("@{}/{}", scope, name),
+    name: StackString::from_string(format!("@{}/{}", scope, name)),
     version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
   };
@@ -647,7 +653,11 @@ impl GcsLoader<'_> {
           gcs_paths::file_path(self.scope, self.name, self.version, &path);
         let bucket = self.bucket.clone();
         async move {
-          let Some(bytes) = bucket.download(gcs_path.into()).await? else {
+          let Some(bytes) = bucket
+            .download(gcs_path.into())
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
+          else {
             return Ok(None);
           };
           Ok(Some(deno_graph::source::LoadResponse::Module {
@@ -664,7 +674,11 @@ impl GcsLoader<'_> {
         }))
       }
       .boxed(),
-      "data" => async move { load_data_url(&specifier) }.boxed(),
+      "data" => async move {
+        load_data_url(&specifier)
+          .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))
+      }
+      .boxed(),
       _ => async move { Ok(None) }.boxed(),
     }
   }
