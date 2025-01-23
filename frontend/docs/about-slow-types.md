@@ -379,7 +379,7 @@ would require type inference to emit a declaration file. This is very similar to
 the "no slow types" policy of JSR.
 
 For example, just like JSR, TypeScript with `isolatedDeclarations` enabled would
-not allow funtion declarations without an explicit return type:
+not allow function declarations without an explicit return type:
 
 ```ts
 // This is not allowed with `isolatedDeclarations`.
