@@ -986,11 +986,7 @@ fn generate_symbol_page(
           if let Some(reference_def) = node.reference_def() {
             ctx
               .resolve_reference(Some(namespace_node), &reference_def.target)
-              .map(|node| {
-                let x = node.into_owned();
-                dbg!(x.get_qualified_name());
-                x
-              })
+              .map(|node| node.into_owned())
               .collect()
           } else {
             vec![node]
@@ -1023,7 +1019,7 @@ fn generate_symbol_page(
   Some(SymbolPage::Symbol {
     breadcrumbs_ctx,
     symbol_group_ctx,
-    toc_ctx,
+    toc_ctx: Box::new(toc_ctx),
     categories_panel: None,
   })
 }

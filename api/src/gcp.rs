@@ -148,7 +148,8 @@ pub struct Bucket {
   pub(crate) endpoint: String,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, deno_error::JsError)]
+#[class(generic)]
 pub enum GcsError {
   #[error("request to GCS timed out")]
   RequestTimeout,

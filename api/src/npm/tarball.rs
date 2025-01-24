@@ -538,7 +538,7 @@ pub fn create_npm_dependencies<'a>(
     let (kind, req) = &*dep;
     match kind {
       DependencyKind::Jsr => {
-        let jsr_name = ScopedPackageName::new(req.req.name.clone())?;
+        let jsr_name = ScopedPackageName::new(req.req.name.to_string())?;
         let npm_name = NpmMappedJsrPackageName {
           scope: &jsr_name.scope,
           package: &jsr_name.package,
@@ -548,7 +548,7 @@ pub fn create_npm_dependencies<'a>(
       }
       DependencyKind::Npm => {
         npm_dependencies
-          .insert(req.req.name.clone(), req.req.version_req.to_string());
+          .insert(req.req.name.to_string(), req.req.version_req.to_string());
       }
     }
   }
@@ -691,7 +691,7 @@ mod tests {
     let mut graph = ModuleGraph::new(GraphKind::All);
     let workspace_member = WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
-      name: format!("@{}/{}", scope, package),
+      name: StackString::from_string(format!("@{}/{}", scope, package)),
       version: Some(version.0.clone()),
       exports: exports.clone().into_inner(),
     };
@@ -803,6 +803,7 @@ mod tests {
     Ok(())
   }
 
+  use deno_semver::StackString;
   use std::path::Path;
 
   #[tokio::test]
