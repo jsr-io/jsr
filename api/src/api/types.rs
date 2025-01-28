@@ -84,8 +84,9 @@ impl From<PublishingTask> for ApiPublishingTask {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiDependencyGraphItem {
+  pub id: usize,
   pub dependency: super::package::DependencyKind,
-  pub children: Vec<usize>,
+  pub children: indexmap::IndexSet<usize>,
   pub size: Option<u64>,
   pub media_type: Option<String>,
 }
@@ -103,6 +104,7 @@ impl
     ),
   ) -> Self {
     Self {
+      id: info.id,
       dependency: kind,
       children: info.children,
       size: info.size,

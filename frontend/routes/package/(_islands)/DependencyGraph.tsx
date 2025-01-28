@@ -48,16 +48,16 @@ interface JsrPackage {
   version: string;
 }
 
-export function groupDependencies(
+function groupDependencies(
   items: DependencyGraphItem[],
 ): GroupedDependencyGraphItem[] {
   const referencedBy = new Map<number, Set<number>>();
-  for (let i = 0; i < items.length; i++) {
-    for (const child of items[i].children) {
-      if (!referencedBy.has(child)) {
-        referencedBy.set(child, new Set());
+  for (const item of items) {
+    for (const childId of item.children) {
+      if (!referencedBy.has(childId)) {
+        referencedBy.set(childId, new Set());
       }
-      referencedBy.get(child)!.add(i);
+      referencedBy.get(childId)!.add(item.id);
     }
   }
 
@@ -66,16 +66,15 @@ export function groupDependencies(
     entrypoints: {
       entrypoint: string;
       isEntrypoint: boolean;
-      oldIndex: number;
+      oldId: number;
     }[];
     children: number[];
     size: number | undefined;
     mediaType: string | undefined;
-    oldIndices: number[];
+    oldIds: number[];
   }>();
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+  for (const item of items) {
     if (item.dependency.type === "jsr") {
       const groupKey =
         `${item.dependency.scope}/${item.dependency.package}@${item.dependency.version}`;
@@ -89,29 +88,28 @@ export function groupDependencies(
         children: [],
         size: undefined,
         mediaType: undefined,
-        oldIndices: [],
+        oldIds: [],
       };
       group.entrypoints.push({
         entrypoint: item.dependency.entrypoint.value,
         isEntrypoint: item.dependency.entrypoint.type == "entrypoint",
-        oldIndex: i,
+        oldId: item.id,
       });
       group.children.push(...item.children);
       if (item.size !== undefined) {
         group.size ??= 0;
         group.size += item.size;
       }
-      group.oldIndices.push(i);
+      group.oldIds.push(item.id);
       jsrGroups.set(groupKey, group);
     }
   }
 
-  const oldIndexToNewIndex = new Map<number, number>();
+  const idToIndex = new Map<number, number>();
   const placedJsrGroups = new Set<string>();
   const out: GroupedDependencyGraphItem[] = [];
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+  for (const item of items) {
     if (item.dependency.type === "jsr") {
       const groupKey =
         `${item.dependency.scope}/${item.dependency.package}@${item.dependency.version}`;
@@ -120,12 +118,11 @@ export function groupDependencies(
       if (!placedJsrGroups.has(groupKey)) {
         placedJsrGroups.add(groupKey);
 
-        const groupIndicesSet = new Set(group.oldIndices);
-        const filteredEntrypoints = group.entrypoints.filter(({ oldIndex }) => {
-          const refs = referencedBy.get(oldIndex)!;
-
+        const groupIds = new Set(group.oldIds);
+        const filteredEntrypoints = group.entrypoints.filter(({ oldId }) => {
+          const refs = referencedBy.get(oldId)!;
           for (const ref of refs) {
-            if (!groupIndicesSet.has(ref)) {
+            if (!groupIds.has(ref)) {
               return true;
             }
           }
@@ -153,13 +150,13 @@ export function groupDependencies(
           mediaType: group.mediaType,
         });
 
-        for (const oldIdx of group.oldIndices) {
-          oldIndexToNewIndex.set(oldIdx, newIndex);
+        for (const oldId of group.oldIds) {
+          idToIndex.set(oldId, newIndex);
         }
       } else {
-        oldIndexToNewIndex.set(
-          i,
-          oldIndexToNewIndex.get(jsrGroups.get(groupKey)!.oldIndices[0])!,
+        idToIndex.set(
+          item.id,
+          idToIndex.get(jsrGroups.get(groupKey)!.oldIds[0])!,
         );
       }
     } else {
@@ -169,14 +166,14 @@ export function groupDependencies(
         size: item.size,
         mediaType: item.mediaType,
       });
-      oldIndexToNewIndex.set(i, out.length - 1);
+      idToIndex.set(item.id, out.length - 1);
     }
   }
 
   for (let index = 0; index < out.length; index++) {
     const newItem = out[index];
     const remappedChildren = newItem.children
-      .map((childIdx) => oldIndexToNewIndex.get(childIdx)!)
+      .map((oldId) => idToIndex.get(oldId)!)
       .filter((childNewIdx) => childNewIdx !== index);
     newItem.children = Array.from(new Set(remappedChildren));
   }

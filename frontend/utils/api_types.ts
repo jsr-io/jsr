@@ -302,6 +302,7 @@ export type DependencyGraphKind =
   | DependencyGraphKindError;
 
 export interface DependencyGraphItem {
+  id: number;
   dependency: DependencyGraphKind;
   children: number[];
   size: number | undefined;
