@@ -3674,7 +3674,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       deps,
       vec![
         ApiDependencyGraphItem {
-          id: 0,
+          id: 1,
           dependency: super::DependencyKind::Jsr {
             scope: "scope".to_string(),
             package: "foo".to_string(),
@@ -3686,11 +3686,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           media_type: Some("TypeScript".to_string())
         },
         ApiDependencyGraphItem {
-          id: 1,
+          id: 0,
           dependency: super::DependencyKind::Root {
             path: "/mod.ts".to_string()
           },
-          children: IndexSet::from([0]),
+          children: IndexSet::from([1]),
           size: Some(117),
           media_type: Some("TypeScript".to_string())
         }
