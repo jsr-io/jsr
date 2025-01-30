@@ -18,25 +18,8 @@ community-first, modern platform for sharing JavaScript and TypeScript code.
 ## Governance Board
 
 The governance board is responsible for overseeing the project and ensuring that
-it remains true to its mission. The governance board has not yet been formed,
-but will consist of community members from various organizations relevant to the
-JavaScript ecosystem.
-
-The governance board will be responsible for:
-
-- Overseeing JSR's move to a foundation
-- Setting the general direction of the project
-- Making decisions on behalf of the project when necessary
-- Determining how the governance board is to be elected in the future
-- Establishing the moderation group, and determining how it is to be formed in
-  the future
-- Determining how to review open source contributions to the project, and how to
-  add new reviewers to the project
-
-The governance board will initially be formed out of trusted members of the
-community who have prior experience with open source projects and open
-governance. If you are interested, please email
-[ry@deno.com](mailto:ry@deno.com).
+it remains true to its mission. You can read more on it
+[here](/docs/governance/board).
 
 ## Moderation Group
 
@@ -71,9 +54,9 @@ There is not currently a policy in place to determine how contributions to the
 JSR project are accepted. This will be determined by the governance board.
 Currently reviews are done by the Deno team.
 
-## Open Working Group Meetings
+## Office Hours
 
-JSR holds open working group meetings every two weeks on Fridays
+JSR holds office hour meetings every two weeks on Thursdays
 ([view the public calendar](https://deno.co/jsr-meeting)).
 
-[View video recordings of previous meetings here](https://drive.google.com/drive/folders/1nkV3s4SQP2-lQdy---0oHwHSVCjzhJlR).
+[View video recordings of previous meetings on YouTube](https://www.youtube.com/@jsr-io/videos).
