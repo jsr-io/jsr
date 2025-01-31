@@ -26,6 +26,7 @@ use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
 use indexmap::IndexMap;
+use indexmap::IndexSet;
 use regex::Regex;
 use routerify::prelude::RequestExt;
 use routerify::Router;
@@ -1849,6 +1850,7 @@ struct GraphDependencyCollector<'a> {
   dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
   exports: &'a IndexMap<String, IndexMap<String, String>>,
   id_index: &'a mut usize,
+  visited: IndexSet<DependencyKind>,
 }
 
 impl<'a> GraphDependencyCollector<'a> {
@@ -1866,6 +1868,7 @@ impl<'a> GraphDependencyCollector<'a> {
       dependencies,
       exports,
       id_index,
+      visited: Default::default(),
     }
     .build_module_info(root_module)
     .unwrap();
@@ -1920,6 +1923,12 @@ impl<'a> GraphDependencyCollector<'a> {
       }
     };
 
+    if self.visited.contains(&dependency) {
+      return self.dependencies.get(&dependency).map(|dep| dep.id);
+    } else {
+      self.visited.insert(dependency.clone());
+    }
+
     if let Some(info) = self.dependencies.get(&dependency) {
       Some(info.id)
     } else {
@@ -1941,24 +1950,27 @@ impl<'a> GraphDependencyCollector<'a> {
         | Module::External(_) => None,
       };
 
-      let mut children = vec![];
+      let id = *self.id_index;
+      *self.id_index += 1;
+
+      let mut children = IndexSet::new();
       match module {
         Module::Js(module) => {
           if let Some(types_dep) = &module.maybe_types_dependency {
             if let Some(child) = self.build_resolved_info(&types_dep.dependency)
             {
-              children.push(child);
+              children.insert(child);
             }
           }
           for dep in module.dependencies.values() {
             if !dep.maybe_code.is_none() {
               if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
-                children.push(child);
+                children.insert(child);
               }
             }
             if !dep.maybe_type.is_none() {
               if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
-                children.push(child);
+                children.insert(child);
               }
             }
           }
@@ -1970,8 +1982,6 @@ impl<'a> GraphDependencyCollector<'a> {
         | Module::External(_) => {}
       }
 
-      let id = *self.id_index;
-
       self.dependencies.insert(
         dependency,
         DependencyInfo {
@@ -1981,8 +1991,6 @@ impl<'a> GraphDependencyCollector<'a> {
           media_type,
         },
       );
-
-      *self.id_index += 1;
 
       Some(id)
     }
@@ -2004,7 +2012,7 @@ impl<'a> GraphDependencyCollector<'a> {
               },
               DependencyInfo {
                 id,
-                children: vec![],
+                children: Default::default(),
                 size: None,
                 media_type: None,
               },
@@ -2052,7 +2060,7 @@ pub enum DependencyKind {
 #[derive(Debug, Eq, PartialEq)]
 pub struct DependencyInfo {
   pub id: usize,
-  pub children: Vec<usize>,
+  pub children: IndexSet<usize>,
   pub size: Option<u64>,
   pub media_type: Option<MediaType>,
 }
@@ -2165,6 +2173,7 @@ pub async fn get_score_handler(
 mod test {
   use hyper::Body;
   use hyper::StatusCode;
+  use indexmap::IndexSet;
   use serde_json::json;
 
   use crate::api::ApiDependency;
@@ -3631,10 +3640,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     assert_eq!(
       deps,
       vec![ApiDependencyGraphItem {
+        id: 0,
         dependency: super::DependencyKind::Root {
           path: "/mod.ts".to_string(),
         },
-        children: vec![],
+        children: IndexSet::new(),
         size: Some(155),
         media_type: Some("TypeScript".to_string()),
       }]
@@ -3664,21 +3674,23 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       deps,
       vec![
         ApiDependencyGraphItem {
+          id: 1,
           dependency: super::DependencyKind::Jsr {
             scope: "scope".to_string(),
             package: "foo".to_string(),
             version: "1.2.3".to_string(),
             entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
           },
-          children: vec![],
+          children: IndexSet::new(),
           size: Some(155),
           media_type: Some("TypeScript".to_string())
         },
         ApiDependencyGraphItem {
+          id: 0,
           dependency: super::DependencyKind::Root {
             path: "/mod.ts".to_string()
           },
-          children: vec![0],
+          children: IndexSet::from([1]),
           size: Some(117),
           media_type: Some("TypeScript".to_string())
         }
