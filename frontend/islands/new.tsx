@@ -243,8 +243,8 @@ export function PackageName(
     if (name.value.startsWith("@")) {
       return "Enter only the package name, do not include the scope.";
     }
-    if (name.value.length > 32) {
-      return "Package name cannot be longer than 32 characters.";
+    if (name.value.length > 58) {
+      return "Package name cannot be longer than 58 characters.";
     }
     if (!/^[a-z0-9\-]+$/.test(name.value)) {
       return "Package name can only contain lowercase letters, numbers, and hyphens.";
