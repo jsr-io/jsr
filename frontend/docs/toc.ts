@@ -134,11 +134,6 @@ export default [
     group: "Governance",
   },
   {
-    title: "Governance Board",
-    id: "governance/board",
-    group: "Governance",
-  },
-  {
     title: "Charter Document",
     id: "governance/charter",
     group: "Governance",
