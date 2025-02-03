@@ -44,9 +44,9 @@ relevant to the JavaScript ecosystem. Its current members are:
 
 ### Meetings
 
-The governance board has meetings that are held privately, but releases notes 
+The governance board has meetings that are held privately, but releases notes
 from each meeting. You can find these notes on
-[GitHub](https://github.com/jsr-io/jsr/issues?q=label%3Ameeting+is%3Aclosed).
+[GitHub](https://github.com/jsr-io/jsr/issues?q=label%3Ameeting%20is%3Aclosed%20Board).
 
 ## Moderation Group
 
