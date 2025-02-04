@@ -33,8 +33,8 @@
     "marked-smartypants": "npm:marked-smartypants@1.1.6",
     "prismjs": "npm:prismjs@^1.29.0",
 
-    "@orama/orama": "npm:@orama/orama@^2",
-    "@orama/highlight": "npm:@orama/highlight@^0.1.8",
+    "@orama/orama": "jsr:@orama/orama@^2",
+    "@orama/highlight": "jsr:@orama/highlight@^0.1.8",
     "@oramacloud/client": "npm:@oramacloud/client@^1",
 
     "tailwindcss": "npm:tailwindcss@3.4",
