@@ -36,7 +36,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
     <div class="relative select-none" ref={ref}>
       <button
         id={`${prefix}-user-menu`}
-        class="flex items-center rounded-full"
+        class="flex items-center rounded-full focus-visible:ring-2 ring-inset outline-none *:focus-visible:ring-jsr-cyan-400 *:focus-visible:ring-offset-1"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open ? "true" : "false"}
       >
