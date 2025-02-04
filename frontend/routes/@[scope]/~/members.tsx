@@ -118,7 +118,7 @@ export function MemberItem(props: MemberItemProps) {
             <form method="POST" class="contents">
               <input type="hidden" name="userId" value={member.user.id} />
               <button
-                class="hover:underline disabled:text-jsr-gray-300 disabled:cursor-not-allowed"
+                class="hover:underline disabled:text-jsr-gray-300 disabled:cursor-not-allowed hover:text-red-600 motion-safe:transition-colors"
                 name="action"
                 value="deleteMember"
                 disabled={props.isLastAdmin}
@@ -126,7 +126,7 @@ export function MemberItem(props: MemberItemProps) {
                   ? "This is the last admin in this scope. Promote another member to admin before removing this one."
                   : "Remove user"}
               >
-                <TrashCan class="h-4 w-4" />
+                <TrashCan class="h-5 w-5" />
               </button>
             </form>
           </div>
