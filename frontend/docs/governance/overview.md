@@ -18,11 +18,7 @@ community-first, modern platform for sharing JavaScript and TypeScript code.
 ## Governance Board
 
 The governance board is responsible for overseeing the project and ensuring that
-it remains true to its mission. The governance board has not yet been formed,
-but will consist of community members from various organizations relevant to the
-JavaScript ecosystem.
-
-The governance board will be responsible for:
+it remains true to its mission. The governance board is responsible for:
 
 - Overseeing JSR's move to a foundation
 - Setting the general direction of the project
@@ -33,10 +29,24 @@ The governance board will be responsible for:
 - Determining how to review open source contributions to the project, and how to
   add new reviewers to the project
 
-The governance board will initially be formed out of trusted members of the
-community who have prior experience with open source projects and open
-governance. If you are interested, please email
-[ry@deno.com](mailto:ry@deno.com).
+### Members
+
+The governance board consist of community members from various organizations
+relevant to the JavaScript ecosystem. Its current members are:
+
+- Evan You (creator of Vue.js, founder of [VoidZero](https://voidzero.dev/))
+- Isaac Schlueter (creator of npm, [vlt](https://www.vlt.sh/))
+- James Snell ([Node.js](https://nodejs.org) TSC member,
+  [Cloudflare](https://www.cloudflare.com))
+- Luca Casonato (core member of [Deno](https://deno.land))
+- Ryan Dahl (creator of [Node.js](https://nodejs.org) and
+  [Deno](https://deno.land))
+
+### Meetings
+
+The governance board has meetings that are held privately, but releases notes
+from each meeting. You can find these notes on
+[GitHub](https://github.com/jsr-io/jsr/issues?q=label%3Ameeting%20is%3Aclosed%20Board).
 
 ## Moderation Group
 
@@ -71,9 +81,9 @@ There is not currently a policy in place to determine how contributions to the
 JSR project are accepted. This will be determined by the governance board.
 Currently reviews are done by the Deno team.
 
-## Open Working Group Meetings
+## Office Hours
 
-JSR holds open working group meetings every two weeks on Fridays
+JSR holds office hour meetings every two weeks on Thursdays
 ([view the public calendar](https://deno.co/jsr-meeting)).
 
-[View video recordings of previous meetings here](https://drive.google.com/drive/folders/1nkV3s4SQP2-lQdy---0oHwHSVCjzhJlR).
+[View video recordings of previous meetings on YouTube](https://www.youtube.com/@jsr-io/videos).
