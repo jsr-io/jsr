@@ -1,6 +1,9 @@
 # jsr.io
 
-<img src="./frontend/static/logo.png" width="200" align="right" alt="the jsr logo">
+<picture>
+   <source media="(prefers-color-scheme: dark)" srcset="./frontend/static/logo-light.svg">
+   <img src="./frontend/static/logo.svg" width="200px" alt="the jsr logo">
+</picture>
 
 This is the source code for https://jsr.io, the new JavaScript registry.
 
