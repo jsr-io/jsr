@@ -262,7 +262,7 @@ function renderDependency(
       break;
   }
 
-  const renderNode = (content?: string) => {
+  const renderAttributeValue = (content?: string) => {
     if (!content) return content;
 
     const hasHTMLTag = /<i>(.+?)<\/i>/.test(content);
@@ -277,7 +277,7 @@ function renderDependency(
     Object
       .entries({ href, tooltip, label: content, color })
       .filter(([_, v]) => v)
-      .map(([k, v]) => `${k}=${renderNode(v)}`)
+      .map(([k, v]) => `${k}=${renderAttributeValue(v)}`)
       .join(", ")
   }]`;
 }
