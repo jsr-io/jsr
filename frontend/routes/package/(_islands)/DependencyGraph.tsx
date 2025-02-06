@@ -236,7 +236,7 @@ function renderDependency(
       content = `${tooltip}\n${
         dependency.entrypoints.map((entrypoint) => {
           if (entrypoint == ".") {
-            return "<I>default entrypoint</I>";
+            return "<i>default entrypoint</i>";
           } else {
             return entrypoint;
           }
@@ -262,11 +262,22 @@ function renderDependency(
       break;
   }
 
+  const renderAttributeValue = (content?: string) => {
+    if (!content) return content;
+
+    const hasHTMLTag = /<i>(.+?)<\/i>/.test(content);
+    if (hasHTMLTag) {
+      const htmlContent = content.replace(/\n/g, "<br/>");
+      return `<${htmlContent}>`;
+    }
+    return `"${content}"`;
+  };
+
   return `[${
     Object
       .entries({ href, tooltip, label: content, color })
       .filter(([_, v]) => v)
-      .map(([k, v]) => `${k}="${v}"`)
+      .map(([k, v]) => `${k}=${renderAttributeValue(v)}`)
       .join(", ")
   }]`;
 }
