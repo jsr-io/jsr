@@ -79,7 +79,7 @@ export function HomepageHero(
             class="button-primary relative z-10 pointer-events-auto"
             href="/new"
           >
-            <TbPlus class="w-5 h-5" /> Publish a package
+            <TbPlus class="size-5" /> Publish a package
           </a>
         </div>
       </div>
