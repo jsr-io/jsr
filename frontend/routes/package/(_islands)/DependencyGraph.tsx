@@ -7,8 +7,7 @@ import { ChevronDown } from "../../../components/icons/ChevronDown.tsx";
 import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
 import { ChevronRight } from "../../../components/icons/ChevronRight.tsx";
 import { ChevronUp } from "../../../components/icons/ChevronUp.tsx";
-import { Reset } from "../../../components/icons/Reset.tsx";
-import { TbPlus, TbMinus } from "@preact-icons/tb";
+import { TbMinus, TbPlus, TbRefresh } from "@preact-icons/tb";
 
 import type {
   DependencyGraphItem,
@@ -478,7 +477,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
           onClick={reset}
           title="Reset view"
         >
-          <Reset />
+          <TbRefresh />
         </GraphControlButton>
       </div>
     </div>
