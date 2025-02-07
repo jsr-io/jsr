@@ -35,7 +35,7 @@ export default function Layout(
       </div>
       <footer
         id="footer"
-        class="text-xs text-center mt-4 md:mt-6 p-4 text-jsr-gray-500"
+        class="text-xs text-center mt-4 md:mt-6 md:p-4 p-2 text-jsr-gray-500"
       >
         JSR - It is{" "}
         <time datetime={currentDatetime.toISOString()}>
