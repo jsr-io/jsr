@@ -101,7 +101,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             tabIndex={open ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} justify-start gap-2 font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
           >
-            <TbPlus class="w-5 h-5" />
+            <TbPlus class="size-5" />
             Publish a package
           </a>
           <a
