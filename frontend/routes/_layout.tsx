@@ -65,6 +65,18 @@ export default function Layout(
         >
           <span>Discord</span>
         </a>
+        <a
+          href="https://bsky.app/profile/jsr.io"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>Bluesky</span>
+        </a>
+        <a
+          href="https://x.com/jsr_io"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>X (ex Twitter)</span>
+        </a>
         {state.span?.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
       </footer>
     </>
