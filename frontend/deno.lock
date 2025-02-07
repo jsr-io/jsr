@@ -61,6 +61,7 @@
     "npm:preact-render-to-string@6.3.1": "6.3.1_preact@10.24.3",
     "npm:preact-render-to-string@^6.5.11": "6.5.11_preact@10.24.3",
     "npm:preact@10": "10.24.3",
+    "npm:preact@10.22.1": "10.22.1",
     "npm:preact@^10.22.1": "10.24.3",
     "npm:preact@^10.24.1": "10.24.3",
     "npm:prismjs@^1.29.0": "1.29.0",
@@ -139,7 +140,8 @@
     "@preact-icons/tb@1.0.12": {
       "integrity": "8d041dc777f826784662afd123357c8c517b0785d881bfbb75b03de811e74d52",
       "dependencies": [
-        "jsr:@preact-icons/common"
+        "jsr:@preact-icons/common",
+        "npm:preact@10.22.1"
       ]
     },
     "@std/assert@0.221.0": {
@@ -420,14 +422,14 @@
       "integrity": "sha512-hRPvp1C2ooDzOHqfnhdpHgoIFDbYFAXLhoid3+jSItuPPD/J0r/UsiWKv/8ZO/oEhjRaP0M5niuRYsWqmY2GEA==",
       "dependencies": [
         "@preact/signals-core",
-        "preact"
+        "preact@10.24.3"
       ]
     },
     "@preact/signals@1.3.0_preact@10.24.3": {
       "integrity": "sha512-EOMeg42SlLS72dhoq6Vjq08havnLseWmPQ8A0YsgIAqMgWgx7V1a39+Pxo6i7SY5NwJtH4849JogFq3M67AzWg==",
       "dependencies": [
         "@preact/signals-core",
-        "preact"
+        "preact@10.24.3"
       ]
     },
     "@trysound/sax@0.2.0": {
@@ -1467,15 +1469,18 @@
     "preact-render-to-string@6.3.1_preact@10.24.3": {
       "integrity": "sha512-NQ28WrjLtWY6lKDlTxnFpKHZdpjfF+oE6V4tZ0rTrunHrtZp6Dm0oFrcJalt/5PNeqJz4j1DuZDS0Y6rCBoqDA==",
       "dependencies": [
-        "preact",
+        "preact@10.24.3",
         "pretty-format"
       ]
     },
     "preact-render-to-string@6.5.11_preact@10.24.3": {
       "integrity": "sha512-ubnauqoGczeGISiOh6RjX0/cdaF8v/oDXIjO85XALCQjwQP+SB4RDXXtvZ6yTYSjG+PC1QRP2AhPgCEsM2EvUw==",
       "dependencies": [
-        "preact"
+        "preact@10.24.3"
       ]
+    },
+    "preact@10.22.1": {
+      "integrity": "sha512-jRYbDDgMpIb5LHq3hkI0bbl+l/TQ9UnkdQ0ww+lp+4MMOdqaUYdFc5qeyP+IV8FAd/2Em7drVPeKdQxsiWCf/A=="
     },
     "preact@10.24.3": {
       "integrity": "sha512-Z2dPnBnMUfyQfSQ+GBdsGa16hz35YmLmtTLhM169uW944hYL6xzTYkJjC07j+Wosz733pMWx0fgON3JNw1jJQA=="

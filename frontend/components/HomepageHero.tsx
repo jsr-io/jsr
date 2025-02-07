@@ -3,7 +3,7 @@ import { asset } from "fresh/runtime";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { HomepageHeroParticles } from "../islands/HomepageHeroParticles.tsx";
 import { AnimatedLogo } from "./AnimatedLogo.tsx";
-import { Plus } from "./icons/Plus.tsx";
+import TbPlus from "@preact-icons/tb/TbPlus";
 
 const canvasStyle = /*css*/ `.particles-js-canvas-el {
 	position: absolute;
@@ -79,7 +79,7 @@ export function HomepageHero(
             class="button-primary relative z-10 pointer-events-auto"
             href="/new"
           >
-            <Plus /> Publish a package
+            <TbPlus class="w-5 h-5" /> Publish a package
           </a>
         </div>
       </div>

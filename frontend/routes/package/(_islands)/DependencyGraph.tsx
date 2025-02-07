@@ -8,8 +8,9 @@ import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
 import { ChevronRight } from "../../../components/icons/ChevronRight.tsx";
 import { ChevronUp } from "../../../components/icons/ChevronUp.tsx";
 import { Minus } from "../../../components/icons/Minus.tsx";
-import { Plus } from "../../../components/icons/Plus.tsx";
 import { Reset } from "../../../components/icons/Reset.tsx";
+import { TbPlus } from "@preact-icons/tb";
+
 import type {
   DependencyGraphItem,
   DependencyGraphKindError,
@@ -432,7 +433,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
           onClick={() => zoom(0.1)}
           title="Zoom in"
         >
-          <Plus />
+          <TbPlus />
         </GraphControlButton>
         <GraphControlButton
           class="col-start-3 col-end-3 row-start-3 row-end-3"
