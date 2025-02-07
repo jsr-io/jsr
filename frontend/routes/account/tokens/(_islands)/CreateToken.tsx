@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "preact/hooks";
 import { Signal, useComputed, useSignal } from "@preact/signals";
 import { IS_BROWSER } from "fresh/runtime";
 import { CopyButton } from "../../../../islands/CopyButton.tsx";
-import { ChevronLeft } from "../../../../components/icons/ChevronLeft.tsx";
+import TbChevronLeft from "@preact-icons/tb/TbChevronLeft";
 import { api, APIResponseError, path } from "../../../../utils/api.ts";
 import { CreatedToken, Permission } from "../../../../utils/api_types.ts";
 import { ErrorDisplay } from "../../../../components/ErrorDisplay.tsx";
@@ -534,7 +534,7 @@ function TokenDisplay({ token }: { token: string }) {
           <CopyButton text={token} title="Copy token" />
         </code>
         <a href="/account/tokens" class="link flex gap-2 items-center mt-4">
-          <ChevronLeft /> Back to overview
+          <TbChevronLeft /> Back to overview
         </a>
       </div>
     </div>
