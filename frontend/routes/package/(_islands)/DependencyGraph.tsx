@@ -7,9 +7,8 @@ import { ChevronDown } from "../../../components/icons/ChevronDown.tsx";
 import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
 import { ChevronRight } from "../../../components/icons/ChevronRight.tsx";
 import { ChevronUp } from "../../../components/icons/ChevronUp.tsx";
-import { Minus } from "../../../components/icons/Minus.tsx";
 import { Reset } from "../../../components/icons/Reset.tsx";
-import { TbPlus } from "@preact-icons/tb";
+import { TbPlus, TbMinus } from "@preact-icons/tb";
 
 import type {
   DependencyGraphItem,
@@ -440,7 +439,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
           onClick={() => zoom(-0.1)}
           title="Zoom out"
         >
-          <Minus />
+          <TbMinus />
         </GraphControlButton>
 
         {/* pan */}
