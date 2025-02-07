@@ -87,7 +87,7 @@ export function ScopeSelect(
           locked={locked}
         />
         {!locked && (
-          <p>
+          <p class="mt-2">
             or{" "}
             <button
               class="inline link"
@@ -103,7 +103,7 @@ export function ScopeSelect(
           <a href="/account/settings" class="link">View quotas</a> or{" "}
           <a href="/account" class="link">manage your scopes</a>.
         </p>
-        <p class="text-jsr-gray-700 text-sm mt-2">
+        <p class="text-jsr-gray-700 text-sm">
           Before creating a new scope, please read the{" "}
           <a href="/docs/usage-policy#scope-names" class="link">
             scope naming policy
