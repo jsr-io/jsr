@@ -12,7 +12,12 @@ import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { path } from "../../utils/api.ts";
-import { TbCheck, TbTrashX, TbAlertCircle, TbClockHour3 } from "@preact-icons/tb";
+import {
+  TbAlertCircle,
+  TbCheck,
+  TbClockHour3,
+  TbTrashX,
+} from "@preact-icons/tb";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(function Versions({
