@@ -153,7 +153,9 @@
     @apply -mx-4 md:-mx-8 lg:-mx-10;
 
     @media screen(xl) {
-      margin: 0 calc((100vw - (1280px - 112px)) / 2 * -1);
+      @container page (width > 0) {
+        margin: 0 calc((112px + max(0px, 100cqw - 1280px)) / 2 * -1);
+      }
     }
   }
 
