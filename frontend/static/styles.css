@@ -150,16 +150,10 @@
   }
 
   .-section-x-inset-xl {
-    margin: 0 calc((100vw - (min(1280px, 100vw) - 32px)) / 2 * -1);
+    @apply -mx-4 md:-mx-8 lg:-mx-10;
 
-    @media screen(md) {
-      margin: 0 calc((100vw - (min(1280px, 100vw) - 64px)) / 2 * -1);
-    }
-    @media screen(lg) {
-      margin: 0 calc((100vw - (min(1280px, 100vw) - 80px)) / 2 * -1);
-    }
     @media screen(xl) {
-      margin: 0 calc((100vw - (min(1280px, 100vw) - 112px)) / 2 * -1);
+      margin: 0 calc((100vw - (1280px - 112px)) / 2 * -1);
     }
   }
 
