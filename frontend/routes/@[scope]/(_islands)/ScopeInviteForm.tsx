@@ -4,6 +4,7 @@ import { useCallback, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import { ScopeInvite } from "../../../utils/api_types.ts";
 import { api, path } from "../../../utils/api.ts";
+import { TbUsersPlus } from "tb-icons";
 
 interface ScopeInviteFormProps {
   scope: string;
@@ -53,7 +54,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
       class="contents"
       onSubmit={onSubmit}
     >
-      <div class="mt-4 flex gap-4">
+      <div class="mt-4 flex gap-4 justify-between">
         <div class="flex">
           <select
             name="kind"
@@ -92,6 +93,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
           disabled={submitting}
         >
           Invite
+          <TbUsersPlus class="size-5 ml-2" />
         </button>
       </div>
       {error && <p class="text-red-600 mt-2">{error}</p>}
