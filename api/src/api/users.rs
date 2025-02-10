@@ -13,9 +13,9 @@ use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 
 use super::ApiError;
-use super::ApiPackage;
 use super::ApiScope;
 use super::ApiUser;
+use super::ApiPackage;
 
 pub fn users_router() -> Router<Body, ApiError> {
   Router::builder()

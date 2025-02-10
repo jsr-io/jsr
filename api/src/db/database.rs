@@ -3174,25 +3174,43 @@ impl Database {
     .await
   }
 
-  pub async fn get_recent_packages_by_user(
-    &self,
-    user_id: &uuid::Uuid,
-  ) -> Result<Vec<Package>> {
+  pub async fn get_recent_packages_by_user(&self, user_id: &uuid::Uuid) -> Result<Vec<(Package, Option<GithubRepository>, PackageVersionMeta)>> {
     let packages = sqlx::query_as!(
-      Package,
-      r#"
+        Package,
+        r#"
         SELECT * FROM packages
         WHERE owner_id = $1
         ORDER BY published_at DESC
         LIMIT 10
         "#,
-      user_id
+        user_id
     )
     .fetch_all(&self.pool)
     .await?;
 
-    Ok(packages)
-  }
+    let mut result = Vec::new();
+    for package in packages {
+        let repo = sqlx::query_as!(
+            GithubRepository,
+            "SELECT * FROM github_repositories WHERE package_id = $1",
+            package.id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let meta = sqlx::query_as!(
+            PackageVersionMeta,
+            "SELECT * FROM package_version_meta WHERE package_id = $1",
+            package.id
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        result.push((package, repo, meta));
+    }
+
+    Ok(result)
+}
 }
 
 async fn finalize_package_creation(
