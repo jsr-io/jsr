@@ -3173,6 +3173,26 @@ impl Database {
     .fetch_all(&self.pool)
     .await
   }
+
+  pub async fn get_recent_packages_by_user(
+    &self,
+    user_id: &uuid::Uuid,
+  ) -> Result<Vec<Package>> {
+    let packages = sqlx::query_as!(
+      Package,
+      r#"
+        SELECT * FROM packages
+        WHERE owner_id = $1
+        ORDER BY published_at DESC
+        LIMIT 10
+        "#,
+      user_id
+    )
+    .fetch_all(&self.pool)
+    .await?;
+
+    Ok(packages)
+  }
 }
 
 async fn finalize_package_creation(
