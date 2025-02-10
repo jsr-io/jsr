@@ -13,9 +13,9 @@ use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 
 use super::ApiError;
+use super::ApiPackage;
 use super::ApiScope;
 use super::ApiUser;
-use super::ApiPackage;
 
 pub fn users_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -71,5 +71,10 @@ pub async fn get_packages_handler(
 
   let packages = db.get_recent_packages_by_user(&id).await?;
 
-  Ok(packages.into_iter().map(ApiPackage::from).collect())
+  Ok(
+    packages
+      .into_iter()
+      .map(|package| ApiPackage::from((package, None, Default::default())))
+      .collect(),
+  )
 }

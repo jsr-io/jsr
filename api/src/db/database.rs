@@ -1145,7 +1145,7 @@ impl Database {
     let newest = sqlx::query!(
       r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false AND version IS NOT NULL ORDER BY version DESC LIMIT 1) as "package_latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
@@ -3174,43 +3174,29 @@ impl Database {
     .await
   }
 
-  pub async fn get_recent_packages_by_user(&self, user_id: &uuid::Uuid) -> Result<Vec<(Package, Option<GithubRepository>, PackageVersionMeta)>> {
-    let packages = sqlx::query_as!(
-        Package,
-        r#"
-        SELECT * FROM packages
-        WHERE owner_id = $1
-        ORDER BY published_at DESC
-        LIMIT 10
-        "#,
-        user_id
-    )
-    .fetch_all(&self.pool)
-    .await?;
+  pub async fn get_recent_packages_by_user(
+    &self,
+    user_id: &uuid::Uuid,
+  ) -> Result<Vec<Package>> {
+    // need to fetch all scopes where user is in
+    // then fetch all packages in those scopes
+    // then sort by created_at
+    // then limit 10
+    let scopes = self.get_member_scopes_by_user(user_id).await?;
 
-    let mut result = Vec::new();
-    for package in packages {
-        let repo = sqlx::query_as!(
-            GithubRepository,
-            "SELECT * FROM github_repositories WHERE package_id = $1",
-            package.id
-        )
-        .fetch_optional(&self.pool)
+    let mut packages = Vec::new();
+    for scope in scopes {
+      let (_, scope_packages) = self
+        .list_packages_by_scope(&scope.scope, true, 0, 100)
         .await?;
-
-        let meta = sqlx::query_as!(
-            PackageVersionMeta,
-            "SELECT * FROM package_version_meta WHERE package_id = $1",
-            package.id
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        result.push((package, repo, meta));
+      packages.extend(scope_packages.into_iter().map(|(p, _, _)| p));
     }
 
-    Ok(result)
-}
+    packages.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    packages.truncate(10);
+
+    Ok(packages)
+  }
 }
 
 async fn finalize_package_creation(
