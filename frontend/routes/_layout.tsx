@@ -11,7 +11,7 @@ export default function Layout(
     <>
       <div
         class="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-4.5rem)]"
-        style="container: page / size"
+        style="container: page / inline-size"
         data-dark-theme="light"
       >
         <a
