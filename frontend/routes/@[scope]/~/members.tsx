@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useState } from "preact/hooks";
 import { HttpError } from "fresh";
 import { define } from "../../../util.ts";
 import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
@@ -19,6 +18,7 @@ import { scopeData } from "../../../utils/data.ts";
 import TbTrash from "@preact-icons/tb/TbTrash";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ScopeIAM } from "../../../utils/iam.ts";
+import { ScopeMemberLeave } from "../(_islands)/ScopeMemberLeave.tsx";
 
 export default define.page<typeof handler>(function ScopeMembersPage(
   { params, data, state, url },
@@ -71,10 +71,11 @@ export default define.page<typeof handler>(function ScopeMembersPage(
       </Table>
       {iam.canAdmin && <MemberInvite scope={data.scope.scope} />}
       {data.scopeMember && (
-        <MemberLeave
+        <ScopeMemberLeave
           userId={data.scopeMember.user.id}
           isAdmin={data.scopeMember.isAdmin}
           isLastAdmin={isLastAdmin}
+          scopeName={data.scope.scope}
         />
       )}
     </div>
@@ -191,64 +192,6 @@ function MemberInvite({ scope }: { scope: string }) {
       </p>
       <ScopeInviteForm scope={scope} />
     </div>
-  );
-}
-
-function MemberLeave(
-  props: {
-    userId: string;
-    isAdmin: boolean;
-    isLastAdmin: boolean;
-    scopeName?: string;
-  },
-) {
-  const [scopeInput, setScopeInput] = useState("");
-
-  return (
-    <form
-      method="POST"
-      class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-12"
-    >
-      <h2 class="text-lg font-semibold">Leave scope</h2>
-      <p class="mt-2 text-jsr-gray-600">
-        Leaving this scope will revoke your access to all packages in this
-        scope. You will no longer be able to publish packages to this
-        scope{props.isAdmin && " or manage members"}.
-      </p>
-      <input type="hidden" name="userId" value={props.userId} />
-      {(props.isLastAdmin || scopeInput !== props.scopeName) && (
-        <div class="mt-6 border-1 rounded-md border-red-300 bg-red-50 p-6 text-red-600">
-          <span class="font-bold text-xl">Warning</span>
-          <p>
-            {props.isLastAdmin &&
-              "You are the last admin in this scope. You must promote another member to admin before leaving."}
-            {scopeInput !== props.scopeName &&
-              "The scope name you entered does not match the scope name."}
-          </p>
-        </div>
-      )}
-      <div class="mt-4">
-        <label class="block text-sm font-medium text-gray-700">
-          Enter scope name to confirm:
-        </label>
-        <input
-          type="text"
-          class="inline-block w-full max-w-sm px-3 input-container text-sm input"
-          value={scopeInput}
-          onChange={(e) => setScopeInput(e.currentTarget.value)}
-          placeholder="Scope name"
-        />
-      </div>
-      <button
-        class="button-danger mt-6"
-        type="submit"
-        name="action"
-        value="deleteMember"
-        disabled={props.isLastAdmin && scopeInput !== props.scopeName}
-      >
-        Leave
-      </button>
-    </form>
   );
 }
 
