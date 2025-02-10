@@ -4858,6 +4858,39 @@ impl Database {
 
     Ok((total_scopes as usize, scopes))
   }
+
+  pub async fn get_recent_packages_by_user(
+    &self,
+    user_id: &uuid::Uuid,
+  ) -> Result<Vec<Package>> {
+    let packages = sqlx::query_as!(
+        Package,
+        r#"
+        SELECT DISTINCT ON (packages.scope, packages.name)
+          packages.scope as "scope: ScopeName",
+          packages.name as "name: PackageName",
+          packages.description,
+          packages.github_repository_id,
+          packages.runtime_compat as "runtime_compat: RuntimeCompat",
+          packages.when_featured,
+          packages.is_archived,
+          packages.updated_at,
+          packages.created_at,
+          (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+          (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
+        FROM packages
+        JOIN scope_members ON packages.scope = scope_members.scope
+        WHERE scope_members.user_id = $1
+        ORDER BY packages.scope, packages.name, packages.created_at DESC
+        LIMIT 10;
+        "#,
+        user_id
+    )
+    .fetch_all(&self.pool)
+    .await?;
+
+    Ok(packages)
+  }
 }
 
 async fn finalize_package_creation(
