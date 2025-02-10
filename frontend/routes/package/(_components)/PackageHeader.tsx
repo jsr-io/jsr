@@ -1,11 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
-import { ExternalLink } from "../../../components/icons/ExternalLink.tsx";
-import { GitHub } from "../../../components/icons/GitHub.tsx";
+import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
-import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
-import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
+import {
+  TbAlertTriangleFilled,
+  TbExternalLink,
+  TbRosetteDiscountCheck,
+} from "@preact-icons/tb";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
@@ -43,7 +45,7 @@ export function PackageHeader({
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
-            <WarningTriangle class="text-jsr-yellow-400 flex-none" />
+            <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
               This release {selectedVersion.yanked
                 ? (
@@ -118,7 +120,7 @@ export function PackageHeader({
 
               {selectedVersion?.rekorLogId && (
                 <Tooltip tooltip="Built and signed on GitHub Actions">
-                  <CheckmarkStamp class="stroke-green-500 size-6" />
+                  <TbRosetteDiscountCheck class="stroke-green-500 size-6" />
                 </Tooltip>
               )}
             </h1>
@@ -145,11 +147,14 @@ export function PackageHeader({
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" aria-hidden={true} />
+                  <TbBrandGithub
+                    class="text-black !size-4"
+                    aria-hidden={true}
+                  />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
-                  <ExternalLink strokeWidth="2.25" />
+                  <TbExternalLink strokeWidth="2.25" class="size-4" />
                 </a>
               )}
             </div>

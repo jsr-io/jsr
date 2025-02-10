@@ -1,11 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import { Plus } from "../components/icons/Plus.tsx";
+import { TbLogout, TbPlus, TbUser, TbUserCog } from "@preact-icons/tb";
 import IconArrowRight from "$tabler_icons/arrow-right.tsx";
 
 const SHARED_ITEM_CLASSES =
-  "flex items-center px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
+  "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 const DEFAULT_ITEM_CLASSES =
   "hover:bg-jsr-cyan-50 focus-visible:bg-jsr-cyan-200 ring-jsr-cyan-700";
 
@@ -99,9 +99,9 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           <a
             href="/new"
             tabIndex={open ? undefined : -1}
-            class={`${SHARED_ITEM_CLASSES} justify-start gap-2 font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
+            class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
           >
-            <Plus />
+            <TbPlus class="size-5" />
             Publish a package
           </a>
           <a
@@ -109,6 +109,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             tabIndex={open ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
           >
+            <TbUser class="size-5" />
             Account
           </a>
           {user.isStaff && (
@@ -117,6 +118,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
               tabIndex={open ? undefined : -1}
               class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
             >
+              <TbUserCog class="size-5" />
               Admin Panel
             </a>
           )}
@@ -125,6 +127,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             tabIndex={open ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
           >
+            <TbLogout class="size-5" />
             Sign out
           </a>
         </div>

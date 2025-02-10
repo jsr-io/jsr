@@ -15,7 +15,7 @@ import {
   ScopeMember,
 } from "../../../utils/api_types.ts";
 import { scopeData } from "../../../utils/data.ts";
-import { TrashCan } from "../../../components/icons/TrashCan.tsx";
+import TbTrash from "@preact-icons/tb/TbTrash";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ScopeIAM } from "../../../utils/iam.ts";
 
@@ -126,7 +126,7 @@ export function MemberItem(props: MemberItemProps) {
                   ? "This is the last admin in this scope. Promote another member to admin before removing this one."
                   : "Remove user"}
               >
-                <TrashCan class="h-5 w-5" />
+                <TbTrash class="size-4" />
               </button>
             </form>
           </div>
@@ -169,7 +169,7 @@ export function InviteItem(props: InviteItemProps) {
                 name="action"
                 value="deleteInvite"
               >
-                <TrashCan class="h-4 w-4" />
+                <TbTrash class="h-4 w-4" />
               </button>
             </form>
           </div>

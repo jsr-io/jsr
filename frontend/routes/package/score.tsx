@@ -7,9 +7,7 @@ import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { Check } from "../../components/icons/Check.tsx";
-import { Cross } from "../../components/icons/Cross.tsx";
-import { ErrorIcon } from "../../components/icons/Error.tsx";
+import { TbAlertCircle, TbCheck, TbX } from "@preact-icons/tb";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 import { Logo } from "../../components/Logo.tsx";
@@ -232,20 +230,20 @@ function ScoreItem(
       {status === "complete"
         ? (
           <>
-            <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+            <TbCheck class="size-6 stroke-green-500 stroke-2 -mt-px" />
             <span class="sr-only">Complete score</span>
           </>
         )
         : (status === "partial"
           ? (
             <>
-              <ErrorIcon class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
+              <TbAlertCircle class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
               <span class="sr-only">Partial score</span>
             </>
           )
           : (
             <>
-              <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />
+              <TbX class="size-6 stroke-red-500 stroke-2 -mt-px" />
               <span class="sr-only">Missing score</span>
             </>
           ))}

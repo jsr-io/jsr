@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PaginationData } from "../util.ts";
-import { ChevronRight } from "./icons/ChevronRight.tsx";
+import TbChevronRight from "@preact-icons/tb/TbChevronRight";
 import { ComponentChildren } from "preact";
 
 export interface ListDisplayItem {
@@ -38,7 +38,7 @@ export function ListDisplay(
             >
               {item.content}
 
-              <ChevronRight class="text-jsr-cyan-800 flex-shrink-0" />
+              <TbChevronRight class="text-jsr-cyan-800 flex-shrink-0 size-6" />
             </a>
           </li>
         ))}

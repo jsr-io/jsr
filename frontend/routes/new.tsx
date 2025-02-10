@@ -10,7 +10,7 @@ import {
 } from "../islands/new.tsx";
 import { Package, Scope } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
-import { GitHub } from "../components/icons/GitHub.tsx";
+import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 import { define } from "../util.ts";
 
 export default define.page<typeof handler>(function New(props) {
@@ -70,7 +70,7 @@ export default define.page<typeof handler>(function New(props) {
                       href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
                       class="button-primary"
                     >
-                      <GitHub /> Sign in with GitHub
+                      <TbBrandGithub /> Sign in with GitHub
                     </a>
                   </div>
                 )}

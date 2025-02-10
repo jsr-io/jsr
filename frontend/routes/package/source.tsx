@@ -5,8 +5,7 @@ import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { Folder } from "../../components/icons/Folder.tsx";
-import { Source as SourceIcon } from "../../components/icons/Source.tsx";
+import { TbFolder, TbSourceCode } from "@preact-icons/tb";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 
@@ -120,7 +119,7 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
     <div class="grow-1 flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
         <div class="text-jsr-gray-500">
-          {entry.kind === "dir" ? <Folder /> : <SourceIcon />}
+          {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}
         </div>
         <div class="text-cyan-700 font-semibold">
           {entry.name}

@@ -3,13 +3,16 @@ import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { instance, type Viz } from "@viz-js/viz";
-import { ChevronDown } from "../../../components/icons/ChevronDown.tsx";
-import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
-import { ChevronRight } from "../../../components/icons/ChevronRight.tsx";
-import { ChevronUp } from "../../../components/icons/ChevronUp.tsx";
-import { Minus } from "../../../components/icons/Minus.tsx";
-import { Plus } from "../../../components/icons/Plus.tsx";
-import { Reset } from "../../../components/icons/Reset.tsx";
+import {
+  TbChevronDown,
+  TbChevronLeft,
+  TbChevronRight,
+  TbChevronUp,
+  TbMinus,
+  TbPlus,
+  TbRefresh,
+} from "@preact-icons/tb";
+
 import type {
   DependencyGraphItem,
   DependencyGraphKindError,
@@ -432,14 +435,14 @@ export function DependencyGraph(props: DependencyGraphProps) {
           onClick={() => zoom(0.1)}
           title="Zoom in"
         >
-          <Plus />
+          <TbPlus />
         </GraphControlButton>
         <GraphControlButton
           class="col-start-3 col-end-3 row-start-3 row-end-3"
           onClick={() => zoom(-0.1)}
           title="Zoom out"
         >
-          <Minus />
+          <TbMinus />
         </GraphControlButton>
 
         {/* pan */}
@@ -448,28 +451,28 @@ export function DependencyGraph(props: DependencyGraphProps) {
           onClick={() => pan(0, 100)}
           title="Pan up"
         >
-          <ChevronUp />
+          <TbChevronUp />
         </GraphControlButton>
         <GraphControlButton
           class="col-start-1 col-end-1 row-start-2 row-end-2"
           onClick={() => pan(100, 0)}
           title="Pan left"
         >
-          <ChevronLeft />
+          <TbChevronLeft />
         </GraphControlButton>
         <GraphControlButton
           class="col-start-3 col-end-3 row-start-2 row-end-2"
           onClick={() => pan(-100, 0)}
           title="Pan right"
         >
-          <ChevronRight />
+          <TbChevronRight />
         </GraphControlButton>
         <GraphControlButton
           class="col-start-2 col-end-2 row-start-3 row-end-3"
           onClick={() => pan(0, -100)}
           title="Pan down"
         >
-          <ChevronDown />
+          <TbChevronDown />
         </GraphControlButton>
 
         {/* reset */}
@@ -478,7 +481,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
           onClick={reset}
           title="Reset view"
         >
-          <Reset />
+          <TbRefresh />
         </GraphControlButton>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
 import twas from "twas";
 import { RevokeToken } from "./(_islands)/RevokeToken.tsx";
-import { Plus } from "../../../components/icons/Plus.tsx";
+import TbPlus from "@preact-icons/tb/TbPlus";
 
 export default define.page<typeof handler>(function AccountTokensPage({
   data,
@@ -33,7 +33,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
                   href="/account/tokens/create"
                   class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm"
                 >
-                  <Plus />
+                  <TbPlus />
                   Create new token
                 </a>
               </li>
@@ -49,7 +49,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
                   href="/account/tokens/create"
                   class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm"
                 >
-                  <Plus />
+                  <TbPlus />
                   Create new token
                 </a>
               </p>
