@@ -11,8 +11,7 @@ import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
-import { ErrorIcon } from "../components/icons/Error.tsx";
-import { TbCheck, TbClockHour3 } from "@preact-icons/tb";
+import { TbCheck, TbClockHour3, TbAlertCircle } from "@preact-icons/tb";
 import { scopeIAM } from "../utils/iam.ts";
 
 export default define.page<typeof handler>(function PackageListPage({
@@ -111,7 +110,7 @@ export function StatusToIcon(status: PublishingTaskStatus) {
     case "success":
       return <TbCheck class="size-6 stroke-green-500 stroke-2" />;
     case "failure":
-      return <ErrorIcon class="size-6 stroke-red-500 stroke-2" />;
+      return <TbAlertCircle class="size-6 stroke-red-500 stroke-2" />;
   }
 }
 
