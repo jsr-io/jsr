@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import TbAB from "@preact-icons/tb/TbArrowRightFromArc";
 import { useSignal } from "@preact/signals";
 
