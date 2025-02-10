@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
-import { GitHub } from "../../../components/icons/GitHub.tsx";
+import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import {
@@ -147,7 +147,7 @@ export function PackageHeader({
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" aria-hidden={true} />
+                  <TbBrandGithub class="text-black !size-4" aria-hidden={true} />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
