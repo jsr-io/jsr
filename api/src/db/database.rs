@@ -3178,22 +3178,31 @@ impl Database {
     &self,
     user_id: &uuid::Uuid,
   ) -> Result<Vec<Package>> {
-    // need to fetch all scopes where user is in
-    // then fetch all packages in those scopes
-    // then sort by created_at
-    // then limit 10
-    let scopes = self.get_member_scopes_by_user(user_id).await?;
-
-    let mut packages = Vec::new();
-    for scope in scopes {
-      let (_, scope_packages) = self
-        .list_packages_by_scope(&scope.scope, true, 0, 100)
-        .await?;
-      packages.extend(scope_packages.into_iter().map(|(p, _, _)| p));
-    }
-
-    packages.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    packages.truncate(10);
+    let packages = sqlx::query_as!(
+        Package,
+        r#"
+        SELECT DISTINCT ON (packages.scope, packages.name)
+          packages.scope as "scope: ScopeName",
+          packages.name as "name: PackageName",
+          packages.description,
+          packages.github_repository_id,
+          packages.runtime_compat as "runtime_compat: RuntimeCompat",
+          packages.when_featured,
+          packages.is_archived,
+          packages.updated_at,
+          packages.created_at,
+          (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+          (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
+        FROM packages
+        JOIN scope_members ON packages.scope = scope_members.scope
+        WHERE scope_members.user_id = $1
+        ORDER BY packages.scope, packages.name, packages.created_at DESC
+        LIMIT 10;
+        "#,
+        user_id
+    )
+    .fetch_all(&self.pool)
+    .await?;
 
     Ok(packages)
   }

@@ -37,7 +37,7 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
               title="Recently published"
               subtitle="Packages recently published by this user"
               children={data.packages.map((pkg) => ({
-                value: pkg.name,
+                value: `@${pkg.scope}/${pkg.name}`,
                 //@am/neuralnetwork
                 href: `/${pkg.scope}/${pkg.name}`,
               }))}
