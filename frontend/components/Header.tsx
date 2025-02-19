@@ -107,7 +107,7 @@ export function Header({
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
               : (
                 <a href={loginUrl} class="link-header flex items-center gap-2">
-                  <TbBrandGithub class="size-5 flex-none" aria-hidden={true} />
+                  <TbBrandGithub class="size-5 flex-none" aria-hidden />
                   Sign in
                 </a>
               )}

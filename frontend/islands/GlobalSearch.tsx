@@ -472,9 +472,10 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
           <div class="font-semibold space-x-1">
             {hit.headerParts.map((part, i) => (
               <>
-                {i !== 0 && <span>{">"}</span>}
+                {i !== 0 && <span>&gt;</span>}
                 <span
                   class="text-jsr-cyan-700"
+                  // deno-lint-ignore react-no-danger
                   dangerouslySetInnerHTML={{
                     __html: highlighter.highlight(part, input.value)
                       .HTML,
@@ -486,6 +487,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
         )}
         <div
           class="text-sm text-jsr-gray-600"
+          // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html: highlighter.highlight(hit.content, input.value)
               .trim(100),

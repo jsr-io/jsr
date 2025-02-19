@@ -37,9 +37,21 @@ export function DocsView({
 }: DocsProps) {
   return (
     <div class="pt-6 space-y-8">
-      <style hidden dangerouslySetInnerHTML={{ __html: docs.css }} />
-      <style dangerouslySetInnerHTML={{ __html: docs.comrakCss }} />
-      <script hidden dangerouslySetInnerHTML={{ __html: docs.script }} defer />
+      <style
+        hidden
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: docs.css }}
+      />
+      <style
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: docs.comrakCss }}
+      />
+      <script
+        hidden
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: docs.script }}
+        defer
+      />
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
@@ -60,6 +72,7 @@ export function DocsView({
           <div
             class="ddoc"
             id="docMain"
+            // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: docs.main }}
           />
           <div class="ddoc hidden" id="docSearchResults" />
@@ -121,9 +134,11 @@ export function DocsView({
 
             <div
               class="ddoc w-full lg:overflow-y-auto pb-4"
+              // deno-lint-ignore react-no-danger
               dangerouslySetInnerHTML={{ __html: docs.toc }}
             />
             <script
+              // deno-lint-ignore react-no-danger
               dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
             />
           </div>

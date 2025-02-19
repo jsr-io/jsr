@@ -32,7 +32,7 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
         pagination={data}
         currentUrl={url}
       >
-        {data.scopes.map((scope) => <ScopeEdit scope={scope} />)}
+        {data.scopes.map((scope, idx) => <ScopeEdit key={idx} scope={scope} />)}
       </Table>
     </div>
   );

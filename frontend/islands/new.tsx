@@ -90,6 +90,7 @@ export function ScopeSelect(
           <p class="mt-2">
             or{" "}
             <button
+              type="button"
               class="inline link"
               onClick={() => explicitCreateScope.value = false}
             >
@@ -125,13 +126,16 @@ export function ScopeSelect(
         <option value="" disabled selected class="hidden text-jsr-gray-100">
           ---
         </option>
-        {scopes.value.map((scope) => <option value={scope}>{scope}</option>)}
+        {scopes.value.map((scope, idx) => (
+          <option key={idx} value={scope}>{scope}</option>
+        ))}
       </select>
 
       {!locked && (
         <p class="text-jsr-gray-500">
           or{" "}
           <button
+            type="button"
             class="inline link mt-2"
             onClick={() => {
               explicitCreateScope.value = true;
@@ -211,7 +215,7 @@ function CreateScope(
             }}
           />
         </label>
-        <button class="button-primary">Create</button>
+        <button type="submit" class="button-primary">Create</button>
       </form>
       {newScope.value.includes("_")
         ? (
@@ -219,6 +223,7 @@ function CreateScope(
             Scope names can not contain _, use - instead.{" "}
             {!props.locked && (
               <button
+                type="button"
                 class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   newScope.value = newScope.value.replace(/_/g, "-");
@@ -326,6 +331,7 @@ export function PackageName(
           <p class="text-sm text-jsr-yellow-600">
             Package names can not contain _, use - instead. {!locked && (
               <button
+                type="button"
                 class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   name.value = name.value.replace(/_/g, "-");
@@ -375,6 +381,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
             </div>
             <div>
               <button
+                type="button"
                 class="button-primary"
                 onClick={async () => {
                   error.value = "";

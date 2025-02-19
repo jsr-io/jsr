@@ -149,7 +149,7 @@ export function PackageHeader({
                 >
                   <TbBrandGithub
                     class="text-black !size-4"
-                    aria-hidden={true}
+                    aria-hidden
                   />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}

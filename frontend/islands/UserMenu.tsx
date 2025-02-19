@@ -37,6 +37,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <button
         id={`${prefix}-user-menu`}
         class="flex items-center rounded-full focus-visible:ring-2 ring-inset outline-none *:focus-visible:ring-jsr-cyan-400 *:focus-visible:ring-offset-1"
+        type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open ? "true" : "false"}
       >
@@ -79,6 +80,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           )}
           {user.isStaff && (
             <button
+              type="button"
               onClick={() => {
                 if (sudo) {
                   document.cookie = "sudo=;max-age=0;path=/";

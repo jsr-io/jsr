@@ -15,6 +15,7 @@ export function Nav(props: NavProps) {
       } border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-x-auto items-end`}
     >
       <style
+        // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{
           __html:
             "nav:has(#nav-items[data-unattached]) { visibility: hidden; }",
@@ -22,6 +23,7 @@ export function Nav(props: NavProps) {
       />
       <noscript>
         <style
+          // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html:
               "nav:has(#nav-items[data-unattached]) { visibility: visible !important }",

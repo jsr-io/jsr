@@ -31,7 +31,9 @@ export default define.page<typeof handler>(function AccountInvitesPage(
               ]}
               currentUrl={url}
             >
-              {data.invites.map((invite) => <InviteRow invite={invite} />)}
+              {data.invites.map((invite, idx) => (
+                <InviteRow key={idx} invite={invite} />
+              ))}
             </Table>
           )
           : (
