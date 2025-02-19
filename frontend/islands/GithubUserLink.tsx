@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
+import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 import { useEffect } from "preact/hooks";
 import { User } from "../utils/api_types.ts";
 import { cachedGitHubLogin } from "../utils/github.ts";
@@ -29,6 +30,14 @@ export function GitHubUserLink({ user }: { user?: User }) {
   }
 
   return login.value == ""
-    ? <span>loading...</span>
-    : <a class="link" href={"https://github.com/" + login.value}>GitHub</a>;
+    ? <span className="text-gray-600">loading...</span>
+    : (
+      <a
+        class="link inline-flex justify-center items-center gap-1"
+        href={"https://github.com/" + login.value}
+      >
+        <TbBrandGithub class="size-4" aria-hidden />
+        GitHub
+      </a>
+    );
 }
