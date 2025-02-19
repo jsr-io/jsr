@@ -174,3 +174,29 @@ You can also include examples in module documentation:
 If a default entrypoint has a module documentation, it takes precedence over the
 README file in the "Overview" tab of the package page.
 [Learn more in the documentation section for packages](/docs/packages#documentation).
+
+By default, when using a wildcard import, the identifier used is `mod`. For
+example:
+
+```ts
+import * as mod from "@luca/esbuild-deno-loader/esbuild_types";
+```
+
+Module authors can customize this default identifier by specifying a custom name
+in the module's JSDoc comment using the `@module` tag. This allows for more
+descriptive and context-specific import identifiers.
+
+```ts
+/**
+ * This module contains copy of the esbuild types that `deno_esbuild_loader` uses. This is
+ * necessary because the `esbuild` package is not available on JSR yet.
+ *
+ * @module esbuild_types
+ */
+```
+
+With this annotation, the import statement will now use the custom identifier:
+
+```ts
+import * as esbuild_types from "@luca/esbuild-deno-loader/esbuild_types";
+```
