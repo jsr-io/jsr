@@ -27,7 +27,7 @@ export default define.page<typeof handler>(function Users({ data, url }) {
         pagination={data}
         currentUrl={url}
       >
-        {data.users.map((user) => <UserEdit user={user} />)}
+        {data.users.map((user, idx) => <UserEdit key={idx} user={user} />)}
       </Table>
     </div>
   );

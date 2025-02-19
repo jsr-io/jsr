@@ -248,6 +248,7 @@ function Version({
           <form method="POST" class="z-20">
             <input type="hidden" name="version" value={version.version} />
             <button
+              type="submit"
               class="button-danger"
               name="action"
               value={version.yanked ? "unyank" : "yank"}

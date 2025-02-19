@@ -125,5 +125,6 @@ export function HomepageHeroParticles() {
     );
   }, []);
 
+  // deno-lint-ignore jsx-no-useless-fragment
   return <></>;
 }

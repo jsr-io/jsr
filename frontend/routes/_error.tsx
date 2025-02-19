@@ -11,6 +11,7 @@ export default function Error({ error }: { error: unknown }) {
     return (
       <>
         <style
+          // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html: `#fresh-error-overlay { display: none !important; }`,
           }}
@@ -45,6 +46,7 @@ export default function Error({ error }: { error: unknown }) {
     return (
       <>
         <style
+          // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html: `#fresh-error-overlay { display: none !important; }`,
           }}

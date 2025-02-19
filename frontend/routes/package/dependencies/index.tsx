@@ -132,7 +132,9 @@ function Dependency(
         </a>
       </TableData>
       <TableData class="space-x-4">
-        {constraints.map((constraint) => <span>{constraint}</span>)}
+        {constraints.map((constraint, idx) => (
+          <span key={idx}>{constraint}</span>
+        ))}
       </TableData>
       <TableData>
         {modules.length > 0 && (

@@ -71,7 +71,7 @@ export function HomepageHero(
           <GlobalSearch
             apiKey={apiKey}
             indexId={indexId}
-            jumbo={true}
+            jumbo
           />
         </div>
         <div class="flex flex-col items-center gap-4">
