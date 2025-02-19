@@ -6,7 +6,7 @@ import { path } from "../../../utils/api.ts";
 import { AdminNav } from "../(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "../../../components/URLQuerySearch.tsx";
 import { define } from "../../../util.ts";
-import TbArrowRight from "@preact-icons/tb/TbArrowRight"
+import TbArrowRight from "@preact-icons/tb/TbArrowRight";
 
 export default define.page<typeof handler>(function Scopes({ data, url }) {
   return (
