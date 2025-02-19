@@ -74,7 +74,7 @@ function Dependent(
         </a>
       </TableData>
       <TableData class="space-x-4">
-        {versions.map((version) => <span>{version}</span>)}
+        {versions.map((version, idx) => <span key={idx}>{version}</span>)}
         {totalVersions > 5 && (
           <span>
             and {totalVersions - 5} additional version{totalVersions > 6 && "s"}

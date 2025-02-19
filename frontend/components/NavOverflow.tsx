@@ -62,6 +62,7 @@ export function NavOverflow() {
   return (
     <>
       <button
+        type="button"
         class="group absolute right-4 md:right-10 rounded border-1 my-1 border-jsr-cyan-100 hover:bg-jsr-cyan-50 hover:cursor-pointer hidden"
         aria-expanded="false"
       >

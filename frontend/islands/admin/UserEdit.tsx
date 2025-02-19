@@ -75,6 +75,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
           ? (
             <>
               <button
+                type="button"
                 disabled={processing}
                 onClick={() => {
                   setProcessing(true);
@@ -96,6 +97,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setEdit(false);
                   setIsStaff(user.isStaff);
@@ -110,6 +112,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
           )
           : (
             <button
+              type="button"
               onClick={() => setEdit(true)}
               class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
             >
