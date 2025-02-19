@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import IconDots from "$tabler_icons/dots.tsx";
+import TbDots from "@preact-icons/tb/TbDots";
 
 const NAV_OVERFLOW_SCRIPT = /* js */ `
 (() => {
@@ -67,7 +67,7 @@ export function NavOverflow() {
         aria-expanded="false"
       >
         <span class="flex p-1">
-          <IconDots />
+          <TbDots class="size-6" />
         </span>
         <div
           id="nav-menu"
