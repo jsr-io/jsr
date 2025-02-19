@@ -6,6 +6,7 @@ import { define } from "../../util.ts";
 import { extract } from "@std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
+import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 
 const groups = new Map<string, { id: string; title: string }[]>();
 for (const group of groupsNames) {
@@ -59,11 +60,12 @@ export default define.page<typeof handler>(function Page({ data }) {
           <Markdown source={data.content} />
           <p class="mt-6 text-sm">
             <a
-              class="link"
+              class="link inline-flex items-center gap-1"
               href={`https://github.com/jsr-io/jsr/blob/main/frontend/docs/${data.id}.md`}
               target="_blank"
               rel="noopener noreferrer"
             >
+              <TbBrandGithub class="size-4" aria-hidden />
               Edit this page on GitHub
             </a>
           </p>
