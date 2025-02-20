@@ -192,7 +192,7 @@ function CreateScope(
 
   return (
     <>
-      <form class="flex flex-wrap gap-4 items-center" onSubmit={onSubmit}>
+      <form class="flex flex-wrap gap-4 items-center mb-2" onSubmit={onSubmit}>
         <label class="flex items-center w-full md:w-full input-container pl-4 py-[2px] pr-[2px]">
           <span>@</span>
           <input
