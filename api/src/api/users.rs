@@ -13,6 +13,7 @@ use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 
 use super::ApiError;
+use super::ApiPackage;
 use super::ApiScope;
 use super::ApiUser;
 
@@ -20,6 +21,7 @@ pub fn users_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/:id", util::json(get_handler))
     .get("/:id/scopes", util::json(get_scopes_handler))
+    .get("/:id/packages", util::json(get_packages_handler))
     .build()
     .unwrap()
 }
@@ -53,4 +55,26 @@ pub async fn get_scopes_handler(
   let scopes = db.get_member_scopes_by_user(&id).await?;
 
   Ok(scopes.into_iter().map(ApiScope::from).collect())
+}
+
+#[instrument(name = "GET /api/users/:id/packages", skip(req), err, fields(id))]
+pub async fn get_packages_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiPackage>> {
+  let id = req.param_uuid("id")?;
+  Span::current().record("id", field::display(id));
+
+  let db = req.data::<Database>().unwrap();
+  db.get_user_public(id)
+    .await?
+    .ok_or(ApiError::UserNotFound)?;
+
+  let packages = db.get_recent_packages_by_user(&id).await?;
+
+  Ok(
+    packages
+      .into_iter()
+      .map(|package| ApiPackage::from((package, None, Default::default())))
+      .collect(),
+  )
 }
