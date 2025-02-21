@@ -24,13 +24,13 @@ export function Table(
   return (
     <>
       <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden ${
+        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-300/10 sm:rounded overflow-hidden ${
           class_ ?? ""
         }`}
       >
         <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-50">
-            <thead class="bg-jsr-cyan-50">
+          <table class="w-full divide-y divide-jsr-cyan-500/5">
+            <thead class="bg-jsr-cyan-500/5">
               <TableRow class="children:font-semibold">
                 {columns.map((column) => (
                   <TableHead
@@ -42,7 +42,7 @@ export function Table(
                 ))}
               </TableRow>
             </thead>
-            <tbody class="divide-y divide-jsr-cyan-300/30 bg-white">
+            <tbody class="divide-y divide-jsr-cyan-300/30 bg-background-primary">
               {children}
             </tbody>
           </table>
@@ -87,7 +87,7 @@ function Pagination(
           <TbChevronLeft class="size-5" />
         </a>
       )}
-      <div class="text-sm text-jsr-gray-600">
+      <div class="text-sm text-foreground-secondary">
         Showing items {(pagination.page * pagination.limit) - pagination.limit +
           (Math.min(itemsCount, 1))}
         -
@@ -142,7 +142,7 @@ export function TableHead({
 }: TableHeadProps) {
   return (
     <th
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-foreground-primary ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
     >
@@ -168,7 +168,7 @@ export function TableData(
 ) {
   return (
     <td
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-foreground-primary ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
       title={title}

@@ -24,7 +24,7 @@ export function OverallStatus(
           ? "bg-red-50 border-red-200 text-red-700"
           : success.value
           ? "bg-green-50 border-green-200 text-green-700"
-          : "bg-jsr-cyan-50 border-jsr-cyan-200 text-jsr-cyan-700"
+          : "bg-jsr-cyan-500/20 border-jsr-cyan-500/20 text-jsr-cyan-700"
       }`}
     >
       {anyFailed.value

@@ -16,7 +16,7 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
       <div class="gap-4 flex flex-row md:flex-col items-center pr-4 md:pb-8 md:pt-4">
         <img
-          class="rounded-full size-16 md:size-32 lg:size-40 ring-2 ring-offset-1 ring-jsr-cyan-700"
+          class="rounded-full size-16 md:size-32 lg:size-40 ring-2 ring-offset-1 ring-jsr-cyan-700 ring-offset-background-primary"
           src={user.avatarUrl}
           alt="user icon"
         />
@@ -24,10 +24,10 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
           <h1 class="text-2xl leading-none font-semibold">
             {user.name}
           </h1>
-          <p class="text-xs text-jsr-gray-600">
+          <p class="text-xs text-foreground-secondary">
             Created account {twas(new Date(user.createdAt).getTime())}
           </p>
-          <p class="text-base mt-2">
+          <p class="text-base mt-2 text-foreground-secondary">
             <GitHubUserLink user={user} />
           </p>
         </div>

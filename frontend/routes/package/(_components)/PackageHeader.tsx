@@ -36,7 +36,7 @@ export function PackageHeader({
   return (
     <div class="space-y-6 mt-0 md:mt-4">
       {pkg.isArchived && (
-        <div class="rounded border border-red-300 bg-red-100 flex items-center justify-center p-4">
+        <div class="rounded border border-red-500/30 bg-red-500/10 flex items-center justify-center p-4">
           This package has been archived, and as such it is read-only.
         </div>
       )}
@@ -128,7 +128,7 @@ export function PackageHeader({
             <div class="flex items-center gap-2">
               {selectedVersion &&
                 pkg.latestVersion === selectedVersion?.version && (
-                <div class="chip sm:big-chip bg-jsr-yellow-400 select-none">
+                <div class="chip sm:big-chip bg-jsr-yellow-400 text-gray-800 select-none">
                   latest
                 </div>
               )}
@@ -141,7 +141,7 @@ export function PackageHeader({
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-100 !inline-flex items-center gap-1 select-none"
+                  class="chip sm:big-chip bg-jsr-gray-100 text-jsr-gray-800 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -161,7 +161,7 @@ export function PackageHeader({
           </div>
 
           {pkg.description && (
-            <p class="text-jsr-gray-600 max-w-3xl md:!mb-8">
+            <p class="text-foreground-secondary max-w-3xl md:!mb-8">
               {pkg.description}
             </p>
           )}

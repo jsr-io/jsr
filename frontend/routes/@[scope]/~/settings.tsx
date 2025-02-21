@@ -39,7 +39,7 @@ Reason: `;
     <div class="mt-8">
       <h2 class="text-lg sm:text-xl font-semibold">Quotas</h2>
       <div class="flex flex-col gap-8">
-        <p class="text-jsr-gray-600 max-w-2xl">
+        <p class="text-foreground-secondary max-w-2xl">
           Scopes have certain quotas to help prevent abuse. We are happy to
           increase your quotas as needed — just send us an increase request.
         </p>
@@ -84,13 +84,13 @@ function GitHubActionsSecurity({ scope }: { scope: FullScope }) {
   return (
     <div class="mb-12 mt-12">
       <h2 class="text-lg sm:text-xl font-semibold">GitHub Actions security</h2>
-      <p class="mt-2 text-jsr-gray-600 max-w-2xl">
+      <p class="mt-2 text-foreground-secondary max-w-2xl">
         GitHub Actions can be used to publish packages to JSR without having to
         set up authentication tokens. Publishing is permitted only if the
         workflow runs in the GitHub repository that is linked to the package on
         JSR.
       </p>
-      <p class="mt-4 text-jsr-gray-600 max-w-2xl">
+      <p class="mt-4 text-foreground-secondary max-w-2xl">
         Additionally, you can restrict publishing to be permitted only if the
         user that triggered the GitHub Actions workflow is a member of this
         scope on JSR.{" "}
@@ -139,7 +139,7 @@ function RequirePublishingFromCI({ scope }: { scope: FullScope }) {
       <h2 class="text-lg sm:text-xl font-semibold">
         Require Publishing from CI
       </h2>
-      <p class="mt-2 text-jsr-gray-600 max-w-2xl">
+      <p class="mt-2 text-foreground-secondary max-w-2xl">
         Requiring publishing from CI ensures that all new versions for packages
         in this scope are published from a GitHub Actions workflow. This
         disables the ability to publish with the{" "}
@@ -147,7 +147,7 @@ function RequirePublishingFromCI({ scope }: { scope: FullScope }) {
         command from a local development environment.
       </p>
 
-      <p class="mt-4 text-jsr-gray-600 max-w-2xl">
+      <p class="mt-4 text-foreground-secondary max-w-2xl">
         This setting is currently{" "}
         <span class="font-semibold">
           {scope.requirePublishingFromCI ? "enabled" : "disabled"}
@@ -204,7 +204,7 @@ function CardButton(props: CardButtonProps) {
       value={props.value}
     >
       <div class="flex justify-between">
-        <p class="text-jsr-gray-900 font-semibold leading-none">
+        <p class="text-foreground-primary font-semibold leading-none">
           {props.title}
         </p>
         <div
@@ -217,7 +217,9 @@ function CardButton(props: CardButtonProps) {
           {props.selected && <TbCheck class="stroke-2 size-9" />}
         </div>
       </div>
-      <p class="mt-2 w-5/6 text-jsr-gray-600 text-sm">{props.description}</p>
+      <p class="mt-2 w-5/6 text-foreground-secondary text-sm">
+        {props.description}
+      </p>
     </button>
   );
 }
@@ -227,7 +229,7 @@ function DeleteScope({ scope }: { scope: FullScope }) {
   return (
     <form class="mb-8 mt-8" method="POST">
       <h2 class="text-lg font-semibold">Delete scope</h2>
-      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+      <p class="mt-2 text-foreground-secondary max-w-3xl">
         Deleting the scope will immediately allow other users to claim the scope
         and publish packages to it. This action cannot be undone.
       </p>

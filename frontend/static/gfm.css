@@ -3,6 +3,7 @@
 .markdown-body {
   line-height: 1.6;
   overflow: visible;
+  @apply bg-background-primary text-foreground-primary/70;
 }
 
 .markdown-body a {
@@ -54,7 +55,7 @@
 }
 
 .markdown-body pre {
-  border: 1.5px solid #cbd5e1;
+  @apply border-[1.5px] border-foreground-secondary/20;
 }
 
 @media screen and (min-width: 1024px) {
@@ -66,7 +67,11 @@
 
 .markdown-body blockquote {
   padding: 1.5rem;
-  background: #f1f5f9; /* cyan-200 */
+  @apply bg-jsr-cyan-500/10;
+}
+
+.markdown-body code {
+  @apply bg-foreground-secondary/10;
 }
 
 .markdown-body p,
