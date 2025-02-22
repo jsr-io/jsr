@@ -5,7 +5,7 @@ import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { path } from "../../utils/api.ts";
 import { List, PublishingTask } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
-import twas from "twas";
+import { timeAgo } from "../../utils/timeAgo.ts";
 import PublishingTaskRequeue from "../../islands/PublishingTaskRequeue.tsx";
 import { CopyButton } from "./(_islands)/CopyButton.tsx";
 
@@ -111,13 +111,21 @@ export default define.page<typeof handler>(function PublishingTasks({
               </a>
             </TableData>
             <TableData
+              title={new Date(publishingTask.createdAt).toISOString().slice(
+                0,
+                10,
+              )}
+            >
+              {timeAgo(publishingTask.createdAt)}
+            </TableData>
+            <TableData
               title={new Date(publishingTask.updatedAt).toISOString().slice(
                 0,
                 10,
               )}
               align="right"
             >
-              {twas(new Date(publishingTask.updatedAt).getTime())}
+              {timeAgo(publishingTask.updatedAt)}
             </TableData>
             <TableData
               title={new Date(publishingTask.createdAt).toISOString().slice(
@@ -126,7 +134,7 @@ export default define.page<typeof handler>(function PublishingTasks({
               )}
               align="right"
             >
-              {twas(new Date(publishingTask.createdAt).getTime())}
+              {timeAgo(publishingTask.createdAt)}
             </TableData>
             <TableData>
               <PublishingTaskRequeue publishingTask={publishingTask} />

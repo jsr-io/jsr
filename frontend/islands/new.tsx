@@ -8,8 +8,8 @@ import {
 import { Package, Scope, User } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
-import twas from "twas";
 import { TicketModal } from "./TicketModal.tsx";
+import { timeAgo } from "../utils/timeAgo.ts";
 
 interface IconColorProps {
   done: Signal<unknown>;
@@ -463,7 +463,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
               <p class="text-tertiary">
-                Created {twas(new Date(pkg.value.createdAt).getTime())}.
+                Created {timeAgo(pkg.value.createdAt)}.bc4 (feat(twas): refracto to use intl api)
               </p>
               {fromCli && (
                 <p class="mt-2 text-tertiary">

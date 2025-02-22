@@ -5,9 +5,9 @@ import { FullUser, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import { define } from "../../util.ts";
-import twas from "twas";
 import { CopyButton } from "./(_islands)/CopyButton.tsx";
 import { EditModal } from "./(_islands)/EditModal.tsx";
+import { timeAgo } from "../../utils/timeAgo.ts";
 
 export default define.page<typeof handler>(function Users({ data, url }) {
   return (
@@ -62,7 +62,7 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               title={new Date(user.createdAt).toISOString().slice(0, 10)}
               align="right"
             >
-              {twas(new Date(user.createdAt).getTime())}
+              {timeAgo(user.createdAt)}
             </TableData>
             <TableData align="right">
               <EditModal

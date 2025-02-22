@@ -9,7 +9,7 @@ import { path } from "../utils/api.ts";
 import { packageData } from "../utils/data.ts";
 import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
-import twas from "twas";
+import { timeAgo } from "../utils/timeAgo.ts";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
 import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
 import { scopeIAM } from "../utils/iam.ts";
@@ -50,7 +50,7 @@ export default define.page<typeof handler>(function PackageListPage({
             </p>
             <p>
               <span class="font-semibold">Created:</span>{" "}
-              {twas(new Date(data.publishingTask.createdAt).getTime())}
+              {timeAgo(new Date(data.publishingTask.createdAt))}
             </p>
             {data.publishingTask.user && (
               <p>

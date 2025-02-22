@@ -13,7 +13,7 @@ import {
   TbRosetteDiscountCheck,
 } from "tb-icons";
 import { Tooltip } from "../../../components/Tooltip.tsx";
-import twas from "twas";
+import { timeAgo } from "../../../utils/timeAgo.ts";
 import { greaterThan, parse } from "@std/semver";
 import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
 
@@ -214,7 +214,7 @@ export function PackageHeader({
                     )}
                 >
                   {`${
-                    twas(new Date(selectedVersion.createdAt).getTime())
+                    timeAgo(new Date(selectedVersion.createdAt))
                   } (${selectedVersion.version})`}
                 </div>
               </div>

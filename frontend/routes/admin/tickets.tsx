@@ -5,8 +5,8 @@ import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { path } from "../../utils/api.ts";
 import { List, Ticket } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
-import twas from "twas";
 import { TbCheck, TbClock } from "tb-icons";
+import { timeAgo } from "../../utils/timeAgo.ts";
 
 export default define.page<typeof handler>(function Tickets({
   data,
@@ -88,7 +88,7 @@ export default define.page<typeof handler>(function Tickets({
                 )}
                 align="right"
               >
-                {twas(new Date(ticket.updatedAt).getTime())}
+                {timeAgo(ticket.updatedAt)}
               </TableData>
               <TableData
                 title={new Date(ticket.createdAt).toISOString().slice(
@@ -97,9 +97,9 @@ export default define.page<typeof handler>(function Tickets({
                 )}
                 align="right"
               >
-                {twas(new Date(ticket.createdAt).getTime())}
+                {timeAgo(ticket.createdAt)}
               </TableData>
-              <TableData align="right">
+              <TableData align="right"></TableData>
                 <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
               </TableData>
             </TableRow>

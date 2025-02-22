@@ -5,7 +5,7 @@ import { List, Package } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import { define } from "../../util.ts";
-import twas from "twas";
+import { timeAgo } from "../../utils/timeAgo.ts";
 import { CopyButton } from "./(_islands)/CopyButton.tsx";
 
 export default define.page<typeof handler>(function Packages({ data, url }) {
@@ -82,19 +82,19 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
                 ? new Date(pkg.whenFeatured).toISOString().slice(0, 10)
                 : ""}
             >
-              {pkg.whenFeatured && twas(new Date(pkg.whenFeatured).getTime())}
+              {pkg.whenFeatured && timeAgo(pkg.whenFeatured)}
             </TableData>
             <TableData
               title={new Date(pkg.updatedAt).toISOString().slice(0, 10)}
               align="right"
             >
-              {twas(new Date(pkg.updatedAt).getTime())}
+              {timeAgo(pkg.updatedAt)}
             </TableData>
             <TableData
               title={new Date(pkg.createdAt).toISOString().slice(0, 10)}
               align="right"
             >
-              {twas(new Date(pkg.createdAt).getTime())}
+              {timeAgo(pkg.createdAt)}
             </TableData>
           </TableRow>
         ))}

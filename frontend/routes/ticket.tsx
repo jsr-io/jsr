@@ -3,10 +3,10 @@ import { HttpError, RouteConfig } from "fresh";
 import { define } from "../util.ts";
 import type { Ticket, TicketKind } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
-import twas from "twas";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TbArrowLeft, TbCheck, TbClock } from "tb-icons";
 import { TicketTitle } from "../components/TicketTitle.tsx";
+import { timeAgo } from "../utils/timeAgo.ts";
 
 export default define.page<typeof handler>(function Ticket({
   data,
@@ -94,7 +94,7 @@ export default define.page<typeof handler>(function Ticket({
                   </span>
                 </div>
                 <div>
-                  {twas(new Date(message.createdAt).getTime())}
+                  {timeAgo(message.createdAt)}
                 </div>
               </div>
               <pre class="mt-4 font-sans text-wrap">

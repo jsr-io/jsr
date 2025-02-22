@@ -70,8 +70,7 @@
     "npm:prismjs@^1.29.0": "1.29.0",
     "npm:sanitize-html@^2.13.0": "2.16.0",
     "npm:tailwindcss@3.4": "3.4.14_postcss@8.4.47",
-    "npm:tailwindcss@^3.4.1": "3.4.14_postcss@8.4.47",
-    "npm:twas@^2.1.3": "2.1.3"
+    "npm:tailwindcss@^3.4.1": "3.4.14_postcss@8.4.47"
   },
   "jsr": {
     "@deno/gfm@0.11.0": {
@@ -1740,9 +1739,6 @@
     "ts-interface-checker@0.1.13": {
       "integrity": "sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA=="
     },
-    "twas@2.1.3": {
-      "integrity": "sha512-4Spnweu5OEBG9ZZIfabEh0js2x1p+34QsLLz+vHjER/nQX0L/+b7H6gelZbT+Ewi2KVNHcBy5gGhib9DeVAqpA=="
-    },
     "undici-types@5.26.5": {
       "integrity": "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="
     },
@@ -1959,8 +1955,7 @@
       "npm:preact-render-to-string@6.3.1",
       "npm:preact@10",
       "npm:prismjs@^1.29.0",
-      "npm:tailwindcss@3.4",
-      "npm:twas@^2.1.3"
+      "npm:tailwindcss@3.4"
     ]
   }
 }

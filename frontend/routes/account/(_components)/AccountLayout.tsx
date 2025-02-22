@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { ComponentChildren } from "preact";
-import twas from "twas";
+import { timeAgo } from "../../../utils/timeAgo.ts";
 import { AccountNav, AccountNavTab } from "./AccountNav.tsx";
 import { FullUser, User } from "../../../utils/api_types.ts";
 import { GitHubUserLink } from "../../../islands/GithubUserLink.tsx";
@@ -25,7 +25,7 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
             {user.name}
           </h1>
           <p class="text-xs text-secondary">
-            Created account {twas(new Date(user.createdAt).getTime())}
+            Created account {timeAgo(new Date(user.createdAt))}
           </p>
           <p class="text-base mt-2">
             <GitHubUserLink user={user} />
