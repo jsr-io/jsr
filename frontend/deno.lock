@@ -1,6 +1,7 @@
 {
   "version": "4",
   "specifiers": {
+    "jsr:@augustinmauroy/twas@1": "1.0.0",
     "jsr:@deno/gfm@0.10": "0.10.0",
     "jsr:@denosaurs/emoji@0.3": "0.3.1",
     "jsr:@fresh/core@^2.0.0-alpha.1": "2.0.0-alpha.25",
@@ -71,6 +72,9 @@
     "npm:twas@^2.1.3": "2.1.3"
   },
   "jsr": {
+    "@augustinmauroy/twas@1.0.0": {
+      "integrity": "e6e464001c8865f9a23cbe06c7f3e0d4e44ff3701b050596e41d435546e4baa3"
+    },
     "@deno/gfm@0.10.0": {
       "integrity": "51708205e3559a4aeb6afb29d07c5bfafe7941f91bb360351ef6621de9a39527",
       "dependencies": [
@@ -1872,6 +1876,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@augustinmauroy/twas@1",
       "jsr:@deno/gfm@0.10",
       "jsr:@fresh/core@^2.0.0-alpha.25",
       "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
@@ -1890,8 +1895,7 @@
       "npm:preact-render-to-string@6.3.1",
       "npm:preact@10",
       "npm:prismjs@^1.29.0",
-      "npm:tailwindcss@3.4",
-      "npm:twas@^2.1.3"
+      "npm:tailwindcss@3.4"
     ]
   }
 }
