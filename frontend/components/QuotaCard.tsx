@@ -21,22 +21,27 @@ export function QuotaCard(
 }
 
 function QuotaUsage(props: { limit: number; usage: number }) {
-  let color = "bg-jsr-yellow-400";
   const percent = props.usage / props.limit;
+
+  let bgColor = "bg-jsr-yellow-400";
+  const ringColor = percent >= 1 ? "ring-red-700" : "ring-jsr-yellow-700";
+
   if (percent >= 1) {
-    color = "bg-red-500";
+    bgColor = "bg-red-500";
   } else if (percent > 0.9) {
-    color = "bg-orange-400";
+    bgColor = "bg-orange-400";
   } else if (percent > 0.8) {
-    color = "bg-jsr-yellow-500";
+    bgColor = "bg-jsr-yellow-500";
   }
 
   return (
     <div class="mt-4 flex items-center gap-2">
-      <div class="overflow-hidden h-3 w-full rounded bg-jsr-yellow-50 ring-1 ring-jsr-yellow-500">
+      <div
+        class={`overflow-hidden h-3 w-full rounded bg-jsr-yellow-50 ring-1 ${ringColor}`}
+      >
         <div
           style={{ width: `${percent * 100}%` }}
-          class={`h-full ${color}`}
+          class={`h-full ${bgColor}`}
         >
         </div>
       </div>
