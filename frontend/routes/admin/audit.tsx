@@ -5,7 +5,7 @@ import { AuditLog, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { AuditURLQuerySearch } from "./(_islands)/AuditURLQuerySearch.tsx";
 import { define } from "../../util.ts";
-import twas from "twas";
+import { timeAgo } from "../../utils/timeAgo.ts";
 
 export default define.page<typeof handler>(function Users({ data, url }) {
   return (
@@ -60,7 +60,7 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               )}
               align="right"
             >
-              {twas(new Date(log.createdAt).getTime())}
+              {timeAgo(log.createdAt)}
             </TableData>
           </TableRow>
         ))}

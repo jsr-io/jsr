@@ -2,7 +2,7 @@
 
 import { HttpError, RouteConfig } from "fresh";
 import { Image } from "$imagescript";
-import twas from "twas";
+import { timeAgo } from "../../utils/timeAgo.ts";
 
 import { packageDataWithVersion } from "../../utils/data.ts";
 import { define } from "../../util.ts";
@@ -263,7 +263,7 @@ export const handler = define.handlers({
       const publishDateText = Image.renderText(
         dmmonoFont,
         25,
-        twas(new Date(selectedVersion.createdAt).getTime()),
+        timeAgo(new Date(selectedVersion.createdAt)),
         COLOR_GRAY,
       );
       const result = new Image(

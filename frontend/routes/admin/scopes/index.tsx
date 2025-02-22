@@ -6,9 +6,9 @@ import { AdminNav } from "../(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "../(_components)/URLQuerySearch.tsx";
 import { define } from "../../../util.ts";
 import TbArrowRight from "tb-icons/TbArrowRight";
-import twas from "twas";
 import { CopyButton } from "../(_islands)/CopyButton.tsx";
 import { EditModal } from "../(_islands)/EditModal.tsx";
+import { timeAgo } from "../../../utils/timeAgo.ts";
 
 export default define.page<typeof handler>(function Scopes({ data, url }) {
   return (
@@ -85,7 +85,7 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
               title={new Date(scope.createdAt).toISOString().slice(0, 10)}
               align="right"
             >
-              {twas(new Date(scope.createdAt).getTime())}
+              {timeAgo(scope.createdAt)}
             </TableData>
             <TableData align="right">
               <EditModal
