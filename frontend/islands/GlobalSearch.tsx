@@ -258,6 +258,7 @@ export function GlobalSearch(
     : "Search for documentation";
   const placeholder = kindPlaceholder +
     (macLike !== undefined ? ` (${macLike ? "⌘K" : "Ctrl+K"})` : "");
+
   return (
     <div ref={ref} class="pointer-events-auto">
       <form
@@ -273,7 +274,7 @@ export function GlobalSearch(
           <input
             type="search"
             name="search"
-            class={`w-full h-full search-input bg-white/90 ${
+            class={`w-full h-full search-input bg-white/90 truncate ${
               kind === "packages" ? "!text-transparent" : ""
             } !caret-black input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
