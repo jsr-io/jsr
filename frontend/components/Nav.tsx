@@ -51,7 +51,7 @@ export interface NavItemProps {
 export function NavItem(props: NavItemProps) {
   return (
     <a
-      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 flex items-center select-none focus:outline-none focus:border-1 focus:border-jsr-cyan-300 focus:ring-1 focus:ring-jsr-cyan-300 focus:ring-opacity-50 ${
+      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 flex items-center select-none focus:outline-none focus-visible:outline-1 focus-visible:outline-jsr-cyan-300 focus-visible:outline-offset-0 focus-visible:ring-0 ${
         props.active
           ? "bg-jsr-cyan-50 border-1 border-jsr-cyan-300/30 font-semibold"
           : ""
