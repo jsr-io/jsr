@@ -656,19 +656,20 @@ body .ddoc:has(.toc) {
 }
 
 .ddoc .toc .documentNavigation > ul ul li a:hover {
-  @apply !text-jsr-cyan-500/90 } @layer base {
-    /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
-    :root {
-      --base-text-weight-semibold: 500;
-      --color-accent-fg: theme("colors.jsr-cyan.500") !important;
-      --color-border-default: theme("colors.foreground-secondary/15%")
-        !important;
-      --bgColor-neutral-muted: theme("colors.background-secondary") !important;
-      --color-neutral-muted: theme("colors.foreground-primary") !important;
-      --color-accent-fg: theme("colors.jsr-cyan.700") !important;
-      --fgColor-muted: theme("colors.foreground-primary") !important;
-      --color-fg-default: theme("colors.foreground-primary") !important;
-      --bgColor-muted: theme("colors.background-secondary/25%") !important;
-    }
+  @apply !text-jsr-cyan-500/90;
+}
+
+@layer base {
+  /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
+  :root {
+    --base-text-weight-semibold: 500;
+    --color-accent-fg: theme("colors.jsr-cyan.500") !important;
+    --color-border-default: theme("colors.foreground-secondary/15%") !important;
+    --bgColor-neutral-muted: theme("colors.background-secondary") !important;
+    --color-neutral-muted: theme("colors.foreground-primary") !important;
+    --color-accent-fg: theme("colors.jsr-cyan.700") !important;
+    --fgColor-muted: theme("colors.foreground-primary") !important;
+    --color-fg-default: theme("colors.foreground-primary") !important;
+    --bgColor-muted: theme("colors.background-secondary/25%") !important;
   }
 }
