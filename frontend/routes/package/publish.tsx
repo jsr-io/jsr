@@ -125,7 +125,9 @@ export default define.page<typeof handler>(function PackagePage({
         </div>
         <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
           <hr class="border-t-1.5 border-jsr-cyan-900 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
-          <div class="p-2 bg-white text-center w-max mx-auto font-bold">OR</div>
+          <div class="p-2 bg-background-primary text-center w-max mx-auto font-bold">
+            OR
+          </div>
         </div>
         <div>
           <h4 class="font-bold text-lg lg:text-xl">
@@ -168,11 +170,11 @@ function GitHubActions({ pkg, canEdit, user }: {
           </p>
           <p>
             You will need to run{" "}
-            <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
+            <code class="bg-background-tertiary text-foreground px-1.5 py-0.5 rounded-sm">
               deno publish
             </code>{" "}
             or{" "}
-            <code class="bg-jsr-gray-200 px-1.5 py-0.5 rounded-sm">
+            <code class="bg-background-tertiary text-foreground px-1.5 py-0.5 rounded-sm">
               npx jsr publish
             </code>{" "}
             in your action.

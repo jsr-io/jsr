@@ -50,6 +50,12 @@ export default {
       colors: {
         transparent: "transparent",
         gray: colors.neutral,
+        "background-primary": "hsla(var(--background-primary))",
+        "background-secondary": "hsla(var(--background-secondary))",
+        "background-tertiary": "hsla(var(--background-tertiary))",
+        "foreground-primary": "hsla(var(--foreground-primary))",
+        "foreground-secondary": "hsla(var(--foreground-secondary))",
+        "foreground-tertiary": "hsla(var(--foreground-tertiary))",
         "jsr-yellow": {
           DEFAULT: "#f7df1e",
           "50": "#fefee8",

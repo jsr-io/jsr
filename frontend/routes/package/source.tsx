@@ -65,7 +65,7 @@ export default define.page<typeof handler>(function PackagePage(
             return (
               <>
                 {i !== 0 && (
-                  <span class="px-2 text-md text-jsr-gray-600 select-none">
+                  <span class="px-2 text-md text-foreground-secondary select-none">
                     {"\u003E"}
                   </span>
                 )}
@@ -133,7 +133,7 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
           {entry.name}
         </div>
       </div>
-      <div class="text-sm text-jsr-gray-600">
+      <div class="text-sm text-foreground-secondary">
         {bytesToSize(entry.size)}
       </div>
     </div>

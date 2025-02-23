@@ -88,12 +88,12 @@ function ChooseUsage({ usage }: { usage: Signal<"publish" | "api" | null> }) {
 
   return (
     <form
-      class="bg-jsr-cyan-50 border border-jsr-cyan-500 p-4 mt-4 max-w-2xl rounded-lg"
+      class="bg-jsr-cyan-500/20 border border-jsr-cyan-500 p-4 mt-4 max-w-2xl rounded-lg"
       ref={ref}
       onSubmit={onSubmit}
       onInput={onInput}
     >
-      <p class="text-jsr-gray-600 font-semibold">
+      <p class="text-foreground-secondary font-semibold">
         What do you plan to do with your personal access token?
       </p>
       <label class="mt-2 flex items-baseline">
@@ -120,12 +120,12 @@ function ChoosePublishingEnvironment(
 
   return (
     <form
-      class="bg-jsr-cyan-50 border border-jsr-cyan-500 p-4 mt-4 max-w-2xl rounded-lg"
+      class="bg-jsr-cyan-500/20 border border-jsr-cyan-500 p-4 mt-4 max-w-2xl rounded-lg"
       ref={ref}
       onSubmit={onSubmit}
       onInput={onInput}
     >
-      <p class="text-jsr-gray-600 font-semibold">
+      <p class="text-foreground-secondary font-semibold">
         What environment do you want to publish from?
       </p>
       <label class="mt-2 flex items-baseline">
@@ -152,12 +152,12 @@ function LocalMachineHelp(
 ) {
   return (
     <div class="bg-orange-50 border border-orange-500 p-4 mt-4 max-w-2xl rounded-lg">
-      <p class="text-jsr-gray-600">
+      <p class="text-foreground-secondary">
         When publishing from a local machine, JSR can interactively authenticate
         you using the web browser. This is much more secure than using a
         personal access token, and is the recommended way to publish packages.
       </p>
-      <p class="text-jsr-gray-600 mt-3">
+      <p class="text-foreground-secondary mt-3">
         Do you still want to create a personal access token?
       </p>
       <div class="flex gap-4 mt-4">
@@ -183,12 +183,12 @@ function LocalMachineHelp(
 function GitHubActionsHelp() {
   return (
     <div class="bg-orange-50 border border-orange-500 p-4 mt-4 max-w-2xl rounded-lg">
-      <p class="text-jsr-gray-600">
+      <p class="text-foreground-secondary">
         When publishing from GitHub Actions, JSR authenticates you using OIDC,
         an authentication mechanism that is built into GitHub Actions. It is
         much more secure than using a personal access token.
       </p>
-      <p class="text-jsr-gray-600 mt-3">
+      <p class="text-foreground-secondary mt-3">
         You do not need a personal access token for this flow. You can find
         instructions for publishing from GitHub Actions with OIDC in the
         "Publish" tab of your package page.
@@ -208,14 +208,14 @@ function LocalDangerWarning(
 ) {
   return (
     <div class="bg-red-50 border border-red-500 p-4 mt-4 max-w-2xl rounded-lg">
-      <p class="text-jsr-gray-600">
+      <p class="text-foreground-secondary">
         Personal access tokens enable a malicious user to impersonate you and
         perform any action you can on JSR,{" "}
         <b>
           including publishing new versions of your packages
         </b>.
       </p>
-      <p class="text-jsr-gray-600 mt-3">
+      <p class="text-foreground-secondary mt-3">
         Do not store tokens in your code, in unencrypted local files, or in a
         .bashrc or a similar file. A malicious program could steal your token
         and use it to perform actions on your behalf.
@@ -235,14 +235,14 @@ function LocalDangerWarning(
 function FinalDangerWarning({ willBeSafe }: { willBeSafe: Signal<boolean> }) {
   return (
     <div class="bg-red-50 border border-red-500 p-4 mt-4 max-w-2xl rounded-lg">
-      <p class="text-jsr-gray-600">
+      <p class="text-foreground-secondary">
         Personal access tokens are powerful and can be used to perform any
         action you can on JSR,{" "}
         <b>
           including publishing new versions of your packages
         </b>.
       </p>
-      <p class="text-jsr-gray-600 mt-3">
+      <p class="text-foreground-secondary mt-3">
         The JSR team will never ask you for you to create or share a personal
         access token. If you are being asked to do so, email{" "}
         <a href="mailto:help@jsr.io" class="link">help@jsr.io</a>{" "}
@@ -350,13 +350,15 @@ function CreateTokenForm() {
 function DescriptionInput({ description }: { description: Signal<string> }) {
   return (
     <label class="block">
-      <span class="text-jsr-gray-600 font-semibold block">Description</span>
+      <span class="text-foreground-secondary font-semibold block">
+        Description
+      </span>
       <span class="text-jsr-gray-500 text-sm block">
         A description helps you remember what this token is for.
       </span>
       <input
         type="text"
-        class="mt-1 p-1.5 input-container input w-88 bg-white"
+        class="mt-1 p-1.5 input-container input w-88 bg-background-primary"
         placeholder="Publish @luca/flag from GitLab CI"
         required
         value={description}
@@ -370,12 +372,14 @@ function DescriptionInput({ description }: { description: Signal<string> }) {
 function ExpiryInput({ expiry }: { expiry: Signal<number> }) {
   return (
     <label class="block mt-8">
-      <span class="text-jsr-gray-600 font-semibold block">Expires in</span>
+      <span class="text-foreground-secondary font-semibold block">
+        Expires in
+      </span>
       <span class="text-jsr-gray-500 text-sm block">
         Tokens that expire are more secure than tokens that never expire.
       </span>
       <select
-        class="mt-1 p-1.5 input-container select w-60 bg-white"
+        class="mt-1 p-1.5 input-container select w-60 bg-background-primary"
         required
         value={expiry}
         onInput={(e) =>
@@ -424,12 +428,12 @@ function PermissionsInput(
 
   return (
     <div class="block mt-8" onInput={onInput}>
-      <p class="text-jsr-gray-600 font-semibold">Permissions</p>
+      <p class="text-foreground-secondary font-semibold">Permissions</p>
       <p class="text-jsr-gray-500 text-sm max-w-2xl">
         Choose the permissions this token should have. More restrictive
         permissions are more secure.
       </p>
-      <div class="text-jsr-gray-600 flex flex-col my-2">
+      <div class="text-foreground-secondary flex flex-col my-2">
         <div class="border bg-green-50 border-green-200 -mx-3 px-3 -mt-1 pb-1 pt-2 rounded-t-lg flex flex-col sm:flex-row justify-between">
           <div>
             <label class="flex items-baseline">
@@ -441,7 +445,7 @@ function PermissionsInput(
               />
               <span>Publish new versions of this package:</span>
             </label>
-            <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-88 rounded-md text-jsr-gray-900 shadow-sm pl-3 py-[2px] pr-[2px] sm:leading-6 bg-white input-container">
+            <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-88 rounded-md text-foreground-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:leading-6 bg-background-primary input-container">
               <span class="block">
                 @
               </span>
@@ -488,12 +492,12 @@ function PermissionsInput(
           </span>
         </div>
 
-        <div class="border border-t-0 bg-jsr-gray-50 border-jsr-gray-200 -mx-3 px-3 py-1">
+        <div class="border border-t-0 bg-jsr-gray-50 border-jsr-gray-500/30 -mx-3 px-3 py-1">
           <label class="flex items-baseline">
             <input type="radio" class="mr-2" name="permission" value="scope" />
             <span>Publish new versions of any packages in this scope:</span>
           </label>
-          <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-64 rounded-md text-jsr-gray-900 shadow-sm pl-3 py-[2px] pr-[2px] sm:leading-6 bg-white input-container">
+          <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-64 rounded-md text-foreground-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:leading-6 bg-background-primary input-container">
             <span class="block">
               @
             </span>
@@ -510,7 +514,7 @@ function PermissionsInput(
           </div>
         </div>
 
-        <div class="border border-t-0 bg-jsr-gray-50 border-jsr-gray-200 -mx-3 px-3 -mb-1 py-1 rounded-b-lg flex flex-col sm:flex-row justify-between">
+        <div class="border border-t-0 bg-jsr-gray-50 border-jsr-gray-500/30 -mx-3 px-3 -mb-1 py-1 rounded-b-lg flex flex-col sm:flex-row justify-between">
           <label class="flex items-baseline">
             <input type="radio" class="mr-2" name="permission" value="full" />
             <span>Full access</span>
@@ -528,7 +532,7 @@ function TokenDisplay({ token }: { token: string }) {
   return (
     <div class="mt-8 max-w-2xl">
       <div class="bg-blue-50 border border-blue-500 p-4 rounded-lg">
-        <p class="text-jsr-gray-600">
+        <p class="text-foreground-secondary">
           Your personal access token has been created. Copy it now, as you will
           not be able to see it again.
         </p>

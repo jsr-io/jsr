@@ -18,10 +18,10 @@ export function ListDisplay(
   },
 ) {
   return (
-    <div class="mt-8 ring-1 ring-jsr-cyan-100 rounded overflow-hidden">
+    <div class="mt-8 ring-1 ring-jsr-cyan/20 rounded overflow-hidden">
       {title &&
         (
-          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan-50 bg-jsr-gray-50 leading-none">
+          <div class="px-5 py-4 flex items-center justify-between border-b border-jsr-cyan/20 bg-background-secondary leading-none">
             <span class="font-semibold">{title}</span>
             <div />
           </div>
@@ -29,10 +29,10 @@ export function ListDisplay(
 
       <ul class="divide-y">
         {children.map((item) => (
-          <li class="border-jsr-cyan-50">
+          <li class="border-jsr-cyan/20">
             <a
               href={item.href}
-              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 focus:bg-jsr-yellow-100 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none ${
+              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-200 focus:bg-jsr-yellow-100 focus:ring-2 ring-jsr-cyan-700 ring-inset outline-none ${
                 item.parentClass ?? ""
               }`}
             >
@@ -74,11 +74,11 @@ function Pagination(
 
   return (
     <nav
-      class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-white px-4 py-3 sm:px-6"
+      class="flex items-center justify-between border-t border-jsr-cyan-900/10 bg-background-secondary text-foreground-primary px-4 py-3 sm:px-6"
       aria-label="Pagination"
     >
       <div class="hidden sm:block">
-        <p class="text-sm text-jsr-gray-700">
+        <p class="text-sm">
           {start + itemsCount === 0 ? "No results found" : (
             <>
               Showing <span class="font-semibold">{start + 1}</span> to{" "}
@@ -94,7 +94,7 @@ function Pagination(
           ? (
             <a
               href={prevURL.pathname + prevURL.search}
-              class="relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-jsr-gray-900 ring-1 ring-inset ring-jsr-gray-300 hover:bg-jsr-gray-50 focus-visible:outline-offset-0 select-none"
+              class="relative inline-flex items-center rounded-md bg-foreground-primary/5 px-3 py-2 text-sm font-semibold text-foreground-primary ring-1 ring-inset ring-foreground-primary/20 hover:bg-foreground-primary/20 focus-visible:outline-offset-0 select-none"
             >
               Previous
             </a>
@@ -104,7 +104,7 @@ function Pagination(
           ? (
             <a
               href={nextURL.pathname + nextURL.search}
-              class="relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-jsr-gray-900 ring-1 ring-inset ring-jsr-gray-300 hover:bg-jsr-gray-50 focus-visible:outline-offset-0 select-none"
+              class="relative ml-3 inline-flex items-center rounded-md bg-foreground-primary/5 px-3 py-2 text-sm font-semibold text-foreground-primary ring-1 ring-inset ring-foreground-primary/20 hover:bg-foreground-primary/20 focus-visible:outline-offset-0 select-none"
             >
               Next
             </a>

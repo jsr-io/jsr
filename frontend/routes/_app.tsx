@@ -2,6 +2,7 @@
 import { PageProps } from "fresh";
 import { asset } from "fresh/runtime";
 import { State } from "../util.ts";
+import { themeToggleHeadScript } from "../islands/ThemeToggle.tsx";
 
 const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
 
@@ -18,6 +19,7 @@ export default async function App({
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="color-scheme" content="light dark" />
         {state.meta?.title && (
           <>
             <title>{state.meta.title}</title>
@@ -53,6 +55,7 @@ export default async function App({
         />
         <link rel="stylesheet" href={asset("/styles.css")} />
         <link rel="stylesheet" href={asset("/gfm.css")} />
+        <link rel="stylesheet" href={asset("/markdown.css")} />
         <link
           rel="icon"
           type="image/svg+xml"
@@ -64,8 +67,10 @@ export default async function App({
           href="/opensearch.xml"
           title="JSR"
         />
+        <script src={`data:text/javascript, ${themeToggleHeadScript}`}>
+        </script>
       </head>
-      <body>
+      <body class="bg-background-primary text-foreground-primary">
         <Component />
       </body>
     </html>

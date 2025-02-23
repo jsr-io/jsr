@@ -27,7 +27,7 @@ export default function Layout(
           url={url}
         />
         <div
-          class="section-x-inset-xl pt-4 md:pt-6 focus-visible:ring-0 focus-visible:outline-none"
+          class="section-x-inset-xl pt-4 md:pt-6 focus-visible:ring-0 focus-visible:outline-none "
           id="main-content"
           tabIndex={-1}
         >

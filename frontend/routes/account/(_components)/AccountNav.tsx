@@ -28,7 +28,7 @@ export function AccountNav(props: AccountNavProps) {
             class={`chip ml-2 tabular-nums ${
               props.user.inviteCount > 0
                 ? "bg-orange-600 text-white"
-                : "bg-jsr-gray-200"
+                : "bg-background-secondary text-foreground-primary "
             }`}
           >
             {props.user.inviteCount}

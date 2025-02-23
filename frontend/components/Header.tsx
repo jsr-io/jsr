@@ -6,6 +6,7 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
+import ThemeToggle from "../islands/ThemeToggle.tsx";
 
 export function Header({
   user,
@@ -111,6 +112,9 @@ export function Header({
                   Sign in
                 </a>
               )}
+            <div class="[&_.button]:fill-foreground-primary [&_.button]:hover:fill-jsr-yellow-400 [&_.button]:transition-colors [&_.button]:duration-500 w-10 h-10">
+              <ThemeToggle />
+            </div>
           </div>
         </div>
         <div class="mt-4 sm:hidden">
@@ -130,7 +134,7 @@ export function Header({
 
 function Divider() {
   return (
-    <span class="text-jsr-gray-200 select-none" aria-hidden="true">
+    <span class="text-jsr-gray-500/25 select-none" aria-hidden="true">
       |
     </span>
   );
