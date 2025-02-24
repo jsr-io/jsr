@@ -71,6 +71,7 @@ use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
+use crate::ids::Version;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
@@ -333,12 +334,30 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
-  let package = db
+  let res_package = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  Ok(ApiPackage::from(package))
+  let mut api_package = ApiPackage::from(res_package);
+
+  if let Some(latest_v) = &api_package.latest_version {
+    let latest_version = Version::new(latest_v).unwrap();
+    let dependency_count = db
+      .count_package_dependencies(&scope, &package, &latest_version)
+      .await?;
+    api_package.dependency_count = dependency_count as u64;
+  }
+
+  let dependent_count = db
+    .count_package_dependents(
+      crate::db::DependencyKind::Jsr,
+      &format!("@{}/{}", scope, package),
+    )
+    .await?;
+  api_package.dependent_count = dependent_count as u64;
+
+  Ok(api_package)
 }
 
 #[instrument(

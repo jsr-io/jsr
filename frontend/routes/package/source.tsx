@@ -44,6 +44,8 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
