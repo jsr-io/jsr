@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::io;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -313,18 +312,10 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
 
   if let Some(latest_v) = &api_package.latest_version {
     let latest_version = Version::new(latest_v).unwrap();
-
-    let deps = db
-      .list_package_version_dependencies(&scope, &package, &latest_version)
+    let dependency_count = db
+      .count_package_dependencies(&scope, &package, &latest_version)
       .await?;
-
-    api_package.dependency_count = {
-      let mut unique_deps = HashSet::new();
-      deps
-        .iter()
-        .filter(|dep| unique_deps.insert(&dep.dependency_name))
-        .count() as u64
-    };
+    api_package.dependency_count = dependency_count as u64;
   }
 
   let dependent_count = db
