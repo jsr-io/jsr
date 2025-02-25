@@ -112,7 +112,7 @@ export function Header({
                   Sign in
                 </a>
               )}
-            <div class="[&_.button]:fill-foreground-primary [&_.button]:hover:fill-jsr-yellow-400 [&_.button]:transition-colors [&_.button]:duration-500 w-10 h-10">
+            <div class="[&_.button]:text-foreground-primary [&_.button]:hover:text-jsr-yellow-400 [&_.button]:transition-colors [&_.button]:duration-500 w-10 h-10">
               <ThemeToggle />
             </div>
           </div>
