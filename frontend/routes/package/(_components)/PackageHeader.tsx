@@ -35,9 +35,7 @@ export function PackageHeader({
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
 
   const reportPackageBody = `Hello JSR team,
-I would like to report a package.
-
-For the reason;
+I would like to report a package for the following reason:
 `;
 
   const mailLink = `mailto:report@jsr.io?subject=${
