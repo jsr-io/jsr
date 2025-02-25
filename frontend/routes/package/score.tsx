@@ -60,7 +60,7 @@ function ScoreInfo(props: {
 
   return (
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
-      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
+      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-500/20 rounded-lg p-8">
         <div class="flex gap-2 items-center mb-4">
           <h2 class="text-2xl font-semibold">
             <Logo size="medium" class="inline mr-2" />
@@ -74,20 +74,20 @@ function ScoreInfo(props: {
           class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
             getScoreBgColorClass(scorePercentage)
           }`}
-          style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, #e7e8e8 ${scorePercentage}%)`}
+          style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, hsla(var(--background-secondary)) ${scorePercentage}%)`}
         >
-          <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
+          <span class="rounded-full w-full h-full bg-white text-black flex justify-center items-center text-center text-3xl font-bold">
             {scorePercentage}%
           </span>
         </div>
-        <div class="text-jsr-gray-500 text-sm text-center mt-6">
+        <div class="text-foreground-tertiary text-sm text-center mt-6">
           The JSR score is a measure of the overall quality of a package, based
           on a number of factors such as documentation and runtime
           compatibility.
         </div>
       </div>
 
-      <ul class="flex flex-col divide-jsr-cyan-100 divide-y-1 md:col-span-2 w-full">
+      <ul class="flex flex-col divide-jsr-cyan-500/20 divide-y-1 md:col-span-2 w-full">
         <ScoreItem
           value={score.hasReadme}
           scoreValue={2}

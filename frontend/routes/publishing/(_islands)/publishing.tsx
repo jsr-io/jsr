@@ -52,12 +52,12 @@ export function PackagePublishStatus(props: {
   const { loading, task } = props.status.value;
 
   if (loading) {
-    return <p class="italic text-jsr-gray-600 max-w-2xl">...</p>;
+    return <p class="italic text-foreground-secondary max-w-2xl">...</p>;
   }
 
   if (!task) {
     return (
-      <p class="italic text-jsr-gray-600 max-w-2xl">
+      <p class="italic text-foreground-secondary max-w-2xl">
         Publishing has not started yet...
       </p>
     );
@@ -156,7 +156,7 @@ export function OverallStatus(
           ? "bg-red-50 border-red-200 text-red-700"
           : success.value
           ? "bg-green-50 border-green-200 text-green-700"
-          : "bg-jsr-cyan-50 border-jsr-cyan-200 text-jsr-cyan-700"
+          : "bg-jsr-cyan-500/20 border-jsr-cyan-500/30 text-jsr-cyan-700"
       }`}
     >
       {anyFailed.value

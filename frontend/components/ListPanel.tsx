@@ -30,7 +30,7 @@ export function ListPanel(
       <ol class="border-1.5 border-jsr-cyan-950 rounded list-none overflow-hidden">
         {children.map((entry) => {
           return (
-            <li class={children.length > 1 ? "odd:bg-jsr-cyan-50" : ""}>
+            <li class={children.length > 1 ? "odd:bg-jsr-cyan-500/10" : ""}>
               <a
                 class={`flex px-4 items-center py-3 group focus-visible:ring-2 ring-jsr-cyan-700 ring-inset outline-none hover:bg-jsr-yellow-200 focus-visible:bg-jsr-yellow-200 ${
                   entry.value === selected ? "text-jsr-cyan-700 font-bold" : ""
@@ -41,7 +41,7 @@ export function ListPanel(
                   {entry.value}
                 </span>
                 {entry.label && (
-                  <div class="chip bg-jsr-cyan-200 max-w-20 truncate">
+                  <div class="chip bg-jsr-cyan-200 text-foreground-primary max-w-20 truncate">
                     {entry.label}
                   </div>
                 )}

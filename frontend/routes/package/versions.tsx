@@ -172,14 +172,14 @@ function Version({
     <div
       class={`relative py-2 px-2 md:py-3 md:px-6 border rounded-lg ${
         (!isPublished && isFailed) || version?.yanked
-          ? `bg-red-50 border-red-200 ${
-            version?.yanked ? "hover:bg-red-100 hover:border-red-300" : ""
+          ? `bg-red-500/10 border-red-500/50 ${
+            version?.yanked ? "hover:bg-red-500/20 hover:border-red-500/60" : ""
           }`
           : (!isPublished
             ? "bg-blue-50 border-blue-200"
             : (isLatestInReleaseTrack
-              ? "bg-green-50 hover:bg-green-100 border-green-300 hover:border-green-400"
-              : "hover:bg-jsr-gray-100 border-jsr-gray-100 hover:border-jsr-gray-300"))
+              ? "bg-green-500/10 hover:bg-green-500/20 border-green-500/50 hover:border-green-500/60"
+              : "hover:bg-jsr-gray-500/10 border-jsr-gray-500/20 hover:border-jsr-gray-500/30"))
       }`}
     >
       <div class="flex items-center justify-between">
@@ -192,7 +192,7 @@ function Version({
                   ? "bg-blue-300 border-blue-400 text-blue-700"
                   : (isLatestInReleaseTrack
                     ? "bg-green-300 border-green-400 text-green-700"
-                    : "bg-jsr-gray-200 border-jsr-gray-300 text-jsr-gray-600"))
+                    : "bg-jsr-gray-200 border-jsr-gray-300 text-foreground-secondary"))
             }`}
             title={version?.yanked
               ? "Yanked"

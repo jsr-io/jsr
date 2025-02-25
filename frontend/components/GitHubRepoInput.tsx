@@ -46,7 +46,7 @@ export function GitHubRepoInput(
   }
 
   return (
-    <div class="flex items-center w-full md:w-88 rounded-md text-jsr-gray-900 shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 bg-white input-container">
+    <div class="flex items-center w-full md:w-88 rounded-md text-foreground-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 bg-background-primary input-container">
       <span class="block">
         <TbBrandGithub class="!size-5" />
       </span>

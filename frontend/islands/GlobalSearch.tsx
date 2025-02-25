@@ -273,9 +273,9 @@ export function GlobalSearch(
           <input
             type="search"
             name="search"
-            class={`w-full h-full search-input bg-white/90 ${
+            class={`w-full h-full search-input bg-background-primary text-foreground-primary ${
               kind === "packages" ? "!text-transparent" : ""
-            } !caret-black input rounded-r-none ${sizeClasses} relative`}
+            } !caret-foreground-primary input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
             onInput={onInput}
@@ -399,12 +399,12 @@ function SuggestionList(
   if (!showSuggestions.value) return null;
 
   return (
-    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
+    <div class="absolute bg-background-secondary w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
-        ? <div class="bg-white text-jsr-gray-500 px-4">...</div>
+        ? <div class="bg-background-primary text-jsr-gray-500 px-4">...</div>
         : suggestions.value?.length === 0
         ? (
-          <div class="bg-white text-jsr-gray-500 px-4 py-2">
+          <div class="bg-background-secondary text-jsr-gray-500 px-4 py-2">
             No matching results to display
           </div>
         )
@@ -430,7 +430,7 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-50 flex items-center justify-between py-1 px-2 text-sm">
+      <div class="bg-background-secondary text-foreground-primary flex items-center justify-between py-1 px-2 text-sm">
         <div>
           {kind === "packages" && (
             <a
@@ -486,7 +486,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
           </div>
         )}
         <div
-          class="text-sm text-jsr-gray-600"
+          class="text-sm text-foreground-secondary"
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html: highlighter.highlight(hit.content, input.value)

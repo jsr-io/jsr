@@ -17,8 +17,8 @@ interface IconColorProps {
 
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
-    if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-100 text-black";
+    if (done.value) return "bg-green-600 text-foreground-secondary";
+    return "bg-background-secondary text-foreground-secondary";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>
@@ -54,8 +54,8 @@ export function ScopeSelect(
 
   if (scopes.value.length === 0) {
     return (
-      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
-        <span class="text-jsr-gray-700">
+      <div class="space-y-4 bg-jsr-cyan-500/10 border-1.5 border-jsr-cyan-500/30 p-4 md:p-6 rounded-xl">
+        <span class="text-foreground-trinary">
           You are not a member of any scopes. Create a new scope to publish your
           package.
         </span>
@@ -117,13 +117,18 @@ export function ScopeSelect(
   return (
     <>
       <select
-        class="w-full mt-4 block py-2 px-4 input-container input select"
+        class="w-full mt-4 block py-2 px-4 input-container input select !fill-foreground-primary !text-foreground-primary bg-background-primary"
         onChange={(e) => scope.value = e.currentTarget.value}
         value={scope}
         disabled={locked}
         data-locked={locked || undefined}
       >
-        <option value="" disabled selected class="hidden text-jsr-gray-100">
+        <option
+          value=""
+          disabled
+          selected
+          class="hidden"
+        >
           ---
         </option>
         {scopes.value.map((scope, idx) => (
@@ -365,14 +370,14 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
   ) return null;
 
   return (
-    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
+    <div class="max-w-2xl mt-12 bg-jsr-cyan-500/20 border-1.5 border-jsr-cyan-500/30 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
       {pkg.value === null
         ? (
           <>
             <div>
               <p>
                 The package{" "}
-                <code class="text-jsr-cyan-800">
+                <code class="text-jsr-cyan-800 dark:text-jsr-cyan-600">
                   @{scope}/{name}
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.
