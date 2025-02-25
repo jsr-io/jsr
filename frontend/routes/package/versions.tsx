@@ -97,6 +97,8 @@ export default define.page<typeof handler>(function Versions({
         params={params as unknown as Params}
         iam={iam}
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
 

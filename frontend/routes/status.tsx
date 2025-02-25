@@ -28,6 +28,8 @@ export default define.page<typeof handler>(function PackageListPage({
         <PackageNav
           currentTab="Versions"
           versionCount={data.package.versionCount}
+          dependencyCount={data.package.dependencyCount}
+          dependentCount={data.package.dependentCount}
           iam={iam}
           params={{ scope: data.package.scope, package: data.package.name }}
           latestVersion={data.package.latestVersion}
