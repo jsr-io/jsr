@@ -6,6 +6,7 @@ import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import {
   TbAlertTriangleFilled,
   TbExternalLink,
+  TbFlag,
   TbRosetteDiscountCheck,
 } from "@preact-icons/tb";
 import { Tooltip } from "../../../components/Tooltip.tsx";
@@ -32,6 +33,16 @@ export function PackageHeader({
     selectedVersionSemver.prerelease.length !== 0 &&
     (pkg.latestVersion === null ||
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
+
+  const reportPackageBody = `Hello JSR team,
+I would like to report a package for the following reason:
+`;
+
+  const mailLink = `mailto:report@jsr.io?subject=${
+    encodeURIComponent(
+      `Report package: ${pkg.scope}/${pkg.name}@${selectedVersion?.version}`,
+    )
+  }&body=${encodeURIComponent(reportPackageBody)}`;
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -212,6 +223,15 @@ export function PackageHeader({
                 </div>
               </div>
             )}
+          </div>
+
+          <div class="flex flex-row items-center gap-2">
+            <a
+              class="inline-flex items-center gap-1.5 md:gap-1 text-md md:text-xs bg-red-50 border-1 border-red-300/30 rounded-md p-1.5 md:p-1 text-red-500 font-semibold hover:bg-red-100 focus:outline-none focus:border-1 focus:border-red-300 focus:ring-1 focus:ring-red-300 focus:ring-opacity-50"
+              href={mailLink}
+            >
+              <TbFlag class="size-6 md:size-4" /> Report package
+            </a>
           </div>
         </div>
       </div>
