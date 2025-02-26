@@ -21,9 +21,7 @@ jobs:
         with:
           types: |
             BREAKING
-            [unstable] BREAKING
             deprecation
-            [unstable] deprecation
             feat
             fix
             docs
