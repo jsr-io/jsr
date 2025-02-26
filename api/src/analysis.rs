@@ -200,7 +200,9 @@ async fn analyze_package_inner(
         None
       }
     })
-    .all(|js| js.fast_check_module().is_some());
+    .all(|js| {
+      js.maybe_types_dependency.is_some() || js.fast_check_module().is_some()
+    });
 
   let doc_nodes =
     crate::docs::generate_docs(roots, &graph, &module_analyzer.analyzer)

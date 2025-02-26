@@ -849,7 +849,8 @@
   "workspace": {
     "dependencies": [
       "jsr:@deno/gfm@0.8",
-      "npm:github-slugger@2"
+      "npm:github-slugger@2",
+      "npm:preact@*"
     ]
   }
 }
