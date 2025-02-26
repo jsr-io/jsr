@@ -2,7 +2,7 @@
 import { useSignal } from "@preact/signals";
 import { useCallback } from "preact/hooks";
 import { api, path } from "../../../utils/api.ts";
-import { IS_BROWSER } from "$fresh/runtime.ts";
+import { IS_BROWSER } from "fresh/runtime";
 
 export interface ScopeMemberRoleProps {
   scope: string;
@@ -53,6 +53,7 @@ export function ScopeMemberRole(props: ScopeMemberRoleProps) {
       </select>
       {role.value !== selected.value && (
         <button
+          type="button"
           class="mt-2 button-primary"
           disabled={submitting}
           onClick={onSave}

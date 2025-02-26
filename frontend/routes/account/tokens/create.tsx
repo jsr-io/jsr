@@ -1,26 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers } from "$fresh/server.ts";
-import { State } from "../../../util.ts";
-import { FullUser } from "../../../utils/api_types.ts";
-import { Head } from "$fresh/runtime.ts";
-import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
+import { HttpError } from "fresh";
+import { define } from "../../../util.ts";
+import TbChevronLeft from "@preact-icons/tb/TbChevronLeft";
 import { CreateToken } from "./(_islands)/CreateToken.tsx";
 
-interface Data {
-  user: FullUser;
-}
-
-export default function AccountCreateTokenPage() {
+export default define.page<typeof handler>(function AccountCreateTokenPage() {
   return (
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <Head>
-        <title>
-          Create a personal access token - JSR
-        </title>
-      </Head>
       <div>
         <a href="/account/tokens" class="link flex items-center gap-2">
-          <ChevronLeft class="w-6 h-6" />
+          <TbChevronLeft class="size-8" />
           <span class="ml-2">Back to tokens</span>
         </a>
       </div>
@@ -40,16 +29,19 @@ export default function AccountCreateTokenPage() {
       </div>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const currentUser = await ctx.state.userPromise;
     if (currentUser instanceof Response) return currentUser;
-    if (!currentUser) return ctx.renderNotFound();
+    if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
-    return ctx.render({
-      user: currentUser,
-    });
+    ctx.state.meta = { title: "Create personal access token - JSR" };
+    return {
+      data: {
+        user: currentUser,
+      },
+    };
   },
-};
+});

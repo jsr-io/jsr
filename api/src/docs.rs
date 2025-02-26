@@ -5,6 +5,7 @@ use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
+use comrak::nodes::{Ast, AstNode, NodeValue};
 use deno_ast::ModuleSpecifier;
 use deno_doc::html::pages::SymbolPage;
 use deno_doc::html::DocNodeWithContext;
@@ -20,6 +21,8 @@ use deno_doc::DocNodeKind;
 use deno_doc::Location;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
+use std::borrow::Cow;
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -27,6 +30,228 @@ use tracing::instrument;
 use url::Url;
 
 pub type DocNodesByUrl = IndexMap<ModuleSpecifier, Vec<DocNode>>;
+
+pub type URLRewriter =
+  Arc<dyn (Fn(Option<&ShortPath>, &str) -> String) + Send + Sync>;
+
+thread_local! {
+  static CURRENT_FILE: RefCell<Option<Option<ShortPath>>> = const { RefCell::new(None) };
+  static URL_REWRITER: RefCell<Option<URLRewriter>> = const { RefCell::new(None) };
+}
+
+lazy_static::lazy_static! {
+  static ref AMMONIA: ammonia::Builder<'static> = {
+    let mut ammonia_builder = ammonia::Builder::default();
+
+    ammonia_builder
+      .add_tags(["video", "button", "svg", "path", "rect"])
+      .add_generic_attributes(["id", "align"])
+      .add_tag_attributes("button", ["data-copy"])
+      .add_tag_attributes(
+        "svg",
+        [
+          "class",
+          "width",
+          "height",
+          "viewBox",
+          "fill",
+          "xmlns",
+          "stroke",
+          "stroke-width",
+          "stroke-linecap",
+          "stroke-linejoin",
+        ],
+      )
+      .add_tag_attributes(
+        "path",
+        [
+          "d",
+          "fill",
+          "fill-rule",
+          "clip-rule",
+          "stroke",
+          "stroke-width",
+          "stroke-linecap",
+          "stroke-linejoin",
+        ],
+      )
+      .add_tag_attributes("rect", ["x", "y", "width", "height", "fill"])
+      .add_tag_attributes("video", ["src", "controls"])
+      .add_allowed_classes("pre", ["highlight"])
+      .add_allowed_classes("button", ["context_button"])
+      .add_allowed_classes(
+        "div",
+        [
+          "alert",
+          "alert-note",
+          "alert-tip",
+          "alert-important",
+          "alert-warning",
+          "alert-caution",
+        ],
+      )
+      .link_rel(Some("nofollow"))
+      .url_relative(ammonia::UrlRelative::Custom(Box::new(
+        AmmoniaRelativeUrlEvaluator(),
+      )))
+      .add_allowed_classes("span", crate::tree_sitter::CLASSES);
+
+    ammonia_builder
+  };
+}
+
+struct AmmoniaRelativeUrlEvaluator();
+
+impl ammonia::UrlRelativeEvaluate<'_> for AmmoniaRelativeUrlEvaluator {
+  fn evaluate<'a>(&self, url: &'a str) -> Option<Cow<'a, str>> {
+    URL_REWRITER.with(|url_rewriter| {
+      let rewriter = url_rewriter.borrow();
+      let url_rewriter = rewriter.as_ref().unwrap();
+      CURRENT_FILE.with(|current_file| {
+        Some(
+          url_rewriter(current_file.borrow().as_ref().unwrap().as_ref(), url)
+            .into(),
+        )
+      })
+    })
+  }
+}
+
+enum Alert {
+  Note,
+  Tip,
+  Important,
+  Warning,
+  Caution,
+}
+
+fn match_node_value<'a>(
+  arena: &'a comrak::Arena<AstNode<'a>>,
+  node: &'a AstNode<'a>,
+  options: &comrak::Options,
+  plugins: &comrak::Plugins,
+) {
+  match &node.data.borrow().value {
+    NodeValue::BlockQuote => {
+      if let Some(paragraph_child) = node.first_child() {
+        if paragraph_child.data.borrow().value == NodeValue::Paragraph {
+          let alert = paragraph_child.first_child().and_then(|text_child| {
+            if let NodeValue::Text(text) = &text_child.data.borrow().value {
+              match text
+                .split_once(' ')
+                .map_or((text.as_str(), None), |(kind, title)| {
+                  (kind, Some(title))
+                }) {
+                ("[!NOTE]", title) => {
+                  Some((Alert::Note, title.unwrap_or("Note").to_string()))
+                }
+                ("[!TIP]", title) => {
+                  Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
+                }
+                ("[!IMPORTANT]", title) => Some((
+                  Alert::Important,
+                  title.unwrap_or("Important").to_string(),
+                )),
+                ("[!WARNING]", title) => {
+                  Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
+                }
+                ("[!CAUTION]", title) => {
+                  Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
+                }
+                _ => None,
+              }
+            } else {
+              None
+            }
+          });
+
+          if let Some((alert, title)) = alert {
+            let start_col = node.data.borrow().sourcepos.start;
+
+            let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+              NodeValue::Document,
+              start_col,
+            ))));
+
+            let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
+              Ast::new(NodeValue::Paragraph, start_col),
+            )));
+
+            for child_node in paragraph_child.children().skip(1) {
+              node_without_alert.append(child_node);
+            }
+            for child_node in node.children().skip(1) {
+              node_without_alert.append(child_node);
+            }
+
+            document.append(node_without_alert);
+
+            let html =
+              deno_doc::html::comrak::render_node(document, options, plugins);
+
+            let alert_title = match alert {
+              Alert::Note => {
+                format!("{}{title}", include_str!("./docs/info-circle.svg"))
+              }
+              Alert::Tip => {
+                format!("{}{title}", include_str!("./docs/bulb.svg"))
+              }
+              Alert::Important => {
+                format!("{}{title}", include_str!("./docs/warning-message.svg"))
+              }
+              Alert::Warning => format!(
+                "{}{title}",
+                include_str!("./docs/warning-triangle.svg")
+              ),
+              Alert::Caution => {
+                format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
+              }
+            };
+
+            let html = format!(
+              r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
+              match alert {
+                Alert::Note => "note",
+                Alert::Tip => "tip",
+                Alert::Important => "important",
+                Alert::Warning => "warning",
+                Alert::Caution => "caution",
+              }
+            );
+
+            let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+              NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+                block_type: 6,
+                literal: html,
+              }),
+              start_col,
+            ))));
+            node.insert_before(alert_node);
+            node.detach();
+          }
+        }
+      }
+    }
+    NodeValue::Link(link) => {
+      if link.url.ends_with(".mov") || link.url.ends_with(".mp4") {
+        let start_col = node.data.borrow().sourcepos.start;
+
+        let html = format!(r#"<video src="{}" controls></video>"#, link.url);
+
+        let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+          NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+            block_type: 6,
+            literal: html,
+          }),
+          start_col,
+        ))));
+        node.insert_before(alert_node);
+        node.detach();
+      }
+    }
+    _ => {}
+  }
+}
 
 static DENO_TYPES: OnceLock<std::collections::HashSet<Vec<String>>> =
   OnceLock::new();
@@ -45,21 +270,19 @@ pub fn generate_docs(
   graph: &deno_graph::ModuleGraph,
   analyzer: &deno_graph::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
+  source_files.sort();
+
   let parser = deno_doc::DocParser::new(
     graph,
     analyzer,
+    &source_files,
     deno_doc::DocParserOptions {
       diagnostics: false,
       private: false,
     },
   )?;
 
-  source_files.sort();
-  let mut doc_nodes_by_url = IndexMap::with_capacity(source_files.len());
-  for source_file in &source_files {
-    let nodes = parser.parse_with_reexports(source_file)?;
-    doc_nodes_by_url.insert(source_file.to_owned(), nodes);
-  }
+  let doc_nodes_by_url = parser.parse()?;
 
   Ok(doc_nodes_by_url)
 }
@@ -132,7 +355,7 @@ fn get_url_rewriter(
   base: String,
   github_repository: Option<GithubRepository>,
   is_readme: bool,
-) -> deno_doc::html::comrak_adapters::URLRewriter {
+) -> URLRewriter {
   Arc::new(move |current_file, url| {
     if url.starts_with('#') || url.starts_with('/') {
       return url.to_string();
@@ -216,7 +439,37 @@ pub fn get_generate_ctx<'a>(
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
 
-  let mut generate_ctx = GenerateCtx::new(
+  let url_rewriter =
+    get_url_rewriter(url_rewriter_base, github_repository, has_readme);
+
+  let markdown_renderer = deno_doc::html::comrak::create_renderer(
+    Some(Arc::new(super::tree_sitter::ComrakAdapter {
+      show_line_numbers: false,
+    })),
+    Some(Box::new(match_node_value)),
+    Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
+  );
+
+  let markdown_renderer = Rc::new(
+    move |md: &str,
+          title_only: bool,
+          file_path: Option<ShortPath>,
+          anchorizer: deno_doc::html::jsdoc::Anchorizer| {
+      CURRENT_FILE.set(Some(file_path));
+      URL_REWRITER.set(Some(url_rewriter.clone()));
+
+      // we pass None as we know that the comrak renderer doesnt use this option
+      // and as such can save a clone. careful if comrak renderer changes.
+      let rendered = markdown_renderer(md, title_only, None, anchorizer);
+
+      CURRENT_FILE.set(None);
+      URL_REWRITER.set(None);
+
+      rendered
+    },
+  );
+
+  GenerateCtx::new(
     deno_doc::html::GenerateOptions {
       package_name: Some(package_name),
       main_entrypoint,
@@ -244,87 +497,25 @@ pub fn get_generate_ctx<'a>(
           })
           .clone(),
       }),
-      usage_composer: Some(Rc::new(move |ctx, doc_nodes, url| {
-        let mut map = IndexMap::new();
-        let scoped_name = format!("@{scope}/{package}");
-
-        let import = format!("\nImport symbol\n{}", deno_doc::html::usage_to_md(ctx, doc_nodes, &url));
-
-        if !runtime_compat.deno.is_some_and(|compat| !compat) {
-          map.insert(
-            UsageComposerEntry {
-              name: "Deno".to_string(),
-              icon: Some(
-                r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", deno_doc::html::usage_to_md(ctx, doc_nodes, &format!("jsr:{url}"))),
-          );
-        }
-
-        if !runtime_compat.node.is_some_and(|compat| !compat) {
-          map.insert(
-            UsageComposerEntry {
-              name: "npm".to_string(),
-              icon: Some(
-                r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
-          );
-          map.insert(
-            UsageComposerEntry {
-              name: "Yarn".to_string(),
-              icon: Some(
-                r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
-          );
-          map.insert(
-            UsageComposerEntry {
-              name: "pnpm".to_string(),
-              icon: Some(
-                r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
-          );
-        }
-
-        if !runtime_compat.bun.is_some_and(|compat| !compat) {
-          map.insert(
-            UsageComposerEntry {
-              name: "Bun".to_string(),
-              icon: Some(
-                r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#.into(),
-              ),
-            },
-            format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
-          );
-        }
-
-        map
+      usage_composer: (Rc::new(DocUsageComposer {
+        runtime_compat,
+        scope,
+        package,
       })),
       rewrite_map: Some(rewrite_map),
       category_docs: None,
       disable_search: false,
       symbol_redirect_map: None,
       default_symbol_map: None,
+      markdown_renderer,
+      markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
+      head_inject: None,
     },
     None,
     deno_doc::html::FileMode::Normal,
     doc_nodes_by_url,
   )
-  .unwrap();
-
-  generate_ctx.url_rewriter = Some(get_url_rewriter(
-    url_rewriter_base,
-    github_repository,
-    has_readme,
-  ));
-
-  generate_ctx
+  .unwrap()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -366,16 +557,12 @@ pub fn generate_docs_html(
       let render_ctx =
         RenderContext::new(&ctx, &[], UrlResolveKind::AllSymbols);
 
-      let all_doc_nodes = ctx
-        .doc_nodes
-        .values()
-        .flatten()
-        .cloned()
-        .collect::<Vec<_>>();
+      let all_doc_nodes = ctx.doc_nodes.values().flatten().map(Cow::Borrowed);
 
       let partitions_by_kind =
         deno_doc::html::partition::partition_nodes_by_entrypoint(
-          &all_doc_nodes,
+          &ctx,
+          all_doc_nodes,
           true,
         );
 
@@ -473,8 +660,11 @@ pub fn generate_docs_html(
         .find(|(short_path, _)| short_path.specifier == specifier)
         .context("doc nodes missing for specifier")?;
 
-      let render_ctx =
-        RenderContext::new(&ctx, doc_nodes, UrlResolveKind::File(short_path));
+      let render_ctx = RenderContext::new(
+        &ctx,
+        doc_nodes,
+        UrlResolveKind::File { file: short_path },
+      );
 
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
@@ -557,14 +747,23 @@ fn generate_symbol_page(
 
   let doc_nodes = 'outer: loop {
     let next_part = name_parts.next()?;
-    let nodes = doc_nodes
+    let mut nodes = doc_nodes
       .iter()
       .filter(|node| {
         !(matches!(node.kind(), DocNodeKind::ModuleDoc | DocNodeKind::Import)
           || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
           && node.get_name() == next_part
       })
-      .cloned()
+      .flat_map(|node| {
+        if let Some(reference) = node.reference_def() {
+          ctx
+            .resolve_reference(node.parent.as_deref(), &reference.target)
+            .map(|node| node.into_owned())
+            .collect::<Vec<_>>()
+        } else {
+          vec![node.clone()]
+        }
+      })
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_some() {
@@ -745,7 +944,8 @@ fn generate_symbol_page(
           | DocNodeKind::Enum
           | DocNodeKind::ModuleDoc
           | DocNodeKind::Function
-          | DocNodeKind::Namespace => None,
+          | DocNodeKind::Namespace
+          | DocNodeKind::Reference => None,
         };
 
         if let Some(drilldown_node) = drilldown_node {
@@ -753,6 +953,20 @@ fn generate_symbol_page(
         }
       }
     }
+
+    nodes = nodes
+      .into_iter()
+      .flat_map(|node| {
+        if let Some(reference) = node.reference_def() {
+          ctx
+            .resolve_reference(node.parent.as_deref(), &reference.target)
+            .map(|node| node.into_owned())
+            .collect::<Vec<_>>()
+        } else {
+          vec![node]
+        }
+      })
+      .collect::<Vec<_>>();
 
     if name_parts.peek().is_none() {
       break nodes;
@@ -763,16 +977,20 @@ fn generate_symbol_page(
       .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
     {
       namespace_paths.push(next_part.to_string());
-
-      let namespace = namespace_node.namespace_def().unwrap();
-
-      let parts: Rc<[String]> = namespace_paths.clone().into();
-
-      doc_nodes = namespace
-        .elements
-        .iter()
-        .map(|element| {
-          namespace_node.create_namespace_child(element.clone(), parts.clone())
+      doc_nodes = namespace_node
+        .namespace_children
+        .clone()
+        .unwrap()
+        .into_iter()
+        .flat_map(|node| {
+          if let Some(reference_def) = node.reference_def() {
+            ctx
+              .resolve_reference(Some(namespace_node), &reference_def.target)
+              .map(|node| node.into_owned())
+              .collect()
+          } else {
+            vec![node]
+          }
         })
         .collect();
     } else {
@@ -787,7 +1005,7 @@ fn generate_symbol_page(
   let render_ctx = RenderContext::new(
     ctx,
     doc_nodes_for_module,
-    UrlResolveKind::File(short_path),
+    UrlResolveKind::File { file: short_path },
   );
 
   let (breadcrumbs_ctx, symbol_group_ctx, toc_ctx, _category_panel) =
@@ -801,7 +1019,7 @@ fn generate_symbol_page(
   Some(SymbolPage::Symbol {
     breadcrumbs_ctx,
     symbol_group_ctx,
-    toc_ctx,
+    toc_ctx: Box::new(toc_ctx),
     categories_panel: None,
   })
 }
@@ -847,7 +1065,7 @@ impl HrefResolver for DocResolver {
           }
         )
       }
-      UrlResolveKind::File(file) => format!(
+      UrlResolveKind::File { file } => format!(
         "{doc_base}{}/",
         if file.is_main {
           String::new()
@@ -855,7 +1073,7 @@ impl HrefResolver for DocResolver {
           format!("/{}", file.path)
         }
       ),
-      UrlResolveKind::Category(_) => unreachable!(),
+      UrlResolveKind::Category { .. } => unreachable!(),
     }
   }
 
@@ -908,31 +1126,29 @@ impl HrefResolver for DocResolver {
             deno_semver::jsr::JsrPackageReqReference::from_str(src).ok()?;
           let req = jsr_package_req.req();
 
-          Some(format!("/{}/~/{symbol}", req.name))
+          let mut version_path = Cow::Borrowed("");
+          if let Some(range) = req.version_req.range() {
+            if let Ok(version) = Version::new(&range.to_string()) {
+              // If using a specific version, link to it (e.g. prerelease)
+              version_path = Cow::Owned(format!("@{}", version));
+            }
+          }
+
+          let mut internal_path = Cow::Borrowed("");
+          if let Some(path) = jsr_package_req.sub_path() {
+            internal_path = Cow::Owned(format!("/{path}"));
+          }
+
+          Some(format!(
+            "/{}{version_path}/doc{internal_path}/~/{symbol}",
+            req.name
+          ))
         }
         _ => None,
       }
     } else {
       None
     }
-  }
-
-  fn resolve_usage(&self, current_resolve: UrlResolveKind) -> Option<String> {
-    let (is_main, path) = current_resolve
-      .get_file()
-      .map(|short_path| (short_path.is_main, &*short_path.path))
-      .unwrap_or((true, ""));
-
-    Some(format!(
-      "@{}/{}{}",
-      self.scope,
-      self.package,
-      if is_main {
-        String::new()
-      } else {
-        format!("/{path}")
-      }
-    ))
   }
 
   fn resolve_source(&self, location: &Location) -> Option<String> {
@@ -953,6 +1169,106 @@ impl HrefResolver for DocResolver {
     _symbol: Option<&str>,
   ) -> Option<(String, String)> {
     None
+  }
+}
+
+struct DocUsageComposer {
+  runtime_compat: RuntimeCompat,
+  scope: ScopeName,
+  package: PackageName,
+}
+
+impl deno_doc::html::UsageComposer for DocUsageComposer {
+  fn is_single_mode(&self) -> bool {
+    false
+  }
+
+  #[allow(clippy::nonminimal_bool)]
+  fn compose(
+    &self,
+    current_resolve: UrlResolveKind,
+    usage_to_md: deno_doc::html::UsageToMd,
+  ) -> IndexMap<UsageComposerEntry, String> {
+    let mut map = IndexMap::new();
+    let scoped_name = format!("@{}/{}", self.scope, self.package);
+
+    let (is_main, path) = current_resolve
+      .get_file()
+      .map(|short_path| (short_path.is_main, &*short_path.path))
+      .unwrap_or((true, ""));
+
+    let url = format!(
+      "@{}/{}{}",
+      self.scope,
+      self.package,
+      if is_main {
+        String::new()
+      } else {
+        format!("/{path}")
+      }
+    );
+
+    let import = format!(
+      "\nImport symbol\n{}",
+      usage_to_md(&url, Some(self.package.as_str()))
+    );
+
+    if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
+      map.insert(
+          UsageComposerEntry {
+            name: "Deno".to_string(),
+            icon: Some(
+              r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
+        );
+    }
+
+    if !self.runtime_compat.node.is_some_and(|compat| !compat) {
+      map.insert(
+          UsageComposerEntry {
+            name: "npm".to_string(),
+            icon: Some(
+              r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
+        );
+      map.insert(
+          UsageComposerEntry {
+            name: "Yarn".to_string(),
+            icon: Some(
+              r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+        );
+      map.insert(
+          UsageComposerEntry {
+            name: "pnpm".to_string(),
+            icon: Some(
+              r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
+            ),
+          },
+          format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
+        );
+    }
+
+    if !self.runtime_compat.bun.is_some_and(|compat| !compat) {
+      map.insert(
+        UsageComposerEntry {
+          name: "Bun".to_string(),
+          icon: Some(
+            r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#
+              .into(),
+          ),
+        },
+        format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
+      );
+    }
+
+    map
   }
 }
 
@@ -993,7 +1309,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::Root,
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1022,7 +1338,7 @@ mod tests {
       assert_eq!(
         resolver.resolve_path(
           UrlResolveKind::AllSymbols,
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1041,28 +1357,28 @@ mod tests {
     {
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::Root
         ),
         "/@foo/bar@0.0.1"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::AllSymbols
         ),
         "/@foo/bar@0.0.1/doc"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path },
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
       assert_eq!(
         resolver.resolve_path(
-          UrlResolveKind::File(&short_path),
+          UrlResolveKind::File { file: &short_path },
           UrlResolveKind::Symbol {
             file: &short_path,
             symbol: "bar",
@@ -1099,7 +1415,7 @@ mod tests {
             file: &short_path,
             symbol: "bar"
           },
-          UrlResolveKind::File(&short_path)
+          UrlResolveKind::File { file: &short_path }
         ),
         "/@foo/bar@0.0.1/doc/mod/"
       );
@@ -1115,6 +1431,28 @@ mod tests {
           }
         ),
         "/@foo/bar@0.0.1/doc/mod/~/bar"
+      );
+    }
+
+    {
+      assert_eq!(
+        resolver
+          .resolve_import_href(
+            &["Expression".to_string()],
+            "jsr:@babel/types@0.0.0-beta.1"
+          )
+          .as_deref(),
+        Some("/@babel/types@0.0.0-beta.1/doc/~/Expression")
+      );
+
+      assert_eq!(
+        resolver
+          .resolve_import_href(
+            &["version".to_string()],
+            "jsr:@babel/core/package.json"
+          )
+          .as_deref(),
+        Some("/@babel/core/doc/package.json/~/version")
       );
     }
   }

@@ -148,7 +148,8 @@ pub struct Bucket {
   pub(crate) endpoint: String,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, deno_error::JsError)]
+#[class(generic)]
 pub enum GcsError {
   #[error("request to GCS timed out")]
   RequestTimeout,
@@ -573,10 +574,16 @@ impl FakeGcsTester {
 
     assert!(self.proc.is_none());
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     let p = concat!(
       env!("CARGO_MANIFEST_DIR"),
       "/../tools/bin/darwin-arm64/fake-gcs-server"
+    );
+
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    let p = concat!(
+      env!("CARGO_MANIFEST_DIR"),
+      "/../tools/bin/darwin-amd64/fake-gcs-server"
     );
 
     #[cfg(target_os = "linux")]
@@ -587,7 +594,7 @@ impl FakeGcsTester {
 
     println!("starting fake gcs server: {}", p);
     let mut proc = std::process::Command::new(p)
-      .arg(&format!("-port={}", self.port))
+      .arg(format!("-port={}", self.port))
       .arg("-scheme=http")
       .arg("-backend=memory")
       .process_group(0)

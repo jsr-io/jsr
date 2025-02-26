@@ -27,7 +27,7 @@ pub struct SpecifierRewriter<'a> {
   pub dependencies: &'a IndexMap<String, Dependency>,
 }
 
-impl<'a> SpecifierRewriter<'a> {
+impl SpecifierRewriter<'_> {
   pub fn rewrite(&self, specifier: &str, kind: RewriteKind) -> Option<String> {
     let source_text_specifier = specifier;
     let dep = self.dependencies.get(specifier)?;
@@ -123,7 +123,7 @@ pub fn follow_specifier<'a>(
 pub fn rewrite_npm_and_jsr_specifier(specifier: &str) -> Option<String> {
   if let Ok(jsr) = JsrPackageReqReference::from_str(specifier) {
     let req = jsr.into_inner();
-    let jsr_name = ScopedPackageName::new(req.req.name).ok()?;
+    let jsr_name = ScopedPackageName::new(req.req.name.to_string()).ok()?;
     let npm_name = NpmMappedJsrPackageName {
       scope: &jsr_name.scope,
       package: &jsr_name.package,

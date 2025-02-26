@@ -1,14 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { pooledMap } from "std/async/pool.ts";
+import { pooledMap } from "@std/async/pool";
 import { stripSplitBySections } from "@deno/gfm";
-import { extract } from "std/front_matter/yaml.ts";
+import { extractYaml } from "@std/front-matter";
 import GitHubSlugger from "github-slugger";
-import type { OramaDocsHit } from "../frontend/islands/GlobalSearch.tsx";
 import TOC from "../frontend/docs/toc.ts";
-import { join } from "std/path/mod.ts";
+import { join } from "@std/path";
 
 const index = Deno.env.get("ORAMA_DOCS_INDEX_ID");
 const auth = Deno.env.get("ORAMA_DOCS_PRIVATE_API_KEY");
+
+export interface OramaDocsHit {
+  path: string;
+  header: string;
+  headerParts: string[];
+  slug: string;
+  content: string;
+}
 
 const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
 
@@ -39,7 +46,8 @@ const results = pooledMap(
     const {
       body,
       attrs,
-    } = extract(file);
+      // deno-lint-ignore no-explicit-any
+    } = extractYaml<any>(file);
     const slugger = new GitHubSlugger();
 
     const sections = stripSplitBySections(body);

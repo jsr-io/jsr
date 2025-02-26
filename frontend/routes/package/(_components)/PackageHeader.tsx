@@ -1,23 +1,27 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
-import { ExternalLink } from "../../../components/icons/ExternalLink.tsx";
-import { GitHub } from "../../../components/icons/GitHub.tsx";
+import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
-import { CheckmarkStamp } from "../../../components/icons/CheckmarkStamp.tsx";
-import { WarningTriangle } from "../../../components/icons/WarningTriangle.tsx";
+import {
+  TbAlertTriangleFilled,
+  TbExternalLink,
+  TbFlag,
+  TbRosetteDiscountCheck,
+} from "@preact-icons/tb";
 import { Tooltip } from "../../../components/Tooltip.tsx";
-import twas from "$twas";
-import { gt, parse } from "$std/semver/mod.ts";
+import twas from "twas";
+import { greaterThan, parse } from "@std/semver";
 
 interface PackageHeaderProps {
   package: Package;
   selectedVersion?: PackageVersionWithUser;
 }
 
-export function PackageHeader(
-  { package: pkg, selectedVersion }: PackageHeaderProps,
-) {
+export function PackageHeader({
+  package: pkg,
+  selectedVersion,
+}: PackageHeaderProps) {
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
   );
@@ -25,9 +29,20 @@ export function PackageHeader(
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
   const isNewerPrerelease = selectedVersionSemver &&
+    selectedVersionSemver.prerelease &&
     selectedVersionSemver.prerelease.length !== 0 &&
     (pkg.latestVersion === null ||
-      gt(selectedVersionSemver, parse(pkg.latestVersion)));
+      greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
+
+  const reportPackageBody = `Hello JSR team,
+I would like to report a package for the following reason:
+`;
+
+  const mailLink = `mailto:report@jsr.io?subject=${
+    encodeURIComponent(
+      `Report package: ${pkg.scope}/${pkg.name}@${selectedVersion?.version}`,
+    )
+  }&body=${encodeURIComponent(reportPackageBody)}`;
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -41,7 +56,7 @@ export function PackageHeader(
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
-            <WarningTriangle class="text-jsr-yellow-400 flex-none" />
+            <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
               This release {selectedVersion.yanked
                 ? (
@@ -116,7 +131,7 @@ export function PackageHeader(
 
               {selectedVersion?.rekorLogId && (
                 <Tooltip tooltip="Built and signed on GitHub Actions">
-                  <CheckmarkStamp class="stroke-green-500 size-6" />
+                  <TbRosetteDiscountCheck class="stroke-green-500 size-6" />
                 </Tooltip>
               )}
             </h1>
@@ -143,11 +158,14 @@ export function PackageHeader(
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
-                  <GitHub class="text-black !size-4" aria-hidden={true} />
+                  <TbBrandGithub
+                    class="text-black !size-4"
+                    aria-hidden
+                  />
                   <span>
                     {pkg.githubRepository.owner}/{pkg.githubRepository.name}
                   </span>
-                  <ExternalLink strokeWidth="2.25" />
+                  <TbExternalLink strokeWidth="2.25" class="size-4" />
                 </a>
               )}
             </div>
@@ -200,11 +218,20 @@ export function PackageHeader(
                     )}
                 >
                   {`${
-                    twas(new Date(selectedVersion.createdAt))
+                    twas(new Date(selectedVersion.createdAt).getTime())
                   } (${selectedVersion.version})`}
                 </div>
               </div>
             )}
+          </div>
+
+          <div class="flex flex-row items-center gap-2">
+            <a
+              class="inline-flex items-center gap-1.5 md:gap-1 text-md md:text-xs bg-red-50 border-1 border-red-300/30 rounded-md p-1.5 md:p-1 text-red-500 font-semibold hover:bg-red-100 focus:outline-none focus:border-1 focus:border-red-300 focus:ring-1 focus:ring-red-300 focus:ring-opacity-50"
+              href={mailLink}
+            >
+              <TbFlag class="size-6 md:size-4" /> Report package
+            </a>
           </div>
         </div>
       </div>

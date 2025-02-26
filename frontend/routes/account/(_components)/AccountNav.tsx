@@ -19,7 +19,7 @@ export function AccountNav(props: AccountNavProps) {
         Profile
       </NavItem>
       <NavItem
-        href={"/account/invites"}
+        href="/account/invites"
         active={props.active === "Invites"}
       >
         <span class="flex items-center">

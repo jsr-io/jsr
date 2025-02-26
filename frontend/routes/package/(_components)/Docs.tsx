@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Head } from "$fresh/src/runtime/head.ts";
 import type { PackageVersionWithUser } from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
@@ -30,15 +29,29 @@ document.querySelector('.usages').addEventListener('change', (e) => {
 });
 })()`;
 
-export function DocsView(
-  { docs, params, selectedVersion, showProvenanceBadge }: DocsProps,
-) {
+export function DocsView({
+  docs,
+  params,
+  selectedVersion,
+  showProvenanceBadge,
+}: DocsProps) {
   return (
     <div class="pt-6 space-y-8">
-      <Head>
-        <style dangerouslySetInnerHTML={{ __html: docs.css }} />
-        <script dangerouslySetInnerHTML={{ __html: docs.script }} defer />
-      </Head>
+      <style
+        hidden
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: docs.css }}
+      />
+      <style
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: docs.comrakCss }}
+      />
+      <script
+        hidden
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: docs.script }}
+        defer
+      />
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
@@ -59,6 +72,7 @@ export function DocsView(
           <div
             class="ddoc"
             id="docMain"
+            // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: docs.main }}
           />
           <div class="ddoc hidden" id="docSearchResults" />
@@ -120,9 +134,11 @@ export function DocsView(
 
             <div
               class="ddoc w-full lg:overflow-y-auto pb-4"
+              // deno-lint-ignore react-no-danger
               dangerouslySetInnerHTML={{ __html: docs.toc }}
             />
             <script
+              // deno-lint-ignore react-no-danger
               dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
             />
           </div>

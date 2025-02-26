@@ -1,32 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { HttpError } from "fresh";
 import { ComponentChildren } from "preact";
+import { define } from "../../../util.ts";
 import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../(_components)/ScopeNav.tsx";
-import { State } from "../../../util.ts";
 import { FullScope, User } from "../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../utils/data.ts";
 import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
-import { Head } from "$fresh/runtime.ts";
-import { Check } from "../../../components/icons/Check.tsx";
-import { ScopeIAM, scopeIAM } from "../../../utils/iam.ts";
+import TbCheck from "@preact-icons/tb/TbCheck";
+import { scopeIAM } from "../../../utils/iam.ts";
 
-interface Data {
-  scope: FullScope;
-  iam: ScopeIAM;
-}
-
-export default function ScopeSettingsPage(
-  { params, data, state }: PageProps<Data, State>,
+export default define.page<typeof handler>(function ScopeSettingsPage(
+  { data, state },
 ) {
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Settings - @{params.scope} - JSR
-        </title>
-      </Head>
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
       <ScopeQuotas scope={data.scope} user={state.user!} />
@@ -35,7 +24,7 @@ export default function ScopeSettingsPage(
       <DeleteScope scope={data.scope} />
     </div>
   );
-}
+});
 
 function ScopeQuotas({ scope, user }: { scope: FullScope; user: User }) {
   const requestLimitIncreaseBody = `Hello JSR team,
@@ -225,7 +214,7 @@ function CardButton(props: CardButtonProps) {
               : "ring"
           }`}
         >
-          {props.selected && <Check class="stroke-2 size-9" />}
+          {props.selected && <TbCheck class="stroke-2 size-9" />}
         </div>
       </div>
       <p class="mt-2 w-5/6 text-jsr-gray-600 text-sm">{props.description}</p>
@@ -261,24 +250,28 @@ function DeleteScope({ scope }: { scope: FullScope }) {
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [user, data] = await Promise.all([
       ctx.state.userPromise,
       scopeDataWithMember(ctx.state, ctx.params.scope),
     ]);
     if (user instanceof Response) return user;
-    if (data === null) return ctx.renderNotFound();
+    if (data === null) throw new HttpError(404, "The scope was not found.");
 
     const iam = scopeIAM(ctx.state, data?.scopeMember, user);
-    if (!iam.canAdmin) return ctx.renderNotFound();
+    if (!iam.canAdmin) throw new HttpError(404, "The scope was not found.");
 
-    return ctx.render({
-      scope: data.scope as FullScope,
-      iam,
-    });
+    ctx.state.meta = { title: `Settings - @${data.scope.scope} - JSR` };
+    return {
+      data: {
+        scope: data.scope as FullScope,
+        iam,
+      },
+    };
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const scope = ctx.params.scope;
     const form = await req.formData();
     const action = String(form.get("action"));
@@ -293,7 +286,9 @@ export const handler: Handlers<Data, State> = {
           { ghActionsVerifyActor: enableGhActionsVerifyActor },
         );
         if (!res.ok) {
-          if (res.code === "scopeNotFound") return ctx.renderNotFound();
+          if (res.code === "scopeNotFound") {
+            throw new HttpError(404, "The scope was not found.");
+          }
           throw res; // graceful handle errors
         }
         return new Response(null, {
@@ -308,7 +303,9 @@ export const handler: Handlers<Data, State> = {
           { requirePublishingFromCI: value },
         );
         if (!res.ok) {
-          if (res.code === "scopeNotFound") return ctx.renderNotFound();
+          if (res.code === "scopeNotFound") {
+            throw new HttpError(404, "The scope was not found.");
+          }
           throw res; // graceful handle errors
         }
         return new Response(null, {
@@ -319,7 +316,9 @@ export const handler: Handlers<Data, State> = {
       case "deleteScope": {
         const res = await ctx.state.api.delete(path`/scopes/${scope}`);
         if (!res.ok) {
-          if (res.code === "scopeNotFound") return ctx.renderNotFound();
+          if (res.code === "scopeNotFound") {
+            throw new HttpError(404, "The scope was not found.");
+          }
           throw res; // graceful handle errors
         }
         return new Response(null, {
@@ -331,4 +330,4 @@ export const handler: Handlers<Data, State> = {
         throw new Error("Invalid action " + action);
     }
   },
-};
+});

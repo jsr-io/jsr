@@ -1,50 +1,28 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type {
-  Dependent,
-  List,
-  Package,
-  ScopeMember,
-} from "../../utils/api_types.ts";
+import { HttpError, RouteConfig } from "fresh";
+import { define } from "../../util.ts";
+import type { Dependent, List } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
-import { PaginationData, State } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { Head } from "$fresh/runtime.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 
-interface Data extends PaginationData {
-  package: Package;
-  dependents: Dependent[];
-  member: ScopeMember | null;
-}
-
-export default function Dep(
-  { data, params, state, url }: PageProps<Data, State>,
+export default define.page<typeof handler>(function Dep(
+  { data, params, state, url },
 ) {
   const iam = scopeIAM(state, data.member);
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          Dependents - @{params.scope}/{params.package} - JSR
-        </title>
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
       <PackageHeader package={data.package} />
 
       <PackageNav
         currentTab="Dependents"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -79,7 +57,7 @@ export default function Dep(
       </div>
     </div>
   );
-}
+});
 
 function Dependent(
   { scope, package: pkg, versions, totalVersions }: {
@@ -98,7 +76,7 @@ function Dependent(
         </a>
       </TableData>
       <TableData class="space-x-4">
-        {versions.map((version) => <span>{version}</span>)}
+        {versions.map((version, idx) => <span key={idx}>{version}</span>)}
         {totalVersions > 5 && (
           <span>
             and {totalVersions - 5} additional version{totalVersions > 6 && "s"}
@@ -109,8 +87,8 @@ function Dependent(
   );
 }
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
@@ -121,21 +99,30 @@ export const handler: Handlers<Data, State> = {
         { page, limit },
       ),
     ]);
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) throw new HttpError(404, "This package was not found.");
 
     // TODO: handle errors gracefully
     if (!dependentsResp.ok) throw dependentsResp;
 
-    return ctx.render({
-      package: res.pkg,
-      dependents: dependentsResp.data.items,
-      member: res.scopeMember,
-      page,
-      limit,
-      total: dependentsResp.data.total,
-    }, { headers: { "X-Robots-Tag": "noindex" } });
+    ctx.state.meta = {
+      title: `Dependents - @${res.pkg.scope}/${res.pkg.name} - JSR`,
+      description: `@${res.pkg.scope}/${res.pkg.name} on JSR${
+        res.pkg.description ? `: ${res.pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: res.pkg,
+        dependents: dependentsResp.data.items,
+        member: res.scopeMember,
+        page,
+        limit,
+        total: dependentsResp.data.total,
+      },
+      headers: { "X-Robots-Tag": "noindex" },
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride: "/@:scope/:package/dependents",

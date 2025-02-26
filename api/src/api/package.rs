@@ -1,14 +1,23 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::borrow::Cow;
-use std::io;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use anyhow::Context;
 use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
+use deno_ast::MediaType;
+use deno_ast::ModuleSpecifier;
+use deno_ast::ParseDiagnostic;
+use deno_error::JsErrorBox;
+use deno_graph::source::JsrUrlProvider;
+use deno_graph::source::LoadError;
+use deno_graph::source::LoadOptions;
+use deno_graph::source::NullFileSystem;
+use deno_graph::BuildOptions;
+use deno_graph::CapturingModuleAnalyzer;
+use deno_graph::GraphKind;
+use deno_graph::Module;
+use deno_graph::ModuleInfo;
+use deno_graph::Resolution;
+use deno_graph::WorkspaceMember;
+use deno_semver::StackString;
 use futures::future::Either;
 use futures::StreamExt;
 use hyper::body::HttpBody;
@@ -16,10 +25,21 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
+use regex::Regex;
 use routerify::prelude::RequestExt;
 use routerify::Router;
 use routerify_query::RequestQueryExt;
+use serde::Deserialize;
+use serde::Serialize;
 use sha2::Digest;
+use std::borrow::Cow;
+use std::io;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::Mutex;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
@@ -27,6 +47,8 @@ use tracing::Instrument;
 use tracing::Span;
 use url::Url;
 
+use crate::analysis::JsrResolver;
+use crate::analysis::ModuleParser;
 use crate::auth::access_token;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::Buckets;
@@ -49,7 +71,9 @@ use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
+use crate::ids::Version;
 use crate::metadata::PackageMetadata;
+use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::provenance;
@@ -68,6 +92,7 @@ use crate::RegistryUrl;
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
+use super::ApiDependencyGraphItem;
 use super::ApiDependent;
 use super::ApiDownloadDataPoint;
 use super::ApiError;
@@ -151,6 +176,13 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::json(list_dependencies_handler),
     )
     .get(
+      "/:package/versions/:version/dependencies/graph",
+      util::cache(
+        CacheDuration::ONE_DAY,
+        util::json(get_dependencies_graph_handler),
+      ),
+    )
+    .get(
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
@@ -223,7 +255,7 @@ pub async fn list_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiPackage>> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let (start, limit) = pagination(&req);
 
@@ -250,12 +282,12 @@ pub async fn list_handler(
 )]
 pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let scope = req.param_scope()?;
-  Span::current().record("scope", &field::display(&scope));
+  Span::current().record("scope", field::display(&scope));
 
   let ApiCreatePackageRequest {
     package: package_name,
   } = decode_json(&mut req).await?;
-  Span::current().record("package", &field::display(&package_name));
+  Span::current().record("package", field::display(&package_name));
 
   let iam = req.iam();
   iam.check_scope_write_access(&scope).await?;
@@ -298,16 +330,34 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
-  let package = db
+  let res_package = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  Ok(ApiPackage::from(package))
+  let mut api_package = ApiPackage::from(res_package);
+
+  if let Some(latest_v) = &api_package.latest_version {
+    let latest_version = Version::new(latest_v).unwrap();
+    let dependency_count = db
+      .count_package_dependencies(&scope, &package, &latest_version)
+      .await?;
+    api_package.dependency_count = dependency_count as u64;
+  }
+
+  let dependent_count = db
+    .count_package_dependents(
+      crate::db::DependencyKind::Jsr,
+      &format!("@{}/{}", scope, package),
+    )
+    .await?;
+  api_package.dependent_count = dependent_count as u64;
+
+  Ok(api_package)
 }
 
 #[instrument(
@@ -540,8 +590,8 @@ pub async fn list_versions_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
 
@@ -608,9 +658,9 @@ pub async fn get_version_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version_or_latest()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
-  Span::current().record("version", &field::display(&version));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
 
   let db = req.data::<Database>().unwrap();
   let _ = db
@@ -645,9 +695,9 @@ pub async fn version_publish_handler(
   let package_scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let package_version = req.param_version()?;
-  Span::current().record("scope", &field::display(&package_scope));
-  Span::current().record("package", &field::display(&package_name));
-  Span::current().record("version", &field::display(&package_version));
+  Span::current().record("scope", field::display(&package_scope));
+  Span::current().record("package", field::display(&package_name));
+  Span::current().record("version", field::display(&package_version));
   let config_file =
     PackagePath::try_from(&**req.query("config").ok_or_else(|| {
       let msg = "Missing query parameter 'config'".into();
@@ -813,9 +863,9 @@ pub async fn version_provenance_statements_handler(
   let package = req.param_package()?;
   let version = req.param_version()?;
 
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
-  Span::current().record("version", &field::display(&version));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
 
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
@@ -835,7 +885,7 @@ pub async fn version_provenance_statements_handler(
     let (package, _, meta) = db
       .get_package(&scope, &package)
       .await?
-      .ok_or_else(|| ApiError::InternalServerError)?;
+      .ok_or(ApiError::InternalServerError)?;
     orama_client.upsert_package(&package, &meta);
   }
 
@@ -859,9 +909,9 @@ pub async fn version_update_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
-  Span::current().record("version", &field::display(&version));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
 
   // WARNING: if an additional option gets added, then yanked time rendering needs to be changed in package/versions.tsx
   let body: ApiUpdatePackageVersionRequest = decode_json(&mut req).await?;
@@ -933,17 +983,17 @@ pub async fn get_docs_handler(
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package_name));
-  Span::current().record("version", &field::display(&version_or_latest));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+  Span::current().record("version", field::display(&version_or_latest));
   let all_symbols = req.query("all_symbols").is_some();
-  Span::current().record("all_symbols", &field::display(&all_symbols));
+  Span::current().record("all_symbols", field::display(&all_symbols));
   let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
     "" => None,
     s => Some(s),
   });
   Span::current()
-    .record("entrypoint", &field::display(&entrypoint.unwrap_or("")));
+    .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
 
   let symbol = req
     .query("symbol")
@@ -953,7 +1003,7 @@ pub async fn get_docs_handler(
     })
     .transpose()?;
   Span::current()
-    .record("symbol", &field::display(&symbol.as_deref().unwrap_or("")));
+    .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
 
   if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
     return Err(ApiError::MalformedRequest {
@@ -1062,6 +1112,7 @@ pub async fn get_docs_handler(
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
       css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
@@ -1086,9 +1137,9 @@ pub async fn get_docs_search_handler(
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package_name));
-  Span::current().record("version", &field::display(&version_or_latest));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+  Span::current().record("version", field::display(&version_or_latest));
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1157,9 +1208,9 @@ pub async fn get_docs_search_html_handler(
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package_name));
-  Span::current().record("version", &field::display(&version_or_latest));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+  Span::current().record("version", field::display(&version_or_latest));
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1239,10 +1290,10 @@ pub async fn get_source_handler(
   let version_or_latest = req.param_version_or_latest()?;
   let path = req.query("path").cloned().unwrap_or("/".to_string());
 
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
-  Span::current().record("version", &field::display(&version_or_latest));
-  Span::current().record("path", &field::display(&path));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version_or_latest));
+  Span::current().record("path", field::display(&path));
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1300,7 +1351,11 @@ pub async fn get_source_handler(
   let source = if let Some(file) = file {
     let size = file.len();
 
-    let highlighter = deno_doc::html::setup_highlighter(true);
+    let highlighter = deno_doc::html::comrak::ComrakHighlightWrapperAdapter(
+      Some(Arc::new(crate::tree_sitter::ComrakAdapter {
+        show_line_numbers: true,
+      })),
+    );
 
     let view = if let Ok(file) = String::from_utf8(file.to_vec()) {
       let mut out = vec![];
@@ -1375,6 +1430,8 @@ pub async fn get_source_handler(
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
     css: Cow::Borrowed(deno_doc::html::STYLESHEET),
+    comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
+    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
 }
@@ -1390,8 +1447,8 @@ pub async fn list_dependents_handler(
 ) -> ApiResult<ApiList<ApiDependent>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
 
   let (start, limit) = pagination(&req);
   let versions_per_package_limit = req
@@ -1433,8 +1490,8 @@ pub async fn get_downloads_handler(
 ) -> ApiResult<ApiPackageDownloads> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
   db.get_package(&scope, &package)
@@ -1492,9 +1549,9 @@ pub async fn list_dependencies_handler(
   let scope = req.param_scope()?;
   let package = req.param_package()?;
   let version = req.param_version()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
-  Span::current().record("version", &field::display(&version));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
 
   let db = req.data::<Database>().unwrap();
 
@@ -1513,6 +1570,570 @@ pub async fn list_dependencies_handler(
   Ok(deps)
 }
 
+struct DepTreeLoader {
+  scope: ScopeName,
+  package: PackageName,
+  version: crate::ids::Version,
+  bucket: crate::buckets::BucketWithQueue,
+  exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
+}
+
+impl DepTreeLoader {
+  fn load_inner(
+    &self,
+    specifier: &ModuleSpecifier,
+  ) -> deno_graph::source::LoadFuture {
+    use futures::FutureExt;
+    let specifier = specifier.clone();
+
+    match specifier.scheme() {
+      "file" => {
+        let Ok(path) = PackagePath::new(specifier.path().to_string()) else {
+          return async move { Ok(None) }.boxed();
+        };
+
+        let scope = self.scope.clone();
+        let package = self.package.clone();
+        let version = self.version.clone();
+        let bucket = self.bucket.clone();
+
+        async move {
+          let Some(bytes) = bucket
+            .download(
+              crate::gcs_paths::file_path(&scope, &package, &version, &path)
+                .into(),
+            )
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
+          else {
+            return Ok(None);
+          };
+
+          Ok(Some(deno_graph::source::LoadResponse::Module {
+            content: bytes.to_vec().into(),
+            specifier: specifier.clone(),
+            maybe_headers: None,
+          }))
+        }
+        .boxed()
+      }
+      "http" | "https" => {
+        let bucket = self.bucket.clone();
+        let exports = self.exports.clone();
+
+        async move {
+          let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
+
+          let scope = jsr_matches.name("scope").unwrap();
+          let package = jsr_matches.name("package").unwrap();
+          let version = jsr_matches.name("version");
+          let path = jsr_matches.name("path").unwrap();
+
+          let full_path: Arc<str> = format!(
+            "@{}/{}/{}{}",
+            scope.as_str(),
+            package.as_str(),
+            version
+              .as_ref()
+              .map(|version| version.as_str())
+              .unwrap_or_default(),
+            if path.as_str().starts_with('/') && version.is_none() {
+              &path.as_str()[1..]
+            } else {
+              path.as_str()
+            }
+          )
+          .into();
+
+          let Some(bytes) = bucket
+            .download(full_path.clone())
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
+          else {
+            return Ok(None);
+          };
+
+          if version.is_none() {
+            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
+              let version = captures.name("version").unwrap();
+              let meta =
+                serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+
+              let mut lock = exports.lock().await;
+              lock.insert(
+                format!(
+                  "@{}/{}@{}",
+                  scope.as_str(),
+                  package.as_str(),
+                  version.as_str()
+                ),
+                meta.exports,
+              );
+            }
+          }
+
+          Ok(Some(deno_graph::source::LoadResponse::Module {
+            content: bytes.to_vec().into(),
+            specifier: specifier.clone(),
+            maybe_headers: None,
+          }))
+        }
+        .boxed()
+      }
+      "jsr" => unreachable!("{specifier}"),
+      // TODO(@crowlKats): handle npm specifiers
+      "npm" | "node" | "bun" => async move {
+        Ok(Some(deno_graph::source::LoadResponse::External {
+          specifier: specifier.clone(),
+        }))
+      }
+      .boxed(),
+      _ => async move { Ok(None) }.boxed(),
+    }
+  }
+}
+
+impl deno_graph::source::Loader for DepTreeLoader {
+  fn load(
+    &self,
+    specifier: &ModuleSpecifier,
+    _options: LoadOptions,
+  ) -> deno_graph::source::LoadFuture {
+    self.load_inner(specifier)
+  }
+}
+
+struct DepTreeJsrUrlProvider(Url);
+
+impl JsrUrlProvider for DepTreeJsrUrlProvider {
+  fn url(&self) -> &Url {
+    &self.0
+  }
+}
+
+struct DepTreeAnalyzer {
+  pub analyzer: CapturingModuleAnalyzer,
+  pub module_info:
+    std::cell::RefCell<std::collections::HashMap<Url, Vec<String>>>,
+}
+
+impl Default for DepTreeAnalyzer {
+  fn default() -> Self {
+    Self {
+      analyzer: CapturingModuleAnalyzer::new(
+        Some(Box::new(ModuleParser::default())),
+        None,
+      ),
+      module_info: Default::default(),
+    }
+  }
+}
+
+#[async_trait::async_trait(?Send)]
+impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
+  async fn analyze(
+    &self,
+    specifier: &ModuleSpecifier,
+    source: Arc<str>,
+    media_type: MediaType,
+  ) -> Result<ModuleInfo, ParseDiagnostic> {
+    let module_info =
+      self.analyzer.analyze(specifier, source, media_type).await?;
+
+    let deps = module_info
+      .dependencies
+      .iter()
+      .filter_map(|dep| {
+        dep.as_static().and_then(|dep| {
+          if dep.specifier.starts_with("jsr:") {
+            Some(dep.specifier.clone())
+          } else {
+            None
+          }
+        })
+      })
+      .collect::<Vec<_>>();
+
+    if !deps.is_empty() {
+      self
+        .module_info
+        .borrow_mut()
+        .insert(specifier.clone(), deps.clone());
+    }
+
+    Ok(module_info)
+  }
+}
+
+lazy_static::lazy_static! {
+  static ref JSR_DEP_PATH_RE: Regex = Regex::new(r"/@(?<scope>.+?)/(?<package>.+?)(?:/(?<version>.+?))?(?<path>/.+)").unwrap();
+  static ref JSR_DEP_META_RE: Regex = Regex::new(r"/(?<version>.+?)_meta.json").unwrap();
+}
+
+// We have to spawn another tokio runtime, because
+// `deno_graph::ModuleGraph::build` is not thread-safe.
+#[tokio::main(flavor = "current_thread")]
+async fn analyze_deps_tree(
+  registry_url: Url,
+  scope: ScopeName,
+  package: PackageName,
+  version: crate::ids::Version,
+  bucket: crate::buckets::BucketWithQueue,
+  exports: IndexMap<String, String>,
+) -> Result<
+  IndexMap<DependencyKind, DependencyInfo>,
+  deno_graph::ModuleGraphError,
+> {
+  let roots = exports
+    .values()
+    .map(|path| Url::parse(&format!("file://{}", path)).unwrap())
+    .collect::<Vec<_>>();
+
+  let member = WorkspaceMember {
+    base: Url::parse("file:///").unwrap(),
+    name: StackString::from_string(format!("@{}/{}", scope, package)),
+    version: Some(version.0.clone()),
+    exports: exports.clone(),
+  };
+
+  let module_analyzer = DepTreeAnalyzer::default();
+  let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
+  let loader = DepTreeLoader {
+    scope,
+    package,
+    version,
+    bucket,
+    exports: Default::default(),
+  };
+  graph
+    .build(
+      roots.clone(),
+      &loader,
+      BuildOptions {
+        is_dynamic: false,
+        module_analyzer: &module_analyzer,
+        imports: Default::default(),
+        // todo: use the data in the package for the file system
+        file_system: &NullFileSystem,
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        passthrough_jsr_specifiers: false,
+        resolver: Some(&JsrResolver { member }),
+        npm_resolver: None,
+        reporter: None,
+        executor: Default::default(),
+        locker: None,
+      },
+    )
+    .await;
+  graph.valid()?;
+
+  let mut index = 0;
+  let mut dependencies = Default::default();
+
+  let exports_by_identifier = Arc::into_inner(loader.exports)
+    .unwrap()
+    .into_inner()
+    .into_iter()
+    .map(|(p, exports)| {
+      // flips export keys->filepaths mapping, and removes leading . in filepaths
+      // and leading ./ in keys if the key is not the main entrypoint
+      let reversed_exports = exports
+        .into_iter()
+        .map(|(k, v)| {
+          (
+            v[1..].to_string(),
+            if k == "." { k } else { k[2..].to_string() },
+          )
+        })
+        .collect::<IndexMap<_, _>>();
+
+      (p, reversed_exports)
+    })
+    .collect();
+
+  for root in roots {
+    GraphDependencyCollector::collect(
+      &graph,
+      &root,
+      &exports_by_identifier,
+      &mut index,
+      &mut dependencies,
+    );
+  }
+
+  Ok(dependencies)
+}
+
+struct GraphDependencyCollector<'a> {
+  graph: &'a deno_graph::ModuleGraph,
+  dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  exports: &'a IndexMap<String, IndexMap<String, String>>,
+  id_index: &'a mut usize,
+  visited: IndexSet<DependencyKind>,
+}
+
+impl<'a> GraphDependencyCollector<'a> {
+  pub fn collect(
+    graph: &'a deno_graph::ModuleGraph,
+    root: &'a ModuleSpecifier,
+    exports: &'a IndexMap<String, IndexMap<String, String>>,
+    id_index: &'a mut usize,
+    dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+  ) {
+    let root_module = graph.try_get(root).unwrap().unwrap();
+
+    Self {
+      graph,
+      dependencies,
+      exports,
+      id_index,
+      visited: Default::default(),
+    }
+    .build_module_info(root_module)
+    .unwrap();
+  }
+
+  fn build_module_info(&mut self, module: &Module) -> Option<usize> {
+    let specifier = module.specifier();
+
+    let dependency = match module {
+      Module::Js(_) | Module::Json(_) => {
+        if let Some(jsr_matches) = JSR_DEP_PATH_RE.captures(specifier.as_str())
+        {
+          let scope = jsr_matches.name("scope").unwrap();
+          let package = jsr_matches.name("package").unwrap();
+          let version = jsr_matches.name("version").unwrap();
+          let path = jsr_matches.name("path").unwrap();
+
+          let identifier = format!(
+            "@{}/{}@{}",
+            scope.as_str(),
+            package.as_str(),
+            version.as_str()
+          );
+
+          let entrypoint = if let Some(entrypoint) = self
+            .exports
+            .get(&identifier)
+            .and_then(|exports| exports.get(path.as_str()))
+          {
+            JsrEntrypoint::Entrypoint(entrypoint.to_string())
+          } else {
+            JsrEntrypoint::Path(path.as_str().to_string())
+          };
+
+          DependencyKind::Jsr {
+            scope: scope.as_str().to_string(),
+            package: package.as_str().to_string(),
+            version: version.as_str().to_string(),
+            entrypoint,
+          }
+        } else {
+          DependencyKind::Root {
+            path: specifier.path().to_string(),
+          }
+        }
+      }
+      Module::Wasm(_)
+      | Module::Npm(_)
+      | Module::Node(_)
+      | Module::External(_) => {
+        return None;
+      }
+    };
+
+    if self.visited.contains(&dependency) {
+      return self.dependencies.get(&dependency).map(|dep| dep.id);
+    } else {
+      self.visited.insert(dependency.clone());
+    }
+
+    if let Some(info) = self.dependencies.get(&dependency) {
+      Some(info.id)
+    } else {
+      let maybe_size = match module {
+        Module::Js(js) => Some(js.size() as u64),
+        Module::Json(json) => Some(json.size() as u64),
+        Module::Wasm(_)
+        | Module::Node(_)
+        | Module::Npm(_)
+        | Module::External(_) => None,
+      };
+
+      let media_type = match module {
+        Module::Js(js) => Some(js.media_type),
+        Module::Json(json) => Some(json.media_type),
+        Module::Wasm(_)
+        | Module::Npm(_)
+        | Module::Node(_)
+        | Module::External(_) => None,
+      };
+
+      let id = *self.id_index;
+      *self.id_index += 1;
+
+      let mut children = IndexSet::new();
+      match module {
+        Module::Js(module) => {
+          if let Some(types_dep) = &module.maybe_types_dependency {
+            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+            {
+              children.insert(child);
+            }
+          }
+          for dep in module.dependencies.values() {
+            if !dep.maybe_code.is_none() {
+              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
+                children.insert(child);
+              }
+            }
+            if !dep.maybe_type.is_none() {
+              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
+                children.insert(child);
+              }
+            }
+          }
+        }
+        Module::Json(_)
+        | Module::Wasm(_)
+        | Module::Npm(_)
+        | Module::Node(_)
+        | Module::External(_) => {}
+      }
+
+      self.dependencies.insert(
+        dependency,
+        DependencyInfo {
+          id,
+          children,
+          size: maybe_size,
+          media_type,
+        },
+      );
+
+      Some(id)
+    }
+  }
+
+  fn build_resolved_info(&mut self, resolution: &Resolution) -> Option<usize> {
+    match resolution {
+      Resolution::Ok(resolved) => {
+        let specifier = &resolved.specifier;
+        let resolved_specifier = self.graph.resolve(specifier);
+        match self.graph.try_get(resolved_specifier) {
+          Ok(Some(module)) => self.build_module_info(module),
+          Err(err) => {
+            let id = *self.id_index;
+
+            self.dependencies.insert(
+              DependencyKind::Error {
+                error: err.to_string(),
+              },
+              DependencyInfo {
+                id,
+                children: Default::default(),
+                size: None,
+                media_type: None,
+              },
+            );
+
+            *self.id_index += 1;
+
+            Some(id)
+          }
+          Ok(None) => None,
+        }
+      }
+      _ => None,
+    }
+  }
+}
+
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type", content = "value")]
+pub enum JsrEntrypoint {
+  Entrypoint(String),
+  Path(String),
+}
+
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum DependencyKind {
+  Jsr {
+    scope: String,
+    package: String,
+    version: String,
+    entrypoint: JsrEntrypoint,
+  },
+  Npm {
+    package: String,
+  },
+  Root {
+    path: String,
+  },
+  Error {
+    error: String,
+  },
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DependencyInfo {
+  pub id: usize,
+  pub children: IndexSet<usize>,
+  pub size: Option<u64>,
+  pub media_type: Option<MediaType>,
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies/graph",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn get_dependencies_graph_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiDependencyGraphItem>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let buckets = req.data::<Buckets>().unwrap().clone();
+  let gcs_path =
+    crate::gcs_paths::version_metadata(&scope, &package, &version).into();
+  let version_meta = buckets
+    .modules_bucket
+    .download(gcs_path)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+  let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+
+  let deps = tokio::task::spawn_blocking(|| {
+    analyze_deps_tree(
+      registry_url,
+      scope,
+      package,
+      version,
+      buckets.modules_bucket,
+      version_meta.exports,
+    )
+  })
+  .await
+  .unwrap()
+  .unwrap();
+
+  let api_deps = deps
+    .into_iter()
+    .map(ApiDependencyGraphItem::from)
+    .collect::<Vec<_>>();
+
+  Ok(api_deps)
+}
+
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/publishing_tasks",
   skip(req),
@@ -1524,8 +2145,8 @@ pub async fn list_publishing_tasks_handler(
 ) -> ApiResult<Vec<ApiPublishingTask>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
 
@@ -1555,8 +2176,8 @@ pub async fn get_score_handler(
 ) -> ApiResult<ApiPackageScore> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
-  Span::current().record("scope", &field::display(&scope));
-  Span::current().record("package", &field::display(&package));
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
   let (pkg, _, meta) = db
@@ -1571,9 +2192,11 @@ pub async fn get_score_handler(
 mod test {
   use hyper::Body;
   use hyper::StatusCode;
+  use indexmap::IndexSet;
   use serde_json::json;
 
   use crate::api::ApiDependency;
+  use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
   use crate::api::ApiList;
@@ -2644,6 +3267,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2669,6 +3293,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2698,6 +3323,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2730,6 +3356,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ApiPackageVersionDocs::Content {
         version,
         css,
+        comrak_css: _,
         script: _,
         breadcrumbs,
         toc,
@@ -2757,7 +3384,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable","title_lowercase":"variable","title_plural":"Variables"}],"name":"hello","file":".","doc":"This is a test constant.","location":{"filename":"default","line":10,"col":13,"byteIndex":98},"url":"/@scope/foo@1.2.3/doc/~/hello","category":"","declarationKind":"export","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable","title_lowercase":"variable","title_plural":"Variables"}],"name":"读取多键1","file":".","doc":"","location":{"filename":"default","line":11,"col":13,"byteIndex":136},"url":"/@scope/foo@1.2.3/doc/~/读取多键1","category":"","declarationKind":"export","deprecated":false}]}),
+      json!({"nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist
@@ -3001,6 +3628,93 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ],
     );
     assert_eq!(dependents.total, 2);
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_graph() {
+    let mut t = TestSetup::new().await;
+
+    // unpublished package
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/0.0.1/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
+      .await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // Empty deps
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.2.3/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![ApiDependencyGraphItem {
+        id: 0,
+        dependency: super::DependencyKind::Root {
+          path: "/mod.ts".to_string(),
+        },
+        children: IndexSet::new(),
+        size: Some(155),
+        media_type: Some("TypeScript".to_string()),
+      }]
+    );
+
+    // Now publish a package that has a few deps
+    let package_name = PackageName::try_from("bar").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("depends_on_ok"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/bar/versions/1.2.3/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![
+        ApiDependencyGraphItem {
+          id: 1,
+          dependency: super::DependencyKind::Jsr {
+            scope: "scope".to_string(),
+            package: "foo".to_string(),
+            version: "1.2.3".to_string(),
+            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
+          },
+          children: IndexSet::new(),
+          size: Some(155),
+          media_type: Some("TypeScript".to_string())
+        },
+        ApiDependencyGraphItem {
+          id: 0,
+          dependency: super::DependencyKind::Root {
+            path: "/mod.ts".to_string()
+          },
+          children: IndexSet::from([1]),
+          size: Some(117),
+          media_type: Some("TypeScript".to_string())
+        }
+      ]
+    );
   }
 
   #[tokio::test]
@@ -3348,7 +4062,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     assert_eq!(tasks.len(), 1);
 
     t.http()
-      .delete(&format!(
+      .delete(format!(
         "/api/scopes/{}/packages/{}",
         scope_name, package_name
       ))

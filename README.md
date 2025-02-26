@@ -46,7 +46,9 @@ frontend in a development mode that connects to the production API.
 
 - Clone this repo
 - Install Deno (https://deno.land/#installation)
-- Add the following to your `/etc/hosts`
+- Add the following to your `/etc/hosts` file. If you're using WSL, you'll also
+  need to update the `hosts` file located at
+  `C:\Windows\System32\drivers\etc\hosts`.
   ```
   127.0.0.1       jsr.test
   127.0.0.1       api.jsr.test
@@ -71,7 +73,9 @@ making changes to the API.
 - Clone this repo
 - Install Deno (https://deno.land/#installation)
 - Install Rust (https://rustup.rs/)
-- Add the following to your `/etc/hosts`
+- Add the following to your `/etc/hosts` file. If you're using WSL, you'll also
+  need to update the `hosts` file located at
+  `C:\Windows\System32\drivers\etc\hosts`.
   ```
   127.0.0.1       jsr.test
   127.0.0.1       api.jsr.test
@@ -114,7 +118,8 @@ making changes to the API.
 
 ### Running jsr
 
-1. `deno task services:macos` or `deno task services:linux` in one terminal
+1. `deno task services:macos`, `deno task services:macos:amd` or
+   `deno task services:linux` in one terminal
 2. `deno task dev:api` in another terminal
 3. `deno task dev:frontend` in another terminal
 
@@ -135,15 +140,21 @@ registry with data is to publish
 [deno_std](https://github.com/denoland/deno_std) to the registry. This can be
 done via the following steps:
 
-1. Clone https://github.com/denoland/deno_std in the same parent folder as the
-   `jsr` project
-2. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
+1. Make sure to
+   [make yourself a staff user/admin](#making-yourself-a-staff-useradmin).
+2. Navigate to your profile page and copy the UUID from the URL.
+3. Assign the `std` scope to your user through the
+   [admin panel](http://jsr.test/admin/scopes/assign) by using the UUID from the
+   previous step.
+4. Clone https://github.com/denoland/deno_std in the same parent folder as the
+   `jsr` project.
+5. Run `JSR_URL=http://jsr.test deno publish` to publish all of the @std
    packages to your local dev environment.
 
 ### Making yourself a staff user/admin
 
 1. Run `psql registry`
-2. Run `SELECT name,github_id from users;`
+2. Run `SELECT name, github_id FROM users;`
 3. You should see a table with your name and GitHub ID. Copy your GitHub ID.
 4. Run `UPDATE users SET is_staff = true WHERE github_id = xxxxxxx;`, replacing
    `xxxxxxx` with your copied GitHub ID from the previous step.
@@ -176,6 +187,33 @@ INSERT INTO bad_words (word) VALUES
 4. In a separate terminal window run
    `psql postgres://127.0.0.1:5433/registry --user [your username] -f bad_words.sql`,
    and provide the password for the provided username.
+
+### Contributing to documentation generation
+
+The documentation generation is done via
+[`deno_doc`](https://github.com/denoland/deno_doc).
+
+To be able to use a local `deno_doc` clone in jsr, you need to add this to the
+root `Cargo.toml` in this repository:
+
+```toml
+[patch.crates-io]
+deno_doc = { path = "../deno_doc" }
+```
+
+Please make sure that the version of `deno_doc` you have locally is the same
+version as the one referenced in `api/Cargo.toml`, else the patching will not
+work.
+
+Please open PRs in the `deno_doc` repository when it is changes that should
+affect the overall documentation generation system, even if it is only for css
+changes, with a few minor exceptions when the css changes are related to the
+integration and layouting specific for jsr alone.
+
+For more information on how the HTML documentation generation works and how to
+locally work on it, please see the
+[HTML development section](https://github.com/denoland/deno_doc?tab=readme-ov-file#html-generation)
+of `deno_doc`.
 
 ### Other
 

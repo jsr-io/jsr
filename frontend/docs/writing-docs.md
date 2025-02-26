@@ -4,7 +4,12 @@ description: This guide explains how to write documentation for JSR packages.
 
 Writing documentation is vital for the success of a package. JSR makes it very
 easy for package authors to have great documentation, because it generates
-documentation based on the JSDoc comments in the package source code.
+documentation based on the JSDoc-like comments in the package source code.
+
+The supported JSDoc-style features and tags are shared with Deno, and are listed
+out on
+[Deno's Supported JSDoc tags](https://docs.deno.com/runtime/reference/cli/doc/#supported-jsdoc-tags)
+page.
 
 This generated documentation is displayed on the package page. This
 documentation will also be shown to users in their editor in form of completions
@@ -134,7 +139,7 @@ Not just symbols can be documented. Modules can also be documented. This is
 useful to give an overview of the module and its exported symbols.
 
 To document a module, add a JSDoc comment at the top of the module file, and
-include the `@module` tag anywhere in the comment:
+include the `@module` tag after the description:
 
 ```diff
 + /**
@@ -153,8 +158,6 @@ You can also include examples in module documentation:
 
 ````diff
   /**
-   * @module
-   *
    * This module contains functions to search the database.
    *
 +  * @example
@@ -163,5 +166,37 @@ You can also include examples in module documentation:
 +  *
 +  * search("Alan") // ["Alan Turing", "Alan Kay", ...]
 +  * ```
+   *
+   * @module
    */
 ````
+
+If a default entrypoint has a module documentation, it takes precedence over the
+README file in the "Overview" tab of the package page.
+[Learn more in the documentation section for packages](/docs/packages#documentation).
+
+By default, when using a wildcard import, the identifier used is `mod`. For
+example:
+
+```ts
+import * as mod from "@luca/esbuild-deno-loader/esbuild_types";
+```
+
+Module authors can customize this default identifier by specifying a custom name
+in the module's JSDoc comment using the `@module` tag. This allows for more
+descriptive and context-specific import identifiers.
+
+```ts
+/**
+ * This module contains copy of the esbuild types that `deno_esbuild_loader` uses. This is
+ * necessary because the `esbuild` package is not available on JSR yet.
+ *
+ * @module esbuild_types
+ */
+```
+
+With this annotation, the import statement will now use the custom identifier:
+
+```ts
+import * as esbuild_types from "@luca/esbuild-deno-loader/esbuild_types";
+```

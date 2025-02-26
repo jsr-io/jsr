@@ -52,7 +52,7 @@ import { camelCase } from "@luca/cases";
 The JSR npm compatibility layer is not a perfect replacement for native JSR
 support. There are some limitations:
 
-- You can not use `jsr:` specifiers to import JSR packages.
+- You cannot use `jsr:` specifiers to import JSR packages.
 - Unlike with native JSR imports, you are not directly importing TypeScript
   code. Instead JSR transpiles the TypeScript code to JavaScript before it is
   installed into your `node_modules` directory. This generally means that your
@@ -60,7 +60,7 @@ support. There are some limitations:
   will link to transpiled JavaScript code, or to generated `.d.ts` files.
 - Install times will generally be slower than with native JSR support, because
   npm will download files even if they are not used in your project.
-- You can not publish JSR packages using the npm compatibility layer, using
+- You cannot publish JSR packages using the npm compatibility layer, using
   `npm publish`. You can only publish JSR packages using `jsr publish` or
   `deno publish`.
 

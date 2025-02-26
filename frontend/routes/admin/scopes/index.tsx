@@ -1,27 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import type { PaginationData, State } from "../../../util.ts";
 import type { FullScope, List } from "../../../utils/api_types.ts";
 import ScopeEdit from "../../../islands/admin/ScopeEdit.tsx";
 import { Table } from "../../../components/Table.tsx";
 import { path } from "../../../utils/api.ts";
 import { AdminNav } from "../(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "../../../components/URLQuerySearch.tsx";
-import IconArrowRight from "$tabler_icons/arrow-right.tsx";
+import { define } from "../../../util.ts";
+import TbArrowRight from "@preact-icons/tb/TbArrowRight";
 
-interface Data extends PaginationData {
-  scopes: FullScope[];
-  query: string;
-}
-
-export default function Scopes({ data, url }: PageProps<Data>) {
+export default define.page<typeof handler>(function Scopes({ data, url }) {
   return (
     <div class="mb-20">
       <AdminNav currentTab="scopes" />
       <div class="flex gap-4">
         <URLQuerySearch query={data.query} />
         <a class="button-primary mt-4" href="/admin/scopes/assign">
-          Assign Scope <IconArrowRight />
+          Assign Scope <TbArrowRight />
         </a>
       </div>
       <Table
@@ -38,14 +32,14 @@ export default function Scopes({ data, url }: PageProps<Data>) {
         pagination={data}
         currentUrl={url}
       >
-        {data.scopes.map((scope) => <ScopeEdit scope={scope} />)}
+        {data.scopes.map((scope, idx) => <ScopeEdit key={idx} scope={scope} />)}
       </Table>
     </div>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
@@ -57,12 +51,14 @@ export const handler: Handlers<Data, State> = {
     });
     if (!resp.ok) throw resp; // gracefully handle this
 
-    return ctx.render({
-      scopes: resp.data.items,
-      query,
-      page,
-      limit,
-      total: resp.data.total,
-    });
+    return {
+      data: {
+        scopes: resp.data.items,
+        query,
+        page,
+        limit,
+        total: resp.data.total,
+      },
+    };
   },
-};
+});

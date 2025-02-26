@@ -475,14 +475,14 @@ fn rewrite_specifiers(
           add_text_change(&mut text_changes, specifier, &s.range);
         }
       }
-      deno_graph::TypeScriptReference::Types(s) => {
+      deno_graph::TypeScriptReference::Types { specifier, .. } => {
         match kind {
           RewriteKind::Source => {
             // Type reference comments in JS are a Deno specific concept, and
             // are thus not relevant for the tarball. We remove them.
 
             let start_pos = source_text_info.range().start;
-            let start = s.range.start.as_source_pos(source_text_info);
+            let start = specifier.range.start.as_source_pos(source_text_info);
             let start = source_text_info.line_and_column_index(start);
 
             let line_start = source_text_info.line_start(start.line_index);
@@ -504,10 +504,14 @@ fn rewrite_specifiers(
             });
           }
           RewriteKind::Declaration => {
-            if let Some(specifier) =
-              specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+            if let Some(rewritten_specifier) = specifier_rewriter
+              .rewrite(&specifier.text, RewriteKind::Declaration)
             {
-              add_text_change(&mut text_changes, specifier, &s.range);
+              add_text_change(
+                &mut text_changes,
+                rewritten_specifier,
+                &specifier.range,
+              );
             }
           }
         }
@@ -517,9 +521,9 @@ fn rewrite_specifiers(
 
   for s in &module_info.jsdoc_imports {
     if let Some(specifier) =
-      specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+      specifier_rewriter.rewrite(&s.specifier.text, RewriteKind::Declaration)
     {
-      add_text_change(&mut text_changes, specifier, &s.range);
+      add_text_change(&mut text_changes, specifier, &s.specifier.range);
     }
   }
 
@@ -534,7 +538,7 @@ pub fn create_npm_dependencies<'a>(
     let (kind, req) = &*dep;
     match kind {
       DependencyKind::Jsr => {
-        let jsr_name = ScopedPackageName::new(req.req.name.clone())?;
+        let jsr_name = ScopedPackageName::new(req.req.name.to_string())?;
         let npm_name = NpmMappedJsrPackageName {
           scope: &jsr_name.scope,
           package: &jsr_name.package,
@@ -544,7 +548,7 @@ pub fn create_npm_dependencies<'a>(
       }
       DependencyKind::Npm => {
         npm_dependencies
-          .insert(req.req.name.clone(), req.req.version_req.to_string());
+          .insert(req.req.name.to_string(), req.req.version_req.to_string());
       }
     }
   }
@@ -647,7 +651,7 @@ mod tests {
   ) -> Result<(), anyhow::Error> {
     let scope = spec.jsr_json.name.scope.clone();
     let package = spec.jsr_json.name.package.clone();
-    let version = spec.jsr_json.version.clone();
+    let version = spec.jsr_json.version.clone().unwrap();
 
     let exports = match exports_map_from_json(spec.jsr_json.exports.clone()) {
       Ok(exports) => exports,
@@ -687,7 +691,7 @@ mod tests {
     let mut graph = ModuleGraph::new(GraphKind::All);
     let workspace_member = WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
-      name: format!("@{}/{}", scope, package),
+      name: StackString::from_string(format!("@{}/{}", scope, package)),
       version: Some(version.0.clone()),
       exports: exports.clone().into_inner(),
     };
@@ -725,7 +729,7 @@ mod tests {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
       jsr_url_provider: &PassthroughJsrUrlProvider,
-      module_parser: Some(&module_analyzer.analyzer),
+      es_parser: Some(&module_analyzer.analyzer),
       resolver: None,
       npm_resolver: None,
       workspace_fast_check: WorkspaceFastCheckOption::Enabled(
@@ -799,6 +803,7 @@ mod tests {
     Ok(())
   }
 
+  use deno_semver::StackString;
   use std::path::Path;
 
   #[tokio::test]

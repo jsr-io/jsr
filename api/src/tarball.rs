@@ -247,12 +247,14 @@ pub async fn process_tarball(
       publish_task_name: publishing_task_scoped_package_name,
     });
   }
-  if config_file.version != publishing_task.package_version {
-    return Err(PublishError::ConfigFileVersionMismatch {
-      path: Box::new(publishing_task.config_file.clone()),
-      deno_json_version: Box::new(config_file.version),
-      publish_task_version: Box::new(publishing_task.package_version.clone()),
-    });
+  if let Some(config_file_version) = config_file.version {
+    if config_file_version != publishing_task.package_version {
+      return Err(PublishError::ConfigFileVersionMismatch {
+        path: Box::new(publishing_task.config_file.clone()),
+        deno_json_version: Box::new(config_file_version),
+        publish_task_version: Box::new(publishing_task.package_version.clone()),
+      });
+    }
   }
 
   let exports =
@@ -303,7 +305,7 @@ pub async fn process_tarball(
   // ensure all of the JSR dependencies are resolvable
   for (kind, req) in dependencies.iter() {
     if kind == &DependencyKind::Jsr {
-      let package_scope = ScopedPackageName::new(req.req.name.clone())
+      let package_scope = ScopedPackageName::new(req.req.name.to_string())
         .map_err(|e| {
           PublishError::InvalidJsrScopedPackageName(req.req.name.clone(), e)
         })?;
@@ -605,7 +607,10 @@ pub enum PublishError {
   NpmMissingConstraint(NpmPackageReqReference),
 
   #[error("invalid scoped package name in 'jsr:' specifier '{0}': {1}")]
-  InvalidJsrScopedPackageName(String, ScopedPackageNameValidateError),
+  InvalidJsrScopedPackageName(
+    deno_semver::StackString,
+    ScopedPackageNameValidateError,
+  ),
 
   #[error("unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint")]
   UnresolvableJsrDependency(PackageReq),
@@ -690,7 +695,7 @@ pub struct FileInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
   pub name: ScopedPackageName,
-  pub version: Version,
+  pub version: Option<Version>,
   pub exports: Option<serde_json::Value>,
 }
 

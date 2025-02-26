@@ -1,10 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RouteConfig } from "$fresh/server.ts";
+import { RouteConfig } from "fresh";
 import { DevelopmentLogin } from "../islands/DevelopmentLogin.tsx";
 
 export default function Login() {
   return (
-    <form class="m-4 space-y-4" method="POST">
+    <div class="m-4 space-y-4">
       <h1 class="text-2xl font-bold">Development Login for JSR.io</h1>
       <p>
         You can sign in to the local development environment using a production
@@ -12,7 +12,7 @@ export default function Login() {
         authorization on the page that opens.
       </p>
       <DevelopmentLogin />
-    </form>
+    </div>
   );
 }
 

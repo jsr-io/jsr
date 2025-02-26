@@ -19,15 +19,25 @@ type Tab =
   | "Publish"
   | "Settings";
 
-export function PackageNav(
-  { currentTab, params, iam, versionCount, latestVersion }: {
-    currentTab: Tab;
-    params: Params;
-    versionCount: number;
-    iam: ScopeIAM;
-    latestVersion: string | null;
-  },
-) {
+interface PackageNavProps {
+  currentTab: Tab;
+  params: Params;
+  versionCount: number;
+  dependencyCount: number;
+  dependentCount: number;
+  iam: ScopeIAM;
+  latestVersion: string | null;
+}
+
+export function PackageNav({
+  currentTab,
+  params,
+  iam,
+  versionCount,
+  dependencyCount,
+  dependentCount,
+  latestVersion,
+}: PackageNavProps) {
   const base = `/@${params.scope}/${params.package}`;
   const versionedBase = `${base}${params.version ? `@${params.version}` : ""}`;
 
@@ -68,6 +78,9 @@ export function PackageNav(
           active={currentTab === "Dependencies"}
         >
           Dependencies
+          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
+            {dependencyCount}
+          </span>
         </NavItem>
       )}
       {versionCount > 0 && (
@@ -76,6 +89,9 @@ export function PackageNav(
           active={currentTab === "Dependents"}
         >
           Dependents
+          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
+            {dependentCount}
+          </span>
         </NavItem>
       )}
       {versionCount > 0 && (

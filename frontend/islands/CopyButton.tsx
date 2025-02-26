@@ -1,8 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useCallback, useRef } from "preact/hooks";
-import { Check } from "../components/icons/Check.tsx";
-import { Copy } from "../components/icons/Copy.tsx";
+import { TbCheck, TbCopy } from "@preact-icons/tb";
 
 interface CopyButtonProps {
   title: string;
@@ -27,12 +26,13 @@ export function CopyButton(props: CopyButtonProps) {
 
   return (
     <button
+      type="button"
       onClick={copy}
       title={props.title}
       class={(copied.value ? "text-green-700" : "text-jsr-gray-700") +
         " hover:bg-jsr-gray-100/30 p-1.5 -mx-1.5 -my-1 rounded-full"}
     >
-      {copied.value ? <Check /> : <Copy />}
+      {copied.value ? <TbCheck /> : <TbCopy />}
     </button>
   );
 }

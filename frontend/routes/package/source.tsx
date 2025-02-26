@@ -1,31 +1,16 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps, RouteConfig } from "$fresh/server.ts";
-import type {
-  Package,
-  PackageVersionWithUser,
-  SourceDirEntry,
-} from "../../utils/api_types.ts";
-import { ScopeMember } from "../../utils/api_types.ts";
-import { type Source, State } from "../../util.ts";
-import { Head } from "$fresh/src/runtime/head.ts";
+import { HttpError, RouteConfig } from "fresh";
+import type { SourceDirEntry } from "../../utils/api_types.ts";
+import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { Folder } from "../../components/icons/Folder.tsx";
-import { Source as SourceIcon } from "../../components/icons/Source.tsx";
+import { TbFolder, TbSourceCode } from "@preact-icons/tb";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 
-interface Data {
-  package: Package;
-  selectedVersion: PackageVersionWithUser;
-  source: Source | null;
-  member: ScopeMember | null;
-  sourcePath: string;
-}
-
-export default function PackagePage(
-  { data, params, state }: PageProps<Data, State>,
+export default define.page<typeof handler>(function PackagePage(
+  { data, params, state },
 ) {
   const iam = scopeIAM(state, data.member);
 
@@ -34,21 +19,24 @@ export default function PackagePage(
 
   return (
     <div class="mb-20">
-      <Head>
-        <title>
-          @{params.scope}/{params.package} - JSR
-        </title>
-        {data.source?.css && (
-          <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
-        )}
-        <meta
-          name="description"
-          content={`@${params.scope}/${params.package} on JSR${
-            data.package.description ? `: ${data.package.description}` : ""
-          }`}
-        />
-      </Head>
-
+      {data.source && (
+        <>
+          <style
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
+          />
+          <style
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.css }}
+          />
+          <script
+            hidden
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.script }}
+            defer
+          />
+        </>
+      )}
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
@@ -56,6 +44,8 @@ export default function PackagePage(
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -118,6 +108,7 @@ export default function PackagePage(
                     <div class="ddoc">
                       <div
                         class="markdown ddoc-full children:!bg-transparent"
+                        // deno-lint-ignore react-no-danger
                         dangerouslySetInnerHTML={{
                           __html: data.source.source.view,
                         }}
@@ -131,14 +122,14 @@ export default function PackagePage(
       </div>
     </div>
   );
-}
+});
 
 function DirEntry({ entry }: { entry: SourceDirEntry }) {
   return (
     <div class="grow-1 flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
         <div class="text-jsr-gray-500">
-          {entry.kind === "dir" ? <Folder /> : <SourceIcon />}
+          {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}
         </div>
         <div class="text-cyan-700 font-semibold">
           {entry.name}
@@ -160,8 +151,8 @@ function bytesToSize(bytes: number) {
 
 const LINE_COL_REGEX = /(.*):(\d+):(\d+)$/;
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const originalPath = ctx.params.path;
     ctx.params.path = originalPath.replace(LINE_COL_REGEX, "$1#L$2");
     if (originalPath !== ctx.params.path) {
@@ -189,7 +180,12 @@ export const handler: Handlers<Data, State> = {
       ctx.params.version,
       sourcePath,
     );
-    if (res === null) return ctx.renderNotFound();
+    if (res === null) {
+      throw new HttpError(
+        404,
+        "This file or this package version was not found.",
+      );
+    }
 
     const {
       pkg,
@@ -198,17 +194,24 @@ export const handler: Handlers<Data, State> = {
       source,
     } = res;
 
-    return ctx.render({
-      package: pkg,
-      selectedVersion,
-      source,
-      sourcePath,
-      member: scopeMember,
-    }, {
+    ctx.state.meta = {
+      title: `${sourcePath} - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${pkg.scope}/${pkg.name} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    return {
+      data: {
+        package: pkg,
+        selectedVersion,
+        source,
+        sourcePath,
+        member: scopeMember,
+      },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
-    });
+    };
   },
-};
+});
 
 export const config: RouteConfig = {
   routeOverride:

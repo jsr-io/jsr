@@ -1,47 +1,64 @@
 {
-  "lock": false,
   "nodeModulesDir": "auto",
   "tasks": {
     "check": "deno fmt --check && deno lint && deno check **/*.ts && deno check **/*.tsx",
-    "start": "deno run -A --watch=static/,routes/ dev.ts",
+    "dev": "deno run -A --watch=static/,routes/ dev.ts",
     "build": "deno run -A dev.ts build",
-    "preview": "deno run -A main.ts",
-    "update": "deno run -A -r https://fresh.deno.dev/update ."
+    "start": "deno run -A main.ts",
+    "update": "deno run -A -r jsr:@fresh/update ."
   },
   "lint": {
     "rules": {
-      "tags": [
-        "fresh",
-        "recommended"
-      ]
+      "tags": ["fresh", "recommended"]
     }
   },
   "imports": {
-    "$fresh/": "https://deno.land/x/fresh@1.6.6/",
-    "preact": "https://esm.sh/preact@10.19.2",
-    "preact/": "https://esm.sh/preact@10.19.2/",
-    "preact-render-to-string": "https://esm.sh/*preact-render-to-string@6.3.1",
-    "@preact/signals": "https://esm.sh/*@preact/signals@1.2.1",
-    "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.5.0",
-    "$std/": "https://deno.land/std@0.193.0/",
-    "$twas": "https://esm.sh/twas@2.1.3",
-    "$gfm": "jsr:@deno/gfm@0.8",
-    "$oak_commons": "https://deno.land/x/oak_commons@0.3.1/negotiation.ts",
-    "$marked-smartypants": "https://esm.sh/marked-smartypants@1.0.1",
-    "$tabler_icons/": "https://deno.land/x/tabler_icons_tsx@0.0.5/tsx/",
+    "@preact-icons/tb": "jsr:@preact-icons/tb@^1.0.12",
+    "fresh": "jsr:@fresh/core@^2.0.0-alpha.25",
+    "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
+
+    "preact": "npm:preact@^10",
+    "preact-render-to-string": "npm:preact-render-to-string@6.3.1",
+    "@preact/signals": "npm:@preact/signals@1.2.1",
+
+    "@std/path": "jsr:@std/path@1",
+    "@std/http": "jsr:@std/http@1",
+    "@std/front-matter": "jsr:@std/front-matter@1",
+    "@std/semver": "jsr:@std/semver@1",
+
+    "twas": "npm:twas@^2.1.3",
     "$imagescript": "https://deno.land/x/imagescript@1.3.0/mod.ts",
+
+    "@deno/gfm": "jsr:@deno/gfm@0.10",
+    "marked-smartypants": "npm:marked-smartypants@1.1.6",
+    "prismjs": "npm:prismjs@^1.29.0",
+
     "@orama/orama": "npm:@orama/orama@^2",
-    "@orama/highlight": "npm:@orama/highlight@^0.1",
+    "@orama/highlight": "npm:@orama/highlight@^0.1.8",
     "@oramacloud/client": "npm:@oramacloud/client@^1",
+
     "tailwindcss": "npm:tailwindcss@3.4",
-    "postcss": "npm:postcss@8.4"
+    "postcss": "npm:postcss@8.4",
+
+    "@viz-js/viz": "npm:@viz-js/viz@^3.11.0"
   },
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable",
+      "deno.ns"
+    ],
+    "jsx": "precompile",
+    "jsxImportSource": "preact",
+    "jsxPrecompileSkipElements": [
+      "a",
+      "img",
+      "source",
+      "body",
+      "html",
+      "head"
+    ]
   },
-  "exclude": [
-    "_fresh/",
-    "**/_fresh/*"
-  ]
+  "exclude": ["_fresh/", "**/_fresh/*"]
 }

@@ -9,7 +9,8 @@ const output = await (new Deno.Command(Deno.execPath(), {
 })).output();
 
 const docNodes = await doc("asset:types.ts", {
-  async load(specifier) {
+  // deno-lint-ignore require-await
+  async load(specifier: string) {
     return {
       kind: "module",
       specifier,

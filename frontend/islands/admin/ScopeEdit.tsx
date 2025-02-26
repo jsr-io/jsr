@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { FullScope } from "../../utils/api_types.ts";
 import { useState } from "preact/hooks";
-import twas from "$twas";
+import twas from "twas";
 import { api, path } from "../../utils/api.ts";
 import { TableData, TableRow } from "../../components/Table.tsx";
 
@@ -71,13 +71,14 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
           : publishAttemptsPerWeekLimit}
       </TableData>
       <TableData title={new Date(scope.createdAt).toISOString().slice(0, 10)}>
-        {twas(new Date(scope.createdAt))}
+        {twas(new Date(scope.createdAt).getTime())}
       </TableData>
       <TableData align="right">
         {edit
           ? (
             <>
               <button
+                type="button"
                 disabled={processing}
                 onClick={() => {
                   setProcessing(true);
@@ -99,6 +100,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
                 Save<span class="sr-only">, {scope.scope}</span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setEdit(false);
                   setPackageLimit(String(scope.quotas.packageLimit));
@@ -117,6 +119,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
           )
           : (
             <button
+              type="button"
               onClick={() => setEdit(true)}
               class="link"
             >

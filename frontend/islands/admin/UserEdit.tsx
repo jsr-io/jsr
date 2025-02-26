@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useState } from "preact/hooks";
-import twas from "$twas";
+import twas from "twas";
 import { FullUser } from "../../utils/api_types.ts";
 import { api, path } from "../../utils/api.ts";
 import { TableData, TableRow } from "../../components/Table.tsx";
@@ -68,13 +68,14 @@ export default function UserEdit({ user }: { user: FullUser }) {
           : String(isBlocked)}
       </TableData>
       <TableData title={new Date(user.createdAt).toISOString().slice(0, 10)}>
-        {twas(new Date(user.createdAt))}
+        {twas(new Date(user.createdAt).getTime())}
       </TableData>
       <TableData class="relative whitespace-nowrap space-x-3 py-4 pl-3 pr-4 text-right text-sm font-semibold sm:pr-6">
         {edit
           ? (
             <>
               <button
+                type="button"
                 disabled={processing}
                 onClick={() => {
                   setProcessing(true);
@@ -96,6 +97,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setEdit(false);
                   setIsStaff(user.isStaff);
@@ -110,6 +112,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
           )
           : (
             <button
+              type="button"
               onClick={() => setEdit(true)}
               class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
             >

@@ -1,29 +1,17 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
 import { useSignal } from "@preact/signals";
-import IconFolder from "$tabler_icons/folder.tsx";
-import IconPackage from "$tabler_icons/package.tsx";
+import { TbBrandGithub, TbFolder, TbPackage } from "@preact-icons/tb";
 import {
   CreatePackage,
   IconCircle,
   PackageName,
   ScopeSelect,
 } from "../islands/new.tsx";
-import { State } from "../util.ts";
 import { Package, Scope } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
-import { Head } from "$fresh/runtime.ts";
-import { GitHub } from "../components/icons/GitHub.tsx";
+import { define } from "../util.ts";
 
-interface Data {
-  scopes: string[];
-  scope: string;
-  initialScope?: string;
-  newPackage?: string;
-  fromCli: boolean;
-}
-
-export default function New(props: PageProps<Data, State>) {
+export default define.page<typeof handler>(function New(props) {
   const scope = useSignal(props.data.scope);
   const name = useSignal(props.data.newPackage ?? "");
   const pkg = useSignal<Package | null | undefined>(undefined);
@@ -32,15 +20,6 @@ export default function New(props: PageProps<Data, State>) {
 
   return (
     <>
-      <Head>
-        <title>
-          Publish a package - JSR
-        </title>
-        <meta
-          name="description"
-          content="Create a package to publish on JSR."
-        />
-      </Head>
       <div class="flex flex-col md:grid md:grid-cols-2 gap-12">
         <div class="w-full space-y-4 flex-shrink-0">
           <h1 class="mb-8 font-bold text-3xl leading-none">
@@ -61,7 +40,7 @@ export default function New(props: PageProps<Data, State>) {
         <div class="space-y-8">
           <div class="flex items-start gap-4">
             <IconCircle done={scope}>
-              <IconFolder class="h-5 w-5" />
+              <TbFolder class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Scope</h2>
@@ -89,7 +68,7 @@ export default function New(props: PageProps<Data, State>) {
                       href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
                       class="button-primary"
                     >
-                      <GitHub /> Sign in with GitHub
+                      <TbBrandGithub /> Sign in with GitHub
                     </a>
                   </div>
                 )}
@@ -97,7 +76,7 @@ export default function New(props: PageProps<Data, State>) {
           </div>
           <div class="flex items-start gap-4">
             <IconCircle done={name}>
-              <IconPackage class="h-5 w-5" />
+              <TbPackage class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Package name</h2>
@@ -123,17 +102,20 @@ export default function New(props: PageProps<Data, State>) {
       </div>
     </>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_req, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     let newPackage = undefined;
-    const scopesResp =
-      await (ctx.state.api.hasToken()
-        ? ctx.state.api.get<Scope[]>(path`/user/scopes`)
-        : Promise.resolve(null));
-    if (scopesResp && !scopesResp.ok) throw scopesResp; // gracefully handle this
-    const scopes = scopesResp?.data.map((scope) => scope.scope) ?? [];
+    const scopesResp = await (ctx.state.api.hasToken()
+      ? ctx.state.api.get<Scope[]>(path`/user/scopes`)
+      : Promise.resolve(null));
+    if (scopesResp && !scopesResp.ok) {
+      throw scopesResp; // gracefully handle this
+    }
+    const scopes = scopesResp?.data.map((scope) =>
+      scope.scope
+    ) ?? [];
     let scope = "";
     let initialScope;
     if (ctx.url.searchParams.has("scope")) {
@@ -147,12 +129,20 @@ export const handler: Handlers<Data, State> = {
       newPackage = ctx.url.searchParams.get("package")!;
     }
     const fromCli = ctx.url.searchParams.get("from") == "cli";
-    return ctx.render({
-      scopes,
-      scope,
-      initialScope,
-      newPackage,
-      fromCli,
-    });
+
+    ctx.state.meta = {
+      title: "Publish a package - JSR",
+      description: "Create a package to publish on JSR.",
+    };
+
+    return {
+      data: {
+        scopes,
+        scope,
+        initialScope,
+        newPackage,
+        fromCli,
+      },
+    };
   },
-};
+});

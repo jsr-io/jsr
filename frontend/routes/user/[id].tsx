@@ -1,26 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { State } from "../../util.ts";
+import { HttpError } from "fresh";
+import { define } from "../../util.ts";
 import { path } from "../../utils/api.ts";
 import { FullUser, Scope, User } from "../../utils/api_types.ts";
 import { ListPanel } from "../../components/ListPanel.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
-import { Head } from "$fresh/runtime.ts";
 
-interface Data {
-  user: User | FullUser;
-  scopes: Scope[];
-}
-
-export default function UserPage({ data, state }: PageProps<Data, State>) {
+export default define.page<typeof handler>(function UserPage({ data, state }) {
   return (
     <AccountLayout user={data.user} active="Profile">
-      <Head>
-        <title>
-          {data.user.name} - JSR
-        </title>
-        <meta property="og:image" content="/images/og-image.webp" />
-      </Head>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.scopes.length > 0
           ? (
@@ -29,6 +17,7 @@ export default function UserPage({ data, state }: PageProps<Data, State>) {
               subtitle={state.user?.id === data.user.id
                 ? "Scopes you are a member of."
                 : "Scopes this user belongs to."}
+              // deno-lint-ignore jsx-no-children-prop
               children={data.scopes.map((scope) => ({
                 value: `@${scope.scope}`,
                 href: `/@${scope.scope}`,
@@ -54,10 +43,10 @@ export default function UserPage({ data, state }: PageProps<Data, State>) {
       </div>
     </AccountLayout>
   );
-}
+});
 
-export const handler: Handlers<Data, State> = {
-  async GET(_, ctx) {
+export const handler = define.handlers({
+  async GET(ctx) {
     const [currentUser, userRes, scopesRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<User>(path`/users/${ctx.params.id}`),
@@ -66,7 +55,10 @@ export const handler: Handlers<Data, State> = {
     if (currentUser instanceof Response) return currentUser;
 
     if (!userRes.ok) {
-      if (userRes.code == "userNotFound") return ctx.renderNotFound();
+      if (userRes.code == "userNotFound") {
+        throw new HttpError(404, "This user was not found.");
+      }
+
       throw userRes; // gracefully handle errors
     }
     if (!scopesRes.ok) throw scopesRes; // gracefully handle errors
@@ -76,9 +68,14 @@ export const handler: Handlers<Data, State> = {
       user = currentUser;
     }
 
-    return ctx.render({
-      user,
-      scopes: scopesRes.data,
-    });
+    ctx.state.meta = {
+      title: `${user.name} - JSR`,
+    };
+    return {
+      data: {
+        user,
+        scopes: scopesRes.data,
+      },
+    };
   },
-};
+});

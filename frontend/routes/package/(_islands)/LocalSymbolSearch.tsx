@@ -2,7 +2,7 @@
 import { JSX } from "preact";
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { IS_BROWSER } from "$fresh/runtime.ts";
+import { IS_BROWSER } from "fresh/runtime";
 import {
   components,
   create,
@@ -48,6 +48,10 @@ async function createOrama(): Promise<Orama<any>> {
         ) {
           if (prop === "name") {
             const tokens = raw.split(/(?=[A-Z])/).map((s) => s.toLowerCase());
+            tokens.forEach((token, index) =>
+              tokens[index + 1] &&
+              tokens.push(token + tokens[index + 1])
+            );
             tokens.push(raw.toLowerCase());
             return tokens;
           }

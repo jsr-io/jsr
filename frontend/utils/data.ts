@@ -23,6 +23,7 @@ export async function packageData(
       ? state.api.get<ScopeMember>(path`/user/member/${scope}`)
       : Promise.resolve(null),
   ]);
+
   if (!pkgResp.ok) {
     if (pkgResp.code === "scopeNotFound") return null;
     if (pkgResp.code === "packageNotFound") return null;
@@ -134,6 +135,7 @@ export async function packageDataWithDocs(
       selectedVersionIsLatestUnyanked: !version,
       docs: {
         css: pkgDocsResp.data.css,
+        comrakCss: pkgDocsResp.data.comrakCss,
         script: pkgDocsResp.data.script,
         breadcrumbs: pkgDocsResp.data.breadcrumbs,
         toc: pkgDocsResp.data.toc,
@@ -188,6 +190,8 @@ export async function packageDataWithSource(
     source: pkgSourceResp
       ? ({
         css: pkgSourceResp.data.css,
+        comrakCss: pkgSourceResp.data.comrakCss,
+        script: pkgSourceResp.data.script,
         source: pkgSourceResp.data.source,
       } satisfies Source)
       : null,

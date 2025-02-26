@@ -8,7 +8,7 @@ import {
 import { Package, Scope } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
-import twas from "$twas";
+import twas from "twas";
 
 interface IconColorProps {
   done: Signal<unknown>;
@@ -87,9 +87,10 @@ export function ScopeSelect(
           locked={locked}
         />
         {!locked && (
-          <p>
+          <p class="mt-2">
             or{" "}
             <button
+              type="button"
               class="inline link"
               onClick={() => explicitCreateScope.value = false}
             >
@@ -102,6 +103,12 @@ export function ScopeSelect(
           more scope{scopesLeft !== 1 && "s"}.{" "}
           <a href="/account/settings" class="link">View quotas</a> or{" "}
           <a href="/account" class="link">manage your scopes</a>.
+        </p>
+        <p class="text-jsr-gray-700 text-sm">
+          Before creating a new scope, please read the{" "}
+          <a href="/docs/usage-policy#scope-names" class="link">
+            scope naming policy
+          </a>.
         </p>
       </>
     );
@@ -119,13 +126,16 @@ export function ScopeSelect(
         <option value="" disabled selected class="hidden text-jsr-gray-100">
           ---
         </option>
-        {scopes.value.map((scope) => <option value={scope}>{scope}</option>)}
+        {scopes.value.map((scope, idx) => (
+          <option key={idx} value={scope}>{scope}</option>
+        ))}
       </select>
 
       {!locked && (
         <p class="text-jsr-gray-500">
           or{" "}
           <button
+            type="button"
             class="inline link mt-2"
             onClick={() => {
               explicitCreateScope.value = true;
@@ -182,7 +192,7 @@ function CreateScope(
 
   return (
     <>
-      <form class="flex flex-wrap gap-4 items-center" onSubmit={onSubmit}>
+      <form class="flex flex-wrap gap-4 items-center mb-2" onSubmit={onSubmit}>
         <label class="flex items-center w-full md:w-full input-container pl-4 py-[2px] pr-[2px]">
           <span>@</span>
           <input
@@ -205,7 +215,7 @@ function CreateScope(
             }}
           />
         </label>
-        <button class="button-primary">Create</button>
+        <button type="submit" class="button-primary">Create</button>
       </form>
       {newScope.value.includes("_")
         ? (
@@ -213,6 +223,7 @@ function CreateScope(
             Scope names can not contain _, use - instead.{" "}
             {!props.locked && (
               <button
+                type="button"
                 class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   newScope.value = newScope.value.replace(/_/g, "-");
@@ -243,8 +254,8 @@ export function PackageName(
     if (name.value.startsWith("@")) {
       return "Enter only the package name, do not include the scope.";
     }
-    if (name.value.length > 32) {
-      return "Package name cannot be longer than 32 characters.";
+    if (name.value.length > 58) {
+      return "Package name cannot be longer than 58 characters.";
     }
     if (!/^[a-z0-9\-]+$/.test(name.value)) {
       return "Package name can only contain lowercase letters, numbers, and hyphens.";
@@ -320,6 +331,7 @@ export function PackageName(
           <p class="text-sm text-jsr-yellow-600">
             Package names can not contain _, use - instead. {!locked && (
               <button
+                type="button"
                 class="text-jsr-cyan-700 hover:underline hover:text-blue-400"
                 onClick={() => {
                   name.value = name.value.replace(/_/g, "-");
@@ -369,6 +381,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
             </div>
             <div>
               <button
+                type="button"
                 class="button-primary"
                 onClick={async () => {
                   error.value = "";
@@ -406,7 +419,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
               <p class="text-jsr-gray-500">
-                Created {twas(new Date(pkg.value.createdAt))}.
+                Created {twas(new Date(pkg.value.createdAt).getTime())}.
               </p>
               {fromCli && (
                 <p class="mt-2 text-jsr-gray-500">

@@ -1,9 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { asset, Head } from "$fresh/runtime.ts";
+import { asset } from "fresh/runtime";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { HomepageHeroParticles } from "../islands/HomepageHeroParticles.tsx";
 import { AnimatedLogo } from "./AnimatedLogo.tsx";
-import { Plus } from "./icons/Plus.tsx";
+import TbPlus from "@preact-icons/tb/TbPlus";
 
 const canvasStyle = /*css*/ `.particles-js-canvas-el {
 	position: absolute;
@@ -28,11 +28,9 @@ export function HomepageHero(
       class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white before:bottom-0 before:z-10 before:pointer-events-none"
       id="particles-js"
     >
-      <HomepageHeroParticles />
-      <Head>
-        <script src={asset("/scripts/particles.js")} defer></script>
-      </Head>
+      <script src={asset("/scripts/particles.js")} defer></script>
       <style>{canvasStyle}</style>
+      <HomepageHeroParticles />
       <div class="section-x-inset-xl flex flex-col items-center justify-center gap-12 relative pointer-events-none">
         <div class="text-center">
           <h1 class="relative z-10 flex flex-col items-center gap-6 lg:gap-8">
@@ -60,13 +58,20 @@ export function HomepageHero(
             <a class="underline text-sm relative z-10" href="#why-jsr">
               Why JSR?
             </a>
+            <span class="w-px h-[1em] bg-jsr-cyan-200"></span>
+            <a
+              class="underline text-sm relative z-10"
+              href="https://discord.gg/hMqvhAn9xG"
+            >
+              Discord
+            </a>
           </div>
         </div>
         <div class="w-full md:w-3/4 relative z-20">
           <GlobalSearch
             apiKey={apiKey}
             indexId={indexId}
-            jumbo={true}
+            jumbo
           />
         </div>
         <div class="flex flex-col items-center gap-4">
@@ -74,7 +79,7 @@ export function HomepageHero(
             class="button-primary relative z-10 pointer-events-auto"
             href="/new"
           >
-            <Plus /> Publish a package
+            <TbPlus class="size-5" /> Publish a package
           </a>
         </div>
       </div>

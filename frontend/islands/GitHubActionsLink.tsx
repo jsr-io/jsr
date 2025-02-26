@@ -51,10 +51,10 @@ export function GitHubActionsLink(
           owner={owner}
           repo={repo}
           error={error}
-          required={true}
+          required
           disabled={linking}
         />
-        <button class="button-primary" disabled={linking}>
+        <button type="submit" class="button-primary" disabled={linking}>
           {linking.value ? "Linking..." : "Link"}
         </button>
       </form>

@@ -13,7 +13,7 @@ by an author to the JSR site. Scopes are similar to npm organizations or GitHub
 accounts. [Learn more about scopes.](/docs/scopes)
 
 Packages have a name. Package names are unique within a scope - no two packages
-in the same scope can have the same name. Package names must be between 2 and 20
+in the same scope can have the same name. Package names must be between 2 and 58
 characters long, and can only contain lowercase letters, numbers, and hyphens.
 They cannot start with a hyphen.
 
@@ -86,7 +86,7 @@ A package can be deleted from the "Settings" tab on the package page. Only scope
 admins can delete a package.
 
 Packages can only be deleted if they have no published versions. If a package
-has published versions, it can not be deleted.
+has published versions, it cannot be deleted.
 [Learn more about registry immutability.](/docs/immutability)
 
 When you have a package that you no longer want to maintain, we recommend
@@ -118,7 +118,7 @@ file before running `jsr publish` or `deno publish`.
 
 ### Yanking versions
 
-Package versions can not be deleted. However, sometimes you may want to prevent
+Package versions cannot be deleted. However, sometimes you may want to prevent
 users from using a specific version of your package, for example because it
 contains a critical bug. In this case you can "yank" the version.
 

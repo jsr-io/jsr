@@ -14,14 +14,16 @@ use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
 use deno_doc::DocNodeKind;
+use deno_error::JsErrorBox;
 use deno_graph::source::load_data_url;
 use deno_graph::source::JsrUrlProvider;
+use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
 use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::DefaultModuleParser;
+use deno_graph::DefaultEsParser;
 use deno_graph::GraphKind;
 use deno_graph::ModuleGraph;
 use deno_graph::ModuleInfo;
@@ -32,6 +34,7 @@ use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageNv;
 use deno_semver::package::PackageReqReference;
+use deno_semver::StackString;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 use regex::bytes::Regex as BytesRegex;
@@ -133,7 +136,7 @@ async fn analyze_package_inner(
 
   let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
-    name: format!("@{}/{}", scope, name),
+    name: StackString::from_string(format!("@{}/{}", scope, name)),
     version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
   };
@@ -168,7 +171,7 @@ async fn analyze_package_inner(
     fast_check_cache: None,
     fast_check_dts: true,
     jsr_url_provider: &PassthroughJsrUrlProvider,
-    module_parser: Some(&module_analyzer.analyzer),
+    es_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
     npm_resolver: Default::default(),
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
@@ -186,6 +189,7 @@ async fn analyze_package_inner(
       .analyzer
       .get_parsed_source(module.specifier())
     {
+      check_for_banned_extensions(&parsed_source)?;
       check_for_banned_syntax(&parsed_source)?;
       check_for_banned_triple_slash_directives(&parsed_source)?;
     }
@@ -209,7 +213,6 @@ async fn analyze_package_inner(
       .map_err(PublishError::DocError)?;
 
   let module_graph_2 = module_analyzer.take_module_graph_2();
-
   let npm_tarball = create_npm_tarball(NpmTarballOptions {
     graph: &graph,
     analyzer: &module_analyzer.analyzer,
@@ -420,7 +423,7 @@ impl deno_graph::source::Resolver for JsrResolver {
     &self,
     specifier_text: &str,
     referrer_range: &deno_graph::Range,
-    _mode: deno_graph::source::ResolutionMode,
+    _kind: deno_graph::source::ResolutionKind,
   ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
     if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text) {
       if self.member.name == package_ref.req().name
@@ -434,11 +437,10 @@ impl deno_graph::source::Resolver for JsrResolver {
         let export_name = package_ref.sub_path().unwrap_or(".");
         let Some(export) = self.member.exports.get(export_name) else {
           return Err(deno_graph::source::ResolveError::Other(
-            anyhow::anyhow!(
+            JsErrorBox::generic(format!(
               "export '{}' not found in jsr:{}",
-              export_name,
-              self.member.name
-            ),
+              export_name, self.member.name
+            )),
           ));
         };
         return Ok(self.member.base.join(export).unwrap());
@@ -456,7 +458,7 @@ struct SyncLoader<'a> {
   files: &'a HashMap<PackagePath, Vec<u8>>,
 }
 
-impl<'a> SyncLoader<'a> {
+impl SyncLoader<'_> {
   fn load_sync(
     &self,
     specifier: &ModuleSpecifier,
@@ -480,13 +482,14 @@ impl<'a> SyncLoader<'a> {
           specifier: specifier.clone(),
         }))
       }
-      "data" => load_data_url(specifier),
+      "data" => load_data_url(specifier)
+        .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e)))),
       _ => Ok(None),
     }
   }
 }
 
-impl<'a> deno_graph::source::Loader for SyncLoader<'a> {
+impl deno_graph::source::Loader for SyncLoader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
@@ -559,7 +562,7 @@ async fn rebuild_npm_tarball_inner(
   let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
   let workspace_member = WorkspaceMember {
     base: Url::parse("file:///").unwrap(),
-    name: format!("@{}/{}", scope, name),
+    name: StackString::from_string(format!("@{}/{}", scope, name)),
     version: Some(version.0.clone()),
     exports: exports.clone().into_inner(),
   };
@@ -597,7 +600,7 @@ async fn rebuild_npm_tarball_inner(
     fast_check_cache: Default::default(),
     fast_check_dts: true,
     jsr_url_provider: &PassthroughJsrUrlProvider,
-    module_parser: Some(&module_analyzer.analyzer),
+    es_parser: Some(&module_analyzer.analyzer),
     resolver: None,
     npm_resolver: None,
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
@@ -630,7 +633,7 @@ struct GcsLoader<'a> {
   version: &'a Version,
 }
 
-impl<'a> GcsLoader<'a> {
+impl GcsLoader<'_> {
   fn load_inner(
     &self,
     specifier: &ModuleSpecifier,
@@ -648,7 +651,11 @@ impl<'a> GcsLoader<'a> {
           gcs_paths::file_path(self.scope, self.name, self.version, &path);
         let bucket = self.bucket.clone();
         async move {
-          let Some(bytes) = bucket.download(gcs_path.into()).await? else {
+          let Some(bytes) = bucket
+            .download(gcs_path.into())
+            .await
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
+          else {
             return Ok(None);
           };
           Ok(Some(deno_graph::source::LoadResponse::Module {
@@ -665,13 +672,17 @@ impl<'a> GcsLoader<'a> {
         }))
       }
       .boxed(),
-      "data" => async move { load_data_url(&specifier) }.boxed(),
+      "data" => async move {
+        load_data_url(&specifier)
+          .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))
+      }
+      .boxed(),
       _ => async move { Ok(None) }.boxed(),
     }
   }
 }
 
-impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
+impl deno_graph::source::Loader for GcsLoader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,
@@ -682,14 +693,14 @@ impl<'a> deno_graph::source::Loader for GcsLoader<'a> {
 }
 
 #[derive(Default)]
-pub struct ModuleParser(DefaultModuleParser);
+pub struct ModuleParser(DefaultEsParser);
 
-impl deno_graph::ModuleParser for ModuleParser {
-  fn parse_module(
+impl deno_graph::EsParser for ModuleParser {
+  fn parse_program(
     &self,
     options: deno_graph::ParseOptions,
   ) -> Result<ParsedSource, deno_ast::ParseDiagnostic> {
-    let source = self.0.parse_module(options)?;
+    let source = self.0.parse_program(options)?;
     if let Some(err) = source.diagnostics().first() {
       return Err(err.clone());
     }
@@ -804,6 +815,21 @@ fn collect_dependencies(
   Ok(dependencies)
 }
 
+fn check_for_banned_extensions(
+  parsed_source: &ParsedSource,
+) -> Result<(), PublishError> {
+  match parsed_source.media_type() {
+    deno_ast::MediaType::Cjs | deno_ast::MediaType::Cts => {
+      Err(PublishError::CommonJs {
+        specifier: parsed_source.specifier().to_string(),
+        line: 0,
+        column: 0,
+      })
+    }
+    _ => Ok(()),
+  }
+}
+
 fn check_for_banned_syntax(
   parsed_source: &ParsedSource,
 ) -> Result<(), PublishError> {
@@ -819,9 +845,9 @@ fn check_for_banned_syntax(
     (line_number, column_number)
   };
 
-  for i in parsed_source.module().body.iter() {
+  for i in parsed_source.program_ref().body() {
     match i {
-      ast::ModuleItem::ModuleDecl(n) => match n {
+      deno_ast::ModuleItemRef::ModuleDecl(n) => match n {
         ast::ModuleDecl::TsNamespaceExport(n) => {
           let (line, column) = line_col(&n.range());
           return Err(PublishError::GlobalTypeAugmentation {
@@ -896,7 +922,7 @@ fn check_for_banned_syntax(
         }
         _ => continue,
       },
-      ast::ModuleItem::Stmt(n) => match n {
+      deno_ast::ModuleItemRef::Stmt(n) => match n {
         ast::Stmt::Decl(ast::Decl::TsModule(n)) => {
           if n.global {
             let (line, column) = line_col(&n.range());
@@ -959,8 +985,15 @@ fn check_for_banned_triple_slash_directives(
 #[cfg(test)]
 mod tests {
   fn parse(source: &str) -> deno_ast::ParsedSource {
-    let specifier = deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap();
     let media_type = deno_ast::MediaType::TypeScript;
+    parse_with_media_type(source, media_type)
+  }
+
+  fn parse_with_media_type(
+    source: &str,
+    media_type: deno_ast::MediaType,
+  ) -> deno_ast::ParsedSource {
+    let specifier = deno_ast::ModuleSpecifier::parse("file:///mod.ts").unwrap();
     deno_ast::parse_module(deno_ast::ParseParams {
       specifier,
       text: source.into(),
@@ -970,6 +1003,27 @@ mod tests {
       maybe_syntax: None,
     })
     .unwrap()
+  }
+
+  #[test]
+  fn banned_extensions() {
+    let x =
+      parse_with_media_type("let x = 1;", deno_ast::MediaType::TypeScript);
+    assert!(super::check_for_banned_extensions(&x).is_ok());
+
+    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cjs);
+    let err = super::check_for_banned_extensions(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::CommonJs { .. }),
+      "{err:?}",
+    );
+
+    let x = parse_with_media_type("let x = 1;", deno_ast::MediaType::Cts);
+    let err = super::check_for_banned_extensions(&x).unwrap_err();
+    assert!(
+      matches!(err, super::PublishError::CommonJs { .. }),
+      "{err:?}",
+    );
   }
 
   #[test]
