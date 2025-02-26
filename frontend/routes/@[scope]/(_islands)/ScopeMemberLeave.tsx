@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import TbAB from "@preact-icons/tb/TbArrowRightFromArc";
+import TbArrowRightFromArc from "@preact-icons/tb/TbArrowRightFromArc";
 import { useSignal } from "@preact/signals";
 
 export function ScopeMemberLeave({
@@ -45,11 +45,8 @@ export function ScopeMemberLeave({
           </p>
         </div>
       )}
-      {!isLastAdmin && (
-        <div class="mt-4">
-          <label class="block text-sm font-medium text-gray-700">
-            Enter scope name to confirm:
-          </label>
+      <div class="mt-4 flex justify-between gap-4">
+        {!isLastAdmin && (
           <input
             type="text"
             class="inline-block w-full max-w-sm px-3 input-container text-sm input"
@@ -60,18 +57,18 @@ export function ScopeMemberLeave({
             }}
             placeholder="Scope name"
           />
-        </div>
-      )}
-      <button
-        class="button-danger mt-6"
-        type="submit"
-        name="action"
-        value="deleteMember"
-        disabled={error.value}
-      >
-        Leave
-        <TbAB class="size-5 ml-2 rotate-180" />
-      </button>
+        )}
+        <button
+          class="button-danger"
+          type="submit"
+          name="action"
+          value="deleteMember"
+          disabled={error.value}
+        >
+          Leave
+          <TbArrowRightFromArc class="size-5 ml-2 rotate-180" />
+        </button>
+      </div>
     </form>
   );
 }
