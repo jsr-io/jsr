@@ -41,7 +41,8 @@ function QuotaUsage(props: { limit: number; usage: number }) {
       >
         <div
           style={{ width: `${percent * 100}%` }}
-          class={`h-full ${bgColor}`}
+          // We deduplicate ring classes here to avoid whitespace between "bar" and "ring"
+          class={`h-full ${bgColor} ring-1 ${ringColor}`}
         >
         </div>
       </div>
