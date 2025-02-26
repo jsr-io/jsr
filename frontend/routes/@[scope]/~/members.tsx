@@ -120,6 +120,7 @@ export function MemberItem(props: MemberItemProps) {
             <form method="POST" class="contents">
               <input type="hidden" name="userId" value={member.user.id} />
               <button
+                type="submit"
                 class="hover:underline disabled:text-jsr-gray-300 disabled:cursor-not-allowed hover:text-red-600 motion-safe:transition-colors"
                 name="action"
                 value="deleteMember"
@@ -166,6 +167,7 @@ export function InviteItem(props: InviteItemProps) {
             <form method="POST" class="contents">
               <input type="hidden" name="userId" value={invite.targetUser.id} />
               <button
+                type="submit"
                 class="hover:underline"
                 title="Delete invite"
                 name="action"

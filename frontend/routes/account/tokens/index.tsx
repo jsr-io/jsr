@@ -27,7 +27,9 @@ export default define.page<typeof handler>(function AccountTokensPage({
         {personal.length > 0
           ? (
             <ul class="max-w-2xl divide-slate-200 divide-y border-t border-b border-slate-200 mt-4">
-              {personal.map((token) => <PersonalTokenRow token={token} />)}
+              {personal.map((token, idx) => (
+                <PersonalTokenRow key={idx} token={token} />
+              ))}
               <li class="py-2">
                 <a
                   href="/account/tokens/create"
@@ -64,7 +66,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
         </p>
 
         <ul class="max-w-2xl divide-slate-200 divide-y border-t border-b border-slate-200 mt-4">
-          {sessions.map((token) => <SessionRow token={token} />)}
+          {sessions.map((token, idx) => <SessionRow key={idx} token={token} />)}
         </ul>
 
         <p class="text-jsr-gray-600 text-sm mt-4">

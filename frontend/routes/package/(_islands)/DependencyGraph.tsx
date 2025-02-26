@@ -367,6 +367,7 @@ interface GraphControlButtonProps {
 function GraphControlButton(props: GraphControlButtonProps) {
   return (
     <button
+      type="button"
       aria-label={props.title}
       class={`${props.class} bg-white text-jsr-gray-700 p-1.5 ring-1 ring-jsr-gray-700 rounded-full sm:rounded hover:bg-jsr-gray-100/30"`}
       onClick={props.onClick}

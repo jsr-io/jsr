@@ -42,7 +42,9 @@ export function DevelopmentLogin() {
 
   return (
     <>
-      <button class="button-primary" onClick={onClick}>Authenticate</button>
+      <button type="button" class="button-primary" onClick={onClick}>
+        Authenticate
+      </button>
       {waitingForAuth.value && <p>Waiting for authentication...</p>}
     </>
   );

@@ -37,7 +37,10 @@ export default function ApiReference() {
         <title>JSR API Reference</title>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style dangerouslySetInnerHTML={{ __html: style }} />
+        <style
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: style }}
+        />
       </head>
       <body>
         <div id="loading">The API reference is loading...</div>

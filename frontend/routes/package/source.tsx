@@ -21,10 +21,17 @@ export default define.page<typeof handler>(function PackagePage(
     <div class="mb-20">
       {data.source && (
         <>
-          <style dangerouslySetInnerHTML={{ __html: data.source.comrakCss }} />
-          <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
+          <style
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
+          />
+          <style
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.css }}
+          />
           <script
             hidden
+            // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: data.source.script }}
             defer
           />
@@ -37,6 +44,8 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -99,6 +108,7 @@ export default define.page<typeof handler>(function PackagePage(
                     <div class="ddoc">
                       <div
                         class="markdown ddoc-full children:!bg-transparent"
+                        // deno-lint-ignore react-no-danger
                         dangerouslySetInnerHTML={{
                           __html: data.source.source.view,
                         }}

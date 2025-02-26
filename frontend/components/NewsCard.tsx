@@ -19,7 +19,7 @@ export function NewsCard({
       >
         <img
           src={image}
-          crossOrigin={"anonymous"}
+          crossOrigin="anonymous"
           alt=""
           class="w-full h-48 object-cover border-b-1.5 border-jsr-cyan-950 group-hover:border-jsr-cyan-400 group-focus-within:border-jsr-cyan-400 transition-colors duration-150"
         />

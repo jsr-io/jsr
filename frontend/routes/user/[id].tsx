@@ -17,6 +17,7 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
               subtitle={state.user?.id === data.user.id
                 ? "Scopes you are a member of."
                 : "Scopes this user belongs to."}
+              // deno-lint-ignore jsx-no-children-prop
               children={data.scopes.map((scope) => ({
                 value: `@${scope.scope}`,
                 href: `/@${scope.scope}`,

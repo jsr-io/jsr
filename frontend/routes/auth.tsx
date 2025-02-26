@@ -57,7 +57,7 @@ export default define.page<typeof handler>(function AuthPage({ data }) {
         <PublishPackageList permissions={publishPermissions} />
         {data.authorization.permissions?.filter((perm) =>
           perm.permission !== "package/publish" && !("version" in perm)
-        ).map((perm) => <PermissionTile permission={perm} />)}
+        ).map((perm, idx) => <PermissionTile key={idx} permission={perm} />)}
       </div>
       <p class="mt-8">Only grant authorization to applications you trust.</p>
       <Authorize code={data.code} authorizedVersions={packageNames} />

@@ -26,6 +26,7 @@ export function CopyButton(props: CopyButtonProps) {
 
   return (
     <button
+      type="button"
       onClick={copy}
       title={props.title}
       class={(copied.value ? "text-green-700" : "text-jsr-gray-700") +
