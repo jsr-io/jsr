@@ -182,33 +182,6 @@ export { greet } from "@luca/greet";
 export { join } from "@std/path";
 ```
 
-### Peer dependencies
-
-In JSR, there is no need to specify peer dependencies separately from regular
-dependencies. In JSR, dependencies are not per package — they are traced per
-file. For example: a package that has both an entrypoint for `react`, and one
-for `vue`, a user importing the `@foo/bar/react` entrypoint will not have to
-download the `vue` dependency. This is because the `vue` dependency is only
-needed for the `@foo/bar/vue` entrypoint.
-
-When using `deno.json` to specify dependencies, you can just specify peer
-dependencies as regular dependencies. You should specify a wide range of
-versions for peer dependencies to ensure that you do not cause duplicate copies
-of the same dependency to be downloaded.
-
-```json
-// deno.json
-{
-  "name": "@luca/greet",
-  "version": "1.0.0",
-  "exports": "./mod.ts",
-  "dependencies": {
-    "react": "npm:react@18",
-    "vue": "npm:vue@*"
-  }
-}
-```
-
 ### Preventing slow types
 
 When writing TypeScript, you should ensure that your code does not use "slow
