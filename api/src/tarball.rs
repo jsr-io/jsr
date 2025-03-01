@@ -689,7 +689,7 @@ impl PublishError {
 fn from_tarball_io_error(err: io::Error) -> PublishError {
   match err.downcast::<reqwest::Error>() {
     Ok(err) => {
-      return PublishError::GcsDownloadError(GcsError::Reqwest(err));
+      PublishError::GcsDownloadError(GcsError::Reqwest(err))
     }
     Err(err) => PublishError::InvalidTarball(err),
   }
