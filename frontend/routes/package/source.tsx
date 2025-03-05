@@ -8,6 +8,7 @@ import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { TbFolder, TbSourceCode } from "@preact-icons/tb";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
+import { format as formatBytes } from "@std/fmt/bytes";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
@@ -136,17 +137,10 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
         </div>
       </div>
       <div class="text-sm text-jsr-gray-600">
-        {bytesToSize(entry.size)}
+        {formatBytes(entry.size, { maximumFractionDigits: 0 }).toUpperCase()}
       </div>
     </div>
   );
-}
-
-function bytesToSize(bytes: number) {
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  if (bytes == 0) return "0 B";
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(0) + " " + sizes[i];
 }
 
 const LINE_COL_REGEX = /(.*):(\d+):(\d+)$/;
