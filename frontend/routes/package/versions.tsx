@@ -17,7 +17,7 @@ import {
   TbCheck,
   TbClockHour3,
   TbTrashX,
-} from "@preact-icons/tb";
+} from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(function Versions({

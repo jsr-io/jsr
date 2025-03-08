@@ -11,7 +11,7 @@ import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
-import { TbAlertCircle, TbCheck, TbClockHour3 } from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
 import { scopeIAM } from "../utils/iam.ts";
 
 export default define.page<typeof handler>(function PackageListPage({

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "preact/hooks";
 import { Signal, useComputed, useSignal } from "@preact/signals";
 import { IS_BROWSER } from "fresh/runtime";
 import { CopyButton } from "../../../../islands/CopyButton.tsx";
-import TbChevronLeft from "@preact-icons/tb/TbChevronLeft";
+import TbChevronLeft from "tb-icons/TbChevronLeft";
 import { api, APIResponseError, path } from "../../../../utils/api.ts";
 import { CreatedToken, Permission } from "../../../../utils/api_types.ts";
 import { ErrorDisplay } from "../../../../components/ErrorDisplay.tsx";

@@ -3,7 +3,7 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 

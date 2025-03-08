@@ -7,7 +7,7 @@ import {
   TbPlus,
   TbUser,
   TbUserCog,
-} from "@preact-icons/tb";
+} from "tb-icons";
 
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
