@@ -1,13 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import {
-  TbArrowRight,
-  TbLogout,
-  TbPlus,
-  TbUser,
-  TbUserCog,
-} from "tb-icons";
+import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
 
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
