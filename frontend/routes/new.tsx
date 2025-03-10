@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import { TbBrandGithub, TbFolder, TbPackage } from "@preact-icons/tb";
+import { TbBrandGithub, TbFolder, TbPackage } from "tb-icons";
 import {
   CreatePackage,
   IconCircle,

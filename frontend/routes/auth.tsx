@@ -10,7 +10,7 @@ import type {
   Permission,
   PermissionPackagePublishVersion,
 } from "../utils/api_types.ts";
-import TbChevronRight from "@preact-icons/tb/TbChevronRight";
+import TbChevronRight from "tb-icons/TbChevronRight";
 
 export default define.page<typeof handler>(function AuthPage({ data }) {
   if (data.code === "" || data.authorization === null) {

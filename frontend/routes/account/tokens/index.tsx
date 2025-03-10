@@ -7,7 +7,7 @@ import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
 import twas from "twas";
 import { RevokeToken } from "./(_islands)/RevokeToken.tsx";
-import TbPlus from "@preact-icons/tb/TbPlus";
+import TbPlus from "tb-icons/TbPlus";
 
 export default define.page<typeof handler>(function AccountTokensPage({
   data,

@@ -3,7 +3,7 @@ import { asset } from "fresh/runtime";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { HomepageHeroParticles } from "../islands/HomepageHeroParticles.tsx";
 import { AnimatedLogo } from "./AnimatedLogo.tsx";
-import TbPlus from "@preact-icons/tb/TbPlus";
+import TbPlus from "tb-icons/TbPlus";
 
 const canvasStyle = /*css*/ `.particles-js-canvas-el {
 	position: absolute;

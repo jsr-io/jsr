@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import TbDots from "@preact-icons/tb/TbDots";
+import TbDots from "tb-icons/TbDots";
 
 const NAV_OVERFLOW_SCRIPT = /* js */ `
 (() => {

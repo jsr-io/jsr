@@ -7,7 +7,7 @@ import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { TbAlertCircle, TbCheck, TbX } from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbX } from "tb-icons";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 import { Logo } from "../../components/Logo.tsx";
