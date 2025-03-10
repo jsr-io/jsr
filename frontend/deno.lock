@@ -17,8 +17,9 @@
     "jsr:@std/datetime@~0.225.2": "0.225.2",
     "jsr:@std/encoding@1": "1.0.5",
     "jsr:@std/encoding@^1.0.5": "1.0.5",
-    "jsr:@std/fmt@1": "1.0.3",
-    "jsr:@std/fmt@^1.0.3": "1.0.3",
+    "jsr:@std/fmt@1": "1.0.6",
+    "jsr:@std/fmt@^1.0.3": "1.0.6",
+    "jsr:@std/fmt@^1.0.6": "1.0.6",
     "jsr:@std/front-matter@1": "1.0.5",
     "jsr:@std/fs@1": "1.0.5",
     "jsr:@std/html@1": "1.0.3",
@@ -167,6 +168,9 @@
     },
     "@std/fmt@1.0.3": {
       "integrity": "97765c16aa32245ff4e2204ecf7d8562496a3cb8592340a80e7e554e0bb9149f"
+    },
+    "@std/fmt@1.0.6": {
+      "integrity": "a2c56a69a2369876ddb3ad6a500bb6501b5bad47bb3ea16bfb0c18974d2661fc"
     },
     "@std/front-matter@1.0.5": {
       "integrity": "abddc64030a33eb5bc524b8c73e7c417cea09177aaeb4abf75a56b540c4b6e60",
@@ -1876,6 +1880,7 @@
       "jsr:@fresh/core@^2.0.0-alpha.25",
       "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
       "jsr:@preact-icons/tb@^1.0.12",
+      "jsr:@std/fmt@^1.0.6",
       "jsr:@std/front-matter@1",
       "jsr:@std/http@1",
       "jsr:@std/path@1",
