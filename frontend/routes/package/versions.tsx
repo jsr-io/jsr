@@ -164,13 +164,17 @@ function Version({
 }) {
   const isPublished = version !== null;
   const isFailed = tasks.length > 0 && tasks[0].status === "failure";
+  const isSuccess = tasks.length > 0 &&
+    tasks.some((task) => task.status === "success");
 
   return (
     <div
       class={`relative py-2 px-2 md:py-3 md:px-6 border rounded-lg ${
-        (!isPublished && isFailed) || version?.yanked
+        (!isPublished && (isFailed || isSuccess)) || version?.yanked
           ? `bg-red-50 border-red-200 ${
-            version?.yanked ? "hover:bg-red-100 hover:border-red-300" : ""
+            (version?.yanked || (!isPublished && isSuccess))
+              ? "hover:bg-red-100 hover:border-red-300"
+              : ""
           }`
           : (!isPublished
             ? "bg-blue-50 border-blue-200"
@@ -186,7 +190,9 @@ function Version({
               (!isPublished && isFailed) || version?.yanked
                 ? "bg-red-300 border-red-400 text-red-700"
                 : (!isPublished
-                  ? "bg-blue-300 border-blue-400 text-blue-700"
+                  ? isSuccess
+                    ? "bg-red-300 border-red-400 text-red-700"
+                    : "bg-blue-300 border-blue-400 text-blue-700"
                   : (isLatestInReleaseTrack
                     ? "bg-green-300 border-green-400 text-green-700"
                     : "bg-jsr-gray-200 border-jsr-gray-300 text-jsr-gray-600"))
@@ -196,7 +202,7 @@ function Version({
               : (isFailed
                 ? "Task failed"
                 : !isPublished
-                ? "Publishing..."
+                ? isSuccess ? "Deleted" : "Publishing..."
                 : `Release Track ${releaseTrack}`)}
           >
             {version?.yanked
@@ -204,7 +210,7 @@ function Version({
               : (isFailed
                 ? <TbAlertCircle class="size-8 stroke-red-500 stroke-2" />
                 : !isPublished
-                ? "..."
+                ? isSuccess ? <TbTrashX class="size-8" /> : "..."
                 : releaseTrack)}
           </div>
           <div>

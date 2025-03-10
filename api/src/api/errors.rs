@@ -237,6 +237,10 @@ errors!(
     status: BAD_REQUEST,
     "The requested package is archived. Unarchive it to modify settings or publish to it.",
   },
+  DeleteVersionHasDependents {
+    status: BAD_REQUEST,
+    "The requested package version has dependents. Only a version without dependents can be deleted.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
