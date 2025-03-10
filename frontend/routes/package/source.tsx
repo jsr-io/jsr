@@ -5,7 +5,7 @@ import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { TbFolder, TbSourceCode } from "@preact-icons/tb";
+import { TbFolder, TbSourceCode } from "tb-icons";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 import { format as formatBytes } from "@std/fmt/bytes";

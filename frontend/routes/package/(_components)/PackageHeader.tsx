@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
-import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import {
@@ -8,7 +8,7 @@ import {
   TbExternalLink,
   TbFlag,
   TbRosetteDiscountCheck,
-} from "@preact-icons/tb";
+} from "tb-icons";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";

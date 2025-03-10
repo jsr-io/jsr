@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
-import { TbChevronLeft, TbChevronRight } from "@preact-icons/tb";
+import { TbChevronLeft, TbChevronRight } from "tb-icons";
 import { PaginationData } from "../util.ts";
 
 interface TableProps {

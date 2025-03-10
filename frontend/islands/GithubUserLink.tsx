@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { useEffect } from "preact/hooks";
 import { User } from "../utils/api_types.ts";
 import { cachedGitHubLogin } from "../utils/github.ts";

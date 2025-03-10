@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useCallback, useRef } from "preact/hooks";
-import { TbCheck, TbCopy } from "@preact-icons/tb";
+import { TbCheck, TbCopy } from "tb-icons";
 
 interface CopyButtonProps {
   title: string;

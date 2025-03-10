@@ -11,7 +11,7 @@ import {
   TbMinus,
   TbPlus,
   TbRefresh,
-} from "@preact-icons/tb";
+} from "tb-icons";
 
 import type {
   DependencyGraphItem,
