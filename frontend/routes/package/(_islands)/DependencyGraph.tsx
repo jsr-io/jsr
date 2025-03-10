@@ -238,7 +238,7 @@ function renderDependency(
             return entrypoint;
           }
         }).join("\n")
-      }\n${formatBytes(size ?? 0, { maximumFractionDigits: 0}).toUpperCase()}`;
+      }\n${formatBytes(size ?? 0, { maximumFractionDigits: 0 }).toUpperCase()}`;
       color = "#faee4a";
       break;
     }
