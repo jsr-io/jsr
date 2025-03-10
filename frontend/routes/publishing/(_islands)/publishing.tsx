@@ -6,9 +6,7 @@ import {
   PublishingTask,
   PublishingTaskStatus,
 } from "../../../utils/api_types.ts";
-import { ErrorIcon } from "../../../components/icons/Error.tsx";
-import { Check } from "../../../components/icons/Check.tsx";
-import { Pending } from "../../../components/icons/Pending.tsx";
+import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
 
 export interface VersionPublishStatus {
   loading: boolean;
@@ -78,14 +76,14 @@ export function PackagePublishStatus(props: {
       >
         {task.status === "failure"
           ? (
-            <ErrorIcon class="size-5 stroke-red-700 bg-red-200 rounded-full p-0.5 stroke-2" />
+            <TbAlertCircle class="size-5 stroke-red-700 bg-red-200 rounded-full p-0.5 stroke-2" />
           )
           : task.status === "success"
           ? (
-            <Check class="size-5 stroke-green-700 stroke-2 bg-green-200 rounded-full p-0.5" />
+            <TbCheck class="size-5 stroke-green-700 stroke-2 bg-green-200 rounded-full p-0.5" />
           )
           : (
-            <Pending class="size-5 stroke-blue-700 bg-blue-200 rounded-full p-0.5 animate-pulse stroke-2" />
+            <TbClockHour3 class="size-5 stroke-blue-700 bg-blue-200 rounded-full p-0.5 animate-pulse stroke-2" />
           )}
         Publish {statusVerb[task.status]}
       </p>

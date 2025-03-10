@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "preact/hooks";
 import { Signal, useComputed, useSignal } from "@preact/signals";
 import { IS_BROWSER } from "fresh/runtime";
 import { CopyButton } from "../../../../islands/CopyButton.tsx";
-import { ChevronLeft } from "../../../../components/icons/ChevronLeft.tsx";
+import TbChevronLeft from "tb-icons/TbChevronLeft";
 import { api, APIResponseError, path } from "../../../../utils/api.ts";
 import { CreatedToken, Permission } from "../../../../utils/api_types.ts";
 import { ErrorDisplay } from "../../../../components/ErrorDisplay.tsx";
@@ -104,7 +104,7 @@ function ChooseUsage({ usage }: { usage: Signal<"publish" | "api" | null> }) {
         <input type="radio" name="path" value="api" class="mr-2" />
         Interact with the JSR API
       </label>
-      <button class="button-primary mt-4" disabled={disabled}>
+      <button type="submit" class="button-primary mt-4" disabled={disabled}>
         Next
       </button>
     </form>
@@ -140,7 +140,7 @@ function ChoosePublishingEnvironment(
         <input type="radio" name="env" value="other_ci_service" class="mr-2" />
         A different CI service
       </label>
-      <button class="button-primary mt-4" disabled={disabled}>
+      <button type="submit" class="button-primary mt-4" disabled={disabled}>
         Next
       </button>
     </form>
@@ -168,6 +168,7 @@ function LocalMachineHelp(
           Publish without a token
         </a>
         <button
+          type="button"
           class="button-danger"
           onClick={() => localMachineAnyway.value = true}
           disabled={!IS_BROWSER}
@@ -220,6 +221,7 @@ function LocalDangerWarning(
         and use it to perform actions on your behalf.
       </p>
       <button
+        type="button"
         class="button-danger mt-4"
         onClick={() => willStoreSafely.value = true}
         disabled={!IS_BROWSER}
@@ -248,6 +250,7 @@ function FinalDangerWarning({ willBeSafe }: { willBeSafe: Signal<boolean> }) {
       </p>
 
       <button
+        type="button"
         class="button-danger mt-4"
         onClick={() => willBeSafe.value = true}
         disabled={!IS_BROWSER}
@@ -332,7 +335,7 @@ function CreateTokenForm() {
       <DescriptionInput description={description} />
       <ExpiryInput expiry={expiry} />
       <PermissionsInput selected={permission} scope={scope} name={name} />
-      <button class="button-primary mt-10" disabled={disabled}>
+      <button type="submit" class="button-primary mt-10" disabled={disabled}>
         Create token
       </button>
       {error.value !== null && (
@@ -534,7 +537,7 @@ function TokenDisplay({ token }: { token: string }) {
           <CopyButton text={token} title="Copy token" />
         </code>
         <a href="/account/tokens" class="link flex gap-2 items-center mt-4">
-          <ChevronLeft /> Back to overview
+          <TbChevronLeft /> Back to overview
         </a>
       </div>
     </div>

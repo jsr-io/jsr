@@ -11,9 +11,7 @@ import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
-import { Pending } from "../components/icons/Pending.tsx";
-import { Check } from "../components/icons/Check.tsx";
-import { ErrorIcon } from "../components/icons/Error.tsx";
+import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
 import { scopeIAM } from "../utils/iam.ts";
 
 export default define.page<typeof handler>(function PackageListPage({
@@ -30,6 +28,8 @@ export default define.page<typeof handler>(function PackageListPage({
         <PackageNav
           currentTab="Versions"
           versionCount={data.package.versionCount}
+          dependencyCount={data.package.dependencyCount}
+          dependentCount={data.package.dependentCount}
           iam={iam}
           params={{ scope: data.package.scope, package: data.package.name }}
           latestVersion={data.package.latestVersion}
@@ -108,11 +108,11 @@ export function StatusToIcon(status: PublishingTaskStatus) {
     case "pending":
     case "processing":
     case "processed":
-      return <Pending class="size-6 stroke-blue-500 stroke-2" />;
+      return <TbClockHour3 class="size-6 stroke-blue-500 stroke-2" />;
     case "success":
-      return <Check class="size-6 stroke-green-500 stroke-2" />;
+      return <TbCheck class="size-6 stroke-green-500 stroke-2" />;
     case "failure":
-      return <ErrorIcon class="size-6 stroke-red-500 stroke-2" />;
+      return <TbAlertCircle class="size-6 stroke-red-500 stroke-2" />;
   }
 }
 

@@ -13,7 +13,7 @@ by an author to the JSR site. Scopes are similar to npm organizations or GitHub
 accounts. [Learn more about scopes.](/docs/scopes)
 
 Packages have a name. Package names are unique within a scope - no two packages
-in the same scope can have the same name. Package names must be between 2 and 20
+in the same scope can have the same name. Package names must be between 2 and 58
 characters long, and can only contain lowercase letters, numbers, and hyphens.
 They cannot start with a hyphen.
 

@@ -46,12 +46,14 @@ export default function Authorize(
   return (
     <div class="flex gap-2 text-lg mt-4">
       <button
+        type="button"
         class="button-primary"
         onClick={approve}
       >
         Approve
       </button>
       <button
+        type="button"
         class="button-danger"
         onClick={deny}
       >

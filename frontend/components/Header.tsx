@@ -3,7 +3,7 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import { GitHub } from "./icons/GitHub.tsx";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 
@@ -107,7 +107,7 @@ export function Header({
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
               : (
                 <a href={loginUrl} class="link-header flex items-center gap-2">
-                  <GitHub class="size-5 flex-none" aria-hidden={true} />
+                  <TbBrandGithub class="size-5 flex-none" aria-hidden />
                   Sign in
                 </a>
               )}

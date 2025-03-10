@@ -15,7 +15,7 @@ import {
   ScopeMember,
 } from "../../../utils/api_types.ts";
 import { scopeData } from "../../../utils/data.ts";
-import { TrashCan } from "../../../components/icons/TrashCan.tsx";
+import TbTrash from "tb-icons/TbTrash";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ScopeIAM } from "../../../utils/iam.ts";
 
@@ -118,7 +118,8 @@ export function MemberItem(props: MemberItemProps) {
             <form method="POST" class="contents">
               <input type="hidden" name="userId" value={member.user.id} />
               <button
-                class="hover:underline disabled:text-jsr-gray-300 disabled:cursor-not-allowed"
+                type="submit"
+                class="hover:underline disabled:text-jsr-gray-300 disabled:cursor-not-allowed hover:text-red-600 motion-safe:transition-colors"
                 name="action"
                 value="deleteMember"
                 disabled={props.isLastAdmin}
@@ -126,7 +127,7 @@ export function MemberItem(props: MemberItemProps) {
                   ? "This is the last admin in this scope. Promote another member to admin before removing this one."
                   : "Remove user"}
               >
-                <TrashCan class="h-4 w-4" />
+                <TbTrash class="size-4" />
               </button>
             </form>
           </div>
@@ -164,12 +165,13 @@ export function InviteItem(props: InviteItemProps) {
             <form method="POST" class="contents">
               <input type="hidden" name="userId" value={invite.targetUser.id} />
               <button
+                type="submit"
                 class="hover:underline"
                 title="Delete invite"
                 name="action"
                 value="deleteInvite"
               >
-                <TrashCan class="h-4 w-4" />
+                <TbTrash class="h-4 w-4" />
               </button>
             </form>
           </div>

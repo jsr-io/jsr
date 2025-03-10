@@ -81,6 +81,38 @@ impl From<PublishingTask> for ApiPublishingTask {
   }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiDependencyGraphItem {
+  pub id: usize,
+  pub dependency: super::package::DependencyKind,
+  pub children: indexmap::IndexSet<usize>,
+  pub size: Option<u64>,
+  pub media_type: Option<String>,
+}
+
+impl
+  From<(
+    super::package::DependencyKind,
+    super::package::DependencyInfo,
+  )> for ApiDependencyGraphItem
+{
+  fn from(
+    (kind, info): (
+      super::package::DependencyKind,
+      super::package::DependencyInfo,
+    ),
+  ) -> Self {
+    Self {
+      id: info.id,
+      dependency: kind,
+      children: info.children,
+      size: info.size,
+      media_type: info.media_type.map(|media_type| media_type.to_string()),
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiUser {
@@ -438,6 +470,8 @@ pub struct ApiPackage {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub version_count: u64,
+  pub dependency_count: u64,
+  pub dependent_count: u64,
   pub score: Option<u32>,
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
@@ -459,6 +493,8 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       updated_at: package.updated_at,
       created_at: package.created_at,
       version_count: package.version_count as u64,
+      dependency_count: 0,
+      dependent_count: 0,
       score: package
         .latest_version
         .as_ref()

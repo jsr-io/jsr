@@ -8,14 +8,11 @@ import type {
 import { define } from "../../util.ts";
 import { compare, equals, format, lessThan, parse, SemVer } from "@std/semver";
 import twas from "twas";
-import IconTrashX from "$tabler_icons/trash-x.tsx";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { path } from "../../utils/api.ts";
-import { ErrorIcon } from "../../components/icons/Error.tsx";
-import { Check } from "../../components/icons/Check.tsx";
-import { Pending } from "../../components/icons/Pending.tsx";
+import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(function Versions({
@@ -95,6 +92,8 @@ export default define.page<typeof handler>(function Versions({
         params={params as unknown as Params}
         iam={iam}
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
 
@@ -201,9 +200,9 @@ function Version({
                 : `Release Track ${releaseTrack}`)}
           >
             {version?.yanked
-              ? <IconTrashX class="size-8" />
+              ? <TbTrashX class="size-8" />
               : (isFailed
-                ? <ErrorIcon class="size-8 stroke-red-500 stroke-2" />
+                ? <TbAlertCircle class="size-8 stroke-red-500 stroke-2" />
                 : !isPublished
                 ? "..."
                 : releaseTrack)}
@@ -246,6 +245,7 @@ function Version({
           <form method="POST" class="z-20">
             <input type="hidden" name="version" value={version.version} />
             <button
+              type="submit"
               class="button-danger"
               name="action"
               value={version.yanked ? "unyank" : "yank"}
@@ -259,10 +259,10 @@ function Version({
         {tasks.map((task, i) => (
           <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-jsr-gray-500 w-full">
             {task.status === "failure"
-              ? <ErrorIcon class="size-3 stroke-red-500 stroke-2" />
+              ? <TbAlertCircle class="size-4 stroke-red-500 stroke-2" />
               : task.status === "success"
-              ? <Check class="size-3 stroke-green-500 stroke-2" />
-              : <Pending class="size-3 stroke-blue-500 stroke-2" />}
+              ? <TbCheck class="size-4 stroke-green-500 stroke-2" />
+              : <TbClockHour3 class="size-4 stroke-blue-500 stroke-2" />}
             <span>
               {ordinalNumber(tasks.length - i)} publishing attempt{" "}
               {statusVerb[task.status]}{" "}

@@ -21,6 +21,8 @@ export default define.page<typeof handler>(function Dep(
       <PackageNav
         currentTab="Dependents"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -74,7 +76,7 @@ function Dependent(
         </a>
       </TableData>
       <TableData class="space-x-4">
-        {versions.map((version) => <span>{version}</span>)}
+        {versions.map((version, idx) => <span key={idx}>{version}</span>)}
         {totalVersions > 5 && (
           <span>
             and {totalVersions - 5} additional version{totalVersions > 6 && "s"}

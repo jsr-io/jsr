@@ -1,8 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
-import { ChevronLeft } from "./icons/ChevronLeft.tsx";
-import { ChevronRight } from "./icons/ChevronRight.tsx";
+import { TbChevronLeft, TbChevronRight } from "tb-icons";
 import { PaginationData } from "../util.ts";
 
 interface TableProps {
@@ -85,7 +84,7 @@ function Pagination(
           class="hover:text-black hover:bg-jsr-cyan-100 p-1 -m-1 rounded-full"
           title="Previous page"
         >
-          <ChevronLeft />
+          <TbChevronLeft class="size-5" />
         </a>
       )}
       <div class="text-sm text-jsr-gray-600">
@@ -103,7 +102,7 @@ function Pagination(
           class="hover:text-black hover:bg-jsr-gray-100 p-1 -m-1 rounded-full"
           title="Next page"
         >
-          <ChevronRight />
+          <TbChevronRight class="size-5" />
         </a>
       )}
     </div>

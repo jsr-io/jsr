@@ -53,6 +53,7 @@ export function ScopeMemberRole(props: ScopeMemberRoleProps) {
       </select>
       {role.value !== selected.value && (
         <button
+          type="button"
           class="mt-2 button-primary"
           disabled={submitting}
           onClick={onSave}

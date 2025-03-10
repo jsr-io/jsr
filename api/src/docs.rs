@@ -986,11 +986,7 @@ fn generate_symbol_page(
           if let Some(reference_def) = node.reference_def() {
             ctx
               .resolve_reference(Some(namespace_node), &reference_def.target)
-              .map(|node| {
-                let x = node.into_owned();
-                dbg!(x.get_qualified_name());
-                x
-              })
+              .map(|node| node.into_owned())
               .collect()
           } else {
             vec![node]
@@ -1023,7 +1019,7 @@ fn generate_symbol_page(
   Some(SymbolPage::Symbol {
     breadcrumbs_ctx,
     symbol_group_ctx,
-    toc_ctx,
+    toc_ctx: Box::new(toc_ctx),
     categories_panel: None,
   })
 }
@@ -1130,7 +1126,23 @@ impl HrefResolver for DocResolver {
             deno_semver::jsr::JsrPackageReqReference::from_str(src).ok()?;
           let req = jsr_package_req.req();
 
-          Some(format!("/{}/~/{symbol}", req.name))
+          let mut version_path = Cow::Borrowed("");
+          if let Some(range) = req.version_req.range() {
+            if let Ok(version) = Version::new(&range.to_string()) {
+              // If using a specific version, link to it (e.g. prerelease)
+              version_path = Cow::Owned(format!("@{}", version));
+            }
+          }
+
+          let mut internal_path = Cow::Borrowed("");
+          if let Some(path) = jsr_package_req.sub_path() {
+            internal_path = Cow::Owned(format!("/{path}"));
+          }
+
+          Some(format!(
+            "/{}{version_path}/doc{internal_path}/~/{symbol}",
+            req.name
+          ))
         }
         _ => None,
       }
@@ -1419,6 +1431,28 @@ mod tests {
           }
         ),
         "/@foo/bar@0.0.1/doc/mod/~/bar"
+      );
+    }
+
+    {
+      assert_eq!(
+        resolver
+          .resolve_import_href(
+            &["Expression".to_string()],
+            "jsr:@babel/types@0.0.0-beta.1"
+          )
+          .as_deref(),
+        Some("/@babel/types@0.0.0-beta.1/doc/~/Expression")
+      );
+
+      assert_eq!(
+        resolver
+          .resolve_import_href(
+            &["version".to_string()],
+            "jsr:@babel/core/package.json"
+          )
+          .as_deref(),
+        Some("/@babel/core/doc/package.json/~/version")
       );
     }
   }

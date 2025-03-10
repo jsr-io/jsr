@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { HttpError, RouteConfig } from "fresh";
-import type { Dependency } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
-import { define } from "../../util.ts";
-import { packageDataWithVersion } from "../../utils/data.ts";
-import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { scopeIAM } from "../../utils/iam.ts";
+import { HttpError, type RouteConfig } from "fresh";
+import type { Dependency } from "../../../utils/api_types.ts";
+import { path } from "../../../utils/api.ts";
+import { define } from "../../../util.ts";
+import { packageDataWithVersion } from "../../../utils/data.ts";
+import { PackageHeader } from "../(_components)/PackageHeader.tsx";
+import { PackageNav, type Params } from "../(_components)/PackageNav.tsx";
+import { Table, TableData, TableRow } from "../../../components/Table.tsx";
+import { scopeIAM } from "../../../utils/iam.ts";
 
 function getDependencyLink(dep: Dependency) {
   if (dep.kind === "jsr") {
@@ -68,6 +68,8 @@ export default define.page<typeof handler>(function Deps(
       <PackageNav
         currentTab="Dependencies"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -82,24 +84,33 @@ export default define.page<typeof handler>(function Deps(
             </div>
           )
           : (
-            <Table
-              columns={[
-                { title: "Package", class: "w-1/3" },
-                { title: "Versions", class: "w-1/3" },
-                { title: "Modules", class: "w-auto" },
-              ]}
-              currentUrl={url}
-            >
-              {list.map(([name, info]) => (
-                <Dependency
-                  name={name}
-                  link={info.link}
-                  constraints={[...info.constraints]}
-                  modules={Object.entries(info.modules)}
-                  defaultModule={info.defaultModule}
-                />
-              ))}
-            </Table>
+            <>
+              <Table
+                columns={[
+                  { title: "Package", class: "w-1/3" },
+                  { title: "Versions", class: "w-1/3" },
+                  { title: "Modules", class: "w-auto" },
+                ]}
+                currentUrl={url}
+              >
+                {list.map(([name, info]) => (
+                  <Dependency
+                    name={name}
+                    link={info.link}
+                    constraints={[...info.constraints]}
+                    modules={Object.entries(info.modules)}
+                    defaultModule={info.defaultModule}
+                  />
+                ))}
+              </Table>
+              <p class="text-jsr-gray-700">
+                You can find a visualization of the dependencies by clicking the
+                button below.
+              </p>
+              <a class="button-primary" href={`${url.pathname}/graph`}>
+                Dependency Graph
+              </a>
+            </>
           )}
       </div>
     </div>
@@ -123,7 +134,9 @@ function Dependency(
         </a>
       </TableData>
       <TableData class="space-x-4">
-        {constraints.map((constraint) => <span>{constraint}</span>)}
+        {constraints.map((constraint, idx) => (
+          <span key={idx}>{constraint}</span>
+        ))}
       </TableData>
       <TableData>
         {modules.length > 0 && (

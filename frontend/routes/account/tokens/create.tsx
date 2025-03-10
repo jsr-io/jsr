@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { define } from "../../../util.ts";
-import { ChevronLeft } from "../../../components/icons/ChevronLeft.tsx";
+import TbChevronLeft from "tb-icons/TbChevronLeft";
 import { CreateToken } from "./(_islands)/CreateToken.tsx";
 
 export default define.page<typeof handler>(function AccountCreateTokenPage() {
@@ -9,7 +9,7 @@ export default define.page<typeof handler>(function AccountCreateTokenPage() {
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
       <div>
         <a href="/account/tokens" class="link flex items-center gap-2">
-          <ChevronLeft class="w-6 h-6" />
+          <TbChevronLeft class="size-8" />
           <span class="ml-2">Back to tokens</span>
         </a>
       </div>

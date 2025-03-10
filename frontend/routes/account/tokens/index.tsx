@@ -7,7 +7,7 @@ import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
 import twas from "twas";
 import { RevokeToken } from "./(_islands)/RevokeToken.tsx";
-import { Plus } from "../../../components/icons/Plus.tsx";
+import TbPlus from "tb-icons/TbPlus";
 
 export default define.page<typeof handler>(function AccountTokensPage({
   data,
@@ -27,13 +27,15 @@ export default define.page<typeof handler>(function AccountTokensPage({
         {personal.length > 0
           ? (
             <ul class="max-w-2xl divide-slate-200 divide-y border-t border-b border-slate-200 mt-4">
-              {personal.map((token) => <PersonalTokenRow token={token} />)}
+              {personal.map((token, idx) => (
+                <PersonalTokenRow key={idx} token={token} />
+              ))}
               <li class="py-2">
                 <a
                   href="/account/tokens/create"
                   class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm"
                 >
-                  <Plus />
+                  <TbPlus />
                   Create new token
                 </a>
               </li>
@@ -49,7 +51,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
                   href="/account/tokens/create"
                   class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm"
                 >
-                  <Plus />
+                  <TbPlus />
                   Create new token
                 </a>
               </p>
@@ -64,7 +66,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
         </p>
 
         <ul class="max-w-2xl divide-slate-200 divide-y border-t border-b border-slate-200 mt-4">
-          {sessions.map((token) => <SessionRow token={token} />)}
+          {sessions.map((token, idx) => <SessionRow key={idx} token={token} />)}
         </ul>
 
         <p class="text-jsr-gray-600 text-sm mt-4">

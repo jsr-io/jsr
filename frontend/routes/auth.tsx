@@ -10,7 +10,7 @@ import type {
   Permission,
   PermissionPackagePublishVersion,
 } from "../utils/api_types.ts";
-import { ChevronRight } from "../components/icons/ChevronRight.tsx";
+import TbChevronRight from "tb-icons/TbChevronRight";
 
 export default define.page<typeof handler>(function AuthPage({ data }) {
   if (data.code === "" || data.authorization === null) {
@@ -57,7 +57,7 @@ export default define.page<typeof handler>(function AuthPage({ data }) {
         <PublishPackageList permissions={publishPermissions} />
         {data.authorization.permissions?.filter((perm) =>
           perm.permission !== "package/publish" && !("version" in perm)
-        ).map((perm) => <PermissionTile permission={perm} />)}
+        ).map((perm, idx) => <PermissionTile key={idx} permission={perm} />)}
       </div>
       <p class="mt-8">Only grant authorization to applications you trust.</p>
       <Authorize code={data.code} authorizedVersions={packageNames} />
@@ -97,13 +97,13 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
 
   switch (permission?.permission ?? null) {
     case null:
-      icon = <ChevronRight class="w-12 h-12 flex-shrink-0" />;
+      icon = <TbChevronRight class="w-12 h-12 flex-shrink-0" />;
       title = "Full access";
       description =
         "Including creating scopes, publishing any package, adding members, removing members, and more";
       break;
     case "package/publish":
-      icon = <ChevronRight class="w-12 h-12 flex-shrink-0" />;
+      icon = <TbChevronRight class="w-12 h-12 flex-shrink-0" />;
       if ("package" in permission!) {
         title = `Publish any version of @${permission!.scope}/${
           permission!.package

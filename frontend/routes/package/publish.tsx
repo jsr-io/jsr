@@ -6,7 +6,7 @@ import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { GitHub } from "../../components/icons/GitHub.tsx";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { scopeIAM } from "../../utils/iam.ts";
 import { CopyButton } from "../../islands/CopyButton.tsx";
 
@@ -22,6 +22,8 @@ export default define.page<typeof handler>(function PackagePage({
       <PackageNav
         currentTab="Publish"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={data.iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -193,7 +195,7 @@ function GitHubActions({ pkg, canEdit, user }: {
     <>
       <p class="mt-4">
         This package is linked to{" "}
-        <GitHub class="inline size-5 -mt-[2px]" aria-hidden={true} />{" "}
+        <TbBrandGithub class="inline size-5 -mt-[2px]" aria-hidden />{" "}
         <span className="sr-only">GitHub</span>{" "}
         <a
           href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}

@@ -5,10 +5,10 @@ import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { Folder } from "../../components/icons/Folder.tsx";
-import { Source as SourceIcon } from "../../components/icons/Source.tsx";
+import { TbFolder, TbSourceCode } from "tb-icons";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
+import { format as formatBytes } from "@std/fmt/bytes";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
@@ -22,10 +22,17 @@ export default define.page<typeof handler>(function PackagePage(
     <div class="mb-20">
       {data.source && (
         <>
-          <style dangerouslySetInnerHTML={{ __html: data.source.comrakCss }} />
-          <style dangerouslySetInnerHTML={{ __html: data.source.css }} />
+          <style
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
+          />
+          <style
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: data.source.css }}
+          />
           <script
             hidden
+            // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: data.source.script }}
             defer
           />
@@ -38,6 +45,8 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -100,6 +109,7 @@ export default define.page<typeof handler>(function PackagePage(
                     <div class="ddoc">
                       <div
                         class="markdown ddoc-full children:!bg-transparent"
+                        // deno-lint-ignore react-no-danger
                         dangerouslySetInnerHTML={{
                           __html: data.source.source.view,
                         }}
@@ -120,24 +130,17 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
     <div class="grow-1 flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
         <div class="text-jsr-gray-500">
-          {entry.kind === "dir" ? <Folder /> : <SourceIcon />}
+          {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}
         </div>
         <div class="text-cyan-700 font-semibold">
           {entry.name}
         </div>
       </div>
       <div class="text-sm text-jsr-gray-600">
-        {bytesToSize(entry.size)}
+        {formatBytes(entry.size, { maximumFractionDigits: 0 }).toUpperCase()}
       </div>
     </div>
   );
-}
-
-function bytesToSize(bytes: number) {
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  if (bytes == 0) return "0 B";
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(0) + " " + sizes[i];
 }
 
 const LINE_COL_REGEX = /(.*):(\d+):(\d+)$/;

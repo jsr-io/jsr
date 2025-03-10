@@ -254,6 +254,64 @@ allowed.
 + type MyPrivateMember = string;
 ```
 
+## JavaScript entrypoints
+
+If a package has a JavaScript entrypoint, JSR will not be able to create type
+definitions for the package. JSR only generates type definitions for TypeScript,
+and not for JavaScript. Using JavaScript entrypoints is not a fatal error: JSR
+will not be able to generate type definitions for the package, and will not show
+documentation for the package - but the package will still be usable.
+
+There are two ways to fix this:
+
+1. Convert the JavaScript entrypoint to TypeScript. This involves renaming the
+   file from `.js` to `.ts` and adding types.
+2. Reference a `.d.ts` type declaration file from the JavaScript entrypoint, so
+   that JSR can use the type declaration file to generate types. This is useful
+   if you cannot convert the JavaScript entrypoint to TypeScript, or if the code
+   is generated.
+
+To reference a `.d.ts` type declaration file from a JavaScript entrypoint, there
+are two options:
+
+1. In the file itself, add a `/* @ts-self-types="./path/to/types.d.ts" */`
+   directive at the top of the file. This instructs JSR to use the types from
+   the specified file, rather than using the file itself.
+2. Wherever the file is imported (e.g. in an import statement), add a
+   `/* @ts-types="./path/to/types.d.ts" */` directive directly above the import
+   statement. This instructs JSR to use the types from the specified file,
+   rather than using the file itself when generating types or documentation.
+
+```js
+// index.js
+/* @ts-self-types="./index.d.ts" */
+export function foo() {
+  return "foo";
+}
+```
+
+```ts
+// index.d.ts
+
+export function foo(): string;
+```
+
+OR
+
+```js
+// foo.js
+/* @ts-types="./bar.d.ts" */
+import { foo } from "./bar.js";
+
+// bar.js
+export function foo() {
+  return "foo";
+}
+
+// bar.d.ts
+export function foo(): string;
+```
+
 ## Simple inference
 
 In a few cases, JSR can infer a type without you needing to specify it
@@ -379,7 +437,7 @@ would require type inference to emit a declaration file. This is very similar to
 the "no slow types" policy of JSR.
 
 For example, just like JSR, TypeScript with `isolatedDeclarations` enabled would
-not allow funtion declarations without an explicit return type:
+not allow function declarations without an explicit return type:
 
 ```ts
 // This is not allowed with `isolatedDeclarations`.

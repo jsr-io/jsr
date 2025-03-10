@@ -10,6 +10,7 @@ mod types;
 use chrono::SecondsFormat;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
+use deno_semver::StackString;
 use deno_semver::VersionReq;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -89,12 +90,14 @@ pub async fn generate_npm_version_manifest<'a>(
       let sub_path = if dep.dependency_path.is_empty() {
         None
       } else {
-        Some(dep.dependency_path)
+        Some(deno_semver::package::PackageSubPath::from_string(
+          dep.dependency_path,
+        ))
       };
       let version_req =
         VersionReq::parse_from_specifier(&dep.dependency_constraint).unwrap();
       let req = PackageReq {
-        name: dep.dependency_name,
+        name: StackString::from_string(dep.dependency_name),
         version_req,
       };
       Cow::Owned((dep.dependency_kind, PackageReqReference { req, sub_path }))

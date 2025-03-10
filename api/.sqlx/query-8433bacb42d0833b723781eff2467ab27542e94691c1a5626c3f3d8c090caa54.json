@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(DISTINCT dependency_name)\n      FROM package_version_dependencies\n      WHERE package_scope = $1 AND package_name = $2 AND package_version = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8433bacb42d0833b723781eff2467ab27542e94691c1a5626c3f3d8c090caa54"
+}

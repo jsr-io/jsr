@@ -11,6 +11,7 @@ export default function Layout(
     <>
       <div
         class="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-4.5rem)]"
+        style="container: page / inline-size"
         data-dark-theme="light"
       >
         <a
@@ -35,7 +36,7 @@ export default function Layout(
       </div>
       <footer
         id="footer"
-        class="text-xs text-center mt-4 md:mt-6 p-4 text-jsr-gray-500"
+        class="text-xs text-center mt-4 md:mt-6 md:p-4 p-2 text-jsr-gray-500"
       >
         JSR - It is{" "}
         <time datetime={currentDatetime.toISOString()}>
@@ -64,6 +65,27 @@ export default function Layout(
           class="text-jsr-cyan-700 hover:text-blue-400 underline"
         >
           <span>Discord</span>
+        </a>{" "}
+        -{" "}
+        <a
+          href="https://bsky.app/profile/jsr.io"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>Bluesky</span>
+        </a>{" "}
+        -{" "}
+        <a
+          href="https://x.com/jsr_io"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>X (ex Twitter)</span>
+        </a>{" "}
+        -{" "}
+        <a
+          href="https://www.youtube.com/@jsr-io"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+        >
+          <span>YouTube</span>
         </a>
         {state.span?.isSampled ? ` — x-deno-ray: ${state.span.traceId}` : null}
       </footer>

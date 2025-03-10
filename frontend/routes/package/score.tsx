@@ -7,9 +7,7 @@ import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { Check } from "../../components/icons/Check.tsx";
-import { Cross } from "../../components/icons/Cross.tsx";
-import { ErrorIcon } from "../../components/icons/Error.tsx";
+import { TbAlertCircle, TbCheck, TbX } from "tb-icons";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 import { Logo } from "../../components/Logo.tsx";
@@ -26,6 +24,8 @@ export default define.page<typeof handler>(function Score(
       <PackageNav
         currentTab="Score"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -166,8 +166,8 @@ function ScoreInfo(props: {
           scoreValue={1}
           title="At least one runtime is marked as compatible"
         >
-          The package should be marked with at least one runtime as "compatible"
-          in {canAdmin
+          The package should be marked with at least one runtime as{" "}
+          <span>"compatible"</span> in {canAdmin
             ? (
               <a class="link" href="settings#runtime_compat">
                 the package settings
@@ -232,20 +232,20 @@ function ScoreItem(
       {status === "complete"
         ? (
           <>
-            <Check class="size-6 stroke-green-500 stroke-2 -mt-px" />
+            <TbCheck class="size-6 stroke-green-500 stroke-2 -mt-px" />
             <span class="sr-only">Complete score</span>
           </>
         )
         : (status === "partial"
           ? (
             <>
-              <ErrorIcon class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
+              <TbAlertCircle class="size-6 stroke-jsr-yellow-500 stroke-2 -mt-px" />
               <span class="sr-only">Partial score</span>
             </>
           )
           : (
             <>
-              <Cross class="size-6 stroke-red-500 stroke-2 -mt-px" />
+              <TbX class="size-6 stroke-red-500 stroke-2 -mt-px" />
               <span class="sr-only">Missing score</span>
             </>
           ))}

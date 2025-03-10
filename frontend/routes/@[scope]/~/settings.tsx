@@ -8,7 +8,7 @@ import { FullScope, User } from "../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../utils/data.ts";
 import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
-import { Check } from "../../../components/icons/Check.tsx";
+import TbCheck from "tb-icons/TbCheck";
 import { scopeIAM } from "../../../utils/iam.ts";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
@@ -214,7 +214,7 @@ function CardButton(props: CardButtonProps) {
               : "ring"
           }`}
         >
-          {props.selected && <Check class="stroke-2 size-9" />}
+          {props.selected && <TbCheck class="stroke-2 size-9" />}
         </div>
       </div>
       <p class="mt-2 w-5/6 text-jsr-gray-600 text-sm">{props.description}</p>

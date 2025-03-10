@@ -6,7 +6,7 @@ import { path } from "../../../utils/api.ts";
 import { AdminNav } from "../(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "../../../components/URLQuerySearch.tsx";
 import { define } from "../../../util.ts";
-import IconArrowRight from "$tabler_icons/arrow-right.tsx";
+import TbArrowRight from "tb-icons/TbArrowRight";
 
 export default define.page<typeof handler>(function Scopes({ data, url }) {
   return (
@@ -15,7 +15,7 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
       <div class="flex gap-4">
         <URLQuerySearch query={data.query} />
         <a class="button-primary mt-4" href="/admin/scopes/assign">
-          Assign Scope <IconArrowRight />
+          Assign Scope <TbArrowRight />
         </a>
       </div>
       <Table
@@ -32,7 +32,7 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
         pagination={data}
         currentUrl={url}
       >
-        {data.scopes.map((scope) => <ScopeEdit scope={scope} />)}
+        {data.scopes.map((scope, idx) => <ScopeEdit key={idx} scope={scope} />)}
       </Table>
     </div>
   );

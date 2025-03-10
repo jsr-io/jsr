@@ -186,34 +186,37 @@ impl OramaClient {
 
     let chunks = {
       let str_data = serde_json::to_string(&search).unwrap();
-      (str_data.len() as f64 / MAX_ORAMA_INSERT_SIZE).ceil() as usize
+      ((str_data.len() as f64 / MAX_ORAMA_INSERT_SIZE).ceil() as usize).max(1)
     };
 
-    for chunk in search.chunks(search.len() / chunks) {
-      let body = serde_json::json!({ "upsert": &chunk });
-      let package = format!("{scope_name}/{package_name}");
-      let span = Span::current();
-      let client = self.clone();
-      let path = format!("/webhooks/{}/notify", self.symbols_index_id);
-      tokio::spawn(
-        async move {
-          let res = match client.request(&path, body).await {
-            Ok(res) => res,
-            Err(err) => {
-              error!("failed to insert on OramaClient::upsert_symbols: {err}");
-              return;
-            }
-          };
-          let status = res.status();
-          if !status.is_success() {
-            let response = res.text().await.unwrap_or_default();
-            error!(
+    let chunks_size = search.len() / chunks;
+    if chunks_size != 0 {
+      for chunk in search.chunks(chunks_size) {
+        let body = serde_json::json!({ "upsert": &chunk });
+        let package = format!("{scope_name}/{package_name}");
+        let span = Span::current();
+        let client = self.clone();
+        let path = format!("/webhooks/{}/notify", self.symbols_index_id);
+        tokio::spawn(
+          async move {
+            let res = match client.request(&path, body).await {
+              Ok(res) => res,
+              Err(err) => {
+                error!("failed to insert on OramaClient::upsert_symbols: {err}");
+                return;
+              }
+            };
+            let status = res.status();
+            if !status.is_success() {
+              let response = res.text().await.unwrap_or_default();
+              error!(
             "failed to insert on OramaClient::upsert_symbols for {package} (status {status}): {response}"
           );
+            }
           }
-        }
-          .instrument(span),
-      );
+            .instrument(span),
+        );
+      }
     }
   }
 }

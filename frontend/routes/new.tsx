@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import IconFolder from "$tabler_icons/folder.tsx";
-import IconPackage from "$tabler_icons/package.tsx";
+import { TbBrandGithub, TbFolder, TbPackage } from "tb-icons";
 import {
   CreatePackage,
   IconCircle,
@@ -10,7 +9,6 @@ import {
 } from "../islands/new.tsx";
 import { Package, Scope } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
-import { GitHub } from "../components/icons/GitHub.tsx";
 import { define } from "../util.ts";
 
 export default define.page<typeof handler>(function New(props) {
@@ -42,7 +40,7 @@ export default define.page<typeof handler>(function New(props) {
         <div class="space-y-8">
           <div class="flex items-start gap-4">
             <IconCircle done={scope}>
-              <IconFolder class="h-5 w-5" />
+              <TbFolder class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Scope</h2>
@@ -70,7 +68,7 @@ export default define.page<typeof handler>(function New(props) {
                       href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
                       class="button-primary"
                     >
-                      <GitHub /> Sign in with GitHub
+                      <TbBrandGithub /> Sign in with GitHub
                     </a>
                   </div>
                 )}
@@ -78,7 +76,7 @@ export default define.page<typeof handler>(function New(props) {
           </div>
           <div class="flex items-start gap-4">
             <IconCircle done={name}>
-              <IconPackage class="h-5 w-5" />
+              <TbPackage class="h-5 w-5" />
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Package name</h2>

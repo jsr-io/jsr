@@ -102,7 +102,7 @@ pub async fn process_tarball(
   let async_read = stream.into_async_read();
   let mut tar = async_tar::Archive::new(async_read)
     .entries()
-    .map_err(PublishError::UntarError)?;
+    .map_err(from_tarball_io_error)?;
 
   let mut files = HashMap::new();
   let mut case_insensitive_paths = HashSet::<CaseInsensitivePackagePath>::new();
@@ -126,7 +126,7 @@ pub async fn process_tarball(
   };
 
   while let Some(res) = tar.next().await {
-    let mut entry = res.map_err(PublishError::UntarError)?;
+    let mut entry = res.map_err(from_tarball_io_error)?;
 
     let header = entry.header();
     let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
@@ -158,7 +158,7 @@ pub async fn process_tarball(
       });
     }
 
-    let size = header.size().map_err(PublishError::UntarError)?;
+    let size = header.size().map_err(from_tarball_io_error)?;
     if size > max_file_size {
       return Err(PublishError::FileTooLarge {
         path,
@@ -180,7 +180,7 @@ pub async fn process_tarball(
     entry
       .read_to_end(&mut bytes)
       .await
-      .map_err(PublishError::UntarError)?;
+      .map_err(from_tarball_io_error)?;
 
     // sha256 hash the bytes
     let hash = sha2::Sha256::digest(&bytes);
@@ -305,7 +305,7 @@ pub async fn process_tarball(
   // ensure all of the JSR dependencies are resolvable
   for (kind, req) in dependencies.iter() {
     if kind == &DependencyKind::Jsr {
-      let package_scope = ScopedPackageName::new(req.req.name.clone())
+      let package_scope = ScopedPackageName::new(req.req.name.to_string())
         .map_err(|e| {
           PublishError::InvalidJsrScopedPackageName(req.req.name.clone(), e)
         })?;
@@ -479,8 +479,8 @@ pub enum PublishError {
   #[error("gcs upload error: {0}")]
   GcsUploadError(GcsError),
 
-  #[error("untar error: {0}")]
-  UntarError(io::Error),
+  #[error("invalid tarball: {0}")]
+  InvalidTarball(io::Error),
 
   #[error("database error")]
   DatabaseError(#[from] sqlx::Error),
@@ -607,7 +607,10 @@ pub enum PublishError {
   NpmMissingConstraint(NpmPackageReqReference),
 
   #[error("invalid scoped package name in 'jsr:' specifier '{0}': {1}")]
-  InvalidJsrScopedPackageName(String, ScopedPackageNameValidateError),
+  InvalidJsrScopedPackageName(
+    deno_semver::StackString,
+    ScopedPackageNameValidateError,
+  ),
 
   #[error("unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint")]
   UnresolvableJsrDependency(PackageReq),
@@ -627,9 +630,9 @@ impl PublishError {
     match self {
       PublishError::GcsDownloadError(_) => None,
       PublishError::GcsUploadError(_) => None,
-      PublishError::UntarError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
+      PublishError::InvalidTarball(_) => Some("invalidTarball"),
       PublishError::LinkInTarball { .. } => Some("linkInTarball"),
       PublishError::InvalidEntryType { .. } => Some("invalidEntryType"),
       PublishError::InvalidPath { .. } => Some("invalidPath"),
@@ -680,6 +683,13 @@ impl PublishError {
         Some("invalidJsrDependencySubPath")
       }
     }
+  }
+}
+
+fn from_tarball_io_error(err: io::Error) -> PublishError {
+  match err.downcast::<reqwest::Error>() {
+    Ok(err) => PublishError::GcsDownloadError(GcsError::Reqwest(err)),
+    Err(err) => PublishError::InvalidTarball(err),
   }
 }
 

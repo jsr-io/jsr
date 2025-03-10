@@ -1,11 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import { Plus } from "../components/icons/Plus.tsx";
-import IconArrowRight from "$tabler_icons/arrow-right.tsx";
+import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
 
 const SHARED_ITEM_CLASSES =
-  "flex items-center px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
+  "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 const DEFAULT_ITEM_CLASSES =
   "hover:bg-jsr-cyan-50 focus-visible:bg-jsr-cyan-200 ring-jsr-cyan-700";
 
@@ -36,7 +35,8 @@ export function UserMenu({ user, sudo, logoutUrl }: {
     <div class="relative select-none" ref={ref}>
       <button
         id={`${prefix}-user-menu`}
-        class="flex items-center rounded-full"
+        class="flex items-center rounded-full focus-visible:ring-2 ring-inset outline-none *:focus-visible:ring-jsr-cyan-400 *:focus-visible:ring-offset-1"
+        type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open ? "true" : "false"}
       >
@@ -74,11 +74,12 @@ export function UserMenu({ user, sudo, logoutUrl }: {
               <span>
                 {user.inviteCount} pending invite{user.inviteCount > 1 && "s"}
               </span>
-              <IconArrowRight class="w-4 h-4" />
+              <TbArrowRight class="w-4 h-4" />
             </a>
           )}
           {user.isStaff && (
             <button
+              type="button"
               onClick={() => {
                 if (sudo) {
                   document.cookie = "sudo=;max-age=0;path=/";
@@ -99,9 +100,9 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           <a
             href="/new"
             tabIndex={open ? undefined : -1}
-            class={`${SHARED_ITEM_CLASSES} justify-start gap-2 font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
+            class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
           >
-            <Plus />
+            <TbPlus class="size-5" />
             Publish a package
           </a>
           <a
@@ -109,6 +110,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             tabIndex={open ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
           >
+            <TbUser class="size-5" />
             Account
           </a>
           {user.isStaff && (
@@ -117,6 +119,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
               tabIndex={open ? undefined : -1}
               class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
             >
+              <TbUserCog class="size-5" />
               Admin Panel
             </a>
           )}
@@ -125,6 +128,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             tabIndex={open ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
           >
+            <TbLogout class="size-5" />
             Sign out
           </a>
         </div>

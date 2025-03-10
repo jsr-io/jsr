@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Signal } from "@preact/signals";
 import { useRef } from "preact/hooks";
-import { GitHub } from "./icons/GitHub.tsx";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 
 export interface GithubRepoInputProps {
   id: string;
@@ -48,7 +48,7 @@ export function GitHubRepoInput(
   return (
     <div class="flex items-center w-full md:w-88 rounded-md text-jsr-gray-900 shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 bg-white input-container">
       <span class="block">
-        <GitHub class="!size-5" />
+        <TbBrandGithub class="!size-5" />
       </span>
       <input
         id={id}

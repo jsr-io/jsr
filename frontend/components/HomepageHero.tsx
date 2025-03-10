@@ -3,7 +3,7 @@ import { asset } from "fresh/runtime";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { HomepageHeroParticles } from "../islands/HomepageHeroParticles.tsx";
 import { AnimatedLogo } from "./AnimatedLogo.tsx";
-import { Plus } from "./icons/Plus.tsx";
+import TbPlus from "tb-icons/TbPlus";
 
 const canvasStyle = /*css*/ `.particles-js-canvas-el {
 	position: absolute;
@@ -71,7 +71,7 @@ export function HomepageHero(
           <GlobalSearch
             apiKey={apiKey}
             indexId={indexId}
-            jumbo={true}
+            jumbo
           />
         </div>
         <div class="flex flex-col items-center gap-4">
@@ -79,7 +79,7 @@ export function HomepageHero(
             class="button-primary relative z-10 pointer-events-auto"
             href="/new"
           >
-            <Plus /> Publish a package
+            <TbPlus class="size-5" /> Publish a package
           </a>
         </div>
       </div>

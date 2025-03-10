@@ -26,6 +26,7 @@ export function Markdown(
   return (
     <div
       class="markdown-body"
+      // deno-lint-ignore react-no-danger
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
