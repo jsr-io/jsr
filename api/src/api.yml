@@ -1883,6 +1883,7 @@ components:
           description: The date and time when the package version was last updated.
         rekorLogId:
           type: string
+          nullable: true
           description: Rekor log ID for the published package version.
       required:
         - scope
