@@ -447,7 +447,7 @@ body .ddoc {
   }
 
   .usageContent pre.highlight > code:first-child {
-    @apply inline-flex pt-2 pr-10 pb-2 pl-2;
+    @apply pt-2 pr-10 pb-2 pl-2;
   }
 
   .usageContent .markdown {
