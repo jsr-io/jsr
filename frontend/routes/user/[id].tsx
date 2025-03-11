@@ -37,6 +37,7 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
             <ListPanel
               title="Recently published"
               subtitle="Packages recently published by this user"
+              // deno-lint-ignore jsx-no-children-prop
               children={data.packages.map((pkg) => ({
                 value: `@${pkg.scope}/${pkg.name}`,
                 //@am/neuralnetwork
