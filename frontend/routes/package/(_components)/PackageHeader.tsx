@@ -227,10 +227,10 @@ I would like to report a package for the following reason:
 
           <div class="flex flex-row items-center gap-2">
             <a
-              class="inline-flex items-center gap-1.5 md:gap-1 text-md md:text-xs bg-red-50 border-1 border-red-300/30 rounded-md p-1.5 md:p-1 text-red-500 font-semibold hover:bg-red-100 focus:outline-none focus:border-1 focus:border-red-300 focus:ring-1 focus:ring-red-300 focus:ring-opacity-50"
+              class="inline-flex items-center gap-1.5 text-sm bg-red-50 border border-red-300/30 rounded-md p-1.5 text-red-500 font-semibold hover:bg-red-100 focus:outline-none focus:border focus:border-red-300 focus:ring-1 focus:ring-red-300 focus:ring-opacity-50"
               href={mailLink}
             >
-              <TbFlag class="size-6 md:size-4" /> Report package
+              <TbFlag class="size-4" /> Report package
             </a>
           </div>
         </div>
