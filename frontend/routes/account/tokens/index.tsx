@@ -105,7 +105,7 @@ function PersonalTokenRow({ token }: { token: Token }) {
                 <b>Active</b> {expiresAt === null
                   ? "forever"
                   : `– expires ${
-                    timeAgo(new Date().getTime(), expiresAt.getTime()).replace(
+                    timeAgo(expiresAt).replace(
                       "ago",
                       "from now",
                     )
@@ -114,12 +114,12 @@ function PersonalTokenRow({ token }: { token: Token }) {
             )
             : (
               <span class="text-red-600">
-                <b>Inactive</b> - expired {timeAgo(expiresAt.getTime())}
+                <b>Inactive</b> - expired {timeAgo(expiresAt)}
               </span>
             )}
         </p>
         <p class="text-sm sm:text-right">
-          Created {timeAgo(new Date(token.createdAt).getTime())}
+          Created {timeAgo(new Date(token.createdAt))}
         </p>
       </div>
       <p class="text-sm text-jsr-gray-600">
@@ -160,7 +160,7 @@ function SessionRow({ token }: { token: Token }) {
                   <b>Active</b> {expiresAt === null
                     ? "forever"
                     : `– expires ${
-                      timeAgo(expiresAt.getTime()).replace(
+                      timeAgo(expiresAt).replace(
                         "ago",
                         "from now",
                       )
@@ -169,7 +169,7 @@ function SessionRow({ token }: { token: Token }) {
               )
               : (
                 <span class="text-red-600">
-                  <b>Inactive</b> - expired {timeAgo(expiresAt.getTime())}
+                  <b>Inactive</b> - expired {timeAgo(expiresAt)}
                 </span>
               )}
 
@@ -178,7 +178,7 @@ function SessionRow({ token }: { token: Token }) {
         </div>
         <div>
           <p class="text-sm sm:text-right">
-            Created {timeAgo(new Date(token.createdAt).getTime())}
+            Created {timeAgo(new Date(token.createdAt))}
           </p>
         </div>
       </div>

@@ -68,7 +68,7 @@ export default function UserEdit({ user }: { user: FullUser }) {
           : String(isBlocked)}
       </TableData>
       <TableData title={new Date(user.createdAt).toISOString().slice(0, 10)}>
-        {timeAgo(new Date(user.createdAt).getTime())}
+        {timeAgo(new Date(user.createdAt))}
       </TableData>
       <TableData class="relative whitespace-nowrap space-x-3 py-4 pl-3 pr-4 text-right text-sm font-semibold sm:pr-6">
         {edit

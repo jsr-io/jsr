@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export function timeAgo(date: Date | string): string {
   const now = new Date();
   const past = new Date(date);
@@ -17,6 +18,7 @@ export function timeAgo(date: Date | string): string {
   };
 
   // Force english because JSR is an English-only project
+  // @ts-ignore - TS doesn't know about this API yet
   const formatter = new Intl.DurationFormat("en", { style: "long" });
   return formatter.format(duration);
 }

@@ -239,7 +239,7 @@ function Version({
                     {" "}
                   </>
                 )}
-                {timeAgo(new Date(version.createdAt).getTime())}
+                {timeAgo(new Date(version.createdAt))}
               </div>
             )}
           </div>
@@ -268,8 +268,7 @@ function Version({
               : <TbClockHour3 class="size-4 stroke-blue-500 stroke-2" />}
             <span>
               {ordinalNumber(tasks.length - i)} publishing attempt{" "}
-              {statusVerb[task.status]}{" "}
-              {timeAgo(new Date(task.updatedAt).getTime())}
+              {statusVerb[task.status]} {timeAgo(new Date(task.updatedAt))}
             </span>
             <a href={`/status/${task.id}`} class="link justify-self-end z-20">
               Details

@@ -263,7 +263,7 @@ export const handler = define.handlers({
       const publishDateText = Image.renderText(
         dmmonoFont,
         25,
-        timeAgo(new Date(selectedVersion.createdAt).getTime()),
+        timeAgo(new Date(selectedVersion.createdAt)),
         COLOR_GRAY,
       );
       const result = new Image(

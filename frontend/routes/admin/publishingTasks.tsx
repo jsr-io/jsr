@@ -77,7 +77,7 @@ export default define.page<typeof handler>(function PublishingTasks({
                 10,
               )}
             >
-              {timeAgo(new Date(publishingTask.createdAt).getTime())}
+              {timeAgo(new Date(publishingTask.createdAt))}
             </TableData>
             <TableData
               title={new Date(publishingTask.updatedAt).toISOString().slice(
@@ -85,7 +85,7 @@ export default define.page<typeof handler>(function PublishingTasks({
                 10,
               )}
             >
-              {timeAgo(new Date(publishingTask.updatedAt).getTime())}
+              {timeAgo(new Date(publishingTask.updatedAt))}
             </TableData>
             <TableData>
               <PublishingTaskRequeue publishingTask={publishingTask} />
