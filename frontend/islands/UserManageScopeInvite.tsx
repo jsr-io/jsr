@@ -33,6 +33,7 @@ export default function UserManageScopeInvite(
       <TableData>
         <div class="space-x-4">
           <button
+            type="button"
             disabled={processing}
             onClick={() => {
               setProcessing(true);
@@ -52,6 +53,7 @@ export default function UserManageScopeInvite(
             Accept invite<span class="sr-only">, {invite.scope}</span>
           </button>
           <button
+            type="button"
             disabled={processing}
             onClick={() => {
               setProcessing(true);

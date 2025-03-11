@@ -399,9 +399,9 @@ You may also exclude certain files via the `exclude` option:
 ```
 
 When using Deno, the `include` and `exclude` options in `deno.json` are used for
-many other Deno subcommands as well, such as `deno test` and `deno bundle`. You
-can use `publish.include` and `publish.exclude` in your `deno.json` file to
-specify options that only apply to `deno publish`.
+many other Deno subcommands as well, such as `deno test`, `deno lint` and
+`deno fmt`. You can use `publish.include` and `publish.exclude` in your
+`deno.json` file to specify options that only apply to `deno publish`.
 
 ```json
 // deno.json

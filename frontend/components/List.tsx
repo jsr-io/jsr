@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { PaginationData } from "../util.ts";
-import TbChevronRight from "@preact-icons/tb/TbChevronRight";
+import TbChevronRight from "tb-icons/TbChevronRight";
 import { ComponentChildren } from "preact";
 
 export interface ListDisplayItem {

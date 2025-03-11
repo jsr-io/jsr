@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useCallback, useRef } from "preact/hooks";
-import { TbCheck, TbCopy } from "@preact-icons/tb";
+import { TbCheck, TbCopy } from "tb-icons";
 
 interface CopyButtonProps {
   title: string;
@@ -26,6 +26,7 @@ export function CopyButton(props: CopyButtonProps) {
 
   return (
     <button
+      type="button"
       onClick={copy}
       title={props.title}
       class={(copied.value ? "text-green-700" : "text-jsr-gray-700") +

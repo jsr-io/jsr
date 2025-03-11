@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { define } from "../../../util.ts";
-import TbChevronLeft from "@preact-icons/tb/TbChevronLeft";
+import TbChevronLeft from "tb-icons/TbChevronLeft";
 import { CreateToken } from "./(_islands)/CreateToken.tsx";
 
 export default define.page<typeof handler>(function AccountCreateTokenPage() {

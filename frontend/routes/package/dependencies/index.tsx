@@ -68,6 +68,8 @@ export default define.page<typeof handler>(function Deps(
       <PackageNav
         currentTab="Dependencies"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -132,7 +134,9 @@ function Dependency(
         </a>
       </TableData>
       <TableData class="space-x-4">
-        {constraints.map((constraint) => <span>{constraint}</span>)}
+        {constraints.map((constraint, idx) => (
+          <span key={idx}>{constraint}</span>
+        ))}
       </TableData>
       <TableData>
         {modules.length > 0 && (

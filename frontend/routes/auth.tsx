@@ -10,7 +10,7 @@ import type {
   Permission,
   PermissionPackagePublishVersion,
 } from "../utils/api_types.ts";
-import TbChevronRight from "@preact-icons/tb/TbChevronRight";
+import TbChevronRight from "tb-icons/TbChevronRight";
 
 export default define.page<typeof handler>(function AuthPage({ data }) {
   if (data.code === "" || data.authorization === null) {
@@ -57,7 +57,7 @@ export default define.page<typeof handler>(function AuthPage({ data }) {
         <PublishPackageList permissions={publishPermissions} />
         {data.authorization.permissions?.filter((perm) =>
           perm.permission !== "package/publish" && !("version" in perm)
-        ).map((perm) => <PermissionTile permission={perm} />)}
+        ).map((perm, idx) => <PermissionTile key={idx} permission={perm} />)}
       </div>
       <p class="mt-8">Only grant authorization to applications you trust.</p>
       <Authorize code={data.code} authorizedVersions={packageNames} />

@@ -16,6 +16,7 @@ export default function PublishingTaskRequeue(
 
   return (
     <button
+      type="button"
       disabled={processing}
       onClick={() => {
         setProcessing(true);

@@ -78,6 +78,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
           ? (
             <>
               <button
+                type="button"
                 disabled={processing}
                 onClick={() => {
                   setProcessing(true);
@@ -99,6 +100,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
                 Save<span class="sr-only">, {scope.scope}</span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setEdit(false);
                   setPackageLimit(String(scope.quotas.packageLimit));
@@ -117,6 +119,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
           )
           : (
             <button
+              type="button"
               onClick={() => setEdit(true)}
               class="link"
             >

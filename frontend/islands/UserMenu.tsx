@@ -1,8 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import { TbLogout, TbPlus, TbUser, TbUserCog } from "@preact-icons/tb";
-import IconArrowRight from "$tabler_icons/arrow-right.tsx";
+import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
 
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
@@ -37,6 +36,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <button
         id={`${prefix}-user-menu`}
         class="flex items-center rounded-full focus-visible:ring-2 ring-inset outline-none *:focus-visible:ring-jsr-cyan-400 *:focus-visible:ring-offset-1"
+        type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open ? "true" : "false"}
       >
@@ -74,11 +74,12 @@ export function UserMenu({ user, sudo, logoutUrl }: {
               <span>
                 {user.inviteCount} pending invite{user.inviteCount > 1 && "s"}
               </span>
-              <IconArrowRight class="w-4 h-4" />
+              <TbArrowRight class="w-4 h-4" />
             </a>
           )}
           {user.isStaff && (
             <button
+              type="button"
               onClick={() => {
                 if (sudo) {
                   document.cookie = "sudo=;max-age=0;path=/";

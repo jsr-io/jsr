@@ -8,7 +8,7 @@ import { FullScope, User } from "../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../utils/data.ts";
 import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
-import TbCheck from "@preact-icons/tb/TbCheck";
+import TbCheck from "tb-icons/TbCheck";
 import { scopeIAM } from "../../../utils/iam.ts";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(

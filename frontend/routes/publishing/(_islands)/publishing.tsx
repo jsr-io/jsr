@@ -6,7 +6,7 @@ import {
   PublishingTask,
   PublishingTaskStatus,
 } from "../../../utils/api_types.ts";
-import { TbAlertCircle, TbCheck, TbClockHour3 } from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
 
 export interface VersionPublishStatus {
   loading: boolean;

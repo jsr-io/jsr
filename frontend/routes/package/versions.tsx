@@ -12,12 +12,7 @@ import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { path } from "../../utils/api.ts";
-import {
-  TbAlertCircle,
-  TbCheck,
-  TbClockHour3,
-  TbTrashX,
-} from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(function Versions({
@@ -97,6 +92,8 @@ export default define.page<typeof handler>(function Versions({
         params={params as unknown as Params}
         iam={iam}
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
 
@@ -248,6 +245,7 @@ function Version({
           <form method="POST" class="z-20">
             <input type="hidden" name="version" value={version.version} />
             <button
+              type="submit"
               class="button-danger"
               name="action"
               value={version.yanked ? "unyank" : "yank"}
