@@ -15,20 +15,21 @@ export function ScopeMemberLeave({
   scopeName?: string;
 }) {
   const scopeInput = useSignal("");
-  const error = useSignal(true);
+  const isEmptyInput = useSignal(false);
+  const isInvalidInput = useSignal(false);
 
   useEffect(() => {
     const handler = setTimeout(() => {
       validate();
-    }, 500);
+    }, 300);
 
-    return clearTimeout(handler);
+    return () => clearTimeout(handler);
   }, [scopeInput.value]);
 
   const validate = () => {
-    error.value = isLastAdmin ||
-      (scopeInput.value !== scopeName && scopeInput.value.length > 0) ||
-      scopeInput.value.length === 0;
+    isEmptyInput.value = scopeInput.value.length === 0;
+    isInvalidInput.value = scopeInput.value !== scopeName &&
+      scopeInput.value.length > 0;
   };
 
   return (
@@ -43,35 +44,37 @@ export function ScopeMemberLeave({
         scope{isAdmin && " or manage members"}.
       </p>
       <input type="hidden" name="userId" value={userId} />
-      {(error.value && scopeInput.value !== "") && (
+      {(isLastAdmin || isInvalidInput.value) && (
         <div class="mt-6 border rounded-md border-red-300 bg-red-50 p-6 text-red-600">
           <span class="font-bold text-xl">Warning</span>
           <p>
             {isLastAdmin &&
               "You are the last admin in this scope. You must promote another member to admin before leaving."}
-            {scopeInput.value !== scopeName && scopeInput.value.length > 0 &&
+            {isInvalidInput.value &&
               "The scope name you entered does not match the scope name."}
           </p>
         </div>
       )}
       <div class="mt-4 flex justify-between gap-4">
-        {!isLastAdmin && (
-          <input
-            type="text"
-            class="inline-block w-full max-w-sm px-3 input-container text-sm input"
-            value={scopeInput.value}
-            onInput={(e) => {
-              scopeInput.value = (e.target as HTMLInputElement).value;
-            }}
-            placeholder="Scope name"
-          />
-        )}
+        <input
+          type="text"
+          class="inline-block w-full max-w-sm px-3 input-container text-sm input"
+          value={scopeInput.value}
+          onInput={(e) => {
+            scopeInput.value = (e.target as HTMLInputElement).value;
+          }}
+          placeholder="Scope name"
+          disabled={isLastAdmin}
+          title={isLastAdmin
+            ? "This is the last admin in this scope. Promote another member to admin before demoting this one."
+            : undefined}
+        />
         <button
           class="button-danger"
           type="submit"
           name="action"
           value="deleteMember"
-          disabled={error.value}
+          disabled={isLastAdmin || isInvalidInput.value || isEmptyInput.value}
         >
           Leave
           <TbArrowRightFromArc class="size-5 ml-2 rotate-180" />
