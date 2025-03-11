@@ -5,7 +5,7 @@ import { define } from "../../../util.ts";
 import { path } from "../../../utils/api.ts";
 import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
-import twas from "twas";
+import { timeAgo } from "../../../utils/timeAgo.ts";
 import { RevokeToken } from "./(_islands)/RevokeToken.tsx";
 import TbPlus from "@preact-icons/tb/TbPlus";
 
@@ -105,7 +105,7 @@ function PersonalTokenRow({ token }: { token: Token }) {
                 <b>Active</b> {expiresAt === null
                   ? "forever"
                   : `– expires ${
-                    twas(new Date().getTime(), expiresAt.getTime()).replace(
+                    timeAgo(new Date().getTime(), expiresAt.getTime()).replace(
                       "ago",
                       "from now",
                     )
@@ -114,12 +114,12 @@ function PersonalTokenRow({ token }: { token: Token }) {
             )
             : (
               <span class="text-red-600">
-                <b>Inactive</b> - expired {twas(expiresAt.getTime())}
+                <b>Inactive</b> - expired {timeAgo(expiresAt.getTime())}
               </span>
             )}
         </p>
         <p class="text-sm sm:text-right">
-          Created {twas(new Date(token.createdAt).getTime())}
+          Created {timeAgo(new Date(token.createdAt).getTime())}
         </p>
       </div>
       <p class="text-sm text-jsr-gray-600">
@@ -160,7 +160,7 @@ function SessionRow({ token }: { token: Token }) {
                   <b>Active</b> {expiresAt === null
                     ? "forever"
                     : `– expires ${
-                      twas(new Date().getTime(), expiresAt.getTime()).replace(
+                      timeAgo(expiresAt.getTime()).replace(
                         "ago",
                         "from now",
                       )
@@ -169,7 +169,7 @@ function SessionRow({ token }: { token: Token }) {
               )
               : (
                 <span class="text-red-600">
-                  <b>Inactive</b> - expired {twas(expiresAt.getTime())}
+                  <b>Inactive</b> - expired {timeAgo(expiresAt.getTime())}
                 </span>
               )}
 
@@ -178,7 +178,7 @@ function SessionRow({ token }: { token: Token }) {
         </div>
         <div>
           <p class="text-sm sm:text-right">
-            Created {twas(new Date(token.createdAt).getTime())}
+            Created {timeAgo(new Date(token.createdAt).getTime())}
           </p>
         </div>
       </div>

@@ -26,7 +26,6 @@
     "@std/front-matter": "jsr:@std/front-matter@1",
     "@std/semver": "jsr:@std/semver@1",
 
-    "@augustinmauroy/twas": "jsr:@augustinmauroy/twas@^1.0.0",
     "$imagescript": "https://deno.land/x/imagescript@1.3.0/mod.ts",
 
     "@deno/gfm": "jsr:@deno/gfm@0.10",

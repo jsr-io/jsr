@@ -1,0 +1,22 @@
+export function timeAgo(date: Date | string): string {
+  const now = new Date();
+  const past = new Date(date);
+  const diff = Math.abs(now.getTime() - past.getTime());
+
+  const duration = {
+    years: Math.floor(diff / (1000 * 60 * 60 * 24 * 365)),
+    months: Math.floor(
+      (diff % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30),
+    ),
+    days: Math.floor(
+      (diff % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24),
+    ),
+    hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+    minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+    seconds: Math.floor((diff % (1000 * 60)) / 1000),
+  };
+
+  // Force english because JSR is an English-only project
+  const formatter = new Intl.DurationFormat("en", { style: "long" });
+  return formatter.format(duration);
+}

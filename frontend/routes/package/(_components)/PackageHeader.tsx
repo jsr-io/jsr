@@ -9,7 +9,7 @@ import {
   TbRosetteDiscountCheck,
 } from "@preact-icons/tb";
 import { Tooltip } from "../../../components/Tooltip.tsx";
-import twas from "twas";
+import { timeAgo } from "../../../utils/timeAgo.ts";
 import { greaterThan, parse } from "@std/semver";
 
 interface PackageHeaderProps {
@@ -207,7 +207,7 @@ export function PackageHeader({
                     )}
                 >
                   {`${
-                    twas(new Date(selectedVersion.createdAt).getTime())
+                    timeAgo(new Date(selectedVersion.createdAt))
                   } (${selectedVersion.version})`}
                 </div>
               </div>
