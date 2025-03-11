@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import TbArrowRightFromArc from "@preact-icons/tb/TbArrowRightFromArc";
 import { useSignal } from "@preact/signals";
+import { useEffect } from "preact/hooks";
 
 export function ScopeMemberLeave({
   userId,
@@ -15,6 +16,14 @@ export function ScopeMemberLeave({
 }) {
   const scopeInput = useSignal("");
   const error = useSignal(true);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      validate();
+    }, 500);
+
+    return clearTimeout(handler);
+  }, [scopeInput.value]);
 
   const validate = () => {
     error.value = isLastAdmin ||
@@ -53,7 +62,6 @@ export function ScopeMemberLeave({
             value={scopeInput.value}
             onInput={(e) => {
               scopeInput.value = (e.target as HTMLInputElement).value;
-              validate();
             }}
             placeholder="Scope name"
           />
