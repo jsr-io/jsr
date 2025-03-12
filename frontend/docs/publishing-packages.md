@@ -433,7 +433,7 @@ because you have `"exports"` pointing to it (or a subdirectory of it). In this
 case, you can un-ignore the `dist/` directory by using a negation in the
 `exclude` field in your `jsr.json` / `deno.json` file.
 
-```jsonc
+```json
 // jsr.json
 {
   "name": "@luca/greet",
