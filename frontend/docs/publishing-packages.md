@@ -260,9 +260,9 @@ registry.
 
 ```shell
 # deno
-$ deno publish --dry-run
+deno publish --dry-run
 # npm
-$ npx jsr publish --dry-run
+npx jsr publish --dry-run
 # yarn
 yarn dlx jsr publish --dry-run
 # pnpm
@@ -282,9 +282,9 @@ Enter the root directory of your package (containing the `jsr.json` /
 
 ```shell
 # deno
-$ deno publish
+deno publish
 # npm
-$ npx jsr publish
+npx jsr publish
 # yarn
 yarn dlx jsr publish
 # pnpm
