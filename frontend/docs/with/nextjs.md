@@ -44,7 +44,7 @@ application at `http://localhost:3000/`. You can then visit
 `http://localhost:3000/` to see it.
 
 ```shell
-$ next dev
+next dev
 ```
 
 [Learn more about using packages.](/docs/using-packages)

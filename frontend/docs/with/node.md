@@ -34,7 +34,7 @@ console.log(red("Hello, world!"));
 Running this code will print a red "Hello, world!" text to your terminal.
 
 ```shell
-$ node main.js
+node main.js
 ```
 
 [Learn more about using packages.](/docs/using-packages)

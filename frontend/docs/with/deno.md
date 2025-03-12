@@ -91,5 +91,5 @@ package. This command will display a list of all dependencies, including their
 version constraints.
 
 ```shell
-$ deno info jsr:@std/fs
+deno info jsr:@std/fs
 ```
