@@ -20,5 +20,5 @@ export function timeAgo(date: Date | string): string {
   // Force english because JSR is an English-only project
   // @ts-ignore - TS doesn't know about this API yet
   const formatter = new Intl.DurationFormat("en", { style: "long" });
-  return formatter.format(duration);
+  return formatter.format(duration) + " ago";
 }
