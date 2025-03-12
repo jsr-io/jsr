@@ -112,6 +112,6 @@ resource-constrained environments.
 
 Your feedback will be critical to the success of JSR. If you have any ideas or
 feedback on how JSR could work better for your use case, please let us know on
-[Discord](https://discord.gg/deno) in the `#jsr` channel.
+[Discord](https://discord.gg/hMqvhAn9xG).
 
 Ready to try JSR yourself? [Get started now](/docs/introduction).
