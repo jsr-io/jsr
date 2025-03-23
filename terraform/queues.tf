@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
-  publishing_tasks_queue_name = var.gcp_project == "deno-registry3-prod" ? "publishing-tasks3" : "publishing-tasks"
+  publishing_tasks_queue_name        = var.gcp_project == "deno-registry3-prod" ? "publishing-tasks3" : "publishing-tasks"
   npm_tarball_build_tasks_queue_name = "npm-tarball-build-tasks2"
 }
 
@@ -29,7 +29,7 @@ resource "google_cloud_tasks_queue" "publishing_tasks" {
 
   http_target {
     uri_override {
-      host = stripPrefix("https://", google_cloud_run_v2_service.registry_api_tasks.uri)
+      host = trimprefix(google_cloud_run_v2_service.registry_api_tasks.uri, "https://")
       path_override {
         path = "/tasks/publish"
       }
@@ -66,7 +66,7 @@ resource "google_cloud_tasks_queue" "npm_tarball_build_tasks" {
 
   http_target {
     uri_override {
-      host = stripPrefix("https://", google_cloud_run_v2_service.registry_api_tasks.uri)
+      host = trimprefix(google_cloud_run_v2_service.registry_api_tasks.uri, "https://")
       path_override {
         path = "/tasks/npm_tarball_build"
       }
