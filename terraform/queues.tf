@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 resource "google_cloud_tasks_queue" "publishing_tasks" {
-  name     = "publishing-tasks"
+  name     = var.gcp_project == "deno-registry3-prod" ? "publishing-tasks3" : "publishing-tasks"
   location = "us-central1"
 
   retry_config {
@@ -22,25 +22,18 @@ resource "google_cloud_tasks_queue" "publishing_tasks" {
     prevent_destroy = true
   }
 
-  # TODO: Set up queue-level routing from terraform.
-  # Blocked on: https://github.com/hashicorp/terraform-provider-google/issues/15022
-  # For now, manually set up queue level routing with these settings:
-  #  {
-  #   "httpTarget": {
-  #     "uriOverride": {
-  #       "host": "${stripPrefix("https://", google_cloud_run_v2_service.registry_api_tasks.uri)}",
-  #       "pathOverride": { "path": "/tasks/publish" }
-  #     },
-  #     "oidcToken": {
-  #       "serviceAccountEmail": "${google_service_account.task_dispatcher.email}"
-  #     }
-  #   }
-  # }
-  # The command to do this:
-  # curl -X PATCH -d @./data.json -i \
-  #   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-  #   -H "Content-Type: application/json" \
-  #   "https://cloudtasks.googleapis.com/v2beta3/projects/$PROJECT_ID/locations/us-central1/queues/publishing-tasks?updateMask=httpTarget.uriOverride,httpTarget.oidcToken"
+  http_target {
+    uri_override {
+      host = stripPrefix("https://", google_cloud_run_v2_service.registry_api_tasks.uri)
+      path_override {
+        path = "/tasks/publish"
+      }
+    }
+
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
 }
 
 resource "google_cloud_tasks_queue" "npm_tarball_build_tasks" {
@@ -66,25 +59,18 @@ resource "google_cloud_tasks_queue" "npm_tarball_build_tasks" {
     prevent_destroy = true
   }
 
-  # TODO: Set up queue-level routing from terraform.
-  # Blocked on: https://github.com/hashicorp/terraform-provider-google/issues/15022
-  # For now, manually set up queue level routing with these settings:
-  #  {
-  #   "httpTarget": {
-  #     "uriOverride": {
-  #       "host": "${stripPrefix("https://", google_cloud_run_v2_service.registry_api_tasks.uri)}",
-  #       "pathOverride": { "path": "/tasks/npm_tarball_build" }
-  #     },
-  #     "oidcToken": {
-  #       "serviceAccountEmail": "${google_service_account.task_dispatcher.email}"
-  #     }
-  #   }
-  # }
-  # The command to do this:
-  # curl -X PATCH -d @./data.json -i \
-  #   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-  #   -H "Content-Type: application/json" \
-  #   "https://cloudtasks.googleapis.com/v2beta3/projects/$PROJECT_ID/locations/us-central1/queues/npm-tarball-build-tasks2?updateMask=httpTarget.uriOverride,httpTarget.oidcToken"
+  http_target {
+    uri_override {
+      host = stripPrefix("https://", google_cloud_run_v2_service.registry_api_tasks.uri)
+      path_override {
+        path = "/tasks/npm_tarball_build"
+      }
+    }
+
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
 }
 
 resource "google_service_account" "task_dispatcher" {
