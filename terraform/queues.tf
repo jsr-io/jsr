@@ -1,6 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+locals {
+  publishing_tasks_queue_name = var.gcp_project == "deno-registry3-prod" ? "publishing-tasks3" : "publishing-tasks"
+  npm_tarball_build_tasks_queue_name = "npm-tarball-build-tasks2"
+}
+
 resource "google_cloud_tasks_queue" "publishing_tasks" {
-  name     = var.gcp_project == "deno-registry3-prod" ? "publishing-tasks3" : "publishing-tasks"
+  name     = local.publishing_tasks_queue_name
   location = "us-central1"
 
   retry_config {
@@ -37,7 +42,7 @@ resource "google_cloud_tasks_queue" "publishing_tasks" {
 }
 
 resource "google_cloud_tasks_queue" "npm_tarball_build_tasks" {
-  name     = "npm-tarball-build-tasks2"
+  name     = local.npm_tarball_build_tasks_queue_name
   location = "us-central1"
 
   retry_config {
