@@ -7,7 +7,7 @@ import type {
 } from "../../utils/api_types.ts";
 import { define } from "../../util.ts";
 import { compare, equals, format, lessThan, parse, SemVer } from "@std/semver";
-import twas from "twas";
+import { timeAgo } from "../../utils/timeAgo.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
@@ -236,7 +236,7 @@ function Version({
                     {" "}
                   </>
                 )}
-                {twas(new Date(version.createdAt).getTime())}
+                {timeAgo(new Date(version.createdAt))}
               </div>
             )}
           </div>
@@ -265,8 +265,7 @@ function Version({
               : <TbClockHour3 class="size-4 stroke-blue-500 stroke-2" />}
             <span>
               {ordinalNumber(tasks.length - i)} publishing attempt{" "}
-              {statusVerb[task.status]}{" "}
-              {twas(new Date(task.updatedAt).getTime())}
+              {statusVerb[task.status]} {timeAgo(new Date(task.updatedAt))}
             </span>
             <a href={`/status/${task.id}`} class="link justify-self-end z-20">
               Details

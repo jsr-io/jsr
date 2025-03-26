@@ -10,7 +10,7 @@ import {
   TbRosetteDiscountCheck,
 } from "tb-icons";
 import { Tooltip } from "../../../components/Tooltip.tsx";
-import twas from "twas";
+import { timeAgo } from "../../../utils/timeAgo.ts";
 import { greaterThan, parse } from "@std/semver";
 
 interface PackageHeaderProps {
@@ -218,7 +218,7 @@ I would like to report a package for the following reason:
                     )}
                 >
                   {`${
-                    twas(new Date(selectedVersion.createdAt).getTime())
+                    timeAgo(new Date(selectedVersion.createdAt))
                   } (${selectedVersion.version})`}
                 </div>
               </div>
