@@ -260,6 +260,19 @@ function Version({
             </button>
           </form>
         )}
+        {isPublished && iam.isStaff && (
+          <form method="POST" class="z-20">
+            <input type="hidden" name="version" value={version.version} />
+            <button
+              type="submit"
+              class="button-danger"
+              name="action"
+              value="delete"
+            >
+              Delete
+            </button>
+          </form>
+        )}
       </div>
       <ul>
         {tasks.map((task, i) => (
@@ -356,6 +369,17 @@ export const handler = define.handlers({
         const res = await api.patch(
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: false },
+        );
+        if (!res.ok) throw res;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/versions` },
+        });
+      }
+      case "delete": {
+        const version = String(data.get("version"));
+        const res = await api.delete(
+          path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
         );
         if (!res.ok) throw res;
         return new Response(null, {
