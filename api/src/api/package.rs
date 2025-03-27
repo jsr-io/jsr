@@ -145,6 +145,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/versions/:version",
       util::auth(version_update_handler),
     )
+    .delete(
+      "/:package/versions/:version",
+      util::auth(version_delete_handler),
+    )
     .post(
       "/:package/versions/:version/provenance",
       util::auth(version_provenance_statements_handler),
@@ -942,8 +946,98 @@ pub async fn version_update_handler(
         gzip_encoded: false,
       },
     )
-    .await
-    .unwrap();
+    .await?;
+
+  let npm_version_manifest_path =
+    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+  let npm_version_manifest =
+    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
+  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
+  buckets
+    .npm_bucket
+    .upload(
+      npm_version_manifest_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      GcsUploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  Ok(
+    Response::builder()
+      .status(StatusCode::NO_CONTENT)
+      .body(Body::empty())
+      .unwrap(),
+  )
+}
+
+#[instrument(
+  name = "DELETE /api/scopes/:scope/packages/:package/versions/:version",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn version_delete_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+  let npm_url = &req.data::<NpmUrl>().unwrap().0;
+
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let count = db
+    .count_package_dependents(
+      crate::db::DependencyKind::Jsr,
+      &format!("@{}/{}", scope, package),
+    )
+    .await?;
+
+  if count > 0 {
+    return Err(ApiError::DeleteVersionHasDependents);
+  }
+
+  db.delete_package_version(&scope, &package, &version)
+    .await?;
+
+  let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
+  buckets.docs_bucket.delete_file(path.into()).await?;
+
+  let path = crate::gcs_paths::version_metadata(&scope, &package, &version);
+  buckets.modules_bucket.delete_file(path.into()).await?;
+
+  let path =
+    crate::gcs_paths::file_path_root_directory(&scope, &package, &version);
+  buckets.modules_bucket.delete_directory(path.into()).await?;
+
+  let package_metadata_path =
+    crate::gcs_paths::package_metadata(&scope, &package);
+  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
+
+  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  buckets
+    .modules_bucket
+    .upload(
+      package_metadata_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      GcsUploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
 
   let npm_version_manifest_path =
     crate::gcs_paths::npm_version_manifest_path(&scope, &package);
@@ -4092,5 +4186,67 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].id, task2.id);
+  }
+
+  #[tokio::test]
+  async fn delete_version() {
+    let mut t = TestSetup::new().await;
+    let staff_token = t.staff_user.token.clone();
+
+    // unpublished package
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/0.0.1/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
+      .await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // Now publish a package that has a few deps
+    let package_name = PackageName::try_from("bar").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("depends_on_ok"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::BAD_REQUEST, "deleteVersionHasDependents")
+      .await;
+
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/bar/versions/1.2.3")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    let mut resp = t
+      .http()
+      .delete("/api/scopes/scope/packages/foo/versions/0.0.1")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
   }
 }
