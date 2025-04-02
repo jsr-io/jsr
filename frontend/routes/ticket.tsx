@@ -67,6 +67,7 @@ export default define.page<typeof handler>(function Ticket({
                   <img
                     src={message.author.avatarUrl}
                     class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
+                    alt={message.author.name}
                   />
                   <span>{message.author.name}</span>
                 </a>
@@ -93,12 +94,14 @@ function formatMeta(kind: TicketKind, meta: Record<string, string>) {
     case "scope_quota_increase":
       return [[
         "scope",
+        // deno-lint-ignore jsx-key
         <a href={`/@${meta.scope}`} class="link">@{meta.scope}</a>,
       ]].concat(Object.entries(meta).filter(([k]) => k !== "scope"));
     case "package_report": {
       const path = `@${meta.scope}/${meta.name}${
         meta.version ? `@${meta.version}` : ""
       }`;
+      // deno-lint-ignore jsx-key
       return [["package", <a href={`/${path}`} class="link">{path}</a>]];
     }
     case "scope_claim":

@@ -26,6 +26,7 @@ export function TicketMessageInput(
           } satisfies NewTicketMessage,
         ).then((resp) => {
           if (resp.ok) {
+            // deno-lint-ignore no-window
             window.location.reload();
           } else {
             console.error(resp);
@@ -56,6 +57,7 @@ export function TicketMessageInput(
                 } satisfies AdminUpdateTicketRequest,
               ).then((resp) => {
                 if (resp.ok) {
+                  // deno-lint-ignore no-window
                   window.location.reload();
                 } else {
                   console.error(resp);
