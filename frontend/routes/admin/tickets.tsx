@@ -34,9 +34,18 @@ export default define.page<typeof handler>(function Tickets({
           <TableRow key={ticket.id}>
             <TableData>
               <div class="flex items-center gap-1.5">
-                {ticket.messages.at(-1)!.author.id === ticket.creator.id  && !ticket.closed && <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />}
-                <div class={`${ticket.closed ? "bg-green-400" : "bg-orange-400"} rounded-sm p-1`}>
-                  {ticket.closed ? <TbCheck class="text-white" /> : <TbClock class="text-white" />}
+                {ticket.messages.at(-1)!.author.id === ticket.creator.id &&
+                  !ticket.closed && (
+                  <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
+                )}
+                <div
+                  class={`${
+                    ticket.closed ? "bg-green-400" : "bg-orange-400"
+                  } rounded-sm p-1`}
+                >
+                  {ticket.closed
+                    ? <TbCheck class="text-white" />
+                    : <TbClock class="text-white" />}
                 </div>
                 <span>{ticket.closed ? "closed" : "open"}</span>
               </div>

@@ -19,9 +19,12 @@ export function TicketMessageInput(
       onSubmit={(e) => {
         e.preventDefault();
 
-        api.post(path`/tickets/${ticket.id}`, {
-          message,
-        } satisfies NewTicketMessage).then(resp => {
+        api.post(
+          path`/tickets/${ticket.id}`,
+          {
+            message,
+          } satisfies NewTicketMessage,
+        ).then((resp) => {
           if (resp.ok) {
             window.location.reload();
           } else {
@@ -38,21 +41,28 @@ export function TicketMessageInput(
       <div class="flex justify-end gap-4">
         <button type="submit" class="button-primary">Send message</button>
         {user.isStaff && (
-          <button type="button" class="button-danger" onClick={(e) => {
-            e.preventDefault();
+          <button
+            type="button"
+            class="button-danger"
+            onClick={(e) => {
+              e.preventDefault();
 
-            console.log("FOO");
+              console.log("FOO");
 
-            api.patch(path`/admin/tickets/${ticket.id}`, {
-              closed: !ticket.closed,
-            } satisfies AdminUpdateTicketRequest).then(resp => {
-              if (resp.ok) {
-                window.location.reload();
-              } else {
-                console.error(resp);
-              }
-            });
-          }}>
+              api.patch(
+                path`/admin/tickets/${ticket.id}`,
+                {
+                  closed: !ticket.closed,
+                } satisfies AdminUpdateTicketRequest,
+              ).then((resp) => {
+                if (resp.ok) {
+                  window.location.reload();
+                } else {
+                  console.error(resp);
+                }
+              });
+            }}
+          >
             {ticket.closed ? "Reopen" : "Close"} ticket
           </button>
         )}

@@ -31,7 +31,6 @@ export function UserMenu({ user, sudo, logoutUrl }: {
 
   const prefix = useId();
 
-
   return (
     <div class="relative select-none" ref={ref}>
       <button
@@ -84,7 +83,8 @@ export function UserMenu({ user, sudo, logoutUrl }: {
               href={user.isStaff ? "/admin/tickets" : "/account/tickets"}
             >
               <span>
-                {user.newerTicketMessagesCount} unreplied ticket{user.newerTicketMessagesCount > 1 && "s"}
+                {user.newerTicketMessagesCount}{" "}
+                unreplied ticket{user.newerTicketMessagesCount > 1 && "s"}
               </span>
               <TbArrowRight class="w-4 h-4" />
             </a>

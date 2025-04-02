@@ -21,15 +21,25 @@ export default define.page<typeof handler>(function AccountInvitesPage({
           { title: "Kind", class: "w-0" },
           { title: "Created", class: "w-0" },
           { title: "Updated", class: "w-0" },
+          { title: "", class: "w-0", align: "right" },
         ]}
       >
         {data.tickets.map((ticket) => (
           <TableRow key={ticket.id}>
             <TableData>
               <div class="flex items-center gap-1.5">
-                {ticket.messages.at(-1)!.author.id !== data.user.id && !ticket.closed && <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />}
-                <div class={`${ticket.closed ? "bg-green-400" : "bg-orange-400"} rounded-sm p-1`}>
-                  {ticket.closed ? <TbCheck class="text-white" /> : <TbClock class="text-white" />}
+                {ticket.messages.at(-1)!.author.id !== data.user.id &&
+                  !ticket.closed && (
+                  <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
+                )}
+                <div
+                  class={`${
+                    ticket.closed ? "bg-green-400" : "bg-orange-400"
+                  } rounded-sm p-1`}
+                >
+                  {ticket.closed
+                    ? <TbCheck class="text-white" />
+                    : <TbClock class="text-white" />}
                 </div>
                 <span>{ticket.closed ? "closed" : "open"}</span>
               </div>
@@ -55,6 +65,9 @@ export default define.page<typeof handler>(function AccountInvitesPage({
               )}
             >
               {twas(new Date(ticket.updatedAt).getTime())}
+            </TableData>
+            <TableData>
+              <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
             </TableData>
           </TableRow>
         ))}

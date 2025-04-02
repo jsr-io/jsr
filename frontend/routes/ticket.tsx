@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RouteConfig, HttpError } from "fresh";
+import { HttpError, RouteConfig } from "fresh";
 import { define } from "../util.ts";
 import type { Ticket, TicketKind } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
@@ -28,21 +28,27 @@ export default define.page<typeof handler>(function Ticket({
           </div>
           {(formatMeta(data.ticket.kind, data.ticket.meta) ??
             Object.entries(data.ticket.meta)).map((
-            [key, value],
-          ) => (
-            <div key={key}>
-              <span class="font-semibold">{key}:</span>
-              <br />
-              {value}
-            </div>
-          ))}
+              [key, value],
+            ) => (
+              <div key={key}>
+                <span class="font-semibold">{key}:</span>
+                <br />
+                {value}
+              </div>
+            ))}
           <div>
             <span class="font-semibold">status:</span>
             <br />
             <div class="flex items-center gap-1.5">
               <span>{data.ticket.closed ? "closed" : "open"}</span>
-              <div class={`${data.ticket.closed ? "bg-green-400" : "bg-orange-400"} rounded-sm p-1`}>
-                {data.ticket.closed ? <TbCheck class="text-white" /> : <TbClock class="text-white" />}
+              <div
+                class={`${
+                  data.ticket.closed ? "bg-green-400" : "bg-orange-400"
+                } rounded-sm p-1`}
+              >
+                {data.ticket.closed
+                  ? <TbCheck class="text-white" />
+                  : <TbClock class="text-white" />}
               </div>
             </div>
           </div>
@@ -85,7 +91,10 @@ function formatMeta(kind: TicketKind, meta: Record<string, string>) {
     case "user_scope_quota_increase":
       return null;
     case "scope_quota_increase":
-      return [["scope", <a href={`/@${meta.scope}`} class="link">@{meta.scope}</a>]].concat(Object.entries(meta).filter(([k]) => k !== "scope"));
+      return [[
+        "scope",
+        <a href={`/@${meta.scope}`} class="link">@{meta.scope}</a>,
+      ]].concat(Object.entries(meta).filter(([k]) => k !== "scope"));
     case "package_report": {
       const path = `@${meta.scope}/${meta.name}${
         meta.version ? `@${meta.version}` : ""
