@@ -36,6 +36,23 @@ export default define.page<typeof handler>(function AccountInvitesPage({
                 user={data.user}
                 style="primary"
                 kind="user_scope_quota_increase"
+                title="Request scope quota increase"
+                description={
+                  <>
+                    <p class="mt-4 text-jsr-gray-600">
+                      We are unable to increase your scope quota without a valid
+                      reason, and we require that you make use of your existing
+                      scopes before requesting an increase. Please be aware of
+                      the{" "}
+                      <a
+                        href="/docs/usage-policy#scope-name-squatting"
+                        class="link"
+                      >
+                        scope name squatting policy
+                      </a>.
+                    </p>
+                  </>
+                }
                 fields={[{
                   name: "message",
                   label: "Reason",

@@ -61,6 +61,16 @@ function ScopeQuotas({ scope, user }: { scope: FullScope; user: User }) {
             user={user}
             kind="scope_quota_increase"
             style="primary"
+            title="Request scope quota increase"
+            description={
+              <>
+                <p class="mt-4 text-jsr-gray-600">
+                  Please provide a reason for requesting a quota increase for
+                  the scope @{scope.scope}. Your limit does not have to be
+                  exhausted already to request an increase.
+                </p>
+              </>
+            }
             fields={[
               {
                 name: "quota kind",

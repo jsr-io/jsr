@@ -16,11 +16,13 @@ interface Field {
 const BASE_INPUT_STYLING = "w-full block px-2 py-1.5 input-container input";
 
 export function TicketModal(
-  { user, kind, style, fields, children, extraMeta }: {
+  { user, kind, style, fields, children, extraMeta, title, description }: {
     children: ComponentChildren;
     kind: TicketKind;
     style: "primary" | "danger";
     user: User | null;
+    title: string;
+    description: ComponentChildren;
     fields: Field[];
     extraMeta?: Record<string, string | undefined>;
   },
@@ -118,9 +120,17 @@ export function TicketModal(
             });
           }}
         >
+          <h2 class="text-lg font-semibold">
+            New Ticket: {title}
+          </h2>
+
           {status === "pending"
             ? (
               <>
+                <div class="text-sm">
+                  {description}
+                </div>
+
                 {fields.map((field) => {
                   let input;
 

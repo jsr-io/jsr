@@ -6,13 +6,15 @@ import { path } from "../utils/api.ts";
 import twas from "twas";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TbArrowLeft, TbCheck, TbClock } from "tb-icons";
+import { TicketTitle } from "../components/TicketTitle.tsx";
+import tickets from "./account/tickets.tsx";
 
 export default define.page<typeof handler>(function Ticket({
   data,
   state,
 }) {
   return (
-    <div class="mb-24 space-y-12">
+    <div class="mb-24 space-y-8">
       <div class="flex justify-between gap-6 md:gap-12 max-md:flex-col">
         {state.user!.isStaff && (
           <a class="button-primary" href="/admin/tickets">
@@ -20,12 +22,18 @@ export default define.page<typeof handler>(function Ticket({
           </a>
         )}
 
+        <div>
+          <p class="text-gray-600">Ticket #{data.ticket.id}</p>
+          <h1 class="text-3xl font-bold">
+            <TicketTitle
+              kind={data.ticket.kind}
+              meta={data.ticket.meta}
+              user={state.user!}
+            />
+          </h1>
+        </div>
+
         <div class="flex gap-3 md:gap-8 max-md:flex-col">
-          <div>
-            <span class="font-semibold">reason:</span>
-            <br />
-            {data.ticket.kind.replaceAll("_", " ")}
-          </div>
           {(formatMeta(data.ticket.kind, data.ticket.meta) ??
             Object.entries(data.ticket.meta)).map((
               [key, value],
@@ -44,7 +52,7 @@ export default define.page<typeof handler>(function Ticket({
               <div
                 class={`${
                   data.ticket.closed ? "bg-green-400" : "bg-orange-400"
-                } rounded-sm p-1`}
+                } rounded-full p-1`}
               >
                 {data.ticket.closed
                   ? <TbCheck class="text-white" />
@@ -56,32 +64,51 @@ export default define.page<typeof handler>(function Ticket({
       </div>
       <div class="space-y-3">
         {data.ticket.messages.map((message) => {
-          console.log(message);
+          const isOpener = message.author.id === data.ticket.creator.id;
           return (
             <div class="w-full rounded border-1.5 border-current bg-white px-4 py-3">
               <div class="flex justify-between mb-2">
-                <a
-                  class="flex items-center gap-2"
-                  href={`/user/${message.author.id}`}
-                >
-                  <img
-                    src={message.author.avatarUrl}
-                    class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
-                    alt={message.author.name}
-                  />
-                  <span>{message.author.name}</span>
-                </a>
+                <div class="flex items-center gap-3">
+                  <a
+                    class="contents"
+                    href={`/user/${message.author.id}`}
+                  >
+                    <img
+                      src={message.author.avatarUrl}
+                      class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
+                      alt={message.author.name}
+                    />
+                    <span class="font-semibold">{message.author.name}</span>
+                    {" "}
+                  </a>
+                  <span
+                    class={"rounded-full text-sm px-2 inline-block " +
+                      (isOpener
+                        ? "bg-jsr-cyan-500 text-white"
+                        : "bg-jsr-yellow-400")}
+                  >
+                    {isOpener ? "User" : "Staff"}
+                  </span>
+                </div>
                 <div>
                   {twas(new Date(message.createdAt).getTime())}
                 </div>
               </div>
-              <div class="pl-4">
+              <pre class="mt-4 font-sans">
                 {message.message}
-              </div>
+              </pre>
             </div>
           );
         })}
       </div>
+      {state.user!.id === data.ticket.creator.id &&
+        (
+          <p class="text-sm text-gray-600">
+            We will respond to you as soon as possible. Please do not create
+            multiple tickets for the same issue. You will be emailed at{" "}
+            {state.user!.email} when we respond to your ticket.
+          </p>
+        )}
       <TicketMessageInput ticket={data.ticket} user={state.user!} />
     </div>
   );

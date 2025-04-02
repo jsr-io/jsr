@@ -214,6 +214,7 @@ function CreateScope(
             onInput={(e) => {
               newScope.value = e.currentTarget.value;
               error.value = "";
+              errorCode.value = "";
             }}
             onBlur={(e) => {
               const newScope = e.currentTarget.value;
@@ -225,19 +226,29 @@ function CreateScope(
         </label>
         <button type="submit" class="button-primary">Create</button>
         {errorCode.value === "scopeNameReserved" && (
-          <div class="mb-4">
-            <div class="mt-3 mb-2">
-              The provided scope name is reserved.
-              <br />
-              If you want to claim it, please use the following button.
+          <div class="mt-3 w-full space-y-4 bg-jsr-yellow-50 border-1.5 border-jsr-yellow-200 p-4 md:p-6 rounded-xl">
+            <div class="mb-2">
+              The provided scope name is reserved. Please use the form below to
+              claim it if you think you have a valid reason to do so.
             </div>
             <TicketModal
               user={props.user}
               kind="scope_claim"
               extraMeta={{ "scope": newScope.value }}
+              title="Request reserved scope name"
+              description={
+                <>
+                  <p class="mt-4 text-jsr-gray-600">
+                    The scope name '@{newScope.value}' is reserved. If you think
+                    you have a valid reason to claim it, such as proof of
+                    ownership of a package or scope on npm with the same name,
+                    please provide the details below.
+                  </p>
+                </>
+              }
               fields={[{
                 name: "message",
-                label: "Proof of ownership",
+                label: "Reason",
                 type: "textarea",
                 required: true,
               }]}

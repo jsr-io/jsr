@@ -37,6 +37,8 @@ export function TicketMessageInput(
       <textarea
         class="w-full block px-2 py-1.5 input-container input"
         value={message}
+        rows={3}
+        placeholder="Type your message here..."
         onChange={(e) => setMessage(e.currentTarget!.value)}
       />
       <div class="flex justify-end gap-4">
@@ -47,8 +49,6 @@ export function TicketMessageInput(
             class="button-danger"
             onClick={(e) => {
               e.preventDefault();
-
-              console.log("FOO");
 
               api.patch(
                 path`/admin/tickets/${ticket.id}`,
@@ -65,7 +65,7 @@ export function TicketMessageInput(
               });
             }}
           >
-            {ticket.closed ? "Reopen" : "Close"} ticket
+            {ticket.closed ? "Re-open" : "Close"} ticket
           </button>
         )}
       </div>

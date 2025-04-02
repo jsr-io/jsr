@@ -7,6 +7,7 @@ import { Ticket } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
 import twas from "twas";
 import { TbCheck, TbClock } from "tb-icons";
+import { TicketTitle } from "../../components/TicketTitle.tsx";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
   data,
@@ -18,7 +19,6 @@ export default define.page<typeof handler>(function AccountInvitesPage({
         class="mt-8"
         columns={[
           { title: "Status", class: "w-0" },
-          { title: "ID", class: "w-0" },
           { title: "Kind", class: "w-0" },
           { title: "Created", class: "w-0" },
           { title: "Updated", class: "w-0" },
@@ -37,7 +37,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
                 <div
                   class={`${
                     ticket.closed ? "bg-green-400" : "bg-orange-400"
-                  } rounded-sm p-1`}
+                  } rounded-full p-1`}
                 >
                   {ticket.closed
                     ? <TbCheck class="text-white" />
@@ -47,24 +47,19 @@ export default define.page<typeof handler>(function AccountInvitesPage({
               </div>
             </TableData>
             <TableData>
-              <a href={`/ticket/${ticket.id}`}>{ticket.id}</a>
-            </TableData>
-            <TableData>
-              {ticket.kind.replaceAll("_", " ")}
+              <TicketTitle
+                kind={ticket.kind}
+                meta={ticket.meta}
+                user={data.user}
+              />
             </TableData>
             <TableData
-              title={new Date(ticket.createdAt).toISOString().slice(
-                0,
-                10,
-              )}
+              title={new Date(ticket.createdAt).toISOString().slice(0, 10)}
             >
               {twas(new Date(ticket.createdAt).getTime())}
             </TableData>
             <TableData
-              title={new Date(ticket.updatedAt).toISOString().slice(
-                0,
-                10,
-              )}
+              title={new Date(ticket.updatedAt).toISOString().slice(0, 10)}
             >
               {twas(new Date(ticket.updatedAt).getTime())}
             </TableData>
