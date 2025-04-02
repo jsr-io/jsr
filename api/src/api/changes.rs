@@ -1,12 +1,10 @@
-use crate::api::ApiError;
 use hyper::{Body, Request};
-use routerify::Router;
 use routerify::prelude::*;
 use serde::Serialize;
 
 use crate::{
     db::{Change, Database},
-    util::{self, pagination, ApiResult},
+    util::{pagination, ApiResult},
 };
 
 
@@ -29,14 +27,7 @@ impl From<Change> for ApiChange {
     }
 }
 
-pub fn changes_router() -> Router<Body, ApiError> {
-    Router::builder()
-        .get("/_changes", util::json(list_changes))
-        .build()
-        .unwrap()
-}
-
-async fn list_changes(req: Request<Body>) -> ApiResult<Vec<ApiChange>> {
+pub async fn list_changes(req: Request<Body>) -> ApiResult<Vec<ApiChange>> {
     let db = req.data::<Database>().unwrap();
     let (start, limit) = pagination(&req);
     let changes = db.list_changes(start, limit).await?;

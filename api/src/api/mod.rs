@@ -16,6 +16,7 @@ use hyper::Response;
 use package::global_list_handler;
 use package::global_metrics_handler;
 use package::global_stats_handler;
+use changes::list_changes;
 use routerify::Middleware;
 use routerify::Router;
 
@@ -29,7 +30,6 @@ use self::admin::admin_router;
 use self::authorization::authorization_router;
 use self::scope::scope_router;
 use self::users::users_router;
-use self::changes::changes_router;
 
 use crate::util;
 use crate::util::CacheDuration;
@@ -43,10 +43,10 @@ pub fn api_router() -> Router<Body, ApiError> {
         util::json(global_metrics_handler),
       ),
     )
+    .get("/_changes", util::json(list_changes))
     .middleware(Middleware::pre(util::auth_middleware))
     .scope("/admin", admin_router())
     .scope("/scopes", scope_router())
-    .scope("/changes", changes_router())
     .scope("/user", self_user_router())
     .scope("/users", users_router())
     .scope("/authorizations", authorization_router())

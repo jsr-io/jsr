@@ -83,6 +83,35 @@ impl Database {
       .await
   }
 
+
+  #[instrument(name = "Database::create_change", skip(self), err)]
+  pub async fn create_change(
+    &self,
+    change_type: ChangeType,
+    package_id: String,
+    data: serde_json::Value,
+  ) -> Result<Change> {
+    sqlx::query_as!(
+      Change,
+      r#"
+      INSERT INTO changes (change_type, package_id, data)
+      VALUES ($1, $2, $3)
+      RETURNING
+        seq,
+        change_type as "change_type: ChangeType",
+        package_id,
+        data,
+        created_at
+      "#,
+      change_type as _,
+      package_id,
+      data.to_string()
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
+
   #[instrument(name = "Database::get_user_public", skip(self), err)]
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(

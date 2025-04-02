@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
+use crate::db::ChangeType;
 use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
@@ -233,6 +234,25 @@ async fn process_publishing_task(
       doc_search_json,
     );
   }
+
+  tokio::spawn({
+    let db = db.clone();
+    let scope = publishing_task.package_scope.clone();
+    let name = publishing_task.package_name.clone();
+    let version = publishing_task.package_version.clone();
+
+    async move {
+      if let Err(e) = db.create_change(
+        ChangeType::PackageVersionAdded,
+        format!("@{}/{}", scope, name),
+        serde_json::json!({
+          "version": version.to_string(),
+        }),
+      ).await {
+        error!("Failed to create change record: {}", e);
+      }
+    }
+  });
 
   Ok(())
 }

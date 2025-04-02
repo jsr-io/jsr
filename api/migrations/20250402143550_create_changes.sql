@@ -11,6 +11,5 @@ CREATE TABLE changes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 创建索引
 CREATE INDEX changes_package_id_idx ON changes (package_id);
 CREATE INDEX changes_created_at_idx ON changes (created_at);
