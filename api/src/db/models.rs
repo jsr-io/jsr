@@ -824,3 +824,37 @@ impl sqlx::postgres::PgHasArrayType for DownloadKind {
     sqlx::postgres::PgTypeInfo::with_name("_download_kind")
   }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "change_type", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeType {
+
+    PackageVersionAdded,
+    PackageTagAdded,
+}
+
+impl std::fmt::Display for ChangeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PackageVersionAdded => write!(f, "PACKAGE_VERSION_ADDED"),
+            Self::PackageTagAdded => write!(f, "PACKAGE_TAG_ADDED"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Change {
+    pub seq: i64,
+    pub change_type: ChangeType,
+    pub package_id: String,
+    pub data: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub struct NewChange<'s> {
+    pub change_type: ChangeType,
+    pub package_id: &'s str,
+    pub data: &'s str,
+}

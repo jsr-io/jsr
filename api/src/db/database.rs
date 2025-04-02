@@ -56,6 +56,33 @@ impl Database {
     .await
   }
 
+  #[instrument(name = "Database::list_changes", skip(self), err)]
+  pub async fn list_changes(
+      &self,
+      since: i64,
+      limit: i64,
+  ) -> Result<Vec<Change>> {
+      sqlx::query_as!(
+          Change,
+          r#"
+          SELECT
+              seq,
+              change_type as "change_type: ChangeType",
+              package_id,
+              data,
+              created_at
+          FROM changes
+          WHERE seq > $1
+          ORDER BY seq ASC
+          LIMIT $2
+          "#,
+          since,
+          limit
+      )
+      .fetch_all(&self.pool)
+      .await
+  }
+
   #[instrument(name = "Database::get_user_public", skip(self), err)]
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(
