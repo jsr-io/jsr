@@ -1649,6 +1649,26 @@ impl Database {
     .await
   }
 
+  #[instrument(name = "Database::delete_package_version", skip(self), err)]
+  pub async fn delete_package_version(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<()> {
+    sqlx::query_as!(
+      PackageVersion,
+      r#"DELETE FROM package_versions WHERE scope = $1 AND name = $2 AND version = $3"#,
+      scope as _,
+      name as _,
+      version as _
+    )
+    .execute(&self.pool)
+    .await?;
+
+    Ok(())
+  }
+
   #[instrument(name = "Database::get_package_file", skip(self), err)]
   pub async fn get_package_file(
     &self,
