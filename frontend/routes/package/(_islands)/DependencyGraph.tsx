@@ -19,6 +19,7 @@ import type {
   DependencyGraphKindNpm,
   DependencyGraphKindRoot,
 } from "../../../utils/api_types.ts";
+import { format as formatBytes } from "@std/fmt/bytes";
 
 export interface DependencyGraphProps {
   dependencies: DependencyGraphItem[];
@@ -216,13 +217,6 @@ function createDigraph(dependencies: DependencyGraphItem[]) {
 }`;
 }
 
-function bytesToSize(bytes: number) {
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  if (bytes == 0) return "0 B";
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(0) + " " + sizes[i];
-}
-
 function renderDependency(
   dependency: GroupedDependencyGraphKind,
   size?: number,
@@ -244,7 +238,7 @@ function renderDependency(
             return entrypoint;
           }
         }).join("\n")
-      }\n${bytesToSize(size ?? 0)}`;
+      }\n${formatBytes(size ?? 0, { maximumFractionDigits: 0 }).toUpperCase()}`;
       color = "#faee4a";
       break;
     }

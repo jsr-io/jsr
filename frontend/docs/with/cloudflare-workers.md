@@ -46,7 +46,7 @@ Running `wrangler dev` to start the local development server will run your
 Cloudflare Worker. You can then visit `http://localhost:8787` to see the result.
 
 ```shell
-$ wrangler dev
+wrangler dev
 ```
 
 [Learn more about using packages.](/docs/using-packages)
