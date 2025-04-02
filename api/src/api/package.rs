@@ -4210,7 +4210,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     // Now publish a package that has a few deps
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
-    let task = crate::publish::tests::process_tarball_setup2(
+    let task = process_tarball_setup2(
       &t,
       create_mock_tarball("depends_on_ok"),
       &package_name,
@@ -4248,5 +4248,17 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     resp.expect_ok_no_content().await;
+
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("0.0.1").unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{:?}", task);
   }
 }
