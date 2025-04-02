@@ -1649,7 +1649,7 @@ impl Database {
     .await
   }
 
-  #[instrument(name = "Database::yank_package_version", skip(self), err)]
+  #[instrument(name = "Database::delete_package_version", skip(self), err)]
   pub async fn delete_package_version(
     &self,
     scope: &ScopeName,
