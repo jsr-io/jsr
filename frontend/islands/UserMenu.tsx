@@ -81,7 +81,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           {user.newerTicketMessagesCount !== 0 && (
             <a
               class="bg-orange-600 hover:bg-orange-400 text-white text-sm py-1 pl-4 pr-2 flex justify-between items-center gap-3 rounded-full mt-2"
-              href="/account/tickets"
+              href={user.isStaff ? "/admin/tickets" : "/account/tickets"}
             >
               <span>
                 {user.newerTicketMessagesCount} unreplied ticket{user.newerTicketMessagesCount > 1 && "s"}
