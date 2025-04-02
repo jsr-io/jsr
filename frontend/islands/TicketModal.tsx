@@ -90,7 +90,9 @@ export function TicketModal(
             e.preventDefault();
             const formdata = new FormData(e.currentTarget);
 
-            const meta = Object.fromEntries(formdata.entries().filter(([_, v]) => typeof v === "string")) as Record<string, string>;
+            const meta = Object.fromEntries(
+              formdata.entries().filter(([_, v]) => typeof v === "string"),
+            ) as Record<string, string>;
 
             const message = meta.message as string;
             delete meta.message;
