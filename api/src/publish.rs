@@ -242,14 +242,17 @@ async fn process_publishing_task(
     let version = publishing_task.package_version.clone();
 
     async move {
-      if let Err(e) = db.create_change(
-        ChangeType::PackageVersionAdded,
-        &scope,
-        &name,
-        serde_json::json!({
-          "version": version.to_string(),
-        }),
-      ).await {
+      if let Err(e) = db
+        .create_change(
+          ChangeType::PackageVersionAdded,
+          &scope,
+          &name,
+          serde_json::json!({
+            "version": version.to_string(),
+          }),
+        )
+        .await
+      {
         error!("Failed to create change record: {}", e);
       }
     }

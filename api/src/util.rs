@@ -284,7 +284,9 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
     .unwrap_or(100)
     .clamp(1, 100);
 
-  let start = if let Some(since) = req.query("since").and_then(|s| s.parse::<i64>().ok()) {
+  let start = if let Some(since) =
+    req.query("since").and_then(|s| s.parse::<i64>().ok())
+  {
     since
   } else {
     let page = req

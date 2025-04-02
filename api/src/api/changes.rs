@@ -1,50 +1,49 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use hyper::{Body, Request};
 use routerify::prelude::*;
-use serde::{Serialize, Deserialize};  // 添加 Deserialize
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
-    db::{Change, Database},
-    util::{pagination, ApiResult},
+  db::{Change, Database},
+  util::{pagination, ApiResult},
 };
 
-#[derive(Serialize, Deserialize)]  // 添加 Deserialize
+#[derive(Serialize, Deserialize)]
 pub struct ApiChange {
-    pub seq: i64,
-    pub r#type: String,
-    pub id: String,
-    pub changes: serde_json::Value,
+  pub seq: i64,
+  pub r#type: String,
+  pub id: String,
+  pub changes: serde_json::Value,
 }
 
 impl From<Change> for ApiChange {
-    fn from(change: Change) -> Self {
-        Self {
-            seq: change.seq,
-            r#type: change.change_type.to_string(),
-            id: format!("@jsr/{}__{}", change.scope_name, change.package_name),
-            changes: serde_json::from_str(&change.data).unwrap(),
-        }
+  fn from(change: Change) -> Self {
+    Self {
+      seq: change.seq,
+      r#type: change.change_type.to_string(),
+      id: format!("@jsr/{}__{}", change.scope_name, change.package_name),
+      changes: serde_json::from_str(&change.data).unwrap(),
     }
+  }
 }
 
 #[instrument(name = "GET /api/_changes", skip(req), err)]
 pub async fn list_changes(req: Request<Body>) -> ApiResult<Vec<ApiChange>> {
-    let db = req.data::<Database>().unwrap();
-    let (start, limit) = pagination(&req);
-    let changes = db.list_changes(start, limit).await?;
-    Ok(changes.into_iter().map(ApiChange::from).collect())
+  let db = req.data::<Database>().unwrap();
+  let (start, limit) = pagination(&req);
+  let changes = db.list_changes(start, limit).await?;
+  Ok(changes.into_iter().map(ApiChange::from).collect())
 }
-
 
 #[cfg(test)]
 mod tests {
   use super::ApiChange;
+  use crate::db::ChangeType;
   use crate::ids::PackageName;
   use crate::ids::ScopeName;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
-  use crate::db::ChangeType;
   use serde_json::json;
 
   #[tokio::test]
@@ -67,14 +66,17 @@ mod tests {
   async fn list_single_change() {
     let mut t = TestSetup::new().await;
 
-    t.ephemeral_database.create_change(
-      ChangeType::PackageVersionAdded,
-      &ScopeName::new("test-scope".to_string()).unwrap(),
-      &PackageName::new("test-package".to_string()).unwrap(),
-      json!({
-        "version": "1.0.0"
-      }),
-    ).await.unwrap();
+    t.ephemeral_database
+      .create_change(
+        ChangeType::PackageVersionAdded,
+        &ScopeName::new("test-scope".to_string()).unwrap(),
+        &PackageName::new("test-package".to_string()).unwrap(),
+        json!({
+          "version": "1.0.0"
+        }),
+      )
+      .await
+      .unwrap();
 
     let changes = t
       .http()
@@ -97,23 +99,29 @@ mod tests {
     let mut t = TestSetup::new().await;
 
     // Create two changes
-    t.ephemeral_database.create_change(
-      ChangeType::PackageVersionAdded,
-      &ScopeName::new("test-scope".to_string()).unwrap(),
-      &PackageName::new("test-package-1".to_string()).unwrap(),
-      json!({
-        "name": "test-package-1",
-      }),
-    ).await.unwrap();
+    t.ephemeral_database
+      .create_change(
+        ChangeType::PackageVersionAdded,
+        &ScopeName::new("test-scope".to_string()).unwrap(),
+        &PackageName::new("test-package-1".to_string()).unwrap(),
+        json!({
+          "name": "test-package-1",
+        }),
+      )
+      .await
+      .unwrap();
 
-    t.ephemeral_database.create_change(
-      ChangeType::PackageVersionAdded,
-      &ScopeName::new("test-scope".to_string()).unwrap(),
-      &PackageName::new("test-package-2".to_string()).unwrap(),
-      json!({
-        "version": "1.0.0",
-      }),
-    ).await.unwrap();
+    t.ephemeral_database
+      .create_change(
+        ChangeType::PackageVersionAdded,
+        &ScopeName::new("test-scope".to_string()).unwrap(),
+        &PackageName::new("test-package-2".to_string()).unwrap(),
+        json!({
+          "version": "1.0.0",
+        }),
+      )
+      .await
+      .unwrap();
 
     // Test limit parameter
     let changes = t
@@ -131,7 +139,7 @@ mod tests {
     // Test since parameter
     let changes = t
       .http()
-      .get(&format!("/api/_changes?since={}", changes[0].seq))
+      .get(format!("/api/_changes?since={}", changes[0].seq))
       .call()
       .await
       .unwrap()

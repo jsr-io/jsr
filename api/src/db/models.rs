@@ -829,34 +829,33 @@ impl sqlx::postgres::PgHasArrayType for DownloadKind {
 #[sqlx(type_name = "change_type", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "snake_case")]
 pub enum ChangeType {
-
-    PackageVersionAdded,
-    PackageTagAdded,
+  PackageVersionAdded,
+  PackageTagAdded,
 }
 
 impl std::fmt::Display for ChangeType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::PackageVersionAdded => write!(f, "PACKAGE_VERSION_ADDED"),
-            Self::PackageTagAdded => write!(f, "PACKAGE_TAG_ADDED"),
-        }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::PackageVersionAdded => write!(f, "PACKAGE_VERSION_ADDED"),
+      Self::PackageTagAdded => write!(f, "PACKAGE_TAG_ADDED"),
     }
+  }
 }
 
 #[derive(Debug, Clone)]
 pub struct Change {
-    pub seq: i64,
-    pub change_type: ChangeType,
-    pub scope_name: ScopeName,
-    pub package_name: PackageName,
-    pub data: String,
-    pub created_at: DateTime<Utc>,
+  pub seq: i64,
+  pub change_type: ChangeType,
+  pub scope_name: ScopeName,
+  pub package_name: PackageName,
+  pub data: String,
+  pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug)]
 pub struct NewChange<'s> {
-    pub change_type: ChangeType,
-    pub scope_name: &'s ScopeName,
-    pub package_name: &'s PackageName,
-    pub data: &'s str,
+  pub change_type: ChangeType,
+  pub scope_name: &'s ScopeName,
+  pub package_name: &'s PackageName,
+  pub data: &'s str,
 }

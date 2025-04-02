@@ -56,16 +56,15 @@ impl Database {
     .await
   }
 
-
   #[instrument(name = "Database::list_changes", skip(self), err)]
   pub async fn list_changes(
-      &self,
-      since: i64,
-      limit: i64,
+    &self,
+    since: i64,
+    limit: i64,
   ) -> Result<Vec<Change>> {
-      sqlx::query_as!(
-          Change,
-          r#"
+    sqlx::query_as!(
+      Change,
+      r#"
           SELECT
               seq,
               change_type as "change_type: ChangeType",
@@ -78,11 +77,11 @@ impl Database {
           ORDER BY seq ASC
           LIMIT $2
           "#,
-          since,
-          limit
-      )
-      .fetch_all(&self.pool)
-      .await
+      since,
+      limit
+    )
+    .fetch_all(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::create_change", skip(self), err)]

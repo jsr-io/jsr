@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 mod admin;
 mod authorization;
+mod changes;
 mod errors;
 mod package;
 mod publishing_task;
@@ -8,15 +9,13 @@ mod scope;
 mod self_user;
 mod types;
 mod users;
-mod changes;
 
-
+use changes::list_changes;
 use hyper::Body;
 use hyper::Response;
 use package::global_list_handler;
 use package::global_metrics_handler;
 use package::global_stats_handler;
-use changes::list_changes;
 use routerify::Middleware;
 use routerify::Router;
 
