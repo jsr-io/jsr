@@ -244,7 +244,8 @@ async fn process_publishing_task(
     async move {
       if let Err(e) = db.create_change(
         ChangeType::PackageVersionAdded,
-        format!("@{}/{}", scope, name),
+        &scope,
+        &name,
         serde_json::json!({
           "version": version.to_string(),
         }),

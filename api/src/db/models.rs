@@ -847,7 +847,8 @@ impl std::fmt::Display for ChangeType {
 pub struct Change {
     pub seq: i64,
     pub change_type: ChangeType,
-    pub package_id: String,
+    pub scope_name: ScopeName,
+    pub package_name: PackageName,
     pub data: String,
     pub created_at: DateTime<Utc>,
 }
@@ -855,6 +856,7 @@ pub struct Change {
 #[derive(Debug)]
 pub struct NewChange<'s> {
     pub change_type: ChangeType,
-    pub package_id: &'s str,
+    pub scope_name: &'s ScopeName,
+    pub package_name: &'s PackageName,
     pub data: &'s str,
 }

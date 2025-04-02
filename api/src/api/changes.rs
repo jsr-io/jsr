@@ -22,7 +22,7 @@ impl From<Change> for ApiChange {
         Self {
             seq: change.seq,
             r#type: change.change_type.to_string(),
-            id: change.package_id,
+            id: format!("@jsr/{}__{}", change.scope_name, change.package_name),
             changes: serde_json::from_str(&change.data).unwrap(),
         }
     }
