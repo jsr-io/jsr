@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use hyper::{Body, Request};
 use routerify::prelude::*;
 use serde::Serialize;
