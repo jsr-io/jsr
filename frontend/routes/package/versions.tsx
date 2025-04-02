@@ -260,7 +260,7 @@ function Version({
             </button>
           </form>
         )}
-        {isPublished && iam.isStaff && (
+        {isPublished && iam.hasSudo && (
           <form method="POST" class="z-20">
             <input type="hidden" name="version" value={version.version} />
             <button
