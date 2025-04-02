@@ -10,6 +10,7 @@ import { TbCheck, TbClock } from "tb-icons";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
   data,
+  url,
 }) {
   return (
     <AccountLayout user={data.user} active="Tickets">
@@ -23,6 +24,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
           { title: "Updated", class: "w-0" },
           { title: "", class: "w-0", align: "right" },
         ]}
+        currentUrl={url}
       >
         {data.tickets.map((ticket) => (
           <TableRow key={ticket.id}>

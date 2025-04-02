@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
-import { NewTicket, TicketKind, User } from "../utils/api_types.ts";
+import { NewTicket, Ticket, TicketKind, User } from "../utils/api_types.ts";
 import type { ComponentChildren } from "preact";
 import { TbLoader2 } from "tb-icons";
 import { api, path } from "../utils/api.ts";
@@ -22,14 +22,14 @@ export function TicketModal(
     style: "primary" | "danger";
     user: User | null;
     fields: Field[];
-    extraMeta?: Record<string, string>;
+    extraMeta?: Record<string, string | undefined>;
   },
 ) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<"pending" | "submitting" | "submitted">(
     "pending",
   );
-  const [ticket, setTicket] = useState<Ticket>(null);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const ref = useRef<HTMLFormElement>(null);
 
@@ -90,7 +90,7 @@ export function TicketModal(
             e.preventDefault();
             const formdata = new FormData(e.currentTarget);
 
-            const meta = Object.fromEntries(formdata.entries());
+            const meta = Object.fromEntries(formdata.entries().filter(([_, v]) => typeof v === "string")) as Record<string, string>;
 
             const message = meta.message as string;
             delete meta.message;
@@ -100,7 +100,7 @@ export function TicketModal(
             }
 
             const data: NewTicket = {
-              creator: user.id,
+              creator: user!.id,
               kind,
               message,
               meta,
@@ -108,7 +108,7 @@ export function TicketModal(
 
             setStatus("submitting");
 
-            api.post(path`/tickets`, data).then((res) => {
+            api.post<Ticket>(path`/tickets`, data).then((res) => {
               if (res.ok) {
                 setStatus("submitted");
                 setTicket(res.data);
