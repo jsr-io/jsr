@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM users\n      WHERE id = $1\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
+  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n        (CASE WHEN users.is_staff THEN (\n            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (\n                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (\n                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator\n                )\n            )\n        ) ELSE (\n           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n              )\n           )\n        ) END) as \"newer_ticket_messages_count!\"\n      FROM users\n      WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,11 @@
         "ordinal": 11,
         "name": "scope_usage!",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "newer_ticket_messages_count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -81,8 +86,9 @@
       false,
       false,
       null,
+      null,
       null
     ]
   },
-  "hash": "30d0c1c96fd615e2e318d1795dfff96c509baf89fe1df1d762cc160c2af83de3"
+  "hash": "e1d5f21bd69bb1af2290ff3cc0107c519c89da2a09bae93af33fabf62594f954"
 }

@@ -44,6 +44,8 @@ pub fn admin_router() -> Router<Body, ApiError> {
       "/publishing_tasks/:publishing_task/requeue",
       util::auth(util::json(requeue_publishing_tasks)),
     )
+    .get("/tickets", util::auth(util::json(list_tickets)))
+    .patch("/tickets/:id", util::auth(util::json(patch_ticket)))
     .build()
     .unwrap()
 }
@@ -311,6 +313,45 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   Ok(())
+}
+
+#[instrument(name = "GET /api/admin/tickets", skip(req), err)]
+pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let db = req.data::<Database>().unwrap();
+  let (start, limit) = pagination(&req);
+  let maybe_search = search(&req);
+
+  let (total, tickets) = db.list_tickets(start, limit, maybe_search).await?;
+  Ok(ApiList {
+    items: tickets.into_iter().map(|scope| scope.into()).collect(),
+    total,
+  })
+}
+
+#[instrument(name = "PATCH /api/admin/tickets/:id", skip(req), err)]
+pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let id = req.param_uuid("id")?;
+  Span::current().record("id", field::display(id));
+
+  let ApiAdminUpdateTicketRequest { closed } = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let ticket = if let Some(closed) = closed {
+    db.update_ticket_closed(id, closed).await?
+  } else {
+    return Err(ApiError::MalformedRequest {
+      msg: "missing 'closed' parameter".into(),
+    });
+  };
+
+  Ok(ticket.into())
 }
 
 #[cfg(test)]

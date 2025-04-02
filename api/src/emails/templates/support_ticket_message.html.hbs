@@ -1,0 +1,26 @@
+{{#*inline "html_inner"}}
+<h1 style="margin-top: 0; text-align: left; font-size: 24px; font-weight: 700; color: #333333">
+	Hey {{ name }},
+</h1>
+<p style="margin-top: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+	You have received a reply to your support ticket on {{ registry_name }}.
+</p>
+
+<pre style="margin-bottom: 15px; font-family: 'Nunito Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 16px; line-height: 24px; color: #52525b; margin-left: 16px; padding-left: 6px; padding-top: 6px; padding-bottom: 6px; border-left: 1px solid #333339">
+	{{ content }}
+</pre>
+
+<p style="margin-bottom: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+	To view the ticket, you can go to
+	<a href="{{ registry_url }}ticket/{{ ticket }}" style="color: #2563eb">{{ registry_url }}ticket/{{ ticket_id }}</a>. You can reply to the ticket from there.
+</p>
+
+<p style="margin-bottom: 15px; font-size: 16px; line-height: 24px; color: #52525b">
+	Please <b>DO NOT</b> reply to this email. Any replies to this email will not be seen by our support team.
+</p>
+<p style="margin-bottom: 5px; margin-top: 8px; font-size: 16px; line-height: 24px; color: #52525b">
+	Cheers,
+	<br>{{ registry_name }}
+</p>
+{{/inline}}
+{{> base.html}}

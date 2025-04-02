@@ -85,7 +85,7 @@ export default define.page<typeof handler>(function Versions({
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Versions"

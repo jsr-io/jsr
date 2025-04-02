@@ -57,6 +57,7 @@ export default define.page<typeof handler>(function New(props) {
                     scopeUsage={props.state.user.scopeUsage}
                     scopeLimit={props.state.user.scopeLimit}
                     locked={props.data.fromCli}
+                    user={props.state.user}
                   />
                 )
                 : (

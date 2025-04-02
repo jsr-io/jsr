@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE users SET scope_limit = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\"\n      ",
+  "query": "UPDATE users SET scope_limit = $1 WHERE id = $2\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n        (CASE WHEN users.is_staff THEN (\n            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (\n                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (\n                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator\n                )\n            )\n        ) ELSE (\n           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n              )\n           )\n        ) END) as \"newer_ticket_messages_count!\"\n      ",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,11 @@
         "ordinal": 11,
         "name": "scope_usage!",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "newer_ticket_messages_count!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -82,8 +87,9 @@
       false,
       false,
       null,
+      null,
       null
     ]
   },
-  "hash": "35d77941129b41a0dca41c1343b54d01bb4ed8b6770b560baf3bfa812fe3e648"
+  "hash": "9796be42ba251c0a53803eedcc0a619c8f374b61e34048995d416483fbbe1a1f"
 }

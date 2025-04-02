@@ -16,6 +16,10 @@ const SCOPE_INVITE_TXT: &str = "scope_invite.txt";
 const SCOPE_INVITE_HTML: &str = "scope_invite.html";
 const PERSONAL_ACCESS_TOKEN_TXT: &str = "personal_access_token.txt";
 const PERSONAL_ACCESS_TOKEN_HTML: &str = "personal_access_token.html";
+const SUPPORT_TICKET_CREATED_TXT: &str = "support_ticket_created.txt";
+const SUPPORT_TICKET_CREATED_HTML: &str = "support_ticket_created.html";
+const SUPPORT_TICKET_MESSAGE_TXT: &str = "support_ticket_message.txt";
+const SUPPORT_TICKET_MESSAGE_HTML: &str = "support_ticket_message.html";
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -37,6 +41,19 @@ pub enum EmailArgs<'a> {
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
   },
+  SupportTicketCreated {
+    ticket_id: Cow<'a, str>,
+    registry_url: Cow<'a, str>,
+    registry_name: Cow<'a, str>,
+    support_email: Cow<'a, str>,
+  },
+  SupportTicketMessage {
+    ticket_id: Cow<'a, str>,
+    content: Cow<'a, str>,
+    registry_url: Cow<'a, str>,
+    registry_name: Cow<'a, str>,
+    support_email: Cow<'a, str>,
+  },
 }
 
 impl EmailArgs<'_> {
@@ -52,6 +69,10 @@ impl EmailArgs<'_> {
       EmailArgs::PersonalAccessToken { registry_name, .. } => {
         format!("A new personal access token was created on {registry_name}")
       }
+      EmailArgs::SupportTicketCreated { ticket_id, .. }
+      | EmailArgs::SupportTicketMessage { ticket_id, .. } => {
+        format!("Support request {ticket_id}")
+      }
     }
   }
 
@@ -59,6 +80,8 @@ impl EmailArgs<'_> {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_TXT,
       EmailArgs::PersonalAccessToken { .. } => PERSONAL_ACCESS_TOKEN_TXT,
+      EmailArgs::SupportTicketCreated { .. } => SUPPORT_TICKET_CREATED_TXT,
+      EmailArgs::SupportTicketMessage { .. } => SUPPORT_TICKET_MESSAGE_TXT,
     }
   }
 
@@ -66,6 +89,8 @@ impl EmailArgs<'_> {
     match self {
       EmailArgs::ScopeInvite { .. } => SCOPE_INVITE_HTML,
       EmailArgs::PersonalAccessToken { .. } => PERSONAL_ACCESS_TOKEN_HTML,
+      EmailArgs::SupportTicketCreated { .. } => SUPPORT_TICKET_CREATED_HTML,
+      EmailArgs::SupportTicketMessage { .. } => SUPPORT_TICKET_MESSAGE_HTML,
     }
   }
 }
@@ -97,6 +122,22 @@ fn init_handlebars(
   t.register_template_string(
     PERSONAL_ACCESS_TOKEN_HTML,
     include_str!("./templates/personal_access_token.html.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_CREATED_TXT,
+    include_str!("./templates/support_ticket_created.txt.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_CREATED_HTML,
+    include_str!("./templates/support_ticket_created.html.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_MESSAGE_TXT,
+    include_str!("./templates/support_ticket_message.txt.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_MESSAGE_HTML,
+    include_str!("./templates/support_ticket_message.html.hbs"),
   )?;
 
   t.set_strict_mode(true);
