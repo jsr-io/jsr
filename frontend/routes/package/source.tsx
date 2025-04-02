@@ -41,6 +41,7 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
+        user={state.user}
       />
       <PackageNav
         currentTab="Files"

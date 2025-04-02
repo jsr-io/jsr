@@ -1,18 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
-import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
+import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { QuotaCard } from "../../components/QuotaCard.tsx";
 import { define } from "../../util.ts";
+import { TicketModal } from "../../islands/TicketModal.tsx";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
   data,
 }) {
-  const requestLimitIncreaseBody = `Hello JSR team,
-I would like to request a scope quota increase for my account.
-My user ID is '${data.user!.id}'.
-
-Reason: `;
-
   return (
     <AccountLayout user={data.user} active="Settings">
       <div class="flex flex-col gap-12">
@@ -37,16 +32,19 @@ Reason: `;
               </div>
             </div>
             <div>
-              <a
-                href={`mailto:quotas@jsr.io?subject=${
-                  encodeURIComponent(
-                    `User quota increase for ${data.user!.name}`,
-                  )
-                }&body=${encodeURIComponent(requestLimitIncreaseBody)}`}
-                class="button-primary"
+              <TicketModal
+                user={data.user}
+                style="primary"
+                kind="user_scope_quota_increase"
+                fields={[{
+                  name: "message",
+                  label: "Reason",
+                  type: "textarea",
+                  required: true,
+                }]}
               >
                 Request user quota increase
-              </a>
+              </TicketModal>
             </div>
           </div>
         </div>

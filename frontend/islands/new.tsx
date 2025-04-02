@@ -5,10 +5,11 @@ import {
   useSignal,
   useSignalEffect,
 } from "@preact/signals";
-import { Package, Scope } from "../utils/api_types.ts";
+import { Package, Scope, User } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
 import twas from "twas";
+import { TicketModal } from "./TicketModal.tsx";
 
 interface IconColorProps {
   done: Signal<unknown>;
@@ -34,6 +35,7 @@ interface ScopeSelectProps {
   scopeUsage: number;
   scopeLimit: number;
   locked: boolean;
+  user: User;
 }
 
 export function ScopeSelect(
@@ -44,6 +46,7 @@ export function ScopeSelect(
     scopeLimit: initialScopeLimit,
     scopeUsage: initialScopeUsage,
     locked,
+    user,
   }: ScopeSelectProps,
 ) {
   const scopeUsage = useSignal(initialScopeUsage);
@@ -66,6 +69,7 @@ export function ScopeSelect(
             scope.value = newScope;
           }}
           locked={locked}
+          user={user}
         />
       </div>
     );
@@ -85,6 +89,7 @@ export function ScopeSelect(
             scopeUsage.value++;
           }}
           locked={locked}
+          user={user}
         />
         {!locked && (
           <p class="mt-2">
@@ -155,9 +160,11 @@ function CreateScope(
     initialValue: string | undefined;
     onCreate: (scope: string) => void;
     locked: boolean;
+    user: User;
   },
 ) {
   const newScope = useSignal(props.initialValue ?? "");
+  const errorCode = useSignal("");
   const error = useSignal("");
   const message = useComputed(() => {
     if (error.value) return error.value;
@@ -186,6 +193,7 @@ function CreateScope(
       props.onCreate(newScope.value);
     } else {
       console.error(resp);
+      errorCode.value = resp.code;
       error.value = resp.message;
     }
   }
@@ -216,6 +224,29 @@ function CreateScope(
           />
         </label>
         <button type="submit" class="button-primary">Create</button>
+        {errorCode.value === "scopeNameReserved" && (
+          <div class="mb-4">
+            <div class="mt-3 mb-2">
+              The provided scope name is reserved.
+              <br />
+              If you want to claim it, please use the following button.
+            </div>
+            <TicketModal
+              user={props.user}
+              kind="scope_claim"
+              extraMeta={{ "scope": newScope.value }}
+              fields={[{
+                name: "message",
+                label: "Proof of ownership",
+                type: "textarea",
+                required: true,
+              }]}
+              style="primary"
+            >
+              Request reserved scope
+            </TicketModal>
+          </div>
+        )}
       </form>
       {newScope.value.includes("_")
         ? (
@@ -234,7 +265,9 @@ function CreateScope(
             )}
           </p>
         )
-        : message.value && <p class="text-sm text-jsr-yellow-600">{message}</p>}
+        : message.value && errorCode.value !== "scopeNameReserved" && (
+          <p class="text-sm text-jsr-yellow-600">{message}</p>
+        )}
     </>
   );
 }

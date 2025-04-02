@@ -16,7 +16,7 @@ export default define.page<typeof handler>(function Dep(
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Dependents"

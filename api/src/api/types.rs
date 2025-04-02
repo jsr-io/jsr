@@ -165,6 +165,7 @@ pub struct ApiFullUser {
   pub scope_usage: i32,
   pub scope_limit: i32,
   pub invite_count: u64,
+  pub newer_ticket_messages_count: u64,
 }
 
 impl From<User> for ApiFullUser {
@@ -182,6 +183,7 @@ impl From<User> for ApiFullUser {
       scope_usage: user.scope_usage as i32,
       scope_limit: user.scope_limit,
       invite_count: user.invite_count as u64,
+      newer_ticket_messages_count: user.newer_ticket_messages_count as u64,
     }
   }
 }
@@ -1005,4 +1007,60 @@ pub struct ApiPackageDownloads {
 pub struct ApiPackageDownloadsRecentVersion {
   pub version: Version,
   pub downloads: Vec<ApiDownloadDataPoint>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicket {
+  pub id: Uuid,
+  pub kind: TicketKind,
+  pub creator: ApiUser,
+  pub meta: serde_json::Value,
+  pub closed: bool,
+  pub messages: Vec<ApiTicketMessage>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
+  fn from(
+    (value, user, messages): (Ticket, User, Vec<(TicketMessage, UserPublic)>),
+  ) -> Self {
+    Self {
+      id: value.id,
+      kind: value.kind,
+      creator: user.into(),
+      meta: value.meta,
+      closed: value.closed,
+      messages: messages.into_iter().map(|message| message.into()).collect(),
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketMessage {
+  pub author: ApiUser,
+  pub message: String,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
+  fn from((value, user): (TicketMessage, UserPublic)) -> Self {
+    Self {
+      author: user.into(),
+      message: value.message,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAdminUpdateTicketRequest {
+  pub closed: Option<bool>,
 }
