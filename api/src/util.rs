@@ -283,13 +283,19 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
     .and_then(|page| page.parse::<i64>().ok())
     .unwrap_or(100)
     .clamp(1, 100);
-  let page = req
-    .query("page")
-    .and_then(|page| page.parse::<i64>().ok())
-    .unwrap_or(1)
-    .max(1);
 
-  let start = (page * limit) - limit;
+  let start = if let Some(since) =
+    req.query("since").and_then(|s| s.parse::<i64>().ok())
+  {
+    since
+  } else {
+    let page = req
+      .query("page")
+      .and_then(|page| page.parse::<i64>().ok())
+      .unwrap_or(1)
+      .max(1);
+    (page * limit) - limit
+  };
 
   (start, limit)
 }

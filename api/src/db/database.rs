@@ -56,6 +56,64 @@ impl Database {
     .await
   }
 
+  #[instrument(name = "Database::list_changes", skip(self), err)]
+  pub async fn list_changes(
+    &self,
+    since: i64,
+    limit: i64,
+  ) -> Result<Vec<Change>> {
+    sqlx::query_as!(
+      Change,
+      r#"
+          SELECT
+              seq,
+              change_type as "change_type: ChangeType",
+              scope_name as "scope_name: ScopeName",
+              package_name as "package_name: PackageName",
+              data,
+              created_at
+          FROM changes
+          WHERE seq > $1
+          ORDER BY seq ASC
+          LIMIT $2
+          "#,
+      since,
+      limit
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::create_change", skip(self), err)]
+  pub async fn create_change(
+    &self,
+    change_type: ChangeType,
+    scope_name: &ScopeName,
+    package_name: &PackageName,
+    data: serde_json::Value,
+  ) -> Result<Change> {
+    sqlx::query_as!(
+      Change,
+      r#"
+      INSERT INTO changes (change_type, scope_name, package_name, data)
+      VALUES ($1, $2, $3, $4)
+      RETURNING
+        seq,
+        change_type as "change_type: ChangeType",
+        scope_name as "scope_name: ScopeName",
+        package_name as "package_name: PackageName",
+        data,
+        created_at
+      "#,
+      change_type as _,
+      scope_name as _,
+      package_name as _,
+      data.to_string()
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::get_user_public", skip(self), err)]
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(

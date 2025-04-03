@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 mod admin;
 mod authorization;
+mod changes;
 mod errors;
 mod package;
 mod publishing_task;
@@ -9,6 +10,7 @@ mod self_user;
 mod types;
 mod users;
 
+use changes::list_changes;
 use hyper::Body;
 use hyper::Response;
 use package::global_list_handler;
@@ -40,6 +42,7 @@ pub fn api_router() -> Router<Body, ApiError> {
         util::json(global_metrics_handler),
       ),
     )
+    .get("/_changes", util::json(list_changes))
     .middleware(Middleware::pre(util::auth_middleware))
     .scope("/admin", admin_router())
     .scope("/scopes", scope_router())

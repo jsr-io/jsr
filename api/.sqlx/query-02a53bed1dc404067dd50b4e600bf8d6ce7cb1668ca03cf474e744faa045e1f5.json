@@ -1,0 +1,63 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n          SELECT\n              seq,\n              change_type as \"change_type: ChangeType\",\n              scope_name as \"scope_name: ScopeName\",\n              package_name as \"package_name: PackageName\",\n              data,\n              created_at\n          FROM changes\n          WHERE seq > $1\n          ORDER BY seq ASC\n          LIMIT $2\n          ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seq",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "change_type: ChangeType",
+        "type_info": {
+          "Custom": {
+            "name": "change_type",
+            "kind": {
+              "Enum": [
+                "PACKAGE_VERSION_ADDED",
+                "PACKAGE_TAG_ADDED"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "scope_name: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "package_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "data",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "02a53bed1dc404067dd50b4e600bf8d6ce7cb1668ca03cf474e744faa045e1f5"
+}
