@@ -15,14 +15,16 @@ example below will add the most recent version of
 [`@luca/cases`](https://jsr.io/@luca/cases) to your project.
 
 ```bash
-# deno
+# deno, pnpm 10.9+, and yarn 4.9+ with first class JSR support
 deno add jsr:@luca/cases
+pnpm add jsr:@luca/cases
+yarn add @luca/cases:<todo>
 
-# npm (one of the below, depending on your package manager)
+# npm, bun, and older versions of yarn or pnpm
 npx jsr add @luca/cases
+bunx jsr add @luca/cases
 yarn dlx jsr add @luca/cases
 pnpm dlx jsr add @luca/cases
-bunx jsr add @luca/cases
 ```
 
 If you're using Deno, the `deno add` command will add an
@@ -38,15 +40,31 @@ something like this:
 }
 ```
 
-For npm and npm-compatible package managers, the `jsr` command will add the
-dependency to your `package.json` file, along with a `.npmrc` file to your
-project root with the necessary config to use JSR with npm. Learn more about
+For npm compatible package managers, the dependency will be added to your
+`package.json` file, and the package will be installed to your `node_modules`
+directory.
+
+For npm, older versions of pnpm and Yarn, and for Bun, the `jsr` command will
+additionally add a `.npmrc` file to your project root with the necessary config
+to use JSR with npm. Learn more about
 [JSR's npm compatibility layer](/docs/npm-compatibility).
 
-After installation with `npx jsr add`, your package.json will contain a
-dependency entry that looks something like this:
+After installation with any npm compatible package manager, your package.json
+will contain a dependency entry that looks like one of these configurations:
 
 ```json
+// pnpm 10.9+ and yarn 4.9+
+{
+  "dependencies": {
+    "@luca/cases": "jsr:@luca/cases@^1.0.1"
+  }
+}
+```
+
+or
+
+```json
+// npm, bun, and older versions of yarn or pnpm
 {
   "dependencies": {
     "@luca/cases": "npm:@jsr/luca__cases@^1.0.1"
@@ -54,8 +72,9 @@ dependency entry that looks something like this:
 }
 ```
 
-This npm dependency configuration makes use of a special custom scope called
-`@jsr`, which is now configured for you in `.npmrc`:
+In npm, Bun, and older versions of yarn or pnpm the dependency configuration
+makes use of a special custom scope called `@jsr`, which is configured for you
+in `.npmrc`:
 
 ```
 @jsr:registry=https://npm.jsr.io
@@ -99,30 +118,42 @@ If you only care about the major version, you can specify just the major
 version:
 
 ```bash
-# deno
+# deno and pnpm 10.9+
 deno add jsr:@luca/cases@1
+pnpm add jsr:@luca/cases@1
 
-# npm (and npm-like systems)
+# yarn 4.9+
+yarn add @luca/cases@jsr:1
+
+# npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@1
 ```
 
 If you want to use a specific minor version, you can specify the minor version:
 
 ```bash
-# deno
+# deno and pnpm 10.9+
 deno add jsr:@luca/cases@1.0
+pnpm add jsr:@luca/cases@1.0
 
-# npm (and npm-like systems)
+# yarn 4.9+
+yarn add @luca/cases@jsr:1.0
+
+# npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@1.0
 ```
 
 If you want to use a specific patch version, you can specify the patch version:
 
 ```bash
-# deno
+# deno and pnpm 10.9+
 deno add jsr:@luca/cases@1.0.1
+pnpm add jsr:@luca/cases@1.0.1
 
-# npm (and npm-like systems)
+# yarn 4.9+
+yarn add @luca/cases@jsr:1.0.1
+
+# npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@1.0.1
 ```
 
@@ -130,10 +161,14 @@ If you want to use at least a specific patch version, but do want to allow\
 updates, you can specify the patch version with a `^` prefix:
 
 ```bash
-# deno
+# deno and pnpm 10.9+
 deno add jsr:@luca/cases@^1.0.1
+pnpm add jsr:@luca/cases@^1.0.1
 
-# npm (and npm-like systems)
+# yarn 4.9+
+yarn add @luca/cases@jsr:^1.0.1
+
+# npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@^1.0.1
 ```
 
