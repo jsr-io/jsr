@@ -560,12 +560,12 @@ body .ddoc:has(.toc) {
 
 body .ddoc .or-bar {
   &::before {
-    @apply h-[1px] w-full bg-jsr-gray-200;
+    @apply h-[1px] w-full bg-jsr-gray-200 content-[''];
     content: "";
   }
 
   &::after {
-    @apply h-[1px] w-full bg-jsr-gray-200;
+    @apply h-[1px] w-full bg-jsr-gray-200 content-[''];
     content: "";
   }
 
