@@ -561,12 +561,10 @@ body .ddoc:has(.toc) {
 body .ddoc .or-bar {
   &::before {
     @apply h-[1px] w-full bg-jsr-gray-200 content-[''];
-    content: "";
   }
 
   &::after {
     @apply h-[1px] w-full bg-jsr-gray-200 content-[''];
-    content: "";
   }
 
   @apply flex items-center justify-between gap-2 !mt-[2px] text-nowrap;
