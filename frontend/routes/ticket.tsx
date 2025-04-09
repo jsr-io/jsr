@@ -7,7 +7,6 @@ import twas from "twas";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TbArrowLeft, TbCheck, TbClock } from "tb-icons";
 import { TicketTitle } from "../components/TicketTitle.tsx";
-import tickets from "./account/tickets.tsx";
 
 export default define.page<typeof handler>(function Ticket({
   data,
@@ -15,7 +14,7 @@ export default define.page<typeof handler>(function Ticket({
 }) {
   return (
     <div class="mb-24 space-y-8">
-      <div class="flex justify-between gap-6 md:gap-12 max-md:flex-col">
+      <div class="flex items-start justify-between gap-6 md:gap-12 max-md:flex-col">
         {state.user!.isStaff && (
           <a class="button-primary" href="/admin/tickets">
             <TbArrowLeft /> Back to admin panel

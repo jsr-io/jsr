@@ -1,5 +1,6 @@
-import { ComponentChild, JSX } from "preact";
-import { TicketKind, User } from "../utils/api_types.ts";
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import type { JSX } from "preact";
+import type { TicketKind, User } from "../utils/api_types.ts";
 
 interface TicketTitleProps {
   kind: TicketKind;
