@@ -1243,7 +1243,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
             r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
           ),
         },
-        format!("Add Package\n```\nyarn add {scoped_name}@jsr:latest\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+        format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {

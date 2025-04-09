@@ -19,7 +19,7 @@ using your preferred package manager (npm, yarn, or pnpm).
 ```shell
 # pnpm 10.9+ and yarn 4.9+
 pnpm add jsr:@std/encoding
-yarn add @std/encoding:<todo>
+yarn add jsr:@std/encoding
 
 # npm, bun, and older versions of yarn or pnpm
 npx jsr add @std/encoding

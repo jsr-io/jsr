@@ -22,7 +22,7 @@ deno add jsr:@luca/cases
 pnpm add jsr:@luca/cases
 
 # yarn 4.9+
-yarn add @luca/cases:<todo>
+yarn add jsr:@luca/cases
 
 # npm, bun, and older versions of yarn or pnpm
 npx jsr add @luca/cases # replace npx with any of yarn dlx, pnpm dlx, or bunx

@@ -18,7 +18,7 @@ example below will add the most recent version of
 # deno, pnpm 10.9+, and yarn 4.9+ with first class JSR support
 deno add jsr:@luca/cases
 pnpm add jsr:@luca/cases
-yarn add @luca/cases:<todo>
+yarn add jsr:@luca/cases
 
 # npm, bun, and older versions of yarn or pnpm
 npx jsr add @luca/cases
@@ -118,12 +118,10 @@ If you only care about the major version, you can specify just the major
 version:
 
 ```bash
-# deno and pnpm 10.9+
+# deno, pnpm 10.9+ and yarn 4.9+
 deno add jsr:@luca/cases@1
 pnpm add jsr:@luca/cases@1
-
-# yarn 4.9+
-yarn add @luca/cases@jsr:1
+yarn add jsr:@luca/cases@1
 
 # npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@1
@@ -132,12 +130,10 @@ npx jsr add @luca/cases@1
 If you want to use a specific minor version, you can specify the minor version:
 
 ```bash
-# deno and pnpm 10.9+
+# deno, pnpm 10.9+ and yarn 4.9+
 deno add jsr:@luca/cases@1.0
 pnpm add jsr:@luca/cases@1.0
-
-# yarn 4.9+
-yarn add @luca/cases@jsr:1.0
+yarn add jsr:@luca/cases@1.0
 
 # npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@1.0
@@ -146,12 +142,10 @@ npx jsr add @luca/cases@1.0
 If you want to use a specific patch version, you can specify the patch version:
 
 ```bash
-# deno and pnpm 10.9+
+# deno, pnpm 10.9+ and yarn 4.9+
 deno add jsr:@luca/cases@1.0.1
 pnpm add jsr:@luca/cases@1.0.1
-
-# yarn 4.9+
-yarn add @luca/cases@jsr:1.0.1
+yarn add jsr:@luca/cases@1.0.1
 
 # npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@1.0.1
@@ -161,12 +155,10 @@ If you want to use at least a specific patch version, but do want to allow\
 updates, you can specify the patch version with a `^` prefix:
 
 ```bash
-# deno and pnpm 10.9+
+# deno, pnpm 10.9+ and yarn 4.9+
 deno add jsr:@luca/cases@^1.0.1
 pnpm add jsr:@luca/cases@^1.0.1
-
-# yarn 4.9+
-yarn add @luca/cases@jsr:^1.0.1
+yarn add jsr:@luca/cases@^1.0.1
 
 # npm (and bun, and older versions of yarn or pnpm)
 npx jsr add @luca/cases@^1.0.1

@@ -24,11 +24,11 @@ install JSR packages using `pnpm install` or `yarn add` without any additional
 configuration. These versions of pnpm and Yarn both support JSR out of the box.
 
 ```sh
-yarn add @luca/cases:<todo>
+pnpm install jsr:@luca/cases
 ```
 
 ```sh
-pnpm install jsr:@luca/cases
+yarn add jsr:@luca/cases
 ```
 
 If you are using npm, an older version of pnpm or Yarn, or Bun, you can use the
