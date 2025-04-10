@@ -173,8 +173,8 @@ async fn users() {
   assert!(no_user.is_none());
 
   let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
-  assert_eq!(total_users, 2);
-  assert_eq!(users.len(), 2);
+  assert_eq!(total_users, 3);
+  assert_eq!(users.len(), 3);
   assert_eq!(users[0].id, user.id);
   assert_eq!(users[0].name, "Alice");
   assert_eq!(users[0].avatar_url, "https://example.com/alice.png");
@@ -189,8 +189,8 @@ async fn users() {
   assert!(no_user.is_none());
 
   let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
-  assert_eq!(total_users, 1);
-  assert_eq!(users.len(), 1); // just the default user added by migrations
+  assert_eq!(total_users, 2);
+  assert_eq!(users.len(), 2); // just the default user added by migrations
 
   let no_user = db.delete_user(user.id).await.unwrap();
   assert!(no_user.is_none());
