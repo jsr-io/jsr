@@ -3510,8 +3510,7 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
-  ) -> Result<(usize, Vec<(Ticket, User, Vec<(TicketMessage, UserPublic)>)>)>
-  {
+  ) -> Result<(usize, Vec<FullTicket>)> {
     let mut tx = self.pool.begin().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
@@ -3668,7 +3667,7 @@ impl Database {
   pub async fn list_tickets_for_user(
     &self,
     user_id: Uuid,
-  ) -> Result<Vec<(Ticket, User, Vec<(TicketMessage, UserPublic)>)>> {
+  ) -> Result<Vec<FullTicket>> {
     let mut tx = self.pool.begin().await?;
 
     let tickets = sqlx::query!(
@@ -3799,7 +3798,7 @@ impl Database {
   pub async fn get_ticket(
     &self,
     ticket_id: Uuid,
-  ) -> Result<Option<(Ticket, User, Vec<(TicketMessage, UserPublic)>)>> {
+  ) -> Result<Option<FullTicket>> {
     let mut tx = self.pool.begin().await?;
 
     let Some((ticket, user)) = sqlx::query!(
@@ -3996,7 +3995,7 @@ impl Database {
     &self,
     ticket_id: Uuid,
     closed: bool,
-  ) -> Result<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> {
+  ) -> Result<FullTicket> {
     let mut tx = self.pool.begin().await?;
 
     let (ticket, user) = sqlx::query!(

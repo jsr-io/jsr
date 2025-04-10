@@ -869,3 +869,5 @@ pub struct TicketMessage {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
+
+pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);
