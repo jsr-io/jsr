@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.user_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d50fc0102a500d384707b853c8e004ac839161385acc06aaefda2bca34dd5e0c"
+}
