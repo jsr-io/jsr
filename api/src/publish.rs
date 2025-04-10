@@ -107,6 +107,7 @@ pub async fn publish_task(
         if let Err(err) = res {
           // retryable errors
           db.update_publishing_task_status(
+            None,
             publishing_task.id,
             PublishingTaskStatus::Processing,
             PublishingTaskStatus::Pending,
@@ -126,6 +127,7 @@ pub async fn publish_task(
           .await?;
         publishing_task = db
           .update_publishing_task_status(
+            None,
             publishing_task.id,
             PublishingTaskStatus::Processed,
             PublishingTaskStatus::Success,
@@ -160,6 +162,7 @@ async fn process_publishing_task(
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
     .update_publishing_task_status(
+      None,
       publishing_task.id,
       PublishingTaskStatus::Pending,
       PublishingTaskStatus::Processing,
@@ -176,6 +179,7 @@ async fn process_publishing_task(
           error!("Error processing tarball, fatal: {}", err);
           *publishing_task = db
             .update_publishing_task_status(
+              None,
               publishing_task.id,
               PublishingTaskStatus::Processing,
               PublishingTaskStatus::Failure,
@@ -757,7 +761,7 @@ pub mod tests {
     let data = create_mock_tarball("ok");
 
     t.db()
-      .scope_set_require_publishing_from_ci(&t.scope.scope, true)
+      .scope_set_require_publishing_from_ci(None, &t.scope.scope, true)
       .await
       .unwrap();
 

@@ -350,3 +350,10 @@ export interface TicketMessage {
 export interface AdminUpdateTicketRequest {
   closed?: boolean;
 }
+
+export interface AuditLog {
+  user: User;
+  action: string;
+  meta: Record<string, unknown>;
+  createdAt: string;
+}

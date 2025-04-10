@@ -870,3 +870,11 @@ pub struct TicketMessage {
 }
 
 pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);
+
+#[derive(Debug, Clone)]
+pub struct AuditLog {
+  pub user_id: Uuid,
+  pub action: String,
+  pub meta: serde_json::Value,
+  pub created_at: DateTime<Utc>,
+}

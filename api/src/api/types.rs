@@ -1064,3 +1064,23 @@ impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
 pub struct ApiAdminUpdateTicketRequest {
   pub closed: Option<bool>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAuditLog {
+  pub user: ApiUser,
+  pub action: String,
+  pub meta: serde_json::Value,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(AuditLog, UserPublic)> for ApiAuditLog {
+  fn from((value, user): (AuditLog, UserPublic)) -> Self {
+    Self {
+      user: user.into(),
+      action: value.action,
+      meta: value.meta,
+      created_at: value.created_at,
+    }
+  }
+}
