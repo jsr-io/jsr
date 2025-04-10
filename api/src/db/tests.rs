@@ -180,7 +180,7 @@ async fn users() {
   assert_eq!(users[0].avatar_url, "https://example.com/alice.png");
   assert_eq!(users[0].email, Some("alice@example.com".to_string()));
   assert_eq!(users[0].scope_usage, 0);
-  assert_eq!(users[1].id, uuid::Uuid::default()); // added by migrations
+  assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
   let user3 = db.delete_user(user.id).await.unwrap().unwrap();
   assert_eq!(user3.id, user.id);
