@@ -47,13 +47,26 @@ impl Database {
       User,
       r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       FROM users
       WHERE id = $1"#,
       id
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_user_public", skip(self), err)]
@@ -78,13 +91,26 @@ impl Database {
       User,
       r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       FROM users
       WHERE github_id = $1"#,
       github_id
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_users", skip(self), err)]
@@ -110,31 +136,50 @@ impl Database {
       User,
       r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL) ORDER BY created_at DESC OFFSET $3 LIMIT $4"#,
       search,
       maybe_id,
       start,
       limit,
     )
-    .fetch_all(&mut *tx)
-    .await?;
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_users = sqlx::query!(
       r#"SELECT COUNT(created_at) as "count!" FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL);"#,
       search,
       maybe_id,
     )
-    .map(|r| r.count)
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count)
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
     Ok((total_users as usize, users))
   }
 
-  #[instrument(name = "Database::insert_user", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
+  #[instrument(
+    name = "Database::insert_user",
+    skip(self, new_user),
+    err,
+    fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+    )
+  )]
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
     sqlx::query_as!(
       User,
@@ -142,7 +187,20 @@ impl Database {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       "#,
       new_user.name,
       new_user.email,
@@ -151,11 +209,15 @@ impl Database {
       new_user.is_blocked,
       new_user.is_staff
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::upsert_user_by_github_id", skip(self, new_user), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff))]
+  #[instrument(name = "Database::upsert_user_by_github_id", skip(
+    self,
+    new_user
+  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ))]
   pub async fn upsert_user_by_github_id(
     &self,
     new_user: NewUser<'_>,
@@ -169,7 +231,20 @@ impl Database {
       SET name = $1, email = $2, avatar_url = $3
       RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       "#,
       new_user.name,
       new_user.email,
@@ -178,8 +253,8 @@ impl Database {
       new_user.is_blocked,
       new_user.is_staff
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::user_set_staff", skip(self), err)]
@@ -193,13 +268,18 @@ impl Database {
       r#"UPDATE users SET is_staff = $1 WHERE id = $2
       RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+        )) as "newer_ticket_messages_count!"
       "#,
       is_staff,
       user_id
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::user_set_blocked", skip(self), err)]
@@ -213,13 +293,26 @@ impl Database {
       r#"UPDATE users SET is_blocked = $1 WHERE id = $2
       RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       "#,
       is_blocked,
       user_id
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::user_set_scope_limit", skip(self), err)]
@@ -233,13 +326,26 @@ impl Database {
       r#"UPDATE users SET scope_limit = $1 WHERE id = $2
       RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       "#,
       scope_limit,
       user_id
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::delete_user", skip(self), err)]
@@ -250,12 +356,25 @@ impl Database {
       WHERE id = $1
       RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!"
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "newer_ticket_messages_count!"
       "#,
       id
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_package", skip(self), err)]
@@ -276,38 +395,38 @@ impl Database {
       scope as _,
       name as _
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-        is_archived: r.package_is_archived,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
 
-      let meta = r.package_version_meta.unwrap_or_default();
+        let meta = r.package_version_meta.unwrap_or_default();
 
-      (package, github_repository, meta)
-    })
-  .fetch_optional(&self.pool)
-    .await
+        (package, github_repository, meta)
+      })
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::create_package", skip(self), err)]
@@ -329,8 +448,8 @@ impl Database {
       scope as _,
       name as _
     )
-    .fetch_one(&mut *tx)
-    .await;
+      .fetch_one(&mut *tx)
+      .await;
     let package = match res {
       Ok(package) => package,
       Err(err) => {
@@ -371,8 +490,8 @@ impl Database {
       package_name as _,
       version as _
     )
-    .execute(&self.pool)
-    .await?;
+      .execute(&self.pool)
+      .await?;
 
     Ok(())
   }
@@ -413,11 +532,15 @@ impl Database {
 
         (package, None, r.package_version_meta.unwrap_or_default())
       })
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::update_package_github_repository", skip(self, repo), err, fields(repo.id = repo.id, repo.owner = repo.owner, repo.name = repo.name))]
+  #[instrument(name = "Database::update_package_github_repository", skip(
+    self,
+    repo
+  ), err, fields(repo.id = repo.id, repo.owner = repo.owner, repo.name = repo.name
+  ))]
   pub async fn update_package_github_repository(
     &self,
     scope: &ScopeName,
@@ -468,8 +591,8 @@ impl Database {
 
         (package, r.package_version_meta.unwrap_or_default())
       })
-    .fetch_one(&mut *tx)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -497,8 +620,8 @@ impl Database {
       scope as _,
       name as _,
     )
-    .fetch_one(&self.pool)
-    .await?;
+      .fetch_one(&self.pool)
+      .await?;
 
     Ok(package)
   }
@@ -526,8 +649,8 @@ impl Database {
       name as _,
       runtime_compat as _
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::update_package_is_featured", skip(self), err)]
@@ -550,8 +673,8 @@ impl Database {
       name as _,
       when_featured,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::update_package_is_archived", skip(self), err)]
@@ -573,8 +696,8 @@ impl Database {
       name as _,
       is_archived,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::create_scope", skip(self), err)]
@@ -660,8 +783,8 @@ impl Database {
         publish_attempts_per_week_limit,
         scope as _
       )
-      .execute(&mut *tx)
-      .await?;
+        .execute(&mut *tx)
+        .await?;
     }
 
     let res = sqlx::query!(
@@ -792,19 +915,19 @@ impl Database {
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
-        (scope,usage, user)
+        (scope, usage, user)
       })
-    .fetch_all(&mut *tx)
-    .await?;
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_scopes = sqlx::query!(
       r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2;"#,
       search,
       search,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -965,47 +1088,47 @@ impl Database {
       start,
       limit
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-        is_archived: r.package_is_archived,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
 
-      let meta = r.package_version_meta.unwrap_or_default();
+        let meta = r.package_version_meta.unwrap_or_default();
 
-      (package, github_repository, meta)
-    })
-    .fetch_all(&mut *tx)
-    .await?;
+        (package, github_repository, meta)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_packages = sqlx::query!(
       r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false);"#,
       scope as _,
       show_archived,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -1088,36 +1211,36 @@ impl Database {
       start,
       limit
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-        is_archived: r.package_is_archived,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-      let meta = r.package_version_meta.unwrap_or_default();
-      (package, github_repository, meta)
-    })
-    .fetch_all(&mut *tx)
-    .await?;
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
+        let meta = r.package_version_meta.unwrap_or_default();
+        (package, github_repository, meta)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_packages = sqlx::query!(
       r#"SELECT COUNT(created_at) FROM packages WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $3 OR $3 IS NULL);"#,
@@ -1154,36 +1277,36 @@ impl Database {
       ORDER BY packages.created_at DESC
       LIMIT 10"#,
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-        is_archived: r.package_is_archived,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-      let meta = r.package_version_meta.unwrap_or_default();
-      (package, github_repository, meta)
-    })
-    .fetch_all(&self.pool)
-    .await?;
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
+        let meta = r.package_version_meta.unwrap_or_default();
+        (package, github_repository, meta)
+      })
+      .fetch_all(&self.pool)
+      .await?;
 
     let updated = sqlx::query_as!(
       PackageVersion,
@@ -1206,8 +1329,8 @@ impl Database {
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
-    .fetch_all(&self.pool)
-    .await?;
+      .fetch_all(&self.pool)
+      .await?;
 
     let featured = sqlx::query!(
       r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
@@ -1221,36 +1344,36 @@ impl Database {
       ORDER BY packages.when_featured DESC
       LIMIT 10"#,
     )
-    .map(|r| {
-      let package = Package {
-        scope: r.package_scope,
-        name: r.package_name,
-        description: r.package_description,
-        github_repository_id: r.package_github_repository_id,
-        runtime_compat: r.package_runtime_compat,
-        created_at: r.package_created_at,
-        updated_at: r.package_updated_at,
-        version_count: r.package_version_count,
-        latest_version: r.package_latest_version,
-        when_featured: r.package_when_featured,
-        is_archived: r.package_is_archived,
-      };
-      let github_repository = if r.package_github_repository_id.is_some() {
-        Some(GithubRepository {
-          id: r.github_repository_id.unwrap(),
-          owner: r.github_repository_owner.unwrap(),
-          name: r.github_repository_name.unwrap(),
-          created_at: r.github_repository_created_at.unwrap(),
-          updated_at: r.github_repository_updated_at.unwrap(),
-        })
-      } else {
-        None
-      };
-      let meta = r.package_version_meta.unwrap_or_default();
-      (package, github_repository, meta)
-    })
-    .fetch_all(&self.pool)
-    .await?;
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
+        let meta = r.package_version_meta.unwrap_or_default();
+        (package, github_repository, meta)
+      })
+      .fetch_all(&self.pool)
+      .await?;
 
     Ok((newest, updated, featured))
   }
@@ -1359,43 +1482,43 @@ impl Database {
       scope as _,
       name as _,
     )
-    .map(|r| {
-      let package_version = PackageVersion {
-        scope: r.package_version_scope,
-        name: r.package_version_name,
-        version: r.package_version_version,
-        user_id: r.package_version_user_id,
-        exports: r.package_version_exports,
-        is_yanked: r.package_version_is_yanked,
-        readme_path: r.package_version_readme_path,
-        uses_npm: r.package_version_uses_npm,
-        newer_versions_count: r.package_version_newer_versions_count,
-        lifetime_download_count: r.package_version_lifetime_download_count,
-        meta: r.package_version_meta,
-        updated_at: r.package_version_updated_at,
-        created_at: r.package_version_created_at,
-        rekor_log_id: r.package_version_rekor_log_id,
-      };
-
-      let user = if r.package_version_user_id.is_some() {
-        let user = UserPublic {
-          id: r.user_id.unwrap(),
-          name: r.user_name.unwrap(),
-          avatar_url: r.user_avatar_url.unwrap(),
-          github_id: r.user_github_id,
-          updated_at: r.user_updated_at.unwrap(),
-          created_at: r.user_created_at.unwrap(),
+      .map(|r| {
+        let package_version = PackageVersion {
+          scope: r.package_version_scope,
+          name: r.package_version_name,
+          version: r.package_version_version,
+          user_id: r.package_version_user_id,
+          exports: r.package_version_exports,
+          is_yanked: r.package_version_is_yanked,
+          readme_path: r.package_version_readme_path,
+          uses_npm: r.package_version_uses_npm,
+          newer_versions_count: r.package_version_newer_versions_count,
+          lifetime_download_count: r.package_version_lifetime_download_count,
+          meta: r.package_version_meta,
+          updated_at: r.package_version_updated_at,
+          created_at: r.package_version_created_at,
+          rekor_log_id: r.package_version_rekor_log_id,
         };
 
-        Some(user)
-      } else {
-        None
-      };
+        let user = if r.package_version_user_id.is_some() {
+          let user = UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          };
 
-      (package_version, user)
-    })
-    .fetch_all(&self.pool)
-    .await
+          Some(user)
+        } else {
+          None
+        };
+
+        (package_version, user)
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -1430,8 +1553,8 @@ impl Database {
       scope as _,
       name as _,
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -1455,9 +1578,9 @@ impl Database {
       scope as _,
       name as _,
     )
-    .map(|r| r.version)
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| r.version)
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_package_version", skip(self), err)]
@@ -1488,11 +1611,17 @@ impl Database {
       name as _,
       version as _
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::create_package_version_and_npm_tarball_and_finalize_publishing_task", skip(self, new_package_version, new_package_files), err, fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports, package_files = new_package_files.len()))]
+  #[instrument(
+    name = "Database::create_package_version_and_npm_tarball_and_finalize_publishing_task",
+    skip(self, new_package_version, new_package_files),
+    err,
+    fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports, package_files = new_package_files.len()
+    )
+  )]
   pub async fn create_package_version_and_npm_tarball_and_finalize_publishing_task(
     &self,
     publishing_task_id: Uuid,
@@ -1515,8 +1644,8 @@ impl Database {
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
     )
-    .execute(&mut *tx)
-    .await?;
+      .execute(&mut *tx)
+      .await?;
 
     for new_package_file in new_package_files {
       sqlx::query!(
@@ -1529,8 +1658,8 @@ impl Database {
         new_package_file.size,
         new_package_file.checksum,
       )
-      .execute(&mut *tx)
-      .await?;
+        .execute(&mut *tx)
+        .await?;
     }
 
     for new_package_version_dependency in new_package_version_dependencies {
@@ -1545,8 +1674,8 @@ impl Database {
         new_package_version_dependency.dependency_constraint as _,
         new_package_version_dependency.dependency_path as _,
       )
-      .execute(&mut *tx)
-      .await?;
+        .execute(&mut *tx)
+        .await?;
     }
 
     sqlx::query!(
@@ -1560,8 +1689,8 @@ impl Database {
       new_npm_tarball.sha512,
       new_npm_tarball.size,
     )
-    .execute(&mut *tx)
-    .await?;
+      .execute(&mut *tx)
+      .await?;
 
     let task = sqlx::query_as!(
       PublishingTask,
@@ -1571,15 +1700,19 @@ impl Database {
       RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
       publishing_task_id,
     )
-    .fetch_one(&mut *tx)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
     Ok(task)
   }
 
-  #[instrument(name = "Database::create_package_version_for_test", skip(self, new_package_version), err, fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports))]
+  #[instrument(name = "Database::create_package_version_for_test", skip(
+    self,
+    new_package_version
+  ), err, fields(package_version.scope = %new_package_version.scope, package_version.name = %new_package_version.name, package_version.version = %new_package_version.version, package_version.exports = ?new_package_version.exports
+  ))]
   pub async fn create_package_version_for_test(
     &self,
     new_package_version: NewPackageVersion<'_>,
@@ -1610,8 +1743,8 @@ impl Database {
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::yank_package_version", skip(self), err)]
@@ -1645,8 +1778,8 @@ impl Database {
       version as _,
       yank
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::delete_package_version", skip(self), err)]
@@ -1663,8 +1796,8 @@ impl Database {
       name as _,
       version as _
     )
-    .execute(&self.pool)
-    .await?;
+      .execute(&self.pool)
+      .await?;
 
     Ok(())
   }
@@ -1687,8 +1820,8 @@ impl Database {
       version as _,
       path as _
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_package_files", skip(self), err)]
@@ -1707,11 +1840,15 @@ impl Database {
       name as _,
       version as _
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::create_package_file_for_test", skip(self, new_package_file), err, fields(package_file.scope = %new_package_file.scope, package_file.name = %new_package_file.name, package_file.version = %new_package_file.version, package_file.path = %new_package_file.path, package_file.size = new_package_file.size, package_file.checksum = new_package_file.checksum))]
+  #[instrument(name = "Database::create_package_file_for_test", skip(
+    self,
+    new_package_file
+  ), err, fields(package_file.scope = %new_package_file.scope, package_file.name = %new_package_file.name, package_file.version = %new_package_file.version, package_file.path = %new_package_file.path, package_file.size = new_package_file.size, package_file.checksum = new_package_file.checksum
+  ))]
   pub async fn create_package_file_for_test(
     &self,
     new_package_file: NewPackageFile<'_>,
@@ -1728,8 +1865,8 @@ impl Database {
       new_package_file.size,
       new_package_file.checksum
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -1754,8 +1891,8 @@ impl Database {
       new_package_version_dependency.dependency_constraint as _,
       new_package_version_dependency.dependency_path as _
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -1780,8 +1917,8 @@ impl Database {
       new_npm_tarball.sha512,
       new_npm_tarball.size
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_aliases_for_package", skip(self), err)]
@@ -1897,8 +2034,8 @@ impl Database {
       target_jsr_name as _,
       target_npm
     )
-    .fetch_one(&self.pool)
-    .await?;
+      .fetch_one(&self.pool)
+      .await?;
     let target =
       match (row.target_jsr_scope, row.target_jsr_name, row.target_npm) {
         (Some(scope), Some(name), None) => AliasTarget::Jsr(scope, name),
@@ -1927,8 +2064,8 @@ impl Database {
       scope as _,
       user_id
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_scope_members", skip(self), err)]
@@ -1945,26 +2082,26 @@ impl Database {
       ORDER BY users.name ASC"#,
       scope as _
     )
-    .map(|r| {
-      let scope_member = ScopeMember {
-        scope: r.scope_member_scope,
-        user_id: r.scope_member_user_id,
-        is_admin: r.scope_member_is_admin,
-        created_at: r.scope_member_created_at,
-        updated_at: r.scope_member_updated_at,
-      };
-      let user = UserPublic {
-        id: r.user_id,
-        name: r.user_name,
-        avatar_url: r.user_avatar_url,
-        github_id: r.user_github_id,
-        updated_at: r.user_updated_at,
-        created_at: r.user_created_at,
-      };
-      (scope_member, user)
-    })
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| {
+        let scope_member = ScopeMember {
+          scope: r.scope_member_scope,
+          user_id: r.scope_member_user_id,
+          is_admin: r.scope_member_is_admin,
+          created_at: r.scope_member_created_at,
+          updated_at: r.scope_member_updated_at,
+        };
+        let user = UserPublic {
+          id: r.user_id,
+          name: r.user_name,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+        (scope_member, user)
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_member_scopes_by_user", skip(self), err)]
@@ -2007,11 +2144,15 @@ impl Database {
       new_scope_invite.target_user_id,
       new_scope_invite.requesting_user_id,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::add_user_to_scope", skip(self, new_scope_member), err, fields(scope_member.scope = %new_scope_member.scope, scope_member.user_id = %new_scope_member.user_id, scope_member.is_admin = new_scope_member.is_admin))]
+  #[instrument(name = "Database::add_user_to_scope", skip(
+    self,
+    new_scope_member
+  ), err, fields(scope_member.scope = %new_scope_member.scope, scope_member.user_id = %new_scope_member.user_id, scope_member.is_admin = new_scope_member.is_admin
+  ))]
   pub async fn add_user_to_scope(
     &self,
     new_scope_member: NewScopeMember<'_>,
@@ -2025,8 +2166,8 @@ impl Database {
       new_scope_member.user_id,
       new_scope_member.is_admin,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_scope_invites_by_user", skip(self), err)]
@@ -2145,8 +2286,8 @@ impl Database {
       scope as _,
       target_user_id,
     )
-    .fetch_one(&mut *tx)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -2183,8 +2324,8 @@ impl Database {
       scope as _,
       name as _,
     )
-    .fetch_one(&mut *tx)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
     if status.count.unwrap() > 0 {
       return Ok(false);
     }
@@ -2333,7 +2474,7 @@ impl Database {
         )
       })
       .fetch_optional(&mut *tx)
-    .await?;
+      .await?;
 
     let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
@@ -2367,20 +2508,20 @@ impl Database {
       scope as _,
       user_id,
     )
-    .map(|r| {
-      (
-        ScopeMember {
-          scope: r.scope,
-          user_id: r.user_id,
-          is_admin: r.is_admin,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-        },
-        r.user_id == r.scope_creator
-      )
-    })
-    .fetch_optional(&mut *tx)
-    .await?;
+      .map(|r| {
+        (
+          ScopeMember {
+            scope: r.scope,
+            user_id: r.user_id,
+            is_admin: r.is_admin,
+            updated_at: r.updated_at,
+            created_at: r.created_at,
+          },
+          r.user_id == r.scope_creator
+        )
+      })
+      .fetch_optional(&mut *tx)
+      .await?;
     let Some((scope_member, is_creator)) = maybe_scope_member else {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
@@ -2396,7 +2537,13 @@ impl Database {
     Ok(ScopeMemberUpdateResult::Ok(scope_member))
   }
 
-  #[instrument(name = "Database::create_publishing_task", skip(self, task), err, fields(publishing_task.package_scope = %task.package_scope, publishing_task.package_name = %task.package_name, publishing_task.package_version = %task.package_version))]
+  #[instrument(
+    name = "Database::create_publishing_task",
+    skip(self, task),
+    err,
+    fields(publishing_task.package_scope = %task.package_scope, publishing_task.package_name = %task.package_name, publishing_task.package_version = %task.package_version
+    )
+  )]
   pub async fn create_publishing_task(
     &self,
     task: NewPublishingTask<'_>,
@@ -2414,8 +2561,8 @@ impl Database {
       task.package_name as _,
       task.package_version as _
     )
-    .fetch_optional(&mut *tx)
-    .await?;
+      .fetch_optional(&mut *tx)
+      .await?;
     if let Some(already_processing) = already_processing {
       return Ok(CreatePublishingTaskResult::Exists(already_processing));
     }
@@ -2431,8 +2578,8 @@ impl Database {
       task.package_version as _,
       task.config_file as _,
     )
-    .fetch_one(&mut *tx)
-    .await?;
+      .fetch_one(&mut *tx)
+      .await?;
 
     let publish_attempts_per_week_limit = sqlx::query!(
       r#"
@@ -2450,11 +2597,11 @@ impl Database {
       "#,
       task.package_scope as _,
     )
-    .map(|r| {
-      r.count.unwrap()
-    })
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| {
+        r.count.unwrap()
+      })
+      .fetch_one(&mut *tx)
+      .await?;
 
     if publish_attempts_from_last_week > publish_attempts_per_week_limit as i64
     {
@@ -2483,8 +2630,8 @@ impl Database {
       WHERE id = $1"#,
       id
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_publishing_tasks", skip(self), err)]
@@ -2504,16 +2651,16 @@ impl Database {
       start,
       limit,
     )
-    .fetch_all(&mut *tx)
-    .await?;
+      .fetch_all(&mut *tx)
+      .await?;
 
     let total_publishing_tasks = sqlx::query!(
       r#"SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1;"#,
       search,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -2540,8 +2687,8 @@ impl Database {
       scope_name as _,
       package_name as _,
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -2572,8 +2719,8 @@ impl Database {
       id,
       prev_status as _,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_oauth_state", skip(self), err)]
@@ -2586,11 +2733,15 @@ impl Database {
       "SELECT csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at FROM oauth_states WHERE csrf_token = $1",
       csrf_token
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::insert_oauth_state", skip(self, new_oauth_state), err, fields(oauth_state.csrf_token = %new_oauth_state.csrf_token, oauth_state.redirect_url = %new_oauth_state.redirect_url))]
+  #[instrument(name = "Database::insert_oauth_state", skip(
+    self,
+    new_oauth_state
+  ), err, fields(oauth_state.csrf_token = %new_oauth_state.csrf_token, oauth_state.redirect_url = %new_oauth_state.redirect_url
+  ))]
   pub async fn insert_oauth_state<'a>(
     &self,
     new_oauth_state: NewOauthState<'a>,
@@ -2604,8 +2755,8 @@ impl Database {
       new_oauth_state.pkce_code_verifier,
       new_oauth_state.redirect_url,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::delete_oauth_state", skip(self), err)]
@@ -2620,11 +2771,14 @@ impl Database {
       RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
       csrf_token
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::insert_github_identity", skip(self, new_github_identity), err, fields(github_identity.github_id = new_github_identity.github_id))]
+  #[instrument(name = "Database::insert_github_identity", skip(
+    self,
+    new_github_identity
+  ), err, fields(github_identity.github_id = new_github_identity.github_id))]
   pub async fn upsert_github_identity(
     &self,
     new_github_identity: NewGithubIdentity,
@@ -2641,8 +2795,8 @@ impl Database {
       new_github_identity.refresh_token,
       new_github_identity.refresh_token_expires_at,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_github_identity", skip(self), err)]
@@ -2657,11 +2811,16 @@ impl Database {
       WHERE github_id = $1",
       github_id
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
-  #[instrument(name = "Database::insert_token", skip(self, new_token), err, fields(token.r#type = ?new_token.r#type))]
+  #[instrument(
+    name = "Database::insert_token",
+    skip(self, new_token),
+    err,
+    fields(token.r#type = ?new_token.r#type)
+  )]
   pub async fn insert_token(&self, new_token: NewToken) -> Result<Token> {
     sqlx::query_as!(
       Token,
@@ -2675,8 +2834,8 @@ impl Database {
       new_token.expires_at,
       new_token.permissions as _,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_token_by_hash", skip(self), err)]
@@ -2698,8 +2857,8 @@ impl Database {
       "#,
       user_id
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::delete_token", skip(self), err)]
@@ -2734,8 +2893,8 @@ impl Database {
       new_authorization.permissions as _,
       new_authorization.expires_at,
     )
-    .fetch_one(&self.pool)
-    .await
+      .fetch_one(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_authorization_by_code", skip(self), err)]
@@ -2750,8 +2909,8 @@ impl Database {
       WHERE code = $1"#,
       code
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -2772,8 +2931,8 @@ impl Database {
       RETURNING exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at"#,
       exchange_token
     )
-    .fetch_optional(&mut *tx)
-    .await?;
+      .fetch_optional(&mut *tx)
+      .await?;
 
     if let Some(authorization) = &maybe_authorization {
       if authorization.user_id.is_some() {
@@ -2825,8 +2984,8 @@ impl Database {
       name as _,
       version as _
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_package_dependents", skip(self), err)]
@@ -2869,9 +3028,9 @@ impl Database {
       kind as _,
       name,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&mut *tx)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -2890,9 +3049,9 @@ impl Database {
       kind as _,
       name,
     )
-    .map(|r| r.count.unwrap())
-    .fetch_one(&self.pool)
-    .await?;
+      .map(|r| r.count.unwrap())
+      .fetch_one(&self.pool)
+      .await?;
 
     Ok(total_unique_package_dependents as usize)
   }
@@ -2959,8 +3118,8 @@ impl Database {
       name as _,
       version as _
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -2986,8 +3145,8 @@ impl Database {
       version as _,
       revision,
     )
-    .fetch_optional(&self.pool)
-    .await
+      .fetch_optional(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_missing_npm_tarballs", skip(self), err)]
@@ -3009,11 +3168,11 @@ impl Database {
       "#,
       current_revision,
     )
-    .map(|r| {
-      (r.scope, r.name, r.version)
-    })
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| {
+        (r.scope, r.name, r.version)
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::list_all_scopes_for_sitemap", skip(self), err)]
@@ -3032,9 +3191,9 @@ impl Database {
         LIMIT 50000
       "#
     )
-    .map(|r| (r.scope, r.updated_at, r.latest_package_created_at))
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| (r.scope, r.updated_at, r.latest_package_created_at))
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -3055,16 +3214,16 @@ impl Database {
       ORDER BY scope ASC, name ASC
       LIMIT 50000"#
     )
-    .map(|r| {
-      (
-        r.scope,
-        r.name,
-        r.updated_at,
-        r.latest_version_updated_at,
-      )
-    })
-    .fetch_all(&self.pool)
-    .await
+      .map(|r| {
+        (
+          r.scope,
+          r.name,
+          r.updated_at,
+          r.latest_version_updated_at,
+        )
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -3123,8 +3282,8 @@ impl Database {
       &kinds as _,
       &counts as _,
     )
-    .execute(&mut *tx)
-    .await?;
+      .execute(&mut *tx)
+      .await?;
 
     // Compute data in version_download_counts_24h from version_download_counts_4h between smallest_timestamp and largest_timestamp.
     // smallest_timestamp must be truncated down to the nearest day and largest_timestamp must be truncated up to the nearest day.
@@ -3140,8 +3299,8 @@ impl Database {
       smallest_time_bucket,
       largest_time_bucket,
     )
-    .execute(&mut *tx)
-    .await?;
+      .execute(&mut *tx)
+      .await?;
 
     tx.commit().await?;
 
@@ -3175,8 +3334,8 @@ impl Database {
       start,
       end,
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -3206,8 +3365,8 @@ impl Database {
       start,
       end,
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(name = "Database::get_package_downloads_24h", skip(self), err)]
@@ -3235,6 +3394,732 @@ impl Database {
     .fetch_all(&self.pool)
     .await
   }
+
+  #[instrument(name = "Database::create_ticket", skip(self), err)]
+  pub async fn create_ticket(
+    &self,
+    user_id: Uuid,
+    new_ticket: NewTicket,
+  ) -> Result<(Ticket, User, TicketMessage)> {
+    let mut tx = self.pool.begin().await?;
+
+    let (ticket, user) = sqlx::query!(
+      r#"WITH ticket AS (
+          INSERT INTO tickets (kind, creator, meta)
+          VALUES ($1, $2, $3)
+          RETURNING id, kind, creator, meta, closed, updated_at, created_at
+        )
+        SELECT
+            ticket.id as "ticket_id",
+            ticket.kind as "ticket_kind: TicketKind",
+            ticket.creator as "ticket_creator",
+            ticket.meta as "ticket_meta",
+            ticket.closed as "ticket_closed",
+            ticket.updated_at as "ticket_updated_at",
+            ticket.created_at as "ticket_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.email as "user_email",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.is_blocked as "user_is_blocked",
+            users.is_staff as "user_is_staff",
+            users.scope_limit as "user_scope_limit",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at",
+            (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
+            (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
+            (CASE WHEN users.is_staff THEN (
+                SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                        SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                    )
+                )
+            ) ELSE (
+               SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+                  SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+                  )
+               )
+            ) END) as "user_newer_ticket_messages_count!"
+        FROM ticket
+        INNER JOIN users ON users.id = ticket.creator
+    "#,
+      new_ticket.kind as _,
+      user_id as _,
+      new_ticket.meta as _,
+    )
+      .map(|r| {
+        let ticket = Ticket {
+          id: r.ticket_id,
+          kind: r.ticket_kind,
+          creator: r.ticket_creator,
+          meta: r.ticket_meta,
+          closed: r.ticket_closed,
+          updated_at: r.ticket_updated_at,
+          created_at: r.ticket_created_at,
+        };
+
+        let user = User {
+          id: r.user_id,
+          name: r.user_name,
+          email: r.user_email,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          is_blocked: r.user_is_blocked,
+          is_staff: r.user_is_staff,
+          scope_usage: r.user_scope_usage,
+          scope_limit: r.user_scope_limit,
+          invite_count: r.user_invite_count,
+          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (ticket, user)
+      })
+      .fetch_one(&mut *tx)
+      .await?;
+
+    let message = sqlx::query!(
+      r#"INSERT INTO ticket_messages (ticket_id, author, message)
+          VALUES ($1, $2, $3)
+          RETURNING ticket_id, author, message, updated_at, created_at
+    "#,
+      ticket.id as _,
+      user_id as _,
+      new_ticket.message as _,
+    )
+    .map(|r| TicketMessage {
+      ticket_id: r.ticket_id,
+      author: r.author,
+      message: r.message,
+      updated_at: r.updated_at,
+      created_at: r.created_at,
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((ticket, user, message))
+  }
+
+  #[instrument(name = "Database::list_tickets", skip(self), err)]
+  pub async fn list_tickets(
+    &self,
+    start: i64,
+    limit: i64,
+    maybe_search_query: Option<&str>,
+  ) -> Result<(usize, Vec<FullTicket>)> {
+    let mut tx = self.pool.begin().await?;
+
+    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
+    let tickets = sqlx::query!(
+      r#"SELECT
+        tickets.id as "ticket_id",
+        tickets.kind as "ticket_kind: TicketKind",
+        tickets.creator as "ticket_creator",
+        tickets.meta as "ticket_meta",
+        tickets.closed as "ticket_closed",
+        tickets.updated_at as "ticket_updated_at",
+        tickets.created_at as "ticket_created_at",
+        users.id as "user_id",
+        users.name as "user_name",
+        users.email as "user_email",
+        users.avatar_url as "user_avatar_url",
+        users.github_id as "user_github_id",
+        users.is_blocked as "user_is_blocked",
+        users.is_staff as "user_is_staff",
+        users.scope_limit as "user_scope_limit",
+        users.updated_at as "user_updated_at",
+        users.created_at as "user_created_at",
+        (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
+        (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "user_newer_ticket_messages_count!"
+    FROM tickets
+    INNER JOIN users ON users.id = tickets.creator
+    WHERE users.name ILIKE $1
+       OR EXISTS (
+         SELECT 1
+         FROM ticket_messages
+         WHERE ticket_messages.ticket_id = tickets.id
+           AND ticket_messages.message ILIKE $1
+       )
+    ORDER BY tickets.closed ASC, tickets.created_at DESC
+    OFFSET $2 LIMIT $3
+"#,
+      search,
+      start,
+      limit,
+    )
+      .map(|r| {
+        let ticket = Ticket {
+          id: r.ticket_id,
+          kind: r.ticket_kind,
+          creator: r.ticket_creator,
+          meta: r.ticket_meta,
+          closed: r.ticket_closed,
+          updated_at: r.ticket_updated_at,
+          created_at: r.ticket_created_at,
+        };
+
+        let user = User {
+          id: r.user_id,
+          name: r.user_name,
+          email: r.user_email,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          is_blocked: r.user_is_blocked,
+          is_staff: r.user_is_staff,
+          scope_usage: r.user_scope_usage,
+          scope_limit: r.user_scope_limit,
+          invite_count: r.user_invite_count,
+          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (ticket, user)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    let mut out = Vec::with_capacity(tickets.len());
+    for (ticket, user) in tickets {
+      let messages = sqlx::query!(
+      r#"SELECT
+            ticket_messages.ticket_id as "message_ticket_id",
+            ticket_messages.author as "message_author",
+            ticket_messages.message as "message_message",
+            ticket_messages.updated_at as "message_updated_at",
+            ticket_messages.created_at as "message_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at"
+        FROM ticket_messages
+        LEFT JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+      ticket.id as _,
+    )
+        .map(|r| {
+          let message = TicketMessage {
+            ticket_id: r.message_ticket_id,
+            author: r.message_author,
+            message: r.message_message,
+            updated_at: r.message_updated_at,
+            created_at: r.message_created_at,
+          };
+
+          let user = UserPublic {
+            id: r.user_id,
+            name: r.user_name,
+            avatar_url: r.user_avatar_url,
+            github_id: r.user_github_id,
+            updated_at: r.user_updated_at,
+            created_at: r.user_created_at,
+          };
+
+          (message, user)
+        })
+        .fetch_all(&self.pool)
+        .await?;
+
+      out.push((ticket, user, messages));
+    }
+
+    let total_tickets = sqlx::query!(
+      r#"SELECT COUNT(tickets.created_at) FROM tickets
+    LEFT JOIN users ON users.id = tickets.creator
+    WHERE users.name ILIKE $1
+       OR EXISTS (
+         SELECT 1
+         FROM ticket_messages
+         WHERE ticket_messages.ticket_id = tickets.id
+           AND ticket_messages.message ILIKE $1
+       )"#,
+      search,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((total_tickets as usize, out))
+  }
+
+  #[instrument(name = "Database::list_tickets_for_user", skip(self), err)]
+  pub async fn list_tickets_for_user(
+    &self,
+    user_id: Uuid,
+  ) -> Result<Vec<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    let tickets = sqlx::query!(
+      r#"SELECT
+        tickets.id as "ticket_id",
+        tickets.kind as "ticket_kind: TicketKind",
+        tickets.creator as "ticket_creator",
+        tickets.meta as "ticket_meta",
+        tickets.closed as "ticket_closed",
+        tickets.updated_at as "ticket_updated_at",
+        tickets.created_at as "ticket_created_at",
+        users.id as "user_id",
+        users.name as "user_name",
+        users.email as "user_email",
+        users.avatar_url as "user_avatar_url",
+        users.github_id as "user_github_id",
+        users.is_blocked as "user_is_blocked",
+        users.is_staff as "user_is_staff",
+        users.scope_limit as "user_scope_limit",
+        users.updated_at as "user_updated_at",
+        users.created_at as "user_created_at",
+        (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
+        (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                )
+            )
+        ) ELSE (
+           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+              )
+           )
+        ) END) as "user_newer_ticket_messages_count!"
+    FROM tickets
+    INNER JOIN users ON users.id = tickets.creator
+    WHERE tickets.creator = $1
+    ORDER BY tickets.closed ASC, tickets.created_at DESC
+"#,
+      user_id as _,
+    )
+      .map(|r| {
+        let ticket = Ticket {
+          id: r.ticket_id,
+          kind: r.ticket_kind,
+          creator: r.ticket_creator,
+          meta: r.ticket_meta,
+          closed: r.ticket_closed,
+          updated_at: r.ticket_updated_at,
+          created_at: r.ticket_created_at,
+        };
+
+        let user = User {
+          id: r.user_id,
+          name: r.user_name,
+          email: r.user_email,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          is_blocked: r.user_is_blocked,
+          is_staff: r.user_is_staff,
+          scope_usage: r.user_scope_usage,
+          scope_limit: r.user_scope_limit,
+          invite_count: r.user_invite_count,
+          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (ticket, user)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    let mut out = Vec::with_capacity(tickets.len());
+    for (ticket, user) in tickets {
+      let messages = sqlx::query!(
+      r#"SELECT
+            ticket_messages.ticket_id as "message_ticket_id",
+            ticket_messages.author as "message_author",
+            ticket_messages.message as "message_message",
+            ticket_messages.updated_at as "message_updated_at",
+            ticket_messages.created_at as "message_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at"
+        FROM ticket_messages
+        INNER JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+      ticket.id as _,
+    )
+        .map(|r| {
+          let message = TicketMessage {
+            ticket_id: r.message_ticket_id,
+            author: r.message_author,
+            message: r.message_message,
+            updated_at: r.message_updated_at,
+            created_at: r.message_created_at,
+          };
+
+          let user = UserPublic {
+            id: r.user_id,
+            name: r.user_name,
+            avatar_url: r.user_avatar_url,
+            github_id: r.user_github_id,
+            updated_at: r.user_updated_at,
+            created_at: r.user_created_at,
+          };
+
+          (message, user)
+        })
+        .fetch_all(&self.pool)
+        .await?;
+
+      out.push((ticket, user, messages));
+    }
+
+    tx.commit().await?;
+
+    Ok(out)
+  }
+
+  #[instrument(name = "Database::get_ticket", skip(self), err)]
+  pub async fn get_ticket(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Option<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    let Some((ticket, user)) = sqlx::query!(
+      r#"SELECT
+            tickets.id as "ticket_id",
+            tickets.kind as "ticket_kind: TicketKind",
+            tickets.creator as "ticket_creator",
+            tickets.meta as "ticket_meta",
+            tickets.closed as "ticket_closed",
+            tickets.updated_at as "ticket_updated_at",
+            tickets.created_at as "ticket_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.email as "user_email",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.is_blocked as "user_is_blocked",
+            users.is_staff as "user_is_staff",
+            users.scope_limit as "user_scope_limit",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at",
+            (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
+            (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
+            (CASE WHEN users.is_staff THEN (
+                SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                        SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                    )
+                )
+            ) ELSE (
+               SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+                  SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+                  )
+               )
+            ) END) as "user_newer_ticket_messages_count!"
+        FROM tickets
+        INNER JOIN users ON users.id = tickets.creator
+        WHERE tickets.id = $1"#,
+      ticket_id as _,
+    )
+      .map(|r| {
+        let ticket = Ticket {
+          id: r.ticket_id,
+          kind: r.ticket_kind,
+          creator: r.ticket_creator,
+          meta: r.ticket_meta,
+          closed: r.ticket_closed,
+          updated_at: r.ticket_updated_at,
+          created_at: r.ticket_created_at,
+        };
+
+        let user = User {
+          id: r.user_id,
+          name: r.user_name,
+          email: r.user_email,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          is_blocked: r.user_is_blocked,
+          is_staff: r.user_is_staff,
+          scope_usage: r.user_scope_usage,
+          scope_limit: r.user_scope_limit,
+          invite_count: r.user_invite_count,
+          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (ticket, user)
+      })
+      .fetch_optional(&mut *tx)
+      .await?
+    else {
+      return Ok(None);
+    };
+
+    let messages = sqlx::query!(
+      r#"SELECT
+            ticket_messages.ticket_id as "message_ticket_id",
+            ticket_messages.author as "message_author",
+            ticket_messages.message as "message_message",
+            ticket_messages.updated_at as "message_updated_at",
+            ticket_messages.created_at as "message_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at"
+        FROM ticket_messages
+        INNER JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+      ticket_id as _,
+    )
+      .map(|r| {
+        let message = TicketMessage {
+          ticket_id: r.message_ticket_id,
+          author: r.message_author,
+          message: r.message_message,
+          updated_at: r.message_updated_at,
+          created_at: r.message_created_at,
+        };
+
+        let user = UserPublic {
+          id: r.user_id,
+          name: r.user_name,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (message, user)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(Some((ticket, user, messages)))
+  }
+
+  #[instrument(name = "Database::ticket_add_message", skip(self), err)]
+  pub async fn ticket_add_message(
+    &self,
+    id: Uuid,
+    author: Uuid,
+    message: NewTicketMessage,
+  ) -> Result<(TicketMessage, UserPublic)> {
+    let mut tx = self.pool.begin().await?;
+
+    let message = sqlx::query!(
+      r#"WITH message AS (
+          INSERT INTO ticket_messages (ticket_id, author, message)
+          VALUES ($1, $2, $3)
+          RETURNING ticket_id, author, message, updated_at, created_at
+        )
+        SELECT
+            message.ticket_id as "message_ticket_id",
+            message.author as "message_author",
+            message.message as "message_message",
+            message.updated_at as "message_updated_at",
+            message.created_at as "message_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at"
+        FROM message
+        INNER JOIN users ON users.id = message.author
+    "#,
+      id as _,
+      author as _,
+      message.message as _,
+    )
+    .map(|r| {
+      let message = TicketMessage {
+        ticket_id: r.message_ticket_id,
+        author: r.message_author,
+        message: r.message_message,
+        updated_at: r.message_updated_at,
+        created_at: r.message_created_at,
+      };
+
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (message, user)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE tickets SET updated_at = now() WHERE id = $1"#,
+      id as _
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(message)
+  }
+
+  #[instrument(name = "Database::update_ticket", skip(self), err)]
+  pub async fn update_ticket_closed(
+    &self,
+    ticket_id: Uuid,
+    closed: bool,
+  ) -> Result<FullTicket> {
+    let mut tx = self.pool.begin().await?;
+
+    let (ticket, user) = sqlx::query!(
+      r#"WITH ticket AS (
+          UPDATE tickets SET closed = $1 WHERE id = $2
+          RETURNING id, kind, creator, meta, closed, updated_at, created_at
+        )
+        SELECT
+            ticket.id as "ticket_id",
+            ticket.kind as "ticket_kind: TicketKind",
+            ticket.creator as "ticket_creator",
+            ticket.meta as "ticket_meta",
+            ticket.closed as "ticket_closed",
+            ticket.updated_at as "ticket_updated_at",
+            ticket.created_at as "ticket_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.email as "user_email",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.is_blocked as "user_is_blocked",
+            users.is_staff as "user_is_staff",
+            users.scope_limit as "user_scope_limit",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at",
+            (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
+            (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
+            (CASE WHEN users.is_staff THEN (
+                SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
+                    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
+                        SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
+                    )
+                )
+            ) ELSE (
+               SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+                  SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+                  )
+               )
+            ) END) as "user_newer_ticket_messages_count!"
+        FROM ticket
+        INNER JOIN users ON users.id = ticket.creator
+    "#,
+      closed as _,
+      ticket_id as _,
+    )
+      .map(|r| {
+        let ticket = Ticket {
+          id: r.ticket_id,
+          kind: r.ticket_kind,
+          creator: r.ticket_creator,
+          meta: r.ticket_meta,
+          closed: r.ticket_closed,
+          updated_at: r.ticket_updated_at,
+          created_at: r.ticket_created_at,
+        };
+
+        let user = User {
+          id: r.user_id,
+          name: r.user_name,
+          email: r.user_email,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          is_blocked: r.user_is_blocked,
+          is_staff: r.user_is_staff,
+          scope_usage: r.user_scope_usage,
+          scope_limit: r.user_scope_limit,
+          invite_count: r.user_invite_count,
+          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (ticket, user)
+      })
+      .fetch_one(&mut *tx)
+      .await?;
+
+    let messages = sqlx::query!(
+      r#"SELECT
+            ticket_messages.ticket_id as "message_ticket_id",
+            ticket_messages.author as "message_author",
+            ticket_messages.message as "message_message",
+            ticket_messages.updated_at as "message_updated_at",
+            ticket_messages.created_at as "message_created_at",
+            users.id as "user_id",
+            users.name as "user_name",
+            users.avatar_url as "user_avatar_url",
+            users.github_id as "user_github_id",
+            users.updated_at as "user_updated_at",
+            users.created_at as "user_created_at"
+        FROM ticket_messages
+        INNER JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+      ticket_id as _,
+    )
+      .map(|r| {
+        let message = TicketMessage {
+          ticket_id: r.message_ticket_id,
+          author: r.message_author,
+          message: r.message_message,
+          updated_at: r.message_updated_at,
+          created_at: r.message_created_at,
+        };
+
+        let user = UserPublic {
+          id: r.user_id,
+          name: r.user_name,
+          avatar_url: r.user_avatar_url,
+          github_id: r.user_github_id,
+          updated_at: r.user_updated_at,
+          created_at: r.user_created_at,
+        };
+
+        (message, user)
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok((ticket, user, messages))
+  }
 }
 
 async fn finalize_package_creation(
@@ -3247,11 +4132,11 @@ async fn finalize_package_creation(
     "#,
     scope as _,
   )
-  .map(|r| {
-    (r.package_limit, r.new_package_per_week_limit)
-  })
-  .fetch_one(&mut *tx)
-  .await?;
+    .map(|r| {
+      (r.package_limit, r.new_package_per_week_limit)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
   let packages_from_last_week = sqlx::query!(
     r#"
@@ -3259,11 +4144,11 @@ async fn finalize_package_creation(
     "#,
     scope as _,
   )
-  .map(|r| {
-    r.count.unwrap()
-  })
-  .fetch_one(&mut *tx)
-  .await?;
+    .map(|r| {
+      r.count.unwrap()
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
   if packages_from_last_week > new_package_per_week_limit as i64 {
     tx.rollback().await?;

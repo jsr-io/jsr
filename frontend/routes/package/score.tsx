@@ -19,7 +19,7 @@ export default define.page<typeof handler>(function Score(
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Score"

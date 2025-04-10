@@ -18,6 +18,7 @@ export default define.page<typeof handler>(
         <PackageHeader
           package={data.package}
           selectedVersion={data.selectedVersion}
+          user={state.user}
         />
 
         <PackageNav

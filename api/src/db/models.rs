@@ -19,7 +19,7 @@ use crate::ids::ScopeName;
 use crate::ids::ScopeNameValidateError;
 use crate::ids::Version;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct User {
   pub id: Uuid,
   pub name: String,
@@ -33,6 +33,7 @@ pub struct User {
   pub scope_usage: i64,
   pub scope_limit: i32,
   pub invite_count: i64,
+  pub newer_ticket_messages_count: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -824,3 +825,48 @@ impl sqlx::postgres::PgHasArrayType for DownloadKind {
     sqlx::postgres::PgTypeInfo::with_name("_download_kind")
   }
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
+#[serde(rename_all = "snake_case")]
+#[sqlx(type_name = "ticket_kind", rename_all = "snake_case")]
+pub enum TicketKind {
+  UserScopeQuotaIncrease,
+  ScopeQuotaIncrease,
+  ScopeClaim,
+  PackageReport,
+  Other,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewTicket {
+  pub kind: TicketKind,
+  pub meta: serde_json::Value,
+  pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Ticket {
+  pub id: Uuid,
+  pub kind: TicketKind,
+  pub creator: Uuid,
+  pub meta: serde_json::Value,
+  pub closed: bool,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewTicketMessage {
+  pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TicketMessage {
+  pub ticket_id: Uuid,
+  pub author: Uuid,
+  pub message: String,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);

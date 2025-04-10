@@ -15,6 +15,7 @@ export interface FullUser extends User {
   scopeUsage: number;
   scopeLimit: number;
   inviteCount: number;
+  newerTicketMessagesCount: number;
 }
 
 export interface Scope {
@@ -309,4 +310,43 @@ export interface DependencyGraphItem {
   children: number[];
   size: number | undefined;
   mediaType: string | undefined;
+}
+
+export type TicketKind =
+  | "user_scope_quota_increase"
+  | "scope_quota_increase"
+  | "scope_claim"
+  | "package_report"
+  | "other";
+
+export interface NewTicket {
+  kind: TicketKind;
+  meta?: Record<string, string>;
+  message: string;
+}
+
+export interface NewTicketMessage {
+  message: string;
+}
+
+export interface Ticket {
+  id: string;
+  kind: TicketKind;
+  creator: User;
+  meta: Record<string, string>;
+  closed: boolean;
+  messages: TicketMessage[];
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface TicketMessage {
+  author: User;
+  message: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface AdminUpdateTicketRequest {
+  closed?: boolean;
 }
