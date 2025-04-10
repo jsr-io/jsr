@@ -113,7 +113,7 @@ async fn get_handler(req: Request<Body>) -> ApiResult<ApiScopeOrFullScope> {
     .ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  if let Ok(_) = iam.check_scope_admin_access(&scope.scope).await {
+  if iam.check_scope_admin_access(&scope.scope).await.is_ok() {
     let user = db
       .get_user_public(scope.creator)
       .await?
@@ -250,7 +250,7 @@ async fn invite_member_handler(
       lookup_user_by_github_login(
         db,
         github_oauth2_client,
-        &current_user,
+        current_user,
         &github_login,
       )
       .await?

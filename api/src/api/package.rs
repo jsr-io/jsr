@@ -494,8 +494,9 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(
-  skip(db, npm_url, buckets, orama_client, scope, package_name),
+  skip(db, npm_url, buckets, orama_client, staff_id, scope, package_name),
   err,
   fields(description)
 )]
