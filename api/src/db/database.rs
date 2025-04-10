@@ -1334,7 +1334,7 @@ impl Database {
       require_publishing_from_ci,
       scope as _
     )
-    .fetch_one(&self.pool)
+    .fetch_one(&mut *tx)
     .await?;
 
     tx.commit().await?;
@@ -2482,7 +2482,7 @@ impl Database {
       new_scope_invite.target_user_id,
       new_scope_invite.requesting_user_id,
     )
-      .fetch_one(&self.pool)
+      .fetch_one(&mut *tx)
       .await?;
 
     tx.commit().await?;
@@ -4067,7 +4067,7 @@ impl Database {
 
           (message, user)
         })
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *tx)
         .await?;
 
       out.push((ticket, user, messages));
@@ -4214,7 +4214,7 @@ impl Database {
 
           (message, user)
         })
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *tx)
         .await?;
 
       out.push((ticket, user, messages));
