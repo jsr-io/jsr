@@ -3398,6 +3398,7 @@ impl Database {
   #[instrument(name = "Database::create_ticket", skip(self), err)]
   pub async fn create_ticket(
     &self,
+    user_id: Uuid,
     new_ticket: NewTicket,
   ) -> Result<(Ticket, User, TicketMessage)> {
     let mut tx = self.pool.begin().await?;
@@ -3445,7 +3446,7 @@ impl Database {
         INNER JOIN users ON users.id = ticket.creator
     "#,
       new_ticket.kind as _,
-      &new_ticket.creator as _,
+      user_id as _,
       new_ticket.meta as _,
     )
       .map(|r| {
@@ -3486,7 +3487,7 @@ impl Database {
           RETURNING ticket_id, author, message, updated_at, created_at
     "#,
       ticket.id as _,
-      new_ticket.creator as _,
+      user_id as _,
       new_ticket.message as _,
     )
     .map(|r| TicketMessage {

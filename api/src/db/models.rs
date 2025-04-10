@@ -840,7 +840,6 @@ pub enum TicketKind {
 #[derive(Debug, Deserialize)]
 pub struct NewTicket {
   pub kind: TicketKind,
-  pub creator: Uuid,
   pub meta: Option<serde_json::Value>,
   pub message: String,
 }

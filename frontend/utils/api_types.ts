@@ -321,7 +321,6 @@ export type TicketKind =
 
 export interface NewTicket {
   kind: TicketKind;
-  creator: string;
   meta?: Record<string, string>;
   message: string;
 }

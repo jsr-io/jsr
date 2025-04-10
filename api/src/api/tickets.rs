@@ -27,9 +27,9 @@ use super::ApiTicketMessage;
 
 pub fn tickets_router() -> Router<Body, ApiError> {
   Router::builder()
-    .post("/", util::json(post_handler))
-    .get("/:id", util::json(get_handler))
-    .post("/:id", util::json(post_message_handler))
+    .post("/", util::auth(util::json(post_handler)))
+    .get("/:id", util::auth(util::json(get_handler)))
+    .post("/:id", util::auth(util::json(post_message_handler)))
     .build()
     .unwrap()
 }
@@ -57,13 +57,16 @@ pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let new_ticket: NewTicket = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
 
+  let iam = req.iam();
+  let user = iam.check_current_user_access()?;
+
   if let Some(meta) = &new_ticket.meta {
     if !meta.is_object() {
       return Err(ApiError::TicketMetaNotValid);
     }
   }
 
-  let (ticket, user, message) = db.create_ticket(new_ticket).await?;
+  let (ticket, user, message) = db.create_ticket(user.id, new_ticket).await?;
 
   if let Some(email) = &user.email {
     let email_sender = req.data::<Option<EmailSender>>().unwrap();
@@ -144,4 +147,82 @@ pub async fn post_message_handler(
   }
 
   Ok((message, message_author).into())
+}
+
+#[cfg(test)]
+mod test {
+  use crate::api::ApiTicket;
+  use crate::api::ApiTicketMessage;
+  use crate::db::TicketKind;
+  use crate::util::test::ApiResultExt;
+  use crate::util::test::TestSetup;
+  use hyper::StatusCode;
+  use serde_json::json;
+
+  #[tokio::test]
+  async fn test_ticket() {
+    let mut t = TestSetup::new().await;
+
+    let user_id = t.user1.user.id;
+    let user_token = t.user1.token.clone();
+    let mut resp = t
+      .http()
+      .post("/api/tickets")
+      .token(Some(&user_token))
+      .body_json(json!({
+        "kind": TicketKind::UserScopeQuotaIncrease,
+        "message": "test".to_string(),
+      }))
+      .call()
+      .await
+      .unwrap();
+    let ticket: ApiTicket = resp.expect_ok().await;
+
+    assert_eq!(ticket.creator.id, user_id);
+    assert_eq!(ticket.messages[0].message, "test");
+
+    let mut resp = t
+      .http()
+      .post(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&user_token))
+      .body_json(json!({
+        "message": "test2".to_string(),
+      }))
+      .call()
+      .await
+      .unwrap();
+    let message: ApiTicketMessage = resp.expect_ok().await;
+    assert_eq!(message.message, "test2");
+
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&user_token))
+      .call()
+      .await
+      .unwrap();
+    let ticket: ApiTicket = resp.expect_ok().await;
+    assert_eq!(ticket.messages[0].message, "test");
+    assert_eq!(ticket.messages[1].message, "test2");
+
+    let other_user_token = t.user1.token.clone();
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&other_user_token))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_err(StatusCode::NOT_FOUND).await;
+
+    let staff_user_token = t.staff_user.token.clone();
+    let mut resp = t
+      .http()
+      .get(format!("/api/tickets/{}", ticket.id))
+      .token(Some(&staff_user_token))
+      .call()
+      .await
+      .unwrap();
+    let _ticket: ApiTicket = resp.expect_ok().await;
+  }
 }

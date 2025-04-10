@@ -1009,7 +1009,7 @@ pub struct ApiPackageDownloadsRecentVersion {
   pub downloads: Vec<ApiDownloadDataPoint>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicket {
   pub id: Uuid,
@@ -1039,7 +1039,7 @@ impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
   }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicketMessage {
   pub author: ApiUser,

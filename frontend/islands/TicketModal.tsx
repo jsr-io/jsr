@@ -104,7 +104,6 @@ export function TicketModal(
             }
 
             const data: NewTicket = {
-              creator: user!.id,
               kind,
               message,
               meta,
