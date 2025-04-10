@@ -60,10 +60,8 @@ pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let iam = req.iam();
   let user = iam.check_current_user_access()?;
 
-  if let Some(meta) = &new_ticket.meta {
-    if !meta.is_object() {
-      return Err(ApiError::TicketMetaNotValid);
-    }
+  if !new_ticket.meta.is_object() {
+    return Err(ApiError::TicketMetaNotValid);
   }
 
   let (ticket, user, message) = db.create_ticket(user.id, new_ticket).await?;
@@ -171,6 +169,7 @@ mod test {
       .token(Some(&user_token))
       .body_json(json!({
         "kind": TicketKind::UserScopeQuotaIncrease,
+        "meta": {},
         "message": "test".to_string(),
       }))
       .call()
@@ -205,7 +204,7 @@ mod test {
     assert_eq!(ticket.messages[0].message, "test");
     assert_eq!(ticket.messages[1].message, "test2");
 
-    let other_user_token = t.user1.token.clone();
+    let other_user_token = t.user2.token.clone();
     let mut resp = t
       .http()
       .get(format!("/api/tickets/{}", ticket.id))
