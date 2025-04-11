@@ -1070,6 +1070,7 @@ pub struct ApiAdminUpdateTicketRequest {
 pub struct ApiAuditLog {
   pub actor: ApiUser,
   pub action: String,
+  pub is_sudo: bool,
   pub meta: serde_json::Value,
   pub created_at: DateTime<Utc>,
 }
@@ -1080,6 +1081,7 @@ impl From<(AuditLog, UserPublic)> for ApiAuditLog {
     Self {
       actor: user.into(),
       action: value.action,
+      is_sudo: value.is_sudo,
       meta: value.meta,
       created_at: value.created_at,
     }
