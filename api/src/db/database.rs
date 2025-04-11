@@ -267,16 +267,15 @@ impl Database {
   ) -> Result<User> {
     let mut tx = self.pool.begin().await?;
 
-    sqlx::query!(
-      r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-      staff_id as _,
+    audit_log(
+      &mut tx,
+      staff_id,
       "user_set_staff",
       json!({
         "user_id": user_id,
         "is_staff": is_staff,
-      }) as _,
+      }),
     )
-    .execute(&mut *tx)
     .await?;
 
     let user = sqlx::query_as!(
@@ -311,16 +310,15 @@ impl Database {
   ) -> Result<User> {
     let mut tx = self.pool.begin().await?;
 
-    sqlx::query!(
-      r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-      staff_id as _,
+    audit_log(
+      &mut tx,
+      staff_id,
       "user_set_blocked",
       json!({
         "user_id": user_id,
         "is_blocked": is_blocked,
-      }) as _,
+      }),
     )
-    .execute(&mut *tx)
     .await?;
 
     let user = sqlx::query_as!(
@@ -363,16 +361,15 @@ impl Database {
   ) -> Result<User> {
     let mut tx = self.pool.begin().await?;
 
-    sqlx::query!(
-      r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-      staff_id as _,
+    audit_log(
+      &mut tx,
+      staff_id,
       "user_set_scope_limit",
       json!({
         "user_id": user_id,
         "scope_limit": scope_limit,
-      }) as _,
+      }),
     )
-    .execute(&mut *tx)
     .await?;
 
     let user = sqlx::query_as!(
@@ -565,16 +562,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "update_package_description",
         json!({
-          "scope": scope,
-          "name": name,
-        }) as _,
+            "scope": scope,
+            "name": name,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -630,17 +626,16 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "update_package_github_repository",
         json!({
           "scope": scope,
           "name": name,
           "repo": repo.id,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -709,16 +704,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "delete_package_github_repository",
         json!({
           "scope": scope,
           "name": name,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -756,17 +750,16 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "update_package_runtime_compat",
         json!({
           "scope": scope,
           "name": name,
           "runtime_compat": runtime_compat,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -802,17 +795,16 @@ impl Database {
 
     let when_featured = if is_featured { Some(Utc::now()) } else { None };
 
-    sqlx::query!(
-      r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-      staff_id as _,
+    audit_log(
+      &mut tx,
+      staff_id,
       "feature_package",
       json!({
-        "scope": scope,
-        "name": name,
-        "is_featured": when_featured,
-      }) as _,
+      "scope": scope,
+      "name": name,
+      "is_featured": when_featured,
+      }),
     )
-    .execute(&mut *tx)
     .await?;
 
     let package = sqlx::query_as!(
@@ -846,17 +838,16 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "archive_package",
         json!({
-          "scope": scope,
-          "name": name,
-          "is_archived": is_archived,
-        }) as _,
+            "scope": scope,
+            "name": name,
+            "is_archived": is_archived,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -890,16 +881,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "assign_scope",
         json!({
-          "scope": scope,
-          "user_id": user_id,
-        }) as _,
+            "scope": scope,
+            "user_id": user_id,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -958,16 +948,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(package_limit) = package_limit {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "scope_set_package_limit",
         json!({
           "scope": scope,
           "package_limit": package_limit,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
 
       sqlx::query!(
@@ -980,16 +969,15 @@ impl Database {
     }
 
     if let Some(new_package_per_week_limit) = new_package_per_week_limit {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "scope_set_package_per_week_limit",
         json!({
           "scope": scope,
           "new_package_per_week_limit": new_package_per_week_limit,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
 
       sqlx::query!(
@@ -1004,16 +992,15 @@ impl Database {
     if let Some(publish_attempts_per_week_limit) =
       publish_attempts_per_week_limit
     {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "scope_set_publish_attempts_per_week_limit",
         json!({
           "scope": scope,
           "publish_attempts_per_week_limit": publish_attempts_per_week_limit,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
 
       sqlx::query!(
@@ -1248,16 +1235,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "yank_package_version",
         json!({
           "scope": scope,
           "verify_oidc_actor": verify_oidc_actor,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -1302,16 +1288,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
-        "yank_package_version",
+      audit_log(
+        &mut tx,
+        staff_id,
+        "require_publishing_from_ci",
         json!({
           "scope": scope,
           "require_publishing_from_ci": require_publishing_from_ci,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -2039,18 +2024,17 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "yank_package_version",
         json!({
           "scope": scope,
           "name": name,
           "version": version,
           "yank": yank,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -2095,17 +2079,16 @@ impl Database {
   ) -> Result<()> {
     let mut tx = self.pool.begin().await?;
 
-    sqlx::query!(
-      r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-      staff_id as _,
+    audit_log(
+      &mut tx,
+      staff_id,
       "delete_package_version",
       json!({
-        "scope": scope,
-        "name": name,
-        "version": version,
-      }) as _,
+      "scope": scope,
+      "name": name,
+      "version": version,
+      }),
     )
-    .execute(&mut *tx)
     .await?;
 
     sqlx::query_as!(
@@ -2460,16 +2443,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "add_scope_invite",
         json!({
-          "scope": new_scope_invite.scope,
-          "target_user_id": new_scope_invite.target_user_id,
-        }) as _,
+            "scope": new_scope_invite.scope,
+            "target_user_id": new_scope_invite.target_user_id,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -2646,16 +2628,15 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "delete_scope_invite",
         json!({
-          "scope": scope,
-          "target_user_id": target_user_id,
-        }) as _,
+            "scope": scope,
+            "target_user_id": target_user_id,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -2682,15 +2663,14 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "delete_package",
         json!({
-          "scope": scope,
-        }) as _,
+            "scope": scope,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -2741,15 +2721,14 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "delete_scope",
         json!({
           "scope": scope,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -2846,17 +2825,16 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "yank_package_version",
         json!({
           "scope": scope,
           "user_id": user_id,
           "is_admin": is_admin,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -3122,15 +3100,14 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     if let Some(staff_id) = staff_id {
-      sqlx::query!(
-        r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-        staff_id as _,
+      audit_log(
+        &mut tx,
+        staff_id,
         "requeue_publishing_task",
         json!({
           "id": id,
-        }) as _,
+        }),
       )
-      .execute(&mut *tx)
       .await?;
     }
 
@@ -4430,16 +4407,15 @@ impl Database {
   ) -> Result<FullTicket> {
     let mut tx = self.pool.begin().await?;
 
-    sqlx::query!(
-      r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-      staff_id as _,
+    audit_log(
+      &mut tx,
+      staff_id,
       "update_ticket_status",
       json!({
-        "ticket_id": ticket_id,
-        "closed": closed,
-      }) as _,
+      "ticket_id": ticket_id,
+      "closed": closed,
+      }),
     )
-    .execute(&mut *tx)
     .await?;
 
     let (ticket, user) = sqlx::query!(
@@ -4682,6 +4658,24 @@ async fn finalize_package_creation(
 
   tx.commit().await?;
   Ok(None)
+}
+
+async fn audit_log(
+  tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+  staff_id: &Uuid,
+  action: &'static str,
+  data: serde_json::Value,
+) -> Result<()> {
+  sqlx::query!(
+    r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
+    staff_id as _,
+    action,
+    data as _,
+  )
+  .execute(&mut **tx)
+  .await?;
+
+  Ok(())
 }
 
 #[derive(Debug)]
