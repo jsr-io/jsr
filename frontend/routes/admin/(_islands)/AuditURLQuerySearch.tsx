@@ -10,7 +10,7 @@ export function AuditURLQuerySearch(
 
   return (
     <URLQuerySearch query={query} formRef={formRef}>
-      <label class="flex items-center gap-2 text-nowrap">
+      <label class="flex items-center gap-2 text-nowrap select-none">
         <input
           type="checkbox"
           name="sudoOnly"
