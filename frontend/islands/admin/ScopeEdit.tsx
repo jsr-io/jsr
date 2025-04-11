@@ -7,6 +7,7 @@ import { TableData, TableRow } from "../../components/Table.tsx";
 
 export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
   const [edit, setEdit] = useState(false);
+  const [originalQuotas, setOriginalQuotas] = useState(scope.quotas);
   const [processing, setProcessing] = useState(false);
   const [packageLimit, setPackageLimit] = useState(
     String(scope.quotas.packageLimit),
@@ -81,19 +82,46 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
                 type="button"
                 disabled={processing}
                 onClick={() => {
+                  const updatedData: Partial<typeof originalQuotas> = {};
+
+                  if (+packageLimit !== originalQuotas.packageLimit) {
+                    updatedData.packageLimit = +packageLimit;
+                  }
+                  if (
+                    +newPackagePerWeekLimit !==
+                      originalQuotas.newPackagePerWeekLimit
+                  ) {
+                    updatedData.newPackagePerWeekLimit =
+                      +newPackagePerWeekLimit;
+                  }
+                  if (
+                    +publishAttemptsPerWeekLimit !==
+                      originalQuotas.publishAttemptsPerWeekLimit
+                  ) {
+                    updatedData.publishAttemptsPerWeekLimit =
+                      +publishAttemptsPerWeekLimit;
+                  }
+
+                  if (Object.keys(updatedData).length === 0) {
+                    setEdit(false);
+                    return;
+                  }
+
                   setProcessing(true);
-                  api.patch(path`/admin/scopes/${scope.scope}`, {
-                    packageLimit: +packageLimit,
-                    newPackagePerWeekLimit: +newPackagePerWeekLimit,
-                    publishAttemptsPerWeekLimit: +publishAttemptsPerWeekLimit,
-                  }).then((res) => {
-                    setProcessing(false);
-                    if (res.ok) {
-                      setEdit(false);
-                    } else {
-                      console.error(res);
-                    }
-                  });
+
+                  api.patch(path`/admin/scopes/${scope.scope}`, updatedData)
+                    .then((res) => {
+                      setProcessing(false);
+                      if (res.ok) {
+                        setOriginalQuotas({
+                          ...originalQuotas,
+                          ...updatedData,
+                        });
+                        setEdit(false);
+                      } else {
+                        console.error(res);
+                      }
+                    });
                 }}
                 class="link disabled:text-jsr-gray-500 disabled:hover:cursor-wait"
               >

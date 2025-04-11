@@ -36,7 +36,16 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               {String(log.isSudo)}
             </TableData>
             <TableData>
-              {JSON.stringify(log.meta, null, " ")}
+              {Object.entries(log.meta).map(([key, value]) => (
+                <div>
+                  <span>{key}:</span>{" "}
+                  <span>
+                    {(typeof value === "string" || typeof value === "number")
+                      ? value
+                      : JSON.stringify(value)}
+                  </span>
+                </div>
+              ))}
             </TableData>
             <TableData
               title={new Date(log.createdAt).toISOString().slice(

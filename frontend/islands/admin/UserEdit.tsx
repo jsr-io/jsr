@@ -8,6 +8,11 @@ import { TableData, TableRow } from "../../components/Table.tsx";
 export default function UserEdit({ user }: { user: FullUser }) {
   const [edit, setEdit] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [originalData, setOriginalData] = useState({
+    isStaff: user.isStaff,
+    isBlocked: user.isBlocked,
+    scopeLimit: user.scopeLimit,
+  });
   const [isStaff, setIsStaff] = useState(user.isStaff);
   const [isBlocked, setIsBlocked] = useState(user.isBlocked);
   const [scopeLimit, setScopeLimit] = useState(user.scopeLimit);
@@ -78,18 +83,36 @@ export default function UserEdit({ user }: { user: FullUser }) {
                 type="button"
                 disabled={processing}
                 onClick={() => {
+                  const updatedData: Partial<typeof originalData> = {};
+
+                  if (scopeLimit !== originalData.scopeLimit) {
+                    updatedData.scopeLimit = scopeLimit;
+                  }
+                  if (isStaff !== originalData.isStaff) {
+                    updatedData.isStaff = isStaff;
+                  }
+                  if (isBlocked !== originalData.isBlocked) {
+                    updatedData.isBlocked = isBlocked;
+                  }
+
+                  if (Object.keys(updatedData).length === 0) {
+                    setEdit(false);
+                    return;
+                  }
+
                   setProcessing(true);
-                  api.patch(
-                    path`/admin/users/${user.id}`,
-                    { isStaff, isBlocked, scopeLimit },
-                  ).then((res) => {
-                    setProcessing(false);
-                    if (res.ok) {
-                      setEdit(false);
-                    } else {
-                      console.error(res);
-                    }
-                  });
+
+                  api
+                    .patch(path`/admin/users/${user.id}`, updatedData)
+                    .then((res) => {
+                      setProcessing(false);
+                      if (res.ok) {
+                        setOriginalData({ ...originalData, ...updatedData });
+                        setEdit(false);
+                      } else {
+                        console.error(res);
+                      }
+                    });
                 }}
                 class="link disabled:text-jsr-gray-500 disabled:cursor-wait"
               >
