@@ -548,9 +548,17 @@ pub mod test {
 
       let scope_name = "scope".try_into().unwrap();
 
-      db.create_scope(&scope_name, user1.user.id).await.unwrap();
+      db.create_scope(&user1.user.id, false, &scope_name, user1.user.id)
+        .await
+        .unwrap();
       let (scope, _, _) = db
-        .update_scope_limits(&scope_name, Some(250), Some(200), Some(1000))
+        .update_scope_limits(
+          &staff_user.user.id,
+          &scope_name,
+          Some(250),
+          Some(200),
+          Some(1000),
+        )
         .await
         .unwrap();
 

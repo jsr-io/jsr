@@ -4,7 +4,7 @@ import ScopeEdit from "../../../islands/admin/ScopeEdit.tsx";
 import { Table } from "../../../components/Table.tsx";
 import { path } from "../../../utils/api.ts";
 import { AdminNav } from "../(_components)/AdminNav.tsx";
-import { URLQuerySearch } from "../../../components/URLQuerySearch.tsx";
+import { URLQuerySearch } from "../(_components)/URLQuerySearch.tsx";
 import { define } from "../../../util.ts";
 import TbArrowRight from "tb-icons/TbArrowRight";
 

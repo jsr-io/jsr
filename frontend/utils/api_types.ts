@@ -350,3 +350,11 @@ export interface TicketMessage {
 export interface AdminUpdateTicketRequest {
   closed?: boolean;
 }
+
+export interface AuditLog {
+  actor: User;
+  isSudo: boolean;
+  action: string;
+  meta: Record<string, unknown>;
+  createdAt: string;
+}

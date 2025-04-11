@@ -4,7 +4,7 @@ import { Table } from "../../components/Table.tsx";
 import { path } from "../../utils/api.ts";
 import { FullUser, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
-import { URLQuerySearch } from "../../components/URLQuerySearch.tsx";
+import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import { define } from "../../util.ts";
 
 export default define.page<typeof handler>(function Users({ data, url }) {

@@ -1064,3 +1064,26 @@ impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
 pub struct ApiAdminUpdateTicketRequest {
   pub closed: Option<bool>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAuditLog {
+  pub actor: ApiUser,
+  pub action: String,
+  pub is_sudo: bool,
+  pub meta: serde_json::Value,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(AuditLog, UserPublic)> for ApiAuditLog {
+  fn from((value, user): (AuditLog, UserPublic)) -> Self {
+    assert_eq!(value.actor_id, user.id);
+    Self {
+      actor: user.into(),
+      action: value.action,
+      is_sudo: value.is_sudo,
+      meta: value.meta,
+      created_at: value.created_at,
+    }
+  }
+}

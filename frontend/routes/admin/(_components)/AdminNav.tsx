@@ -7,7 +7,7 @@ export interface Params {
   version?: string;
 }
 
-type Tab = "scopes" | "users" | "publishingTasks" | "tickets";
+type Tab = "scopes" | "users" | "publishingTasks" | "tickets" | "audit";
 
 export function AdminNav({ currentTab }: {
   currentTab: Tab;
@@ -33,6 +33,12 @@ export function AdminNav({ currentTab }: {
           active={currentTab === "tickets"}
         >
           Support Tickets
+        </NavItem>
+        <NavItem
+          href="/admin/audit"
+          active={currentTab === "audit"}
+        >
+          Audit Logs
         </NavItem>
       </Nav>
     </>
