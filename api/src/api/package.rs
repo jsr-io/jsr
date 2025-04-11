@@ -569,6 +569,7 @@ async fn update_description(
   Ok(package)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
   actor_id: &Uuid,
