@@ -88,6 +88,7 @@ lazy_static::lazy_static! {
           "alert-important",
           "alert-warning",
           "alert-caution",
+          "or-bar"
         ],
       )
       .link_rel(Some("nofollow"))
@@ -1215,44 +1216,44 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 
     if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
       map.insert(
-          UsageComposerEntry {
-            name: "Deno".to_string(),
-            icon: Some(
-              r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
-        );
+        UsageComposerEntry {
+          name: "Deno".to_string(),
+          icon: Some(
+            r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
+          ),
+        },
+        format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
+      );
     }
 
     if !self.runtime_compat.node.is_some_and(|compat| !compat) {
       map.insert(
-          UsageComposerEntry {
-            name: "npm".to_string(),
-            icon: Some(
-              r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
-        );
+        UsageComposerEntry {
+          name: "pnpm".to_string(),
+          icon: Some(
+            r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
+          ),
+        },
+        format!("Add Package\n```\npnpm i jsr:{scoped_name}\n```\n<div class='or-bar'>or (using pnpm 10.8 or older)</div>\n\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
+      );
       map.insert(
-          UsageComposerEntry {
-            name: "Yarn".to_string(),
-            icon: Some(
-              r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
-        );
+        UsageComposerEntry {
+          name: "Yarn".to_string(),
+          icon: Some(
+            r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
+          ),
+        },
+        format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+      );
       map.insert(
-          UsageComposerEntry {
-            name: "pnpm".to_string(),
-            icon: Some(
-              r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
-        );
+        UsageComposerEntry {
+          name: "npm".to_string(),
+          icon: Some(
+            r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
+          ),
+        },
+        format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
+      );
     }
 
     if !self.runtime_compat.bun.is_some_and(|compat| !compat) {
