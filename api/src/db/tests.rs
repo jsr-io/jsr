@@ -18,7 +18,10 @@ async fn publishing_tasks() {
   let version = "1.0.0".try_into().unwrap();
   let config_file = "/jsr.json".try_into().unwrap();
 
-  let _scope = db.create_scope(None, &scope_name, user_id).await.unwrap();
+  let _scope = db
+    .create_scope(&user_id, false, &scope_name, user_id)
+    .await
+    .unwrap();
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
   assert!(matches!(res, CreatePackageResult::Ok(_)));
 
@@ -215,7 +218,9 @@ async fn packages() {
   let scope_name = "scope".try_into().unwrap();
   let package_name = "testpkg".try_into().unwrap();
 
-  db.create_scope(None, &scope_name, alice.id).await.unwrap();
+  db.create_scope(&alice.id, false, &scope_name, alice.id)
+    .await
+    .unwrap();
 
   let alice2 = db.get_user(alice.id).await.unwrap().unwrap();
   assert_eq!(alice2.scope_usage, 1);
@@ -281,7 +286,9 @@ async fn scope_members() {
 
   let scope_name = "scope".try_into().unwrap();
 
-  db.create_scope(None, &scope_name, bob.id).await.unwrap();
+  db.create_scope(&bob.id, false, &scope_name, bob.id)
+    .await
+    .unwrap();
 
   let scope = db
     .get_scope(&ScopeName::try_from("scope").unwrap())
@@ -344,7 +351,9 @@ async fn create_package_version_and_finalize_publishing_task() {
     .await
     .unwrap();
 
-  db.create_scope(None, &scope, bob.id).await.unwrap();
+  db.create_scope(&bob.id, false, &scope, bob.id)
+    .await
+    .unwrap();
 
   let CreatePackageResult::Ok(_package) =
     db.create_package(&scope, &package_name).await.unwrap()
@@ -453,7 +462,9 @@ async fn package_files() {
   let package_name = "testpkg".try_into().unwrap();
   let version = "1.2.3".try_into().unwrap();
 
-  db.create_scope(None, &scope_name, user.id).await.unwrap();
+  db.create_scope(&user.id, false, &scope_name, user.id)
+    .await
+    .unwrap();
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()

@@ -7,6 +7,7 @@ use hyper::Body;
 use hyper::Request;
 use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify_query::RequestQueryExt;
 use tracing::field;
 use tracing::instrument;
 use tracing::Instrument;
@@ -234,7 +235,7 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(Some(&staff.id), &scope, user_id)
+    .create_scope(&staff.id, true, &scope, user_id)
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 
@@ -371,9 +372,11 @@ pub async fn list_audit_logs(
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let sudo_only = req.query("sudoOnly").is_some();
 
-  let (total, audit_logs) =
-    db.list_audit_logs(start, limit, maybe_search).await?;
+  let (total, audit_logs) = db
+    .list_audit_logs(start, limit, maybe_search, sudo_only)
+    .await?;
   Ok(ApiList {
     items: audit_logs
       .into_iter()

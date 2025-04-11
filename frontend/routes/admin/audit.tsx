@@ -3,7 +3,7 @@ import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { path } from "../../utils/api.ts";
 import { AuditLog, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
-import { URLQuerySearch } from "../../components/URLQuerySearch.tsx";
+import { AuditURLQuerySearch } from "./(_islands)/AuditURLQuerySearch.tsx";
 import { define } from "../../util.ts";
 import twas from "twas";
 
@@ -11,12 +11,13 @@ export default define.page<typeof handler>(function Users({ data, url }) {
   return (
     <div class="mb-20">
       <AdminNav currentTab="audit" />
-      <URLQuerySearch query={data.query} />
+      <AuditURLQuerySearch query={data.query} sudoOnly={data.sudoOnly} />
       <Table
         class="mt-8"
         columns={[
           { title: "Action", class: "w-0" },
           { title: "User", class: "w-0" },
+          { title: "Sudo", class: "w-0" },
           { title: "Meta", class: "w-0" },
           { title: "Created", class: "w-0" },
         ]}
@@ -29,7 +30,10 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               {log.action.replaceAll("_", " ")}
             </TableData>
             <TableData>
-              <a href={`/users/${log.user.id}`}>{log.user.name}</a>
+              <a href={`/user/${log.actor.id}`}>{log.actor.name}</a>
+            </TableData>
+            <TableData>
+              {String(log.isSudo)}
             </TableData>
             <TableData>
               {JSON.stringify(log.meta, null, " ")}
@@ -54,6 +58,7 @@ export const handler = define.handlers({
     const query = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
+    const sudoOnly = ctx.url.searchParams.get("sudoOnly");
 
     const resp = await ctx.state.api.get<List<AuditLog>>(
       path`/admin/audit_logs`,
@@ -61,6 +66,7 @@ export const handler = define.handlers({
         query,
         page,
         limit,
+        sudoOnly,
       },
     );
     if (!resp.ok) throw resp; // gracefully handle this
@@ -71,6 +77,7 @@ export const handler = define.handlers({
         query,
         page,
         limit,
+        sudoOnly,
         total: resp.data.total,
       },
     };

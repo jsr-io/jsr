@@ -1068,7 +1068,7 @@ pub struct ApiAdminUpdateTicketRequest {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiAuditLog {
-  pub user: ApiUser,
+  pub actor: ApiUser,
   pub action: String,
   pub meta: serde_json::Value,
   pub created_at: DateTime<Utc>,
@@ -1076,8 +1076,9 @@ pub struct ApiAuditLog {
 
 impl From<(AuditLog, UserPublic)> for ApiAuditLog {
   fn from((value, user): (AuditLog, UserPublic)) -> Self {
+    assert_eq!(value.actor_id, user.id);
     Self {
-      user: user.into(),
+      actor: user.into(),
       action: value.action,
       meta: value.meta,
       created_at: value.created_at,

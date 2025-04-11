@@ -415,7 +415,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         npm_url,
         &buckets,
         orama_client,
-        sudo.then_some(&user.id),
+        &user.id,
+        sudo,
         &scope,
         &package_name,
         description,
@@ -425,17 +426,14 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
       let package = db
-        .delete_package_github_repository(
-          sudo.then_some(&user.id),
-          &scope,
-          &package_name,
-        )
+        .delete_package_github_repository(&user.id, sudo, &scope, &package_name)
         .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
       update_github_repository(
-        sudo.then_some(&user.id),
+        &user.id,
+        sudo,
         user,
         db,
         github_oauth2_client,
@@ -449,7 +447,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
       let package = db
         .update_package_runtime_compat(
-          sudo.then_some(&user.id),
+          &user.id,
+          sudo,
           &scope,
           &package_name,
           &runtime_compat,
@@ -474,7 +473,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     ApiUpdatePackageRequest::IsArchived(is_archived) => {
       let package = db
         .update_package_is_archived(
-          sudo.then_some(&user.id),
+          &user.id,
+          sudo,
           &scope,
           &package_name,
           is_archived,
@@ -496,7 +496,16 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
 #[allow(clippy::too_many_arguments)]
 #[instrument(
-  skip(db, npm_url, buckets, orama_client, staff_id, scope, package_name),
+  skip(
+    db,
+    npm_url,
+    buckets,
+    orama_client,
+    actor_id,
+    is_sudo,
+    scope,
+    package_name
+  ),
   err,
   fields(description)
 )]
@@ -505,7 +514,8 @@ async fn update_description(
   npm_url: &Url,
   buckets: &Buckets,
   orama_client: &Option<OramaClient>,
-  staff_id: Option<&Uuid>,
+  actor_id: &Uuid,
+  is_sudo: bool,
   scope: &ScopeName,
   package_name: &PackageName,
   description: String,
@@ -525,7 +535,13 @@ async fn update_description(
   }
 
   let (package, _, meta) = db
-    .update_package_description(staff_id, scope, package_name, &description)
+    .update_package_description(
+      actor_id,
+      is_sudo,
+      scope,
+      package_name,
+      &description,
+    )
     .await?;
 
   if let Some(orama_client) = orama_client {
@@ -555,7 +571,8 @@ async fn update_description(
 
 #[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
-  staff_id: Option<&Uuid>,
+  actor_id: &Uuid,
+  is_sudo: bool,
   user: &User,
   db: &Database,
   github_oauth2_client: &GithubOauth2Client,
@@ -601,7 +618,9 @@ async fn update_github_repository(
   };
 
   let (package, repo, score) = db
-    .update_package_github_repository(staff_id, &scope, &package, new_repo)
+    .update_package_github_repository(
+      actor_id, is_sudo, &scope, &package, new_repo,
+    )
     .await?;
 
   Ok(ApiPackage::from((package, Some(repo), score)))
@@ -658,9 +677,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  let deleted = db
-    .delete_package(sudo.then_some(&user.id), &scope, &package)
-    .await?;
+  let deleted = db.delete_package(&user.id, sudo, &scope, &package).await?;
   if !deleted {
     return Err(ApiError::PackageNotEmpty);
   }
@@ -955,7 +972,8 @@ pub async fn version_update_handler(
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
   db.yank_package_version(
-    sudo.then_some(&user.id),
+    &user.id,
+    sudo,
     &scope,
     &package,
     &version,
@@ -2375,7 +2393,8 @@ mod test {
 
       t.ephemeral_database
         .update_package_github_repository(
-          None,
+          &t.user1.user.id,
+          false,
           &scope,
           &name,
           NewGithubRepository {
@@ -2548,7 +2567,7 @@ mod test {
     // create scope2 for user2, try creating a package with user1
     let scope2 = ScopeName::new("scope2".into()).unwrap();
     t.db()
-      .create_scope(None, &scope2, t.user2.user.id)
+      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id)
       .await
       .unwrap();
     let mut resp = t
@@ -3892,7 +3911,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let scope = t.scope.scope.clone();
     t.db()
       .add_scope_invite(
-        None,
+        &t.user1.user.id,
+        false,
         NewScopeInvite {
           target_user_id: t.user2.user.id,
           requesting_user_id: t.user1.user.id,

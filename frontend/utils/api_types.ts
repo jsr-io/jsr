@@ -352,7 +352,8 @@ export interface AdminUpdateTicketRequest {
 }
 
 export interface AuditLog {
-  user: User;
+  actor: User;
+  isSudo: boolean;
   action: string;
   meta: Record<string, unknown>;
   createdAt: string;

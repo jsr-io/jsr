@@ -160,7 +160,7 @@ pub async fn decline_invite_handler(
 
   let db = req.data::<Database>().unwrap();
 
-  db.delete_scope_invite(None, &current_user.id, &scope)
+  db.delete_scope_invite(&current_user.id, false, &current_user.id, &scope)
     .await?;
 
   let resp = Response::builder()

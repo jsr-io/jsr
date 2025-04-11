@@ -4,7 +4,7 @@ import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { path } from "../../utils/api.ts";
 import { List, PublishingTask } from "../../utils/api_types.ts";
-import { URLQuerySearch } from "../../components/URLQuerySearch.tsx";
+import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../../islands/PublishingTaskRequeue.tsx";
 

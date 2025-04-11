@@ -270,6 +270,7 @@ impl Database {
     audit_log(
       &mut tx,
       staff_id,
+      true,
       "user_set_staff",
       json!({
         "user_id": user_id,
@@ -313,6 +314,7 @@ impl Database {
     audit_log(
       &mut tx,
       staff_id,
+      true,
       "user_set_blocked",
       json!({
         "user_id": user_id,
@@ -364,6 +366,7 @@ impl Database {
     audit_log(
       &mut tx,
       staff_id,
+      true,
       "user_set_scope_limit",
       json!({
         "user_id": user_id,
@@ -554,25 +557,25 @@ impl Database {
   #[instrument(name = "Database::update_package_description", skip(self), err)]
   pub async fn update_package_description(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     description: &str,
   ) -> Result<PackageWithGitHubRepoAndMeta> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "update_package_description",
-        json!({
-            "scope": scope,
-            "name": name,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_package_description",
+      json!({
+          "scope": scope,
+          "name": name,
+      }),
+    )
+    .await?;
 
     let package = sqlx::query!(
       r#"UPDATE packages
@@ -618,26 +621,26 @@ impl Database {
   ))]
   pub async fn update_package_github_repository(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     repo: NewGithubRepository<'_>,
   ) -> Result<(Package, GithubRepository, PackageVersionMeta)> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "update_package_github_repository",
-        json!({
-          "scope": scope,
-          "name": name,
-          "repo": repo.id,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_package_github_repository",
+      json!({
+        "scope": scope,
+        "name": name,
+        "repo": repo.id,
+      }),
+    )
+    .await?;
 
     let repo = sqlx::query_as!(
       GithubRepository,
@@ -697,24 +700,24 @@ impl Database {
   )]
   pub async fn delete_package_github_repository(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Package> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "delete_package_github_repository",
-        json!({
-          "scope": scope,
-          "name": name,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_package_github_repository",
+      json!({
+        "scope": scope,
+        "name": name,
+      }),
+    )
+    .await?;
 
     let package = sqlx::query_as!(
       Package,
@@ -742,26 +745,26 @@ impl Database {
   )]
   pub async fn update_package_runtime_compat(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     runtime_compat: &RuntimeCompat,
   ) -> Result<Package> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "update_package_runtime_compat",
-        json!({
-          "scope": scope,
-          "name": name,
-          "runtime_compat": runtime_compat,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_package_runtime_compat",
+      json!({
+        "scope": scope,
+        "name": name,
+        "runtime_compat": runtime_compat,
+      }),
+    )
+    .await?;
 
     let package = sqlx::query_as!(
       Package,
@@ -798,6 +801,7 @@ impl Database {
     audit_log(
       &mut tx,
       staff_id,
+      true,
       "feature_package",
       json!({
       "scope": scope,
@@ -830,26 +834,26 @@ impl Database {
   #[instrument(name = "Database::update_package_is_archived", skip(self), err)]
   pub async fn update_package_is_archived(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     is_archived: bool,
   ) -> Result<Package> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "archive_package",
-        json!({
-            "scope": scope,
-            "name": name,
-            "is_archived": is_archived,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "archive_package",
+      json!({
+          "scope": scope,
+          "name": name,
+          "is_archived": is_archived,
+      }),
+    )
+    .await?;
 
     let package = sqlx::query_as!(
       Package,
@@ -874,24 +878,28 @@ impl Database {
   #[instrument(name = "Database::create_scope", skip(self), err)]
   pub async fn create_scope(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     user_id: Uuid,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "assign_scope",
-        json!({
-            "scope": scope,
-            "user_id": user_id,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      true,
+      if is_sudo {
+        "assign_scope"
+      } else {
+        "create_scope"
+      },
+      json!({
+          "scope": scope,
+          "user_id": user_id,
+      }),
+    )
+    .await?;
 
     let scope = sqlx::query_as!(
       Scope,
@@ -951,6 +959,7 @@ impl Database {
       audit_log(
         &mut tx,
         staff_id,
+        true,
         "scope_set_package_limit",
         json!({
           "scope": scope,
@@ -972,6 +981,7 @@ impl Database {
       audit_log(
         &mut tx,
         staff_id,
+        true,
         "scope_set_package_per_week_limit",
         json!({
           "scope": scope,
@@ -995,6 +1005,7 @@ impl Database {
       audit_log(
         &mut tx,
         staff_id,
+        true,
         "scope_set_publish_attempts_per_week_limit",
         json!({
           "scope": scope,
@@ -1228,24 +1239,24 @@ impl Database {
   #[instrument(name = "Database::scope_set_verify_oidc_actor", skip(self), err)]
   pub async fn scope_set_verify_oidc_actor(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     verify_oidc_actor: bool,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "yank_package_version",
-        json!({
-          "scope": scope,
-          "verify_oidc_actor": verify_oidc_actor,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_set_verify_oidc_actor",
+      json!({
+        "scope": scope,
+        "verify_oidc_actor": verify_oidc_actor,
+      }),
+    )
+    .await?;
 
     let scope = sqlx::query_as!(
       Scope,
@@ -1281,24 +1292,24 @@ impl Database {
   )]
   pub async fn scope_set_require_publishing_from_ci(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     require_publishing_from_ci: bool,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "require_publishing_from_ci",
-        json!({
-          "scope": scope,
-          "require_publishing_from_ci": require_publishing_from_ci,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "require_publishing_from_ci",
+      json!({
+        "scope": scope,
+        "require_publishing_from_ci": require_publishing_from_ci,
+      }),
+    )
+    .await?;
 
     let scope = sqlx::query_as!(
       Scope,
@@ -2015,7 +2026,8 @@ impl Database {
   #[instrument(name = "Database::yank_package_version", skip(self), err)]
   pub async fn yank_package_version(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
     version: &Version,
@@ -2023,20 +2035,19 @@ impl Database {
   ) -> Result<PackageVersion> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "yank_package_version",
-        json!({
-          "scope": scope,
-          "name": name,
-          "version": version,
-          "yank": yank,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "yank_package_version",
+      json!({
+        "scope": scope,
+        "name": name,
+        "version": version,
+        "yank": yank,
+      }),
+    )
+    .await?;
 
     let package_version = sqlx::query_as!(
       PackageVersion,
@@ -2082,6 +2093,7 @@ impl Database {
     audit_log(
       &mut tx,
       staff_id,
+      true,
       "delete_package_version",
       json!({
       "scope": scope,
@@ -2437,23 +2449,23 @@ impl Database {
   #[instrument(name = "Database::add_scope_invite", skip(self), err)]
   pub async fn add_scope_invite(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     new_scope_invite: NewScopeInvite<'_>,
   ) -> Result<ScopeInvite> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "add_scope_invite",
-        json!({
-            "scope": new_scope_invite.scope,
-            "target_user_id": new_scope_invite.target_user_id,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "add_scope_invite",
+      json!({
+          "scope": new_scope_invite.scope,
+          "target_user_id": new_scope_invite.target_user_id,
+      }),
+    )
+    .await?;
 
     let scope_invite = sqlx::query_as!(
       ScopeInvite,
@@ -2621,24 +2633,24 @@ impl Database {
   #[instrument(name = "Database::delete_scope_invite", skip(self), err)]
   pub async fn delete_scope_invite(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     target_user_id: &Uuid,
     scope: &ScopeName,
   ) -> Result<()> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "delete_scope_invite",
-        json!({
-            "scope": scope,
-            "target_user_id": target_user_id,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_scope_invite",
+      json!({
+          "scope": scope,
+          "target_user_id": target_user_id,
+      }),
+    )
+    .await?;
 
     sqlx::query!(
       r#"DELETE FROM scope_invites WHERE target_user_id = $1 AND scope = $2"#,
@@ -2656,23 +2668,23 @@ impl Database {
   #[instrument(name = "Database::delete_package", skip(self), err)]
   pub async fn delete_package(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<bool> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "delete_package",
-        json!({
-            "scope": scope,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_package",
+      json!({
+          "scope": scope,
+      }),
+    )
+    .await?;
 
     let status = sqlx::query!(
       r#"SELECT count(*) FROM publishing_tasks WHERE package_scope = $1 AND package_name = $2 AND status != 'failure'"#,
@@ -2715,22 +2727,22 @@ impl Database {
   #[instrument(name = "Database::delete_scope", skip(self), err)]
   pub async fn delete_scope(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
   ) -> Result<bool> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "delete_scope",
-        json!({
-          "scope": scope,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_scope",
+      json!({
+        "scope": scope,
+      }),
+    )
+    .await?;
 
     sqlx::query!(r#"DELETE FROM scope_members WHERE scope = $1"#, scope as _,)
       .execute(&mut *tx)
@@ -2817,26 +2829,26 @@ impl Database {
   #[instrument(name = "Database::delete_scope_member", skip(self), err)]
   pub async fn update_scope_member_role(
     &self,
-    staff_id: Option<&Uuid>,
+    actor_id: &Uuid,
+    is_sudo: bool,
     scope: &ScopeName,
     user_id: Uuid,
     is_admin: bool,
   ) -> Result<ScopeMemberUpdateResult> {
     let mut tx = self.pool.begin().await?;
 
-    if let Some(staff_id) = staff_id {
-      audit_log(
-        &mut tx,
-        staff_id,
-        "yank_package_version",
-        json!({
-          "scope": scope,
-          "user_id": user_id,
-          "is_admin": is_admin,
-        }),
-      )
-      .await?;
-    }
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "yank_package_version",
+      json!({
+        "scope": scope,
+        "user_id": user_id,
+        "is_admin": is_admin,
+      }),
+    )
+    .await?;
 
     let maybe_scope_member = sqlx::query!(
       r#"UPDATE scope_members
@@ -3103,6 +3115,7 @@ impl Database {
       audit_log(
         &mut tx,
         staff_id,
+        true,
         "requeue_publishing_task",
         json!({
           "id": id,
@@ -4410,6 +4423,7 @@ impl Database {
     audit_log(
       &mut tx,
       staff_id,
+      true,
       "update_ticket_status",
       json!({
       "ticket_id": ticket_id,
@@ -4547,31 +4561,36 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
+    sudo_only: bool,
   ) -> Result<(usize, Vec<(AuditLog, UserPublic)>)> {
     let mut tx = self.pool.begin().await?;
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
     let scopes = sqlx::query!(
       r#"SELECT
-      audit_logs.user_id as "audit_log_user_id",
+      audit_logs.actor_id as "audit_log_actor_id",
+      audit_logs.is_sudo as "audit_log_is_sudo",
       audit_logs.action as "audit_log_action",
       audit_logs.meta as "audit_log_meta",
       audit_logs.created_at as "audit_log_created_at",
       users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
       FROM audit_logs
-      LEFT JOIN users ON audit_logs.user_id = users.id
-      WHERE audit_logs.action ILIKE $1
+      LEFT JOIN users ON audit_logs.actor_id = users.id
+      WHERE (audit_logs.action ILIKE $1
          OR users.name ILIKE $1
-         OR audit_logs.meta::text ILIKE $1
+         OR audit_logs.meta::text ILIKE $1)
+         AND ($2 IS NOT TRUE OR audit_logs.is_sudo = TRUE)
       ORDER BY audit_logs.created_at DESC
-      OFFSET $2 LIMIT $3
+      OFFSET $3 LIMIT $4
       "#,
       search,
+      sudo_only,
       start,
       limit,
     )
       .map(|r| {
         let scope = AuditLog {
-          user_id: r.audit_log_user_id,
+          actor_id: r.audit_log_actor_id,
+          is_sudo: r.audit_log_is_sudo,
           action: r.audit_log_action,
           meta: r.audit_log_meta,
           created_at: r.audit_log_created_at,
@@ -4590,7 +4609,7 @@ impl Database {
       .await?;
 
     let total_scopes = sqlx::query!(
-      r#"SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.user_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2;"#,
+      r#"SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.actor_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2;"#,
       search,
       search,
     )
@@ -4662,13 +4681,15 @@ async fn finalize_package_creation(
 
 async fn audit_log(
   tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-  staff_id: &Uuid,
+  actor_id: &Uuid,
+  is_sudo: bool,
   action: &'static str,
   data: serde_json::Value,
 ) -> Result<()> {
   sqlx::query!(
-    r#"INSERT INTO audit_logs (user_id, action, meta) VALUES ($1, $2, $3)"#,
-    staff_id as _,
+    r#"INSERT INTO audit_logs (actor_id, is_sudo, action, meta) VALUES ($1, $2, $3, $4)"#,
+    actor_id as _,
+    is_sudo,
     action,
     data as _,
   )

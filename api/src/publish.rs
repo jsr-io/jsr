@@ -761,7 +761,12 @@ pub mod tests {
     let data = create_mock_tarball("ok");
 
     t.db()
-      .scope_set_require_publishing_from_ci(None, &t.scope.scope, true)
+      .scope_set_require_publishing_from_ci(
+        &t.user1.user.id,
+        false,
+        &t.scope.scope,
+        true,
+      )
       .await
       .unwrap();
 
