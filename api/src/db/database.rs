@@ -1303,7 +1303,7 @@ impl Database {
       &mut tx,
       actor_id,
       is_sudo,
-      "require_publishing_from_ci",
+      "scope_set_require_publishing_from_ci",
       json!({
         "scope": scope,
         "require_publishing_from_ci": require_publishing_from_ci,
@@ -2841,7 +2841,7 @@ impl Database {
       &mut tx,
       actor_id,
       is_sudo,
-      "yank_package_version",
+      "scope_update_scope_member_role",
       json!({
         "scope": scope,
         "user_id": user_id,

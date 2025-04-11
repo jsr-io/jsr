@@ -85,7 +85,7 @@ export default function AdminScopeEdit({ scope }: { scope: FullScope }) {
                   api.patch(path`/admin/scopes/${scope.scope}`, {
                     packageLimit: +packageLimit,
                     newPackagePerWeekLimit: +newPackagePerWeekLimit,
-                    versionPublishPerWeekLimit: +publishAttemptsPerWeekLimit,
+                    publishAttemptsPerWeekLimit: +publishAttemptsPerWeekLimit,
                   }).then((res) => {
                     setProcessing(false);
                     if (res.ok) {
