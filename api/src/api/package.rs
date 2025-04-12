@@ -808,7 +808,7 @@ pub async fn version_publish_handler(
       config_file: &config_file,
     })
     .await?;
-  let publishing_task = match res {
+  let (publishing_task, user) = match res {
     CreatePublishingTaskResult::Created(publishing_task) => publishing_task,
     CreatePublishingTaskResult::Exists(task) => {
       return Err(ApiError::DuplicateVersionPublish {
@@ -896,7 +896,7 @@ pub async fn version_publish_handler(
     tokio::spawn(fut);
   }
 
-  Ok(publishing_task.into())
+  Ok((publishing_task, user).into())
 }
 
 #[instrument(
@@ -4264,7 +4264,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     assert_eq!(tasks.len(), 1);
-    assert_eq!(tasks[0].id, task2.id);
+    assert_eq!(tasks[0].0.id, task2.id);
   }
 
   #[tokio::test]

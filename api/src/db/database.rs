@@ -5,6 +5,7 @@ use serde_json::json;
 use sqlx::migrate;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Result;
+use sqlx::Row;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -120,6 +121,7 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
+    maybe_sort: Option<&str>,
   ) -> Result<(usize, Vec<User>)> {
     let mut tx = self.pool.begin().await?;
 
@@ -133,11 +135,37 @@ impl Database {
         maybe_search_query.unwrap_or("")
       }
     );
-    let users = sqlx::query_as!(
-      User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+
+    let (sort, order) = if let Some(sort) = maybe_sort {
+      let inverse = sort.starts_with('!');
+      let sort = if inverse { &sort[1..] } else { sort };
+
+      let order = if inverse { "DESC" } else { "ASC" };
+
+      let sort = if matches!(
+        sort,
+        "name"
+          | "email"
+          | "github_id"
+          | "scope_limit"
+          | "is_staff"
+          | "is_blocked"
+          | "created_at"
+      ) {
+        sort
+      } else {
+        "created_at"
+      };
+
+      (sort, order)
+    } else {
+      ("created_at", "DESC")
+    };
+
+    let users: Vec<User> = sqlx::query_as(
+      &format!(r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage",
         (CASE WHEN users.is_staff THEN (
             SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
                 SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
@@ -150,15 +178,16 @@ impl Database {
                   SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
               )
            )
-        ) END) as "newer_ticket_messages_count!"
-      FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL) ORDER BY created_at DESC OFFSET $3 LIMIT $4"#,
-      search,
-      maybe_id,
-      start,
-      limit,
+        ) END) as "newer_ticket_messages_count"
+      FROM users
+      WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
+      ORDER BY {sort} {order} OFFSET $3 LIMIT $4"#)
     )
-      .fetch_all(&mut *tx)
-      .await?;
+      .bind(&search)
+      .bind(&maybe_id)
+      .bind(&start)
+      .bind(&limit)
+      .fetch_all(&mut *tx).await?;
 
     let total_users = sqlx::query!(
       r#"SELECT COUNT(created_at) as "count!" FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL);"#,
@@ -1092,15 +1121,39 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
+    maybe_sort: Option<&str>,
   ) -> Result<(usize, Vec<(Scope, ScopeUsage, UserPublic)>)> {
     let mut tx = self.pool.begin().await?;
+
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let scopes = sqlx::query!(
+    let (sort, order) = if let Some(sort) = maybe_sort {
+      let inverse = sort.starts_with('!');
+      let sort = if inverse { &sort[1..] } else { sort };
+      let order = if inverse { "DESC" } else { "ASC" };
+
+      let sort = match sort {
+        "scope" => "scopes.scope",
+        "creator" => "users.name",
+        "package_limit" => "scopes.package_limit",
+        "new_package_per_week_limit" => "scopes.new_package_per_week_limit",
+        "publish_attempts_per_week_limit" => {
+          "scopes.publish_attempts_per_week_limit"
+        }
+        "created_at" => "scopes.created_at",
+        _ => "scopes.created_at",
+      };
+
+      (sort, order)
+    } else {
+      ("scopes.created_at", "DESC")
+    };
+
+    let scopes = sqlx::query(&format!(
       r#" WITH usage AS (
         SELECT
-          (SELECT COUNT(created_at) FROM packages WHERE scope = $2) AS package,
-          (SELECT COUNT(created_at) FROM packages WHERE scope = $2 AND created_at > now() - '1 week'::interval) AS new_package_per_week,
-          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $2 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week
+          (SELECT COUNT(created_at) FROM packages WHERE scope = $1) AS package,
+          (SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND created_at > now() - '1 week'::interval) AS new_package_per_week,
+          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week
       )
       SELECT
       scopes.scope as "scope_scope: ScopeName",
@@ -1117,48 +1170,65 @@ impl Database {
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
       CROSS JOIN usage
-      WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2
-      ORDER BY scopes.created_at DESC
-      OFFSET $3 LIMIT $4
+      WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
+      ORDER BY {sort} {order}
+      OFFSET $2 LIMIT $3
       "#,
-      search,
-      search,
-      start,
-      limit,
-    )
-      .map(|r| {
+    ))
+      .bind(&search)
+      .bind(start)
+      .bind(limit)
+      .try_map(|r| {
+        let scope_scope = r.try_get_unchecked::<ScopeName, _>(0usize)?.into();
+        let scope_creator = r.try_get_unchecked::<Uuid, _>(1usize)?.into();
+        let scope_package_limit = r.try_get_unchecked::<i32, _>(2usize)?.into();
+        let scope_new_package_per_week_limit = r.try_get_unchecked::<i32, _>(3usize)?.into();
+        let scope_publish_attempts_per_week_limit = r.try_get_unchecked::<i32, _>(4usize)?.into();
+        let scope_updated_at = r.try_get_unchecked::<DateTime<Utc>, _>(5usize)?.into();
+        let scope_verify_oidc_actor = r.try_get_unchecked::<bool, _>(6usize)?.into();
+        let scope_require_publishing_from_ci = r.try_get_unchecked::<bool, _>(7usize)?.into();
+        let scope_created_at = r.try_get_unchecked::<DateTime<Utc>, _>(8usize)?.into();
+        let user_id = r.try_get_unchecked::<Uuid, _>(9usize)?.into();
+        let user_name = r.try_get_unchecked::<String, _>(10usize)?.into();
+        let user_avatar_url = r.try_get_unchecked::<String, _>(11usize)?.into();
+        let user_github_id = r.try_get_unchecked::<Option<i64>, _>(12usize)?.into();
+        let user_updated_at = r.try_get_unchecked::<DateTime<Utc>, _>(13usize)?.into();
+        let user_created_at = r.try_get_unchecked::<DateTime<Utc>, _>(14usize)?.into();
+        let usage_package: i64 = r.try_get_unchecked::<i64, _>(15usize)?.into();
+        let usage_new_package_per_week: i64 = r.try_get_unchecked::<i64, _>(16usize)?.into();
+        let usage_publish_attempts_per_week: i64 = r.try_get_unchecked::<i64, _>(17usize)?.into();
+
         let scope = Scope {
-          scope: r.scope_scope,
-          creator: r.scope_creator,
-          updated_at: r.scope_updated_at,
-          created_at: r.scope_created_at,
-          package_limit: r.scope_package_limit,
-          new_package_per_week_limit: r.scope_new_package_per_week_limit,
-          publish_attempts_per_week_limit: r.scope_publish_attempts_per_week_limit,
-          verify_oidc_actor: r.scope_verify_oidc_actor,
-          require_publishing_from_ci: r.scope_require_publishing_from_ci,
+          scope: scope_scope,
+          creator: scope_creator,
+          updated_at: scope_updated_at,
+          created_at: scope_created_at,
+          package_limit: scope_package_limit,
+          new_package_per_week_limit: scope_new_package_per_week_limit,
+          publish_attempts_per_week_limit: scope_publish_attempts_per_week_limit,
+          verify_oidc_actor: scope_verify_oidc_actor,
+          require_publishing_from_ci: scope_require_publishing_from_ci,
         };
         let usage = ScopeUsage {
-          package: r.usage_package.unwrap().try_into().unwrap(),
-          new_package_per_week: r.usage_new_package_per_week.unwrap().try_into().unwrap(),
-          publish_attempts_per_week: r.usage_publish_attempts_per_week.unwrap().try_into().unwrap(),
+          package: usage_package.try_into().unwrap(),
+          new_package_per_week: usage_new_package_per_week.try_into().unwrap(),
+          publish_attempts_per_week: usage_publish_attempts_per_week.try_into().unwrap(),
         };
         let user = UserPublic {
-          id: r.user_id,
-          name: r.user_name,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
+          id: user_id,
+          name: user_name,
+          avatar_url: user_avatar_url,
+          github_id: user_github_id,
+          updated_at: user_updated_at,
+          created_at: user_created_at,
         };
-        (scope, usage, user)
+        Ok((scope, usage, user))
       })
       .fetch_all(&mut *tx)
       .await?;
 
     let total_scopes = sqlx::query!(
-      r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $2;"#,
-      search,
+      r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1;"#,
       search,
     )
       .map(|r| r.count.unwrap())
@@ -2950,33 +3020,134 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     // only allow insert if no non status==failure tasks exist
-    let already_processing = sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at
+    let already_processing = sqlx::query!(
+      r#"SELECT
+        publishing_tasks.id as "task_id",
+        publishing_tasks.status as "task_status: PublishingTaskStatus",
+        publishing_tasks.error as "task_error: PublishingTaskError",
+        publishing_tasks.user_id as "task_user_id",
+        publishing_tasks.package_scope as "task_package_scope: ScopeName",
+        publishing_tasks.package_name as "task_package_name: PackageName",
+        publishing_tasks.package_version as "task_package_version: Version",
+        publishing_tasks.config_file as "task_config_file: PackagePath",
+        publishing_tasks.created_at as "task_created_at",
+        publishing_tasks.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
       FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
       WHERE package_scope = $1 AND package_name = $2 AND package_version = $3 AND status != 'failure'
       LIMIT 1"#,
       task.package_scope as _,
       task.package_name as _,
       task.package_version as _
-    )
+    ).map(|r| {
+      let task = PublishingTask {
+        id: r.task_id,
+        status: r.task_status,
+        error: r.task_error,
+        package_scope: r.task_package_scope,
+        package_name: r.task_package_name,
+        package_version: r.task_package_version,
+        config_file: r.task_config_file,
+        user_id: r.task_user_id,
+        created_at: r.task_created_at,
+        updated_at: r.task_updated_at,
+      };
+
+      let user = task.user_id.map(|_| {
+        UserPublic {
+          id: r.user_id.unwrap(),
+          name: r.user_name.unwrap(),
+          avatar_url: r.user_avatar_url.unwrap(),
+          github_id: r.user_github_id,
+          updated_at: r.user_updated_at.unwrap(),
+          created_at: r.user_created_at.unwrap(),
+        }
+      });
+
+      (task, user)
+    })
+
       .fetch_optional(&mut *tx)
       .await?;
     if let Some(already_processing) = already_processing {
       return Ok(CreatePublishingTaskResult::Exists(already_processing));
     }
 
-    let task = sqlx::query_as!(
-      PublishingTask,
-      r#"INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
+    let task = sqlx::query!(
+      r#"WITH task AS (
+          INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING
+            id,
+            status,
+            error,
+            user_id,
+            package_scope,
+            package_name,
+            package_version,
+            config_file,
+            created_at,
+            updated_at
+        )
+        SELECT
+          task.id as "task_id",
+          task.status as "task_status: PublishingTaskStatus",
+          task.error as "task_error: PublishingTaskError",
+          task.user_id as "task_user_id",
+          task.package_scope as "task_package_scope: ScopeName",
+          task.package_name as "task_package_name: PackageName",
+          task.package_version as "task_package_version: Version",
+          task.config_file as "task_config_file: PackagePath",
+          task.created_at as "task_created_at",
+          task.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
+        FROM task
+        LEFT JOIN users ON task.user_id = users.id"#,
       task.user_id,
       task.package_scope as _,
       task.package_name as _,
       task.package_version as _,
       task.config_file as _,
     )
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+
       .fetch_one(&mut *tx)
       .await?;
 
@@ -2984,7 +3155,7 @@ impl Database {
       r#"
       SELECT publish_attempts_per_week_limit FROM scopes WHERE scope = $1;
       "#,
-      task.package_scope as _,
+      task.0.package_scope as _,
     )
     .map(|r| r.publish_attempts_per_week_limit)
     .fetch_one(&mut *tx)
@@ -2994,7 +3165,7 @@ impl Database {
       r#"
       SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval;
       "#,
-      task.package_scope as _,
+      task.0.package_scope as _,
     )
       .map(|r| {
         r.count.unwrap()
@@ -3021,16 +3192,57 @@ impl Database {
   pub async fn get_publishing_task(
     &self,
     id: Uuid,
-  ) -> Result<Option<PublishingTask>> {
-    sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at
+  ) -> Result<Option<(PublishingTask, Option<UserPublic>)>> {
+    sqlx::query!(
+      r#"SELECT
+        publishing_tasks.id as "task_id",
+        publishing_tasks.status as "task_status: PublishingTaskStatus",
+        publishing_tasks.error as "task_error: PublishingTaskError",
+        publishing_tasks.user_id as "task_user_id",
+        publishing_tasks.package_scope as "task_package_scope: ScopeName",
+        publishing_tasks.package_name as "task_package_name: PackageName",
+        publishing_tasks.package_version as "task_package_version: Version",
+        publishing_tasks.config_file as "task_config_file: PackagePath",
+        publishing_tasks.created_at as "task_created_at",
+        publishing_tasks.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
       FROM publishing_tasks
-      WHERE id = $1"#,
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      WHERE publishing_tasks.id = $1"#,
       id
     )
-      .fetch_optional(&self.pool)
-      .await
+    .map(|r| {
+      let task = PublishingTask {
+        id: r.task_id,
+        status: r.task_status,
+        error: r.task_error,
+        package_scope: r.task_package_scope,
+        package_name: r.task_package_name,
+        package_version: r.task_package_version,
+        config_file: r.task_config_file,
+        user_id: r.task_user_id,
+        created_at: r.task_created_at,
+        updated_at: r.task_updated_at,
+      };
+
+      let user = task.user_id.map(|_| UserPublic {
+        id: r.user_id.unwrap(),
+        name: r.user_name.unwrap(),
+        avatar_url: r.user_avatar_url.unwrap(),
+        github_id: r.user_github_id,
+        updated_at: r.user_updated_at.unwrap(),
+        created_at: r.user_created_at.unwrap(),
+      });
+
+      (task, user)
+    })
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::list_publishing_tasks", skip(self), err)]
@@ -3039,19 +3251,64 @@ impl Database {
     start: i64,
     limit: i64,
     maybe_search_query: Option<&str>,
-  ) -> Result<(usize, Vec<PublishingTask>)> {
+  ) -> Result<(usize, Vec<(PublishingTask, Option<UserPublic>)>)> {
     let mut tx = self.pool.begin().await?;
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let publishing_tasks = sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at
-      FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1 ORDER BY created_at DESC OFFSET $2 LIMIT $3"#,
+    let publishing_tasks = sqlx::query!(
+      r#"SELECT
+        publishing_tasks.id as "task_id",
+        publishing_tasks.status as "task_status: PublishingTaskStatus",
+        publishing_tasks.error as "task_error: PublishingTaskError",
+        publishing_tasks.user_id as "task_user_id",
+        publishing_tasks.package_scope as "task_package_scope: ScopeName",
+        publishing_tasks.package_name as "task_package_name: PackageName",
+        publishing_tasks.package_version as "task_package_version: Version",
+        publishing_tasks.config_file as "task_config_file: PackagePath",
+        publishing_tasks.created_at as "task_created_at",
+        publishing_tasks.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      WHERE publishing_tasks.package_scope ILIKE $1
+         OR publishing_tasks.package_name ILIKE $1
+         OR publishing_tasks.package_version ILIKE $1
+      ORDER BY publishing_tasks.created_at DESC OFFSET $2 LIMIT $3"#,
       search,
       start,
       limit,
     )
-      .fetch_all(&mut *tx)
-      .await?;
+    .map(|r| {
+      let task = PublishingTask {
+        id: r.task_id,
+        status: r.task_status,
+        error: r.task_error,
+        package_scope: r.task_package_scope,
+        package_name: r.task_package_name,
+        package_version: r.task_package_version,
+        config_file: r.task_config_file,
+        user_id: r.task_user_id,
+        created_at: r.task_created_at,
+        updated_at: r.task_updated_at,
+      };
+
+      let user = task.user_id.map(|_| UserPublic {
+        id: r.user_id.unwrap(),
+        name: r.user_name.unwrap(),
+        avatar_url: r.user_avatar_url.unwrap(),
+        github_id: r.user_github_id,
+        updated_at: r.user_updated_at.unwrap(),
+        created_at: r.user_created_at.unwrap(),
+      });
+
+      (task, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
 
     let total_publishing_tasks = sqlx::query!(
       r#"SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1;"#,
@@ -3075,17 +3332,60 @@ impl Database {
     &self,
     scope_name: &ScopeName,
     package_name: &PackageName,
-  ) -> Result<Vec<PublishingTask>> {
-    sqlx::query_as!(
-      PublishingTask,
-      r#"SELECT publishing_tasks.id, publishing_tasks.status as "status: PublishingTaskStatus", publishing_tasks.error as "error: PublishingTaskError", publishing_tasks.user_id, publishing_tasks.package_scope as "package_scope: ScopeName", publishing_tasks.package_name as "package_name: PackageName", publishing_tasks.package_version as "package_version: Version", publishing_tasks.config_file as "config_file: PackagePath", publishing_tasks.created_at, publishing_tasks.updated_at
+  ) -> Result<Vec<(PublishingTask, Option<UserPublic>)>> {
+    sqlx::query!(
+      r#"SELECT
+        publishing_tasks.id as "task_id",
+        publishing_tasks.status as "task_status: PublishingTaskStatus",
+        publishing_tasks.error as "task_error: PublishingTaskError",
+        publishing_tasks.user_id as "task_user_id",
+        publishing_tasks.package_scope as "task_package_scope: ScopeName",
+        publishing_tasks.package_name as "task_package_name: PackageName",
+        publishing_tasks.package_version as "task_package_version: Version",
+        publishing_tasks.config_file as "task_config_file: PackagePath",
+        publishing_tasks.created_at as "task_created_at",
+        publishing_tasks.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
       FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
       JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
       WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.created_at >= packages.created_at
       ORDER BY publishing_tasks.package_version DESC"#,
       scope_name as _,
       package_name as _,
     )
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
       .fetch_all(&self.pool)
       .await
   }
@@ -4693,8 +4993,8 @@ async fn audit_log(
     action,
     data as _,
   )
-  .execute(&mut **tx)
-  .await?;
+    .execute(&mut **tx)
+    .await?;
 
   Ok(())
 }
@@ -4717,7 +5017,7 @@ pub enum CreatePackageResult {
 
 #[derive(Debug)]
 pub enum CreatePublishingTaskResult {
-  Created(PublishingTask),
-  Exists(PublishingTask),
+  Created((PublishingTask, Option<UserPublic>)),
+  Exists((PublishingTask, Option<UserPublic>)),
   WeeklyPublishAttemptsLimitExceeded(i32),
 }

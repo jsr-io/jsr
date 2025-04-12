@@ -41,7 +41,7 @@ export default define.page<typeof handler>(function Tickets({
                 <div
                   class={`${
                     ticket.closed ? "bg-green-400" : "bg-orange-400"
-                  } rounded-sm p-1`}
+                  } rounded-full p-1`}
                 >
                   {ticket.closed
                     ? <TbCheck class="text-white" />
@@ -51,7 +51,10 @@ export default define.page<typeof handler>(function Tickets({
               </div>
             </TableData>
             <TableData>
-              <a href={`/user/${ticket.creator.id}`}>
+              <a
+                href={`/admin/users?search=${ticket.creator.id}`}
+                class="underline underline-offset-2"
+              >
                 {ticket.creator.name}
               </a>
             </TableData>

@@ -19,7 +19,7 @@ use crate::ids::ScopeName;
 use crate::ids::ScopeNameValidateError;
 use crate::ids::Version;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, sqlx::FromRow)]
 pub struct User {
   pub id: Uuid,
   pub name: String,
