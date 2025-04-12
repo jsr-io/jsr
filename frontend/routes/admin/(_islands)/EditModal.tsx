@@ -107,7 +107,8 @@ export function EditModal(
           onSubmit={(e) => {
             e.preventDefault();
 
-            let data: any = {};
+            // deno-lint-ignore no-explicit-any
+            const data: any = {};
 
             for (const field of fields) {
               const val = state[field.name];
