@@ -216,7 +216,7 @@ interface CardButtonProps {
   selected?: boolean;
   name?: string;
   value?: string;
-  type?: string;
+  type?: "button" | "submit" | "reset";
 }
 
 function CardButton(props: CardButtonProps) {
