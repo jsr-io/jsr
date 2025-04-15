@@ -17,6 +17,29 @@ use crate::ids::Version;
 
 use super::models::*;
 
+macro_rules! sort_by {
+  ($maybe_sort:expr => { $( $key:expr $(=> $val:expr)? ),+, } || $default:expr) => {
+    if let Some(sort) = $maybe_sort {
+      let inverse = sort.starts_with('!');
+      let sort = if inverse { &sort[1..] } else { sort };
+
+      let order = if inverse { "DESC" } else { "ASC" };
+
+      match sort {
+        $(
+          $key => format!("{} {order}", sort_by!(@expand $key $(, $val)? )),
+        )+
+        _ => $default.to_string(),
+      }
+    } else {
+      $default.to_string()
+    }
+  };
+
+  (@expand $key:expr, $val:expr) => { $val };
+  (@expand $key:expr) => { $key };
+}
+
 #[derive(Debug, Clone)]
 pub struct Database {
   pool: sqlx::PgPool,
@@ -136,31 +159,14 @@ impl Database {
       }
     );
 
-    let (sort, order) = if let Some(sort) = maybe_sort {
-      let inverse = sort.starts_with('!');
-      let sort = if inverse { &sort[1..] } else { sort };
-
-      let order = if inverse { "DESC" } else { "ASC" };
-
-      let sort = if matches!(
-        sort,
-        "name"
-          | "email"
-          | "github_id"
-          | "scope_limit"
-          | "is_staff"
-          | "is_blocked"
-          | "created_at"
-      ) {
-        sort
-      } else {
-        "created_at"
-      };
-
-      (sort, order)
-    } else {
-      ("created_at", "DESC")
-    };
+    let sort = sort_by!(maybe_sort => {
+      "email",
+      "github_id",
+      "scope_limit",
+      "is_staff",
+      "is_blocked",
+      "created_at",
+    } || "created_at DESC");
 
     let users: Vec<User> = sqlx::query_as(
       &format!(r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
@@ -181,7 +187,7 @@ impl Database {
         ) END) as "newer_ticket_messages_count"
       FROM users
       WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
-      ORDER BY {sort} {order} OFFSET $3 LIMIT $4"#)
+      ORDER BY {sort} OFFSET $3 LIMIT $4"#)
     )
       .bind(&search)
       .bind(&maybe_id)
@@ -1126,27 +1132,14 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let (sort, order) = if let Some(sort) = maybe_sort {
-      let inverse = sort.starts_with('!');
-      let sort = if inverse { &sort[1..] } else { sort };
-      let order = if inverse { "DESC" } else { "ASC" };
-
-      let sort = match sort {
-        "scope" => "scopes.scope",
-        "creator" => "users.name",
-        "package_limit" => "scopes.package_limit",
-        "new_package_per_week_limit" => "scopes.new_package_per_week_limit",
-        "publish_attempts_per_week_limit" => {
-          "scopes.publish_attempts_per_week_limit"
-        }
-        "created_at" => "scopes.created_at",
-        _ => "scopes.created_at",
-      };
-
-      (sort, order)
-    } else {
-      ("scopes.created_at", "DESC")
-    };
+    let sort = sort_by!(maybe_sort => {
+      "scope" => "scopes.scope",
+      "creator" => "users.name",
+      "package_limit" => "scopes.package_limit",
+      "new_package_per_week_limit" => "scopes.new_package_per_week_limit",
+      "publish_attempts_per_week_limit" => "scopes.publish_attempts_per_week_limit",
+      "created_at" => "scopes.created_at",
+    } || "scopes.created_at DESC");
 
     let scopes = sqlx::query(&format!(
       r#" WITH usage AS (
@@ -1171,7 +1164,7 @@ impl Database {
       LEFT JOIN users ON scopes.creator = users.id
       CROSS JOIN usage
       WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
-      ORDER BY {sort} {order}
+      ORDER BY {sort}
       OFFSET $2 LIMIT $3
       "#,
     ))
