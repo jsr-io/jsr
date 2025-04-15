@@ -20,16 +20,27 @@ export default define.page<typeof handler>(function PublishingTasks({
       <Table
         class="mt-8"
         columns={[
-          { title: "Status", class: "w-0" },
-          { title: "User", class: "w-0" },
-          { title: "Package Scope", class: "w-0" },
-          { title: "Package Name", class: "w-0" },
-          { title: "Package Version", class: "w-0" },
-          { title: "Created", class: "w-0" },
-          { title: "Updated", class: "w-0" },
+          { title: "Status", class: "w-0", fieldName: "status" },
+          { title: "User", class: "w-0", fieldName: "user" },
+          { title: "Package Scope", class: "w-0", fieldName: "scope" },
+          { title: "Package Name", class: "w-0", fieldName: "name" },
+          { title: "Package Version", class: "w-0", fieldName: "version" },
+          {
+            title: "Updated",
+            class: "w-0",
+            fieldName: "updated_at",
+            align: "right",
+          },
+          {
+            title: "Created",
+            class: "w-0",
+            fieldName: "created_at",
+            align: "right",
+          },
           { title: "", class: "w-0", align: "right" },
         ]}
         pagination={data}
+        sortBy={data.sortBy}
         currentUrl={url}
       >
         {data.publishingTasks.map((publishingTask) => (
@@ -88,20 +99,22 @@ export default define.page<typeof handler>(function PublishingTasks({
               </a>
             </TableData>
             <TableData
-              title={new Date(publishingTask.createdAt).toISOString().slice(
-                0,
-                10,
-              )}
-            >
-              {twas(new Date(publishingTask.createdAt).getTime())}
-            </TableData>
-            <TableData
               title={new Date(publishingTask.updatedAt).toISOString().slice(
                 0,
                 10,
               )}
+              align="right"
             >
               {twas(new Date(publishingTask.updatedAt).getTime())}
+            </TableData>
+            <TableData
+              title={new Date(publishingTask.createdAt).toISOString().slice(
+                0,
+                10,
+              )}
+              align="right"
+            >
+              {twas(new Date(publishingTask.createdAt).getTime())}
             </TableData>
             <TableData>
               <PublishingTaskRequeue publishingTask={publishingTask} />
@@ -116,6 +129,7 @@ export default define.page<typeof handler>(function PublishingTasks({
 export const handler = define.handlers({
   async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
@@ -123,6 +137,7 @@ export const handler = define.handlers({
       path`/admin/publishing_tasks`,
       {
         query,
+        sortBy,
         page,
         limit,
       },
@@ -133,6 +148,7 @@ export const handler = define.handlers({
       data: {
         publishingTasks: resp.data.items,
         query,
+        sortBy,
         page,
         limit,
         total: resp.data.total,

@@ -25,14 +25,14 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
         columns={[
           { title: "Name", class: "w-0", fieldName: "scope" },
           { title: "Creator", class: "w-0", fieldName: "creator" },
-          { title: "Package Limit", class: "w-0", fieldName: "package_limit" },
+          { title: "Packages", class: "w-0", fieldName: "package_limit" },
           {
-            title: "Package per Week Limit",
+            title: "Packages per Week",
             class: "w-0",
             fieldName: "new_package_per_week_limit",
           },
           {
-            title: "Publishes per Week Limit",
+            title: "Publishes per Week",
             class: "w-0",
             fieldName: "publish_attempts_per_week_limit",
           },
@@ -67,12 +67,18 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
               </a>
             </TableData>
             <TableData>
+              {scope.quotas.packageUsage}
+              {" / "}
               {scope.quotas.packageLimit}
             </TableData>
             <TableData>
+              {scope.quotas.newPackagePerWeekUsage}
+              {" / "}
               {scope.quotas.newPackagePerWeekLimit}
             </TableData>
             <TableData>
+              {scope.quotas.publishAttemptsPerWeekUsage}
+              {" / "}
               {scope.quotas.publishAttemptsPerWeekLimit}
             </TableData>
             <TableData
@@ -81,7 +87,7 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
             >
               {twas(new Date(scope.createdAt).getTime())}
             </TableData>
-            <TableData>
+            <TableData align="right">
               <EditModal
                 style="primary"
                 path={path`/admin/scopes/${scope.scope}`}
@@ -118,15 +124,15 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
 export const handler = define.handlers({
   async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
-    const sortBy = ctx.url.searchParams.get("sortBy") || "created_at";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     const resp = await ctx.state.api.get<List<FullScope>>(path`/admin/scopes`, {
       query,
+      sortBy,
       page,
       limit,
-      sortBy,
     });
     if (!resp.ok) throw resp; // gracefully handle this
 

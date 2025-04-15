@@ -78,12 +78,12 @@ export function Table(
                     <th
                       class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 ${
                         _class ?? ""
-                      } ${align === "right" ? "text-right" : "text-left"}`}
+                      }`}
                     >
                       {fieldName
                         ? (
                           <a
-                            class="flex items-center gap-2.5 group select-none"
+                            class={`flex items-center gap-2.5 group select-none ${align === "right" ? "justify-end" : ""}`}
                             href={url.pathname + url.search}
                           >
                             {title}
@@ -91,7 +91,7 @@ export function Table(
                           </a>
                         )
                         : (
-                          <div class="flex items-center gap-2.5 group select-none">
+                          <div class={`flex items-center gap-2.5 group select-none ${align === "right" ? "justify-end" : ""}`}>
                             {title}
                             {icon}
                           </div>

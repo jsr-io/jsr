@@ -23,7 +23,12 @@ export default define.page<typeof handler>(function Users({ data, url }) {
           { title: "Scope Limit", class: "w-0", fieldName: "scope_limit" },
           { title: "Is Staff", class: "w-0", fieldName: "is_staff" },
           { title: "Is Blocked", class: "w-0", fieldName: "is_blocked" },
-          { title: "Created", class: "w-0", fieldName: "created_at" },
+          {
+            title: "Created",
+            class: "w-0",
+            fieldName: "created_at",
+            align: "right",
+          },
           { title: "", class: "w-0" },
         ]}
         pagination={data}
@@ -55,10 +60,11 @@ export default define.page<typeof handler>(function Users({ data, url }) {
             </TableData>
             <TableData
               title={new Date(user.createdAt).toISOString().slice(0, 10)}
+              align="right"
             >
               {twas(new Date(user.createdAt).getTime())}
             </TableData>
-            <TableData>
+            <TableData align="right">
               <EditModal
                 style="primary"
                 path={path`/admin/users/${user.id}`}
@@ -95,15 +101,15 @@ export default define.page<typeof handler>(function Users({ data, url }) {
 export const handler = define.handlers({
   async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
-    const sortBy = ctx.url.searchParams.get("sortBy") || "created_at";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     const resp = await ctx.state.api.get<List<FullUser>>(path`/admin/users`, {
       query,
+      sortBy,
       page,
       limit,
-      sortBy,
     });
     if (!resp.ok) throw resp; // gracefully handle this
 

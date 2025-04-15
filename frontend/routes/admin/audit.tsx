@@ -15,13 +15,14 @@ export default define.page<typeof handler>(function Users({ data, url }) {
       <Table
         class="mt-8"
         columns={[
-          { title: "Action", class: "w-0" },
-          { title: "User", class: "w-0" },
+          { title: "Action", class: "w-0", fieldName: "action" },
+          { title: "User", class: "w-0", fieldName: "user" },
           { title: "Sudo", class: "w-0" },
           { title: "Meta", class: "w-0" },
-          { title: "Created", class: "w-0" },
+          { title: "Created", class: "w-0", fieldName: "created_at", align: "right" },
         ]}
         pagination={data}
+        sortBy={data.sortBy}
         currentUrl={url}
       >
         {data.logs.map((log, idx) => (
@@ -52,6 +53,7 @@ export default define.page<typeof handler>(function Users({ data, url }) {
                 0,
                 10,
               )}
+              align="right"
             >
               {twas(new Date(log.createdAt).getTime())}
             </TableData>
@@ -65,6 +67,7 @@ export default define.page<typeof handler>(function Users({ data, url }) {
 export const handler = define.handlers({
   async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
     const sudoOnly = ctx.url.searchParams.get("sudoOnly");
@@ -73,6 +76,7 @@ export const handler = define.handlers({
       path`/admin/audit_logs`,
       {
         query,
+        sortBy,
         page,
         limit,
         sudoOnly,
@@ -84,6 +88,7 @@ export const handler = define.handlers({
       data: {
         logs: resp.data.items,
         query,
+        sortBy,
         page,
         limit,
         sudoOnly,

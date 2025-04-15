@@ -262,9 +262,10 @@ pub async fn list_packages(
   let maybe_search = search(&req);
 
   let maybe_github_id = maybe_search.and_then(|search| search.parse().ok());
+  let maybe_sort = sort(&req);
 
   let (total, packages) = db
-    .list_packages(start, limit, maybe_search, maybe_github_id)
+    .list_packages(start, limit, maybe_search, maybe_github_id, maybe_sort)
     .await?;
   Ok(ApiList {
     items: packages.into_iter().map(|package| package.into()).collect(),
@@ -282,9 +283,11 @@ pub async fn list_publishing_tasks(
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
 
-  let (total, publishing_tasks) =
-    db.list_publishing_tasks(start, limit, maybe_search).await?;
+  let (total, publishing_tasks) = db
+    .list_publishing_tasks(start, limit, maybe_search, maybe_sort)
+    .await?;
 
   Ok(ApiList {
     items: publishing_tasks
@@ -361,8 +364,11 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
 
-  let (total, tickets) = db.list_tickets(start, limit, maybe_search).await?;
+  let (total, tickets) = db
+    .list_tickets(start, limit, maybe_search, maybe_sort)
+    .await?;
   Ok(ApiList {
     items: tickets.into_iter().map(|ticket| ticket.into()).collect(),
     total,
@@ -402,10 +408,11 @@ pub async fn list_audit_logs(
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
   let sudo_only = req.query("sudoOnly").is_some();
 
   let (total, audit_logs) = db
-    .list_audit_logs(start, limit, maybe_search, sudo_only)
+    .list_audit_logs(start, limit, maybe_search, maybe_sort, sudo_only)
     .await?;
   Ok(ApiList {
     items: audit_logs

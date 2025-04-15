@@ -16,13 +16,23 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
       <Table
         class="mt-8"
         columns={[
-          { title: "Scope", class: "w-0" },
-          { title: "Name", class: "w-0" },
+          { title: "Scope", class: "w-0", fieldName: "scope" },
+          { title: "Name", class: "w-0", fieldName: "name" },
           { title: "Repository", class: "w-0" },
-          { title: "Archived", class: "w-0" },
-          { title: "Featured", class: "w-0" },
-          { title: "Updated", class: "w-0" },
-          { title: "Created", class: "w-0" },
+          { title: "Archived", class: "w-0", fieldName: "is_archived" },
+          { title: "Featured", class: "w-0", fieldName: "when_featured" },
+          {
+            title: "Updated",
+            class: "w-0",
+            fieldName: "updated_at",
+            align: "right",
+          },
+          {
+            title: "Created",
+            class: "w-0",
+            fieldName: "created_at",
+            align: "right",
+          },
         ]}
         pagination={data}
         sortBy={data.sortBy}
@@ -76,11 +86,13 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
             </TableData>
             <TableData
               title={new Date(pkg.updatedAt).toISOString().slice(0, 10)}
+              align="right"
             >
               {twas(new Date(pkg.updatedAt).getTime())}
             </TableData>
             <TableData
               title={new Date(pkg.createdAt).toISOString().slice(0, 10)}
+              align="right"
             >
               {twas(new Date(pkg.createdAt).getTime())}
             </TableData>
@@ -94,15 +106,15 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
 export const handler = define.handlers({
   async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
-    const sortBy = ctx.url.searchParams.get("sortBy") || "created_at";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
     const resp = await ctx.state.api.get<List<Package>>(path`/admin/packages`, {
       query,
+      sortBy,
       page,
       limit,
-      sortBy,
     });
     if (!resp.ok) throw resp; // gracefully handle this
 

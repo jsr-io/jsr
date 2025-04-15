@@ -220,7 +220,7 @@ pub async fn global_list_handler(
     .transpose()?;
 
   let (total, packages) = db
-    .list_packages(start, limit, maybe_search, github_repo_id)
+    .list_packages(start, limit, maybe_search, github_repo_id, None)
     .await?;
   Ok(ApiList {
     items: packages.into_iter().map(ApiPackage::from).collect(),

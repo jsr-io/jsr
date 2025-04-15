@@ -19,15 +19,16 @@ export default define.page<typeof handler>(function Tickets({
       <Table
         class="mt-8"
         columns={[
-          { title: "Status", class: "w-0" },
-          { title: "Creator", class: "w-0" },
+          { title: "Status", class: "w-0", fieldName: "status" },
+          { title: "Creator", class: "w-0", fieldName: "creator" },
           { title: "ID", class: "w-0" },
-          { title: "Kind", class: "w-0" },
-          { title: "Created", class: "w-0" },
-          { title: "Updated", class: "w-0" },
+          { title: "Kind", class: "w-0", fieldName: "kind" },
+          { title: "Updated", class: "w-0", fieldName: "updated_at", align: "right" },
+          { title: "Created", class: "w-0", fieldName: "created_at", align: "right" },
           { title: "", class: "w-0", align: "right" },
         ]}
         pagination={data}
+        sortBy={data.sortBy}
         currentUrl={url}
       >
         {data.tickets.map((ticket) => (
@@ -65,22 +66,24 @@ export default define.page<typeof handler>(function Tickets({
               {ticket.kind.replaceAll("_", " ")}
             </TableData>
             <TableData
-              title={new Date(ticket.createdAt).toISOString().slice(
-                0,
-                10,
-              )}
-            >
-              {twas(new Date(ticket.createdAt).getTime())}
-            </TableData>
-            <TableData
               title={new Date(ticket.updatedAt).toISOString().slice(
                 0,
                 10,
               )}
+              align="right"
             >
               {twas(new Date(ticket.updatedAt).getTime())}
             </TableData>
-            <TableData>
+            <TableData
+              title={new Date(ticket.createdAt).toISOString().slice(
+                0,
+                10,
+              )}
+              align="right"
+            >
+              {twas(new Date(ticket.createdAt).getTime())}
+            </TableData>
+            <TableData align="right">
               <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
             </TableData>
           </TableRow>
@@ -93,6 +96,7 @@ export default define.page<typeof handler>(function Tickets({
 export const handler = define.handlers({
   async GET(ctx) {
     const query = ctx.url.searchParams.get("search") || "";
+    const sortBy = ctx.url.searchParams.get("sortBy") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
@@ -100,6 +104,7 @@ export const handler = define.handlers({
       path`/admin/tickets`,
       {
         query,
+        sortBy,
         page,
         limit,
       },
@@ -110,6 +115,7 @@ export const handler = define.handlers({
       data: {
         tickets: resp.data.items,
         query,
+        sortBy,
         page,
         limit,
         total: resp.data.total,
