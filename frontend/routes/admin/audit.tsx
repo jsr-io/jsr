@@ -19,7 +19,12 @@ export default define.page<typeof handler>(function Users({ data, url }) {
           { title: "User", class: "w-0", fieldName: "user" },
           { title: "Sudo", class: "w-0" },
           { title: "Meta", class: "w-0" },
-          { title: "Created", class: "w-0", fieldName: "created_at", align: "right" },
+          {
+            title: "Created",
+            class: "w-0",
+            fieldName: "created_at",
+            align: "right",
+          },
         ]}
         pagination={data}
         sortBy={data.sortBy}

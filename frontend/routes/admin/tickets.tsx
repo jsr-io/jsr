@@ -23,8 +23,18 @@ export default define.page<typeof handler>(function Tickets({
           { title: "Creator", class: "w-0", fieldName: "creator" },
           { title: "ID", class: "w-0" },
           { title: "Kind", class: "w-0", fieldName: "kind" },
-          { title: "Updated", class: "w-0", fieldName: "updated_at", align: "right" },
-          { title: "Created", class: "w-0", fieldName: "created_at", align: "right" },
+          {
+            title: "Updated",
+            class: "w-0",
+            fieldName: "updated_at",
+            align: "right",
+          },
+          {
+            title: "Created",
+            class: "w-0",
+            fieldName: "created_at",
+            align: "right",
+          },
           { title: "", class: "w-0", align: "right" },
         ]}
         pagination={data}

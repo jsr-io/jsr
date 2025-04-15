@@ -83,7 +83,9 @@ export function Table(
                       {fieldName
                         ? (
                           <a
-                            class={`flex items-center gap-2.5 group select-none ${align === "right" ? "justify-end" : ""}`}
+                            class={`flex items-center gap-2.5 group select-none ${
+                              align === "right" ? "justify-end" : ""
+                            }`}
                             href={url.pathname + url.search}
                           >
                             {title}
@@ -91,7 +93,11 @@ export function Table(
                           </a>
                         )
                         : (
-                          <div class={`flex items-center gap-2.5 group select-none ${align === "right" ? "justify-end" : ""}`}>
+                          <div
+                            class={`flex items-center gap-2.5 group select-none ${
+                              align === "right" ? "justify-end" : ""
+                            }`}
+                          >
                             {title}
                             {icon}
                           </div>
