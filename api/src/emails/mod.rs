@@ -42,12 +42,14 @@ pub enum EmailArgs<'a> {
     support_email: Cow<'a, str>,
   },
   SupportTicketCreated {
+    name: Cow<'a, str>,
     ticket_id: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
   },
   SupportTicketMessage {
+    name: Cow<'a, str>,
     ticket_id: Cow<'a, str>,
     content: Cow<'a, str>,
     registry_url: Cow<'a, str>,
