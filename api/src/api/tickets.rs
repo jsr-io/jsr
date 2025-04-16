@@ -71,6 +71,7 @@ pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
     let registry_url = req.data::<RegistryUrl>().unwrap();
     if let Some(email_sender) = email_sender {
       let email_args = EmailArgs::SupportTicketCreated {
+        name: Cow::Borrowed(&user.name),
         ticket_id: Cow::Owned(ticket.id.to_string()),
         registry_url: Cow::Borrowed(registry_url.0.as_str()),
         registry_name: Cow::Borrowed(&email_sender.from_name),
@@ -128,6 +129,7 @@ pub async fn post_message_handler(
       if let Some(email_sender) = email_sender {
         let email_args = EmailArgs::SupportTicketMessage {
           ticket_id: Cow::Owned(ticket.id.to_string()),
+          name: Cow::Owned(creator.name),
           content: Cow::Borrowed(&message.message),
           registry_url: Cow::Borrowed(registry_url.0.as_str()),
           registry_name: Cow::Borrowed(&email_sender.from_name),
