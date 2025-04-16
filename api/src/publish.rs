@@ -270,7 +270,7 @@ async fn upload_version_manifest(
     manifest,
     module_graph_2,
   };
-  let content = serde_json::to_vec_pretty(&version_metadata)?;
+  let content = serde_json::to_vec(&version_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -376,7 +376,7 @@ async fn upload_package_manifest(
     &publishing_task.package_name,
   )
   .await?;
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
