@@ -16,11 +16,13 @@ export default define.page<typeof handler>(function Dep(
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Dependents"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

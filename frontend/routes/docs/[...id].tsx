@@ -6,7 +6,7 @@ import { define } from "../../util.ts";
 import { extract } from "@std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
-import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 
 const groups = new Map<string, { id: string; title: string }[]>();
 for (const group of groupsNames) {

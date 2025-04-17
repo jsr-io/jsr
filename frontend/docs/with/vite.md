@@ -44,7 +44,7 @@ at `http://localhost:5173`. You can then visit `http://localhost:5173` to see
 it.
 
 ```shell
-$ vite
+vite
 ```
 
 [Learn more about using packages.](/docs/using-packages)

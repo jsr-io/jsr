@@ -15,7 +15,7 @@ import {
   ScopeMember,
 } from "../../../utils/api_types.ts";
 import { scopeData } from "../../../utils/data.ts";
-import TbTrash from "@preact-icons/tb/TbTrash";
+import TbTrash from "tb-icons/TbTrash";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ScopeIAM } from "../../../utils/iam.ts";
 

@@ -19,10 +19,13 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
+        user={state.user}
       />
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

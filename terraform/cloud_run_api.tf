@@ -24,8 +24,8 @@ locals {
     "EMAIL_FROM"      = "help@${var.domain_name}"
     "EMAIL_FROM_NAME" = var.email_from_name
 
-    "PUBLISH_QUEUE_ID"           = google_cloud_tasks_queue.publishing_tasks.id
-    "NPM_TARBALL_BUILD_QUEUE_ID" = google_cloud_tasks_queue.npm_tarball_build_tasks.id
+    "PUBLISH_QUEUE_ID"           = "projects/${var.gcp_project}/locations/us-central1/queues/${local.publishing_tasks_queue_name}"
+    "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"
 
     "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
     "GCP_PROJECT_ID"         = var.gcp_project

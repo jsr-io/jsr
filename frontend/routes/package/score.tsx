@@ -7,7 +7,7 @@ import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { TbAlertCircle, TbCheck, TbX } from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbX } from "tb-icons";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 import { Logo } from "../../components/Logo.tsx";
@@ -19,11 +19,13 @@ export default define.page<typeof handler>(function Score(
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Score"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

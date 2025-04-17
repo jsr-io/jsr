@@ -12,12 +12,7 @@ import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { path } from "../../utils/api.ts";
-import {
-  TbAlertCircle,
-  TbCheck,
-  TbClockHour3,
-  TbTrashX,
-} from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(function Versions({
@@ -90,13 +85,15 @@ export default define.page<typeof handler>(function Versions({
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Versions"
         params={params as unknown as Params}
         iam={iam}
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
 
@@ -167,13 +164,17 @@ function Version({
 }) {
   const isPublished = version !== null;
   const isFailed = tasks.length > 0 && tasks[0].status === "failure";
+  const isSuccess = tasks.length > 0 &&
+    tasks.some((task) => task.status === "success");
 
   return (
     <div
       class={`relative py-2 px-2 md:py-3 md:px-6 border rounded-lg ${
-        (!isPublished && isFailed) || version?.yanked
+        (!isPublished && (isFailed || isSuccess)) || version?.yanked
           ? `bg-red-50 border-red-200 ${
-            version?.yanked ? "hover:bg-red-100 hover:border-red-300" : ""
+            (version?.yanked || (!isPublished && isSuccess))
+              ? "hover:bg-red-100 hover:border-red-300"
+              : ""
           }`
           : (!isPublished
             ? "bg-blue-50 border-blue-200"
@@ -189,7 +190,9 @@ function Version({
               (!isPublished && isFailed) || version?.yanked
                 ? "bg-red-300 border-red-400 text-red-700"
                 : (!isPublished
-                  ? "bg-blue-300 border-blue-400 text-blue-700"
+                  ? isSuccess
+                    ? "bg-red-300 border-red-400 text-red-700"
+                    : "bg-blue-300 border-blue-400 text-blue-700"
                   : (isLatestInReleaseTrack
                     ? "bg-green-300 border-green-400 text-green-700"
                     : "bg-jsr-gray-200 border-jsr-gray-300 text-jsr-gray-600"))
@@ -199,7 +202,7 @@ function Version({
               : (isFailed
                 ? "Task failed"
                 : !isPublished
-                ? "Publishing..."
+                ? isSuccess ? "Deleted" : "Publishing..."
                 : `Release Track ${releaseTrack}`)}
           >
             {version?.yanked
@@ -207,7 +210,7 @@ function Version({
               : (isFailed
                 ? <TbAlertCircle class="size-8 stroke-red-500 stroke-2" />
                 : !isPublished
-                ? "..."
+                ? isSuccess ? <TbTrashX class="size-8" /> : "..."
                 : releaseTrack)}
           </div>
           <div>
@@ -254,6 +257,19 @@ function Version({
               value={version.yanked ? "unyank" : "yank"}
             >
               {version.yanked ? "Unyank" : "Yank"}
+            </button>
+          </form>
+        )}
+        {isPublished && iam.hasSudo && (
+          <form method="POST" class="z-20">
+            <input type="hidden" name="version" value={version.version} />
+            <button
+              type="submit"
+              class="button-danger"
+              name="action"
+              value="delete"
+            >
+              Delete
             </button>
           </form>
         )}
@@ -353,6 +369,17 @@ export const handler = define.handlers({
         const res = await api.patch(
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: false },
+        );
+        if (!res.ok) throw res;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/versions` },
+        });
+      }
+      case "delete": {
+        const version = String(data.get("version"));
+        const res = await api.delete(
+          path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
         );
         if (!res.ok) throw res;
         return new Response(null, {

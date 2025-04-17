@@ -15,6 +15,14 @@ pub fn file_path(
   format!("@{scope}/{package_name}/{version}{path}")
 }
 
+pub fn file_path_root_directory(
+  scope: &ScopeName,
+  package_name: &PackageName,
+  version: &Version,
+) -> String {
+  format!("@{scope}/{package_name}/{version}/")
+}
+
 pub fn docs_v1_path(
   scope: &ScopeName,
   package_name: &PackageName,

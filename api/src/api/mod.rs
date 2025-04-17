@@ -6,9 +6,16 @@ mod package;
 mod publishing_task;
 mod scope;
 mod self_user;
+mod tickets;
 mod types;
 mod users;
 
+pub use self::errors::*;
+pub use self::package::PublishQueue;
+use self::publishing_task::publishing_task_router;
+use self::self_user::self_user_router;
+pub use self::types::*;
+use crate::api::tickets::tickets_router;
 use hyper::Body;
 use hyper::Response;
 use package::global_list_handler;
@@ -16,12 +23,6 @@ use package::global_metrics_handler;
 use package::global_stats_handler;
 use routerify::Middleware;
 use routerify::Router;
-
-pub use self::errors::*;
-pub use self::package::PublishQueue;
-use self::publishing_task::publishing_task_router;
-use self::self_user::self_user_router;
-pub use self::types::*;
 
 use self::admin::admin_router;
 use self::authorization::authorization_router;
@@ -57,6 +58,7 @@ pub fn api_router() -> Router<Body, ApiError> {
       "/publish_status/:publishing_task_id",
       util::json(publishing_task::get_handler),
     )
+    .scope("/tickets", tickets_router())
     .get("/.well-known/openapi", openapi_handler)
     .build()
     .unwrap()

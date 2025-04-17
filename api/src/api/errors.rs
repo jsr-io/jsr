@@ -237,6 +237,18 @@ errors!(
     status: BAD_REQUEST,
     "The requested package is archived. Unarchive it to modify settings or publish to it.",
   },
+  DeleteVersionHasDependents {
+    status: BAD_REQUEST,
+    "The requested package version has dependents. Only a version without dependents can be deleted.",
+  },
+  TicketNotFound {
+    status: NOT_FOUND,
+    "The requested ticket was not found.",
+  },
+  TicketMetaNotValid {
+    status: BAD_REQUEST,
+    "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {

@@ -4,7 +4,7 @@ import {
   CloudTrace,
   CredentialsClient,
   Span,
-} from "https://googleapis.deno.dev/v1/cloudtrace:v2.ts";
+} from "./cloudtrace:v2.ts";
 
 const CLOUD_TRACE = Deno.env.get("CLOUD_TRACE") === "true";
 let CLOUD_TRACE_AUTH: CredentialsClient | null = null;

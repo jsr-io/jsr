@@ -1,13 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import {
-  TbArrowRight,
-  TbLogout,
-  TbPlus,
-  TbUser,
-  TbUserCog,
-} from "@preact-icons/tb";
+import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
 
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
@@ -46,7 +40,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open ? "true" : "false"}
       >
-        {user.inviteCount !== 0 && (
+        {(user.inviteCount + user.newerTicketMessagesCount) !== 0 && (
           <div class="absolute rounded-full bg-orange-600 border-2 box-content border-white -top-0.5 -right-0.5 h-2 w-2" />
         )}
         <img
@@ -79,6 +73,18 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             >
               <span>
                 {user.inviteCount} pending invite{user.inviteCount > 1 && "s"}
+              </span>
+              <TbArrowRight class="w-4 h-4" />
+            </a>
+          )}
+          {user.newerTicketMessagesCount !== 0 && (
+            <a
+              class="bg-orange-600 hover:bg-orange-400 text-white text-sm py-1 pl-4 pr-2 flex justify-between items-center gap-3 rounded-full mt-2"
+              href={user.isStaff ? "/admin/tickets" : "/account/tickets"}
+            >
+              <span>
+                {user.newerTicketMessagesCount}{" "}
+                unreplied ticket{user.newerTicketMessagesCount > 1 && "s"}
               </span>
               <TbArrowRight class="w-4 h-4" />
             </a>

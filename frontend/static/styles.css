@@ -446,6 +446,10 @@ body .ddoc {
     }
   }
 
+  .usageContent pre.highlight > code:first-child {
+    @apply pt-2 pr-10 pb-2 pl-2;
+  }
+
   .usageContent .markdown {
     @apply max-w-full;
   }

@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import { TbBrandGithub, TbFolder, TbPackage } from "@preact-icons/tb";
+import { TbBrandGithub, TbFolder, TbPackage } from "tb-icons";
 import {
   CreatePackage,
   IconCircle,
@@ -57,6 +57,7 @@ export default define.page<typeof handler>(function New(props) {
                     scopeUsage={props.state.user.scopeUsage}
                     scopeLimit={props.state.user.scopeLimit}
                     locked={props.data.fromCli}
+                    user={props.state.user}
                   />
                 )
                 : (

@@ -6,7 +6,7 @@ import { packageData } from "../../utils/data.ts";
 import { GitHubActionsLink } from "../../islands/GitHubActionsLink.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { scopeIAM } from "../../utils/iam.ts";
 import { CopyButton } from "../../islands/CopyButton.tsx";
 
@@ -17,11 +17,13 @@ export default define.page<typeof handler>(function PackagePage({
 }) {
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader package={data.package} user={state.user} />
 
       <PackageNav
         currentTab="Publish"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={data.iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}

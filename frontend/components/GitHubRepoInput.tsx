@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Signal } from "@preact/signals";
 import { useRef } from "preact/hooks";
-import TbBrandGithub from "@preact-icons/tb/TbBrandGithub";
+import TbBrandGithub from "tb-icons/TbBrandGithub";
 
 export interface GithubRepoInputProps {
   id: string;

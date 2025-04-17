@@ -11,7 +11,7 @@ import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
-import { TbAlertCircle, TbCheck, TbClockHour3 } from "@preact-icons/tb";
+import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
 import { scopeIAM } from "../utils/iam.ts";
 
 export default define.page<typeof handler>(function PackageListPage({
@@ -23,11 +23,13 @@ export default define.page<typeof handler>(function PackageListPage({
   return (
     <div class="mb-24 space-y-16">
       <div>
-        <PackageHeader package={data.package} />
+        <PackageHeader package={data.package} user={state.user} />
 
         <PackageNav
           currentTab="Versions"
           versionCount={data.package.versionCount}
+          dependencyCount={data.package.dependencyCount}
+          dependentCount={data.package.dependentCount}
           iam={iam}
           params={{ scope: data.package.scope, package: data.package.name }}
           latestVersion={data.package.latestVersion}
@@ -50,14 +52,14 @@ export default define.page<typeof handler>(function PackageListPage({
               <span class="font-semibold">Created:</span>{" "}
               {twas(new Date(data.publishingTask.createdAt).getTime())}
             </p>
-            {data.publishingTask.userId && (
+            {data.publishingTask.user && (
               <p>
                 <span class="font-semibold">Submitter:</span>{" "}
                 <a
                   class="link italic"
-                  href={`/user/${data.publishingTask.userId}`}
+                  href={`/user/${data.publishingTask.user.id}`}
                 >
-                  View user
+                  {data.publishingTask.user.name}
                 </a>
               </p>
             )}
