@@ -50,7 +50,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
               <TicketTitle
                 kind={ticket.kind}
                 meta={ticket.meta}
-                user={data.user}
+                user={ticket.creator}
               />
             </TableData>
             <TableData
