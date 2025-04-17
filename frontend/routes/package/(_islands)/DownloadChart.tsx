@@ -72,6 +72,7 @@ function collectX(dataPoints: DownloadDataPoint[][]) {
       xValues.add(point.timeBucket);
     });
   });
+
   return Array.from(xValues).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 }
 
