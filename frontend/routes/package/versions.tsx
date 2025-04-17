@@ -4,6 +4,7 @@ import type {
   PackageVersionWithUser,
   PublishingTask,
   PublishingTaskStatus,
+  PackageDownloads,
 } from "../../utils/api_types.ts";
 import { define } from "../../util.ts";
 import { compare, equals, format, lessThan, parse, SemVer } from "@std/semver";
@@ -14,6 +15,7 @@ import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { path } from "../../utils/api.ts";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
+import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
 
 export default define.page<typeof handler>(function Versions({
   data,
@@ -98,6 +100,7 @@ export default define.page<typeof handler>(function Versions({
       />
 
       <div class="space-y-3 mt-8">
+        <DownloadChart downloads={data.downloads} />
         {versionsArray.length === 0
           ? (
             <div class="text-jsr-gray-500 text-center">
@@ -299,7 +302,7 @@ function Version({
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const [res, versionsResp, tasksResp] = await Promise.all([
+    const [res, versionsResp, tasksResp, downloads] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
       ctx.state.api.get<PackageVersionWithUser[]>(
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/versions`,
@@ -309,7 +312,10 @@ export const handler = define.handlers({
           path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/publishing_tasks`,
         )
         : Promise.resolve(null),
-    ]);
+        ctx.state.api.get<PackageDownloads>(
+          path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/downloads`,
+        ),
+        ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
 
     if (!versionsResp.ok) throw versionsResp; // TODO: handle errors gracefully
@@ -323,6 +329,7 @@ export const handler = define.handlers({
         publishingTasks = tasksResp.data;
       }
     }
+    if (!downloads.ok) throw downloads; // TODO: handle errors gracefully
 
     ctx.state.meta = {
       title: `Versions - @${res.pkg.scope}/${res.pkg.name} - JSR`,
@@ -336,6 +343,7 @@ export const handler = define.handlers({
         versions: versionsResp.data,
         publishingTasks,
         member: res.scopeMember,
+        downloads: downloads.data,
       },
     };
   },
