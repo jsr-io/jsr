@@ -220,7 +220,7 @@ pub async fn global_list_handler(
     .transpose()?;
 
   let (total, packages) = db
-    .list_packages(start, limit, maybe_search, github_repo_id)
+    .list_packages(start, limit, maybe_search, github_repo_id, None)
     .await?;
   Ok(ApiList {
     items: packages.into_iter().map(ApiPackage::from).collect(),
@@ -808,7 +808,7 @@ pub async fn version_publish_handler(
       config_file: &config_file,
     })
     .await?;
-  let publishing_task = match res {
+  let (publishing_task, user) = match res {
     CreatePublishingTaskResult::Created(publishing_task) => publishing_task,
     CreatePublishingTaskResult::Exists(task) => {
       return Err(ApiError::DuplicateVersionPublish {
@@ -896,7 +896,7 @@ pub async fn version_publish_handler(
     tokio::spawn(fut);
   }
 
-  Ok(publishing_task.into())
+  Ok((publishing_task, user).into())
 }
 
 #[instrument(
@@ -986,7 +986,7 @@ pub async fn version_update_handler(
     crate::gcs_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -1077,7 +1077,7 @@ pub async fn version_delete_handler(
     crate::gcs_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -4264,7 +4264,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     assert_eq!(tasks.len(), 1);
-    assert_eq!(tasks[0].id, task2.id);
+    assert_eq!(tasks[0].0.id, task2.id);
   }
 
   #[tokio::test]

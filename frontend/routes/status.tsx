@@ -52,14 +52,14 @@ export default define.page<typeof handler>(function PackageListPage({
               <span class="font-semibold">Created:</span>{" "}
               {twas(new Date(data.publishingTask.createdAt).getTime())}
             </p>
-            {data.publishingTask.userId && (
+            {data.publishingTask.user && (
               <p>
                 <span class="font-semibold">Submitter:</span>{" "}
                 <a
                   class="link italic"
-                  href={`/user/${data.publishingTask.userId}`}
+                  href={`/user/${data.publishingTask.user.id}`}
                 >
-                  View user
+                  {data.publishingTask.user.name}
                 </a>
               </p>
             )}

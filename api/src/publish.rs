@@ -84,7 +84,7 @@ pub async fn publish_task(
   db: Database,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
-  let mut publishing_task = db
+  let (mut publishing_task, _) = db
     .get_publishing_task(publish_id)
     .await?
     .ok_or(ApiError::PublishNotFound)?;
@@ -270,7 +270,7 @@ async fn upload_version_manifest(
     manifest,
     module_graph_2,
   };
-  let content = serde_json::to_vec_pretty(&version_metadata)?;
+  let content = serde_json::to_vec(&version_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -376,7 +376,7 @@ async fn upload_package_manifest(
     &publishing_task.package_name,
   )
   .await?;
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -500,7 +500,7 @@ pub mod tests {
       unreachable!()
     };
 
-    let tarball_path = gcs_tarball_path(task.id);
+    let tarball_path = gcs_tarball_path(task.0.id);
     t.buckets
       .publishing_bucket
       .upload(
@@ -516,7 +516,7 @@ pub mod tests {
       .unwrap();
 
     publish_task(
-      task.id,
+      task.0.id,
       t.buckets(),
       t.registry_url(),
       t.npm_url(),
@@ -525,7 +525,12 @@ pub mod tests {
     )
     .await
     .unwrap();
-    t.db().get_publishing_task(task.id).await.unwrap().unwrap()
+    t.db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap()
+      .0
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {

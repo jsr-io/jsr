@@ -277,6 +277,10 @@ pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }
 
+pub fn sort(req: &Request<Body>) -> Option<&str> {
+  req.query("sortBy").map(|q| q.as_str())
+}
+
 pub fn pagination(req: &Request<Body>) -> (i64, i64) {
   let limit = req
     .query("limit")
