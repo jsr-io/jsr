@@ -25,7 +25,7 @@ async fn publishing_tasks() {
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
   assert!(matches!(res, CreatePackageResult::Ok(_)));
 
-  let CreatePublishingTaskResult::Created(pt) = db
+  let CreatePublishingTaskResult::Created((pt, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(user_id),
       package_scope: &scope_name,
@@ -50,13 +50,12 @@ async fn publishing_tasks() {
     })
     .await
     .unwrap();
-  let CreatePublishingTaskResult::Exists(pt_reused) = res else {
+  let CreatePublishingTaskResult::Exists((pt_reused, _)) = res else {
     unreachable!() // does conflict with existing task
   };
   assert_eq!(pt_reused.id, pt.id);
 
-  let pt2: PublishingTask =
-    db.get_publishing_task(pt.id).await.unwrap().unwrap();
+  let (pt2, _) = db.get_publishing_task(pt.id).await.unwrap().unwrap();
   assert_eq!(pt2.id, pt2.id);
   assert_eq!(pt2.package_scope, scope_name);
   assert_eq!(pt2.package_name, package_name);
@@ -83,7 +82,7 @@ async fn publishing_tasks() {
   assert_eq!(error.code, "invalidConfigFile");
   assert_eq!(error.message, "Your config file is invalid.");
 
-  let CreatePublishingTaskResult::Created(pt4) = db
+  let CreatePublishingTaskResult::Created((pt4, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(user_id),
       package_scope: &scope_name,
@@ -107,7 +106,7 @@ async fn publishing_tasks() {
   .await
   .unwrap();
 
-  let pt5 = db.get_publishing_task(pt4.id).await.unwrap().unwrap();
+  let (pt5, _) = db.get_publishing_task(pt4.id).await.unwrap().unwrap();
   assert_eq!(pt5.status, PublishingTaskStatus::Success);
   assert!(pt5.updated_at > pt5.created_at);
 }
@@ -175,7 +174,7 @@ async fn users() {
   let no_user = db.get_user(uuid::Uuid::new_v4()).await.unwrap();
   assert!(no_user.is_none());
 
-  let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
+  let (total_users, users) = db.list_users(0, 20, None, None).await.unwrap();
   assert_eq!(total_users, 3);
   assert_eq!(users.len(), 3);
   assert_eq!(users[0].id, user.id);
@@ -191,7 +190,7 @@ async fn users() {
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());
 
-  let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
+  let (total_users, users) = db.list_users(0, 20, None, None).await.unwrap();
   assert_eq!(total_users, 2);
   assert_eq!(users.len(), 2); // just the default user added by migrations
 
@@ -363,7 +362,7 @@ async fn create_package_version_and_finalize_publishing_task() {
 
   let version = Version::try_from("1.2.3").unwrap();
   let config_file = PackagePath::try_from("/jsr.json").unwrap();
-  let CreatePublishingTaskResult::Created(task) = db
+  let CreatePublishingTaskResult::Created((task, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(bob.id),
       package_scope: &scope,

@@ -1892,8 +1892,7 @@
     "https://googleapis.deno.dev/_/base@v1/auth/jwt.ts": "60a0ce915278fce4626e856c745ea81452cb47c7877715046b02773472cecf15",
     "https://googleapis.deno.dev/_/base@v1/auth/mod.ts": "2564c92422e18c3e714ad829af89ac3c28ae3021c7230fcb6ca3a46edf7efe25",
     "https://googleapis.deno.dev/_/base@v1/mod.ts": "dac57a0707677eab2dc10f7d9f620b08c61fe052fb97a26309de4d43e4420180",
-    "https://googleapis.deno.dev/_/base@v1/util.ts": "255693bf0ffbcaa62b4a20f87057254ed439f32cc50084e01c6fd760c1ddf2ab",
-    "https://googleapis.deno.dev/v1/cloudtrace:v2.ts": "c7f24ee54fe061127f617f5e7b379d679c413b78bd38b3fbaf5c11f9b2822d15"
+    "https://googleapis.deno.dev/_/base@v1/util.ts": "255693bf0ffbcaa62b4a20f87057254ed439f32cc50084e01c6fd760c1ddf2ab"
   },
   "workspace": {
     "dependencies": [

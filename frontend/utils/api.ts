@@ -29,7 +29,7 @@ export interface APIResponseError {
   traceId: string | null;
 }
 
-type APIPath = string & { __apiPath: never };
+export type APIPath = string & { __apiPath: never };
 
 /**
  * Template literal to build API request paths. Example:
