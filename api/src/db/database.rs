@@ -931,7 +931,7 @@ impl Database {
     audit_log(
       &mut tx,
       actor_id,
-      true,
+      is_sudo,
       if is_sudo {
         "assign_scope"
       } else {
