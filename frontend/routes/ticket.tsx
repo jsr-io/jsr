@@ -93,7 +93,7 @@ export default define.page<typeof handler>(function Ticket({
                   {twas(new Date(message.createdAt).getTime())}
                 </div>
               </div>
-              <pre class="mt-4 font-sans">
+              <pre class="mt-4 font-sans text-wrap">
                 {message.message}
               </pre>
             </div>
