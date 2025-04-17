@@ -1,4 +1,5 @@
 // This file in vendored in because the service is not working properly.
+// deno-lint-ignore-file
 
 // Copyright 2022 Luca Casonato. All rights reserved. MIT license.
 /**
@@ -11,7 +12,12 @@
  * Source: https://googleapis.deno.dev/v1/cloudtrace:v2.ts
  */
 
-import { auth, CredentialsClient, GoogleAuth, request } from "https://googleapis.deno.dev/_/base@v1/mod.ts";
+import {
+  auth,
+  CredentialsClient,
+  GoogleAuth,
+  request,
+} from "https://googleapis.deno.dev/_/base@v1/mod.ts";
 export { auth, GoogleAuth };
 export type { CredentialsClient };
 
@@ -26,7 +32,10 @@ export class CloudTrace {
   #client: CredentialsClient | undefined;
   #baseUrl: string;
 
-  constructor(client?: CredentialsClient, baseUrl: string = "https://cloudtrace.googleapis.com/") {
+  constructor(
+    client?: CredentialsClient,
+    baseUrl: string = "https://cloudtrace.googleapis.com/",
+  ) {
     this.#client = client;
     this.#baseUrl = baseUrl;
   }
@@ -38,9 +47,12 @@ export class CloudTrace {
    *
    * @param name Required. The name of the project where the spans belong. The format is `projects/[PROJECT_ID]`.
    */
-  async projectsTracesBatchWrite(name: string, req: BatchWriteSpansRequest): Promise<Empty> {
+  async projectsTracesBatchWrite(
+    name: string,
+    req: BatchWriteSpansRequest,
+  ): Promise<Empty> {
     req = serializeBatchWriteSpansRequest(req);
-    const url = new URL(`${this.#baseUrl}v2/${ name }/traces:batchWrite`);
+    const url = new URL(`${this.#baseUrl}v2/${name}/traces:batchWrite`);
     const body = JSON.stringify(req);
     const data = await request(url.href, {
       client: this.#client,
@@ -58,7 +70,7 @@ export class CloudTrace {
    */
   async projectsTracesSpansCreateSpan(name: string, req: Span): Promise<Span> {
     req = serializeSpan(req);
-    const url = new URL(`${this.#baseUrl}v2/${ name }`);
+    const url = new URL(`${this.#baseUrl}v2/${name}`);
     const body = JSON.stringify(req);
     const data = await request(url.href, {
       client: this.#client,
@@ -88,14 +100,18 @@ export interface Annotation {
 function serializeAnnotation(data: any): Annotation {
   return {
     ...data,
-    attributes: data["attributes"] !== undefined ? serializeAttributes(data["attributes"]) : undefined,
+    attributes: data["attributes"] !== undefined
+      ? serializeAttributes(data["attributes"])
+      : undefined,
   };
 }
 
 function deserializeAnnotation(data: any): Annotation {
   return {
     ...data,
-    attributes: data["attributes"] !== undefined ? deserializeAttributes(data["attributes"]) : undefined,
+    attributes: data["attributes"] !== undefined
+      ? deserializeAttributes(data["attributes"])
+      : undefined,
   };
 }
 
@@ -111,7 +127,7 @@ export interface Attributes {
    * "int_value": 300 } "example.com/myattribute": { "bool_value": false }
    */
   attributeMap?: {
-    [key: string]: AttributeValue
+    [key: string]: AttributeValue;
   };
   /**
    * The number of attributes that were discarded. Attributes can be discarded
@@ -124,14 +140,26 @@ export interface Attributes {
 function serializeAttributes(data: any): Attributes {
   return {
     ...data,
-    attributeMap: data["attributeMap"] !== undefined ? Object.fromEntries(Object.entries(data["attributeMap"]).map(([k, v]: [string, any]) => ([k, serializeAttributeValue(v)]))) : undefined,
+    attributeMap: data["attributeMap"] !== undefined
+      ? Object.fromEntries(
+        Object.entries(data["attributeMap"]).map((
+          [k, v]: [string, any],
+        ) => [k, serializeAttributeValue(v)]),
+      )
+      : undefined,
   };
 }
 
 function deserializeAttributes(data: any): Attributes {
   return {
     ...data,
-    attributeMap: data["attributeMap"] !== undefined ? Object.fromEntries(Object.entries(data["attributeMap"]).map(([k, v]: [string, any]) => ([k, deserializeAttributeValue(v)]))) : undefined,
+    attributeMap: data["attributeMap"] !== undefined
+      ? Object.fromEntries(
+        Object.entries(data["attributeMap"]).map((
+          [k, v]: [string, any],
+        ) => [k, deserializeAttributeValue(v)]),
+      )
+      : undefined,
   };
 }
 
@@ -156,14 +184,18 @@ export interface AttributeValue {
 function serializeAttributeValue(data: any): AttributeValue {
   return {
     ...data,
-    intValue: data["intValue"] !== undefined ? String(data["intValue"]) : undefined,
+    intValue: data["intValue"] !== undefined
+      ? String(data["intValue"])
+      : undefined,
   };
 }
 
 function deserializeAttributeValue(data: any): AttributeValue {
   return {
     ...data,
-    intValue: data["intValue"] !== undefined ? BigInt(data["intValue"]) : undefined,
+    intValue: data["intValue"] !== undefined
+      ? BigInt(data["intValue"])
+      : undefined,
   };
 }
 
@@ -181,14 +213,18 @@ export interface BatchWriteSpansRequest {
 function serializeBatchWriteSpansRequest(data: any): BatchWriteSpansRequest {
   return {
     ...data,
-    spans: data["spans"] !== undefined ? data["spans"].map((item: any) => (serializeSpan(item))) : undefined,
+    spans: data["spans"] !== undefined
+      ? data["spans"].map((item: any) => (serializeSpan(item)))
+      : undefined,
   };
 }
 
 function deserializeBatchWriteSpansRequest(data: any): BatchWriteSpansRequest {
   return {
     ...data,
-    spans: data["spans"] !== undefined ? data["spans"].map((item: any) => (deserializeSpan(item))) : undefined,
+    spans: data["spans"] !== undefined
+      ? data["spans"].map((item: any) => (deserializeSpan(item)))
+      : undefined,
   };
 }
 
@@ -224,20 +260,24 @@ export interface Link {
   /**
    * The relationship of the current span relative to the linked span.
    */
-  type?:  | "TYPE_UNSPECIFIED" | "CHILD_LINKED_SPAN" | "PARENT_LINKED_SPAN";
+  type?: "TYPE_UNSPECIFIED" | "CHILD_LINKED_SPAN" | "PARENT_LINKED_SPAN";
 }
 
 function serializeLink(data: any): Link {
   return {
     ...data,
-    attributes: data["attributes"] !== undefined ? serializeAttributes(data["attributes"]) : undefined,
+    attributes: data["attributes"] !== undefined
+      ? serializeAttributes(data["attributes"])
+      : undefined,
   };
 }
 
 function deserializeLink(data: any): Link {
   return {
     ...data,
-    attributes: data["attributes"] !== undefined ? deserializeAttributes(data["attributes"]) : undefined,
+    attributes: data["attributes"] !== undefined
+      ? deserializeAttributes(data["attributes"])
+      : undefined,
   };
 }
 
@@ -260,14 +300,18 @@ export interface Links {
 function serializeLinks(data: any): Links {
   return {
     ...data,
-    link: data["link"] !== undefined ? data["link"].map((item: any) => (serializeLink(item))) : undefined,
+    link: data["link"] !== undefined
+      ? data["link"].map((item: any) => (serializeLink(item)))
+      : undefined,
   };
 }
 
 function deserializeLinks(data: any): Links {
   return {
     ...data,
-    link: data["link"] !== undefined ? data["link"].map((item: any) => (deserializeLink(item))) : undefined,
+    link: data["link"] !== undefined
+      ? data["link"].map((item: any) => (deserializeLink(item)))
+      : undefined,
   };
 }
 
@@ -288,7 +332,7 @@ export interface MessageEvent {
   /**
    * Type of MessageEvent. Indicates whether the message was sent or received.
    */
-  type?:  | "TYPE_UNSPECIFIED" | "SENT" | "RECEIVED";
+  type?: "TYPE_UNSPECIFIED" | "SENT" | "RECEIVED";
   /**
    * The number of uncompressed bytes sent or received.
    */
@@ -298,18 +342,26 @@ export interface MessageEvent {
 function serializeMessageEvent(data: any): MessageEvent {
   return {
     ...data,
-    compressedSizeBytes: data["compressedSizeBytes"] !== undefined ? String(data["compressedSizeBytes"]) : undefined,
+    compressedSizeBytes: data["compressedSizeBytes"] !== undefined
+      ? String(data["compressedSizeBytes"])
+      : undefined,
     id: data["id"] !== undefined ? String(data["id"]) : undefined,
-    uncompressedSizeBytes: data["uncompressedSizeBytes"] !== undefined ? String(data["uncompressedSizeBytes"]) : undefined,
+    uncompressedSizeBytes: data["uncompressedSizeBytes"] !== undefined
+      ? String(data["uncompressedSizeBytes"])
+      : undefined,
   };
 }
 
 function deserializeMessageEvent(data: any): MessageEvent {
   return {
     ...data,
-    compressedSizeBytes: data["compressedSizeBytes"] !== undefined ? BigInt(data["compressedSizeBytes"]) : undefined,
+    compressedSizeBytes: data["compressedSizeBytes"] !== undefined
+      ? BigInt(data["compressedSizeBytes"])
+      : undefined,
     id: data["id"] !== undefined ? BigInt(data["id"]) : undefined,
-    uncompressedSizeBytes: data["uncompressedSizeBytes"] !== undefined ? BigInt(data["uncompressedSizeBytes"]) : undefined,
+    uncompressedSizeBytes: data["uncompressedSizeBytes"] !== undefined
+      ? BigInt(data["uncompressedSizeBytes"])
+      : undefined,
   };
 }
 
@@ -395,7 +447,13 @@ export interface Span {
    * For example, two spans with the same name may be distinguished using
    * `CLIENT` (caller) and `SERVER` (callee) to identify an RPC call.
    */
-  spanKind?:  | "SPAN_KIND_UNSPECIFIED" | "INTERNAL" | "SERVER" | "CLIENT" | "PRODUCER" | "CONSUMER";
+  spanKind?:
+    | "SPAN_KIND_UNSPECIFIED"
+    | "INTERNAL"
+    | "SERVER"
+    | "CLIENT"
+    | "PRODUCER"
+    | "CONSUMER";
   /**
    * Stack trace captured at the start of the span.
    */
@@ -421,24 +479,48 @@ export interface Span {
 function serializeSpan(data: any): Span {
   return {
     ...data,
-    attributes: data["attributes"] !== undefined ? serializeAttributes(data["attributes"]) : undefined,
-    endTime: data["endTime"] !== undefined ? data["endTime"].toISOString() : undefined,
-    links: data["links"] !== undefined ? serializeLinks(data["links"]) : undefined,
-    stackTrace: data["stackTrace"] !== undefined ? serializeStackTrace(data["stackTrace"]) : undefined,
-    startTime: data["startTime"] !== undefined ? data["startTime"].toISOString() : undefined,
-    timeEvents: data["timeEvents"] !== undefined ? serializeTimeEvents(data["timeEvents"]) : undefined,
+    attributes: data["attributes"] !== undefined
+      ? serializeAttributes(data["attributes"])
+      : undefined,
+    endTime: data["endTime"] !== undefined
+      ? data["endTime"].toISOString()
+      : undefined,
+    links: data["links"] !== undefined
+      ? serializeLinks(data["links"])
+      : undefined,
+    stackTrace: data["stackTrace"] !== undefined
+      ? serializeStackTrace(data["stackTrace"])
+      : undefined,
+    startTime: data["startTime"] !== undefined
+      ? data["startTime"].toISOString()
+      : undefined,
+    timeEvents: data["timeEvents"] !== undefined
+      ? serializeTimeEvents(data["timeEvents"])
+      : undefined,
   };
 }
 
 function deserializeSpan(data: any): Span {
   return {
     ...data,
-    attributes: data["attributes"] !== undefined ? deserializeAttributes(data["attributes"]) : undefined,
-    endTime: data["endTime"] !== undefined ? new Date(data["endTime"]) : undefined,
-    links: data["links"] !== undefined ? deserializeLinks(data["links"]) : undefined,
-    stackTrace: data["stackTrace"] !== undefined ? deserializeStackTrace(data["stackTrace"]) : undefined,
-    startTime: data["startTime"] !== undefined ? new Date(data["startTime"]) : undefined,
-    timeEvents: data["timeEvents"] !== undefined ? deserializeTimeEvents(data["timeEvents"]) : undefined,
+    attributes: data["attributes"] !== undefined
+      ? deserializeAttributes(data["attributes"])
+      : undefined,
+    endTime: data["endTime"] !== undefined
+      ? new Date(data["endTime"])
+      : undefined,
+    links: data["links"] !== undefined
+      ? deserializeLinks(data["links"])
+      : undefined,
+    stackTrace: data["stackTrace"] !== undefined
+      ? deserializeStackTrace(data["stackTrace"])
+      : undefined,
+    startTime: data["startTime"] !== undefined
+      ? new Date(data["startTime"])
+      : undefined,
+    timeEvents: data["timeEvents"] !== undefined
+      ? deserializeTimeEvents(data["timeEvents"])
+      : undefined,
   };
 }
 
@@ -485,16 +567,24 @@ export interface StackFrame {
 function serializeStackFrame(data: any): StackFrame {
   return {
     ...data,
-    columnNumber: data["columnNumber"] !== undefined ? String(data["columnNumber"]) : undefined,
-    lineNumber: data["lineNumber"] !== undefined ? String(data["lineNumber"]) : undefined,
+    columnNumber: data["columnNumber"] !== undefined
+      ? String(data["columnNumber"])
+      : undefined,
+    lineNumber: data["lineNumber"] !== undefined
+      ? String(data["lineNumber"])
+      : undefined,
   };
 }
 
 function deserializeStackFrame(data: any): StackFrame {
   return {
     ...data,
-    columnNumber: data["columnNumber"] !== undefined ? BigInt(data["columnNumber"]) : undefined,
-    lineNumber: data["lineNumber"] !== undefined ? BigInt(data["lineNumber"]) : undefined,
+    columnNumber: data["columnNumber"] !== undefined
+      ? BigInt(data["columnNumber"])
+      : undefined,
+    lineNumber: data["lineNumber"] !== undefined
+      ? BigInt(data["lineNumber"])
+      : undefined,
   };
 }
 
@@ -516,14 +606,18 @@ export interface StackFrames {
 function serializeStackFrames(data: any): StackFrames {
   return {
     ...data,
-    frame: data["frame"] !== undefined ? data["frame"].map((item: any) => (serializeStackFrame(item))) : undefined,
+    frame: data["frame"] !== undefined
+      ? data["frame"].map((item: any) => (serializeStackFrame(item)))
+      : undefined,
   };
 }
 
 function deserializeStackFrames(data: any): StackFrames {
   return {
     ...data,
-    frame: data["frame"] !== undefined ? data["frame"].map((item: any) => (deserializeStackFrame(item))) : undefined,
+    frame: data["frame"] !== undefined
+      ? data["frame"].map((item: any) => (deserializeStackFrame(item)))
+      : undefined,
   };
 }
 
@@ -549,16 +643,24 @@ export interface StackTrace {
 function serializeStackTrace(data: any): StackTrace {
   return {
     ...data,
-    stackFrames: data["stackFrames"] !== undefined ? serializeStackFrames(data["stackFrames"]) : undefined,
-    stackTraceHashId: data["stackTraceHashId"] !== undefined ? String(data["stackTraceHashId"]) : undefined,
+    stackFrames: data["stackFrames"] !== undefined
+      ? serializeStackFrames(data["stackFrames"])
+      : undefined,
+    stackTraceHashId: data["stackTraceHashId"] !== undefined
+      ? String(data["stackTraceHashId"])
+      : undefined,
   };
 }
 
 function deserializeStackTrace(data: any): StackTrace {
   return {
     ...data,
-    stackFrames: data["stackFrames"] !== undefined ? deserializeStackFrames(data["stackFrames"]) : undefined,
-    stackTraceHashId: data["stackTraceHashId"] !== undefined ? BigInt(data["stackTraceHashId"]) : undefined,
+    stackFrames: data["stackFrames"] !== undefined
+      ? deserializeStackFrames(data["stackFrames"])
+      : undefined,
+    stackTraceHashId: data["stackTraceHashId"] !== undefined
+      ? BigInt(data["stackTraceHashId"])
+      : undefined,
   };
 }
 
@@ -580,7 +682,7 @@ export interface Status {
    * message types for APIs to use.
    */
   details?: {
-    [key: string]: any
+    [key: string]: any;
   }[];
   /**
    * A developer-facing error message, which should be in English. Any
@@ -611,8 +713,12 @@ export interface TimeEvent {
 function serializeTimeEvent(data: any): TimeEvent {
   return {
     ...data,
-    annotation: data["annotation"] !== undefined ? serializeAnnotation(data["annotation"]) : undefined,
-    messageEvent: data["messageEvent"] !== undefined ? serializeMessageEvent(data["messageEvent"]) : undefined,
+    annotation: data["annotation"] !== undefined
+      ? serializeAnnotation(data["annotation"])
+      : undefined,
+    messageEvent: data["messageEvent"] !== undefined
+      ? serializeMessageEvent(data["messageEvent"])
+      : undefined,
     time: data["time"] !== undefined ? data["time"].toISOString() : undefined,
   };
 }
@@ -620,8 +726,12 @@ function serializeTimeEvent(data: any): TimeEvent {
 function deserializeTimeEvent(data: any): TimeEvent {
   return {
     ...data,
-    annotation: data["annotation"] !== undefined ? deserializeAnnotation(data["annotation"]) : undefined,
-    messageEvent: data["messageEvent"] !== undefined ? deserializeMessageEvent(data["messageEvent"]) : undefined,
+    annotation: data["annotation"] !== undefined
+      ? deserializeAnnotation(data["annotation"])
+      : undefined,
+    messageEvent: data["messageEvent"] !== undefined
+      ? deserializeMessageEvent(data["messageEvent"])
+      : undefined,
     time: data["time"] !== undefined ? new Date(data["time"]) : undefined,
   };
 }
@@ -651,14 +761,18 @@ export interface TimeEvents {
 function serializeTimeEvents(data: any): TimeEvents {
   return {
     ...data,
-    timeEvent: data["timeEvent"] !== undefined ? data["timeEvent"].map((item: any) => (serializeTimeEvent(item))) : undefined,
+    timeEvent: data["timeEvent"] !== undefined
+      ? data["timeEvent"].map((item: any) => (serializeTimeEvent(item)))
+      : undefined,
   };
 }
 
 function deserializeTimeEvents(data: any): TimeEvents {
   return {
     ...data,
-    timeEvent: data["timeEvent"] !== undefined ? data["timeEvent"].map((item: any) => (deserializeTimeEvent(item))) : undefined,
+    timeEvent: data["timeEvent"] !== undefined
+      ? data["timeEvent"].map((item: any) => (deserializeTimeEvent(item)))
+      : undefined,
   };
 }
 
