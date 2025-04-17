@@ -198,9 +198,9 @@ impl Database {
       ORDER BY {sort} OFFSET $3 LIMIT $4"#)
     )
       .bind(&search)
-      .bind(&maybe_id)
-      .bind(&start)
-      .bind(&limit)
+      .bind(maybe_id)
+      .bind(start)
+      .bind(limit)
       .fetch_all(&mut *tx).await?;
 
     let total_users = sqlx::query!(
@@ -1529,7 +1529,7 @@ impl Database {
       .bind(&package_ilike_query)
       .bind(package_exact_query)
       .bind(scope_exact_query)
-      .bind(&maybe_github_repo_id)
+      .bind(maybe_github_repo_id)
       .bind(start)
       .bind(limit)
       .try_map(|r| {
@@ -3204,6 +3204,7 @@ impl Database {
     .await
   }
 
+  #[allow(clippy::type_complexity)]
   #[instrument(name = "Database::list_publishing_tasks", skip(self), err)]
   pub async fn list_publishing_tasks(
     &self,
