@@ -2,7 +2,6 @@
 // deno-fmt-ignore-file
 // deno-lint-ignore-file
 
-
 // Copyright 2022 Luca Casonato. All rights reserved. MIT license.
 /**
  * Cloud Trace API Client for Deno
