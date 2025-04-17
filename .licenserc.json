@@ -5,6 +5,7 @@
     "frontend/_fresh/",
     "frontend/node_modules/",
     "frontend/fresh.gen.ts",
+    "frontend/utils/cloudtrace:v2.ts",
     "target/",
     ".gcs/",
     "terraform/.terraform/",

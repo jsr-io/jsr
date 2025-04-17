@@ -7,7 +7,13 @@ export interface Params {
   version?: string;
 }
 
-type Tab = "scopes" | "users" | "publishingTasks" | "tickets" | "audit";
+type Tab =
+  | "users"
+  | "scopes"
+  | "packages"
+  | "publishingTasks"
+  | "tickets"
+  | "audit";
 
 export function AdminNav({ currentTab }: {
   currentTab: Tab;
@@ -16,11 +22,14 @@ export function AdminNav({ currentTab }: {
     <>
       <h1 class="font-bold text-2xl">Admin</h1>
       <Nav>
+        <NavItem href="/admin/users" active={currentTab === "users"}>
+          Users
+        </NavItem>
         <NavItem href="/admin/scopes" active={currentTab === "scopes"}>
           Scopes
         </NavItem>
-        <NavItem href="/admin/users" active={currentTab === "users"}>
-          Users
+        <NavItem href="/admin/packages" active={currentTab === "packages"}>
+          Packages
         </NavItem>
         <NavItem
           href="/admin/publishingTasks"

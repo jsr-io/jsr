@@ -67,7 +67,7 @@ export interface PublishingTask {
   id: string;
   status: PublishingTaskStatus;
   error: { code: string; message: string } | null;
-  userId: string;
+  user: User | null;
   packageScope: string;
   packageName: string;
   packageVersion: string;

@@ -57,7 +57,7 @@ pub struct ApiPublishingTask {
   pub id: Uuid,
   pub status: ApiPublishingTaskStatus,
   pub error: Option<ApiPublishingTaskError>,
-  pub user_id: Option<Uuid>,
+  pub user: Option<ApiUser>,
   pub package_scope: ScopeName,
   pub package_name: PackageName,
   pub package_version: Version,
@@ -65,13 +65,13 @@ pub struct ApiPublishingTask {
   pub updated_at: DateTime<Utc>,
 }
 
-impl From<PublishingTask> for ApiPublishingTask {
-  fn from(value: PublishingTask) -> Self {
+impl From<(PublishingTask, Option<UserPublic>)> for ApiPublishingTask {
+  fn from((value, user): (PublishingTask, Option<UserPublic>)) -> Self {
     Self {
       id: value.id,
       status: value.status.into(),
       error: value.error.map(Into::into),
-      user_id: value.user_id,
+      user: user.map(Into::into),
       package_scope: value.package_scope,
       package_name: value.package_name,
       package_version: value.package_version,
@@ -113,7 +113,7 @@ impl
   }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiUser {
   pub id: Uuid,
