@@ -60,9 +60,12 @@ export function DownloadChart(props: Props) {
       chart.destroy();
     };
   }, []);
-  return <div class="w-full h-[400px]">
-    <div ref={chartRef}></div>
-  </div>;
+
+  return (
+    <div class="w-full h-[400px]">
+      <div ref={chartRef}></div>
+    </div>
+  );
 }
 
 function collectX(dataPoints: DownloadDataPoint[][]) {
