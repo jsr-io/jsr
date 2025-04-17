@@ -44,17 +44,6 @@ export function ScopeMemberLeave({
         scope{isAdmin && " or manage members"}.
       </p>
       <input type="hidden" name="userId" value={userId} />
-      {(isLastAdmin || isInvalidInput.value) && (
-        <div class="mt-6 border rounded-md border-red-300 bg-red-50 p-6 text-red-600">
-          <span class="font-bold text-xl">Warning</span>
-          <p>
-            {isLastAdmin &&
-              "You are the last admin in this scope. You must promote another member to admin before leaving."}
-            {isInvalidInput.value &&
-              "The scope name you entered does not match the scope name."}
-          </p>
-        </div>
-      )}
       <div class="mt-4 flex justify-between gap-4">
         <input
           type="text"
@@ -80,6 +69,17 @@ export function ScopeMemberLeave({
           <TbArrowRightFromArc class="size-5 ml-2 rotate-180" />
         </button>
       </div>
+      {(isLastAdmin || isInvalidInput.value) && (
+        <div class="mt-6 border rounded-md border-red-300 bg-red-50 p-6 text-red-600">
+          <span class="font-bold text-xl">Warning</span>
+          <p>
+            {isLastAdmin &&
+              "You are the last admin in this scope. You must promote another member to admin before leaving."}
+            {isInvalidInput.value &&
+              "The scope name you entered does not match the scope name."}
+          </p>
+        </div>
+      )}
     </form>
   );
 }
