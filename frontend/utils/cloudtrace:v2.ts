@@ -1,8 +1,10 @@
-// This file in vendored in because the service is not working properly.
+// Copyright 2022 Luca Casonato. All rights reserved. MIT license.
+
 // deno-fmt-ignore-file
 // deno-lint-ignore-file
 
-// Copyright 2022 Luca Casonato. All rights reserved. MIT license.
+// This file in vendored in because the service is not working properly.
+
 /**
  * Cloud Trace API Client for Deno
  * ===============================
