@@ -218,7 +218,8 @@
   .input-container {
     @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
       border-jsr-cyan-900/30 dark:border-jsr-gray-600
-      focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400;
+      focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400
+      appearance-none;
   }
 
   select:not([data-locked="true"]):disabled.input-container,
