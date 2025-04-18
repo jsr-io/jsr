@@ -50,12 +50,22 @@ export default define.page<typeof handler>(function PublishingTasks({
                 ID
               </CopyButton>
               <div>
-                <span class={`font-bold ${publishingTask.status === "failure" ? "text-red-500" : "text-green-500"}`}>
+                <span
+                  class={`font-bold ${
+                    publishingTask.status === "failure"
+                      ? "text-red-500"
+                      : "text-green-500"
+                  }`}
+                >
                   {publishingTask.status}
                 </span>
-                {publishingTask.status === "failure" &&  publishingTask.error && (
-                  <span class="font-mono"><br />Error {publishingTask.error.code}: {publishingTask.error.message}</span>
-                )}
+                {publishingTask.status === "failure" && publishingTask.error &&
+                  (
+                    <span class="font-mono">
+                      <br />Error {publishingTask.error.code}:{" "}
+                      {publishingTask.error.message}
+                    </span>
+                  )}
               </div>
             </TableData>
             <TableData flex>

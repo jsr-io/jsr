@@ -52,9 +52,9 @@ export default define.page<typeof handler>(function Tickets({
                   <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
                 )}
                 <div
-                  class={`${
-                    ticket.closed ? "bg-green-400" : "bg-orange-400"
-                  } ${!isNotification(ticket) && "ml-4"} rounded-full p-1`}
+                  class={`${ticket.closed ? "bg-green-400" : "bg-orange-400"} ${
+                    !isNotification(ticket) && "ml-4"
+                  } rounded-full p-1`}
                 >
                   {ticket.closed
                     ? <TbCheck class="text-white" />
