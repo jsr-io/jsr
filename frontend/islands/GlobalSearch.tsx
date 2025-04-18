@@ -296,7 +296,9 @@ export function GlobalSearch(
                 jumbo ? "!px-3.5" : "!px-1.5"
               }`}
             >
-              <div class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}>
+              <div
+                class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+              >
                 <div ref={inputOverlayContentRef}>
                   {tokenizeFilter(search.value).map((token, i, arr) => (
                     <span>
