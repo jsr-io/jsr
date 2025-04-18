@@ -14,7 +14,7 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
   return (
     <div class="mb-20">
       <AdminNav currentTab="scopes" />
-      <div class="flex gap-4">
+      <div class="flex gap-2 md:gap-4 flex-wrap">
         <URLQuerySearch query={data.query} />
         <a class="button-primary mt-4" href="/admin/scopes/assign">
           Assign Scope <TbArrowRight />
