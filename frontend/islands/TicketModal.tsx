@@ -19,7 +19,7 @@ export function TicketModal(
   { user, kind, style, fields, children, extraMeta, title, description }: {
     children: ComponentChildren;
     kind: TicketKind;
-    style: "primary" | "danger";
+    style: "primary" | "danger" | "danger-outline";
     user: User | null;
     title: string;
     description: ComponentChildren;
@@ -63,6 +63,8 @@ export function TicketModal(
       <button
         ref={buttonRef}
         id={`${prefix}-ticket-modal`}
+        // "button-danger-outline" ensure that tailwind precess this class
+        // because it's ins't use somewhere else and here it's dynamic class
         class={`button-${style}`}
         type="button"
         onClick={() => setOpen((v) => !v)}

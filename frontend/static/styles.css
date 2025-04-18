@@ -135,6 +135,18 @@
       active:translate-y-[4px];
   }
 
+  .button-danger-outline {
+    @apply button border-1.5 border-red-500 bg-transparent text-red-500
+      hover:bg-red-100 disabled:bg-jsr-gray-100 outline-red-600
+      disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent
+      disabled:border-red-300 transition-all duration-75 ease-in-out;
+  }
+
+  .button-danger-outline:not(:disabled) {
+    @apply active:shadow-accent-sm-close active:translate-x-[3px]
+      active:translate-y-[4px];
+  }
+
   .chip {
     @apply inline-block py-1 px-2.5 rounded-full whitespace-nowrap leading-none
       font-semibold text-sm;
