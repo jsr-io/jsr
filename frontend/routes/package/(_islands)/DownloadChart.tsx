@@ -1,28 +1,28 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { useEffect, useRef } from "preact/hooks";
-import { type PackageDownloads, type DownloadDataPoint } from "../../../utils/api_types.ts";
+import { useEffect, useRef, useState } from "preact/hooks";
+import type {
+  DownloadDataPoint,
+  PackageDownloadsRecentVersion,
+} from "../../../utils/api_types.ts";
 
-type Props = {
-  downloads: PackageDownloads;
-};
+interface Props {
+  downloads: PackageDownloadsRecentVersion[];
+}
+
+export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
 export function DownloadChart(props: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
-  console.log("downloads", props.downloads);
+  const [aggregationPeriod, setAggregationPeriod] = useState<AggregationPeriod>(
+    "weekly",
+  );
+
   useEffect(() => {
     // deno-lint-ignore no-explicit-any
     let chart: any;
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
-      const dataPointsWithDownloads = props.downloads.recentVersions.filter((dataPoints) => 
-        dataPoints.downloads.length > 0
-      );
-
-      const dataPointsToDisplay = dataPointsWithDownloads.slice(0, 5);
-      const others = dataPointsWithDownloads.slice(5).map((dataPoints) => dataPoints.downloads).flat();
-
-      const xValues = collectX(dataPointsToDisplay.map((version) => version.downloads));
       chart = new ApexCharts(chartRef.current!, {
         chart: {
           type: "area",
@@ -34,24 +34,18 @@ export function DownloadChart(props: Props) {
           width: "100%",
         },
         legend: {
-          horizontalAlign: "left",
+          horizontalAlign: "center",
           position: "top",
           showForSingleSeries: true,
         },
         dataLabels: {
-          enabled: false
+          enabled: false,
         },
         stroke: {
           curve: "straight",
           width: 1.7,
         },
-        series: [...dataPointsToDisplay.map((version) => ({
-          name: version.version,
-          data: normalize(version.downloads, xValues),
-        })), {
-          name: "Other",
-          data: normalize(others, xValues),
-        }],
+        series: getSeries(props.downloads, aggregationPeriod),
         xaxis: { type: "datetime" },
       });
       chart.render();
@@ -59,33 +53,101 @@ export function DownloadChart(props: Props) {
     return () => {
       chart.destroy();
     };
-  }, []);
+  }, [aggregationPeriod]);
 
   return (
-    <div class="w-full h-[400px]">
-      <div ref={chartRef}></div>
+    <div class="relative">
+      <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
+        <label htmlFor="aggregationPeriod" className="text-gray-700">
+          Aggregation Period:
+        </label>
+        <select
+          id="aggregationPeriod"
+          value={aggregationPeriod}
+          onChange={(e) =>
+            setAggregationPeriod(e.currentTarget.value as AggregationPeriod)}
+          className="input-container input px-1.5 py-0.5"
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div className="h-[300px]">
+        <div ref={chartRef} />
+      </div>
     </div>
   );
 }
 
-function collectX(dataPoints: DownloadDataPoint[][]) {
-  const xValues = new Set<string>();
-  dataPoints.forEach((points) => {
-    points.forEach((point) => {
-      xValues.add(point.timeBucket);
-    });
-  });
-
-  return Array.from(xValues).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+function formatDateUTC(d: Date): string {
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
-function normalize(dataPoints: DownloadDataPoint[], xValues: string[]) {
+function adjustTimePeriod(
+  timeBucket: string,
+  aggregation: AggregationPeriod,
+): string {
+  const date = new Date(timeBucket);
+  if (isNaN(date.getTime())) {
+    throw new Error(`Invalid date: ${timeBucket}`);
+  }
+
+  let out: Date;
+  switch (aggregation) {
+    case "weekly":
+      // start of week (Sunday) in UTC
+      out = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate() - date.getUTCDay(),
+      ));
+      break;
+    case "monthly":
+      // first day of month in UTC
+      out = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        1,
+      ));
+      break;
+    default: // daily
+      out = date;
+  }
+
+  return formatDateUTC(out);
+}
+
+export function collectX(
+  dataPoints: DownloadDataPoint[],
+  aggregationPeriod: AggregationPeriod,
+) {
+  const xValues = new Set<string>();
+  dataPoints.forEach((point) => {
+    xValues.add(adjustTimePeriod(point.timeBucket, aggregationPeriod));
+  });
+
+  return Array.from(xValues).sort((a, b) =>
+    new Date(a).getTime() - new Date(b).getTime()
+  );
+}
+
+export function normalize(
+  dataPoints: DownloadDataPoint[],
+  xValues: string[],
+  aggregationPeriod: AggregationPeriod,
+): [Date, number][] {
   const normalized: { [key: string]: number } = {};
   for (const date of xValues) {
     normalized[date] = 0;
   }
+
   dataPoints.forEach((point) => {
-    const key = point.timeBucket;
+    const key = adjustTimePeriod(point.timeBucket, aggregationPeriod);
+
     if (normalized[key]) {
       normalized[key] += point.count;
     } else {
@@ -93,5 +155,38 @@ function normalize(dataPoints: DownloadDataPoint[], xValues: string[]) {
     }
   });
 
-  return Object.entries(normalized).map(([key, value]) => ([new Date(key), value]));
+  return Object.entries(normalized).map((
+    [key, value],
+  ) => [new Date(key), value]);
+}
+
+function getSeries(
+  recentVersions: PackageDownloadsRecentVersion[],
+  aggregationPeriod: AggregationPeriod,
+) {
+  const dataPointsWithDownloads = recentVersions.filter((dataPoints) =>
+    dataPoints.downloads.length > 0
+  );
+
+  const dataPointsToDisplay = dataPointsWithDownloads.slice(0, 5);
+  const others = dataPointsWithDownloads.slice(5).map((dataPoints) =>
+    dataPoints.downloads
+  ).flat();
+
+  const xValues = collectX(
+    dataPointsToDisplay.map((version) => version.downloads).flat(),
+    aggregationPeriod,
+  );
+
+  return [
+    ...dataPointsToDisplay.map((version) => ({
+      name: version.version,
+      data: normalize(version.downloads, xValues, aggregationPeriod),
+    })),
+    {
+      name: "Other",
+      data: normalize(others, xValues, aggregationPeriod),
+      color: "#e7c50b", // jsr-yellow-500
+    },
+  ];
 }

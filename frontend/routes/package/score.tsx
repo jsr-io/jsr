@@ -19,7 +19,11 @@ export default define.page<typeof handler>(function Score(
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} user={state.user} />
+      <PackageHeader
+        package={data.package}
+        user={state.user}
+        downloads={data.downloads}
+      />
 
       <PackageNav
         currentTab="Score"
@@ -300,6 +304,7 @@ export const handler = define.handlers({
     return {
       data: {
         package: res.pkg,
+        downloads: res.downloads,
         score: scoreResp.data,
         member: res.scopeMember,
       },

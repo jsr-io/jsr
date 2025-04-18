@@ -17,7 +17,11 @@ export default define.page<typeof handler>(function PackagePage({
 }) {
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} user={state.user} />
+      <PackageHeader
+        package={data.package}
+        user={state.user}
+        downloads={data.downloads}
+      />
 
       <PackageNav
         currentTab="Publish"
@@ -283,7 +287,7 @@ export const handler = define.handlers({
       throw new HttpError(404, "This package was not found.");
     }
 
-    const { pkg, scopeMember } = data;
+    const { pkg, scopeMember, downloads } = data;
 
     const iam = scopeIAM(ctx.state, scopeMember, user);
     if (!iam.canWrite) {
@@ -299,6 +303,7 @@ export const handler = define.handlers({
     return {
       data: {
         package: pkg,
+        downloads,
         iam,
       },
     };
