@@ -17,6 +17,7 @@ export function DownloadChart(props: Props) {
   const [aggregationPeriod, setAggregationPeriod] = useState<AggregationPeriod>(
     "weekly",
   );
+  const [graphRendered, setGraphRendered] = useState(false);
 
   useEffect(() => {
     // deno-lint-ignore no-explicit-any
@@ -49,6 +50,7 @@ export function DownloadChart(props: Props) {
         xaxis: { type: "datetime" },
       });
       chart.render();
+      setGraphRendered(true);
     })();
     return () => {
       chart.destroy();
@@ -57,22 +59,22 @@ export function DownloadChart(props: Props) {
 
   return (
     <div class="relative">
-      <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
-        <label htmlFor="aggregationPeriod" className="text-gray-700">
-          Aggregation Period:
-        </label>
-        <select
-          id="aggregationPeriod"
-          value={aggregationPeriod}
-          onChange={(e) =>
+      {graphRendered && <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
+	      <label htmlFor="aggregationPeriod" className="text-gray-700">
+		      Aggregation Period:
+	      </label>
+	      <select
+		      id="aggregationPeriod"
+		      value={aggregationPeriod}
+		      onChange={(e) =>
             setAggregationPeriod(e.currentTarget.value as AggregationPeriod)}
-          className="input-container input px-1.5 py-0.5"
-        >
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-      </div>
+		      className="input-container input px-1.5 py-0.5"
+	      >
+		      <option value="daily">Daily</option>
+		      <option value="weekly">Weekly</option>
+		      <option value="monthly">Monthly</option>
+	      </select>
+      </div>}
       <div className="h-[300px]">
         <div ref={chartRef} />
       </div>
