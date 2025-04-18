@@ -69,7 +69,7 @@ export function DownloadWidget(props: Props) {
           },
         },
         tooltip: {
-          custom: ({ dataPointIndex }) => {
+          custom: ({ dataPointIndex }: { dataPointIndex: number }) => {
             const hoveredData = data[dataPointIndex];
             setHoveredDataPoint({
               date: hoveredData[0],
