@@ -18,8 +18,14 @@ project.
 # deno
 deno add jsr:@luca/cases
 
-# npm (use any of npx, yarn dlx, pnpm dlx, or bunx)
-npx jsr add @luca/cases
+# pnpm 10.9+
+pnpm add jsr:@luca/cases
+
+# yarn 4.9+
+yarn add jsr:@luca/cases
+
+# npm, bun, and older versions of yarn or pnpm
+npx jsr add @luca/cases # replace npx with any of yarn dlx, pnpm dlx, or bunx
 ```
 
 After adding the package, you can import and use it in ES modules like so:

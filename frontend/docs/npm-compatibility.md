@@ -19,7 +19,20 @@ downloaded from jsr.io and installed in your `node_modules` directory.
 
 ## Installing and using JSR packages
 
-You can add JSR packages to your project using the `jsr` CLI:
+If you are using a recent version of pnpm (10.9+) or Yarn (4.9+), you can
+install JSR packages using `pnpm install` or `yarn add` without any additional
+configuration. These versions of pnpm and Yarn both support JSR out of the box.
+
+```sh
+pnpm install jsr:@luca/cases
+```
+
+```sh
+yarn add jsr:@luca/cases
+```
+
+If you are using npm, an older version of pnpm or Yarn, or Bun, you can use the
+JSR CLI to install JSR packages:
 
 ```sh
 npx jsr add @luca/cases
@@ -28,13 +41,15 @@ npx jsr add @luca/cases
 This will add the `@luca/cases` package to your `package.json` file, and install
 it to your `node_modules` directory using your preferred package manager.
 
-The package manager to use will be automatically detected based on the presence
-of a `package.lock`, `yarn.lock` or `pnpm-lock.yaml` file in your project. You
-can also specify the package manager to use explicitly using the `--npm`,
-`--yarn`, or `--pnpm` flags to the `jsr add` command.
+When using the JSR CLI, the package manager to use will be automatically
+detected based on the presence of a `package.lock`, `yarn.lock` or
+`pnpm-lock.yaml` file in your project. You can also specify the package manager
+to use explicitly using the `--npm`, `--yarn`, or `--pnpm` flags to the
+`jsr add` command.
 
-> You should check the `.npmrc` file that is created into source control. This
-> enables future calls to `npm install` / `yarn` / `pnpm install` to succeed.
+> When using the JSR CLI, you should check the `.npmrc` file that is created
+> into source control. This enables future calls to `npm install` and alike to
+> succeed.
 
 You can then use the JSR package from your code:
 
@@ -72,9 +87,14 @@ you cannot publish packages to it. You can only use it to install jsr packages
 from npm.
 
 The `@jsr` npm scope is served from the JSR registry at `https://npm.jsr.io`.
-This means that you need to configure your package manager to use this registry
-to install JSR packages. When adding packages with the `jsr` CLI, this is done
-automatically.
+
+Recent versions of `yarn` and `pnpm` automatically configure pull packages in
+the `@jsr` scope from `https://npm.jsr.io`, so you don't need to do anything
+special to use JSR packages with these package managers.
+
+For other package managers, and older versions of `yarn` and `pnpm`, you need to
+configure your package manager to use the JSR registry to install JSR packages.
+When adding packages with the `jsr` CLI, this is done automatically.
 
 Instead of using the `jsr` CLI to install JSR packages, you can also manually
 configure your package manager to support installing JSR packages.
