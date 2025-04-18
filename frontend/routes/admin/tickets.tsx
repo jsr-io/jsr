@@ -12,6 +12,9 @@ export default define.page<typeof handler>(function Tickets({
   data,
   url,
 }) {
+  const isNotification = (ticket: Ticket) =>
+    ticket.messages.at(-1)!.author.id === ticket.creator.id && !ticket.closed;
+
   return (
     <div class="mb-20">
       <AdminNav currentTab="tickets" />
@@ -45,14 +48,13 @@ export default define.page<typeof handler>(function Tickets({
           <TableRow key={ticket.id}>
             <TableData>
               <div class="flex items-center gap-1.5">
-                {ticket.messages.at(-1)!.author.id === ticket.creator.id &&
-                  !ticket.closed && (
+                {isNotification(ticket) && (
                   <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
                 )}
                 <div
                   class={`${
                     ticket.closed ? "bg-green-400" : "bg-orange-400"
-                  } rounded-full p-1`}
+                  } ${!isNotification(ticket) && "pl-2.5"} rounded-full p-1`}
                 >
                   {ticket.closed
                     ? <TbCheck class="text-white" />
