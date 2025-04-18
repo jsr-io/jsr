@@ -81,17 +81,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       FROM users
       WHERE id = $1"#,
@@ -125,17 +125,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       FROM users
       WHERE github_id = $1"#,
@@ -181,17 +181,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count"
       FROM users
       WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
@@ -233,17 +233,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       "#,
       new_user.name,
@@ -277,17 +277,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       "#,
       new_user.name,
@@ -373,17 +373,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       "#,
       is_blocked,
@@ -425,17 +425,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       "#,
       scope_limit,
@@ -459,17 +459,17 @@ impl Database {
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "newer_ticket_messages_count!"
       "#,
       id
@@ -1151,13 +1151,7 @@ impl Database {
     } || "scopes.created_at DESC");
 
     let scopes = sqlx::query(&format!(
-      r#" WITH usage AS (
-        SELECT
-          (SELECT COUNT(created_at) FROM packages WHERE scope = $1) AS package,
-          (SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND created_at > now() - '1 week'::interval) AS new_package_per_week,
-          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week
-      )
-      SELECT
+      r#"SELECT
       scopes.scope as "scope_scope",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
@@ -1168,10 +1162,11 @@ impl Database {
       scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.created_at as "scope_created_at",
       users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
-      usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
+      (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope) AS "usage_package",
+      (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_new_package_per_week",
+      (SELECT COUNT(created_at) FROM publishing_tasks WHERE publishing_tasks.package_scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_publish_attempts_per_week"
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
-      CROSS JOIN usage
       WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
       ORDER BY {sort}
       OFFSET $2 LIMIT $3
@@ -4109,17 +4104,17 @@ impl Database {
             (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
             (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
             (CASE WHEN users.is_staff THEN (
-                SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                        SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                    )
+              SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+                  SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
                 )
+              )
             ) ELSE (
-               SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-                  SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-                  )
-               )
+              SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+                )
+              )
             ) END) as "user_newer_ticket_messages_count!"
         FROM ticket
         INNER JOIN users ON users.id = ticket.creator
@@ -4226,17 +4221,17 @@ impl Database {
         (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
         (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "user_newer_ticket_messages_count"
     FROM tickets
     INNER JOIN users ON users.id = tickets.creator
@@ -4357,17 +4352,17 @@ impl Database {
         (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
         (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
         (CASE WHEN users.is_staff THEN (
-            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                )
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
             )
+          )
         ) ELSE (
-           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-              )
-           )
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
         ) END) as "user_newer_ticket_messages_count!"
     FROM tickets
     INNER JOIN users ON users.id = tickets.creator
@@ -4488,17 +4483,17 @@ impl Database {
             (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
             (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
             (CASE WHEN users.is_staff THEN (
-                SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                        SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                    )
+              SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+                  SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
                 )
+              )
             ) ELSE (
-               SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-                  SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-                  )
-               )
+              SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+                )
+              )
             ) END) as "user_newer_ticket_messages_count!"
         FROM tickets
         INNER JOIN users ON users.id = tickets.creator
@@ -4702,17 +4697,17 @@ impl Database {
             (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
             (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
             (CASE WHEN users.is_staff THEN (
-                SELECT COUNT(created_at) FROM tickets WHERE EXISTS (
-                    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (
-                        SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator
-                    )
+              SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+                  SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
                 )
+              )
             ) ELSE (
-               SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-                  SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-                  )
-               )
+              SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+                )
+              )
             ) END) as "user_newer_ticket_messages_count!"
         FROM ticket
         INNER JOIN users ON users.id = ticket.creator

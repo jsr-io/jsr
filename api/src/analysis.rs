@@ -477,11 +477,10 @@ impl SyncLoader<'_> {
           maybe_headers: None,
         }))
       }
-      "http" | "https" | "node" | "npm" | "jsr" | "bun" => {
-        Ok(Some(deno_graph::source::LoadResponse::External {
-          specifier: specifier.clone(),
-        }))
-      }
+      "http" | "https" | "node" | "npm" | "jsr" | "bun" | "virtual"
+      | "cloudflare" => Ok(Some(deno_graph::source::LoadResponse::External {
+        specifier: specifier.clone(),
+      })),
       "data" => load_data_url(specifier)
         .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e)))),
       _ => Ok(None),
@@ -796,7 +795,7 @@ fn collect_dependencies(
           }
         }
       }
-      "file" | "data" | "node" | "bun" => {}
+      "file" | "data" | "node" | "bun" | "virtual" | "cloudflare" => {}
       "http" | "https" => {
         return Err(PublishError::InvalidExternalImport {
           specifier: module.specifier().to_string(),

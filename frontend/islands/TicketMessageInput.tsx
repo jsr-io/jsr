@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useState } from "preact/hooks";
+import { TbCheck, TbClock } from "tb-icons";
 import {
   AdminUpdateTicketRequest,
   FullUser,
@@ -35,7 +36,7 @@ export function TicketMessageInput(
       }}
     >
       <textarea
-        class="w-full block px-2 py-1.5 input-container input"
+        class="w-full block px-2 py-1.5 input-container input min-h-20"
         value={message}
         rows={3}
         placeholder="Type your message here..."
@@ -65,7 +66,17 @@ export function TicketMessageInput(
               });
             }}
           >
-            {ticket.closed ? "Re-open" : "Close"} ticket
+            {ticket.closed
+              ? (
+                <>
+                  <TbClock class="text-white" /> Re-open
+                </>
+              )
+              : (
+                <>
+                  <TbCheck class="text-white" /> Close
+                </>
+              )} ticket
           </button>
         )}
       </div>

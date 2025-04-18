@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n        (CASE WHEN users.is_staff THEN (\n            SELECT COUNT(created_at) FROM tickets WHERE EXISTS (\n                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author = tickets.creator AND tm.created_at > (\n                    SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author != tickets.creator\n                )\n            )\n        ) ELSE (\n           SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n              SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n              )\n           )\n        ) END) as \"newer_ticket_messages_count!\"\n      FROM users\n      WHERE github_id = $1",
+  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,\n        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n        (CASE WHEN users.is_staff THEN (\n          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n            )\n          )\n        ) ELSE (\n          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n            )\n          )\n        ) END) as \"newer_ticket_messages_count!\"\n      FROM users\n      WHERE github_id = $1",
   "describe": {
     "columns": [
       {
@@ -90,5 +90,5 @@
       null
     ]
   },
-  "hash": "983159e61abb567c5439efb6e0aaf277cb941873dab5048ad1e370aaa4fb73cb"
+  "hash": "93da3d9967af3481cc488eca6a546a99a64d359856d219973d0ef587ff131ae0"
 }

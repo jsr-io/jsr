@@ -1828,7 +1828,7 @@ impl DepTreeLoader {
       }
       "jsr" => unreachable!("{specifier}"),
       // TODO(@crowlKats): handle npm specifiers
-      "npm" | "node" | "bun" => async move {
+      "npm" | "node" | "bun" | "virtual" | "cloudflare" => async move {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier: specifier.clone(),
         }))
