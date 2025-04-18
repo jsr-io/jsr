@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type {
-  FullUser,
   Package,
+  PackageDownloads,
   PackageVersionWithUser,
 } from "../../../utils/api_types.ts";
 import TbBrandGithub from "tb-icons/TbBrandGithub";
@@ -10,24 +10,23 @@ import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import {
   TbAlertTriangleFilled,
   TbExternalLink,
-  TbFlag,
   TbRosetteDiscountCheck,
 } from "tb-icons";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
-import { TicketModal } from "../../../islands/TicketModal.tsx";
+import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
 
 interface PackageHeaderProps {
   package: Package;
   selectedVersion?: PackageVersionWithUser;
-  user: FullUser | null;
+  downloads: PackageDownloads | null;
 }
 
 export function PackageHeader({
   package: pkg,
   selectedVersion,
-  user,
+  downloads,
 }: PackageHeaderProps) {
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
@@ -222,44 +221,15 @@ export function PackageHeader({
             )}
           </div>
 
-          <div>
-            <TicketModal
-              user={user}
-              kind="package_report"
-              style="danger"
-              title="Report package"
-              description={
-                <>
-                  <p class="mt-4 text-jsr-gray-600">
-                    Please provide a reason for reporting this package. We will
-                    review your report and take appropriate action.
-                  </p>
-                  <p class="mt-4 text-jsr-gray-600">
-                    Please review the{" "}
-                    <a href="/docs/usage-policy#package-contents-and-metadata">
-                      JSR usage policy
-                    </a>{" "}
-                    before submitting a report.
-                  </p>
-                </>
-              }
-              fields={[
-                {
-                  name: "message",
-                  label: "Reason",
-                  type: "textarea",
-                  required: true,
-                },
-              ]}
-              extraMeta={{
-                scope: pkg.scope,
-                name: pkg.name,
-                version: selectedVersion?.version,
-              }}
-            >
-              <TbFlag class="size-6 md:size-4" /> Report package
-            </TicketModal>
-          </div>
+          {downloads && (
+            <div>
+              <DownloadWidget
+                downloads={downloads.total}
+                scope={pkg.scope}
+                pkg={pkg.name}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

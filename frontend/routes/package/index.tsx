@@ -19,7 +19,7 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
-        user={state.user}
+        downloads={data.downloads}
       />
       <PackageNav
         currentTab="Index"
@@ -37,6 +37,9 @@ export default define.page<typeof handler>(function PackagePage(
             docs={data.docs}
             params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            user={state.user}
+            scope={data.package.scope}
+            pkg={data.package.name}
             showProvenanceBadge
           />
         )
@@ -76,6 +79,7 @@ export const handler = define.handlers({
       scopeMember,
       selectedVersion,
       docs,
+      downloads,
     } = res as DocsData;
 
     if (scopeMember && pkg.versionCount === 0) {
@@ -97,6 +101,7 @@ export const handler = define.handlers({
     return {
       data: {
         package: pkg,
+        downloads,
         selectedVersion,
         docs,
         member: scopeMember,

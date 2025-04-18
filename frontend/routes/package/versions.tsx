@@ -14,6 +14,7 @@ import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { path } from "../../utils/api.ts";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
+import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
 
 export default define.page<typeof handler>(function Versions({
   data,
@@ -85,7 +86,10 @@ export default define.page<typeof handler>(function Versions({
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} user={state.user} />
+      <PackageHeader
+        package={data.package}
+        downloads={null}
+      />
 
       <PackageNav
         currentTab="Versions"
@@ -96,6 +100,10 @@ export default define.page<typeof handler>(function Versions({
         dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
+
+      <div class="mt-8">
+        <DownloadChart downloads={data.downloads.recentVersions} />
+      </div>
 
       <div class="space-y-3 mt-8">
         {versionsArray.length === 0
@@ -336,6 +344,7 @@ export const handler = define.handlers({
         versions: versionsResp.data,
         publishingTasks,
         member: res.scopeMember,
+        downloads: res.downloads,
       },
     };
   },

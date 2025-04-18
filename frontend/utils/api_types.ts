@@ -358,3 +358,19 @@ export interface AuditLog {
   meta: Record<string, unknown>;
   createdAt: string;
 }
+
+export interface PackageDownloads {
+  total: DownloadDataPoint[];
+  recentVersions: PackageDownloadsRecentVersion[];
+}
+
+export interface DownloadDataPoint {
+  timeBucket: string;
+  kind: "jsr_meta" | "npm_tarball";
+  count: number;
+}
+
+export interface PackageDownloadsRecentVersion {
+  version: string;
+  downloads: DownloadDataPoint[];
+}
