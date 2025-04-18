@@ -578,3 +578,7 @@ body .ddoc:has(.toc) {
     display: none;
   }
 }
+
+.apexcharts-tooltip-series-group {
+  padding-bottom: 0 !important;
+}

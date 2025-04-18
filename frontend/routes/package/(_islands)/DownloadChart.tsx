@@ -13,18 +13,15 @@ interface Props {
 export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
 export function DownloadChart(props: Props) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [aggregationPeriod, setAggregationPeriod] = useState<AggregationPeriod>(
-    "weekly",
-  );
+  const chartDivRef = useRef<HTMLDivElement>(null);
+  // deno-lint-ignore no-explicit-any
+  const chartRef = useRef<any>(null);
   const [graphRendered, setGraphRendered] = useState(false);
 
   useEffect(() => {
-    // deno-lint-ignore no-explicit-any
-    let chart: any;
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
-      chart = new ApexCharts(chartRef.current!, {
+      chartRef.current = new ApexCharts(chartDivRef.current!, {
         chart: {
           type: "area",
           stacked: true,
@@ -33,11 +30,19 @@ export function DownloadChart(props: Props) {
           },
           height: "100%",
           width: "100%",
+          zoom: {
+            allowMouseWheelZoom: false,
+          },
         },
         legend: {
           horizontalAlign: "center",
           position: "top",
           showForSingleSeries: true,
+        },
+        tooltip: {
+          items: {
+            padding: 0,
+          },
         },
         dataLabels: {
           enabled: false,
@@ -46,37 +51,49 @@ export function DownloadChart(props: Props) {
           curve: "straight",
           width: 1.7,
         },
-        series: getSeries(props.downloads, aggregationPeriod),
-        xaxis: { type: "datetime" },
+        series: getSeries(props.downloads, "weekly"),
+        xaxis: {
+          type: "datetime",
+          tooltip: {
+            enabled: false,
+          },
+        },
       });
-      chart.render();
+      chartRef.current.render();
       setGraphRendered(true);
     })();
     return () => {
-      chart.destroy();
+      chartRef.current.destroy();
+      chartRef.current = null;
     };
-  }, [aggregationPeriod]);
+  }, []);
 
   return (
     <div class="relative">
-      {graphRendered && <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
-	      <label htmlFor="aggregationPeriod" className="text-gray-700">
-		      Aggregation Period:
-	      </label>
-	      <select
-		      id="aggregationPeriod"
-		      value={aggregationPeriod}
-		      onChange={(e) =>
-            setAggregationPeriod(e.currentTarget.value as AggregationPeriod)}
-		      className="input-container input px-1.5 py-0.5"
-	      >
-		      <option value="daily">Daily</option>
-		      <option value="weekly">Weekly</option>
-		      <option value="monthly">Monthly</option>
-	      </select>
-      </div>}
+      {graphRendered && (
+        <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
+          <label htmlFor="aggregationPeriod" className="text-gray-700">
+            Aggregation Period:
+          </label>
+          <select
+            id="aggregationPeriod"
+            onChange={(e) =>
+              chartRef.current.updateSeries(
+                getSeries(
+                  props.downloads,
+                  e.currentTarget.value as AggregationPeriod,
+                ),
+              )}
+            className="input-container input px-1.5 py-0.5"
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly" selected>Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+      )}
       <div className="h-[300px]">
-        <div ref={chartRef} />
+        <div ref={chartDivRef} />
       </div>
     </div>
   );

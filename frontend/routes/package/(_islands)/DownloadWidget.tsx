@@ -136,26 +136,28 @@ export function DownloadWidget(props: Props) {
         class="font-mono text-xs space-y-2 z-10 text-nowrap"
         style={{ width: `${max.toString().length + 1}ch` }}
       >
-        {graphRendered && <>
-	        <div>
-            {hoveredDataPoint
-              ? `${
-                hoveredDataPoint.date.toISOString()
-                  .split("T")[0]
-              } to ${
-                new Date(
-                  hoveredDataPoint.date.getTime() + 6 * 24 * 60 * 60 * 1000,
-                ).toISOString()
-                  .split("T")[0]
-              }`
-              : "Weekly downloads"}
-	        </div>
-	        <div>
-            {hoveredDataPoint
-              ? hoveredDataPoint.data.toLocaleString()
-              : data.at(-1)![1].toLocaleString()}
-	        </div>
-        </>}
+        {graphRendered && (
+          <>
+            <div>
+              {hoveredDataPoint
+                ? `${
+                  hoveredDataPoint.date.toISOString()
+                    .split("T")[0]
+                } to ${
+                  new Date(
+                    hoveredDataPoint.date.getTime() + 6 * 24 * 60 * 60 * 1000,
+                  ).toISOString()
+                    .split("T")[0]
+                }`
+                : "Weekly downloads"}
+            </div>
+            <div>
+              {hoveredDataPoint
+                ? hoveredDataPoint.data.toLocaleString()
+                : data.at(-1)![1].toLocaleString()}
+            </div>
+          </>
+        )}
       </div>
       <div className="w-[150px] h-[50px]">
         <div ref={chartRef} class="minimal-chart" />

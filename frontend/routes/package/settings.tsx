@@ -12,12 +12,11 @@ import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx
 import { scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(
-  function Settings({ data, params, state }) {
+  function Settings({ data, params }) {
     return (
       <div class="mb-20">
         <PackageHeader
           package={data.package}
-          user={state.user}
           downloads={data.downloads}
         />
 

@@ -17,7 +17,6 @@ export default define.page<typeof handler>(function AllSymbols(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
-        user={state.user}
         downloads={data.downloads}
       />
 

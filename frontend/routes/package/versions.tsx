@@ -1,7 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
 import type {
-  PackageDownloads,
   PackageVersionWithUser,
   PublishingTask,
   PublishingTaskStatus,
@@ -16,7 +15,6 @@ import { path } from "../../utils/api.ts";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
-import { DownloadWidget } from "./(_islands)/DownloadWidget.tsx";
 
 export default define.page<typeof handler>(function Versions({
   data,
@@ -90,7 +88,6 @@ export default define.page<typeof handler>(function Versions({
     <div class="mb-20">
       <PackageHeader
         package={data.package}
-        user={state.user}
         downloads={null}
       />
 

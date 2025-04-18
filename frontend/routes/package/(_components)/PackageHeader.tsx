@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type {
-  FullUser,
   Package,
   PackageDownloads,
   PackageVersionWithUser,

@@ -21,7 +21,6 @@ export default define.page<typeof handler>(function Score(
     <div class="mb-20">
       <PackageHeader
         package={data.package}
-        user={state.user}
         downloads={data.downloads}
       />
 

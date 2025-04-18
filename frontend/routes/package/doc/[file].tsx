@@ -19,7 +19,6 @@ export default define.page<typeof handler>(function File({
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
-        user={state.user}
         downloads={data.downloads}
       />
 

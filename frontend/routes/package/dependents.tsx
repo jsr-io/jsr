@@ -18,7 +18,6 @@ export default define.page<typeof handler>(function Dep(
     <div class="mb-20">
       <PackageHeader
         package={data.package}
-        user={state.user}
         downloads={data.downloads}
       />
 

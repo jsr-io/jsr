@@ -23,7 +23,7 @@ export default define.page<typeof handler>(function PackageListPage({
   return (
     <div class="mb-24 space-y-16">
       <div>
-        <PackageHeader package={data.package} user={state.user} />
+        <PackageHeader package={data.package} />
 
         <PackageNav
           currentTab="Versions"
