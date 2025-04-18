@@ -5,9 +5,9 @@ import { define } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { Ticket } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
-import twas from "twas";
 import { TbCheck, TbClock } from "tb-icons";
 import { TicketTitle } from "../../components/TicketTitle.tsx";
+import { timeAgo } from "../../utils/timeAgo.ts";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
   data,
@@ -56,12 +56,12 @@ export default define.page<typeof handler>(function AccountInvitesPage({
             <TableData
               title={new Date(ticket.createdAt).toISOString().slice(0, 10)}
             >
-              {twas(new Date(ticket.createdAt).getTime())}
+              {timeAgo(ticket.createdAt)}
             </TableData>
             <TableData
               title={new Date(ticket.updatedAt).toISOString().slice(0, 10)}
             >
-              {twas(new Date(ticket.updatedAt).getTime())}
+              {timeAgo(ticket.updatedAt)}
             </TableData>
             <TableData>
               <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
