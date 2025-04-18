@@ -296,32 +296,12 @@ export function GlobalSearch(
                 jumbo ? "!px-3.5" : "!px-1.5"
               }`}
             >
-              <div class="whitespace-nowrap overflow-hidden !text-transparent px-0.5">
+              <div class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}>
                 <div ref={inputOverlayContentRef}>
                   {tokenizeFilter(search.value).map((token, i, arr) => (
                     <span>
                       <span
                         class={token.kind === "text" ? "" : "search-input-tag"}
-                      >
-                        {token.raw}
-                      </span>
-                      {((arr.length - 1) !== i) && " "}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-          {kind === "packages" && (
-            <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
-            >
-              <div class="whitespace-nowrap overflow-hidden">
-                <div ref={inputOverlayContent2Ref}>
-                  {tokenizeFilter(search.value).map((token, i, arr) => (
-                    <span>
-                      <span
-                        class={token.kind === "text" ? "" : "text-blue-500"}
                       >
                         {token.raw}
                       </span>
