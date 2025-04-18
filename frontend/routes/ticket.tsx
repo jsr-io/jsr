@@ -27,7 +27,7 @@ export default define.page<typeof handler>(function Ticket({
             <TicketTitle
               kind={data.ticket.kind}
               meta={data.ticket.meta}
-              user={state.user!}
+              user={data.ticket.creator}
             />
           </h1>
         </div>
