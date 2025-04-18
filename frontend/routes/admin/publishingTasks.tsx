@@ -50,10 +50,12 @@ export default define.page<typeof handler>(function PublishingTasks({
                 ID
               </CopyButton>
               <div>
-                {publishingTask.status}
-                <br />
-                {publishingTask.status === "failure" && publishingTask.error &&
-                  `Error ${publishingTask.error.code}: ${publishingTask.error.message}`}
+                <span>
+                  {publishingTask.status}
+                </span>
+                {publishingTask.status === "failure" &&  publishingTask.error && (
+                  <pre><br />Error {publishingTask.error.code}: {publishingTask.error.message}</pre>
+                )}
               </div>
             </TableData>
             <TableData flex>
