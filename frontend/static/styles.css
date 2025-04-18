@@ -172,7 +172,7 @@
 
   .input-container {
     @apply bg-white rounded-md leading-snug border-1 border-jsr-cyan-900/30
-      focus-within:border-jsr-cyan-500;
+      focus-within:border-jsr-cyan-500 appearance-none;
   }
 
   select:not([data-locked="true"]):disabled.input-container,
