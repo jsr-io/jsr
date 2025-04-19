@@ -22,7 +22,7 @@ export default define.page<typeof handler>(function Ticket({
         )}
 
         <div>
-          <p class="text-gray-600">Ticket #{data.ticket.id}</p>
+          <p class="text-gray-600 dark:text-gray-300">Ticket #{data.ticket.id}</p>
           <h1 class="text-3xl font-bold">
             <TicketTitle
               kind={data.ticket.kind}
@@ -65,7 +65,7 @@ export default define.page<typeof handler>(function Ticket({
         {data.ticket.messages.map((message) => {
           const isOpener = message.author.id === data.ticket.creator.id;
           return (
-            <div class="w-full rounded border-1.5 border-current bg-white px-4 py-3">
+            <div class="w-full rounded border-1.5 border-current bg-white dark:bg-jsr-gray-800 px-4 py-3">
               <div class="flex justify-between mb-2">
                 <div class="flex items-center gap-3">
                   <a
@@ -102,7 +102,7 @@ export default define.page<typeof handler>(function Ticket({
       </div>
       {state.user!.id === data.ticket.creator.id &&
         (
-          <p class="text-sm text-gray-600">
+          <p class="text-sm text-gray-600 dark:text-gray-300">
             We will respond to you as soon as possible. Please do not create
             multiple tickets for the same issue. You will be emailed at{" "}
             {state.user!.email} when we respond to your ticket.

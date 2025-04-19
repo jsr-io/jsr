@@ -14,7 +14,7 @@ export default define.page<typeof handler>(function PublishingTasks({
   url,
 }) {
   return (
-    <div class="mb-20">
+    <div class="mb-20 dark:bg-jsr-gray-950">
       <AdminNav currentTab="publishingTasks" />
       <URLQuerySearch query={data.query} />
       <Table

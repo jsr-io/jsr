@@ -13,7 +13,7 @@ export default define.page<typeof handler>(function Tickets({
   url,
 }) {
   return (
-    <div class="mb-20">
+    <div class="mb-20 dark:bg-jsr-gray-950">
       <AdminNav currentTab="tickets" />
       <URLQuerySearch query={data.query} />
       <Table

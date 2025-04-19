@@ -12,7 +12,7 @@ export function Nav(props: NavProps) {
     <nav
       class={`${
         props.noTopMargin ? "" : "mt-3"
-      } border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-x-auto items-end`}
+      } border-b border-jsr-cyan-300/30 dark:border-jsr-gray-700/50 max-w-full flex justify-between overflow-x-auto items-end`}
     >
       <style
         // deno-lint-ignore react-no-danger
@@ -45,21 +45,35 @@ export function Nav(props: NavProps) {
 export interface NavItemProps {
   href: string;
   active?: boolean;
+  chip?: number;
+  notification?: boolean;
   children?: ComponentChildren;
 }
 
 export function NavItem(props: NavItemProps) {
   return (
     <a
-      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 flex items-center select-none focus:outline-none focus-visible:outline-1 focus-visible:outline-jsr-cyan-300 focus-visible:outline-offset-0 focus-visible:ring-0 ${
+      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 flex items-center select-none focus:outline-none focus-visible:outline-1 focus-visible:outline-jsr-cyan-300 dark:focus-visible:outline-jsr-cyan-600 focus-visible:outline-offset-0 focus-visible:ring-0 ${
         props.active
-          ? "bg-jsr-cyan-50 border-1 border-jsr-cyan-300/30 font-semibold"
+          ? "bg-jsr-cyan-50 dark:bg-jsr-cyan-700 border-1 border-jsr-cyan-300/30 dark:border-jsr-cyan-500/70 font-semibold"
           : ""
       }`}
       data-active={props.active ? "true" : undefined}
       href={props.href}
     >
-      {props.children}
+      <span className="flex items-center">
+        {props.children}
+
+        {props.chip !== undefined && <span
+          className={`chip ml-2 tabular-nums border-1 border-white dark:border-jsr-gray-950 ${
+            (props.chip > 0 && props.notification)
+              ? "bg-orange-600 text-white"
+              : "bg-jsr-gray-200 dark:bg-jsr-gray-700 dark:text-gray-300"
+          }`}
+        >
+          {props.chip}
+        </span>}
+      </span>
     </a>
   );
 }

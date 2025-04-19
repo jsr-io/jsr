@@ -41,7 +41,7 @@ export default define.page<typeof handler>(
           <div class="border-t pt-8 mt-12">
             <h2 class="text-xl font-sans font-bold">Staff area</h2>
 
-            <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+            <p class="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
               Feature a package on the homepage.
             </p>
 
@@ -60,16 +60,16 @@ function GitHubRepository(props: { package: Package }) {
     <div class="border-t pt-8 mt-12">
       <h2 class="text-xl font-sans font-bold">GitHub Repository</h2>
 
-      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
         The GitHub repository is shown publicly on the package page.
       </p>
 
-      <p class="mt-2 mb-4 text-jsr-gray-600 max-w-3xl">
+      <p class="mt-2 mb-4 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
         Specifying a GitHub repository also enables securely publishing from
         GitHub Actions using OIDC — no need to specify tokens or secrets.{" "}
         <a
           href={`/@${props.package.scope}/${props.package.name}/publish#from-ci`}
-          class="text-jsr-cyan-700 hover:underline"
+          class="text-jsr-cyan-700 dark:text-cyan-400 hover:underline"
         >
           Set up publishing from GitHub Actions.
         </a>
@@ -89,7 +89,7 @@ function DescriptionEditor(props: { description: string }) {
     <form class="mt-8" method="POST">
       <h2 class="text-xl font-sans font-bold" id="description">Description</h2>
 
-      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
         The package description is shown on the package page and in search
         results.
       </p>
@@ -108,7 +108,7 @@ function RuntimeCompatEditor(props: { runtimeCompat: RuntimeCompat }) {
         Runtime Compat
       </h2>
 
-      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
         Set which packages this package is compatible with. This information is
         shown on the package page and in search results.
       </p>
@@ -142,7 +142,7 @@ function RuntimeCompatEditorItem({ name, id, value }: {
   value: boolean | undefined;
 }) {
   return (
-    <label class="block text-jsr-gray-600 font-bold" htmlFor={id}>
+    <label class="block text-jsr-gray-600 dark:text-gray-400 font-bold" htmlFor={id}>
       {name}
       <select
         class="block w-64 py-1.5 px-2 input-container select text-sm font-normal mt-1"
@@ -169,7 +169,7 @@ function ArchivePackage(props: { isArchived: boolean }) {
       <form class="border-t pt-8 mt-12" method="POST">
         <h2 class="text-xl font-sans font-bold">Archive package</h2>
 
-        <p className="mt-2 text-jsr-gray-600 max-w-3xl">
+        <p className="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
           Archiving a package removes it from search indexing and the scope
           page, making it undiscoverable to users.
           <br />
@@ -192,7 +192,7 @@ function ArchivePackage(props: { isArchived: boolean }) {
       <form class="border-t pt-8 mt-12" method="POST">
         <h2 class="text-xl font-sans font-bold">Unarchive package</h2>
 
-        <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+        <p class="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
           Unarchiving a package restores its availability in search results and
           makes it visible on the scope page again.
           <br />
@@ -217,7 +217,7 @@ function DeletePackage(props: { hasVersions: boolean }) {
     <form class="border-t pt-8 mt-12" method="POST">
       <h2 class="text-xl font-sans font-bold">Delete package</h2>
 
-      <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+      <p class="mt-2 text-jsr-gray-600 dark:text-gray-400 max-w-3xl">
         A package can only be deleted if it has no published versions.
         <br />
         This action cannot be undone.

@@ -23,19 +23,19 @@ export default function Modal(
     >
       {summary}
       <div
-        class="fixed inset-0 bg-[#25252525] z-50 flex items-center justify-center cursor-default max-h-screen p-16"
+        class="fixed inset-0 bg-[#25252525] dark:bg-[#00000080] z-50 flex items-center justify-center cursor-default max-h-screen p-16"
         onClick={(e) => {
           e.stopPropagation();
           setOpen(false);
         }}
       >
         <div
-          class="p-8 relative border border-jsr-cyan-300 rounded bg-white max-w-screen-sm"
+          class="p-8 relative border border-jsr-cyan-300 dark:border-jsr-cyan-700 rounded bg-white dark:bg-jsr-gray-900 max-w-screen-sm"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
-            class="absolute top-8 right-8 hover:text-jsr-gray-400"
+            class="absolute top-8 right-8 hover:text-jsr-gray-400 dark:text-white dark:hover:text-gray-300"
             onClick={() => setOpen(false)}
           >
             <Cross />

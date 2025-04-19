@@ -41,18 +41,18 @@ export default define.page<typeof handler>(function PackagePage({
               <h3 class="font-bold text-xl lg:text-2xl">1. Configure</h3>
               <div class="flex flex-col mt-4 gap-2">
                 <p>
-                  Add <code class="text-slate-500">"name"</code>,
-                  <code class="text-slate-500">"version"</code>, and{" "}
-                  <code class="text-slate-500">"exports"</code> fields to your
+                  Add <code class="text-slate-500 dark:text-slate-400">"name"</code>,
+                  <code class="text-slate-500 dark:text-slate-400">"version"</code>, and{" "}
+                  <code class="text-slate-500 dark:text-slate-400">"exports"</code> fields to your
                   {" "}
                   config file:
                 </p>
                 <div class="mt-2 -mb-2">
-                  <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+                  <div class="bg-jsr-gray-700 dark:bg-jsr-gray-900 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
                     jsr.json / deno.json
                   </div>
                 </div>
-                <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
+                <pre class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
                 <code>
                   {`{\n`}
                   {"  "}
@@ -108,15 +108,15 @@ export default define.page<typeof handler>(function PackagePage({
           <h4 class="font-bold text-lg lg:text-xl">Publish via CLI</h4>
           <div class="flex flex-col mt-4 gap-2">
             <p>To publish your package from your terminal, run:</p>
-            <pre class="bg-slate-900 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
+            <pre class="bg-slate-900 dark:bg-slate-800 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
               <code>
                 <span class="select-none sr-none text-jsr-gray-500">$ </span>
-                {`npx jsr publish`}
+                {` npx jsr publish`}
                 <br />
                 <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
                 <br />
                 <span class="select-none sr-none text-jsr-gray-500">$ </span>
-                {`deno publish`}
+                {` deno publish`}
               </code>
             </pre>
             <p>
@@ -126,8 +126,8 @@ export default define.page<typeof handler>(function PackagePage({
           </div>
         </div>
         <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
-          <hr class="border-t-1.5 border-jsr-cyan-900 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
-          <div class="p-2 bg-white text-center w-max mx-auto font-bold">OR</div>
+          <hr class="border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-600 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
+          <div class="p-2 bg-white dark:bg-jsr-gray-950 text-center w-max mx-auto font-bold">OR</div>
         </div>
         <div>
           <h4 class="font-bold text-lg lg:text-xl">
@@ -219,13 +219,13 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
       <p class="mt-4">
         Set up your workflow with OIDC permissions and a step to run{" "}
-        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-[1px] px-2 text-sm">
           npx jsr publish
         </code>:
       </p>
 
       <div class="mt-2 -mb-2 flex items-center gap-1">
-        <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+        <div class="bg-jsr-gray-700 dark:bg-jsr-gray-900 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
           .github/workflows/publish.yml
         </div>
         <CopyButton
@@ -233,7 +233,7 @@ function GitHubActions({ pkg, canEdit, user }: {
           title="Copy workflow path"
         />
       </div>
-      <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
+      <pre class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
         <code>
           {`\
 name: Publish
@@ -259,11 +259,11 @@ jobs:
 
       <p class="mt-4">
         You can also use{" "}
-        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-[1px] px-2 text-sm">
           deno publish
         </code>{" "}
         instead of{" "}
-        <code class="bg-slate-900 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-[1px] px-2 text-sm">
           npx jsr publish
         </code>. When doing that, make sure to install Deno in your workflow
         first.

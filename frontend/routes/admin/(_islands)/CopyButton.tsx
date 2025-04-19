@@ -17,7 +17,7 @@ export function CopyButton(props: CopyButtonProps) {
   return (
     <button
       type="button"
-      class="rounded-full bg-neutral-100 font-mono hover:bg-neutral-200 cursor-pointer flex items-center justify-center gap-1 p-1"
+      class="rounded-full bg-neutral-100 dark:bg-jsr-gray-700 font-mono hover:bg-neutral-200 dark:hover:bg-jsr-gray-600 cursor-pointer flex items-center justify-center gap-1 p-1"
       aria-label={props.label}
       onClick={() => {
         navigator.clipboard.writeText(props.value);
@@ -30,7 +30,7 @@ export function CopyButton(props: CopyButtonProps) {
     >
       {checked.value
         ? <TbCheck class="size-4 text-green-500" />
-        : <TbCopy class="size-4 text-neutral-600" />}
+        : <TbCopy class="size-4 text-neutral-600 dark:text-neutral-300" />}
       {props.children}
     </button>
   );

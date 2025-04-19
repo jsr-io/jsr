@@ -10,7 +10,7 @@ import { CopyButton } from "./(_islands)/CopyButton.tsx";
 
 export default define.page<typeof handler>(function Packages({ data, url }) {
   return (
-    <div class="mb-20">
+    <div class="mb-20 dark:bg-jsr-gray-950">
       <AdminNav currentTab="packages" />
       <URLQuerySearch query={data.query} />
       <Table
@@ -56,7 +56,7 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
                 {pkg.name}
               </a>
             </TableData>
-            <TableData>
+            <TableData flex>
               {pkg.githubRepository && (
                 <>
                   <CopyButton

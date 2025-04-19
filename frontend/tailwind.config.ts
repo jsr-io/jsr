@@ -9,6 +9,7 @@ export default {
   content: [
     "{routes,islands,components}/**/*.{ts,tsx}",
   ],
+  darkMode: "class",
   plugins: [
     ...(typeof Deno !== "undefined" ? [rewritePreflight()] : []),
   ],
@@ -74,8 +75,8 @@ export default {
           "500": "#5f6f81",
           "600": "#515d6c",
           "700": "#47515c",
-          "800": "#40474f",
-          "900": "#3a3f45",
+          "800": "#3a3f45",
+          "900": "#26292d",
           "950": "#121417",
         },
         "jsr-cyan": {
@@ -121,6 +122,9 @@ export default {
         "accent": `8px 14px 0 0 #64748b55`,
         "accent-sm": `5px 6px 0 0 #64748b55`,
         "accent-sm-close": `1px 2px 0 0 #64748b55`,
+        "dark-accent": `8px 14px 0 0 #969FAF54`,
+        "dark-accent-sm": `5px 6px 0 0 #969FAF54`,
+        "dark-accent-sm-close": `1px 2px 0 0 #969FAF54`,
       },
       gridTemplateColumns: {
         "15": "repeat(15, minmax(0, 1fr))",

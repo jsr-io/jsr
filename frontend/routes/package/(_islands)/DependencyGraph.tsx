@@ -341,6 +341,7 @@ function useDigraph(dependencies: DependencyGraphItem[]) {
         svg.current = viz.value.renderSVGElement(digraph, {
           engine: "dot",
         });
+        svg.current.id = "vizgraph";
         ref.current.prepend(svg.current);
 
         center();
@@ -363,7 +364,7 @@ function GraphControlButton(props: GraphControlButtonProps) {
     <button
       type="button"
       aria-label={props.title}
-      class={`${props.class} bg-white text-jsr-gray-700 p-1.5 ring-1 ring-jsr-gray-700 rounded-full sm:rounded hover:bg-jsr-gray-100/30`}
+      class={`${props.class} bg-white dark:bg-jsr-gray-700 text-jsr-gray-700 dark:text-white p-1.5 ring-1 ring-jsr-gray-700 dark:ring-white rounded-full sm:rounded hover:bg-jsr-gray-100/30 dark:hover:bg-jsr-gray-600/50`}
       onClick={props.onClick}
       title={props.title}
     >
@@ -415,7 +416,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
 
   return (
     <div
-      class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 sm:rounded overflow-hidden relative h-[90vh]"
+      class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-800 sm:rounded overflow-hidden relative h-[90vh]"
       onMouseDown={enableDrag}
       onMouseMove={onMouseMove}
       onMouseUp={disableDrag}

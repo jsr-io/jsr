@@ -93,14 +93,14 @@ export function RuntimeCompatIndicator(
                     alt={ICON_TITLE_TEXT}
                     title={ICON_TITLE_TEXT}
                     class={`h-4 md:h-5 select-none ${
-                      value === undefined ? "filter grayscale opacity-40" : ""
+                      value === undefined ? "filter grayscale opacity-40 dark:opacity-30" : ""
                     }`}
                   />
                   {value === undefined && (
                     <div
                       aria-hidden="true"
                       title={ICON_TITLE_TEXT}
-                      class="absolute inset-0 h-full w-full text-jsr-cyan-600 text-center leading-4 md:leading-5 drop-shadow-md font-bold text-md md:text-xl select-none"
+                      class="absolute inset-0 h-full w-full text-jsr-cyan-600 dark:text-cyan-400 text-center leading-4 md:leading-5 drop-shadow-md font-bold text-md md:text-xl select-none"
                     >
                       ?
                     </div>

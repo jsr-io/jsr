@@ -20,7 +20,7 @@ export function AdminNav({ currentTab }: {
 }) {
   return (
     <>
-      <h1 class="font-bold text-2xl">Admin</h1>
+      <h1 class="font-bold text-2xl dark:text-gray-100">Admin</h1>
       <Nav>
         <NavItem href="/admin/users" active={currentTab === "users"}>
           Users

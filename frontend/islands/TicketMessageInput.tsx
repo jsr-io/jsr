@@ -36,7 +36,7 @@ export function TicketMessageInput(
       }}
     >
       <textarea
-        class="w-full block px-2 py-1.5 input-container input min-h-20"
+        class="w-full block px-2 py-1.5 input-container input min-h-20 bg-white dark:bg-jsr-gray-800"
         value={message}
         rows={3}
         placeholder="Type your message here..."

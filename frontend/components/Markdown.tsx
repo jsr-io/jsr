@@ -25,7 +25,10 @@ export function Markdown(
   });
   return (
     <div
-      class="markdown-body"
+      data-color-mode="light"
+      data-light-theme="light"
+      data-dark-theme="dark"
+      class="markdown-body dark:text-gray-200"
       // deno-lint-ignore react-no-danger
       dangerouslySetInnerHTML={{ __html: html }}
     />

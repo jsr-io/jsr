@@ -3,6 +3,7 @@
 .markdown-body {
   line-height: 1.6;
   overflow: visible;
+  background-color: transparent;
 }
 
 .markdown-body a {

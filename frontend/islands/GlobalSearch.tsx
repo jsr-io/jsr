@@ -274,9 +274,9 @@ export function GlobalSearch(
           <input
             type="search"
             name="search"
-            class={`w-full h-full search-input bg-white/90 truncate ${
+            class={`w-full h-full search-input bg-white/90 dark:bg-jsr-gray-900/90 truncate ${
               kind === "packages" ? "!text-transparent" : ""
-            } !caret-black input rounded-r-none ${sizeClasses} relative`}
+            } !caret-black dark:!caret-white input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
             onInput={onInput}
@@ -400,17 +400,17 @@ function SuggestionList(
   if (!showSuggestions.value) return null;
 
   return (
-    <div class="absolute bg-white w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 rounded-lg z-40 overflow-hidden top-0.5">
+    <div class="absolute bg-white dark:bg-jsr-gray-900 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
-        ? <div class="bg-white text-jsr-gray-500 px-4">...</div>
+        ? <div class="bg-white dark:bg-jsr-gray-900 text-jsr-gray-500 dark:text-jsr-gray-400 px-4">...</div>
         : suggestions.value?.length === 0
         ? (
-          <div class="bg-white text-jsr-gray-500 px-4 py-2">
+          <div class="bg-white dark:bg-jsr-gray-900 text-jsr-gray-500 dark:text-jsr-gray-400 px-4 py-2">
             No matching results to display
           </div>
         )
         : (
-          <ul class="divide-y-1">
+          <ul class="divide-y-1 dark:divide-jsr-gray-700">
             {suggestions.value.map((rawHit, i) => {
               const selected = computed(() => selectionIdx.value === i);
               const hit = kind === "packages"
@@ -420,7 +420,7 @@ function SuggestionList(
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-jsr-gray-100 cursor-pointer aria-[selected=true]:bg-jsr-cyan-100"
+                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-700 cursor-pointer aria-[selected=true]:bg-jsr-cyan-100 dark:aria-[selected=true]:bg-jsr-cyan-900"
                   aria-selected={selected}
                 >
                   <a href={hit.href} class="bg-red-600">
@@ -431,7 +431,7 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-50 flex items-center justify-between py-1 px-2 text-sm">
+      <div class="bg-jsr-gray-50 dark:bg-jsr-gray-800 flex items-center justify-between py-1 px-2 text-sm">
         <div>
           {kind === "packages" && (
             <a
@@ -444,10 +444,11 @@ function SuggestionList(
           )}
         </div>
         <div class="flex items-center gap-1">
-          <span class="text-jsr-gray-500">
+          <span class="text-jsr-gray-500 dark:text-jsr-gray-400">
             powered by <span class="sr-only">Orama</span>
           </span>
-          <img class="h-4" src="/logos/orama-dark.svg" alt="" />
+          <img class="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
+          <img className="h-4 hidden dark:block" src="/logos/orama-light.svg" alt="" />
         </div>
       </div>
     </div>

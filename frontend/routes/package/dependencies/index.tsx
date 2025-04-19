@@ -104,7 +104,7 @@ export default define.page<typeof handler>(function Deps(
                   />
                 ))}
               </Table>
-              <p class="text-jsr-gray-700">
+              <p class="text-jsr-gray-700 dark:text-jsr-gray-200">
                 You can find a visualization of the dependencies by clicking the
                 button below.
               </p>

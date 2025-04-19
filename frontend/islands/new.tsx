@@ -19,7 +19,7 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-100 text-black";
+    return "bg-jsr-gray-100 dark:bg-jsr-gray-700 text-black dark:text-jsr-gray-200";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>
@@ -55,10 +55,10 @@ export function ScopeSelect(
   const scopes = useSignal(initialScopes);
   const explicitCreateScope = useSignal(initialScope !== undefined);
 
-  if (scopes.value.length === 0) {
+  if (true) {
     return (
-      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
-        <span class="text-jsr-gray-700">
+      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 dark:bg-jsr-cyan-950 dark:border-jsr-cyan-700 p-4 md:p-6 rounded-xl">
+        <span class="text-jsr-gray-700 dark:text-white">
           You are not a member of any scopes. Create a new scope to publish your
           package.
         </span>
@@ -103,13 +103,13 @@ export function ScopeSelect(
             </button>
           </p>
         )}
-        <p class="text-jsr-gray-700 text-sm mt-2">
+        <p class="text-jsr-gray-700 dark:text-jsr-gray-200 text-sm mt-2">
           You can create {scopesLeft === 0 ? "no" : scopesLeft}{" "}
           more scope{scopesLeft !== 1 && "s"}.{" "}
           <a href="/account/settings" class="link">View quotas</a> or{" "}
           <a href="/account" class="link">manage your scopes</a>.
         </p>
-        <p class="text-jsr-gray-700 text-sm">
+        <p class="text-jsr-gray-700 dark:text-jsr-gray-200 text-sm">
           Before creating a new scope, please read the{" "}
           <a href="/docs/usage-policy#scope-names" class="link">
             scope naming policy
@@ -137,7 +137,7 @@ export function ScopeSelect(
       </select>
 
       {!locked && (
-        <p class="text-jsr-gray-500">
+        <p class="text-jsr-gray-500 dark:text-jsr-gray-300">
           or{" "}
           <button
             type="button"
@@ -409,14 +409,14 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
   ) return null;
 
   return (
-    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
+    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-1.5 border-jsr-cyan-200 dark:border-jsr-cyan-700 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
       {pkg.value === null
         ? (
           <>
             <div>
-              <p>
+              <p class="dark:text-white">
                 The package{" "}
-                <code class="text-jsr-cyan-800">
+                <code class="text-jsr-cyan-800 dark:text-jsr-cyan-200">
                   @{scope}/{name}
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.
@@ -462,7 +462,7 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </a>
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
-              <p class="text-jsr-gray-500">
+              <p class="text-jsr-gray-500 dark:text-jsr-gray-300">
                 Created {twas(new Date(pkg.value.createdAt).getTime())}.
               </p>
               {fromCli && (

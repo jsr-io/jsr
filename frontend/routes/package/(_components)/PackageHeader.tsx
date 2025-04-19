@@ -44,14 +44,14 @@ export function PackageHeader({
   return (
     <div class="space-y-6 mt-0 md:mt-4">
       {pkg.isArchived && (
-        <div class="rounded border border-red-300 bg-red-100 flex items-center justify-center p-4">
+        <div class="rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/50 flex items-center justify-center p-4 dark:text-white">
           This package has been archived, and as such it is read-only.
         </div>
       )}
 
       {selectedVersion && pkg.latestVersion &&
         pkg.latestVersion !== selectedVersion.version && (
-        <div class="border border-jsr-yellow-500 bg-jsr-yellow-50 rounded py-3 px-4 md:text-center">
+        <div class="border border-jsr-yellow-500 dark:border-jsr-yellow-700 bg-jsr-yellow-50 dark:bg-jsr-yellow-900/30 rounded py-3 px-4 md:text-center dark:text-gray-200">
           <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
             <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
             <span class="font-medium">
@@ -136,7 +136,7 @@ export function PackageHeader({
             <div class="flex items-center gap-2">
               {selectedVersion &&
                 pkg.latestVersion === selectedVersion?.version && (
-                <div class="chip sm:big-chip bg-jsr-yellow-400 select-none">
+                <div class="chip sm:big-chip bg-jsr-yellow-400 dark:bg-jsr-yellow-600 dark:text-black select-none">
                   latest
                 </div>
               )}
@@ -149,14 +149,14 @@ export function PackageHeader({
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-100 !inline-flex items-center gap-1 select-none"
+                  class="chip sm:big-chip bg-jsr-gray-100 dark:bg-jsr-gray-800 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
                   <TbBrandGithub
-                    class="text-black !size-4"
+                    class="text-black dark:text-white !size-4"
                     aria-hidden
                   />
                   <span>
@@ -169,7 +169,7 @@ export function PackageHeader({
           </div>
 
           {pkg.description && (
-            <p class="text-jsr-gray-600 max-w-3xl md:!mb-8">
+            <p class="text-jsr-gray-600 dark:text-gray-300 max-w-3xl md:!mb-8">
               {pkg.description}
             </p>
           )}
@@ -230,11 +230,11 @@ export function PackageHeader({
               title="Report package"
               description={
                 <>
-                  <p class="mt-4 text-jsr-gray-600">
+                  <p class="mt-4 text-jsr-gray-600 dark:text-gray-300">
                     Please provide a reason for reporting this package. We will
                     review your report and take appropriate action.
                   </p>
-                  <p class="mt-4 text-jsr-gray-600">
+                  <p class="mt-4 text-jsr-gray-600 dark:text-gray-300">
                     Please review the{" "}
                     <a href="/docs/usage-policy#package-contents-and-metadata">
                       JSR usage policy

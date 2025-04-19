@@ -19,14 +19,14 @@ export default define.page<typeof handler>(function AccountTokensPage({
     <AccountLayout user={data.user} active="Tokens">
       <div>
         <h2 class="text-xl mb-2 font-bold">Personal access tokens</h2>
-        <p class="text-jsr-gray-600 max-w-2xl">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-300 max-w-2xl">
           Personal access tokens can be used to authenticate with JSR from the
           command line or from other applications.
         </p>
 
         {personal.length > 0
           ? (
-            <ul class="max-w-2xl divide-slate-200 divide-y border-t border-b border-slate-200 mt-4">
+            <ul class="max-w-2xl divide-slate-200 dark:divide-jsr-gray-700 border-t border-b border-slate-200 dark:border-jsr-gray-700 mt-4">
               {personal.map((token, idx) => (
                 <PersonalTokenRow key={idx} token={token} />
               ))}
@@ -60,16 +60,16 @@ export default define.page<typeof handler>(function AccountTokensPage({
       </div>
       <div class="mt-8">
         <h2 class="text-xl mt-4 mb-2 font-bold">Sessions</h2>
-        <p class="text-jsr-gray-600 max-w-2xl">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-300 max-w-2xl">
           Sessions keep you logged in to JSR on the web, and are used during
           interactive authentication during publishing.
         </p>
 
-        <ul class="max-w-2xl divide-slate-200 divide-y border-t border-b border-slate-200 mt-4">
+        <ul class="max-w-2xl divide-slate-200 dark:divide-jsr-gray-700 border-t border-b border-slate-200 dark:border-jsr-gray-700 mt-4">
           {sessions.map((token, idx) => <SessionRow key={idx} token={token} />)}
         </ul>
 
-        <p class="text-jsr-gray-600 text-sm mt-4">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-300 text-sm mt-4">
           Only sessions that are active, or have expired within the last 24
           hours are shown here.
         </p>
@@ -88,7 +88,7 @@ function PersonalTokenRow({ token }: { token: Token }) {
   return (
     <li class="py-2">
       <div class="flex justify-between">
-        <p class="text-jsr-gray-600">
+        <p class="text-jsr-gray-600 dark:text-jsr-gray-300">
           {token.description || <i>Unnamed</i>}
         </p>
         <p class="text-sm text-right">
@@ -122,7 +122,7 @@ function PersonalTokenRow({ token }: { token: Token }) {
           Created {twas(new Date(token.createdAt).getTime())}
         </p>
       </div>
-      <p class="text-sm text-jsr-gray-600">
+      <p class="text-sm text-jsr-gray-600 dark:text-jsr-gray-300">
         {token.permissions === null
           ? "Has full access"
           : token.permissions.map((perm) => {
@@ -146,7 +146,7 @@ function SessionRow({ token }: { token: Token }) {
 
   return (
     <li class="py-2">
-      <p class="text-jsr-gray-600">
+      <p class="text-jsr-gray-600 dark:text-jsr-gray-300">
         {token.type === "web" ? "Web" : token.type === "device" ? "CLI" : ""}
         {" "}
         session
@@ -156,7 +156,7 @@ function SessionRow({ token }: { token: Token }) {
           <p class="text-sm">
             {isActive
               ? (
-                <span class="text-green-700">
+                <span class="text-green-700 dark:text-green-600">
                   <b>Active</b> {expiresAt === null
                     ? "forever"
                     : `– expires ${
@@ -168,7 +168,7 @@ function SessionRow({ token }: { token: Token }) {
                 </span>
               )
               : (
-                <span class="text-red-600">
+                <span class="text-red-600 dark:text-red-500">
                   <b>Inactive</b> - expired {twas(expiresAt.getTime())}
                 </span>
               )}

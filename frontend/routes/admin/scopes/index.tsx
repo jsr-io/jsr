@@ -12,7 +12,7 @@ import { EditModal } from "../(_islands)/EditModal.tsx";
 
 export default define.page<typeof handler>(function Scopes({ data, url }) {
   return (
-    <div class="mb-20">
+    <div class="mb-20 dark:bg-jsr-gray-950">
       <AdminNav currentTab="scopes" />
       <div class="flex gap-4">
         <URLQuerySearch query={data.query} />
