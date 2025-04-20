@@ -17,7 +17,7 @@ export default define.page<typeof handler>(function AuthPage({ data }) {
     return (
       <div>
         <h1 class="text-lg font-semibold">Authorization</h1>
-        <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+        <p class="mt-2 text-secondary max-w-3xl">
           To authorize a request, enter the code shown in the application.
         </p>
         <form action="/auth" method="GET" class="mt-8">

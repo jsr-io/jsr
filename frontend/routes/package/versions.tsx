@@ -100,7 +100,7 @@ export default define.page<typeof handler>(function Versions({
       <div class="space-y-3 mt-8">
         {versionsArray.length === 0
           ? (
-            <div class="text-jsr-gray-500 text-center">
+            <div class="text-tertiary text-center">
               This package has not published any versions yet.
             </div>
           )
@@ -180,7 +180,7 @@ function Version({
             ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700"
             : (isLatestInReleaseTrack
               ? "bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-800/40 border-green-300 dark:border-green-700 hover:border-green-400 dark:hover:border-green-600"
-              : "hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-800 border-jsr-gray-100 dark:border-jsr-gray-700 hover:border-jsr-gray-300 dark:hover:border-jsr-gray-600"))
+              : "hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 border-jsr-gray-100 dark:border-jsr-gray-900 hover:border-jsr-gray-300 dark:hover:border-jsr-gray-800"))
       }`}
     >
       <div class="flex items-center justify-between">
@@ -195,7 +195,7 @@ function Version({
                     : "bg-blue-300 border-blue-400 text-blue-700"
                   : (isLatestInReleaseTrack
                     ? "bg-green-300 border-green-400 text-green-700"
-                    : "bg-jsr-gray-200 dark:bg-jsr-gray-700 border-jsr-gray-300 dark:border-jsr-gray-600 text-jsr-gray-600 dark:text-gray-400"))
+                    : "bg-jsr-gray-200 dark:bg-jsr-gray-900 border-jsr-gray-300 dark:border-jsr-gray-800 text-secondary"))
             }`}
             title={version?.yanked
               ? "Yanked"
@@ -229,7 +229,7 @@ function Version({
                 </span>
               )}
             {isPublished && (
-              <div class="text-sm select-none text-jsr-gray-500 dark:text-gray-400 z-0">
+              <div class="text-sm select-none text-tertiary z-0">
                 Released {version?.user && (
                   <>
                     {"by "}
@@ -276,7 +276,7 @@ function Version({
       </div>
       <ul>
         {tasks.map((task, i) => (
-          <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-jsr-gray-500 dark:text-gray-400 w-full">
+          <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-tertiary w-full">
             {task.status === "failure"
               ? <TbAlertCircle class="size-4 stroke-red-500 stroke-2" />
               : task.status === "success"

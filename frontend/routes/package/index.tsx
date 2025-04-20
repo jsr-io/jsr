@@ -41,7 +41,7 @@ export default define.page<typeof handler>(function PackagePage(
           />
         )
         : (
-          <div class="mt-8 text-jsr-gray-500 text-center">
+          <div class="mt-8 text-tertiary text-center">
             This package has not published{" "}
             {data.package.versionCount > 0
               ? "a stable release"

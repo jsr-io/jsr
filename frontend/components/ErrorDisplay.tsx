@@ -8,7 +8,7 @@ export function ErrorDisplay({ error }: { error: APIResponseError }) {
       <p class="mt-4">{error.message as string}</p>
       <p class="mt-4 text-sm">Need help? Contact support@deno.com</p>
       <div class="flex gap-4 mt-1">
-        <div class="bg-jsr-gray-200 dark:bg-jsr-gray-700 py-1 px-2 font-bold text-sm inline-block">
+        <div class="bg-jsr-gray-200 dark:bg-jsr-gray-900 py-1 px-2 font-bold text-sm inline-block">
           x-deno-ray: <span class="font-mono">{error.traceId as "string"}</span>
         </div>
       </div>

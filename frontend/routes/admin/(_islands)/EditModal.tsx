@@ -98,7 +98,7 @@ export function EditModal(
       >
         <form
           ref={ref}
-          class={`space-y-3 z-[90] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-800 dark:text-gray-200 shadow min-w-96 ${
+          class={`space-y-3 z-[90] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 shadow min-w-96 ${
             status === "pending" ? "w-[40vw]" : ""
           } max-w-[95vw] max-h-[95vh] px-6 py-4 ${
             open ? "translate-y-0" : "translate-y-5"

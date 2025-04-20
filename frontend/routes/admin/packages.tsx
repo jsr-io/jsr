@@ -10,7 +10,7 @@ import { CopyButton } from "./(_islands)/CopyButton.tsx";
 
 export default define.page<typeof handler>(function Packages({ data, url }) {
   return (
-    <div class="mb-20 dark:bg-jsr-gray-950">
+    <div class="mb-20">
       <AdminNav currentTab="packages" />
       <URLQuerySearch query={data.query} />
       <Table

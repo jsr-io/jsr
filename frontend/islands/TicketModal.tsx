@@ -13,7 +13,7 @@ interface Field {
   required: boolean;
 }
 
-const BASE_INPUT_STYLING = "w-full block px-2 py-1.5 input-container input bg-white dark:bg-jsr-gray-800";
+const BASE_INPUT_STYLING = "w-full block px-2 py-1.5 input-container input bg-white dark:bg-jsr-gray-900";
 
 export function TicketModal(
   { user, kind, style, fields, children, extraMeta, title, description }: {
@@ -82,7 +82,7 @@ export function TicketModal(
       >
         <form
           ref={ref}
-          class={`space-y-3 z-[90] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-900 shadow min-w-96 ${
+          class={`space-y-3 z-[90] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 shadow min-w-96 ${
             status === "pending" ? "w-[40vw]" : ""
           } max-w-[95vw] max-h-[95vh] px-6 py-4 ${
             open ? "translate-y-0" : "translate-y-5"

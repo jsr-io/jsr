@@ -107,6 +107,11 @@ export default {
           950: "#3B0306",
         },
       },
+      textColor: {
+        primary: "var(--color-text-primary)",
+        secondary: "var(--color-text-secondary)",
+        tertiary: "var(--color-text-tertiary)",
+      },
       spacing: {
         1.75: "0.4375rem",
         4.5: "1.125rem",

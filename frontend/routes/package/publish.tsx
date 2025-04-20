@@ -110,12 +110,12 @@ export default define.page<typeof handler>(function PackagePage({
             <p>To publish your package from your terminal, run:</p>
             <pre class="bg-slate-900 dark:bg-slate-800 text-white rounded-lg p-4 my-2 w-full max-w-full overflow-auto">
               <code>
-                <span class="select-none sr-none text-jsr-gray-500">$ </span>
+                <span class="select-none sr-none text-tertiary">$ </span>
                 {` npx jsr publish`}
                 <br />
-                <span class="select-none sr-none text-jsr-gray-500 italic">or</span>
+                <span class="select-none sr-none text-tertiary italic">or</span>
                 <br />
-                <span class="select-none sr-none text-jsr-gray-500">$ </span>
+                <span class="select-none sr-none text-tertiary">$ </span>
                 {` deno publish`}
               </code>
             </pre>

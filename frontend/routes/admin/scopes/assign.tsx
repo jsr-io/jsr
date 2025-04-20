@@ -5,7 +5,7 @@ import { path } from "../../../utils/api.ts";
 
 export default define.page<typeof handler>(function Scopes() {
   return (
-    <div class="mb-20 dark:bg-jsr-gray-950">
+    <div class="mb-20">
       <AdminNav currentTab="scopes" />
       <h2 class="mt-4 text-xl font-sans font-bold dark:text-gray-100">
         Assign scope to user

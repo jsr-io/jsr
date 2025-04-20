@@ -50,6 +50,20 @@
   :root {
     scroll-behavior: smooth;
     scrollbar-color: theme("colors.jsr-cyan.200") theme("colors.jsr-cyan.50");
+    
+    color: theme("colors.jsr-gray.800");
+    --color-text-primary: theme("colors.jsr-gray.800");
+    --color-text-secondary: theme("colors.jsr-gray.600");
+    --color-text-tertiary: theme("colors.jsr-gray.500");
+    
+    --pct: 0;
+    
+    @apply opsize-normal transition-colors duration-200;
+  }
+  
+  body {
+    font-size: 1.125rem;
+    font-weight: 400;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -57,25 +71,44 @@
       scroll-behavior: auto;
     }
   }
-
-  body {
-    font-size: 1.125rem;
-    font-weight: 400;
-    color: theme("colors.jsr-gray.800");
-    @apply opsize-normal bg-white dark:bg-jsr-gray-950 dark:text-gray-200 transition-colors duration-200;
+  
+  .dark {
+    *,
+    *:before,
+    *:after {
+      border-color: theme("colors.jsr-cyan.800");
+    }
+    
+    background-color: theme("colors.jsr-gray.950");
+    color: theme("colors.jsr-gray.100");
+    --color-text-primary: theme("colors.jsr-gray.100");
+    --color-text-secondary: theme("colors.jsr-gray.300");
+    --color-text-tertiary: theme("colors.jsr-gray.400");
+    
+    scrollbar-color: theme("colors.jsr-gray.600") theme("colors.jsr-gray.950");
+    
+    #vizgraph {
+      > g > polygon {
+        @apply fill-jsr-gray-950;
+      }
+      
+      path[stroke='black'] {
+        @apply stroke-white;
+      }
+      
+      polygon[stroke='black'] {
+        @apply fill-white stroke-white;
+      }
+    }
   }
-
+  
   h1,
   h2,
   h3 {
     @apply opsize-sm;
   }
-
-  /* Dark mode scrollbar */
-  .dark {
-    scrollbar-color: theme("colors.jsr-gray.600") theme("colors.jsr-gray.900");
-  }
 }
+
 
 @layer utilities {
   .opsize-sm {
@@ -119,10 +152,10 @@
       bg-jsr-yellow text-jsr-cyan-950 font-bold hover:bg-jsr-yellow-300
       transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300
       outline-jsr-cyan-700 outline-offset-2 disabled:bg-jsr-gray-100
-      dark:text-jsr-gray-800 dark:border-jsr-cyan-600 dark:hover:border-jsr-cyan-400
+      dark:text-jsr-gray-900 dark:border-jsr-cyan-600 dark:hover:border-jsr-cyan-400
       disabled:text-jsr-gray-300 shadow-accent-sm dark:shadow-dark-accent-sm disabled:shadow-transparent
-      disabled:border-jsr-gray-300 dark:disabled:bg-jsr-gray-800
-      dark:disabled:text-jsr-gray-600 dark:disabled:border-jsr-gray-700;
+      disabled:border-jsr-gray-300 dark:disabled:bg-jsr-gray-900
+      dark:disabled:text-jsr-gray-600 dark:disabled:border-jsr-gray-900;
   }
 
   .button-primary:not(:disabled) {
@@ -135,7 +168,7 @@
       hover:bg-red-700 disabled:bg-jsr-gray-100 outline-red-600
       disabled:text-red-300 shadow-accent-sm dark:shadow-dark-accent-sm disabled:shadow-transparent
       disabled:border-red-300 transition-all duration-75 ease-in-out
-      dark:disabled:bg-jsr-gray-800 dark:disabled:border-red-800;
+      dark:disabled:bg-jsr-gray-900 dark:disabled:border-red-900;
   }
 
   .button-danger:not(:disabled) {
@@ -173,7 +206,7 @@
       focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
       dark:text-cyan-400 dark:hover:text-cyan-300
       dark:decoration-cyan-400/50 dark:ring-cyan-400
-      dark:ring-offset-jsr-gray-900;
+      dark:ring-offset-jsr-gray-950;
   }
 
   .link-header {
@@ -183,8 +216,8 @@
   }
 
   .input-container {
-    @apply bg-white dark:bg-jsr-gray-800 rounded-md leading-snug border-1
-      border-jsr-cyan-900/30 dark:border-jsr-gray-500
+    @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
+      border-jsr-cyan-900/30 dark:border-jsr-gray-600
       focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400;
   }
 
@@ -193,8 +226,8 @@
   .input-container input:not([data-locked="true"]):disabled,
   .input-container select:not([data-locked="true"]):disabled {
     @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed
-      bg-jsr-gray-50 dark:border-jsr-gray-600 dark:text-jsr-gray-400
-      dark:bg-jsr-gray-900;
+      bg-jsr-gray-50 dark:border-jsr-gray-800 dark:text-jsr-gray-400
+      dark:bg-jsr-gray-950;
   }
 
   select[data-locked="true"].input-container,
@@ -202,7 +235,7 @@
   .input-container input[data-locked="true"],
   .input-container select[data-locked="true"] {
     @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50
-      dark:text-jsr-gray-300 dark:bg-jsr-gray-900;
+      dark:text-jsr-gray-300 dark:bg-jsr-gray-950;
   }
 
   .input {
@@ -212,11 +245,11 @@
   }
 
   .search-input {
-    @apply input-container border-1.5 border-jsr-cyan-900/90 dark:border-jsr-gray-600;
+    @apply input-container border-1.5 border-jsr-cyan-900/90 dark:border-jsr-gray-800;
   }
 
   .search-input-tag {
-    @apply bg-blue-300/40 rounded-sm px-0.5 -mx-0.5 dark:bg-blue-800/40;
+    @apply bg-blue-300/40 rounded-sm px-0.5 -mx-0.5 dark:bg-blue-900/40;
   }
 
   .select {
@@ -224,6 +257,26 @@
     background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>')
       no-repeat;
     background-position: center right 0.5rem;
+  }
+  
+  .score-circle {
+    /* default (light) */
+    background-image: conic-gradient(
+      transparent,
+      transparent var(--pct),
+      #e7e8e8 var(--pct)
+    );
+  }
+  
+  .dark {
+    .score-circle {
+      /* dark mode */
+      background-image: conic-gradient(
+        transparent,
+        transparent var(--pct),
+        #454647 var(--pct)
+      );
+    }
   }
 }
 
@@ -266,11 +319,11 @@ body .ddoc {
     }
 
     .highlight {
-      @apply relative dark:bg-jsr-gray-900;
+      @apply relative dark:bg-jsr-gray-950;
 
       .lineNumbers {
         @apply border-r-2 border-jsr-gray-100 text-jsr-gray-300 pr-3 text-right
-          flex-none dark:border-jsr-gray-600 dark:text-gray-400;
+          flex-none dark:border-jsr-gray-800 dark:text-gray-400;
         @apply mr-3 !important;
 
         > a {
@@ -286,7 +339,7 @@ body .ddoc {
 
       .context_button {
         @apply absolute top-3 right-4 opacity-60 hover:opacity-100 border-none
-          hover:bg-jsr-cyan-50 dark:hover:bg-jsr-gray-700;
+          hover:bg-jsr-cyan-50 dark:hover:bg-jsr-gray-900;
       }
 
       /*!
@@ -587,8 +640,6 @@ body .ddoc:has(.toc) {
     --base-text-weight-semibold: 500;
     --bgColor-muted: theme("colors.slate.50");
     --text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;
-    
-    --pct: 0;
   }
   
   .dark {
@@ -601,39 +652,5 @@ body .ddoc:has(.toc) {
     --color-fg-default: theme("colors.gray.200") !important;
     --bgColor-muted: theme("colors.jsr-gray.800");
     --text-shadow: 0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em black, 0 0 0.5em black;
-  }
-}
-
-.score-circle {
-  /* default (light) */
-  background-image: conic-gradient(
-    transparent,
-    transparent var(--pct),
-    #e7e8e8 var(--pct)
-  );
-}
-
-.dark {
-  .score-circle {
-    /* dark mode */
-    background-image: conic-gradient(
-      transparent,
-      transparent var(--pct),
-      #777E93 var(--pct)
-    );
-  }
-  
-  #vizgraph {
-    > g > polygon {
-      @apply fill-jsr-gray-950;
-    }
-    
-    path[stroke='black'] {
-      @apply stroke-white;
-    }
-    
-    polygon[stroke='black'] {
-      @apply fill-white stroke-white;
-    }
   }
 }

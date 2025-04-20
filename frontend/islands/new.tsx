@@ -19,7 +19,7 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-100 dark:bg-jsr-gray-700 text-black dark:text-jsr-gray-200";
+    return "bg-jsr-gray-100 dark:bg-jsr-gray-900 text-black dark:text-jsr-gray-200";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>
@@ -137,7 +137,7 @@ export function ScopeSelect(
       </select>
 
       {!locked && (
-        <p class="text-jsr-gray-500 dark:text-jsr-gray-300">
+        <p class="text-tertiary">
           or{" "}
           <button
             type="button"
@@ -238,7 +238,7 @@ function CreateScope(
               title="Request reserved scope name"
               description={
                 <>
-                  <p class="mt-4 text-jsr-gray-600">
+                  <p class="mt-4 text-secondary">
                     The scope name '@{newScope.value}' is reserved. If you think
                     you have a valid reason to claim it, such as proof of
                     ownership of a package or scope on npm with the same name,
@@ -462,11 +462,11 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </a>
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
-              <p class="text-jsr-gray-500 dark:text-jsr-gray-300">
+              <p class="text-tertiary">
                 Created {twas(new Date(pkg.value.createdAt).getTime())}.
               </p>
               {fromCli && (
-                <p class="mt-2 text-jsr-gray-500">
+                <p class="mt-2 text-tertiary">
                   You can now close this page and go back to your terminal to
                   continue publishing.
                 </p>

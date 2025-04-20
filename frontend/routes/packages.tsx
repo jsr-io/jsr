@@ -23,12 +23,12 @@ export default define.page<typeof handler>(function PackageListPage({
         </ListDisplay>
 
         <div className="mt-2 flex flex-wrap items-start justify-between px-2">
-          <span className="text-sm text-jsr-gray-400 dark:text-gray-500 block">
+          <span className="text-sm text-jsr-gray-400 dark:text-jsr-gray-400 block">
             Changes made in the last 15 minutes may not be visible yet. Packages
             with no published versions are not shown.
           </span>
           <div class="flex items-center gap-1">
-            <span className="text-sm text-jsr-gray-500 dark:text-gray-400">powered by</span>
+            <span className="text-sm text-tertiary">powered by</span>
             <span className="sr-only">Orama</span>
             <img className="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
             <img className="h-4 hidden dark:block" src="/logos/orama-light.svg" alt="" />

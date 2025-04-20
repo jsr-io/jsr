@@ -133,7 +133,7 @@ export function Header({
 
 function Divider() {
   return (
-    <span class="text-jsr-gray-200 dark:text-jsr-gray-500 select-none" aria-hidden="true">
+    <span class="text-jsr-gray-200 dark:text-jsr-gray-700 select-none" aria-hidden="true">
       |
     </span>
   );

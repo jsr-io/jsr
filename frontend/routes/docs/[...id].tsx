@@ -22,7 +22,7 @@ export default define.page<typeof handler>(function Page({ data }) {
   return (
     <div class="mb-20">
       <div class="grid grid-cols-1 md:grid-cols-10">
-        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-700 md:border-t-0 md:border-slate-300 dark:md:border-jsr-gray-700 pt-4 md:pt-0">
+        <nav class="pb-10 md:border-r-1.5 md:col-span-3 lg:col-span-2 order-2 md:order-1 border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-900 md:border-t-0 md:border-slate-300 dark:md:border-jsr-gray-900 pt-4 md:pt-0">
           <div>
             <p class="text-xl font-semibold" id="sidebar">Docs</p>
           </div>
@@ -39,7 +39,7 @@ export default define.page<typeof handler>(function Page({ data }) {
                         id === data.id
                           ? "px-4 text-jsr-cyan-700 dark:text-cyan-400 border-l-4 border-jsr-cyan-400 dark:border-cyan-600 bg-jsr-cyan-100 dark:bg-jsr-gray-800"
                           : "pl-5 pr-4"
-                      } py-1.5 block leading-5 hover:text-jsr-gray-600 dark:hover:text-gray-300 hover:underline`}
+                      } py-1.5 block leading-5 hover:text-secondary hover:underline`}
                     >
                       {title}
                     </a>
@@ -54,7 +54,7 @@ export default define.page<typeof handler>(function Page({ data }) {
           <p class="text-sm mb-6 -mt-2 md:hidden">
             <a href="#sidebar" class="link">View table of contents</a>
           </p>
-          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-jsr-gray-900 dark:text-gray-100">
+          <h1 class="text-4xl lg:text-5xl lg:leading-[1.1] text-balance font-medium mb-8 text-primary">
             {data.title}
           </h1>
           <Markdown source={data.content} />

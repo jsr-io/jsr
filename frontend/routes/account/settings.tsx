@@ -16,7 +16,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
           <div class="flex flex-col gap-8">
             <div class="flex flex-col justify-between gap-4">
               <div class="max-w-xl">
-                <p class="text-jsr-gray-600">
+                <p class="text-secondary">
                   Users have certain quotas to help prevent abuse. We are happy
                   to increase your quotas as needed — just send us an increase
                   request.
@@ -39,7 +39,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
                 title="Request scope quota increase"
                 description={
                   <>
-                    <p class="mt-4 text-jsr-gray-600">
+                    <p class="mt-4 text-secondary">
                       We are unable to increase your scope quota without a valid
                       reason, and we require that you make use of your existing
                       scopes before requesting an increase. Please be aware of
@@ -67,7 +67,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
         </div>
         <div>
           <h2 class="text-xl mb-2 font-bold">Delete account</h2>
-          <p class="mt-2 text-jsr-gray-600 max-w-xl">
+          <p class="mt-2 text-secondary max-w-xl">
             You may delete your account at any time. If you delete your account,
             any scopes that you are the sole owner of will be orphaned. You will
             not be able to recover your account after deletion.

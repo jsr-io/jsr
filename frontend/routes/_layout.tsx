@@ -15,7 +15,7 @@ export default function Layout(
       >
         <a
           href="#main-content"
-          class="absolute p-4 -translate-y-full bg-jsr-cyan-100 dark:bg-jsr-cyan-900 dark:text-white font-medium focus:translate-y-0 transition-transform duration-100	z-20"
+          class="absolute p-4 -translate-y-full bg-jsr-cyan-100 dark:bg-jsr-cyan-950 dark:text-white font-medium focus:translate-y-0 transition-transform duration-100	z-20"
         >
           Skip to main content
         </a>
@@ -35,7 +35,7 @@ export default function Layout(
       </div>
       <footer
         id="footer"
-        class="text-xs text-center mt-4 md:mt-6 md:p-4 p-2 text-jsr-gray-500 dark:text-gray-300"
+        class="text-xs text-center mt-4 md:mt-6 md:p-4 p-2 text-tertiary"
       >
         JSR - It is{" "}
         <time datetime={currentDatetime.toISOString()}>

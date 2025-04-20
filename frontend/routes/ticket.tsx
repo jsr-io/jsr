@@ -65,7 +65,7 @@ export default define.page<typeof handler>(function Ticket({
         {data.ticket.messages.map((message) => {
           const isOpener = message.author.id === data.ticket.creator.id;
           return (
-            <div class="w-full rounded border-1.5 border-current bg-white dark:bg-jsr-gray-800 px-4 py-3">
+            <div class="w-full rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 px-4 py-3">
               <div class="flex justify-between mb-2">
                 <div class="flex items-center gap-3">
                   <a

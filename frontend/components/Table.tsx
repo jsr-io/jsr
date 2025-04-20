@@ -39,13 +39,13 @@ export function Table(
   return (
     <>
       <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-gray-700 sm:rounded overflow-hidden ${
+        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden ${
           class_ ?? ""
         }`}
       >
         <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-50 dark:divide-jsr-gray-700">
-            <thead class="bg-jsr-cyan-50 dark:bg-jsr-gray-800">
+          <table class="w-full divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-900">
+            <thead class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950">
               <TableRow class="children:font-semibold">
                 {columns.map(({ align, class: _class, title, fieldName }) => {
                   let icon;
@@ -76,7 +76,7 @@ export function Table(
 
                   return (
                     <th
-                      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 dark:text-white ${
+                      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
                         _class ?? ""
                       }`}
                     >
@@ -107,7 +107,7 @@ export function Table(
                 })}
               </TableRow>
             </thead>
-            <tbody class="divide-y divide-jsr-cyan-300/30 dark:divide-jsr-gray-700 bg-white dark:bg-jsr-gray-900/90">
+            <tbody class="divide-y divide-jsr-cyan-300/30 dark:divide-jsr-cyan-900 bg-white dark:bg-jsr-gray-950">
               {children}
             </tbody>
           </table>
@@ -142,17 +142,17 @@ function Pagination(
   nextURL.searchParams.set("page", (pagination.page + 1).toString());
 
   return (
-    <div class="flex items-center gap-3 text-jsr-gray-700 dark:text-gray-300">
+    <div class="flex items-center gap-3 text-secondary">
       {hasPrevious && (
         <a
           href={prevURL.pathname + prevURL.search}
-          class="hover:text-black dark:hover:text-white hover:bg-jsr-cyan-100 dark:hover:bg-jsr-gray-700 p-1 -m-1 rounded-full"
+          class="hover:text-black dark:hover:text-white hover:bg-jsr-cyan-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
           title="Previous page"
         >
           <TbChevronLeft class="size-5" />
         </a>
       )}
-      <div class="text-sm text-jsr-gray-600 dark:text-gray-400">
+      <div class="text-sm text-secondary">
         Showing items {(pagination.page * pagination.limit) - pagination.limit +
           (Math.min(itemsCount, 1))}
         -
@@ -164,7 +164,7 @@ function Pagination(
       {hasNext && (
         <a
           href={nextURL.pathname + nextURL.search}
-          class="hover:text-black dark:hover:text-white hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-700 p-1 -m-1 rounded-full"
+          class="hover:text-black dark:hover:text-white hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
           title="Next page"
         >
           <TbChevronRight class="size-5" />
@@ -213,7 +213,7 @@ export function TableData(
 ) {
   return (
     <td
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-jsr-gray-900 dark:text-white ${
+      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
       title={title}

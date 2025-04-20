@@ -79,7 +79,7 @@ export default define.page<typeof handler>(function Deps(
       <div class="space-y-3 mt-8">
         {list.length === 0
           ? (
-            <div class="text-jsr-gray-500 text-lg text-center">
+            <div class="text-tertiary text-lg text-center">
               @{data.package.scope}/{data.package.name}@{data.selectedVersion
                 .version} has no dependencies. 🎉
             </div>

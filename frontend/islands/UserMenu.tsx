@@ -6,7 +6,7 @@ import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 const DEFAULT_ITEM_CLASSES =
-  "hover:bg-jsr-cyan-50 dark:hover:bg-jsr-gray-800 focus-visible:bg-jsr-cyan-200 dark:focus-visible:bg-jsr-gray-700 ring-jsr-cyan-700 dark:ring-cyan-500";
+  "hover:bg-jsr-cyan-50 dark:hover:bg-jsr-gray-900 focus-visible:bg-jsr-cyan-200 dark:focus-visible:bg-jsr-gray-900 ring-jsr-cyan-700 dark:ring-cyan-500";
 
 const SUDO_CONFIRMATION =
   "Are you sure you want to enable sudo mode? Sudo mode will be enabled for 5 minutes.";
@@ -52,7 +52,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <div
         aria-labelledby={`${prefix}-user-menu`}
         role="region"
-        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-900 dark:text-gray-200 w-56 shadow overflow-hidden ${
+        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-5 pointer-events-none"
@@ -61,7 +61,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       >
         <div class="flex flex-col items-center gap-3 pt-4 pb-3">
           <img
-            class="h-16 w-16 rounded-full ring-2 ring-offset-1 ring-jsr-cyan-950 dark:ring-offset-jsr-gray-900"
+            class="h-16 w-16 rounded-full ring-2 ring-offset-1 ring-jsr-cyan-950 dark:ring-offset-jsr-gray-950 dark:ring-jsr-cyan-300"
             src={user.avatarUrl}
             alt=""
           />
@@ -108,7 +108,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             </button>
           )}
         </div>
-        <div class="divide-y divide-slate-200 dark:divide-jsr-gray-700">
+        <div class="divide-y divide-slate-200 dark:divide-jsr-gray-900">
           <a
             href="/new"
             tabIndex={open ? undefined : -1}

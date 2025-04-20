@@ -19,7 +19,7 @@ export function AuditURLQuerySearch(
           onChange={(_) => {
             formRef.current?.submit();
           }}
-          class="dark:bg-jsr-gray-700 dark:border-gray-500"
+          class="dark:bg-jsr-gray-900 dark:border-gray-700"
         />
         <span>Sudo Only</span>
       </label>

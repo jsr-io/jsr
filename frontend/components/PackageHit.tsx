@@ -21,12 +21,12 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
               {`@${pkg.scope}/${pkg.name}`}
             </span>
             {(pkg as Package).latestVersion && (
-              <div class="text-jsr-gray-500 dark:text-gray-400 max-w-20 truncate font-semibold text-sm">
+              <div class="text-tertiary max-w-20 truncate font-semibold text-sm">
                 {`v${(pkg as Package).latestVersion}`}
               </div>
             )}
           </div>
-          <div class="text-sm text-jsr-gray-500 dark:text-gray-400">
+          <div class="text-sm text-tertiary">
             {pkg.description}
           </div>
         </div>
@@ -47,7 +47,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
                 style={`--pct: ${pkg.score}%`}
                 title="Package score"
               >
-                <div class="rounded-full aspect-square bg-white dark:bg-jsr-gray-900 text-xs flex items-center justify-center font-semibold min-w-6">
+                <div class="rounded-full aspect-square bg-white dark:bg-jsr-gray-950 text-xs flex items-center justify-center font-semibold min-w-6">
                   {pkg.score}
                 </div>
               </div>

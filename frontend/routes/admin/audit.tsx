@@ -9,7 +9,7 @@ import twas from "twas";
 
 export default define.page<typeof handler>(function Users({ data, url }) {
   return (
-    <div class="mb-20 dark:bg-jsr-gray-950">
+    <div class="mb-20">
       <AdminNav currentTab="audit" />
       <AuditURLQuerySearch query={data.query} sudoOnly={data.sudoOnly} />
       <Table

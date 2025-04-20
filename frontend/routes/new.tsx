@@ -44,7 +44,7 @@ export default define.page<typeof handler>(function New(props) {
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Scope</h2>
-              <p class="mt-2 mb-4 text-jsr-gray-500 dark:text-white text-base">
+              <p class="mt-2 mb-4 text-tertiary text-base">
                 Choose which scope your package will be published to. Scopes are
                 namespaces for packages.
               </p>
@@ -81,7 +81,7 @@ export default define.page<typeof handler>(function New(props) {
             </IconCircle>
             <div class="w-full">
               <h2 class="font-bold text-2xl leading-none">Package name</h2>
-              <p class="mt-1 mb-4 text-jsr-gray-500 dark:text-white text-base">
+              <p class="mt-1 mb-4 text-tertiary text-base">
                 The name of your package must be unique within the scope you
                 selected.
               </p>

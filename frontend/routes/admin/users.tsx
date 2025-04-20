@@ -11,7 +11,7 @@ import { EditModal } from "./(_islands)/EditModal.tsx";
 
 export default define.page<typeof handler>(function Users({ data, url }) {
   return (
-    <div class="mb-20 dark:bg-jsr-gray-950">
+    <div class="mb-20">
       <AdminNav currentTab="users" />
       <URLQuerySearch query={data.query} />
       <Table

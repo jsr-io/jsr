@@ -41,7 +41,7 @@ export function HomepageHero(
               style={{textShadow: 'var(--text-shadow, 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white)'}}
             >
               The{" "}
-              <b class="font-semibold text-jsr-gray-900 dark:text-white">
+              <b class="font-semibold text-primary">
                 open-source package registry
               </b>{" "}
               for modern JavaScript and TypeScript

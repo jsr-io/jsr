@@ -48,7 +48,7 @@ export default function UserManageScopeInvite(
                 },
               );
             }}
-            class="text-indigo-600 hover:text-indigo-900 disabled:text-jsr-gray-500 disabled:cursor-wait"
+            class="text-indigo-600 hover:text-indigo-900 disabled:text-tertiary disabled:cursor-wait"
           >
             Accept invite<span class="sr-only">, {invite.scope}</span>
           </button>
@@ -66,7 +66,7 @@ export default function UserManageScopeInvite(
                 }
               });
             }}
-            class="text-red-600 hover:text-red-900 disabled:text-jsr-gray-500 disabled:cursor-wait"
+            class="text-red-600 hover:text-red-900 disabled:text-tertiary disabled:cursor-wait"
           >
             Decline invite<span class="sr-only">, {invite.scope}</span>
           </button>

@@ -42,7 +42,7 @@ export default define.page<typeof handler>(function Score(
           />
         )
         : (
-          <div class="mt-8 text-jsr-gray-500 dark:text-gray-400 text-center">
+          <div class="mt-8 text-tertiary text-center">
             No score is available for this package, because it does not have a
             stable release.
           </div>
@@ -78,11 +78,11 @@ function ScoreInfo(props: {
           }`}
           style={`--pct: ${scorePercentage}%`}
         >
-          <span class="rounded-full w-full h-full bg-white dark:bg-jsr-gray-800 dark:text-gray-200 flex justify-center items-center text-center text-3xl font-bold">
+          <span class="rounded-full w-full h-full bg-white dark:bg-jsr-gray-950 dark:text-gray-200 flex justify-center items-center text-center text-3xl font-bold">
             {scorePercentage}%
           </span>
         </div>
-        <div class="text-jsr-gray-500 dark:text-gray-400 text-sm text-center mt-6">
+        <div class="text-tertiary text-sm text-center mt-6">
           The JSR score is a measure of the overall quality of a package, based
           on a number of factors such as documentation and runtime
           compatibility.
@@ -252,7 +252,7 @@ function ScoreItem(
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
-        <p class="text-jsr-gray-500 dark:text-gray-400 text-sm leading-tight mt-1">
+        <p class="text-tertiary text-sm leading-tight mt-1">
           {props.children}
         </p>
       </div>
