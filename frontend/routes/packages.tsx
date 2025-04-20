@@ -30,8 +30,16 @@ export default define.page<typeof handler>(function PackageListPage({
           <div class="flex items-center gap-1">
             <span className="text-sm text-tertiary">powered by</span>
             <span className="sr-only">Orama</span>
-            <img className="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
-            <img className="h-4 hidden dark:block" src="/logos/orama-light.svg" alt="" />
+            <img
+              className="h-4 dark:hidden"
+              src="/logos/orama-dark.svg"
+              alt=""
+            />
+            <img
+              className="h-4 hidden dark:block"
+              src="/logos/orama-light.svg"
+              alt=""
+            />
           </div>
         </div>
       </div>

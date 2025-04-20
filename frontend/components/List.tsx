@@ -54,7 +54,8 @@ export function ListDisplay(
   );
 }
 
-const PAGINATION_BUTTON_STYLE = "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold text-primary ring-1 ring-inset ring-jsr-gray-300 dark:ring-jsr-cyan-800 hover:bg-jsr-gray-50 dark:hover:bg-jsr-gray-900 focus-visible:outline-offset-0 select-none";
+const PAGINATION_BUTTON_STYLE =
+  "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold text-primary ring-1 ring-inset ring-jsr-gray-300 dark:ring-jsr-cyan-800 hover:bg-jsr-gray-50 dark:hover:bg-jsr-gray-900 focus-visible:outline-offset-0 select-none";
 
 function Pagination(
   { currentUrl, itemsCount, pagination }: {

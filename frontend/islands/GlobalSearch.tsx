@@ -402,7 +402,11 @@ function SuggestionList(
   return (
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null
-        ? <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4">...</div>
+        ? (
+          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4">
+            ...
+          </div>
+        )
         : suggestions.value?.length === 0
         ? (
           <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
@@ -448,7 +452,11 @@ function SuggestionList(
             powered by <span class="sr-only">Orama</span>
           </span>
           <img class="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
-          <img className="h-4 hidden dark:block" src="/logos/orama-light.svg" alt="" />
+          <img
+            className="h-4 hidden dark:block"
+            src="/logos/orama-light.svg"
+            alt=""
+          />
         </div>
       </div>
     </div>

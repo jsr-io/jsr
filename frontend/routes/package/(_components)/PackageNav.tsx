@@ -64,7 +64,11 @@ export function PackageNav({
           Files
         </NavItem>
       )}
-      <NavItem href={`${base}/versions`} active={currentTab === "Versions"} chip={versionCount}>
+      <NavItem
+        href={`${base}/versions`}
+        active={currentTab === "Versions"}
+        chip={versionCount}
+      >
         Versions
       </NavItem>
       {(latestVersion || params.version) && (

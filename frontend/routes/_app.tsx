@@ -64,10 +64,11 @@ export default async function App({
           href="/opensearch.xml"
           title="JSR"
         />
-        
+
         {/* Initial dark mode script to prevent flash */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
             (function() {
               const isDarkStored = localStorage.getItem('darkMode');
               const isDarkPreference = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -78,8 +79,9 @@ export default async function App({
                 document.documentElement.classList.remove('dark');
               }
             })();
-          `
-        }} />
+          `,
+          }}
+        />
       </head>
       <body>
         <Component />

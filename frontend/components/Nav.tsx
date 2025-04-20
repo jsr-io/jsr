@@ -64,15 +64,17 @@ export function NavItem(props: NavItemProps) {
       <span className="flex items-center">
         {props.children}
 
-        {props.chip !== undefined && <span
-          className={`chip ml-2 tabular-nums border-1 border-white dark:border-jsr-gray-950 ${
-            (props.chip > 0 && props.notification)
-              ? "bg-orange-600 text-white"
-              : "bg-jsr-gray-200 dark:bg-jsr-gray-900 dark:text-gray-300"
-          }`}
-        >
-          {props.chip}
-        </span>}
+        {props.chip !== undefined && (
+          <span
+            className={`chip ml-2 tabular-nums border-1 border-white dark:border-jsr-gray-950 ${
+              (props.chip > 0 && props.notification)
+                ? "bg-orange-600 text-white"
+                : "bg-jsr-gray-200 dark:bg-jsr-gray-900 dark:text-gray-300"
+            }`}
+          >
+            {props.chip}
+          </span>
+        )}
       </span>
     </a>
   );

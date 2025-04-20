@@ -13,7 +13,8 @@ interface Field {
   required: boolean;
 }
 
-const BASE_INPUT_STYLING = "w-full block px-2 py-1.5 input-container input bg-white dark:bg-jsr-gray-900";
+const BASE_INPUT_STYLING =
+  "w-full block px-2 py-1.5 input-container input bg-white dark:bg-jsr-gray-900";
 
 export function TicketModal(
   { user, kind, style, fields, children, extraMeta, title, description }: {

@@ -41,11 +41,17 @@ export default define.page<typeof handler>(function PackagePage({
               <h3 class="font-bold text-xl lg:text-2xl">1. Configure</h3>
               <div class="flex flex-col mt-4 gap-2">
                 <p>
-                  Add <code class="text-slate-500 dark:text-slate-400">"name"</code>,
-                  <code class="text-slate-500 dark:text-slate-400">"version"</code>, and{" "}
-                  <code class="text-slate-500 dark:text-slate-400">"exports"</code> fields to your
-                  {" "}
-                  config file:
+                  Add{" "}
+                  <code class="text-slate-500 dark:text-slate-400">
+                    "name"
+                  </code>,
+                  <code class="text-slate-500 dark:text-slate-400">
+                    "version"
+                  </code>, and{" "}
+                  <code class="text-slate-500 dark:text-slate-400">
+                    "exports"
+                  </code>{" "}
+                  fields to your config file:
                 </p>
                 <div class="mt-2 -mb-2">
                   <div class="bg-jsr-gray-700 dark:bg-jsr-gray-900 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
@@ -127,7 +133,9 @@ export default define.page<typeof handler>(function PackagePage({
         </div>
         <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
           <hr class="border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-600 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
-          <div class="p-2 bg-white dark:bg-jsr-gray-950 text-center w-max mx-auto font-bold">OR</div>
+          <div class="p-2 bg-white dark:bg-jsr-gray-950 text-center w-max mx-auto font-bold">
+            OR
+          </div>
         </div>
         <div>
           <h4 class="font-bold text-lg lg:text-xl">

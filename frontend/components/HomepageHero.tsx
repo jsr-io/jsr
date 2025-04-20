@@ -38,7 +38,10 @@ export function HomepageHero(
             <AnimatedLogo />
             <div
               class="pointer-events-auto text-2xl text-balance leading-[1.1] sm:text-3xl md:text-3xl lg:text-4xl opsize-normal md:opsize-sm text-center -mt-5 md:-mt-6 max-w-[20em]"
-              style={{textShadow: 'var(--text-shadow, 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white)'}}
+              style={{
+                textShadow:
+                  "var(--text-shadow, 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white)",
+              }}
             >
               The{" "}
               <b class="font-semibold text-primary">
@@ -49,7 +52,10 @@ export function HomepageHero(
           </h1>
           <div
             class="flex flex-row gap-3 items-center justify-center mt-4 pointer-events-auto"
-            style={{textShadow: 'var(--text-shadow, 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white)'}}
+            style={{
+              textShadow:
+                "var(--text-shadow, 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white)",
+            }}
           >
             <a class="underline text-sm relative z-10" href="/docs">
               Docs

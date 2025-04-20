@@ -50,17 +50,17 @@
   :root {
     scroll-behavior: smooth;
     scrollbar-color: theme("colors.jsr-cyan.200") theme("colors.jsr-cyan.50");
-    
+
     color: theme("colors.jsr-gray.800");
     --color-text-primary: theme("colors.jsr-gray.800");
     --color-text-secondary: theme("colors.jsr-gray.600");
     --color-text-tertiary: theme("colors.jsr-gray.500");
-    
+
     --pct: 0;
-    
+
     @apply opsize-normal transition-colors duration-200;
   }
-  
+
   body {
     font-size: 1.125rem;
     font-weight: 400;
@@ -71,44 +71,43 @@
       scroll-behavior: auto;
     }
   }
-  
+
   .dark {
     *,
     *:before,
     *:after {
       border-color: theme("colors.jsr-cyan.800");
     }
-    
+
     background-color: theme("colors.jsr-gray.950");
     color: theme("colors.jsr-gray.100");
     --color-text-primary: theme("colors.jsr-gray.100");
     --color-text-secondary: theme("colors.jsr-gray.300");
     --color-text-tertiary: theme("colors.jsr-gray.400");
-    
+
     scrollbar-color: theme("colors.jsr-gray.600") theme("colors.jsr-gray.950");
-    
+
     #vizgraph {
       > g > polygon {
         @apply fill-jsr-gray-950;
       }
-      
-      path[stroke='black'] {
+
+      path[stroke="black"] {
         @apply stroke-white;
       }
-      
-      polygon[stroke='black'] {
+
+      polygon[stroke="black"] {
         @apply fill-white stroke-white;
       }
     }
   }
-  
+
   h1,
   h2,
   h3 {
     @apply opsize-sm;
   }
 }
-
 
 @layer utilities {
   .opsize-sm {
@@ -135,8 +134,8 @@
 
 @layer components {
   .button {
-    @apply text-jsr-gray-700 dark:text-gray-200 inline-flex items-center gap-2 py-2.5 px-4.5
-      rounded-md leading-tight font-medium whitespace-nowrap
+    @apply text-jsr-gray-700 dark:text-gray-200 inline-flex items-center gap-2
+      py-2.5 px-4.5 rounded-md leading-tight font-medium whitespace-nowrap
       hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4
       focus:outline-offset-2 select-none;
   }
@@ -152,28 +151,30 @@
       bg-jsr-yellow text-jsr-cyan-950 font-bold hover:bg-jsr-yellow-300
       transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300
       outline-jsr-cyan-700 outline-offset-2 disabled:bg-jsr-gray-100
-      dark:text-jsr-gray-900 dark:border-jsr-cyan-600 dark:hover:border-jsr-cyan-400
-      disabled:text-jsr-gray-300 shadow-accent-sm dark:shadow-dark-accent-sm disabled:shadow-transparent
+      dark:text-jsr-gray-900 dark:border-jsr-cyan-600
+      dark:hover:border-jsr-cyan-400 disabled:text-jsr-gray-300 shadow-accent-sm
+      dark:shadow-dark-accent-sm disabled:shadow-transparent
       disabled:border-jsr-gray-300 dark:disabled:bg-jsr-gray-900
       dark:disabled:text-jsr-gray-600 dark:disabled:border-jsr-gray-900;
   }
 
   .button-primary:not(:disabled) {
-    @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close active:translate-x-[3px]
-      active:translate-y-[4px];
+    @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close
+      active:translate-x-[3px] active:translate-y-[4px];
   }
 
   .button-danger {
     @apply button border-1.5 border-red-950 bg-red-500 text-white
       hover:bg-red-700 disabled:bg-jsr-gray-100 outline-red-600
-      disabled:text-red-300 shadow-accent-sm dark:shadow-dark-accent-sm disabled:shadow-transparent
-      disabled:border-red-300 transition-all duration-75 ease-in-out
-      dark:disabled:bg-jsr-gray-900 dark:disabled:border-red-900;
+      disabled:text-red-300 shadow-accent-sm dark:shadow-dark-accent-sm
+      disabled:shadow-transparent disabled:border-red-300 transition-all
+      duration-75 ease-in-out dark:disabled:bg-jsr-gray-900
+      dark:disabled:border-red-900;
   }
 
   .button-danger:not(:disabled) {
-    @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close active:translate-x-[3px]
-      active:translate-y-[4px];
+    @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close
+      active:translate-x-[3px] active:translate-y-[4px];
   }
 
   .chip {
@@ -204,9 +205,8 @@
     @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
       decoration-jsr-cyan-700/50 underline-offset-2 outline-none
       focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
-      dark:text-cyan-400 dark:hover:text-cyan-300
-      dark:decoration-cyan-400/50 dark:ring-cyan-400
-      dark:ring-offset-jsr-gray-950;
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
 
   .link-header {
@@ -241,11 +241,13 @@
   .input {
     @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300
       outline-none bg-transparent disabled:cursor-not-allowed
-      dark:placeholder:text-jsr-gray-400 dark:disabled:placeholder:text-jsr-gray-500;
+      dark:placeholder:text-jsr-gray-400
+      dark:disabled:placeholder:text-jsr-gray-500;
   }
 
   .search-input {
-    @apply input-container border-1.5 border-jsr-cyan-900/90 dark:border-jsr-gray-800;
+    @apply input-container border-1.5 border-jsr-cyan-900/90
+      dark:border-jsr-gray-800;
   }
 
   .search-input-tag {
@@ -258,7 +260,7 @@
       no-repeat;
     background-position: center right 0.5rem;
   }
-  
+
   .score-circle {
     /* default (light) */
     background-image: conic-gradient(
@@ -267,7 +269,7 @@
       #e7e8e8 var(--pct)
     );
   }
-  
+
   .dark {
     .score-circle {
       /* dark mode */
@@ -639,9 +641,11 @@ body .ddoc:has(.toc) {
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
     --bgColor-muted: theme("colors.slate.50");
-    --text-shadow: 0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em white, 0 0 0.5em white;
+    --text-shadow:
+      0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em
+      white, 0 0 0.5em white;
   }
-  
+
   .dark {
     --color-accent-fg: theme("colors.slate.300") !important;
     --color-border-default: theme("colors.slate.600") !important;
@@ -651,6 +655,8 @@ body .ddoc:has(.toc) {
     --fgColor-muted: theme("colors.jsr-gray.300") !important;
     --color-fg-default: theme("colors.gray.200") !important;
     --bgColor-muted: theme("colors.jsr-gray.800");
-    --text-shadow: 0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em black, 0 0 0.5em black;
+    --text-shadow:
+      0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em
+      black, 0 0 0.5em black;
   }
 }
