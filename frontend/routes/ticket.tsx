@@ -52,7 +52,7 @@ export default define.page<typeof handler>(function Ticket({
               <span>{data.ticket.closed ? "closed" : "open"}</span>
               <div
                 class={`${
-                  data.ticket.closed ? "bg-green-400" : "bg-orange-400"
+                  data.ticket.closed ? "bg-green-400 dark:bg-green-600" : "bg-orange-400 dark:bg-orange-600"
                 } rounded-full p-1`}
               >
                 {data.ticket.closed
@@ -67,7 +67,7 @@ export default define.page<typeof handler>(function Ticket({
         {data.ticket.messages.map((message) => {
           const isOpener = message.author.id === data.ticket.creator.id;
           return (
-            <div class="w-full rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 px-4 py-3">
+            <div class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3">
               <div class="flex justify-between mb-2">
                 <div class="flex items-center gap-3">
                   <a
@@ -86,7 +86,7 @@ export default define.page<typeof handler>(function Ticket({
                     class={"rounded-full text-sm px-2 inline-block " +
                       (isOpener
                         ? "bg-jsr-cyan-500 text-white"
-                        : "bg-jsr-yellow-400")}
+                        : "bg-jsr-yellow-400 text-jsr-gray-800")}
                   >
                     {isOpener ? "User" : "Staff"}
                   </span>

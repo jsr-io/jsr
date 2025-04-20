@@ -26,7 +26,7 @@ export function ListDisplay(
           </div>
         )}
 
-      <ul class="divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-900">
+      <ul class="divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-950">
         {children.map((item) => (
           <li>
             <a

@@ -25,7 +25,6 @@ export function Markdown(
   });
   return (
     <div
-      data-color-mode="light"
       data-light-theme="light"
       data-dark-theme="dark"
       class="markdown-body dark:text-gray-200"

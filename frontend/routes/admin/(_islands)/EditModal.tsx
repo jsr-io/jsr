@@ -89,7 +89,7 @@ export function EditModal(
         edit
       </button>
       <div
-        class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-900/80 z-[80] flex justify-center items-center overflow-hidden ${
+        class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-950/70 z-[80] flex justify-center items-center overflow-hidden ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         } transition`}
         aria-labelledby={`${prefix}-edit-modal`}
@@ -98,7 +98,7 @@ export function EditModal(
       >
         <form
           ref={ref}
-          class={`space-y-3 z-[90] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 shadow min-w-96 ${
+          class={`space-y-3 z-[90] rounded border-1.5 border-current dark:border-cyan-700 bg-white dark:bg-jsr-gray-950 shadow min-w-96 ${
             status === "pending" ? "w-[40vw]" : ""
           } max-w-[95vw] max-h-[95vh] px-6 py-4 ${
             open ? "translate-y-0" : "translate-y-5"
@@ -136,7 +136,7 @@ export function EditModal(
             });
           }}
         >
-          <h2 class="text-lg font-semibold">
+          <h2 class="text-lg font-semibold text-primary">
             {title}
           </h2>
 
@@ -240,13 +240,12 @@ export function EditModal(
 
                   return (
                     <label class="block">
-                      <span class="text-sm">
+                      <span class="text-sm text-primary mb-1.5 block">
                         {field.label}
                         {field.required
                           ? <span class="text-sm text-red-500">*</span>
                           : null}
                       </span>
-                      <br />
                       {input}
                     </label>
                   );

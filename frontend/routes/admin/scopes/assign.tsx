@@ -7,10 +7,10 @@ export default define.page<typeof handler>(function Scopes() {
   return (
     <div class="mb-20">
       <AdminNav currentTab="scopes" />
-      <h2 class="mt-4 text-xl font-sans font-bold dark:text-gray-100">
+      <h2 class="mt-4 text-xl font-sans font-bold">
         Assign scope to user
       </h2>
-      <p class="mt-4 max-w-3xl dark:text-gray-200">
+      <p class="mt-4 max-w-3xl text-secondary">
         This will assign the given scope to a user, without that user having to
         be invited and accepting the invite. This bypasses the normal reserved
         scope checks, or scope quota limit checks.

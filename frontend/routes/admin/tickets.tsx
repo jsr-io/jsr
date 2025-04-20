@@ -51,7 +51,7 @@ export default define.page<typeof handler>(function Tickets({
                 )}
                 <div
                   class={`${
-                    ticket.closed ? "bg-green-400" : "bg-orange-400"
+                    ticket.closed ? "bg-green-400 dark:bg-green-600" : "bg-orange-400 dark:bg-orange-600"
                   } rounded-full p-1`}
                 >
                   {ticket.closed

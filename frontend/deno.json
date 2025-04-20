@@ -30,7 +30,7 @@
     "twas": "npm:twas@^2.1.3",
     "$imagescript": "https://deno.land/x/imagescript@1.3.0/mod.ts",
 
-    "@deno/gfm": "jsr:@deno/gfm@0.10",
+    "@deno/gfm": "jsr:@deno/gfm@0.11",
     "marked-smartypants": "npm:marked-smartypants@1.1.6",
     "prismjs": "npm:prismjs@^1.29.0",
 
