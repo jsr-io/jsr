@@ -2,7 +2,7 @@
 
 use deno_ast::emit;
 use deno_ast::fold_program;
-use deno_ast::swc::visit::VisitMutWith;
+use deno_ast::swc::ecma_visit::VisitMutWith;
 use deno_ast::EmittedSourceText;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
@@ -62,7 +62,7 @@ pub fn transpile_to_js(
       &source_map,
       &comments,
       marks,
-      source.diagnostics(),
+      Box::new(source.diagnostics().iter()),
     )?;
 
     let EmittedSourceText { text, source_map } =

@@ -1968,6 +1968,7 @@ async fn analyze_deps_tree(
         reporter: None,
         executor: Default::default(),
         locker: None,
+        skip_dynamic_deps: false,
       },
     )
     .await;

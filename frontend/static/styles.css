@@ -321,11 +321,11 @@ body .ddoc {
     }
 
     .highlight {
-      @apply relative dark:bg-jsr-gray-950;
+      @apply relative dark:bg-jsr-gray-900 !important;
 
       .lineNumbers {
-        @apply border-r-2 border-jsr-gray-100 text-jsr-gray-300 pr-3 text-right
-          flex-none dark:border-jsr-gray-800 dark:text-gray-400;
+        @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
+          flex-none dark:border-jsr-gray-800;
         @apply mr-3 !important;
 
         > a {
@@ -335,13 +335,13 @@ body .ddoc {
 
       .lineNumbersHighlight {
         > span {
-          @apply block target:bg-yellow-200 dark:target:bg-amber-700;
+          @apply block target:bg-yellow-200 dark:target:bg-yellow-900/70;
         }
       }
 
       .context_button {
         @apply absolute top-3 right-4 opacity-60 hover:opacity-100 border-none
-          hover:bg-jsr-cyan-50 dark:hover:bg-jsr-gray-900;
+          hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
       }
 
       /*!
@@ -488,7 +488,7 @@ body .ddoc {
   }
 
   .symbolGroup article a.context_button {
-    @apply border-none hover:bg-jsr-cyan-50;
+    @apply border-none hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
   }
 
   .docEntryHeader a {
@@ -504,16 +504,16 @@ body .ddoc {
   .usages {
     nav details {
       > summary {
-        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50;
+        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50 dark:border-jsr-cyan-800 dark:bg-jsr-cyan-950;
       }
 
       > div > div {
-        @apply border-jsr-cyan-200;
+        @apply border-jsr-cyan-200 dark:border-jsr-cyan-800 dark:bg-jsr-gray-950;
       }
     }
 
     pre.highlight {
-      @apply border-jsr-cyan-300/50;
+      @apply border-jsr-cyan-300/50 dark:border-jsr-cyan-800;
     }
   }
 
@@ -587,6 +587,171 @@ body .ddoc {
     .usages nav details > div {
       @apply -left-8;
     }
+  }
+}
+
+.dark .ddoc {
+  .markdown .highlight {
+    /*!
+		 * GitHub Dark v0.5.0
+		 * Copyright (c) 2012 - 2017 GitHub, Inc.
+		 * Licensed under MIT (https://github.com/primer/github-syntax-theme-generator/blob/master/LICENSE)
+		 */
+    
+    .pl-c /* comment, punctuation.definition.comment, string.comment */
+    {
+      color: #959DA5;
+    }
+    
+    .pl-c1 /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.quote, markup.raw, meta.diff.header */,
+    .pl-s .pl-v /* string variable */
+    {
+      color: #C8E1FF;
+    }
+    
+    .pl-e /* entity */,
+    .pl-en /* entity.name */
+    {
+      color: #B392F0;
+    }
+    
+    .pl-smi /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
+    .pl-s .pl-s1 /* string source */
+    {
+      color: #F6F8FA;
+    }
+    
+    .pl-ent /* entity.name.tag */
+    {
+      color: #7BCC72;
+    }
+    
+    .pl-k /* keyword, storage, storage.type */
+    {
+      color: #EA4A5A;
+    }
+    
+    .pl-s /* string */,
+    .pl-pds /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
+    .pl-s .pl-pse .pl-s1 /* string punctuation.section.embedded source */,
+    .pl-sr /* string.regexp */,
+    .pl-sr .pl-cce /* string.regexp constant.character.escape */,
+    .pl-sr .pl-sre /* string.regexp source.ruby.embedded */,
+    .pl-sr .pl-sra /* string.regexp string.regexp.arbitrary-repitition */
+    {
+      color: #79B8FF;
+    }
+    
+    .pl-v /* variable */,
+    .pl-ml /* markup.list, sublimelinter.mark.warning */
+    {
+      color: #FB8532;
+    }
+    
+    .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */
+    {
+      color: #D73A49;
+    }
+    
+    .pl-ii /* invalid.illegal */
+    {
+      color: #FAFBFC;
+      background-color: #D73A49;
+    }
+    
+    .pl-c2 /* carriage-return */
+    {
+      color: #FAFBFC;
+      background-color: #D73A49;
+    }
+    
+    .pl-c2::before /* carriage-return */
+    {
+      content: "^M";
+    }
+    
+    .pl-sr .pl-cce /* string.regexp constant.character.escape */
+    {
+      font-weight: bold;
+      color: #7BCC72;
+    }
+    
+    .pl-mh /* markup.heading */,
+    .pl-mh .pl-en /* markup.heading entity.name */,
+    .pl-ms /* meta.separator */
+    {
+      font-weight: bold;
+      color: #0366D6;
+    }
+    
+    .pl-mi /* markup.italic */
+    {
+      font-style: italic;
+      color: #F6F8FA;
+    }
+    
+    .pl-mb /* markup.bold */
+    {
+      font-weight: bold;
+      color: #F6F8FA;
+    }
+    
+    .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */
+    {
+      color: #B31D28;
+      background-color: #FFEEF0;
+    }
+    
+    .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */
+    {
+      color: #176F2C;
+      background-color: #F0FFF4;
+    }
+    
+    .pl-mc /* markup.changed, punctuation.definition.changed */
+    {
+      color: #B08800;
+      background-color: #FFFDEF;
+    }
+    
+    .pl-mi2 /* markup.ignored, markup.untracked */
+    {
+      color: #2F363D;
+      background-color: #959DA5;
+    }
+    
+    .pl-mdr /* meta.diff.range */
+    {
+      font-weight: bold;
+      color: #B392F0;
+    }
+    
+    .pl-mo /* meta.output */
+    {
+      color: #0366D6;
+    }
+    
+    .pl-ba /* brackethighlighter.tag, brackethighlighter.curly, brackethighlighter.round, brackethighlighter.square, brackethighlighter.angle, brackethighlighter.quote */
+    {
+      color: #FFEEF0;
+    }
+    
+    .pl-sg /* sublimelinter.gutter-mark */
+    {
+      color: #6A737D;
+    }
+    
+    .pl-corl /* constant.other.reference.link, string.other.link */
+    {
+      text-decoration: underline;
+      color: #79B8FF;
+    }
+  }
+  
+  .contextLink {
+    /* cyan 300 at 25%; */
+    text-decoration-color: #67bef940;
+    color: theme("colors.jsr-cyan.300");
   }
 }
 

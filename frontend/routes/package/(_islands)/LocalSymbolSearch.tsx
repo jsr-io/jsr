@@ -299,7 +299,7 @@ export function LocalSymbolSearch(
         type="search"
         placeholder={placeholder}
         id="symbol-search-input"
-        class="block text-sm w-full py-2 px-2 input-container input bg-white border-1 border-jsr-cyan-300/50"
+        class="block text-sm w-full py-2 px-2 input-container input border-1 border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
         disabled={!db.value}
         onInput={onInput}
       />

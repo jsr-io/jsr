@@ -16,9 +16,8 @@ use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
 use deno_doc::html::HANDLEBARS;
-use deno_doc::DocNode;
-use deno_doc::DocNodeKind;
 use deno_doc::Location;
+use deno_doc::{DocNode, DocNodeDef};
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -570,7 +569,7 @@ pub fn generate_docs_html(
         partitions_by_kind.into_iter().map(|(path, nodes)| {
           (
             render_ctx.clone(),
-            deno_doc::html::SectionHeaderCtx::new_for_namespace(
+            deno_doc::html::SectionHeaderCtx::new_for_all_symbols(
               &render_ctx,
               &path,
             ),
@@ -750,7 +749,7 @@ fn generate_symbol_page(
     let mut nodes = doc_nodes
       .iter()
       .filter(|node| {
-        !(matches!(node.kind(), DocNodeKind::ModuleDoc | DocNodeKind::Import)
+        !(matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
           || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
           && node.get_name() == next_part
       })
@@ -768,8 +767,8 @@ fn generate_symbol_page(
 
     if name_parts.peek().is_some() {
       for node in &nodes {
-        let drilldown_node = match node.kind() {
-          DocNodeKind::Class => {
+        let drilldown_node = match &node.def {
+          DocNodeDef::Class { class_def: class } => {
             let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
             let mut is_static = true;
 
@@ -786,8 +785,6 @@ fn generate_symbol_page(
             }
 
             let drilldown_name = drilldown_parts.join(".");
-
-            let class = node.class_def().unwrap();
 
             class
               .methods
@@ -827,11 +824,11 @@ fn generate_symbol_page(
                 })
               })
           }
-          DocNodeKind::Interface => {
+          DocNodeDef::Interface {
+            interface_def: interface,
+          } => {
             let drilldown_name =
               name_parts.clone().collect::<Vec<_>>().join(".");
-
-            let interface = node.interface_def().unwrap();
 
             interface
               .methods
@@ -860,9 +857,9 @@ fn generate_symbol_page(
                 })
               })
           }
-          DocNodeKind::TypeAlias => {
-            let type_alias = node.type_alias_def().unwrap();
-
+          DocNodeDef::TypeAlias {
+            type_alias_def: type_alias,
+          } => {
             if let Some(ts_type_literal) =
               type_alias.ts_type.type_literal.as_ref()
             {
@@ -899,9 +896,9 @@ fn generate_symbol_page(
               None
             }
           }
-          DocNodeKind::Variable => {
-            let variable = node.variable_def().unwrap();
-
+          DocNodeDef::Variable {
+            variable_def: variable,
+          } => {
             if let Some(ts_type_literal) = variable
               .ts_type
               .as_ref()
@@ -940,12 +937,12 @@ fn generate_symbol_page(
               None
             }
           }
-          DocNodeKind::Import
-          | DocNodeKind::Enum
-          | DocNodeKind::ModuleDoc
-          | DocNodeKind::Function
-          | DocNodeKind::Namespace
-          | DocNodeKind::Reference => None,
+          DocNodeDef::Import { .. }
+          | DocNodeDef::Enum { .. }
+          | DocNodeDef::ModuleDoc
+          | DocNodeDef::Function { .. }
+          | DocNodeDef::Namespace { .. }
+          | DocNodeDef::Reference { .. } => None,
         };
 
         if let Some(drilldown_node) = drilldown_node {
@@ -974,7 +971,7 @@ fn generate_symbol_page(
 
     if let Some(namespace_node) = nodes
       .iter()
-      .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
+      .find(|node| matches!(node.def, DocNodeDef::Namespace { .. }))
     {
       namespace_paths.push(next_part.to_string());
       doc_nodes = namespace_node
