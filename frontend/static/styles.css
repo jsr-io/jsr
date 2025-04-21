@@ -287,7 +287,7 @@ body .ddoc {
   &:is(.dark *) {
     --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
   }
-  
+
   .markdown {
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
