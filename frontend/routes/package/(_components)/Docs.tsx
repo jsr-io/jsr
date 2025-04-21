@@ -43,6 +43,7 @@ export function DocsView({
         dangerouslySetInnerHTML={{ __html: docs.css }}
       />
       <style
+        hidden
         // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{ __html: docs.comrakCss }}
       />
