@@ -284,9 +284,11 @@
 
 /* !important seems necessary for taking precedent over current ddoc styling */
 body .ddoc {
+  &:is(.dark *) {
+    --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
+  }
+  
   .markdown {
-    @apply max-w-prose;
-
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
         !important;
@@ -321,7 +323,7 @@ body .ddoc {
     }
 
     .highlight {
-      @apply relative dark:bg-jsr-gray-900 !important;
+      @apply dark:bg-jsr-gray-900 !important;
 
       .lineNumbers {
         @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
@@ -339,9 +341,8 @@ body .ddoc {
         }
       }
 
-      .context_button {
-        @apply absolute top-3 right-4 opacity-60 hover:opacity-100 border-none
-          hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
+      .copyButton {
+        @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
       }
 
       /*!
@@ -462,15 +463,6 @@ body .ddoc {
         background-color: #005cc5;
       }
     }
-
-    code {
-      @apply w-full;
-    }
-  }
-
-  .namespaceItemContent {
-    flex: 1;
-    width: 0;
   }
 
   .markdown_summary {
@@ -481,14 +473,10 @@ body .ddoc {
     :not(pre) > code {
       @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50 !important;
     }
-
-    p {
-      max-width: 100%;
-    }
   }
 
-  .symbolGroup article a.context_button {
-    @apply border-none hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
+  .sourceButton {
+    @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
   }
 
   .docEntryHeader a {
@@ -519,63 +507,11 @@ body .ddoc {
     }
   }
 
-  .usageContent pre.highlight > code:first-child {
-    @apply pt-2 pr-10 pb-2 pl-2;
-  }
-
   .usageContent .markdown {
     @apply max-w-full;
   }
 
-  /* START Upstream to deno_doc  */
-  /* Hides the link to code button unless you hover over the section or are on mobile */
-
-  .context_button {
-    @apply flex flex-row gap-2 items-center md:invisible;
-  }
-
-  .context_button {
-    @apply rounded no-underline !important;
-  }
-
-  code ~ .context_button:hover, code:hover ~ .context_button {
-    @apply md:visible;
-  }
-
-  .symbolGroup article > div:hover > div + a.context_button {
-    @apply md:visible;
-  }
-
-  .symbolGroup article > div:hover > div + a.context_button:before {
-    content: "View code";
-    @apply hidden md:block text-xs leading-none;
-  }
-
-  .docEntryHeader:hover > .context_button {
-    @apply md:visible;
-  }
-
-  /* Style overrides for a better single column layout on symbol pages */
-  .namespaceSection {
-    @apply grid-cols-1 gap-2 max-w-prose !important;
-  }
-
-  .docNodeKindIcon div {
-    @apply h-4 w-4 leading-4;
-  }
-
-  /* END Upstream to deno_doc  */
-
-  .markdown_summary p {
-    @apply leading-normal;
-  }
-
-  .section > div:first-child > h2 {
-    @apply mb-4 !important;
-  }
-
-  #module_doc,
-  main {
+  #module_doc, main {
     @apply pb-8;
   }
 

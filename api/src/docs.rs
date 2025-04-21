@@ -77,7 +77,7 @@ lazy_static::lazy_static! {
       .add_tag_attributes("rect", ["x", "y", "width", "height", "fill"])
       .add_tag_attributes("video", ["src", "controls"])
       .add_allowed_classes("pre", ["highlight"])
-      .add_allowed_classes("button", ["context_button"])
+      .add_allowed_classes("button", ["copyButton"])
       .add_allowed_classes(
         "div",
         [

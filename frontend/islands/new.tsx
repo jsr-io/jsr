@@ -55,7 +55,7 @@ export function ScopeSelect(
   const scopes = useSignal(initialScopes);
   const explicitCreateScope = useSignal(initialScope !== undefined);
 
-  if (true) {
+  if (scopes.value.length === 0) {
     return (
       <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 dark:bg-jsr-cyan-950 dark:border-jsr-cyan-700 p-4 md:p-6 rounded-xl">
         <span class="text-jsr-gray-700 dark:text-white">
@@ -226,7 +226,7 @@ function CreateScope(
         </label>
         <button type="submit" class="button-primary">Create</button>
         {errorCode.value === "scopeNameReserved" && (
-          <div class="mt-3 w-full space-y-4 bg-jsr-yellow-50 border-1.5 border-jsr-yellow-200 p-4 md:p-6 rounded-xl">
+          <div class="mt-3 w-full space-y-4 bg-jsr-yellow-50 border-1.5 border-jsr-yellow-200 dark:border-jsr-yellow-700 dark:bg-jsr-yellow-900/30 p-4 md:p-6 rounded-xl">
             <div class="mb-2">
               The provided scope name is reserved. Please use the form below to
               claim it if you think you have a valid reason to do so.
