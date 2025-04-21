@@ -4,6 +4,7 @@ import { APIResponse, path } from "./api.ts";
 import {
   FullScope,
   Package,
+  type PackageDownloads,
   PackageVersionDocs,
   PackageVersionDocsRedirect,
   PackageVersionSource,
@@ -17,8 +18,11 @@ export async function packageData(
   scope: string,
   pkg: string,
 ): Promise<PackageData | null> {
-  let [pkgResp, scopeMemberResp] = await Promise.all([
+  let [pkgResp, downloadsResp, scopeMemberResp] = await Promise.all([
     state.api.get<Package>(path`/scopes/${scope}/packages/${pkg}`),
+    state.api.get<PackageDownloads>(
+      path`/scopes/${scope}/packages/${pkg}/downloads`,
+    ),
     state.api.hasToken()
       ? state.api.get<ScopeMember>(path`/user/member/${scope}`)
       : Promise.resolve(null),
@@ -28,6 +32,9 @@ export async function packageData(
     if (pkgResp.code === "scopeNotFound") return null;
     if (pkgResp.code === "packageNotFound") return null;
     throw pkgResp;
+  }
+  if (!downloadsResp.ok) {
+    throw downloadsResp;
   }
   if (scopeMemberResp && !scopeMemberResp.ok) {
     if (scopeMemberResp.code === "scopeMemberNotFound") {
@@ -40,12 +47,14 @@ export async function packageData(
 
   return {
     pkg: pkgResp.data,
+    downloads: downloadsResp.data,
     scopeMember: scopeMemberResp?.data ?? null,
   };
 }
 
 export interface PackageData {
   pkg: Package;
+  downloads: PackageDownloads;
   scopeMember: ScopeMember | null;
 }
 

@@ -32,6 +32,7 @@ use super::ApiFullUser;
 use super::ApiScope;
 use super::ApiScopeInvite;
 use super::ApiScopeMember;
+use super::ApiTicket;
 use super::ApiToken;
 
 pub fn self_user_router() -> Router<Body, ApiError> {
@@ -48,6 +49,7 @@ pub fn self_user_router() -> Router<Body, ApiError> {
     .get("/tokens", util::auth(util::json(list_tokens)))
     .post("/tokens", util::auth(util::json(create_token)))
     .delete("/tokens/:id", util::auth(delete_token))
+    .get("/tickets", util::auth(util::json(list_tickets)))
     .build()
     .unwrap()
 }
@@ -158,7 +160,8 @@ pub async fn decline_invite_handler(
 
   let db = req.data::<Database>().unwrap();
 
-  db.delete_scope_invite(&current_user.id, &scope).await?;
+  db.delete_scope_invite(&current_user.id, false, &current_user.id, &scope)
+    .await?;
 
   let resp = Response::builder()
     .status(StatusCode::NO_CONTENT)
@@ -313,6 +316,17 @@ async fn delete_token(req: Request<Body>) -> Result<Response<Body>, ApiError> {
     .body(Body::empty())
     .unwrap();
   Ok(resp)
+}
+
+#[instrument(name = "GET /api/user/tickets", skip(req), err)]
+pub async fn list_tickets(req: Request<Body>) -> ApiResult<Vec<ApiTicket>> {
+  let iam = req.iam();
+  let current_user = iam.check_current_user_access()?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let tickets = db.list_tickets_for_user(current_user.id).await?;
+  Ok(tickets.into_iter().map(|scope| scope.into()).collect())
 }
 
 #[cfg(test)]

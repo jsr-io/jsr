@@ -18,11 +18,14 @@ async fn publishing_tasks() {
   let version = "1.0.0".try_into().unwrap();
   let config_file = "/jsr.json".try_into().unwrap();
 
-  let _scope = db.create_scope(&scope_name, user_id).await.unwrap();
+  let _scope = db
+    .create_scope(&user_id, false, &scope_name, user_id)
+    .await
+    .unwrap();
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
   assert!(matches!(res, CreatePackageResult::Ok(_)));
 
-  let CreatePublishingTaskResult::Created(pt) = db
+  let CreatePublishingTaskResult::Created((pt, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(user_id),
       package_scope: &scope_name,
@@ -47,13 +50,12 @@ async fn publishing_tasks() {
     })
     .await
     .unwrap();
-  let CreatePublishingTaskResult::Exists(pt_reused) = res else {
+  let CreatePublishingTaskResult::Exists((pt_reused, _)) = res else {
     unreachable!() // does conflict with existing task
   };
   assert_eq!(pt_reused.id, pt.id);
 
-  let pt2: PublishingTask =
-    db.get_publishing_task(pt.id).await.unwrap().unwrap();
+  let (pt2, _) = db.get_publishing_task(pt.id).await.unwrap().unwrap();
   assert_eq!(pt2.id, pt2.id);
   assert_eq!(pt2.package_scope, scope_name);
   assert_eq!(pt2.package_name, package_name);
@@ -65,6 +67,7 @@ async fn publishing_tasks() {
 
   let pt3 = db
     .update_publishing_task_status(
+      None,
       pt.id,
       PublishingTaskStatus::Pending,
       PublishingTaskStatus::Failure,
@@ -79,7 +82,7 @@ async fn publishing_tasks() {
   assert_eq!(error.code, "invalidConfigFile");
   assert_eq!(error.message, "Your config file is invalid.");
 
-  let CreatePublishingTaskResult::Created(pt4) = db
+  let CreatePublishingTaskResult::Created((pt4, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(user_id),
       package_scope: &scope_name,
@@ -94,6 +97,7 @@ async fn publishing_tasks() {
   };
 
   db.update_publishing_task_status(
+    None,
     pt4.id,
     PublishingTaskStatus::Pending,
     PublishingTaskStatus::Success,
@@ -102,7 +106,7 @@ async fn publishing_tasks() {
   .await
   .unwrap();
 
-  let pt5 = db.get_publishing_task(pt4.id).await.unwrap().unwrap();
+  let (pt5, _) = db.get_publishing_task(pt4.id).await.unwrap().unwrap();
   assert_eq!(pt5.status, PublishingTaskStatus::Success);
   assert!(pt5.updated_at > pt5.created_at);
 }
@@ -110,6 +114,16 @@ async fn publishing_tasks() {
 #[tokio::test]
 async fn users() {
   let db = EphemeralDatabase::create().await;
+
+  let new_user = NewUser {
+    name: "Staff",
+    email: None,
+    avatar_url: "",
+    github_id: None,
+    is_blocked: false,
+    is_staff: true,
+  };
+  let staff_user = db.insert_user(new_user).await.unwrap();
 
   let new_user = NewUser {
     name: "Alice",
@@ -127,16 +141,28 @@ async fn users() {
   assert!(user.is_staff);
   assert!(!user.is_blocked);
 
-  let user_ = db.user_set_staff(user.id, false).await.unwrap();
+  let user_ = db
+    .user_set_staff(&staff_user.id, user.id, false)
+    .await
+    .unwrap();
   assert!(!user_.is_staff);
 
-  let user_ = db.user_set_staff(user.id, true).await.unwrap();
+  let user_ = db
+    .user_set_staff(&staff_user.id, user.id, true)
+    .await
+    .unwrap();
   assert!(user_.is_staff);
 
-  let user_ = db.user_set_blocked(user.id, true).await.unwrap();
+  let user_ = db
+    .user_set_blocked(&staff_user.id, user.id, true)
+    .await
+    .unwrap();
   assert!(user_.is_blocked);
 
-  let user_ = db.user_set_blocked(user.id, false).await.unwrap();
+  let user_ = db
+    .user_set_blocked(&staff_user.id, user.id, false)
+    .await
+    .unwrap();
   assert!(!user_.is_blocked);
 
   let user2 = db.get_user(user.id).await.unwrap().unwrap();
@@ -148,15 +174,15 @@ async fn users() {
   let no_user = db.get_user(uuid::Uuid::new_v4()).await.unwrap();
   assert!(no_user.is_none());
 
-  let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
-  assert_eq!(total_users, 2);
-  assert_eq!(users.len(), 2);
+  let (total_users, users) = db.list_users(0, 20, None, None).await.unwrap();
+  assert_eq!(total_users, 3);
+  assert_eq!(users.len(), 3);
   assert_eq!(users[0].id, user.id);
   assert_eq!(users[0].name, "Alice");
   assert_eq!(users[0].avatar_url, "https://example.com/alice.png");
   assert_eq!(users[0].email, Some("alice@example.com".to_string()));
   assert_eq!(users[0].scope_usage, 0);
-  assert_eq!(users[1].id, uuid::Uuid::default()); // added by migrations
+  assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
   let user3 = db.delete_user(user.id).await.unwrap().unwrap();
   assert_eq!(user3.id, user.id);
@@ -164,9 +190,9 @@ async fn users() {
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());
 
-  let (total_users, users) = db.list_users(0, 20, None).await.unwrap();
-  assert_eq!(total_users, 1);
-  assert_eq!(users.len(), 1); // just the default user added by migrations
+  let (total_users, users) = db.list_users(0, 20, None, None).await.unwrap();
+  assert_eq!(total_users, 2);
+  assert_eq!(users.len(), 2); // just the default user added by migrations
 
   let no_user = db.delete_user(user.id).await.unwrap();
   assert!(no_user.is_none());
@@ -191,7 +217,9 @@ async fn packages() {
   let scope_name = "scope".try_into().unwrap();
   let package_name = "testpkg".try_into().unwrap();
 
-  db.create_scope(&scope_name, alice.id).await.unwrap();
+  db.create_scope(&alice.id, false, &scope_name, alice.id)
+    .await
+    .unwrap();
 
   let alice2 = db.get_user(alice.id).await.unwrap().unwrap();
   assert_eq!(alice2.scope_usage, 1);
@@ -257,7 +285,9 @@ async fn scope_members() {
 
   let scope_name = "scope".try_into().unwrap();
 
-  db.create_scope(&scope_name, bob.id).await.unwrap();
+  db.create_scope(&bob.id, false, &scope_name, bob.id)
+    .await
+    .unwrap();
 
   let scope = db
     .get_scope(&ScopeName::try_from("scope").unwrap())
@@ -320,7 +350,9 @@ async fn create_package_version_and_finalize_publishing_task() {
     .await
     .unwrap();
 
-  db.create_scope(&scope, bob.id).await.unwrap();
+  db.create_scope(&bob.id, false, &scope, bob.id)
+    .await
+    .unwrap();
 
   let CreatePackageResult::Ok(_package) =
     db.create_package(&scope, &package_name).await.unwrap()
@@ -330,7 +362,7 @@ async fn create_package_version_and_finalize_publishing_task() {
 
   let version = Version::try_from("1.2.3").unwrap();
   let config_file = PackagePath::try_from("/jsr.json").unwrap();
-  let CreatePublishingTaskResult::Created(task) = db
+  let CreatePublishingTaskResult::Created((task, _)) = db
     .create_publishing_task(NewPublishingTask {
       user_id: Some(bob.id),
       package_scope: &scope,
@@ -345,6 +377,7 @@ async fn create_package_version_and_finalize_publishing_task() {
   };
 
   db.update_publishing_task_status(
+    None,
     task.id,
     PublishingTaskStatus::Pending,
     PublishingTaskStatus::Processing,
@@ -397,6 +430,7 @@ async fn create_package_version_and_finalize_publishing_task() {
 
   let task = db
     .update_publishing_task_status(
+      None,
       task.id,
       PublishingTaskStatus::Processed,
       PublishingTaskStatus::Success,
@@ -427,7 +461,9 @@ async fn package_files() {
   let package_name = "testpkg".try_into().unwrap();
   let version = "1.2.3".try_into().unwrap();
 
-  db.create_scope(&scope_name, user.id).await.unwrap();
+  db.create_scope(&user.id, false, &scope_name, user.id)
+    .await
+    .unwrap();
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()

@@ -584,3 +584,13 @@ body .ddoc .or-bar {
     --bgColor-muted: theme("colors.slate.50");
   }
 }
+
+.minimal-chart {
+  .apexcharts-series-markers-wrap, .apexcharts-tooltip {
+    display: none;
+  }
+}
+
+.apexcharts-tooltip-series-group {
+  padding-bottom: 0 !important;
+}

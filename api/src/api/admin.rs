@@ -7,6 +7,7 @@ use hyper::Body;
 use hyper::Request;
 use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify_query::RequestQueryExt;
 use tracing::field;
 use tracing::instrument;
 use tracing::Instrument;
@@ -19,6 +20,7 @@ use crate::util;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
+use crate::util::sort;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
 
@@ -36,6 +38,7 @@ pub fn admin_router() -> Router<Body, ApiError> {
     .get("/scopes", util::auth(util::json(list_scopes)))
     .post("/scopes", util::auth(util::json(assign_scope)))
     .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
+    .get("/packages", util::auth(util::json(list_packages)))
     .get(
       "/publishing_tasks",
       util::auth(util::json(list_publishing_tasks)),
@@ -44,6 +47,9 @@ pub fn admin_router() -> Router<Body, ApiError> {
       "/publishing_tasks/:publishing_task/requeue",
       util::auth(util::json(requeue_publishing_tasks)),
     )
+    .get("/tickets", util::auth(util::json(list_tickets)))
+    .patch("/tickets/:id", util::auth(util::json(patch_ticket)))
+    .get("/audit_logs", util::auth(util::json(list_audit_logs)))
     .build()
     .unwrap()
 }
@@ -95,8 +101,11 @@ pub async fn list_users(req: Request<Body>) -> ApiResult<ApiList<ApiFullUser>> {
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
 
-  let (total, users) = db.list_users(start, limit, maybe_search).await?;
+  let (total, users) = db
+    .list_users(start, limit, maybe_search, maybe_sort)
+    .await?;
   Ok(ApiList {
     items: users.into_iter().map(|user| user.into()).collect(),
     total,
@@ -110,9 +119,6 @@ pub async fn list_users(req: Request<Body>) -> ApiResult<ApiList<ApiFullUser>> {
   fields(user_id)
 )]
 pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
   let user_id = req.param_uuid("user_id")?;
   Span::current().record("user_id", field::display(&user_id));
   let ApiAdminUpdateUserRequest {
@@ -122,16 +128,23 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
   } = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
 
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
+
   let mut updated_user = None;
 
   if let Some(is_staff) = is_staff {
-    updated_user = Some(db.user_set_staff(user_id, is_staff).await?);
+    updated_user = Some(db.user_set_staff(&staff.id, user_id, is_staff).await?);
   }
   if let Some(is_blocked) = is_blocked {
-    updated_user = Some(db.user_set_blocked(user_id, is_blocked).await?);
+    updated_user =
+      Some(db.user_set_blocked(&staff.id, user_id, is_blocked).await?);
   }
   if let Some(scope_limit) = scope_limit {
-    updated_user = Some(db.user_set_scope_limit(user_id, scope_limit).await?);
+    updated_user = Some(
+      db.user_set_scope_limit(&staff.id, user_id, scope_limit)
+        .await?,
+    );
   }
 
   if let Some(updated_user) = updated_user {
@@ -153,8 +166,11 @@ pub async fn list_scopes(
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
 
-  let (total, scopes) = db.list_scopes(start, limit, maybe_search).await?;
+  let (total, scopes) = db
+    .list_scopes(start, limit, maybe_search, maybe_sort)
+    .await?;
   Ok(ApiList {
     items: scopes.into_iter().map(|scope| scope.into()).collect(),
     total,
@@ -168,9 +184,6 @@ pub async fn list_scopes(
   fields(scope)
 )]
 pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
   let scope = req.param_scope()?;
   Span::current().record("scope", field::display(&scope));
 
@@ -179,6 +192,9 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
     new_package_per_week_limit,
     publish_attempts_per_week_limit,
   } = decode_json(&mut req).await?;
+
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
 
   let db = req.data::<Database>().unwrap();
 
@@ -193,6 +209,7 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
 
   let scope = db
     .update_scope_limits(
+      &staff.id,
       &scope,
       package_limit,
       new_package_per_week_limit,
@@ -210,12 +227,12 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
   fields(scope, user_id)
 )]
 pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
   let ApiAssignScopeRequest { scope, user_id } = decode_json(&mut req).await?;
   Span::current().record("scope", field::display(&scope));
   Span::current().record("user_id", field::display(&user_id));
+
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
 
   let db = req.data::<Database>().unwrap();
 
@@ -226,11 +243,34 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&scope, user_id)
+    .create_scope(&staff.id, true, &scope, user_id)
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 
   Ok(scope.into())
+}
+
+#[instrument(name = "GET /api/admin/packages", skip(req), err)]
+pub async fn list_packages(
+  req: Request<Body>,
+) -> ApiResult<ApiList<ApiPackage>> {
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let db = req.data::<Database>().unwrap();
+  let (start, limit) = pagination(&req);
+  let maybe_search = search(&req);
+
+  let maybe_github_id = maybe_search.and_then(|search| search.parse().ok());
+  let maybe_sort = sort(&req);
+
+  let (total, packages) = db
+    .list_packages(start, limit, maybe_search, maybe_github_id, maybe_sort)
+    .await?;
+  Ok(ApiList {
+    items: packages.into_iter().map(|package| package.into()).collect(),
+    total,
+  })
 }
 
 #[instrument(name = "GET /api/admin/publishing_tasks", skip(req), err)]
@@ -243,9 +283,11 @@ pub async fn list_publishing_tasks(
   let db = req.data::<Database>().unwrap();
   let (start, limit) = pagination(&req);
   let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
 
-  let (total, publishing_tasks) =
-    db.list_publishing_tasks(start, limit, maybe_search).await?;
+  let (total, publishing_tasks) = db
+    .list_publishing_tasks(start, limit, maybe_search, maybe_sort)
+    .await?;
 
   Ok(ApiList {
     items: publishing_tasks
@@ -264,7 +306,7 @@ pub async fn list_publishing_tasks(
 )]
 pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   let iam = req.iam();
-  iam.check_admin_access()?;
+  let staff = iam.check_admin_access()?;
 
   let publishing_task_id = req.param_uuid("publishing_task")?;
   Span::current()
@@ -276,8 +318,9 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     .await?
     .ok_or(ApiError::PublishNotFound)?;
 
-  if task.status == PublishingTaskStatus::Processing {
+  if task.0.status == PublishingTaskStatus::Processing {
     db.update_publishing_task_status(
+      Some(&staff.id),
       publishing_task_id,
       PublishingTaskStatus::Processing,
       PublishingTaskStatus::Pending,
@@ -290,7 +333,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
-    let body = serde_json::to_vec(&publishing_task_id).unwrap();
+    let body = serde_json::to_vec(&publishing_task_id)?;
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
     let buckets = req.data::<Buckets>().unwrap().clone();
@@ -311,6 +354,73 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   Ok(())
+}
+
+#[instrument(name = "GET /api/admin/tickets", skip(req), err)]
+pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let db = req.data::<Database>().unwrap();
+  let (start, limit) = pagination(&req);
+  let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
+
+  let (total, tickets) = db
+    .list_tickets(start, limit, maybe_search, maybe_sort)
+    .await?;
+  Ok(ApiList {
+    items: tickets.into_iter().map(|ticket| ticket.into()).collect(),
+    total,
+  })
+}
+
+#[instrument(name = "PATCH /api/admin/tickets/:id", skip(req), err)]
+pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
+  let id = req.param_uuid("id")?;
+  Span::current().record("id", field::display(id));
+
+  let ApiAdminUpdateTicketRequest { closed } = decode_json(&mut req).await?;
+
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let ticket = if let Some(closed) = closed {
+    db.update_ticket_closed(&staff.id, id, closed).await?
+  } else {
+    return Err(ApiError::MalformedRequest {
+      msg: "missing 'closed' parameter".into(),
+    });
+  };
+
+  Ok(ticket.into())
+}
+
+#[instrument(name = "GET /api/admin/audit_logs", skip(req), err)]
+pub async fn list_audit_logs(
+  req: Request<Body>,
+) -> ApiResult<ApiList<ApiAuditLog>> {
+  let iam = req.iam();
+  iam.check_admin_access()?;
+
+  let db = req.data::<Database>().unwrap();
+  let (start, limit) = pagination(&req);
+  let maybe_search = search(&req);
+  let maybe_sort = sort(&req);
+  let sudo_only = req.query("sudoOnly").is_some();
+
+  let (total, audit_logs) = db
+    .list_audit_logs(start, limit, maybe_search, maybe_sort, sudo_only)
+    .await?;
+  Ok(ApiList {
+    items: audit_logs
+      .into_iter()
+      .map(|audit_log| audit_log.into())
+      .collect(),
+    total,
+  })
 }
 
 #[cfg(test)]

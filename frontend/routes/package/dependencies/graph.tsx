@@ -18,6 +18,7 @@ export default define.page<typeof handler>(
         <PackageHeader
           package={data.package}
           selectedVersion={data.selectedVersion}
+          downloads={data.downloads}
         />
 
         <PackageNav
@@ -57,6 +58,7 @@ export const handler = define.handlers({
       pkg,
       scopeMember,
       selectedVersion,
+      downloads,
     } = res;
 
     if (selectedVersion === null) {
@@ -83,6 +85,7 @@ export const handler = define.handlers({
     return {
       data: {
         package: pkg,
+        downloads,
         deps: depsResp.data,
         selectedVersion,
         member: scopeMember,

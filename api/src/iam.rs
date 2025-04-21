@@ -33,7 +33,7 @@ impl<'s> IamHandler<'s> {
   pub async fn check_scope_write_access(
     &self,
     scope: &ScopeName,
-  ) -> Result<(), ApiError> {
+  ) -> Result<(&User, bool), ApiError> {
     if self.permissions.is_some() {
       // There is no specific permission that allows scope write access, so if
       // the permissions are restricted, this action is also restricted.
@@ -41,24 +41,26 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
-        self
-          .db
-          .get_scope_member(scope, user.id)
-          .await?
-          .ok_or(ApiError::ActorNotScopeMember)?;
-        Ok(())
+        if self.db.get_scope_member(scope, user.id).await?.is_some() {
+          Ok((user, false))
+        } else if user.is_staff && self.sudo {
+          Ok((user, true))
+        } else {
+          Err(ApiError::ActorNotScopeMember)
+        }
       }
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
 
+  /// checks if a user is a scope member of staff using sudo. if it's a staff using
+  /// sudo, then the returned bool is true.
   pub async fn check_scope_admin_access(
     &self,
     scope: &ScopeName,
-  ) -> Result<(), ApiError> {
+  ) -> Result<(&User, bool), ApiError> {
     if self.permissions.is_some() {
       // There is no specific permission that allows scope admin access, so if
       // the permissions are restricted, this action is also restricted.
@@ -66,17 +68,28 @@ impl<'s> IamHandler<'s> {
     }
 
     match &self.principal {
-      Principal::User(user) if user.is_staff && self.sudo => Ok(()),
       Principal::User(user) => {
-        let scope_member = self
-          .db
-          .get_scope_member(scope, user.id)
-          .await?
-          .ok_or(ApiError::ActorNotScopeMember)?;
-        if !scope_member.is_admin {
-          return Err(ApiError::ActorNotScopeAdmin);
+        let err = if let Some(scope_member) =
+          self.db.get_scope_member(scope, user.id).await?
+        {
+          if !scope_member.is_admin {
+            Err(ApiError::ActorNotScopeAdmin)
+          } else {
+            Ok(())
+          }
+        } else {
+          Err(ApiError::ActorNotScopeMember)
+        };
+
+        if let Err(err) = err {
+          if user.is_staff && self.sudo {
+            Ok((user, true))
+          } else {
+            Err(err)
+          }
+        } else {
+          Ok((user, false))
         }
-        Ok(())
       }
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
@@ -230,9 +243,9 @@ impl<'s> IamHandler<'s> {
     }
   }
 
-  pub fn check_admin_access(&self) -> Result<(), ApiError> {
+  pub fn check_admin_access(&self) -> Result<&User, ApiError> {
     match &self.principal {
-      Principal::User(user) if user.is_staff => Ok(()),
+      Principal::User(user) if user.is_staff => Ok(user),
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),

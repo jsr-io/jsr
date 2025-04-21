@@ -20,8 +20,8 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
           src={user.avatarUrl}
           alt="user icon"
         />
-        <div>
-          <h1 class="text-2xl leading-none font-semibold">
+        <div class="max-w-60 md:max-w-32 lg:max-w-40">
+          <h1 class="text-2xl leading-none font-semibold truncate">
             {user.name}
           </h1>
           <p class="text-xs text-jsr-gray-600">
