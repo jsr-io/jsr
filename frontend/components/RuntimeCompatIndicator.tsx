@@ -92,7 +92,9 @@ export function RuntimeCompatIndicator(
                     height={h}
                     alt={ICON_TITLE_TEXT}
                     title={ICON_TITLE_TEXT}
-                    class={`h-4 md:h-5 select-none ${value === undefined ? "filter grayscale opacity-40" : ""}`}
+                    class={`h-4 md:h-5 select-none ${
+                      value === undefined ? "filter grayscale opacity-40" : ""
+                    }`}
                   />
                   {value === undefined && (
                     <div

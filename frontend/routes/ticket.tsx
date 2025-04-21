@@ -52,7 +52,9 @@ export default define.page<typeof handler>(function Ticket({
               <span>{data.ticket.closed ? "closed" : "open"}</span>
               <div
                 class={`${
-                  data.ticket.closed ? "bg-green-400 dark:bg-green-600" : "bg-orange-400 dark:bg-orange-600"
+                  data.ticket.closed
+                    ? "bg-green-400 dark:bg-green-600"
+                    : "bg-orange-400 dark:bg-orange-600"
                 } rounded-full p-1`}
               >
                 {data.ticket.closed

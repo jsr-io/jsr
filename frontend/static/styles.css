@@ -504,11 +504,13 @@ body .ddoc {
   .usages {
     nav details {
       > summary {
-        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50 dark:border-jsr-cyan-800 dark:bg-jsr-cyan-950;
+        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50 dark:border-jsr-cyan-800
+          dark:bg-jsr-cyan-950;
       }
 
       > div > div {
-        @apply border-jsr-cyan-200 dark:border-jsr-cyan-800 dark:bg-jsr-gray-950;
+        @apply border-jsr-cyan-200 dark:border-jsr-cyan-800
+          dark:bg-jsr-gray-950;
       }
     }
 
@@ -593,161 +595,143 @@ body .ddoc {
 .dark .ddoc {
   .markdown .highlight {
     /*!
-		 * GitHub Dark v0.5.0
-		 * Copyright (c) 2012 - 2017 GitHub, Inc.
-		 * Licensed under MIT (https://github.com/primer/github-syntax-theme-generator/blob/master/LICENSE)
-		 */
-    
-    .pl-c /* comment, punctuation.definition.comment, string.comment */
-    {
-      color: #959DA5;
+     * GitHub Dark v0.5.0
+     * Copyright (c) 2012 - 2017 GitHub, Inc.
+     * Licensed under MIT (https://github.com/primer/github-syntax-theme-generator/blob/master/LICENSE)
+     */
+
+    .pl-c /* comment, punctuation.definition.comment, string.comment */ {
+      color: #959da5;
     }
-    
-    .pl-c1 /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.quote, markup.raw, meta.diff.header */,
-    .pl-s .pl-v /* string variable */
-    {
-      color: #C8E1FF;
+
+    .pl-c1
+    /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.quote, markup.raw, meta.diff.header */,
+    .pl-s .pl-v /* string variable */ {
+      color: #c8e1ff;
     }
-    
+
     .pl-e /* entity */,
-    .pl-en /* entity.name */
-    {
-      color: #B392F0;
+    .pl-en /* entity.name */ {
+      color: #b392f0;
     }
-    
-    .pl-smi /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
-    .pl-s .pl-s1 /* string source */
-    {
-      color: #F6F8FA;
+
+    .pl-smi
+    /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
+    .pl-s .pl-s1 /* string source */ {
+      color: #f6f8fa;
     }
-    
-    .pl-ent /* entity.name.tag */
-    {
-      color: #7BCC72;
+
+    .pl-ent /* entity.name.tag */ {
+      color: #7bcc72;
     }
-    
-    .pl-k /* keyword, storage, storage.type */
-    {
-      color: #EA4A5A;
+
+    .pl-k /* keyword, storage, storage.type */ {
+      color: #ea4a5a;
     }
-    
+
     .pl-s /* string */,
-    .pl-pds /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
+    .pl-pds
+    /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
     .pl-s .pl-pse .pl-s1 /* string punctuation.section.embedded source */,
     .pl-sr /* string.regexp */,
     .pl-sr .pl-cce /* string.regexp constant.character.escape */,
     .pl-sr .pl-sre /* string.regexp source.ruby.embedded */,
-    .pl-sr .pl-sra /* string.regexp string.regexp.arbitrary-repitition */
-    {
-      color: #79B8FF;
+    .pl-sr .pl-sra /* string.regexp string.regexp.arbitrary-repitition */ {
+      color: #79b8ff;
     }
-    
+
     .pl-v /* variable */,
-    .pl-ml /* markup.list, sublimelinter.mark.warning */
-    {
-      color: #FB8532;
+    .pl-ml /* markup.list, sublimelinter.mark.warning */ {
+      color: #fb8532;
     }
-    
+
     .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */
     {
-      color: #D73A49;
+      color: #d73a49;
     }
-    
-    .pl-ii /* invalid.illegal */
-    {
-      color: #FAFBFC;
-      background-color: #D73A49;
+
+    .pl-ii /* invalid.illegal */ {
+      color: #fafbfc;
+      background-color: #d73a49;
     }
-    
-    .pl-c2 /* carriage-return */
-    {
-      color: #FAFBFC;
-      background-color: #D73A49;
+
+    .pl-c2 /* carriage-return */ {
+      color: #fafbfc;
+      background-color: #d73a49;
     }
-    
-    .pl-c2::before /* carriage-return */
-    {
+
+    .pl-c2::before /* carriage-return */ {
       content: "^M";
     }
-    
-    .pl-sr .pl-cce /* string.regexp constant.character.escape */
-    {
+
+    .pl-sr .pl-cce /* string.regexp constant.character.escape */ {
       font-weight: bold;
-      color: #7BCC72;
+      color: #7bcc72;
     }
-    
+
     .pl-mh /* markup.heading */,
     .pl-mh .pl-en /* markup.heading entity.name */,
-    .pl-ms /* meta.separator */
-    {
+    .pl-ms /* meta.separator */ {
       font-weight: bold;
-      color: #0366D6;
+      color: #0366d6;
     }
-    
-    .pl-mi /* markup.italic */
-    {
+
+    .pl-mi /* markup.italic */ {
       font-style: italic;
-      color: #F6F8FA;
+      color: #f6f8fa;
     }
-    
-    .pl-mb /* markup.bold */
-    {
+
+    .pl-mb /* markup.bold */ {
       font-weight: bold;
-      color: #F6F8FA;
+      color: #f6f8fa;
     }
-    
+
     .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */
     {
-      color: #B31D28;
-      background-color: #FFEEF0;
+      color: #b31d28;
+      background-color: #ffeef0;
     }
-    
+
     .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */
     {
-      color: #176F2C;
-      background-color: #F0FFF4;
+      color: #176f2c;
+      background-color: #f0fff4;
     }
-    
-    .pl-mc /* markup.changed, punctuation.definition.changed */
-    {
-      color: #B08800;
-      background-color: #FFFDEF;
+
+    .pl-mc /* markup.changed, punctuation.definition.changed */ {
+      color: #b08800;
+      background-color: #fffdef;
     }
-    
-    .pl-mi2 /* markup.ignored, markup.untracked */
-    {
-      color: #2F363D;
-      background-color: #959DA5;
+
+    .pl-mi2 /* markup.ignored, markup.untracked */ {
+      color: #2f363d;
+      background-color: #959da5;
     }
-    
-    .pl-mdr /* meta.diff.range */
-    {
+
+    .pl-mdr /* meta.diff.range */ {
       font-weight: bold;
-      color: #B392F0;
+      color: #b392f0;
     }
-    
-    .pl-mo /* meta.output */
-    {
-      color: #0366D6;
+
+    .pl-mo /* meta.output */ {
+      color: #0366d6;
     }
-    
+
     .pl-ba /* brackethighlighter.tag, brackethighlighter.curly, brackethighlighter.round, brackethighlighter.square, brackethighlighter.angle, brackethighlighter.quote */
     {
-      color: #FFEEF0;
+      color: #ffeef0;
     }
-    
-    .pl-sg /* sublimelinter.gutter-mark */
-    {
-      color: #6A737D;
+
+    .pl-sg /* sublimelinter.gutter-mark */ {
+      color: #6a737d;
     }
-    
-    .pl-corl /* constant.other.reference.link, string.other.link */
-    {
+
+    .pl-corl /* constant.other.reference.link, string.other.link */ {
       text-decoration: underline;
-      color: #79B8FF;
+      color: #79b8ff;
     }
   }
-  
+
   .contextLink {
     /* cyan 300 at 25%; */
     text-decoration-color: #67bef940;

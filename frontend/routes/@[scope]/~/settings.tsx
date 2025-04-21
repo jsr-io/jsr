@@ -222,7 +222,7 @@ interface CardButtonProps {
 function CardButton(props: CardButtonProps) {
   return (
     <button
-        class={`grid text-left rounded-xl p-6 group focus-visible:bg-jsr-yellow-50/30 dark:focus-visible:bg-jsr-yellow-950/30 hover:bg-jsr-yellow-50/30 dark:hover:bg-jsr-yellow-950/30 focus-visible:ring-2 outline-none active:bg-jsr-gray-100 dark:active:bg-jsr-gray-900 ring-2 ${
+      class={`grid text-left rounded-xl p-6 group focus-visible:bg-jsr-yellow-50/30 dark:focus-visible:bg-jsr-yellow-950/30 hover:bg-jsr-yellow-50/30 dark:hover:bg-jsr-yellow-950/30 focus-visible:ring-2 outline-none active:bg-jsr-gray-100 dark:active:bg-jsr-gray-900 ring-2 ${
         props.selected ? "ring-jsr-yellow-400" : "ring-jsr-gray-100/50"
       }`}
       type={props.type}
