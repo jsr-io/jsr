@@ -50,10 +50,22 @@ export default define.page<typeof handler>(function PublishingTasks({
                 ID
               </CopyButton>
               <div>
-                {publishingTask.status}
-                <br />
+                <span
+                  class={`font-bold ${
+                    publishingTask.status === "failure"
+                      ? "text-red-500"
+                      : "text-green-500"
+                  }`}
+                >
+                  {publishingTask.status}
+                </span>
                 {publishingTask.status === "failure" && publishingTask.error &&
-                  `Error ${publishingTask.error.code}: ${publishingTask.error.message}`}
+                  (
+                    <span class="font-mono">
+                      <br />Error {publishingTask.error.code}:{" "}
+                      {publishingTask.error.message}
+                    </span>
+                  )}
               </div>
             </TableData>
             <TableData flex>
@@ -93,7 +105,7 @@ export default define.page<typeof handler>(function PublishingTasks({
             <TableData>
               <a
                 href={`/@${publishingTask.packageScope}/${publishingTask.packageName}/${publishingTask.packageVersion}`}
-                class="underline underline-offset-2"
+                class="underline underline-offset-2 font-mono"
               >
                 {publishingTask.packageVersion}
               </a>

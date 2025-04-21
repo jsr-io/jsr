@@ -12,10 +12,13 @@ import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx
 import { scopeIAM } from "../../utils/iam.ts";
 
 export default define.page<typeof handler>(
-  function Settings({ data, params, state }) {
+  function Settings({ data, params }) {
     return (
       <div class="mb-20">
-        <PackageHeader package={data.package} user={state.user} />
+        <PackageHeader
+          package={data.package}
+          downloads={data.downloads}
+        />
 
         <PackageNav
           currentTab="Settings"
@@ -278,7 +281,7 @@ export const handler = define.handlers({
     if (user instanceof Response) return user;
     if (!data) throw new HttpError(404, "This package was not found.");
 
-    const { pkg, scopeMember } = data;
+    const { pkg, scopeMember, downloads } = data;
 
     const iam = scopeIAM(ctx.state, scopeMember, user);
 
@@ -290,7 +293,7 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
-    return { data: { package: pkg, iam } };
+    return { data: { package: pkg, downloads, iam } };
   },
   async POST(ctx) {
     const req = ctx.req;

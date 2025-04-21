@@ -745,3 +745,13 @@ body .ddoc:has(.toc) {
       black, 0 0 0.5em black;
   }
 }
+
+.minimal-chart {
+  .apexcharts-series-markers-wrap, .apexcharts-tooltip {
+    display: none;
+  }
+}
+
+.apexcharts-tooltip-series-group {
+  padding-bottom: 0 !important;
+}

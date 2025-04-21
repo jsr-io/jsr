@@ -41,65 +41,70 @@ export default define.page<typeof handler>(function Tickets({
         sortBy={data.sortBy}
         currentUrl={url}
       >
-        {data.tickets.map((ticket) => (
-          <TableRow key={ticket.id}>
-            <TableData>
-              <div class="flex items-center gap-1.5">
-                {ticket.messages.at(-1)!.author.id === ticket.creator.id &&
-                  !ticket.closed && (
-                  <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
-                )}
-                <div
-                  class={`${
-                    ticket.closed
+        {data.tickets.map((ticket) => {
+          const isNotification =
+            ticket.messages.at(-1)!.author.id === ticket.creator.id &&
+            !ticket.closed;
+
+          return (
+            <TableRow key={ticket.id}>
+              <TableData>
+                <div class="flex items-center gap-1.5">
+                  {isNotification && (
+                    <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
+                  )}
+                  <div
+                    class={`${
+                      ticket.closed
                       ? "bg-green-400 dark:bg-green-600"
                       : "bg-orange-400 dark:bg-orange-600"
-                  } rounded-full p-1`}
-                >
-                  {ticket.closed
-                    ? <TbCheck class="text-white" />
-                    : <TbClock class="text-white" />}
+                    } ${!isNotification && "ml-4"} rounded-full p-1`}
+                  >
+                    {ticket.closed
+                      ? <TbCheck class="text-white" />
+                      : <TbClock class="text-white" />}
+                  </div>
+                  <span>{ticket.closed ? "closed" : "open"}</span>
                 </div>
-                <span>{ticket.closed ? "closed" : "open"}</span>
-              </div>
-            </TableData>
-            <TableData>
-              <a
-                href={`/admin/users?search=${ticket.creator.id}`}
-                class="underline underline-offset-2"
+              </TableData>
+              <TableData>
+                <a
+                  href={`/admin/users?search=${ticket.creator.id}`}
+                  class="underline underline-offset-2"
+                >
+                  {ticket.creator.name}
+                </a>
+              </TableData>
+              <TableData>
+                <a href={`/ticket/${ticket.id}`}>{ticket.id}</a>
+              </TableData>
+              <TableData>
+                {ticket.kind.replaceAll("_", " ")}
+              </TableData>
+              <TableData
+                title={new Date(ticket.updatedAt).toISOString().slice(
+                  0,
+                  10,
+                )}
+                align="right"
               >
-                {ticket.creator.name}
-              </a>
-            </TableData>
-            <TableData>
-              <a href={`/ticket/${ticket.id}`}>{ticket.id}</a>
-            </TableData>
-            <TableData>
-              {ticket.kind.replaceAll("_", " ")}
-            </TableData>
-            <TableData
-              title={new Date(ticket.updatedAt).toISOString().slice(
-                0,
-                10,
-              )}
-              align="right"
-            >
-              {twas(new Date(ticket.updatedAt).getTime())}
-            </TableData>
-            <TableData
-              title={new Date(ticket.createdAt).toISOString().slice(
-                0,
-                10,
-              )}
-              align="right"
-            >
-              {twas(new Date(ticket.createdAt).getTime())}
-            </TableData>
-            <TableData align="right">
-              <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
-            </TableData>
-          </TableRow>
-        ))}
+                {twas(new Date(ticket.updatedAt).getTime())}
+              </TableData>
+              <TableData
+                title={new Date(ticket.createdAt).toISOString().slice(
+                  0,
+                  10,
+                )}
+                align="right"
+              >
+                {twas(new Date(ticket.createdAt).getTime())}
+              </TableData>
+              <TableData align="right">
+                <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
+              </TableData>
+            </TableRow>
+          );
+        })}
       </Table>
     </div>
   );
