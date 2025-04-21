@@ -221,7 +221,7 @@ export function PackageHeader({
             )}
           </div>
 
-          {downloads && (
+          {downloads && downloads.total.length > 1 && (
             <div>
               <DownloadWidget
                 downloads={downloads.total}
