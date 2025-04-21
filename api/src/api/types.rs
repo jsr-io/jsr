@@ -188,36 +188,6 @@ impl From<User> for ApiFullUser {
   }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiCreateAliasRequest {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiAlias {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-  pub updated_at: DateTime<Utc>,
-  pub created_at: DateTime<Utc>,
-}
-
-impl From<Alias> for ApiAlias {
-  fn from(alias: Alias) -> Self {
-    Self {
-      name: alias.name,
-      major_version: alias.major_version,
-      target: alias.target,
-      updated_at: alias.updated_at,
-      created_at: alias.created_at,
-    }
-  }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiScope {
