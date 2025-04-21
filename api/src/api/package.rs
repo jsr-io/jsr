@@ -46,6 +46,7 @@ use tracing::instrument;
 use tracing::Instrument;
 use tracing::Span;
 use url::Url;
+use uuid::Uuid;
 
 use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
@@ -219,7 +220,7 @@ pub async fn global_list_handler(
     .transpose()?;
 
   let (total, packages) = db
-    .list_packages(start, limit, maybe_search, github_repo_id)
+    .list_packages(start, limit, maybe_search, github_repo_id, None)
     .await?;
   Ok(ApiList {
     items: packages.into_iter().map(ApiPackage::from).collect(),
@@ -390,13 +391,14 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   // description is allowed for all members, updating the repo
   // requires admin permissions because it extends who can publish new
   // versions (anyone with write access to the repo).
-  if matches!(body, ApiUpdatePackageRequest::IsFeatured(_)) {
-    iam.check_admin_access()?;
+  let (user, sudo) = if matches!(body, ApiUpdatePackageRequest::IsFeatured(_)) {
+    let user = iam.check_admin_access()?;
+    (user, true)
   } else if matches!(body, ApiUpdatePackageRequest::Description(_)) {
-    iam.check_scope_write_access(&scope).await?;
+    iam.check_scope_write_access(&scope).await?
   } else {
-    iam.check_scope_admin_access(&scope).await?;
-  }
+    iam.check_scope_admin_access(&scope).await?
+  };
 
   if package.is_archived
     && !matches!(body, ApiUpdatePackageRequest::IsArchived(_))
@@ -413,6 +415,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         npm_url,
         &buckets,
         orama_client,
+        &user.id,
+        sudo,
         &scope,
         &package_name,
         description,
@@ -422,14 +426,15 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
       let package = db
-        .delete_package_github_repository(&scope, &package_name)
+        .delete_package_github_repository(&user.id, sudo, &scope, &package_name)
         .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
-      let current_user = iam.check_current_user_access()?;
       update_github_repository(
-        current_user,
+        &user.id,
+        sudo,
+        user,
         db,
         github_oauth2_client,
         scope,
@@ -441,7 +446,13 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     ApiUpdatePackageRequest::RuntimeCompat(runtime_compat) => {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
       let package = db
-        .update_package_runtime_compat(&scope, &package_name, &runtime_compat)
+        .update_package_runtime_compat(
+          &user.id,
+          sudo,
+          &scope,
+          &package_name,
+          &runtime_compat,
+        )
         .await?;
       if let Some(orama_client) = orama_client {
         orama_client.upsert_package(&package, &meta);
@@ -450,13 +461,24 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
     ApiUpdatePackageRequest::IsFeatured(is_featured) => {
       let package = db
-        .update_package_is_featured(&scope, &package_name, is_featured)
+        .update_package_is_featured(
+          &user.id,
+          &scope,
+          &package_name,
+          is_featured,
+        )
         .await?;
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::IsArchived(is_archived) => {
       let package = db
-        .update_package_is_archived(&scope, &package_name, is_archived)
+        .update_package_is_archived(
+          &user.id,
+          sudo,
+          &scope,
+          &package_name,
+          is_archived,
+        )
         .await?;
 
       if let Some(orama_client) = orama_client {
@@ -472,8 +494,18 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(
-  skip(db, npm_url, buckets, orama_client, scope, package_name),
+  skip(
+    db,
+    npm_url,
+    buckets,
+    orama_client,
+    actor_id,
+    is_sudo,
+    scope,
+    package_name
+  ),
   err,
   fields(description)
 )]
@@ -482,6 +514,8 @@ async fn update_description(
   npm_url: &Url,
   buckets: &Buckets,
   orama_client: &Option<OramaClient>,
+  actor_id: &Uuid,
+  is_sudo: bool,
   scope: &ScopeName,
   package_name: &PackageName,
   description: String,
@@ -501,7 +535,13 @@ async fn update_description(
   }
 
   let (package, _, meta) = db
-    .update_package_description(scope, package_name, &description)
+    .update_package_description(
+      actor_id,
+      is_sudo,
+      scope,
+      package_name,
+      &description,
+    )
     .await?;
 
   if let Some(orama_client) = orama_client {
@@ -529,8 +569,11 @@ async fn update_description(
   Ok(package)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
+  actor_id: &Uuid,
+  is_sudo: bool,
   user: &User,
   db: &Database,
   github_oauth2_client: &GithubOauth2Client,
@@ -576,7 +619,9 @@ async fn update_github_repository(
   };
 
   let (package, repo, score) = db
-    .update_package_github_repository(&scope, &package, new_repo)
+    .update_package_github_repository(
+      actor_id, is_sudo, &scope, &package, new_repo,
+    )
     .await?;
 
   Ok(ApiPackage::from((package, Some(repo), score)))
@@ -631,9 +676,9 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     .ok_or(ApiError::PackageNotFound)?;
 
   let iam = req.iam();
-  iam.check_scope_admin_access(&scope).await?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  let deleted = db.delete_package(&scope, &package).await?;
+  let deleted = db.delete_package(&user.id, sudo, &scope, &package).await?;
   if !deleted {
     return Err(ApiError::PackageNotEmpty);
   }
@@ -763,7 +808,7 @@ pub async fn version_publish_handler(
       config_file: &config_file,
     })
     .await?;
-  let publishing_task = match res {
+  let (publishing_task, user) = match res {
     CreatePublishingTaskResult::Created(publishing_task) => publishing_task,
     CreatePublishingTaskResult::Exists(task) => {
       return Err(ApiError::DuplicateVersionPublish {
@@ -851,7 +896,7 @@ pub async fn version_publish_handler(
     tokio::spawn(fut);
   }
 
-  Ok(publishing_task.into())
+  Ok((publishing_task, user).into())
 }
 
 #[instrument(
@@ -925,16 +970,23 @@ pub async fn version_update_handler(
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
 
   let iam = req.iam();
-  iam.check_scope_admin_access(&scope).await?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  db.yank_package_version(&scope, &package, &version, body.yanked)
-    .await?;
+  db.yank_package_version(
+    &user.id,
+    sudo,
+    &scope,
+    &package,
+    &version,
+    body.yanked,
+  )
+  .await?;
 
   let package_metadata_path =
     crate::gcs_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -995,7 +1047,7 @@ pub async fn version_delete_handler(
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
 
   let iam = req.iam();
-  iam.check_admin_access()?;
+  let staff = iam.check_admin_access()?;
 
   let count = db
     .count_package_dependents(
@@ -1008,7 +1060,7 @@ pub async fn version_delete_handler(
     return Err(ApiError::DeleteVersionHasDependents);
   }
 
-  db.delete_package_version(&scope, &package, &version)
+  db.delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
 
   let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
@@ -1025,7 +1077,7 @@ pub async fn version_delete_handler(
     crate::gcs_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -1776,7 +1828,7 @@ impl DepTreeLoader {
       }
       "jsr" => unreachable!("{specifier}"),
       // TODO(@crowlKats): handle npm specifiers
-      "npm" | "node" | "bun" => async move {
+      "npm" | "node" | "bun" | "virtual" | "cloudflare" => async move {
         Ok(Some(deno_graph::source::LoadResponse::External {
           specifier: specifier.clone(),
         }))
@@ -2342,6 +2394,8 @@ mod test {
 
       t.ephemeral_database
         .update_package_github_repository(
+          &t.user1.user.id,
+          false,
           &scope,
           &name,
           NewGithubRepository {
@@ -2513,7 +2567,10 @@ mod test {
 
     // create scope2 for user2, try creating a package with user1
     let scope2 = ScopeName::new("scope2".into()).unwrap();
-    t.db().create_scope(&scope2, t.user2.user.id).await.unwrap();
+    t.db()
+      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id)
+      .await
+      .unwrap();
     let mut resp = t
       .http()
       .post("/api/scopes/scope2/packages")
@@ -3188,7 +3245,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let scope = t.scope.scope.clone();
     t.ephemeral_database
-      .update_scope_limits(&t.scope.scope, Some(10), Some(100), Some(100))
+      .update_scope_limits(
+        &t.staff_user.user.id,
+        &t.scope.scope,
+        Some(10),
+        Some(100),
+        Some(100),
+      )
       .await
       .unwrap();
 
@@ -3213,7 +3276,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let scope = t.scope.scope.clone();
     t.ephemeral_database
-      .update_scope_limits(&t.scope.scope, Some(100), Some(10), Some(100))
+      .update_scope_limits(
+        &t.staff_user.user.id,
+        &t.scope.scope,
+        Some(100),
+        Some(10),
+        Some(100),
+      )
       .await
       .unwrap();
 
@@ -3238,7 +3307,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let scope = t.scope.scope.clone();
     t.ephemeral_database
-      .update_scope_limits(&t.scope.scope, Some(100), Some(100), Some(10))
+      .update_scope_limits(
+        &t.staff_user.user.id,
+        &t.scope.scope,
+        Some(100),
+        Some(100),
+        Some(10),
+      )
       .await
       .unwrap();
 
@@ -3836,11 +3911,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let scope = t.scope.scope.clone();
     t.db()
-      .add_scope_invite(NewScopeInvite {
-        target_user_id: t.user2.user.id,
-        requesting_user_id: t.user1.user.id,
-        scope: &scope,
-      })
+      .add_scope_invite(
+        &t.user1.user.id,
+        false,
+        NewScopeInvite {
+          target_user_id: t.user2.user.id,
+          requesting_user_id: t.user1.user.id,
+          scope: &scope,
+        },
+      )
       .await
       .unwrap();
     t.db()
@@ -4185,7 +4264,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     assert_eq!(tasks.len(), 1);
-    assert_eq!(tasks[0].id, task2.id);
+    assert_eq!(tasks[0].0.id, task2.id);
   }
 
   #[tokio::test]

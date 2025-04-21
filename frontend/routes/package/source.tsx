@@ -41,6 +41,7 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
+        downloads={data.downloads}
       />
       <PackageNav
         currentTab="Files"
@@ -186,6 +187,7 @@ export const handler = define.handlers({
       scopeMember,
       selectedVersion,
       source,
+      downloads,
     } = res;
 
     ctx.state.meta = {
@@ -197,6 +199,7 @@ export const handler = define.handlers({
     return {
       data: {
         package: pkg,
+        downloads,
         selectedVersion,
         source,
         sourcePath,

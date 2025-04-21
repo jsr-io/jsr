@@ -2,7 +2,7 @@
 import { IS_BROWSER } from "fresh/runtime";
 import type { TraceSpan } from "./tracing.ts";
 
-export type QueryParams = Record<string, string | number>;
+export type QueryParams = Record<string, string | number | null>;
 
 export interface APIRequest<T> {
   path: APIPath;
@@ -29,7 +29,7 @@ export interface APIResponseError {
   traceId: string | null;
 }
 
-type APIPath = string & { __apiPath: never };
+export type APIPath = string & { __apiPath: never };
 
 /**
  * Template literal to build API request paths. Example:
@@ -160,7 +160,9 @@ export class API {
     const url = new URL(this.#apiRoot + req.path);
     let result: APIResponse<RespT>;
     for (const [key, value] of Object.entries(req.query ?? {})) {
-      url.searchParams.append(key, String(value));
+      if (value !== null) {
+        url.searchParams.append(key, String(value));
+      }
     }
     const headers = new Headers();
     if (this.#token && !req.anonymous) {

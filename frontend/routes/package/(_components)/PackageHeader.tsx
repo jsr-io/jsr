@@ -1,26 +1,32 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Package, PackageVersionWithUser } from "../../../utils/api_types.ts";
+import type {
+  Package,
+  PackageDownloads,
+  PackageVersionWithUser,
+} from "../../../utils/api_types.ts";
 import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
 import {
   TbAlertTriangleFilled,
   TbExternalLink,
-  TbFlag,
   TbRosetteDiscountCheck,
 } from "tb-icons";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
+import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
 
 interface PackageHeaderProps {
   package: Package;
   selectedVersion?: PackageVersionWithUser;
+  downloads: PackageDownloads | null;
 }
 
 export function PackageHeader({
   package: pkg,
   selectedVersion,
+  downloads,
 }: PackageHeaderProps) {
   const runtimeCompat = (
     <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
@@ -33,16 +39,6 @@ export function PackageHeader({
     selectedVersionSemver.prerelease.length !== 0 &&
     (pkg.latestVersion === null ||
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
-
-  const reportPackageBody = `Hello JSR team,
-I would like to report a package for the following reason:
-`;
-
-  const mailLink = `mailto:report@jsr.io?subject=${
-    encodeURIComponent(
-      `Report package: ${pkg.scope}/${pkg.name}@${selectedVersion?.version}`,
-    )
-  }&body=${encodeURIComponent(reportPackageBody)}`;
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -225,14 +221,15 @@ I would like to report a package for the following reason:
             )}
           </div>
 
-          <div class="flex flex-row items-center gap-2">
-            <a
-              class="inline-flex items-center gap-1.5 text-sm bg-red-50 border border-red-300/30 rounded-md p-1.5 text-red-500 font-semibold hover:bg-red-100 focus:outline-none focus:border focus:border-red-300 focus:ring-1 focus:ring-red-300 focus:ring-opacity-50"
-              href={mailLink}
-            >
-              <TbFlag class="size-4" /> Report package
-            </a>
-          </div>
+          {downloads && (
+            <div>
+              <DownloadWidget
+                downloads={downloads.total}
+                scope={pkg.scope}
+                pkg={pkg.name}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

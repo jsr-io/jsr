@@ -17,6 +17,7 @@ export default define.page<typeof handler>(function Symbol(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
+        downloads={data.downloads}
       />
 
       <PackageNav
@@ -33,6 +34,9 @@ export default define.page<typeof handler>(function Symbol(
         docs={data.docs}
         params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
+        user={state.user}
+        scope={data.package.scope}
+        pkg={data.package.name}
       />
     </div>
   );
@@ -71,6 +75,7 @@ export const handler = define.handlers({
       scopeMember,
       selectedVersion,
       docs,
+      downloads,
     } = res as DocsData;
     if (selectedVersion === null) {
       return new Response(null, {
@@ -100,6 +105,7 @@ export const handler = define.handlers({
     return {
       data: {
         package: pkg,
+        downloads,
         selectedVersion,
         docs,
         member: scopeMember,

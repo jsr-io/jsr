@@ -84,7 +84,7 @@ pub async fn publish_task(
   db: Database,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
-  let mut publishing_task = db
+  let (mut publishing_task, _) = db
     .get_publishing_task(publish_id)
     .await?
     .ok_or(ApiError::PublishNotFound)?;
@@ -107,6 +107,7 @@ pub async fn publish_task(
         if let Err(err) = res {
           // retryable errors
           db.update_publishing_task_status(
+            None,
             publishing_task.id,
             PublishingTaskStatus::Processing,
             PublishingTaskStatus::Pending,
@@ -126,6 +127,7 @@ pub async fn publish_task(
           .await?;
         publishing_task = db
           .update_publishing_task_status(
+            None,
             publishing_task.id,
             PublishingTaskStatus::Processed,
             PublishingTaskStatus::Success,
@@ -160,6 +162,7 @@ async fn process_publishing_task(
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
     .update_publishing_task_status(
+      None,
       publishing_task.id,
       PublishingTaskStatus::Pending,
       PublishingTaskStatus::Processing,
@@ -176,6 +179,7 @@ async fn process_publishing_task(
           error!("Error processing tarball, fatal: {}", err);
           *publishing_task = db
             .update_publishing_task_status(
+              None,
               publishing_task.id,
               PublishingTaskStatus::Processing,
               PublishingTaskStatus::Failure,
@@ -266,7 +270,7 @@ async fn upload_version_manifest(
     manifest,
     module_graph_2,
   };
-  let content = serde_json::to_vec_pretty(&version_metadata)?;
+  let content = serde_json::to_vec(&version_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -372,7 +376,7 @@ async fn upload_package_manifest(
     &publishing_task.package_name,
   )
   .await?;
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -496,7 +500,7 @@ pub mod tests {
       unreachable!()
     };
 
-    let tarball_path = gcs_tarball_path(task.id);
+    let tarball_path = gcs_tarball_path(task.0.id);
     t.buckets
       .publishing_bucket
       .upload(
@@ -512,7 +516,7 @@ pub mod tests {
       .unwrap();
 
     publish_task(
-      task.id,
+      task.0.id,
       t.buckets(),
       t.registry_url(),
       t.npm_url(),
@@ -521,7 +525,12 @@ pub mod tests {
     )
     .await
     .unwrap();
-    t.db().get_publishing_task(task.id).await.unwrap().unwrap()
+    t.db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap()
+      .0
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {
@@ -757,7 +766,12 @@ pub mod tests {
     let data = create_mock_tarball("ok");
 
     t.db()
-      .scope_set_require_publishing_from_ci(&t.scope.scope, true)
+      .scope_set_require_publishing_from_ci(
+        &t.user1.user.id,
+        false,
+        &t.scope.scope,
+        true,
+      )
       .await
       .unwrap();
 
@@ -1142,6 +1156,24 @@ pub mod tests {
   async fn bun_import() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("bun_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn virtual_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("virtual_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn cloudflare_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("cloudflare_import");
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
     assert!(!uses_npm(&t, &task).await);

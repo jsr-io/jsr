@@ -10,6 +10,7 @@ import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
 import TbCheck from "tb-icons/TbCheck";
 import { scopeIAM } from "../../../utils/iam.ts";
+import { TicketModal } from "../../../islands/TicketModal.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, state },
@@ -27,14 +28,6 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
 });
 
 function ScopeQuotas({ scope, user }: { scope: FullScope; user: User }) {
-  const requestLimitIncreaseBody = `Hello JSR team,
-I would like to request a quota increase for my scope.
-My user ID is '${user.id}', and my scope is '${scope.scope}'.
-
-Quota to increase:
-Amount to increase by:
-Reason: `;
-
   return (
     <div class="mt-8">
       <h2 class="text-lg sm:text-xl font-semibold">Quotas</h2>
@@ -64,16 +57,49 @@ Reason: `;
           />
         </div>
         <div>
-          <a
-            href={`mailto:quotas@jsr.io?subject=${
-              encodeURIComponent(
-                `Scope quota increase for @${scope.scope}`,
-              )
-            }&body=${encodeURIComponent(requestLimitIncreaseBody)}`}
-            class="button-primary"
+          <TicketModal
+            user={user}
+            kind="scope_quota_increase"
+            style="primary"
+            title="Request scope quota increase"
+            description={
+              <>
+                <p class="mt-4 text-jsr-gray-600">
+                  Please provide a reason for requesting a quota increase for
+                  the scope @{scope.scope}. Your limit does not have to be
+                  exhausted already to request an increase.
+                </p>
+              </>
+            }
+            fields={[
+              {
+                name: "quota kind",
+                label: "Quota to increase",
+                type: "select",
+                values: [
+                  "Total packages",
+                  "New packages per week",
+                  "Publish attempts per week",
+                ],
+                required: true,
+              },
+              {
+                name: "amount",
+                label: "Amount to increase by",
+                type: "number",
+                required: true,
+              },
+              {
+                name: "message",
+                label: "Reason",
+                type: "textarea",
+                required: true,
+              },
+            ]}
+            extraMeta={{ scope: scope.scope }}
           >
             Request scope quota increase
-          </a>
+          </TicketModal>
         </div>
       </div>
     </div>
@@ -190,7 +216,7 @@ interface CardButtonProps {
   selected?: boolean;
   name?: string;
   value?: string;
-  type?: string;
+  type?: "button" | "submit" | "reset";
 }
 
 function CardButton(props: CardButtonProps) {

@@ -11,47 +11,52 @@ import { PackageDescriptionEditor } from "./(_islands)/PackageDescriptionEditor.
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 
-export default define.page<typeof handler>(function Settings({ data, params }) {
-  return (
-    <div class="mb-20">
-      <PackageHeader package={data.package} />
+export default define.page<typeof handler>(
+  function Settings({ data, params }) {
+    return (
+      <div class="mb-20">
+        <PackageHeader
+          package={data.package}
+          downloads={data.downloads}
+        />
 
-      <PackageNav
-        currentTab="Settings"
-        versionCount={data.package.versionCount}
-        dependencyCount={data.package.dependencyCount}
-        dependentCount={data.package.dependentCount}
-        iam={data.iam}
-        params={params as unknown as Params}
-        latestVersion={data.package.latestVersion}
-      />
+        <PackageNav
+          currentTab="Settings"
+          versionCount={data.package.versionCount}
+          dependencyCount={data.package.dependencyCount}
+          dependentCount={data.package.dependentCount}
+          iam={data.iam}
+          params={params as unknown as Params}
+          latestVersion={data.package.latestVersion}
+        />
 
-      <DescriptionEditor description={data.package.description} />
+        <DescriptionEditor description={data.package.description} />
 
-      <RuntimeCompatEditor runtimeCompat={data.package.runtimeCompat} />
+        <RuntimeCompatEditor runtimeCompat={data.package.runtimeCompat} />
 
-      <GitHubRepository package={data.package} />
+        <GitHubRepository package={data.package} />
 
-      <ArchivePackage isArchived={data.package.isArchived} />
+        <ArchivePackage isArchived={data.package.isArchived} />
 
-      <DeletePackage hasVersions={data.package.versionCount > 0} />
+        <DeletePackage hasVersions={data.package.versionCount > 0} />
 
-      {data.iam.isStaff && (
-        <div class="border-t pt-8 mt-12">
-          <h2 class="text-xl font-sans font-bold">Staff area</h2>
+        {data.iam.isStaff && (
+          <div class="border-t pt-8 mt-12">
+            <h2 class="text-xl font-sans font-bold">Staff area</h2>
 
-          <p class="mt-2 text-jsr-gray-600 max-w-3xl">
-            Feature a package on the homepage.
-          </p>
+            <p class="mt-2 text-jsr-gray-600 max-w-3xl">
+              Feature a package on the homepage.
+            </p>
 
-          <form method="POST">
-            <FeaturePackage package={data.package} />
-          </form>
-        </div>
-      )}
-    </div>
-  );
-});
+            <form method="POST">
+              <FeaturePackage package={data.package} />
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  },
+);
 
 function GitHubRepository(props: { package: Package }) {
   return (
@@ -276,7 +281,7 @@ export const handler = define.handlers({
     if (user instanceof Response) return user;
     if (!data) throw new HttpError(404, "This package was not found.");
 
-    const { pkg, scopeMember } = data;
+    const { pkg, scopeMember, downloads } = data;
 
     const iam = scopeIAM(ctx.state, scopeMember, user);
 
@@ -288,7 +293,7 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
-    return { data: { package: pkg, iam } };
+    return { data: { package: pkg, downloads, iam } };
   },
   async POST(ctx) {
     const req = ctx.req;

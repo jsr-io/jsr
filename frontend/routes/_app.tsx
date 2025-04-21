@@ -49,7 +49,7 @@ export default async function App({
           href={asset("/fonts/DMSans/DMSans-Variable.woff2")}
           as="font"
           type="font/woff2"
-          crossOrigin="true"
+          crossOrigin="anonymous"
         />
         <link rel="stylesheet" href={asset("/styles.css")} />
         <link rel="stylesheet" href={asset("/gfm.css")} />
