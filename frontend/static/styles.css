@@ -558,6 +558,18 @@ body .ddoc:has(.toc) {
   @apply text-green-600;
 }
 
+body .ddoc .or-bar {
+  &::before {
+    @apply h-[1px] w-full bg-jsr-gray-200 content-[""];
+  }
+
+  &::after {
+    @apply h-[1px] w-full bg-jsr-gray-200 content-[""];
+  }
+
+  @apply flex items-center justify-between gap-2 !mt-[2px] text-nowrap;
+}
+
 @layer base {
   /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
   :root {
