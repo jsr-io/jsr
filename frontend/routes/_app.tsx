@@ -67,6 +67,7 @@ export default async function App({
 
         {/* Initial dark mode script to prevent flash */}
         <script
+          // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html: `
             (function() {

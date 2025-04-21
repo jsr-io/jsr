@@ -1,35 +1,30 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useState } from "preact/hooks";
-import { IS_BROWSER } from "fresh/runtime";
 import { TbBrightnessUpFilled, TbMoonFilled } from "tb-icons";
 
 export default function DarkModeToggle() {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    if (IS_BROWSER) {
-      // Initial setup
-      const isDarkStored = localStorage.getItem("darkMode") === "true";
-      const isDarkPreference =
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initialDarkMode = isDarkStored ?? isDarkPreference;
+    const isDarkStored = localStorage.getItem("darkMode") === "true";
+    const isDarkPreference =
+      globalThis.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initialDarkMode = isDarkStored ?? isDarkPreference;
 
-      setIsDark(initialDarkMode);
-      updateTheme(initialDarkMode);
+    setIsDark(initialDarkMode);
+    updateTheme(initialDarkMode);
 
-      // Listen for system preference changes
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = () => {
-        if (localStorage.getItem("darkMode") === null) {
-          const newDarkMode = mediaQuery.matches;
-          setIsDark(newDarkMode);
-          updateTheme(newDarkMode);
-        }
-      };
+    const mediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => {
+      if (localStorage.getItem("darkMode") === null) {
+        const newDarkMode = mediaQuery.matches;
+        setIsDark(newDarkMode);
+        updateTheme(newDarkMode);
+      }
+    };
 
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
-    }
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
   function updateTheme(dark: boolean) {
@@ -53,6 +48,7 @@ export default function DarkModeToggle() {
       class="p-2 rounded-md text-primary hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 focus:outline-none"
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      type="button"
     >
       {isDark
         ? <TbBrightnessUpFilled class="size-5" />
