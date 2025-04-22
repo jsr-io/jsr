@@ -5,6 +5,7 @@ import type {
   DownloadDataPoint,
   PackageDownloadsRecentVersion,
 } from "../../../utils/api_types.ts";
+import type ApexCharts from "apexcharts";
 
 interface Props {
   downloads: PackageDownloadsRecentVersion[];
@@ -14,8 +15,7 @@ export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
 export function DownloadChart(props: Props) {
   const chartDivRef = useRef<HTMLDivElement>(null);
-  // deno-lint-ignore no-explicit-any
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<ApexCharts>(null);
   const [graphRendered, setGraphRendered] = useState(false);
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export function DownloadChart(props: Props) {
       setGraphRendered(true);
     })();
     return () => {
-      chartRef.current.destroy();
+      chartRef.current?.destroy();
       chartRef.current = null;
     };
   }, []);
@@ -78,7 +78,7 @@ export function DownloadChart(props: Props) {
           <select
             id="aggregationPeriod"
             onChange={(e) =>
-              chartRef.current.updateSeries(
+              chartRef.current?.updateSeries(
                 getSeries(
                   props.downloads,
                   e.currentTarget.value as AggregationPeriod,
@@ -158,7 +158,7 @@ export function normalize(
   dataPoints: DownloadDataPoint[],
   xValues: string[],
   aggregationPeriod: AggregationPeriod,
-): [Date, number][] {
+): [number, number][] {
   const normalized: { [key: string]: number } = {};
   for (const date of xValues) {
     normalized[date] = 0;
@@ -176,7 +176,7 @@ export function normalize(
 
   return Object.entries(normalized).map((
     [key, value],
-  ) => [new Date(key), value]);
+  ) => [new Date(key).getTime(), value]);
 }
 
 function getSeries(
@@ -193,7 +193,7 @@ function getSeries(
   ).flat();
 
   const xValues = collectX(
-    dataPointsToDisplay.map((version) => version.downloads).flat(),
+    dataPointsWithDownloads.map((version) => version.downloads).flat(),
     aggregationPeriod,
   );
 
