@@ -34,7 +34,7 @@ export function DownloadWidget(props: Props) {
   }
 
   const [hoveredDataPoint, setHoveredDataPoint] = useState<
-    { date: Date; data: number } | null
+    { date: number; data: number } | null
   >(null);
   const [graphRendered, setGraphRendered] = useState(false);
 
@@ -141,11 +141,11 @@ export function DownloadWidget(props: Props) {
             <div>
               {hoveredDataPoint
                 ? `${
-                  hoveredDataPoint.date.toISOString()
+                  new Date(hoveredDataPoint.date).toISOString()
                     .split("T")[0]
                 } to ${
                   new Date(
-                    hoveredDataPoint.date.getTime() + 6 * 24 * 60 * 60 * 1000,
+                    hoveredDataPoint.date + 6 * 24 * 60 * 60 * 1000,
                   ).toISOString()
                     .split("T")[0]
                 }`
