@@ -19,6 +19,7 @@ use deno_graph::Resolution;
 use deno_graph::WorkspaceMember;
 use deno_semver::StackString;
 use futures::future::Either;
+use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use hyper::body::HttpBody;
 use hyper::Body;
@@ -1654,18 +1655,21 @@ pub async fn get_downloads_handler(
   let recent_versions = db
     .list_latest_unyanked_versions_for_package(&scope, &package, 5)
     .await?;
-
-  let versions = futures::stream::iter(recent_versions.into_iter())
-    .then(|version| async {
+  let futures = FuturesUnordered::new();
+  for version in recent_versions {
+    let scope_ = scope.clone();
+    let package_ = package.clone();
+    futures.push(async move {
       let res = db
         .get_package_version_downloads_24h(
-          &scope, &package, &version, start, current,
+          &scope_, &package_, &version, start, current,
         )
         .await;
       (version, res)
-    })
-    .collect::<Vec<_>>()
-    .await;
+    });
+  }
+
+  let versions = futures.collect::<Vec<_>>().await;
 
   let mut recent_versions = Vec::with_capacity(versions.len());
   for (version, downloads) in versions {
