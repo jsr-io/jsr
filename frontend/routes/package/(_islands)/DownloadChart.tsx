@@ -5,6 +5,7 @@ import type {
   DownloadDataPoint,
   PackageDownloadsRecentVersion,
 } from "../../../utils/api_types.ts";
+import type ApexCharts from "apexcharts";
 
 interface Props {
   downloads: PackageDownloadsRecentVersion[];
@@ -14,8 +15,7 @@ export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
 export function DownloadChart(props: Props) {
   const chartDivRef = useRef<HTMLDivElement>(null);
-  // deno-lint-ignore no-explicit-any
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<ApexCharts>(null);
   const [graphRendered, setGraphRendered] = useState(false);
 
   const getChartOptions = (
@@ -118,10 +118,8 @@ export function DownloadChart(props: Props) {
 
       return () => {
         observer.disconnect();
-        if (chartRef.current) {
-          chartRef.current.destroy();
-          chartRef.current = null;
-        }
+        chartRef.current?.destroy();
+        chartRef.current = null;
       };
     })();
   }, []);
@@ -145,6 +143,13 @@ export function DownloadChart(props: Props) {
               // Update chart with new options including the new aggregation period
               chartRef.current.updateOptions(
                 getChartOptions(isDarkMode, newAggregationPeriod),
+              );
+              
+              chartRef.current?.updateSeries(
+                getSeries(
+                  props.downloads,
+                  e.currentTarget.value as AggregationPeriod,
+                ),
               );
             }}
             className="input-container input px-1.5 py-0.5"
@@ -221,7 +226,7 @@ export function normalize(
   dataPoints: DownloadDataPoint[],
   xValues: string[],
   aggregationPeriod: AggregationPeriod,
-): [Date, number][] {
+): [number, number][] {
   const normalized: { [key: string]: number } = {};
   for (const date of xValues) {
     normalized[date] = 0;
@@ -239,7 +244,7 @@ export function normalize(
 
   return Object.entries(normalized).map((
     [key, value],
-  ) => [new Date(key), value]);
+  ) => [new Date(key).getTime(), value]);
 }
 
 function getSeries(
@@ -256,7 +261,7 @@ function getSeries(
   ).flat();
 
   const xValues = collectX(
-    dataPointsToDisplay.map((version) => version.downloads).flat(),
+    dataPointsWithDownloads.map((version) => version.downloads).flat(),
     aggregationPeriod,
   );
 
