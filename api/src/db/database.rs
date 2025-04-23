@@ -1858,7 +1858,7 @@ impl Database {
   }
 
   #[instrument(
-    name = "Database::list_latest_package_versions",
+    name = "Database::list_latest_unyanked_versions_for_package",
     skip(self),
     err
   )]
@@ -1874,9 +1874,11 @@ impl Database {
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
+      LIMIT $3
       "#,
       scope as _,
       name as _,
+      limit as i32,
     )
       .map(|r| r.version)
       .fetch_all(&self.pool)
@@ -4017,25 +4019,25 @@ impl Database {
     skip(self),
     err
   )]
-  pub async fn get_package_version_downloads_24h(
+  pub async fn get_package_versions_downloads_24h(
     &self,
     scope: &ScopeName,
     name: &PackageName,
-    version: &Version,
+    versions: &[Version],
     start: DateTime<Utc>,
     end: DateTime<Utc>,
-  ) -> Result<Vec<DownloadDataPoint>> {
+  ) -> Result<Vec<VersionDownloadDataPoint>> {
     sqlx::query_as!(
-      DownloadDataPoint,
+      VersionDownloadDataPoint,
       r#"
-      SELECT time_bucket, kind as "kind: DownloadKind", count
+      SELECT version as "version: Version", time_bucket, kind as "kind: DownloadKind", count
       FROM version_download_counts_24h
-      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
-      ORDER BY time_bucket ASC
+      WHERE scope = $1 AND package = $2 AND version = ANY($3) AND time_bucket >= $4 AND time_bucket < $5
+      ORDER BY time_bucket ASC, version DESC
       "#,
       scope as _,
       name as _,
-      version as _,
+      versions as _,
       start,
       end,
     )
