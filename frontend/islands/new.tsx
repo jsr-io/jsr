@@ -19,7 +19,7 @@ interface IconColorProps {
 export function IconCircle({ done, children }: IconColorProps) {
   const color = useComputed(() => {
     if (done.value) return "bg-green-600 text-white";
-    return "bg-jsr-gray-100 text-black";
+    return "bg-jsr-gray-100 dark:bg-jsr-gray-900 text-black dark:text-jsr-gray-200";
   });
   return (
     <div class={color + " hidden md:block rounded-full p-1.75"}>
@@ -57,8 +57,8 @@ export function ScopeSelect(
 
   if (scopes.value.length === 0) {
     return (
-      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 p-4 md:p-6 rounded-xl">
-        <span class="text-jsr-gray-700">
+      <div class="space-y-4 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 dark:bg-jsr-cyan-950 dark:border-jsr-cyan-700 p-4 md:p-6 rounded-xl">
+        <span class="text-jsr-gray-700 dark:text-white">
           You are not a member of any scopes. Create a new scope to publish your
           package.
         </span>
@@ -103,13 +103,13 @@ export function ScopeSelect(
             </button>
           </p>
         )}
-        <p class="text-jsr-gray-700 text-sm mt-2">
+        <p class="text-jsr-gray-700 dark:text-jsr-gray-200 text-sm mt-2">
           You can create {scopesLeft === 0 ? "no" : scopesLeft}{" "}
           more scope{scopesLeft !== 1 && "s"}.{" "}
           <a href="/account/settings" class="link">View quotas</a> or{" "}
           <a href="/account" class="link">manage your scopes</a>.
         </p>
-        <p class="text-jsr-gray-700 text-sm">
+        <p class="text-jsr-gray-700 dark:text-jsr-gray-200 text-sm">
           Before creating a new scope, please read the{" "}
           <a href="/docs/usage-policy#scope-names" class="link">
             scope naming policy
@@ -137,7 +137,7 @@ export function ScopeSelect(
       </select>
 
       {!locked && (
-        <p class="text-jsr-gray-500">
+        <p class="text-tertiary">
           or{" "}
           <button
             type="button"
@@ -226,7 +226,7 @@ function CreateScope(
         </label>
         <button type="submit" class="button-primary">Create</button>
         {errorCode.value === "scopeNameReserved" && (
-          <div class="mt-3 w-full space-y-4 bg-jsr-yellow-50 border-1.5 border-jsr-yellow-200 p-4 md:p-6 rounded-xl">
+          <div class="mt-3 w-full space-y-4 bg-jsr-yellow-50 border-1.5 border-jsr-yellow-200 dark:border-jsr-yellow-700 dark:bg-jsr-yellow-900/30 p-4 md:p-6 rounded-xl">
             <div class="mb-2">
               The provided scope name is reserved. Please use the form below to
               claim it if you think you have a valid reason to do so.
@@ -238,7 +238,7 @@ function CreateScope(
               title="Request reserved scope name"
               description={
                 <>
-                  <p class="mt-4 text-jsr-gray-600">
+                  <p class="mt-4 text-secondary">
                     The scope name '@{newScope.value}' is reserved. If you think
                     you have a valid reason to claim it, such as proof of
                     ownership of a package or scope on npm with the same name,
@@ -409,14 +409,14 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
   ) return null;
 
   return (
-    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 border-1.5 border-jsr-cyan-200 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
+    <div class="max-w-2xl mt-12 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-1.5 border-jsr-cyan-200 dark:border-jsr-cyan-700 rounded-lg p-4 md:p-6 overflow-x-hidden flex flex-wrap sm:flex-nowrap! justify-between items-center gap-8">
       {pkg.value === null
         ? (
           <>
             <div>
-              <p>
+              <p class="dark:text-white">
                 The package{" "}
-                <code class="text-jsr-cyan-800">
+                <code class="text-jsr-cyan-800 dark:text-jsr-cyan-200">
                   @{scope}/{name}
                 </code>{" "}
                 does not exist yet. Create it now to publish your package.
@@ -462,11 +462,11 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
                 </a>
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
-              <p class="text-jsr-gray-500">
+              <p class="text-tertiary">
                 Created {twas(new Date(pkg.value.createdAt).getTime())}.
               </p>
               {fromCli && (
-                <p class="mt-2 text-jsr-gray-500">
+                <p class="mt-2 text-tertiary">
                   You can now close this page and go back to your terminal to
                   continue publishing.
                 </p>

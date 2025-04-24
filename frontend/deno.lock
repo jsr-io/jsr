@@ -1,8 +1,8 @@
 {
   "version": "4",
   "specifiers": {
-    "jsr:@deno/gfm@0.10": "0.10.0",
-    "jsr:@denosaurs/emoji@0.3": "0.3.1",
+    "jsr:@deno/gfm@0.11": "0.11.0",
+    "jsr:@denosaurs/emoji@~0.3.1": "0.3.1",
     "jsr:@fresh/core@^2.0.0-alpha.1": "2.0.0-alpha.25",
     "jsr:@fresh/core@^2.0.0-alpha.25": "2.0.0-alpha.25",
     "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7": "0.0.1-alpha.7",
@@ -52,7 +52,7 @@
     "npm:esbuild@0.23.1": "0.23.1",
     "npm:github-slugger@2": "2.0.0",
     "npm:he@^1.2.0": "1.2.0",
-    "npm:katex@0.16": "0.16.11",
+    "npm:katex@0.16": "0.16.22",
     "npm:marked-alert@2": "2.1.2_marked@12.0.2",
     "npm:marked-footnote@^1.2.0": "1.2.4_marked@12.0.2",
     "npm:marked-gfm-heading-id@^3.1.0": "3.2.0_marked@12.0.2",
@@ -68,14 +68,14 @@
     "npm:preact@^10.22.1": "10.24.3",
     "npm:preact@^10.24.1": "10.24.3",
     "npm:prismjs@^1.29.0": "1.29.0",
-    "npm:sanitize-html@^2.13.0": "2.13.1",
+    "npm:sanitize-html@^2.13.0": "2.16.0",
     "npm:tailwindcss@3.4": "3.4.14_postcss@8.4.47",
     "npm:tailwindcss@^3.4.1": "3.4.14_postcss@8.4.47",
     "npm:twas@^2.1.3": "2.1.3"
   },
   "jsr": {
-    "@deno/gfm@0.10.0": {
-      "integrity": "51708205e3559a4aeb6afb29d07c5bfafe7941f91bb360351ef6621de9a39527",
+    "@deno/gfm@0.11.0": {
+      "integrity": "ddadbfca6c1281729783612e4b0b2166b6543c1c49cc106b80911f4dc4087abc",
       "dependencies": [
         "jsr:@denosaurs/emoji",
         "npm:github-slugger",
@@ -1078,8 +1078,8 @@
     "js-tokens@4.0.0": {
       "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="
     },
-    "katex@0.16.11": {
-      "integrity": "sha512-RQrI8rlHY92OLf3rho/Ts8i/XvjgguEjOkO1BEXcU3N8BqPpSzBNwV/G0Ukr+P/l3ivvJUE/Fa/CwbS6HesGNQ==",
+    "katex@0.16.22": {
+      "integrity": "sha512-XCHRdUw4lf3SKBaJe4EvgqIuWwkPSo9XoeO8GjQW94Bp7TWv9hNhzZjZ+OH9yf1UmLygb7DIT5GSFQiyt16zYg==",
       "dependencies": [
         "commander@8.3.0"
       ]
@@ -1597,8 +1597,8 @@
         "queue-microtask"
       ]
     },
-    "sanitize-html@2.13.1": {
-      "integrity": "sha512-ZXtKq89oue4RP7abL9wp/9URJcqQNABB5GGJ2acW1sdO8JTVl92f4ygD7Yc9Ze09VAZhnt2zegeU0tbNsdcLYg==",
+    "sanitize-html@2.16.0": {
+      "integrity": "sha512-0s4caLuHHaZFVxFTG74oW91+j6vW7gKbGD6CD2+miP73CE6z6YtOBN0ArtLd2UGyi4IC7K47v3ENUbQX4jV3Mg==",
       "dependencies": [
         "deepmerge",
         "escape-string-regexp",
@@ -1939,7 +1939,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@deno/gfm@0.10",
+      "jsr:@deno/gfm@0.11",
       "jsr:@fresh/core@^2.0.0-alpha.25",
       "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
       "jsr:@preact-icons/tb@^1.0.12",

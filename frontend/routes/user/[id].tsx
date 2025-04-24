@@ -25,7 +25,7 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
             />
           )
           : (
-            <div class="p-3 text-jsr-gray-500 text-center italic">
+            <div class="p-3 text-tertiary text-center italic">
               {state.user?.id === data.user.id ? "You are" : "This user is"}
               {" "}
               not a member of any scopes.
@@ -35,7 +35,7 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
         {
           /*<div>
           <span class="font-semibold">Recently published</span>
-          <div class="text-jsr-gray-500 text-base">
+          <div class="text-tertiary text-base"
             TODO: all packages recently published by this user
           </div>
         </div>*/

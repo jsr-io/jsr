@@ -24,7 +24,7 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
           <h1 class="text-2xl leading-none font-semibold truncate">
             {user.name}
           </h1>
-          <p class="text-xs text-jsr-gray-600">
+          <p class="text-xs text-secondary">
             Created account {twas(new Date(user.createdAt).getTime())}
           </p>
           <p class="text-base mt-2">

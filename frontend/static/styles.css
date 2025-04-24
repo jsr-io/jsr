@@ -50,6 +50,20 @@
   :root {
     scroll-behavior: smooth;
     scrollbar-color: theme("colors.jsr-cyan.200") theme("colors.jsr-cyan.50");
+
+    color: theme("colors.jsr-gray.800");
+    --color-text-primary: theme("colors.jsr-gray.800");
+    --color-text-secondary: theme("colors.jsr-gray.600");
+    --color-text-tertiary: theme("colors.jsr-gray.500");
+
+    --pct: 0;
+
+    @apply opsize-normal transition-colors duration-200;
+  }
+
+  body {
+    font-size: 1.125rem;
+    font-weight: 400;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -58,11 +72,34 @@
     }
   }
 
-  body {
-    font-size: 1.125rem;
-    font-weight: 400;
-    color: theme("colors.jsr-gray.800");
-    @apply opsize-normal;
+  .dark {
+    *,
+    *:before,
+    *:after {
+      border-color: theme("colors.jsr-cyan.800");
+    }
+
+    background-color: theme("colors.jsr-gray.950");
+    color: theme("colors.jsr-gray.100");
+    --color-text-primary: theme("colors.jsr-gray.100");
+    --color-text-secondary: theme("colors.jsr-gray.300");
+    --color-text-tertiary: theme("colors.jsr-gray.400");
+
+    scrollbar-color: theme("colors.jsr-gray.600") theme("colors.jsr-gray.950");
+
+    #vizgraph {
+      > g > polygon {
+        @apply fill-jsr-gray-950;
+      }
+
+      path[stroke="black"] {
+        @apply stroke-white;
+      }
+
+      polygon[stroke="black"] {
+        @apply fill-white stroke-white;
+      }
+    }
   }
 
   h1,
@@ -97,8 +134,8 @@
 
 @layer components {
   .button {
-    @apply text-jsr-gray-700 inline-flex items-center gap-2 py-2.5 px-4.5
-      rounded-md leading-tight font-medium whitespace-nowrap
+    @apply text-jsr-gray-700 dark:text-gray-200 inline-flex items-center gap-2
+      py-2.5 px-4.5 rounded-md leading-tight font-medium whitespace-nowrap
       hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4
       focus:outline-offset-2 select-none;
   }
@@ -114,25 +151,30 @@
       bg-jsr-yellow text-jsr-cyan-950 font-bold hover:bg-jsr-yellow-300
       transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300
       outline-jsr-cyan-700 outline-offset-2 disabled:bg-jsr-gray-100
-      disabled:text-jsr-gray-300 shadow-accent-sm disabled:shadow-transparent
-      disabled:border-jsr-gray-300;
+      dark:text-jsr-gray-900 dark:border-jsr-cyan-600
+      dark:hover:border-jsr-cyan-400 disabled:text-jsr-gray-300 shadow-accent-sm
+      dark:shadow-dark-accent-sm disabled:shadow-transparent
+      disabled:border-jsr-gray-300 dark:disabled:bg-jsr-gray-900
+      dark:disabled:text-jsr-gray-600 dark:disabled:border-jsr-gray-900;
   }
 
   .button-primary:not(:disabled) {
-    @apply active:shadow-accent-sm-close active:translate-x-[3px]
-      active:translate-y-[4px];
+    @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close
+      active:translate-x-[3px] active:translate-y-[4px];
   }
 
   .button-danger {
     @apply button border-1.5 border-red-950 bg-red-500 text-white
       hover:bg-red-700 disabled:bg-jsr-gray-100 outline-red-600
-      disabled:text-red-300 shadow-accent-sm disabled:shadow-transparent
-      disabled:border-red-300 transition-all duration-75 ease-in-out;
+      disabled:text-red-300 shadow-accent-sm dark:shadow-dark-accent-sm
+      disabled:shadow-transparent disabled:border-red-300 transition-all
+      duration-75 ease-in-out dark:disabled:bg-jsr-gray-900
+      dark:disabled:border-red-900;
   }
 
   .button-danger:not(:disabled) {
-    @apply active:shadow-accent-sm-close active:translate-x-[3px]
-      active:translate-y-[4px];
+    @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close
+      active:translate-x-[3px] active:translate-y-[4px];
   }
 
   .chip {
@@ -162,17 +204,21 @@
   .link {
     @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
       decoration-jsr-cyan-700/50 underline-offset-2 outline-none
-      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm;
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
 
   .link-header {
     @apply link opsize-sm font-medium decoration-jsr-cyan-700/25
-      hover:decoration-jsr-cyan-700 underline-offset-2;
+      hover:decoration-jsr-cyan-700 underline-offset-2
+      dark:decoration-jsr-cyan-400/25 dark:hover:decoration-jsr-cyan-400;
   }
 
   .input-container {
-    @apply bg-white rounded-md leading-snug border-1 border-jsr-cyan-900/30
-      focus-within:border-jsr-cyan-500;
+    @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
+      border-jsr-cyan-900/30 dark:border-jsr-gray-600
+      focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400;
   }
 
   select:not([data-locked="true"]):disabled.input-container,
@@ -180,27 +226,32 @@
   .input-container input:not([data-locked="true"]):disabled,
   .input-container select:not([data-locked="true"]):disabled {
     @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed
-      bg-jsr-gray-50;
+      bg-jsr-gray-50 dark:border-jsr-gray-800 dark:text-jsr-gray-400
+      dark:bg-jsr-gray-950;
   }
 
   select[data-locked="true"].input-container,
   input[data-locked="true"].input-container,
   .input-container input[data-locked="true"],
   .input-container select[data-locked="true"] {
-    @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50;
+    @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50
+      dark:text-jsr-gray-300 dark:bg-jsr-gray-950;
   }
 
   .input {
     @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300
-      outline-none bg-transparent disabled:cursor-not-allowed;
+      outline-none bg-transparent disabled:cursor-not-allowed
+      dark:placeholder:text-jsr-gray-400
+      dark:disabled:placeholder:text-jsr-gray-500;
   }
 
   .search-input {
-    @apply input-container border-1.5 border-jsr-cyan-900/90;
+    @apply input-container border-1.5 border-jsr-cyan-900/90
+      dark:border-jsr-gray-800;
   }
 
   .search-input-tag {
-    @apply bg-blue-300/40 rounded-sm px-0.5 -mx-0.5;
+    @apply bg-blue-300/40 rounded-sm px-0.5 -mx-0.5 dark:bg-blue-900/40;
   }
 
   .select {
@@ -209,13 +260,35 @@
       no-repeat;
     background-position: center right 0.5rem;
   }
+
+  .score-circle {
+    /* default (light) */
+    background-image: conic-gradient(
+      transparent,
+      transparent var(--pct),
+      #e7e8e8 var(--pct)
+    );
+  }
+
+  .dark {
+    .score-circle {
+      /* dark mode */
+      background-image: conic-gradient(
+        transparent,
+        transparent var(--pct),
+        #454647 var(--pct)
+      );
+    }
+  }
 }
 
 /* !important seems necessary for taking precedent over current ddoc styling */
 body .ddoc {
-  .markdown {
-    @apply max-w-prose;
+  &:is(.dark *) {
+    --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
+  }
 
+  .markdown {
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
         !important;
@@ -242,7 +315,7 @@ body .ddoc {
     }
 
     :not(pre) > code {
-      @apply bg-jsr-cyan-100/50;
+      @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50;
     }
 
     a:not(.no_color) {
@@ -250,11 +323,11 @@ body .ddoc {
     }
 
     .highlight {
-      @apply relative;
+      @apply dark:bg-jsr-gray-900 !important;
 
       .lineNumbers {
-        @apply border-r-2 border-jsr-gray-100 text-jsr-gray-300 pr-3 text-right
-          flex-none;
+        @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
+          flex-none dark:border-jsr-gray-800;
         @apply mr-3 !important;
 
         > a {
@@ -264,13 +337,12 @@ body .ddoc {
 
       .lineNumbersHighlight {
         > span {
-          @apply block target:bg-yellow-200;
+          @apply block target:bg-yellow-200 dark:target:bg-yellow-900/70;
         }
       }
 
-      .context_button {
-        @apply absolute top-3 right-4 opacity-60 hover:opacity-100 border-none
-          hover:bg-jsr-cyan-50;
+      .copyButton {
+        @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
       }
 
       /*!
@@ -391,15 +463,6 @@ body .ddoc {
         background-color: #005cc5;
       }
     }
-
-    code {
-      @apply w-full;
-    }
-  }
-
-  .namespaceItemContent {
-    flex: 1;
-    width: 0;
   }
 
   .markdown_summary {
@@ -408,16 +471,12 @@ body .ddoc {
     }
 
     :not(pre) > code {
-      @apply bg-jsr-cyan-100/50 !important;
-    }
-
-    p {
-      max-width: 100%;
+      @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50 !important;
     }
   }
 
-  .symbolGroup article a.context_button {
-    @apply border-none hover:bg-jsr-cyan-50;
+  .sourceButton {
+    @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
   }
 
   .docEntryHeader a {
@@ -433,76 +492,26 @@ body .ddoc {
   .usages {
     nav details {
       > summary {
-        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50;
+        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50 dark:border-jsr-cyan-800
+          dark:bg-jsr-cyan-950;
       }
 
       > div > div {
-        @apply border-jsr-cyan-200;
+        @apply border-jsr-cyan-200 dark:border-jsr-cyan-800
+          dark:bg-jsr-gray-950;
       }
     }
 
     pre.highlight {
-      @apply border-jsr-cyan-300/50;
+      @apply border-jsr-cyan-300/50 dark:border-jsr-cyan-800;
     }
-  }
-
-  .usageContent pre.highlight > code:first-child {
-    @apply pt-2 pr-10 pb-2 pl-2;
   }
 
   .usageContent .markdown {
     @apply max-w-full;
   }
 
-  /* START Upstream to deno_doc  */
-  /* Hides the link to code button unless you hover over the section or are on mobile */
-
-  .context_button {
-    @apply flex flex-row gap-2 items-center md:invisible;
-  }
-
-  .context_button {
-    @apply rounded no-underline !important;
-  }
-
-  code ~ .context_button:hover, code:hover ~ .context_button {
-    @apply md:visible;
-  }
-
-  .symbolGroup article > div:hover > div + a.context_button {
-    @apply md:visible;
-  }
-
-  .symbolGroup article > div:hover > div + a.context_button:before {
-    content: "View code";
-    @apply hidden md:block text-xs leading-none;
-  }
-
-  .docEntryHeader:hover > .context_button {
-    @apply md:visible;
-  }
-
-  /* Style overrides for a better single column layout on symbol pages */
-  .namespaceSection {
-    @apply grid-cols-1 gap-2 max-w-prose !important;
-  }
-
-  .docNodeKindIcon div {
-    @apply h-4 w-4 leading-4;
-  }
-
-  /* END Upstream to deno_doc  */
-
-  .markdown_summary p {
-    @apply leading-normal;
-  }
-
-  .section > div:first-child > h2 {
-    @apply mb-4 !important;
-  }
-
-  #module_doc,
-  main {
+  #module_doc, main {
     @apply pb-8;
   }
 
@@ -516,6 +525,153 @@ body .ddoc {
     .usages nav details > div {
       @apply -left-8;
     }
+  }
+}
+
+.dark .ddoc {
+  .markdown .highlight {
+    /*!
+     * GitHub Dark v0.5.0
+     * Copyright (c) 2012 - 2017 GitHub, Inc.
+     * Licensed under MIT (https://github.com/primer/github-syntax-theme-generator/blob/master/LICENSE)
+     */
+
+    .pl-c /* comment, punctuation.definition.comment, string.comment */ {
+      color: #959da5;
+    }
+
+    .pl-c1
+    /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.quote, markup.raw, meta.diff.header */,
+    .pl-s .pl-v /* string variable */ {
+      color: #c8e1ff;
+    }
+
+    .pl-e /* entity */,
+    .pl-en /* entity.name */ {
+      color: #b392f0;
+    }
+
+    .pl-smi
+    /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
+    .pl-s .pl-s1 /* string source */ {
+      color: #f6f8fa;
+    }
+
+    .pl-ent /* entity.name.tag */ {
+      color: #7bcc72;
+    }
+
+    .pl-k /* keyword, storage, storage.type */ {
+      color: #ea4a5a;
+    }
+
+    .pl-s /* string */,
+    .pl-pds
+    /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
+    .pl-s .pl-pse .pl-s1 /* string punctuation.section.embedded source */,
+    .pl-sr /* string.regexp */,
+    .pl-sr .pl-cce /* string.regexp constant.character.escape */,
+    .pl-sr .pl-sre /* string.regexp source.ruby.embedded */,
+    .pl-sr .pl-sra /* string.regexp string.regexp.arbitrary-repitition */ {
+      color: #79b8ff;
+    }
+
+    .pl-v /* variable */,
+    .pl-ml /* markup.list, sublimelinter.mark.warning */ {
+      color: #fb8532;
+    }
+
+    .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */
+    {
+      color: #d73a49;
+    }
+
+    .pl-ii /* invalid.illegal */ {
+      color: #fafbfc;
+      background-color: #d73a49;
+    }
+
+    .pl-c2 /* carriage-return */ {
+      color: #fafbfc;
+      background-color: #d73a49;
+    }
+
+    .pl-c2::before /* carriage-return */ {
+      content: "^M";
+    }
+
+    .pl-sr .pl-cce /* string.regexp constant.character.escape */ {
+      font-weight: bold;
+      color: #7bcc72;
+    }
+
+    .pl-mh /* markup.heading */,
+    .pl-mh .pl-en /* markup.heading entity.name */,
+    .pl-ms /* meta.separator */ {
+      font-weight: bold;
+      color: #0366d6;
+    }
+
+    .pl-mi /* markup.italic */ {
+      font-style: italic;
+      color: #f6f8fa;
+    }
+
+    .pl-mb /* markup.bold */ {
+      font-weight: bold;
+      color: #f6f8fa;
+    }
+
+    .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */
+    {
+      color: #b31d28;
+      background-color: #ffeef0;
+    }
+
+    .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */
+    {
+      color: #176f2c;
+      background-color: #f0fff4;
+    }
+
+    .pl-mc /* markup.changed, punctuation.definition.changed */ {
+      color: #b08800;
+      background-color: #fffdef;
+    }
+
+    .pl-mi2 /* markup.ignored, markup.untracked */ {
+      color: #2f363d;
+      background-color: #959da5;
+    }
+
+    .pl-mdr /* meta.diff.range */ {
+      font-weight: bold;
+      color: #b392f0;
+    }
+
+    .pl-mo /* meta.output */ {
+      color: #0366d6;
+    }
+
+    .pl-ba /* brackethighlighter.tag, brackethighlighter.curly, brackethighlighter.round, brackethighlighter.square, brackethighlighter.angle, brackethighlighter.quote */
+    {
+      color: #ffeef0;
+    }
+
+    .pl-sg /* sublimelinter.gutter-mark */ {
+      color: #6a737d;
+    }
+
+    .pl-corl /* constant.other.reference.link, string.other.link */ {
+      text-decoration: underline;
+      color: #79b8ff;
+    }
+  }
+
+  .contextLink {
+    /* cyan 300 at 25%; */
+    text-decoration-color: #67bef940;
+    color: theme("colors.jsr-cyan.300");
   }
 }
 
@@ -547,15 +703,15 @@ body .ddoc:has(.toc) {
 }
 
 .score-text-red {
-  @apply text-red-500;
+  @apply text-red-500 dark:text-red-400;
 }
 
 .score-text-yellow {
-  @apply text-jsr-yellow-700;
+  @apply text-jsr-yellow-700 dark:text-jsr-yellow-400;
 }
 
 .score-text-green {
-  @apply text-green-600;
+  @apply text-green-600 dark:text-green-400;
 }
 
 body .ddoc .or-bar {
@@ -582,6 +738,23 @@ body .ddoc .or-bar {
     --color-fg-default: theme("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
     --bgColor-muted: theme("colors.slate.50");
+    --text-shadow:
+      0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em
+      white, 0 0 0.5em white;
+  }
+
+  .dark {
+    --color-accent-fg: theme("colors.slate.300") !important;
+    --color-border-default: theme("colors.slate.600") !important;
+    --bgColor-neutral-muted: theme("colors.jsr-gray.800") !important;
+    --color-neutral-muted: theme("colors.jsr-gray.300") !important;
+    --color-accent-fg: theme("colors.cyan.400") !important;
+    --fgColor-muted: theme("colors.jsr-gray.300") !important;
+    --color-fg-default: theme("colors.gray.200") !important;
+    --bgColor-muted: theme("colors.jsr-gray.800");
+    --text-shadow:
+      0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em
+      black, 0 0 0.5em black;
   }
 }
 

@@ -39,9 +39,9 @@ export function BreadcrumbsSticky(
   return (
     <div
       ref={ref}
-      class={`-section-x-inset-xl top-0 sticky bg-white z-20 -my-3 py-3 ${
+      class={`-section-x-inset-xl top-0 sticky bg-white dark:bg-jsr-gray-950 z-20 -my-3 py-3 ${
         sticky.value
-          ? "border-b border-jsr-cyan-100 shadow-[0px_2px_4px_0px_rgba(209,235,253,0.40)]"
+          ? "border-b border-jsr-cyan-100 dark:border-jsr-cyan-900 shadow-[0px_2px_4px_0px_rgba(209,235,253,0.40)] dark:shadow-[0px_2px_4px_0px_rgba(50,55,61,0.40)]"
           : ""
       }`}
     >

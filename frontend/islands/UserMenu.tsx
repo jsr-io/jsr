@@ -6,7 +6,7 @@ import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 const DEFAULT_ITEM_CLASSES =
-  "hover:bg-jsr-cyan-50 focus-visible:bg-jsr-cyan-200 ring-jsr-cyan-700";
+  "hover:bg-jsr-cyan-50 dark:hover:bg-jsr-gray-900 focus-visible:bg-jsr-cyan-200 dark:focus-visible:bg-jsr-gray-900 ring-jsr-cyan-700 dark:ring-cyan-500";
 
 const SUDO_CONFIRMATION =
   "Are you sure you want to enable sudo mode? Sudo mode will be enabled for 5 minutes.";
@@ -41,10 +41,10 @@ export function UserMenu({ user, sudo, logoutUrl }: {
         aria-expanded={open ? "true" : "false"}
       >
         {(user.inviteCount + user.newerTicketMessagesCount) !== 0 && (
-          <div class="absolute rounded-full bg-orange-600 border-2 box-content border-white -top-0.5 -right-0.5 h-2 w-2" />
+          <div class="absolute rounded-full bg-orange-600 border-2 box-content border-white dark:border-jsr-gray-950 -top-0.5 -right-0.5 h-2 w-2" />
         )}
         <img
-          class="w-8 aspect-square rounded-full ring-2 ring-offset-1 ring-jsr-cyan-700"
+          class="w-8 aspect-square rounded-full ring-2 ring-offset-1 ring-jsr-cyan-700 dark:ring-offset-jsr-gray-950"
           src={user.avatarUrl}
           alt={user.name}
         />
@@ -52,7 +52,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <div
         aria-labelledby={`${prefix}-user-menu`}
         role="region"
-        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white w-56 shadow overflow-hidden ${
+        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-5 pointer-events-none"
@@ -61,7 +61,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       >
         <div class="flex flex-col items-center gap-3 pt-4 pb-3">
           <img
-            class="h-16 w-16 rounded-full ring-2 ring-offset-1 ring-jsr-cyan-950"
+            class="h-16 w-16 rounded-full ring-2 ring-offset-1 ring-jsr-cyan-950 dark:ring-offset-jsr-gray-950 dark:ring-jsr-cyan-300"
             src={user.avatarUrl}
             alt=""
           />
@@ -108,11 +108,11 @@ export function UserMenu({ user, sudo, logoutUrl }: {
             </button>
           )}
         </div>
-        <div class="divide-y divide-slate-200">
+        <div class="divide-y divide-slate-200 dark:divide-jsr-gray-900">
           <a
             href="/new"
             tabIndex={open ? undefined : -1}
-            class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black`}
+            class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black text-jsr-gray-950`}
           >
             <TbPlus class="size-5" />
             Publish a package

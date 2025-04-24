@@ -9,8 +9,8 @@ use deno_ast::swc::ast::Lit;
 use deno_ast::swc::ast::NamedExport;
 use deno_ast::swc::ast::Str;
 use deno_ast::swc::ast::TsImportType;
-use deno_ast::swc::visit::VisitMut;
-use deno_ast::swc::visit::VisitMutWith;
+use deno_ast::swc::ecma_visit::VisitMut;
+use deno_ast::swc::ecma_visit::VisitMutWith;
 
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
