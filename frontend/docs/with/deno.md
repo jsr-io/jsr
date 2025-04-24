@@ -12,7 +12,7 @@ specifiers.
 Deno supports web standard
 [import maps](https://docs.deno.com/runtime/manual/basics/import_maps), the
 `deno.json` configuration file can act as an import map with the `"imports"`
-field. You can add JSR imports manually to `deno.json`, or you can add them
+field. You can add JSR imports manually to `deno.json(c)`, or you can add them
 using the `deno add` command.
 
 In this example, we add the most recent version of
@@ -22,7 +22,7 @@ In this example, we add the most recent version of
 deno add jsr:@luca/flag
 ```
 
-After executing this command, you will have an import map entry in `deno.json`
+After executing this command, you will have an import map entry in `deno.json(c)`
 that looks something like this:
 
 ```json

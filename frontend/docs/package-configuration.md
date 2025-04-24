@@ -9,7 +9,7 @@ file can instead be placed in the
 [`deno.json`](https://docs.deno.com/runtime/manual/getting_started/configuration_file).
 
 ```json
-// jsr.json / deno.json
+// jsr.json / deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
@@ -36,7 +36,7 @@ your package. The `exports` field can either be specified as a single string, or
 as an object mapping entrypoint names to paths in your package.
 
 ```json
-// jsr.json / deno.json
+// jsr.json / deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
@@ -58,7 +58,7 @@ you only have a single entrypoint in your package. It is semantically equivalent
 to specifying a default entrypoint in the object form.
 
 ```diff
-// deno.json
+// deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
@@ -72,7 +72,7 @@ to specifying a default entrypoint in the object form.
 ### `include` and `exclude`
 
 You can also use the `include` and `exclude` options to include and exclude
-files during publishing. When using a `deno.json`, you can use `publish.include`
+files during publishing. When using a `deno.json(c)`, you can use `publish.include`
 and `publish.exclude` to include and exclude files only for publishing, rather
 than for all Deno subcommands.
 [Learn more about filtering files](/docs/publishing-packages#filtering-files).

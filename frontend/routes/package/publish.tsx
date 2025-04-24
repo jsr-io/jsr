@@ -52,7 +52,7 @@ export default define.page<typeof handler>(function PackagePage({
                 </p>
                 <div class="mt-2 -mb-2">
                   <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
-                    jsr.json / deno.json
+                    jsr.json / deno.json(c)
                   </div>
                 </div>
                 <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
