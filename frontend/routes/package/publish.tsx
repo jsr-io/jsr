@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+// deno-lint-ignore-file react-no-danger
 import { HttpError, RouteConfig } from "fresh";
 import type { FullUser, Package } from "../../utils/api_types.ts";
 import { define } from "../../util.ts";
@@ -270,8 +271,7 @@ function GitHubActions({ pkg, canEdit, user }: {
           class="absolute top-2 right-2 z-1"
         />
         <code
-          // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{ __html: WORKFLOW_CODE }}>
+          dangerouslySetInnerHTML={{__html: WORKFLOW_CODE}}>
         </code>
       </pre>
 
