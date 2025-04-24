@@ -72,9 +72,9 @@ to specifying a default entrypoint in the object form.
 ### `include` and `exclude`
 
 You can also use the `include` and `exclude` options to include and exclude
-files during publishing. When using a `deno.json(c)`, you can use `publish.include`
-and `publish.exclude` to include and exclude files only for publishing, rather
-than for all Deno subcommands.
+files during publishing. When using a `deno.json(c)`, you can use
+`publish.include` and `publish.exclude` to include and exclude files only for
+publishing, rather than for all Deno subcommands.
 [Learn more about filtering files](/docs/publishing-packages#filtering-files).
 
 ## JSON Schema

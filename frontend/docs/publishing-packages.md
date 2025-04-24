@@ -161,9 +161,9 @@ export function readJsonFile(path: string) {
 
 You may use a dependency manifest like a `package.json`, or an
 [import map](https://docs.deno.com/runtime/manual/basics/import_maps) (like the
-`deno.json(c)` file) to simplify your imports. During publishing, `jsr publish` /
-`deno publish` will automatically rewrite the specifiers in your source code to
-fully qualified specifiers that do not require an import map / `package.json`
+`deno.json(c)` file) to simplify your imports. During publishing, `jsr publish`
+/ `deno publish` will automatically rewrite the specifiers in your source code
+to fully qualified specifiers that do not require an import map / `package.json`
 anymore.
 
 ```json
@@ -354,8 +354,8 @@ file. `jsr publish` will not attempt to publish if the version specified in your
 
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
 root of your package. Additionally, you can specify the `include` and `exclude`
-fields in your `jsr.json` / `deno.json(c)` file to include, ignore, or un-gitignore
-specific files.
+fields in your `jsr.json` / `deno.json(c)` file to include, ignore, or
+un-gitignore specific files.
 
 For example, to only selectively include certain files, you can specify a glob
 that matches all files by using the `include` option:
@@ -398,8 +398,8 @@ You may also exclude certain files via the `exclude` option:
 }
 ```
 
-When using Deno, the `include` and `exclude` options in `deno.json(c)` are used for
-many other Deno subcommands as well, such as `deno test`, `deno lint` and
+When using Deno, the `include` and `exclude` options in `deno.json(c)` are used
+for many other Deno subcommands as well, such as `deno test`, `deno lint` and
 `deno fmt`. You can use `publish.include` and `publish.exclude` in your
 `deno.json(c)` file to specify options that only apply to `deno publish`.
 

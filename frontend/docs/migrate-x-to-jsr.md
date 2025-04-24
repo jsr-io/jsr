@@ -50,8 +50,8 @@ build for your platform with:
 deno upgrade --canary
 ```
 
-Then, from within your package folder (probably the one with your `deno.json(c)` or
-`mod.ts`), execute the following command:
+Then, from within your package folder (probably the one with your `deno.json(c)`
+or `mod.ts`), execute the following command:
 
 ```bash
 deno run -Ar jsr:@deno/x-to-jsr

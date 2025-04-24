@@ -22,8 +22,8 @@ In this example, we add the most recent version of
 deno add jsr:@luca/flag
 ```
 
-After executing this command, you will have an import map entry in `deno.json(c)`
-that looks something like this:
+After executing this command, you will have an import map entry in
+`deno.json(c)` that looks something like this:
 
 ```json
 {
