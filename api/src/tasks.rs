@@ -656,10 +656,10 @@ mod tests {
 
     // 24 hour window
     let downloads = db
-      .get_package_version_downloads_24h(
+      .get_package_versions_downloads_24h(
         &std,
         &fs,
-        &v0_215_0,
+        &[v0_215_0.clone()],
         "2024-06-01T00:00:00Z".parse().unwrap(),
         "2024-07-31T00:00:00Z".parse().unwrap(),
       )
@@ -670,13 +670,14 @@ mod tests {
       downloads[0].time_bucket,
       "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
     );
+    assert_eq!(downloads[0].version, v0_215_0);
     assert_eq!(downloads[0].count, 13);
 
     let downloads = db
-      .get_package_version_downloads_24h(
+      .get_package_versions_downloads_24h(
         &luca,
         &flag,
-        &v1_0_0,
+        &[v1_0_0.clone()],
         "2024-06-01T00:00:00Z".parse().unwrap(),
         "2024-07-31T00:00:00Z".parse().unwrap(),
       )
@@ -687,6 +688,7 @@ mod tests {
       downloads[0].time_bucket,
       "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
     );
+    assert_eq!(downloads[0].version, v1_0_0);
     assert_eq!(downloads[0].count, 238);
   }
 }
