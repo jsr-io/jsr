@@ -160,6 +160,25 @@ export default define.page<typeof handler>(function PackagePage({
   );
 });
 
+const WORKFLOW_CODE = `\
+name: Publish
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>permissions:</span>
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  contents: read</span>
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  id-token: write</span>
+    steps:
+      - uses: actions/checkout@v4
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  - name: Publish package</span>
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>    run: npx jsr publish</span>
+`;
+
 function GitHubActions({ pkg, canEdit, user }: {
   pkg: Package;
   canEdit: boolean;
@@ -244,28 +263,17 @@ function GitHubActions({ pkg, canEdit, user }: {
           title="Copy workflow path"
         />
       </div>
-      <pre class="bg-slate-900 dark:bg-slate-800 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
-        <code>
-          {`\
-name: Publish
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-\n`}
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`    permissions:\n`}</span>
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`      contents: read\n`}</span>
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`      id-token: write\n`}</span>
-          {`
-    steps:
-      - uses: actions/checkout@v4\n\n`}
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`      - name: Publish package\n`}</span>
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`        run: npx jsr publish\n`}</span>
+      <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto relative">
+        <CopyButton
+          text={WORKFLOW_CODE.replace(/<[^>]+>/g, '')}
+          title="Copy workflow code"
+          class="absolute top-2 right-2 z-1"
+        />
+        <code
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: WORKFLOW_CODE }}>
         </code>
+
       </pre>
 
       <p class="mt-4">
