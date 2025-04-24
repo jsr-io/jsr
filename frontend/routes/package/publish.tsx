@@ -273,9 +273,6 @@ function GitHubActions({ pkg, canEdit, user }: {
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{ __html: WORKFLOW_CODE }}>
         </code>
-
-      // deno-lint-ignore react-no-danger
-
       </pre>
 
       <p class="mt-4">
