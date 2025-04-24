@@ -6,10 +6,11 @@ export default function DarkModeToggle() {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    const isDarkStored = localStorage.getItem("darkMode") === "true";
+    const isDarkStored = localStorage.getItem("darkMode");
     const isDarkPreference =
       globalThis.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initialDarkMode = isDarkStored ?? isDarkPreference;
+    const initialDarkMode = isDarkStored === "true" ||
+      isDarkStored === null && isDarkPreference;
 
     setIsDark(initialDarkMode);
     updateTheme(initialDarkMode);
