@@ -144,7 +144,7 @@ export function DownloadChart(props: Props) {
               chartRef.current.updateOptions(
                 getChartOptions(isDarkMode, newAggregationPeriod),
               );
-              
+
               chartRef.current?.updateSeries(
                 getSeries(
                   props.downloads,
