@@ -69,7 +69,7 @@ export default define.page<typeof handler>(function PackagePage(
             return (
               <>
                 {i !== 0 && (
-                  <span class="px-2 text-md text-jsr-gray-600 select-none">
+                  <span class="px-2 text-md text-secondary select-none">
                     {"\u003E"}
                   </span>
                 )}
@@ -130,14 +130,14 @@ function DirEntry({ entry }: { entry: SourceDirEntry }) {
   return (
     <div class="grow-1 flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
-        <div class="text-jsr-gray-500">
+        <div class="text-tertiary">
           {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}
         </div>
         <div class="text-cyan-700 font-semibold">
           {entry.name}
         </div>
       </div>
-      <div class="text-sm text-jsr-gray-600">
+      <div class="text-sm text-secondary">
         {formatBytes(entry.size, { maximumFractionDigits: 0 }).toUpperCase()}
       </div>
     </div>

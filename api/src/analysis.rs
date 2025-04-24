@@ -13,7 +13,7 @@ use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
-use deno_doc::DocNodeKind;
+use deno_doc::DocNodeDef;
 use deno_error::JsErrorBox;
 use deno_graph::source::load_data_url;
 use deno_graph::source::JsrUrlProvider;
@@ -161,6 +161,7 @@ async fn analyze_package_inner(
         reporter: None,
         executor: Default::default(),
         locker: None,
+        skip_dynamic_deps: false,
       },
     )
     .await;
@@ -301,7 +302,7 @@ fn generate_score(
         .get(main_entrypoint)
         .unwrap()
         .iter()
-        .find(|node| node.kind() == DocNodeKind::ModuleDoc)
+        .find(|node| matches!(node.def, DocNodeDef::ModuleDoc))
         .map(|node| &node.js_doc)
     });
 
@@ -346,7 +347,7 @@ fn all_entrypoints_have_module_doc(
 ) -> bool {
   'modules: for (specifier, nodes) in doc_nodes_by_url {
     for node in nodes {
-      if node.kind() == DocNodeKind::ModuleDoc {
+      if matches!(node.def, DocNodeDef::ModuleDoc) {
         continue 'modules;
       }
     }
@@ -371,8 +372,7 @@ fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
 
   for (_specifier, nodes) in doc_nodes_by_url {
     for node in nodes {
-      if node.kind() == DocNodeKind::ModuleDoc
-        || node.kind() == DocNodeKind::Import
+      if matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
         || node.declaration_kind == deno_doc::node::DeclarationKind::Private
       {
         continue;
@@ -591,6 +591,7 @@ async fn rebuild_npm_tarball_inner(
         reporter: Default::default(),
         executor: Default::default(),
         locker: None,
+        skip_dynamic_deps: false,
       },
     )
     .await;

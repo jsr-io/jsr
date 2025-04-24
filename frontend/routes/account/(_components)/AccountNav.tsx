@@ -26,19 +26,10 @@ export function AccountNav(props: AccountNavProps) {
       <NavItem
         href="/account/invites"
         active={props.active === "Invites"}
+        chip={props.user.inviteCount}
+        notification
       >
-        <span class="flex items-center">
-          Invites
-          <span
-            class={`chip ml-2 tabular-nums ${
-              props.user.inviteCount > 0
-                ? "bg-orange-600 text-white"
-                : "bg-jsr-gray-200"
-            }`}
-          >
-            {props.user.inviteCount}
-          </span>
-        </span>
+        Invites
       </NavItem>
       <NavItem
         href={`/account/tokens`}
@@ -55,19 +46,10 @@ export function AccountNav(props: AccountNavProps) {
       <NavItem
         href={`/account/tickets`}
         active={props.active === "Tickets"}
+        chip={props.user.newerTicketMessagesCount}
+        notification
       >
-        <span class="flex items-center">
-          Support Tickets
-          <span
-            class={`chip ml-2 tabular-nums ${
-              props.user.newerTicketMessagesCount > 0
-                ? "bg-orange-600 text-white"
-                : "bg-jsr-gray-200"
-            }`}
-          >
-            {props.user.newerTicketMessagesCount}
-          </span>
-        </span>
+        Support Tickets
       </NavItem>
     </Nav>
   );
