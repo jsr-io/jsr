@@ -256,9 +256,9 @@ function getSeries(
   );
 
   const dataPointsToDisplay = dataPointsWithDownloads.slice(0, 5);
-  const others = dataPointsWithDownloads.slice(5).map((dataPoints) =>
-    dataPoints.downloads
-  ).flat();
+  // const others = dataPointsWithDownloads.slice(5).map((dataPoints) =>
+  //   dataPoints.downloads
+  // ).flat();
 
   const xValues = collectX(
     dataPointsWithDownloads.map((version) => version.downloads).flat(),
@@ -270,10 +270,10 @@ function getSeries(
       name: version.version,
       data: normalize(version.downloads, xValues, aggregationPeriod),
     })),
-    {
-      name: "Other",
-      data: normalize(others, xValues, aggregationPeriod),
-      color: "#e7c50b", // jsr-yellow-500
-    },
+    // {
+    //   name: "Other",
+    //   data: normalize(others, xValues, aggregationPeriod),
+    //   color: "#e7c50b", // jsr-yellow-500
+    // },
   ];
 }

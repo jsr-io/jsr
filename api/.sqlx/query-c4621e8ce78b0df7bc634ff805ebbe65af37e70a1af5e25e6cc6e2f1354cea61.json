@@ -1,15 +1,20 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n      SELECT time_bucket, kind as \"kind: DownloadKind\", count\n      FROM version_download_counts_24h\n      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5\n      ORDER BY time_bucket ASC\n      ",
+  "query": "\n      SELECT version as \"version: Version\", time_bucket, kind as \"kind: DownloadKind\", count\n      FROM version_download_counts_24h\n      WHERE scope = $1 AND package = $2 AND version = ANY($3) AND time_bucket >= $4 AND time_bucket < $5\n      ORDER BY time_bucket ASC, version DESC\n      ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
         "name": "time_bucket",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 1,
+        "ordinal": 2,
         "name": "kind: DownloadKind",
         "type_info": {
           "Custom": {
@@ -24,7 +29,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "count",
         "type_info": "Int4"
       }
@@ -33,7 +38,7 @@
       "Left": [
         "Text",
         "Text",
-        "Text",
+        "TextArray",
         "Timestamptz",
         "Timestamptz"
       ]
@@ -41,8 +46,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "7b88c2e5072155bf7adaad3cfad86da140bf9bea4825836a563af75da02815b3"
+  "hash": "c4621e8ce78b0df7bc634ff805ebbe65af37e70a1af5e25e6cc6e2f1354cea61"
 }
