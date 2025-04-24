@@ -85,7 +85,7 @@ export function DocsView({
           />
           <div class="ddoc hidden" id="docSearchResults" />
 
-          <div class="flex justify-between items-center gap-4">
+          <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
             {showProvenanceBadge && selectedVersion.rekorLogId && (
               <div class="mt-8 mb-8 border-2 border-jsr-cyan-500 max-w-xl rounded-md py-4 px-6">
                 <div class="flex flex-row items-end justify-between">
@@ -96,7 +96,7 @@ export function DocsView({
 
                     <div class="flex gap-2 items-center">
                       <span class="text-2xl font-bold">GitHub Actions</span>
-                      <div class="flex items-center">
+                      <div class="flex items-start lg:items-center gap-1">
                         <svg
                           aria-hidden="true"
                           role="img"
