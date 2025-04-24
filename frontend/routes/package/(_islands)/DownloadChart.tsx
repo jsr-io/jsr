@@ -18,72 +18,140 @@ export function DownloadChart(props: Props) {
   const chartRef = useRef<ApexCharts>(null);
   const [graphRendered, setGraphRendered] = useState(false);
 
+  const getChartOptions = (
+    isDarkMode: boolean,
+    aggregationPeriod: AggregationPeriod = "weekly",
+  ) => ({
+    chart: {
+      type: "area",
+      stacked: true,
+      animations: {
+        enabled: false,
+      },
+      height: "100%",
+      width: "100%",
+      zoom: {
+        allowMouseWheelZoom: false,
+      },
+      background: "transparent",
+      foreColor: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+    },
+    legend: {
+      horizontalAlign: "center",
+      position: "top",
+      showForSingleSeries: true,
+      labels: {
+        colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+      },
+    },
+    tooltip: {
+      items: {
+        padding: 0,
+      },
+      theme: isDarkMode ? "dark" : "light",
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    stroke: {
+      curve: "straight",
+      width: 1.7,
+    },
+    series: getSeries(props.downloads, aggregationPeriod),
+    xaxis: {
+      type: "datetime",
+      tooltip: {
+        enabled: false,
+      },
+      labels: {
+        style: {
+          colors: isDarkMode ? "#ced3da" : "#515d6c", // jsr-gray-200 for dark mode, jsr-gray-600 for light
+        },
+      },
+      axisBorder: {
+        color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
+      },
+      axisTicks: {
+        color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
+      },
+    },
+    yaxis: {
+      labels: {
+        style: {
+          colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+        },
+      },
+    },
+    grid: {
+      borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
+      strokeDashArray: 3,
+    },
+  });
+
   useEffect(() => {
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
-      chartRef.current = new ApexCharts(chartDivRef.current!, {
-        chart: {
-          type: "area",
-          stacked: true,
-          animations: {
-            enabled: false,
-          },
-          height: "100%",
-          width: "100%",
-          zoom: {
-            allowMouseWheelZoom: false,
-          },
-        },
-        legend: {
-          horizontalAlign: "center",
-          position: "top",
-          showForSingleSeries: true,
-        },
-        tooltip: {
-          items: {
-            padding: 0,
-          },
-        },
-        dataLabels: {
-          enabled: false,
-        },
-        stroke: {
-          curve: "straight",
-          width: 1.7,
-        },
-        series: getSeries(props.downloads, "weekly"),
-        xaxis: {
-          type: "datetime",
-          tooltip: {
-            enabled: false,
-          },
-        },
-      });
+      const isDarkMode = document.documentElement.classList.contains("dark");
+
+      chartRef.current = new ApexCharts(
+        chartDivRef.current!,
+        getChartOptions(isDarkMode),
+      );
+
       chartRef.current.render();
       setGraphRendered(true);
+
+      // Listen for theme changes
+      const observer = new MutationObserver(() => {
+        const newIsDarkMode = document.documentElement.classList.contains(
+          "dark",
+        );
+        if (chartRef.current) {
+          chartRef.current?.updateOptions(getChartOptions(newIsDarkMode));
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+
+      return () => {
+        observer.disconnect();
+        chartRef.current?.destroy();
+        chartRef.current = null;
+      };
     })();
-    return () => {
-      chartRef.current?.destroy();
-      chartRef.current = null;
-    };
   }, []);
 
   return (
     <div class="relative">
       {graphRendered && (
         <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
-          <label htmlFor="aggregationPeriod" className="text-gray-700">
+          <label htmlFor="aggregationPeriod" className="text-secondary">
             Aggregation Period:
           </label>
           <select
             id="aggregationPeriod"
-            onChange={(e) =>
+            onChange={(e) => {
+              const isDarkMode = document.documentElement.classList.contains(
+                "dark",
+              );
+              const newAggregationPeriod = e.currentTarget
+                .value as AggregationPeriod;
+
+              // Update chart with new options including the new aggregation period
+              chartRef.current?.updateOptions(
+                getChartOptions(isDarkMode, newAggregationPeriod),
+              );
+
               chartRef.current?.updateSeries(
                 getSeries(
                   props.downloads,
                   e.currentTarget.value as AggregationPeriod,
                 ),
-              )}
+              );
+            }}
             className="input-container input px-1.5 py-0.5"
           >
             <option value="daily">Daily</option>
@@ -92,7 +160,7 @@ export function DownloadChart(props: Props) {
           </select>
         </div>
       )}
-      <div className="h-[300px]">
+      <div className="h-[300px] text-secondary">
         <div ref={chartDivRef} />
       </div>
     </div>

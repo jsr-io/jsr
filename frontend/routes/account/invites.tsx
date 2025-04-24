@@ -37,7 +37,7 @@ export default define.page<typeof handler>(function AccountInvitesPage(
             </Table>
           )
           : (
-            <div class="p-3 text-jsr-gray-500 text-center italic">
+            <div class="p-3 text-tertiary text-center italic">
               You do not have any pending scope invites.
             </div>
           )}

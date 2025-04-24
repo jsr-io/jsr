@@ -30,7 +30,7 @@ export function GitHubUserLink({ user }: { user?: User }) {
   }
 
   return login.value == ""
-    ? <span className="text-gray-600">loading...</span>
+    ? <span className="text-tertiary">loading...</span>
     : (
       <a
         class="link inline-flex justify-center items-center gap-1"

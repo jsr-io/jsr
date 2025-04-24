@@ -56,7 +56,7 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
                 {pkg.name}
               </a>
             </TableData>
-            <TableData>
+            <TableData flex>
               {pkg.githubRepository && (
                 <>
                   <CopyButton
