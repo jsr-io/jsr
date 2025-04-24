@@ -107,7 +107,7 @@ export function DownloadChart(props: Props) {
           "dark",
         );
         if (chartRef.current) {
-          chartRef.current.updateOptions(getChartOptions(newIsDarkMode));
+          chartRef.current?.updateOptions(getChartOptions(newIsDarkMode));
         }
       });
 
@@ -141,7 +141,7 @@ export function DownloadChart(props: Props) {
                 .value as AggregationPeriod;
 
               // Update chart with new options including the new aggregation period
-              chartRef.current.updateOptions(
+              chartRef.current?.updateOptions(
                 getChartOptions(isDarkMode, newAggregationPeriod),
               );
 
