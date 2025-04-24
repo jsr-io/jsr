@@ -52,12 +52,12 @@ export function PackagePublishStatus(props: {
   const { loading, task } = props.status.value;
 
   if (loading) {
-    return <p class="italic text-jsr-gray-600 max-w-2xl">...</p>;
+    return <p class="italic text-secondary max-w-2xl">...</p>;
   }
 
   if (!task) {
     return (
-      <p class="italic text-jsr-gray-600 max-w-2xl">
+      <p class="italic text-secondary max-w-2xl">
         Publishing has not started yet...
       </p>
     );

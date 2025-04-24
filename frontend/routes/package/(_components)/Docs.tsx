@@ -51,6 +51,7 @@ export function DocsView({
         dangerouslySetInnerHTML={{ __html: docs.css }}
       />
       <style
+        hidden
         // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{ __html: docs.comrakCss }}
       />
@@ -135,11 +136,11 @@ export function DocsView({
                 title="Report package"
                 description={
                   <>
-                    <p className="mt-4 text-jsr-gray-600">
+                    <p className="mt-4 text-secondary">
                       Please provide a reason for reporting this package. We
                       will review your report and take appropriate action.
                     </p>
-                    <p className="mt-4 text-jsr-gray-600">
+                    <p className="mt-4 text-secondary">
                       Please review the{" "}
                       <a href="/docs/usage-policy#package-contents-and-metadata">
                         JSR usage policy

@@ -64,34 +64,29 @@ export function PackageNav({
           Files
         </NavItem>
       )}
-      <NavItem href={`${base}/versions`} active={currentTab === "Versions"}>
-        <span class="flex items-center">
-          Versions
-          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
-            {versionCount}
-          </span>
-        </span>
+      <NavItem
+        href={`${base}/versions`}
+        active={currentTab === "Versions"}
+        chip={versionCount}
+      >
+        Versions
       </NavItem>
       {(latestVersion || params.version) && (
         <NavItem
           href={`${versionedBase}/dependencies`}
           active={currentTab === "Dependencies"}
+          chip={dependencyCount}
         >
           Dependencies
-          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
-            {dependencyCount}
-          </span>
         </NavItem>
       )}
       {versionCount > 0 && (
         <NavItem
           href={`${base}/dependents`}
           active={currentTab === "Dependents"}
+          chip={dependentCount}
         >
           Dependents
-          <span class="chip tabular-nums border-1 border-white bg-jsr-cyan-100 ml-2 flex items-center justify-center">
-            {dependentCount}
-          </span>
         </NavItem>
       )}
       {versionCount > 0 && (

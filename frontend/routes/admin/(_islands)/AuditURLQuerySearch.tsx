@@ -10,7 +10,7 @@ export function AuditURLQuerySearch(
 
   return (
     <URLQuerySearch query={query} formRef={formRef}>
-      <label class="flex items-center gap-2 text-nowrap select-none">
+      <label class="flex items-center gap-2 text-nowrap select-none dark:text-gray-200">
         <input
           type="checkbox"
           name="sudoOnly"
@@ -19,6 +19,7 @@ export function AuditURLQuerySearch(
           onChange={(_) => {
             formRef.current?.submit();
           }}
+          class="dark:bg-jsr-gray-900 dark:border-gray-700"
         />
         <span>Sudo Only</span>
       </label>

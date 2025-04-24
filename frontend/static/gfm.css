@@ -3,6 +3,7 @@
 .markdown-body {
   line-height: 1.6;
   overflow: visible;
+  background-color: transparent;
 }
 
 .markdown-body a {
@@ -79,4 +80,14 @@
 .markdown-body details,
 .markdown-body .highlight {
   margin-bottom: 1.25rem;
+}
+
+.dark .markdown-body {
+  pre {
+    border-color: #26292d; /* jsr-gray-900 */
+  }
+
+  blockquote {
+    background: #26292d; /* jsr-gray-900 */
+  }
 }

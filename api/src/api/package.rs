@@ -1647,35 +1647,51 @@ pub async fn get_downloads_handler(
   let current = Utc::now();
   let start = current - chrono::Duration::days(90);
 
-  let total = db
-    .get_package_downloads_24h(&scope, &package, start, current)
-    .await?;
+  let total_fut = async {
+    db.get_package_downloads_24h(&scope, &package, start, current)
+      .await
+      .map_err(ApiError::from)
+  };
 
-  let recent_versions = db
-    .list_latest_unyanked_versions_for_package(&scope, &package, 5)
-    .await?;
+  let recent_versions_fut = async {
+    let recent_versions = db
+      .list_latest_unyanked_versions_for_package(&scope, &package, 5)
+      .await?;
 
-  let versions = futures::stream::iter(recent_versions.into_iter())
-    .then(|version| async {
-      let res = db
-        .get_package_version_downloads_24h(
-          &scope, &package, &version, start, current,
-        )
-        .await;
-      (version, res)
-    })
-    .collect::<Vec<_>>()
-    .await;
+    let data_points = db
+      .get_package_versions_downloads_24h(
+        &scope,
+        &package,
+        &recent_versions,
+        start,
+        current,
+      )
+      .await?;
 
-  let mut recent_versions = Vec::with_capacity(versions.len());
-  for (version, downloads) in versions {
-    let downloads = downloads?
-      .into_iter()
-      .map(ApiDownloadDataPoint::from)
-      .collect();
-    recent_versions
-      .push(ApiPackageDownloadsRecentVersion { version, downloads });
-  }
+    let mut data_points_by_version =
+      indexmap::IndexMap::<_, Vec<_>>::with_capacity(recent_versions.len());
+
+    for data_point in data_points {
+      let version = data_point.version.clone();
+      let downloads = data_points_by_version
+        .entry(version)
+        .or_insert_with(Vec::new);
+      downloads.push(ApiDownloadDataPoint::from(data_point));
+    }
+
+    Ok::<_, ApiError>(
+      data_points_by_version
+        .into_iter()
+        .map(|(version, data_points)| ApiPackageDownloadsRecentVersion {
+          version,
+          downloads: data_points,
+        })
+        .collect(),
+    )
+  };
+
+  let (total, recent_versions) =
+    futures::try_join!(total_fut, recent_versions_fut)?;
 
   Ok(ApiPackageDownloads {
     total: total.into_iter().map(ApiDownloadDataPoint::from).collect(),
@@ -1968,6 +1984,7 @@ async fn analyze_deps_tree(
         reporter: None,
         executor: Default::default(),
         locker: None,
+        skip_dynamic_deps: false,
       },
     )
     .await;
@@ -3553,7 +3570,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
+      json!({"kind":"search","nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist

@@ -6,6 +6,7 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
+import DarkModeToggle from "../islands/DarkModeToggle.tsx";
 
 export function Header({
   user,
@@ -103,6 +104,8 @@ export function Header({
               </>
             )}
             <Divider />
+            <DarkModeToggle />
+            <Divider />
             {user
               ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
               : (
@@ -130,7 +133,10 @@ export function Header({
 
 function Divider() {
   return (
-    <span class="text-jsr-gray-200 select-none" aria-hidden="true">
+    <span
+      class="text-jsr-gray-200 dark:text-jsr-gray-700 select-none"
+      aria-hidden="true"
+    >
       |
     </span>
   );

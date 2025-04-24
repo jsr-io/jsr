@@ -45,7 +45,7 @@ export default define.page<typeof handler>(function Score(
           />
         )
         : (
-          <div class="mt-8 text-jsr-gray-500 text-center">
+          <div class="mt-8 text-tertiary text-center">
             No score is available for this package, because it does not have a
             stable release.
           </div>
@@ -65,7 +65,7 @@ function ScoreInfo(props: {
 
   return (
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
-      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 rounded-lg p-8">
+      <div class="w-full h-full flex flex-col items-center justify-center border-1.5 border-jsr-cyan-100 dark:border-jsr-gray-700 rounded-lg p-8 dark:bg-jsr-gray-900">
         <div class="flex gap-2 items-center mb-4">
           <h2 class="text-2xl font-semibold">
             <Logo size="medium" class="inline mr-2" />
@@ -76,23 +76,23 @@ function ScoreInfo(props: {
           @{scope}/{name}
         </div>
         <div
-          class={`flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
+          class={`score-circle flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
             getScoreBgColorClass(scorePercentage)
           }`}
-          style={`background-image: conic-gradient(transparent, transparent ${scorePercentage}%, #e7e8e8 ${scorePercentage}%)`}
+          style={`--pct: ${scorePercentage}%`}
         >
-          <span class="rounded-full w-full h-full bg-white flex justify-center items-center text-center text-3xl font-bold">
+          <span class="rounded-full w-full h-full bg-white dark:bg-jsr-gray-950 dark:text-gray-200 flex justify-center items-center text-center text-3xl font-bold">
             {scorePercentage}%
           </span>
         </div>
-        <div class="text-jsr-gray-500 text-sm text-center mt-6">
+        <div class="text-tertiary text-sm text-center mt-6">
           The JSR score is a measure of the overall quality of a package, based
           on a number of factors such as documentation and runtime
           compatibility.
         </div>
       </div>
 
-      <ul class="flex flex-col divide-jsr-cyan-100 divide-y-1 md:col-span-2 w-full">
+      <ul class="flex flex-col divide-jsr-cyan-100 dark:divide-jsr-gray-700 divide-y-1 md:col-span-2 w-full">
         <ScoreItem
           value={score.hasReadme}
           scoreValue={2}
@@ -255,12 +255,12 @@ function ScoreItem(
 
       <div class="max-w-xl pr-2">
         <h3 class="leading-tight">{props.title}</h3>
-        <p class="text-jsr-gray-500 text-sm leading-tight mt-1">
+        <p class="text-tertiary text-sm leading-tight mt-1">
           {props.children}
         </p>
       </div>
 
-      <div class="text-sm text-jsr-gray-400 pt-[0.2em]">
+      <div class="text-sm text-jsr-gray-400 dark:text-gray-500 pt-[0.2em]">
         {typeof props.value === "number"
           ? (
             <span>

@@ -904,6 +904,16 @@ impl From<DownloadDataPoint> for ApiDownloadDataPoint {
   }
 }
 
+impl From<VersionDownloadDataPoint> for ApiDownloadDataPoint {
+  fn from(value: VersionDownloadDataPoint) -> Self {
+    Self {
+      time_bucket: value.time_bucket,
+      kind: value.kind.into(),
+      count: value.count as u64,
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiDownloadKind {
