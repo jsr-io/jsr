@@ -96,15 +96,15 @@ export function DocsView({
                     </span>
 
                     <div class="flex gap-2 items-center">
-                      <span class="text-2xl font-bold">GitHub Actions</span>
+                      <span class="text-md md:text-2xl font-bold">
+                        GitHub Actions
+                      </span>
                       <div class="flex items-start lg:items-center gap-1">
                         <svg
                           aria-hidden="true"
                           role="img"
-                          class="text-green-600"
+                          class="text-green-600 size-4 md:size-5"
                           viewBox="0 0 16 16"
-                          width="20"
-                          height="20"
                           fill="currentColor"
                           style="display: inline-block; user-select: none; vertical-align: text-bottom;"
                         >
@@ -118,7 +118,7 @@ export function DocsView({
                           href={`https://search.sigstore.dev/?logIndex=${selectedVersion.rekorLogId}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          class="text-sm link"
+                          class="text-xs lg:text-sm link"
                         >
                           View transparency log
                         </a>
