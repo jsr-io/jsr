@@ -86,6 +86,16 @@ export function DownloadChart(props: Props) {
       borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
       strokeDashArray: 3,
     },
+    responsive: [
+      {
+        breakpoint: 768,
+        options: {
+          legend: {
+            horizontalAlign: "left",
+          },
+        },
+      },
+    ],
   });
 
   useEffect(() => {
@@ -160,7 +170,7 @@ export function DownloadChart(props: Props) {
           </select>
         </div>
       )}
-      <div className="h-[300px] text-secondary">
+      <div className="h-[300px] md:pt-0 pt-10 text-secondary">
         <div ref={chartDivRef} />
       </div>
     </div>
