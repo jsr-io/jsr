@@ -99,7 +99,7 @@ export default define.page<typeof handler>(function Tickets({
               >
                 {timeAgo(ticket.createdAt)}
               </TableData>
-              <TableData align="right"></TableData>
+              <TableData align="right">
                 <a class="button-primary" href={`/ticket/${ticket.id}`}>view</a>
               </TableData>
             </TableRow>

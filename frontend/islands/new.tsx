@@ -463,7 +463,9 @@ export function CreatePackage({ scope, name, pkg, fromCli }: {
               </p>
               <p>{pkg.value.description || <i>No description</i>}</p>
               <p class="text-tertiary">
-                Created {timeAgo(pkg.value.createdAt)}.bc4 (feat(twas): refracto to use intl api)
+                Created{" "}
+                {timeAgo(pkg.value.createdAt)}.bc4 (feat(twas): refracto to use
+                intl api)
               </p>
               {fromCli && (
                 <p class="mt-2 text-tertiary">
