@@ -101,7 +101,7 @@ export default define.page<typeof handler>(function Versions({
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-8">
+      <div class="mt-4 md:mt-8">
         <DownloadChart downloads={data.downloads.recentVersions} />
       </div>
 
