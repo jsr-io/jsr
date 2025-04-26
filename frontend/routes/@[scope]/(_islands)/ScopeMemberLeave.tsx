@@ -70,7 +70,7 @@ export function ScopeMemberLeave({
         </button>
       </div>
       {(isLastAdmin || isInvalidInput.value) && (
-        <div class="mt-6 border rounded-md border-red-300 bg-red-50 p-6 text-red-600">
+        <div class="mt-6 border rounded-md border-red-300 bg-red-50 p-6 text-red-600 dark:bg-red-900/10 dark:text-red-400">
           <span class="font-bold text-xl">Warning</span>
           <p>
             {isLastAdmin &&
