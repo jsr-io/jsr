@@ -27,7 +27,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
               </div>
             )}
             {(pkg as Package).isArchived && (
-              <div class="text-xs flex items-center gap-1 bg-red-500 text-white px-2 py-0.5 rounded-full">
+              <div class="text-xs flex items-center gap-1 bg-jsr-yellow-600 text-white px-2 py-0.5 rounded-full">
                 <TbArchive class="size-3" />
                 Archived
               </div>
