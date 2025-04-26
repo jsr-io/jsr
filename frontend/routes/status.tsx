@@ -50,7 +50,7 @@ export default define.page<typeof handler>(function PackageListPage({
             </p>
             <p>
               <span class="font-semibold">Created:</span>{" "}
-              {timeAgo(new Date(data.publishingTask.createdAt))}
+              {timeAgo(data.publishingTask.createdAt)}
             </p>
             {data.publishingTask.user && (
               <p>

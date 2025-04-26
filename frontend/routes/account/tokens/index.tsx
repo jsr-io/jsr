@@ -119,7 +119,7 @@ function PersonalTokenRow({ token }: { token: Token }) {
             )}
         </p>
         <p class="text-sm sm:text-right">
-          Created {timeAgo(new Date(token.createdAt))}
+          Created {timeAgo(token.createdAt)}
         </p>
       </div>
       <p class="text-sm text-secondary">
@@ -178,7 +178,7 @@ function SessionRow({ token }: { token: Token }) {
         </div>
         <div>
           <p class="text-sm sm:text-right">
-            Created {timeAgo(new Date(token.createdAt))}
+            Created {timeAgo(token.createdAt)}
           </p>
         </div>
       </div>

@@ -250,7 +250,7 @@ function Version({
                     {" "}
                   </>
                 )}
-                {timeAgo(new Date(version.createdAt))}
+                {timeAgo(version.createdAt)}
               </div>
             )}
           </div>

@@ -12,7 +12,7 @@ const units = [
   "seconds",
 ] as Unit[];
 
-export function timeAgo(date: string): string {
+export function timeAgo(date: string | Date): string {
   const duration = difference(new Date(date), new Date(), { units });
   if (duration.seconds === 0) return "0 seconds ago";
   const largestUnit = units.find((unit) => duration[unit]! > 0) || "seconds";

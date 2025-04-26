@@ -25,7 +25,7 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
             {user.name}
           </h1>
           <p class="text-xs text-secondary">
-            Created account {timeAgo(new Date(user.createdAt))}
+            Created account {timeAgo(user.createdAt)}
           </p>
           <p class="text-base mt-2">
             <GitHubUserLink user={user} />

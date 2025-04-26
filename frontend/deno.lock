@@ -3,6 +3,7 @@
   "specifiers": {
     "jsr:@deno/gfm@0.11": "0.11.0",
     "jsr:@denosaurs/emoji@~0.3.1": "0.3.1",
+    "jsr:@fresh/core@^2.0.0-alpha.1": "2.0.0-alpha.29",
     "jsr:@fresh/core@^2.0.0-alpha.25": "2.0.0-alpha.29",
     "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7": "0.0.1-alpha.7",
     "jsr:@luca/esbuild-deno-loader@0.11": "0.11.1",
@@ -21,6 +22,7 @@
     "jsr:@std/fs@1": "1.0.17",
     "jsr:@std/html@1": "1.0.3",
     "jsr:@std/http@1": "1.0.15",
+    "jsr:@std/json@^1.0.2": "1.0.2",
     "jsr:@std/jsonc@1": "1.0.2",
     "jsr:@std/media-types@1": "1.1.0",
     "jsr:@std/path@0.221": "0.221.0",
@@ -107,6 +109,7 @@
     "@fresh/plugin-tailwind@0.0.1-alpha.7": {
       "integrity": "b940991bdb76f0995dc58b25183f1001d72c4020e049d384ad3fb751556aa2a9",
       "dependencies": [
+        "jsr:@fresh/core@^2.0.0-alpha.1",
         "jsr:@std/path@0.221",
         "npm:autoprefixer",
         "npm:cssnano",
@@ -171,8 +174,14 @@
     "@std/http@1.0.15": {
       "integrity": "435a4934b4e196e82a8233f724da525f7b7112f3566502f28815e94764c19159"
     },
+    "@std/json@1.0.2": {
+      "integrity": "d9e5497801c15fb679f55a2c01c7794ad7a5dfda4dd1bebab5e409cb5e0d34d4"
+    },
     "@std/jsonc@1.0.2": {
-      "integrity": "909605dae3af22bd75b1cbda8d64a32cf1fd2cf6efa3f9e224aba6d22c0f44c7"
+      "integrity": "909605dae3af22bd75b1cbda8d64a32cf1fd2cf6efa3f9e224aba6d22c0f44c7",
+      "dependencies": [
+        "jsr:@std/json"
+      ]
     },
     "@std/media-types@1.1.0": {
       "integrity": "c9d093f0c05c3512932b330e3cc1fe1d627b301db33a4c2c2185c02471d6eaa4"
