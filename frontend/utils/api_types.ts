@@ -186,14 +186,6 @@ export interface PackageVersionSource {
   source: SourceDir | SourceFile;
 }
 
-export interface Alias {
-  name: string;
-  majorVersion: number;
-  target: string;
-  updatedAt: string;
-  createdAt: string;
-}
-
 export interface Authorization {
   code: string;
   permissions: Permission[] | null;
