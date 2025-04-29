@@ -266,7 +266,10 @@ function GitHubActions({ pkg, canEdit, user }: {
       </div>
       <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto relative">
       	<div class="bg-white dark:bg-jsr-gray-900 text-white rounded p-0.5 absolute top-2 right-2 z-1 size-8 flex justify-center items-center">
-	  <CopyButton text={WORKFLOW_CODE.replace(/<[^>]+>/g, '')} title="Copy workflow code" />
+		<CopyButton
+		  text={WORKFLOW_CODE.replace(/<[^>]+>/g, '')}
+		  title="Copy workflow code"
+		/>
 	</div>
         <code
           dangerouslySetInnerHTML={{__html: WORKFLOW_CODE}}>
