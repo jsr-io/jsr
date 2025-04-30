@@ -1385,7 +1385,7 @@ impl Database {
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
-      ORDER BY packages.name
+      ORDER BY packages.is_archived ASC, packages.name
       OFFSET $3 LIMIT $4"#,
       scope as _,
       show_archived,
