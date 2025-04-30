@@ -19,10 +19,10 @@ export default function Error({ error }: { error: unknown }) {
         <div class="w-full overflow-x-hidden relative flex justify-between flex-col flex-wrap">
           <div class="flex-top">
             <header class="text-center px-8 py-[15vh]">
-              <h1 class="font-extrabold text-5xl leading-10 tracking-tight text-gray-900 dark:text-white">
+              <h1 class="font-extrabold text-5xl leading-10 tracking-tight text-primary">
                 {error.status}
               </h1>
-              <h2 class="mt-4 sm:mt-5 font-light text-2xl text-center leading-tight text-gray-900 dark:text-white">
+              <h2 class="mt-4 sm:mt-5 font-light text-2xl text-center leading-tight text-primary">
                 {error.message}
               </h2>
               {error.status === 404 && (
