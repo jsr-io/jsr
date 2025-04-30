@@ -16,7 +16,7 @@ The package being published contains a symlink or hardlink. JSR does not support
 symlinks or hardlinks in packages. You can fix this error by removing the
 symlink or hardlink from your package, or by
 [excluding it](/docs/publishing-packages#ignoring-files) in your `jsr.json` /
-`deno.json`.
+`deno.json(c)`.
 
 To find the symlink or hardlink, run the following command in your package
 directory:
@@ -37,7 +37,7 @@ The package tarball contains an entry that is not a regular file or directory.
 JSR only supports regular files and directories in package tarballs. You can fix
 this error by removing the invalid entry from your package tarball or
 [excluding it](/docs/publishing-packages#ignoring-files) in your `jsr.json` /
-`deno.json`.
+`deno.json(c)`.
 
 ### `invalidPath`
 
@@ -51,7 +51,7 @@ troublesome in URLs, and paths where multiple casings of the same path exist.
 You can fix this error by changing the path of the file or directory in your
 package to a path that JSR allows, removing the file or directory from your
 package, or [excluding it](/docs/publishing-packages#ignoring-files) in your
-`jsr.json` / `deno.json`.
+`jsr.json` / `deno.json(c)`.
 
 Path rules are as follows:
 
