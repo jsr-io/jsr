@@ -1,6 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { useState } from "preact/hooks";
-import { TbPencil, TbCheck, TbX } from "tb-icons";
+import { TbCheck, TbPencil, TbX } from "tb-icons";
 import { api, path } from "../../../utils/api.ts";
 import type { FullScope } from "../../../utils/api_types.ts";
 
@@ -82,15 +82,15 @@ export function ScopeDescriptionForm(
       <p class="text-secondary max-w-2xl flex-grow">
         {scope.value.description || <i>No description provided.</i>}
       </p>
-        <button
-          type="button"
-          class="button-primary flex-shrink-0"
-          onClick={() => isEditing.value = true}
-          aria-label="Edit description"
-        >
-          <TbPencil class="size-5" />
-          Edit
-        </button>
+      <button
+        type="button"
+        class="button-primary flex-shrink-0"
+        onClick={() => isEditing.value = true}
+        aria-label="Edit description"
+      >
+        <TbPencil class="size-5" />
+        Edit
+      </button>
     </div>
   );
 }

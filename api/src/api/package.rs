@@ -2585,7 +2585,7 @@ mod test {
     // create scope2 for user2, try creating a package with user1
     let scope2 = ScopeName::new("scope2".into()).unwrap();
     t.db()
-      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id)
+      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id, None)
       .await
       .unwrap();
     let mut resp = t

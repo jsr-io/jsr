@@ -186,10 +186,17 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
   fields(scope, user_id)
 )]
 pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
-  let ApiAssignScopeRequest { scope, user_id, description } = decode_json(&mut req).await?;
+  let ApiAssignScopeRequest {
+    scope,
+    user_id,
+    description,
+  } = decode_json(&mut req).await?;
   Span::current().record("scope", field::display(&scope));
   Span::current().record("user_id", field::display(&user_id));
-  Span::current().record("description", field::display(description.as_deref().unwrap_or("")));
+  Span::current().record(
+    "description",
+    field::display(description.as_deref().unwrap_or("")),
+  );
 
   let iam = req.iam();
   let staff = iam.check_admin_access()?;

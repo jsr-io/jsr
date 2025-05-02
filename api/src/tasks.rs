@@ -551,10 +551,10 @@ mod tests {
     let v0_219_3 = Version::new("0.219.3").unwrap();
     let v1_0_0 = Version::new("1.0.0").unwrap();
 
-    db.create_scope(&Uuid::nil(), false, &std, Uuid::nil())
+    db.create_scope(&Uuid::nil(), false, &std, Uuid::nil(), None)
       .await
       .unwrap();
-    db.create_scope(&Uuid::nil(), false, &luca, Uuid::nil())
+    db.create_scope(&Uuid::nil(), false, &luca, Uuid::nil(), None)
       .await
       .unwrap();
     db.create_package(&std, &fs).await.unwrap();

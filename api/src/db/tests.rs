@@ -19,7 +19,7 @@ async fn publishing_tasks() {
   let config_file = "/jsr.json".try_into().unwrap();
 
   let _scope = db
-    .create_scope(&user_id, false, &scope_name, user_id)
+    .create_scope(&user_id, false, &scope_name, user_id, None)
     .await
     .unwrap();
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
@@ -217,7 +217,7 @@ async fn packages() {
   let scope_name = "scope".try_into().unwrap();
   let package_name = "testpkg".try_into().unwrap();
 
-  db.create_scope(&alice.id, false, &scope_name, alice.id)
+  db.create_scope(&alice.id, false, &scope_name, alice.id, None)
     .await
     .unwrap();
 
@@ -285,7 +285,7 @@ async fn scope_members() {
 
   let scope_name = "scope".try_into().unwrap();
 
-  db.create_scope(&bob.id, false, &scope_name, bob.id)
+  db.create_scope(&bob.id, false, &scope_name, bob.id, None)
     .await
     .unwrap();
 
@@ -350,7 +350,7 @@ async fn create_package_version_and_finalize_publishing_task() {
     .await
     .unwrap();
 
-  db.create_scope(&bob.id, false, &scope, bob.id)
+  db.create_scope(&bob.id, false, &scope, bob.id, None)
     .await
     .unwrap();
 
@@ -461,7 +461,7 @@ async fn package_files() {
   let package_name = "testpkg".try_into().unwrap();
   let version = "1.2.3".try_into().unwrap();
 
-  db.create_scope(&user.id, false, &scope_name, user.id)
+  db.create_scope(&user.id, false, &scope_name, user.id, None)
     .await
     .unwrap();
 

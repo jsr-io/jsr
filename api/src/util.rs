@@ -552,7 +552,7 @@ pub mod test {
 
       let scope_name = "scope".try_into().unwrap();
 
-      db.create_scope(&user1.user.id, false, &scope_name, user1.user.id)
+      db.create_scope(&user1.user.id, false, &scope_name, user1.user.id, None)
         .await
         .unwrap();
       let (scope, _, _) = db
