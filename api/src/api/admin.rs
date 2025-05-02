@@ -202,7 +202,7 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&staff.id, true, &scope, user_id)
+    .create_scope(&staff.id, true, &scope, user_id, None)
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 

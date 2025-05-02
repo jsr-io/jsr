@@ -1,0 +1,1 @@
+ALTER TABLE scopes ADD COLUMN description TEXT;

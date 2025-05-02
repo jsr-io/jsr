@@ -63,8 +63,9 @@ static RESERVED_SCOPES: OnceLock<std::collections::HashSet<String>> =
 
 #[instrument(name = "POST /api/scopes", skip(req), err, fields(scope))]
 async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
-  let ApiCreateScopeRequest { scope } = decode_json(&mut req).await?;
+  let ApiCreateScopeRequest { scope, description } = decode_json(&mut req).await?;
   Span::current().record("scope", field::display(&scope));
+  Span::current().record("description", field::display(description.as_deref().unwrap_or("")));
 
   let db = req.data::<Database>().unwrap();
 
@@ -94,7 +95,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&user.id, false, &scope, user.id)
+    .create_scope(&user.id, false, &scope, user.id, description)
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 

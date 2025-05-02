@@ -925,6 +925,7 @@ impl Database {
     is_sudo: bool,
     scope: &ScopeName,
     user_id: Uuid,
+    scope_description: Option<String>,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
@@ -948,9 +949,10 @@ impl Database {
       Scope,
       r#"
         WITH ins_scope AS (
-            INSERT INTO scopes (scope, creator) VALUES ($1, $2)
+            INSERT INTO scopes (scope, description, creator) VALUES ($1, $2, $3)
             RETURNING
             scope,
+            description,
             creator,
             package_limit,
             new_package_per_week_limit,
@@ -977,6 +979,7 @@ impl Database {
         FROM ins_scope
         "#,
       scope as _,
+      description = scope_description,
       user_id
     )
     .fetch_one(&mut *tx)
@@ -1096,6 +1099,7 @@ impl Database {
       .map(|r| {
         let scope = Scope {
           scope: r.scope_scope,
+          description: r.scope_description,
           creator: r.scope_creator,
           updated_at: r.scope_updated_at,
           created_at: r.scope_created_at,
@@ -2325,6 +2329,7 @@ impl Database {
       Scope,
       r#"SELECT
       scopes.scope as "scope: ScopeName",
+      scopes.description as "description: ScopeDescription",
       scopes.creator,
       scopes.package_limit,
       scopes.new_package_per_week_limit,

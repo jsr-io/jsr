@@ -263,6 +263,7 @@ pub enum ApiScopeOrFullScope {
 #[serde(rename_all = "camelCase")]
 pub struct ApiCreateScopeRequest {
   pub scope: ScopeName,
+  pub description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

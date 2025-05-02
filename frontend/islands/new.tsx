@@ -158,12 +158,13 @@ export function ScopeSelect(
 function CreateScope(
   props: {
     initialValue: string | undefined;
-    onCreate: (scope: string) => void;
+    onCreate: (scope: string, description: string) => void;
     locked: boolean;
     user: User;
   },
 ) {
   const newScope = useSignal(props.initialValue ?? "");
+  const description = useSignal("");
   const errorCode = useSignal("");
   const error = useSignal("");
   const message = useComputed(() => {
@@ -188,9 +189,10 @@ function CreateScope(
 
     const resp = await api.post<Scope>(path`/scopes`, {
       scope: newScope.value,
+      description: description.value,
     });
     if (resp.ok) {
-      props.onCreate(newScope.value);
+      props.onCreate(newScope.value, description.value);
     } else {
       console.error(resp);
       errorCode.value = resp.code;
@@ -221,6 +223,19 @@ function CreateScope(
               if (newScope !== "" && newScope.length < 2) {
                 error.value = "Scope name must be at least 2 characters long.";
               }
+            }}
+          />
+        </label>
+        <label class="flex items-center w-full md:w-full input-container pl-4 py-[2px] pr-[2px]">
+          <textarea
+            class="input py-1.5 pr-4 pl-[1px] flex-grow-1 rounded-md"
+            name="description"
+            placeholder="Enter a description for the scope (optional)"
+            disabled={props.locked}
+            data-locked={props.locked || undefined}
+            value={description}
+            onInput={(e) => {
+              description.value = e.currentTarget.value;
             }}
           />
         </label>
