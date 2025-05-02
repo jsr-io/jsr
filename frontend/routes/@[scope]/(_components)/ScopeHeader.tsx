@@ -12,7 +12,7 @@ export function ScopeHeader(props: ScopeHeaderProps) {
         @{props.scope.scope}
       </h1>
       {props.scope.description && (
-        <p class="text-secondary text-sm mt-2">
+        <p class="text-secondary mt-2">
           {props.scope.description}
         </p>
       )}

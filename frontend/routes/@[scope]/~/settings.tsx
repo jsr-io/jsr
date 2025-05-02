@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { ComponentChildren } from "preact";
+import { TbCheck, TbTrash } from "tb-icons";
 import { define } from "../../../util.ts";
 import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../(_components)/ScopeNav.tsx";
@@ -9,7 +10,6 @@ import { FullScope, User } from "../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../utils/data.ts";
 import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
-import TbCheck from "tb-icons/TbCheck";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 
@@ -279,6 +279,7 @@ function DeleteScope({ scope }: { scope: FullScope }) {
         name="action"
         value="deleteScope"
       >
+        <TbTrash class="size-5" />
         Delete scope
       </button>
       {!isEmpty && (

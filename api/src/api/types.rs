@@ -192,6 +192,7 @@ impl From<User> for ApiFullUser {
 #[serde(rename_all = "camelCase")]
 pub struct ApiScope {
   pub scope: ScopeName,
+  pub description: Option<String>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -200,6 +201,7 @@ impl From<Scope> for ApiScope {
   fn from(scope: Scope) -> Self {
     Self {
       scope: scope.scope,
+      description: scope.description,
       updated_at: scope.updated_at,
       created_at: scope.created_at,
     }
@@ -221,6 +223,7 @@ pub struct ApiScopeQuotas {
 #[serde(rename_all = "camelCase")]
 pub struct ApiFullScope {
   pub scope: ScopeName,
+  pub description: Option<String>,
   pub creator: ApiUser,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -235,6 +238,7 @@ impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
     assert_eq!(scope.creator, user.id);
     Self {
       scope: scope.scope,
+      description: scope.description,
       creator: user.into(),
       updated_at: scope.updated_at,
       created_at: scope.created_at,

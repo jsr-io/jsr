@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { useState } from "preact/hooks";
+import { TbPencil, TbCheck, TbX } from "tb-icons";
 import { api, path } from "../../../utils/api.ts";
 import type { FullScope } from "../../../utils/api_types.ts";
 
@@ -22,7 +23,7 @@ export function ScopeDescriptionForm(
     const resp = await api.patch(path`/scopes/${scope.value.scope}`, {
       description: editedDescription.value,
     });
-    console.log("Response from API:", resp);
+
     setIsLoading(false);
     if (resp.ok) {
       // Update the local scope signal with the new description
@@ -59,6 +60,7 @@ export function ScopeDescriptionForm(
             onClick={handleSave}
             disabled={isLoading}
           >
+            <TbCheck class="size-5" />
             {isLoading ? "Saving..." : "Save"}
           </button>
           <button
@@ -67,6 +69,7 @@ export function ScopeDescriptionForm(
             onClick={handleCancel}
             disabled={isLoading}
           >
+            <TbX class="size-5" />
             Cancel
           </button>
         </div>
@@ -85,6 +88,7 @@ export function ScopeDescriptionForm(
           onClick={() => isEditing.value = true}
           aria-label="Edit description"
         >
+          <TbPencil class="size-5" />
           Edit
         </button>
     </div>
