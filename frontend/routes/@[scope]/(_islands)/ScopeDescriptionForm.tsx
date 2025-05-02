@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useState } from "preact/hooks";
 import { TbCheck, TbPencil, TbX } from "tb-icons";
