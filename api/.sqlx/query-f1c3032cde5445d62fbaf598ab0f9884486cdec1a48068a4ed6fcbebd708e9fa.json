@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          require_publishing_from_ci,\n          updated_at,\n          created_at\n\n      ",
+  "query": "\n        UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          description,\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          require_publishing_from_ci,\n          updated_at,\n          created_at\n\n      ",
   "describe": {
     "columns": [
       {
@@ -10,41 +10,46 @@
       },
       {
         "ordinal": 1,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
         "name": "creator",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "package_limit",
         "type_info": "Int4"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "new_package_per_week_limit",
         "type_info": "Int4"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "publish_attempts_per_week_limit",
         "type_info": "Int4"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "verify_oidc_actor",
         "type_info": "Bool"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "require_publishing_from_ci",
         "type_info": "Bool"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -57,6 +62,7 @@
     },
     "nullable": [
       false,
+      true,
       false,
       false,
       false,
@@ -67,5 +73,5 @@
       false
     ]
   },
-  "hash": "24d150e096a117abbeabc5f42029ad38eee8d37928c557141d6526f8bf5ce320"
+  "hash": "f1c3032cde5445d62fbaf598ab0f9884486cdec1a48068a4ed6fcbebd708e9fa"
 }

@@ -7,8 +7,15 @@ export interface ScopeHeaderProps {
 
 export function ScopeHeader(props: ScopeHeaderProps) {
   return (
-    <h1 class="text-2xl leading-none font-semibold">
-      @{props.scope.scope}
-    </h1>
+    <>
+      <h1 class="text-2xl leading-none font-semibold">
+        @{props.scope.scope}
+      </h1>
+      {props.scope.description && (
+        <p class="text-secondary text-sm mt-2">
+          {props.scope.description}
+        </p>
+      )}
+    </>
   );
 }

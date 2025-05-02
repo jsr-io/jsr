@@ -725,6 +725,8 @@ pub enum ApiUpdateScopeRequest {
   GhActionsVerifyActor(bool),
   #[serde(rename = "requirePublishingFromCI")]
   RequirePublishingFromCI(bool),
+  #[serde(rename = "description")]
+  Description(Option<String>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -973,6 +975,7 @@ pub struct ApiCreatedToken {
 #[serde(rename_all = "camelCase")]
 pub struct ApiAssignScopeRequest {
   pub scope: ScopeName,
+  pub description: Option<String>,
   pub user_id: Uuid,
 }
 

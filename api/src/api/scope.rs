@@ -164,6 +164,11 @@ async fn update_handler(
       )
       .await?
     }
+    ApiUpdateScopeRequest::Description(description) => {
+      let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+      db.scope_set_description(&user.id, sudo, &scope, description)
+        .await?
+    }
   };
 
   let user = db

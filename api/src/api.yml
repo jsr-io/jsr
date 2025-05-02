@@ -1560,6 +1560,10 @@ components:
       properties:
         scope:
           $ref: "#/components/schemas/ScopeName"
+        description:
+          type: string
+          description: The description of the scope.
+
       required:
         - name
 
