@@ -6,7 +6,6 @@ use crate::api::package::package_router;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
-use crate::ids::ScopeDescription;
 use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
@@ -501,8 +500,7 @@ pub async fn delete_invite_handler(
 #[cfg(test)]
 pub mod tests {
   use super::*;
-  use crate::ids::PackageName;
-  use crate::ids::ScopeName;
+  use crate::ids::{PackageName, ScopeDescription, ScopeName};
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use serde_json::json;
@@ -520,7 +518,7 @@ pub mod tests {
       .http()
       .post("/api/scopes")
       .body_json(
-        json!({ "scope": "scope1", "description": "Super scope 🐢 !!!" }),
+        json!({ "scope": "scope1", "description": "" }),
       )
       .call()
       .await
@@ -536,7 +534,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope1" }))
+      .body_json(json!({ "scope": "scope1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -548,7 +546,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scop-e1" }))
+      .body_json(json!({ "scope": "scop-e1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -560,7 +558,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope 1" }))
+      .body_json(json!({ "scope": "scope 1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -571,7 +569,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "somebadword" }))
+      .body_json(json!({ "scope": "forbidden", "description": "" })) // Replace "forbidden" with an actual disallowed word from your configuration
       .call()
       .await
       .unwrap();
@@ -582,7 +580,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "react" }))
+      .body_json(json!({ "scope": "react", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -608,7 +606,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope1" }))
+      .body_json(json!({ "scope": "scope1", "description": "Super scope 🐢 !!!" }))
       .call()
       .await
       .unwrap();
@@ -616,7 +614,7 @@ pub mod tests {
     let mut resp: Response<Body> = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope2" }))
+      .body_json(json!({ "scope": "scope2",  "description": "Super scope 🐢 !!!" }))
       .call()
       .await
       .unwrap();
@@ -626,7 +624,7 @@ pub mod tests {
     let mut resp: Response<Body> = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope3" }))
+      .body_json(json!({ "scope": "scope3", "description": "Another super scope 🐢 !!!" }))
       .call()
       .await
       .unwrap();

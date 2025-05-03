@@ -466,9 +466,7 @@ mod tests {
   use crate::db::NewPackageVersion;
   use crate::db::PackageVersionMeta;
   use crate::gcp::BigQueryQueryResult;
-  use crate::ids::PackageName;
-  use crate::ids::ScopeName;
-  use crate::ids::Version;
+  use crate::ids::{PackageName, ScopeDescription, ScopeName, Version};
 
   use super::deserialize_version_download_count_from_bigquery;
 

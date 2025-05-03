@@ -29,7 +29,6 @@ use crate::github::verify_oidc_token;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
-use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -427,6 +426,7 @@ pub mod test {
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
   use crate::util::sanitize_redirect_url;
+  use crate::ids::ScopeDescription;
   use crate::ApiError;
   use crate::MainRouterOptions;
   use hyper::http::HeaderName;
