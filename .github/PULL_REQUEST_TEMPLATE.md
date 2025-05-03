@@ -10,4 +10,4 @@
       light and dark mode.
 - [ ] Does the PR have changes to the backend? If so, make sure tests are added.
       <br/>And if changing dababase queries, be sure you have ran `sqlx prepare`
-      and committed thechanges in the `.sqlx` directory.
+      and committed the changes in the `.sqlx` directory.
