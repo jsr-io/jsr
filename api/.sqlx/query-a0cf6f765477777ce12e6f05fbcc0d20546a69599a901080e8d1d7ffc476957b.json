@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH ins_scope AS (\n            INSERT INTO scopes (scope, creator, description) VALUES ($1, $2, $3)\n            RETURNING\n            scope,\n            description,\n            creator,\n            package_limit,\n            new_package_per_week_limit,\n            publish_attempts_per_week_limit,\n            verify_oidc_actor,\n            require_publishing_from_ci,\n            updated_at,\n            created_at\n        ),\n        ins_member AS (\n            INSERT INTO scope_members (scope, user_id, is_admin)\n            VALUES ($1, $2, true)\n        )\n        SELECT\n        scope as \"scope: ScopeName\",\n        description as \"description: ScopeDescription\",\n        creator,\n        package_limit,\n        new_package_per_week_limit,\n        publish_attempts_per_week_limit,\n        verify_oidc_actor,\n        require_publishing_from_ci,\n        updated_at,\n        created_at\n        FROM ins_scope\n        ",
+  "query": "\n        WITH ins_scope AS (\n            INSERT INTO scopes (scope, creator) VALUES ($1, $2)\n            RETURNING\n            scope,\n            description,\n            creator,\n            package_limit,\n            new_package_per_week_limit,\n            publish_attempts_per_week_limit,\n            verify_oidc_actor,\n            require_publishing_from_ci,\n            updated_at,\n            created_at\n        ),\n        ins_member AS (\n            INSERT INTO scope_members (scope, user_id, is_admin)\n            VALUES ($1, $2, true)\n        )\n        SELECT\n        scope as \"scope: ScopeName\",\n        description as \"description: ScopeDescription\",\n        creator,\n        package_limit,\n        new_package_per_week_limit,\n        publish_attempts_per_week_limit,\n        verify_oidc_actor,\n        require_publishing_from_ci,\n        updated_at,\n        created_at\n        FROM ins_scope\n        ",
   "describe": {
     "columns": [
       {
@@ -57,8 +57,7 @@
     "parameters": {
       "Left": [
         "Text",
-        "Uuid",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -74,5 +73,5 @@
       false
     ]
   },
-  "hash": "01ca44880c8b3e17c17ba86868f98fff256a3e5a07e39e5f085f17a4be108717"
+  "hash": "a0cf6f765477777ce12e6f05fbcc0d20546a69599a901080e8d1d7ffc476957b"
 }
