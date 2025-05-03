@@ -162,7 +162,7 @@ export function DownloadChart(props: Props) {
                 ),
               );
             }}
-            className="input-container input px-1.5 py-0.5"
+            className="input-container input select w-20"
           >
             <option value="daily">Daily</option>
             <option value="weekly" selected>Weekly</option>
