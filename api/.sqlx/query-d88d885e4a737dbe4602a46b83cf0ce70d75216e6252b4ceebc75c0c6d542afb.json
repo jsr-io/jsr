@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH ins_scope AS (\n            INSERT INTO scopes (scope, creator, description) VALUES ($1, $2, $3)\n            RETURNING\n            scope,\n            description,\n            creator,\n            package_limit,\n            new_package_per_week_limit,\n            publish_attempts_per_week_limit,\n            verify_oidc_actor,\n            require_publishing_from_ci,\n            updated_at,\n            created_at\n        ),\n        ins_member AS (\n            INSERT INTO scope_members (scope, user_id, is_admin)\n            VALUES ($1, $2, true)\n        )\n        SELECT\n        scope as \"scope: ScopeName\",\n        description,\n        creator,\n        package_limit,\n        new_package_per_week_limit,\n        publish_attempts_per_week_limit,\n        verify_oidc_actor,\n        require_publishing_from_ci,\n        updated_at,\n        created_at\n        FROM ins_scope\n        ",
+  "query": "\n        UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          description as \"description: ScopeDescription\",\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          require_publishing_from_ci,\n          updated_at,\n          created_at\n\n      ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "description",
+        "name": "description: ScopeDescription",
         "type_info": "Text"
       },
       {
@@ -56,14 +56,13 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Uuid",
+        "Bool",
         "Text"
       ]
     },
     "nullable": [
       false,
-      true,
+      false,
       false,
       false,
       false,
@@ -74,5 +73,5 @@
       false
     ]
   },
-  "hash": "95493f168335a0b106f222e75c891c2542daf46dca9e057d4ba487477f0c888e"
+  "hash": "d88d885e4a737dbe4602a46b83cf0ce70d75216e6252b4ceebc75c0c6d542afb"
 }

@@ -1,1 +1,1 @@
-ALTER TABLE scopes ADD COLUMN description TEXT;
+ALTER TABLE scopes ADD COLUMN description TEXT NOT NULL DEFAULT '';

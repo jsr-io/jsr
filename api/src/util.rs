@@ -29,6 +29,7 @@ use crate::github::verify_oidc_token;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -552,9 +553,15 @@ pub mod test {
 
       let scope_name = "scope".try_into().unwrap();
 
-      db.create_scope(&user1.user.id, false, &scope_name, user1.user.id, None)
-        .await
-        .unwrap();
+      db.create_scope(
+        &user1.user.id,
+        false,
+        &scope_name,
+        user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
       let (scope, _, _) = db
         .update_scope_limits(
           &staff_user.user.id,

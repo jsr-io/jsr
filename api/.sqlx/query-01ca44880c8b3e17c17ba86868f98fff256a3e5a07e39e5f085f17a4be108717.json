@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE scopes SET description = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          description,\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          require_publishing_from_ci,\n          updated_at,\n          created_at\n\n      ",
+  "query": "\n        WITH ins_scope AS (\n            INSERT INTO scopes (scope, creator, description) VALUES ($1, $2, $3)\n            RETURNING\n            scope,\n            description,\n            creator,\n            package_limit,\n            new_package_per_week_limit,\n            publish_attempts_per_week_limit,\n            verify_oidc_actor,\n            require_publishing_from_ci,\n            updated_at,\n            created_at\n        ),\n        ins_member AS (\n            INSERT INTO scope_members (scope, user_id, is_admin)\n            VALUES ($1, $2, true)\n        )\n        SELECT\n        scope as \"scope: ScopeName\",\n        description as \"description: ScopeDescription\",\n        creator,\n        package_limit,\n        new_package_per_week_limit,\n        publish_attempts_per_week_limit,\n        verify_oidc_actor,\n        require_publishing_from_ci,\n        updated_at,\n        created_at\n        FROM ins_scope\n        ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "description",
+        "name": "description: ScopeDescription",
         "type_info": "Text"
       },
       {
@@ -57,12 +57,13 @@
     "parameters": {
       "Left": [
         "Text",
+        "Uuid",
         "Text"
       ]
     },
     "nullable": [
       false,
-      true,
+      false,
       false,
       false,
       false,
@@ -73,5 +74,5 @@
       false
     ]
   },
-  "hash": "072f758accf1076a6746ccf46b83ad006fa930dc0889dfd841e51f8568a1bca3"
+  "hash": "01ca44880c8b3e17c17ba86868f98fff256a3e5a07e39e5f085f17a4be108717"
 }

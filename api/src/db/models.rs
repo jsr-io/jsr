@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -208,7 +209,7 @@ pub struct NewPublishingTask<'s> {
 #[derive(Debug)]
 pub struct Scope {
   pub scope: ScopeName,
-  pub description: Option<String>,
+  pub description: ScopeDescription,
   pub creator: Uuid,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,

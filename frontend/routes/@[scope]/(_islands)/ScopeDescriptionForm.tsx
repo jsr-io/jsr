@@ -3,6 +3,7 @@ import { useSignal } from "@preact/signals";
 import { useState } from "preact/hooks";
 import { TbCheck, TbPencil, TbX } from "tb-icons";
 import { api, path } from "../../../utils/api.ts";
+import { validateScopeDescription } from "../../../utils/ids.ts";
 import type { FullScope } from "../../../utils/api_types.ts";
 
 interface ScopeDescriptionFormProps {
@@ -21,6 +22,16 @@ export function ScopeDescriptionForm(
   async function handleSave() {
     setIsLoading(true);
     setError(null);
+    const validationError = validateScopeDescription(
+      editedDescription.value,
+    );
+
+    if (validationError) {
+      setError(validationError);
+      setIsLoading(false);
+      return;
+    }
+
     const resp = await api.patch(path`/scopes/${scope.value.scope}`, {
       description: editedDescription.value,
     });

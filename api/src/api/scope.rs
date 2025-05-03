@@ -6,6 +6,7 @@ use crate::api::package::package_router;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
+use crate::ids::ScopeDescription;
 use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
@@ -66,10 +67,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   let ApiCreateScopeRequest { scope, description } =
     decode_json(&mut req).await?;
   Span::current().record("scope", field::display(&scope));
-  Span::current().record(
-    "description",
-    field::display(description.as_deref().unwrap_or("")),
-  );
+  Span::current().record("description", field::display(&description));
 
   let db = req.data::<Database>().unwrap();
 
@@ -99,7 +97,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&user.id, false, &scope, user.id, description)
+    .create_scope(&user.id, false, &scope, user.id, &description)
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 
@@ -786,7 +784,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let members = list_members(&mut t).await;
@@ -850,7 +854,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -899,7 +909,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -948,7 +964,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1011,7 +1033,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1076,7 +1104,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1137,7 +1171,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1182,7 +1222,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1229,7 +1275,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1291,7 +1343,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1353,7 +1411,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1423,7 +1487,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1493,7 +1563,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1565,7 +1641,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1636,7 +1718,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1691,7 +1779,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1733,7 +1827,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1777,7 +1877,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1836,7 +1942,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1898,7 +2010,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1981,7 +2099,13 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -2002,7 +2126,13 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     t.db()
@@ -2043,7 +2173,13 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -2080,7 +2216,13 @@ pub mod tests {
     // create scope and package
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let name = PackageName::new("foo".to_owned()).unwrap();
@@ -2103,7 +2245,13 @@ pub mod tests {
     // create scope and package
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     t.db()
@@ -2131,7 +2279,13 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&t.user1.user.id, false, &scope_name, t.user1.user.id, None)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -2143,7 +2297,7 @@ pub mod tests {
           false,
           &scope_name,
           t.user2.user.id,
-          None,
+          &ScopeDescription::default(),
         )
         .await
         .unwrap();

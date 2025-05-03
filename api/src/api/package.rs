@@ -71,6 +71,7 @@ use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::metadata::PackageMetadata;
@@ -2585,7 +2586,13 @@ mod test {
     // create scope2 for user2, try creating a package with user1
     let scope2 = ScopeName::new("scope2".into()).unwrap();
     t.db()
-      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id, None)
+      .create_scope(
+        &t.user2.user.id,
+        false,
+        &scope2,
+        t.user2.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let mut resp = t

@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::api::ApiMetrics;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -925,7 +926,7 @@ impl Database {
     is_sudo: bool,
     scope_name: &ScopeName,
     user_id: Uuid,
-    scope_description: Option<String>,
+    scope_description: &ScopeDescription,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
@@ -949,7 +950,7 @@ impl Database {
       Scope,
       r#"
         WITH ins_scope AS (
-            INSERT INTO scopes (scope, creator, description) VALUES ($1, $2, $3)
+            INSERT INTO scopes (scope, creator) VALUES ($1, $2)
             RETURNING
             scope,
             description,
@@ -968,7 +969,7 @@ impl Database {
         )
         SELECT
         scope as "scope: ScopeName",
-        description,
+        description as "description: ScopeDescription",
         creator,
         package_limit,
         new_package_per_week_limit,
@@ -981,7 +982,6 @@ impl Database {
         "#,
       scope_name,
       user_id,
-      scope_description,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -1080,7 +1080,7 @@ impl Database {
       )
       SELECT
       scopes.scope as "scope_scope: ScopeName",
-      scopes.description as "scope_description",
+      scopes.description as "scope_description: ScopeDescription",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -1159,6 +1159,7 @@ impl Database {
     let scopes = sqlx::query(&format!(
       r#"SELECT
       scopes.scope as "scope_scope",
+      scopes.description as "scope_description",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -1213,7 +1214,7 @@ impl Database {
       Scope,
       r#"SELECT
       scope as "scope: ScopeName",
-      description,
+      description as "description: ScopeDescription",
       creator,
       package_limit,
       new_package_per_week_limit,
@@ -1236,7 +1237,7 @@ impl Database {
       Scope,
       r#"SELECT
       scope as "scope: ScopeName",
-      description,
+      description as "description: ScopeDescription",
       creator,
       package_limit,
       new_package_per_week_limit,
@@ -1300,7 +1301,7 @@ impl Database {
         UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
-          description,
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -1354,7 +1355,7 @@ impl Database {
         UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
-          description,
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -1404,7 +1405,7 @@ impl Database {
         UPDATE scopes SET description = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
-          description,
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -2385,7 +2386,7 @@ impl Database {
       Scope,
       r#"SELECT
       scopes.scope as "scope: ScopeName",
-      scopes.description,
+      scopes.description as "description: ScopeDescription",
       scopes.creator,
       scopes.package_limit,
       scopes.new_package_per_week_limit,

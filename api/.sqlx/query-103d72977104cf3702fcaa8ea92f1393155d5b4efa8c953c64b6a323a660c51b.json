@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n      WITH usage AS (\n        SELECT\n          (SELECT COUNT(created_at) FROM packages WHERE scope = $1) AS package,\n          (SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND created_at > now() - '1 week'::interval) AS new_package_per_week,\n          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week\n      )\n      SELECT\n      scopes.scope as \"scope_scope: ScopeName\",\n      scopes.description as \"scope_description\",\n      scopes.creator as \"scope_creator\",\n      scopes.package_limit as \"scope_package_limit\",\n      scopes.new_package_per_week_limit as \"scope_new_package_per_week_limit\",\n      scopes.publish_attempts_per_week_limit as \"scope_publish_attempts_per_week_limit\",\n      scopes.verify_oidc_actor as \"scope_verify_oidc_actor\",\n      scopes.require_publishing_from_ci as \"scope_require_publishing_from_ci\",\n      scopes.updated_at as \"scope_updated_at\",\n      scopes.created_at as \"scope_created_at\",\n      users.id as \"user_id\", users.name as \"user_name\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n      usage.package as \"usage_package\", usage.new_package_per_week as \"usage_new_package_per_week\", usage.publish_attempts_per_week as \"usage_publish_attempts_per_week\"\n      FROM scopes\n      LEFT JOIN users ON scopes.creator = users.id\n      CROSS JOIN usage\n      WHERE scopes.scope = $1\n      ",
+  "query": "\n      WITH usage AS (\n        SELECT\n          (SELECT COUNT(created_at) FROM packages WHERE scope = $1) AS package,\n          (SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND created_at > now() - '1 week'::interval) AS new_package_per_week,\n          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week\n      )\n      SELECT\n      scopes.scope as \"scope_scope: ScopeName\",\n      scopes.description as \"scope_description: ScopeDescription\",\n      scopes.creator as \"scope_creator\",\n      scopes.package_limit as \"scope_package_limit\",\n      scopes.new_package_per_week_limit as \"scope_new_package_per_week_limit\",\n      scopes.publish_attempts_per_week_limit as \"scope_publish_attempts_per_week_limit\",\n      scopes.verify_oidc_actor as \"scope_verify_oidc_actor\",\n      scopes.require_publishing_from_ci as \"scope_require_publishing_from_ci\",\n      scopes.updated_at as \"scope_updated_at\",\n      scopes.created_at as \"scope_created_at\",\n      users.id as \"user_id\", users.name as \"user_name\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n      usage.package as \"usage_package\", usage.new_package_per_week as \"usage_new_package_per_week\", usage.publish_attempts_per_week as \"usage_publish_attempts_per_week\"\n      FROM scopes\n      LEFT JOIN users ON scopes.creator = users.id\n      CROSS JOIN usage\n      WHERE scopes.scope = $1\n      ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "scope_description",
+        "name": "scope_description: ScopeDescription",
         "type_info": "Text"
       },
       {
@@ -106,7 +106,7 @@
     },
     "nullable": [
       false,
-      true,
+      false,
       false,
       false,
       false,
@@ -126,5 +126,5 @@
       null
     ]
   },
-  "hash": "7ebcc680dbab8fe731e35e03719465f81288607e86b0882cda2a101519c187ab"
+  "hash": "103d72977104cf3702fcaa8ea92f1393155d5b4efa8c953c64b6a323a660c51b"
 }

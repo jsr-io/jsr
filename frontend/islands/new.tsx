@@ -5,12 +5,16 @@ import {
   useSignal,
   useSignalEffect,
 } from "@preact/signals";
-import { Package, Scope, User } from "../utils/api_types.ts";
-import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
 import twas from "twas";
+import { api, path } from "../utils/api.ts";
+import {
+  validatePackageName,
+  validateScopeDescription,
+  validateScopeName,
+} from "../utils/ids.ts";
 import { TicketModal } from "./TicketModal.tsx";
-
+import type { Package, Scope, User } from "../utils/api_types.ts";
 interface IconColorProps {
   done: Signal<unknown>;
   children: ComponentChildren;
@@ -169,17 +173,13 @@ function CreateScope(
   const error = useSignal("");
   const message = useComputed(() => {
     if (error.value) return error.value;
-    if (newScope.value.length === 0) {
-      return "";
+    const validationError = validateScopeName(newScope.value);
+    if (validationError) {
+      return validationError;
     }
-    if (newScope.value.length > 20) {
-      return "Scope name cannot be longer than 20 characters.";
-    }
-    if (!/^[a-z0-9\-]+$/.test(newScope.value)) {
-      return "Scope name can only contain lowercase letters, numbers, and hyphens.";
-    }
-    if (/^-/.test(newScope.value)) {
-      return "Scope name must start with a letter or number.";
+    const descriptionError = validateScopeDescription(description.value);
+    if (descriptionError) {
+      return descriptionError;
     }
     return "";
   });
@@ -236,6 +236,15 @@ function CreateScope(
             value={description}
             onInput={(e) => {
               description.value = e.currentTarget.value;
+              error.value = "";
+              errorCode.value = "";
+            }}
+            onBlur={(e) => {
+              const newDescription = e.currentTarget.value;
+              const descriptionError = validateScopeDescription(newDescription);
+              if (descriptionError) {
+                error.value = descriptionError;
+              }
             }}
           />
         </label>
@@ -310,17 +319,9 @@ export function PackageName(
   const message = useComputed(() => {
     if (error.value) return error.value;
     if (name.value.length === 0) return "";
-    if (name.value.startsWith("@")) {
-      return "Enter only the package name, do not include the scope.";
-    }
-    if (name.value.length > 58) {
-      return "Package name cannot be longer than 58 characters.";
-    }
-    if (!/^[a-z0-9\-]+$/.test(name.value)) {
-      return "Package name can only contain lowercase letters, numbers, and hyphens.";
-    }
-    if (/^-/.test(name.value)) {
-      return "Package name must start with a letter or number.";
+    const validationError = validatePackageName(name.value);
+    if (validationError) {
+      return validationError;
     }
     return "";
   });

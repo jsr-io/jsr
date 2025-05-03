@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use crate::db::*;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::provenance::ProvenanceBundle;
@@ -192,7 +193,7 @@ impl From<User> for ApiFullUser {
 #[serde(rename_all = "camelCase")]
 pub struct ApiScope {
   pub scope: ScopeName,
-  pub description: Option<String>,
+  pub description: ScopeDescription,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -223,7 +224,7 @@ pub struct ApiScopeQuotas {
 #[serde(rename_all = "camelCase")]
 pub struct ApiFullScope {
   pub scope: ScopeName,
-  pub description: Option<String>,
+  pub description: ScopeDescription,
   pub creator: ApiUser,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -267,7 +268,7 @@ pub enum ApiScopeOrFullScope {
 #[serde(rename_all = "camelCase")]
 pub struct ApiCreateScopeRequest {
   pub scope: ScopeName,
-  pub description: Option<String>,
+  pub description: ScopeDescription,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -979,7 +980,6 @@ pub struct ApiCreatedToken {
 #[serde(rename_all = "camelCase")]
 pub struct ApiAssignScopeRequest {
   pub scope: ScopeName,
-  pub description: Option<String>,
   pub user_id: Uuid,
 }
 
