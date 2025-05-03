@@ -7,7 +7,7 @@
 - [ ] Does the PR have changes to the frontend? If so, include screenshots or a
       recording of the changes.
       <br/>If it affect colors, please include screenshots/recording in both
-      light and darkmode.
+      light and dark mode.
 - [ ] Does the PR have changes to the backend? If so, make sure tests are added.
       <br/>And if changing dababase queries, be sure you have ran `sqlx prepare`
       and committed thechanges in the `.sqlx` directory.
