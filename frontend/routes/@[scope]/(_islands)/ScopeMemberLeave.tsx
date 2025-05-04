@@ -38,7 +38,7 @@ export function ScopeMemberLeave({
       class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-12"
     >
       <h2 class="text-lg font-semibold">Leave scope</h2>
-      <p class="mt-2 text-jsr-gray-600">
+      <p class="mt-2 text-secondary">
         Leaving this scope will revoke your access to all packages in this
         scope. You will no longer be able to publish packages to this
         scope{isAdmin && " or manage members"}.
