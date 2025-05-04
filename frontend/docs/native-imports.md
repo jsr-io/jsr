@@ -54,7 +54,7 @@ constraints in your code, you can use
 to map the `jsr:` scheme to a different prefix.
 
 In **Deno** you can do this by adding a line to the `"imports"` section in your
-`deno.json`. You can do this manually, or by using the `deno add` command:
+`deno.json(c)`. You can do this manually, or by using the `deno add` command:
 
 ```diff
  {
@@ -64,7 +64,7 @@ In **Deno** you can do this by adding a line to the `"imports"` section in your
  }
 ```
 
-You can then import packages using the alias defined in the `deno.json`:
+You can then import packages using the alias defined in the `deno.json(c)`:
 
 ```ts
 import { camelCase } from "@luca/cases";
