@@ -569,7 +569,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "forbidden", "description": "" })) // Replace "forbidden" with an actual disallowed word from your configuration
+      .body_json(json!({ "scope": "somebadword", "description": "" }))
       .call()
       .await
       .unwrap();
