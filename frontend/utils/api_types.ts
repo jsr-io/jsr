@@ -20,6 +20,7 @@ export interface FullUser extends User {
 
 export interface Scope {
   scope: string;
+  description: string | null;
   updatedAt: string;
   createdAt: string;
 }

@@ -3231,7 +3231,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 
 [[package]]
 name = "registry_api"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "ammonia",
  "anyhow",
