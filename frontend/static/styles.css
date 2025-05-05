@@ -81,6 +81,7 @@
 
     background-color: theme("colors.jsr-gray.950");
     color: theme("colors.jsr-gray.100");
+    color-scheme: only dark;
     --color-text-primary: theme("colors.jsr-gray.100");
     --color-text-secondary: theme("colors.jsr-gray.300");
     --color-text-tertiary: theme("colors.jsr-gray.400");
