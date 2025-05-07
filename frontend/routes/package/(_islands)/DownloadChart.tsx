@@ -24,7 +24,6 @@ export function DownloadChart(props: Props) {
   ) => ({
     chart: {
       type: "area",
-      stacked: true,
       animations: {
         enabled: false,
       },
