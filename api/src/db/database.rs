@@ -4453,6 +4453,44 @@ impl Database {
     Ok(Some((ticket, user, messages)))
   }
 
+  #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
+  pub async  fn get_ticket_audit_logs(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Vec<AuditLog>> {
+    let mut tx = self.pool.begin().await?;
+
+    let audit_logs = sqlx::query!(
+      r#"
+        SELECT
+          audit_logs.actor_id as "audit_actor_id",
+          audit_logs.is_sudo as "audit_is_sudo",
+          audit_logs.action as "audit_action",
+          audit_logs.meta as "audit_meta",
+          audit_logs.created_at
+        FROM
+          audit_logs
+        WHERE 
+          audit_logs.meta::text LIKE $1
+        ORDER BY audit_logs.created_at DESC;
+        "#,
+      format!("%\"ticket_id\": \"{}\"%", ticket_id),
+    )
+      .map(|r| AuditLog {
+        actor_id: r.audit_actor_id,
+        is_sudo: r.audit_is_sudo,
+        action: r.audit_action,
+        meta: r.audit_meta,
+        created_at: r.created_at,
+      })
+      .fetch_all(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(audit_logs)
+  }
+  
   #[instrument(name = "Database::ticket_add_message", skip(self), err)]
   pub async fn ticket_add_message(
     &self,

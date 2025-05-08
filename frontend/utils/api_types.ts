@@ -327,14 +327,34 @@ export interface Ticket {
   creator: User;
   meta: Record<string, string>;
   closed: boolean;
-  messages: TicketMessage[];
-  updatedAt: string;
-  createdAt: string;
-}
-
-export interface TicketMessage {
-  author: User;
-  message: string;
+  events: Array<
+    | {
+      kind: "message";
+      message: {
+        ticket_id: string;
+        author: string;
+        message: string;
+        updated_at: string;
+        created_at: string;
+      };
+      user: {
+        id: string;
+        name: string;
+        avatar_url: string;
+        github_id: number;
+        updated_at: string;
+        created_at: string;
+      };
+    }
+    | {
+      kind: "auditLog";
+      actor_id: string;
+      is_sudo: boolean;
+      action: string;
+      meta: Record<string, unknown>;
+      created_at: string;
+    }
+  >;
   updatedAt: string;
   createdAt: string;
 }

@@ -23,7 +23,9 @@ use crate::RegistryUrl;
 
 use super::ApiError;
 use super::ApiTicket;
+use super::ApiTicketOverview;
 use super::ApiTicketMessage;
+use super::ApiTicketMessageOrAuditLog;
 
 pub fn tickets_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -35,21 +37,54 @@ pub fn tickets_router() -> Router<Body, ApiError> {
 }
 
 #[instrument(name = "GET /api/tickets/:id", skip(req), err, fields(id))]
-pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicket> {
-  let id = req.param_uuid("id")?;
-  Span::current().record("id", field::display(id));
+pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
+    let id = match req.param_uuid("id") {
+        Ok(id) => id,
+        Err(_) => return Err(ApiError::MalformedRequest { msg: "Invalid ID".into() }),
+    };
+    Span::current().record("id", field::display(id));
 
-  let db = req.data::<Database>().unwrap();
-  let ticket = db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
+    let db = match req.data::<Database>() {
+        Some(db) => db,
+        None => return Err(ApiError::InternalServerError),
+    };
 
-  let iam = req.iam();
+    let ticket = match db.get_ticket(id).await {
+        Ok(Some(ticket)) => ticket,
+        Ok(None) => return Err(ApiError::TicketNotFound),
+        Err(_) => return Err(ApiError::InternalServerError),
+    };
 
-  let current_user = iam.check_current_user_access()?;
-  if current_user == &ticket.1 || iam.check_admin_access().is_ok() {
-    Ok(ticket.into())
-  } else {
-    Err(ApiError::TicketNotFound)
-  }
+    let ticket_audit = db.get_ticket_audit_logs(id).await;
+
+    let iam = req.iam();
+    let current_user = iam.check_current_user_access()?;
+
+    if current_user == &ticket.1 || iam.check_admin_access().is_ok() {
+        let mut events: Vec<ApiTicketMessageOrAuditLog> = Vec::new();
+
+        for message in ticket.2 {
+          events.push(ApiTicketMessageOrAuditLog::Message {
+              message: message.0,
+              user: message.1,
+          });
+      }
+
+        if let Ok(audit_logs) = ticket_audit {
+            for audit_log in audit_logs {
+                events.push(ApiTicketMessageOrAuditLog::AuditLog(audit_log));
+            }
+        }
+
+      events.sort_by_key(|event| match event {
+        ApiTicketMessageOrAuditLog::Message { message, .. } => message.created_at,
+        ApiTicketMessageOrAuditLog::AuditLog(log) => log.created_at,
+      });
+
+      Ok((ticket.0, ticket.1, events).into())
+    } else {
+        Err(ApiError::TicketNotFound)
+    }
 }
 
 #[instrument(name = "POST /api/tickets", skip(req), err)]
