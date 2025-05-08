@@ -60,6 +60,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserPublic {
   pub id: Uuid,
   pub name: String,
@@ -976,6 +977,7 @@ pub struct NewTicketMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TicketMessage {
   pub ticket_id: Uuid,
   pub author: Uuid,
@@ -987,6 +989,7 @@ pub struct TicketMessage {
 pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditLog {
   pub actor_id: Uuid,
   pub is_sudo: bool,

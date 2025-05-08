@@ -6,7 +6,7 @@ import { define } from "../util.ts";
 import { path } from "../utils/api.ts";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TicketTitle } from "../components/TicketTitle.tsx";
-import type { Ticket, TicketKind } from "../utils/api_types.ts";
+import type { ApiTicketOverview, TicketKind } from "../utils/api_types.ts";
 
 export default define.page<typeof handler>(function Ticket({
   data,
@@ -80,7 +80,7 @@ export default define.page<typeof handler>(function Ticket({
                       href={`/user/${message.author}`}
                     >
                       <img
-                        src={user.avatar_url}
+                        src={user.avatarUrl}
                         class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
                         alt={user.name}
                       />
@@ -97,7 +97,7 @@ export default define.page<typeof handler>(function Ticket({
                     </span>
                   </div>
                   <div>
-                    {twas(new Date(message.updated_at).getTime())}
+                    {twas(new Date(message.updatedAt).getTime())}
                   </div>
                 </div>
                 <pre class="mt-4 font-sans text-wrap">
@@ -106,24 +106,25 @@ export default define.page<typeof handler>(function Ticket({
               </div>
             );
           } else {
-            const log = event;
+            const { user, auditLog } = event;
 
             return (
               <div class="flex items-center gap-1.5">
                 <div
                   class={`w-fit ${
-                    data.ticket.closed
+                    auditLog.meta.closed
                       ? "bg-green-400 dark:bg-green-600"
                       : "bg-orange-400 dark:bg-orange-600"
                   } rounded-full p-1`}
                 >
-                  {data.ticket.closed
+                  {auditLog.meta.closed
                     ? <TbCheck class="text-white" />
                     : <TbClock class="text-white" />}
                 </div>
                 <p class="text-sm">
-                <span class="font-semibold">{log.actor_id}</span>{" "}
-                  {log.meta.closed ? "closed the ticket" : "opened the ticket"}
+                  <span class="font-semibold">{user.name}</span>{" "}
+                  {auditLog.meta.closed ? "closed" : "opened"} the ticket{" "}
+                  {twas(new Date(auditLog.createdAt).getTime())}
                 </p>
               </div>
             );
@@ -138,7 +139,11 @@ export default define.page<typeof handler>(function Ticket({
             {state.user!.email} when we respond to your ticket.
           </p>
         )}
-      <TicketMessageInput ticket={data.ticket} user={state.user!} />
+      <TicketMessageInput
+        ticketId={data.ticket.id}
+        closed={data.ticket.closed}
+        user={state.user!}
+      />
     </div>
   );
 });
@@ -171,7 +176,7 @@ export const handler = define.handlers({
   async GET(ctx) {
     const [currentUser, ticketResp] = await Promise.all([
       ctx.state.userPromise,
-      ctx.state.api.get<Ticket>(path`/tickets/${ctx.params.ticket}`),
+      ctx.state.api.get<ApiTicketOverview>(path`/tickets/${ctx.params.ticket}`),
     ]);
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");

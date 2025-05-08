@@ -5,12 +5,15 @@ import {
   AdminUpdateTicketRequest,
   FullUser,
   NewTicketMessage,
-  Ticket,
 } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 
 export function TicketMessageInput(
-  { ticket, user }: { ticket: Ticket; user: FullUser },
+  { ticketId, closed, user }: {
+    ticketId: string;
+    closed: boolean;
+    user: FullUser;
+  },
 ) {
   const [message, setMessage] = useState("");
 
@@ -21,7 +24,7 @@ export function TicketMessageInput(
         e.preventDefault();
 
         api.post(
-          path`/tickets/${ticket.id}`,
+          path`/tickets/${ticketId}`,
           {
             message,
           } satisfies NewTicketMessage,
@@ -52,9 +55,9 @@ export function TicketMessageInput(
               e.preventDefault();
 
               api.patch(
-                path`/admin/tickets/${ticket.id}`,
+                path`/admin/tickets/${ticketId}`,
                 {
-                  closed: !ticket.closed,
+                  closed: !closed,
                 } satisfies AdminUpdateTicketRequest,
               ).then((resp) => {
                 if (resp.ok) {
@@ -66,7 +69,7 @@ export function TicketMessageInput(
               });
             }}
           >
-            {ticket.closed
+            {closed
               ? (
                 <>
                   <TbClock class="text-white" /> Re-open

@@ -321,46 +321,57 @@ export interface NewTicketMessage {
   message: string;
 }
 
-export interface Ticket {
+export interface ApiTicketMessage {
+  author: User;
+  message: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface ApiAuditLog {
+  actor: User;
+  action: string;
+  isSudo: boolean;
+  meta: Record<string, unknown>;
+  createdAt: string;
+}
+
+export type ApiTicketMessageOrAuditLog =
+  | {
+    kind: "message";
+    message: ApiTicketMessage;
+    user: User;
+  }
+  | {
+    kind: "auditLog";
+    auditLog: ApiAuditLog;
+    user: User;
+  };
+
+export interface ApiTicketOverview {
   id: string;
   kind: TicketKind;
   creator: User;
   meta: Record<string, string>;
   closed: boolean;
-  events: Array<
-    | {
-      kind: "message";
-      message: {
-        ticket_id: string;
-        author: string;
-        message: string;
-        updated_at: string;
-        created_at: string;
-      };
-      user: {
-        id: string;
-        name: string;
-        avatar_url: string;
-        github_id: number;
-        updated_at: string;
-        created_at: string;
-      };
-    }
-    | {
-      kind: "auditLog";
-      actor_id: string;
-      is_sudo: boolean;
-      action: string;
-      meta: Record<string, unknown>;
-      created_at: string;
-    }
-  >;
+  events: ApiTicketMessageOrAuditLog[];
   updatedAt: string;
   createdAt: string;
 }
 
 export interface AdminUpdateTicketRequest {
   closed?: boolean;
+}
+
+export interface ApiTicket {
+  id: string;
+  kind: TicketKind;
+  creator: User;
+  meta: Record<string, string>;
+  closed: boolean;
+  messages: ApiTicketMessage[];
+  updatedAt: string;
+  createdAt: string;
 }
 
 export interface AuditLog {

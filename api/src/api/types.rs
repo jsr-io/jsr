@@ -989,15 +989,18 @@ pub struct ApiPackageDownloadsRecentVersion {
   pub downloads: Vec<ApiDownloadDataPoint>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum ApiTicketMessageOrAuditLog {
-    Message {
-        message: TicketMessage,
-        user: UserPublic,
-    },
-    AuditLog(AuditLog),
+  Message {
+    message: TicketMessage,
+    user: UserPublic,
+  },
+  #[serde(rename_all = "camelCase")]
+  AuditLog {
+    audit_log: AuditLog,
+    user: UserPublic,
+  },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1013,7 +1016,9 @@ pub struct ApiTicketOverview {
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)> for ApiTicketOverview {
+impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
+  for ApiTicketOverview
+{
   fn from(
     (value, user, events): (Ticket, User, Vec<ApiTicketMessageOrAuditLog>),
   ) -> Self {
@@ -1023,7 +1028,7 @@ impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)> for ApiTicketOverview
       creator: user.into(),
       meta: value.meta,
       closed: value.closed,
-      events: events,
+      events,
       updated_at: value.updated_at,
       created_at: value.created_at,
     }
