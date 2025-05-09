@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { TbCheck, TbClock } from "tb-icons";
 import {
   AdminUpdateTicketRequest,
@@ -13,12 +13,28 @@ export function TicketMessageInput(
   { ticket, user }: { ticket: Ticket; user: FullUser },
 ) {
   const [message, setMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (error) {
+      const timeout = setTimeout(() => {
+        setError(null);
+      }, 3000); // 3 seconds
+
+      return () => clearTimeout(timeout);
+    }
+  }, [error]);
 
   return (
     <form
       class="space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
+
+        if (message.trim() === "") {
+          setError("Message cannot be empty");
+          return;
+        }
 
         api.post(
           path`/tickets/${ticket.id}`,
@@ -42,7 +58,14 @@ export function TicketMessageInput(
         placeholder="Type your message here..."
         onChange={(e) => setMessage(e.currentTarget!.value)}
       />
-      <div class="flex justify-end gap-4">
+      <div class="flex justify-end gap-4 items-center">
+        {error && (
+          <div class="text-red-500 font-semibold">
+            <p>
+              {error}
+            </p>
+          </div>
+        )}
         <button type="submit" class="button-primary">Send message</button>
         {user.isStaff && (
           <button
