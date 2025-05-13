@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
 import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
+import { useSignal } from "@preact/signals";
 
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
@@ -16,13 +17,13 @@ export function UserMenu({ user, sudo, logoutUrl }: {
   sudo: boolean;
   logoutUrl: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const open = useSignal(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function outsideClick(e: Event) {
       if (ref.current && !ref.current.contains(e.target as Element)) {
-        setOpen(false);
+        open.value = false;
       }
     }
     document.addEventListener("click", outsideClick);
@@ -37,8 +38,8 @@ export function UserMenu({ user, sudo, logoutUrl }: {
         id={`${prefix}-user-menu`}
         class="flex items-center rounded-full focus-visible:ring-2 ring-inset outline-none *:focus-visible:ring-jsr-cyan-400 *:focus-visible:ring-offset-1"
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open ? "true" : "false"}
+        onClick={() => open.value = !open.value}
+        aria-expanded={open.value ? "true" : "false"}
       >
         {(user.inviteCount + user.newerTicketMessagesCount) !== 0 && (
           <div class="absolute rounded-full bg-orange-600 border-2 box-content border-white dark:border-jsr-gray-950 -top-0.5 -right-0.5 h-2 w-2" />
@@ -53,7 +54,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
         aria-labelledby={`${prefix}-user-menu`}
         role="region"
         class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
-          open
+          open.value
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-5 pointer-events-none"
         } transition`}
@@ -101,7 +102,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
                   location.reload();
                 }
               }}
-              tabIndex={open ? undefined : -1}
+              tabIndex={open.value ? undefined : -1}
               class="bg-red-600 hover:bg-red-400 text-white text-sm py-1 px-3 flex justify-between items-center gap-3 rounded-full mt-2"
             >
               {sudo ? "Disable" : "Enable"} Sudo Mode
@@ -111,7 +112,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
         <div class="divide-y divide-slate-200 dark:divide-jsr-gray-900">
           <a
             href="/new"
-            tabIndex={open ? undefined : -1}
+            tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black text-jsr-gray-950`}
           >
             <TbPlus class="size-5" />
@@ -119,7 +120,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           </a>
           <a
             href={`/user/${user.id}`}
-            tabIndex={open ? undefined : -1}
+            tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
           >
             <TbUser class="size-5" />
@@ -128,7 +129,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           {user.isStaff && (
             <a
               href="/admin"
-              tabIndex={open ? undefined : -1}
+              tabIndex={open.value ? undefined : -1}
               class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
             >
               <TbUserCog class="size-5" />
@@ -137,7 +138,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
           )}
           <a
             href={`/logout?redirect=${logoutUrl}`}
-            tabIndex={open ? undefined : -1}
+            tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} ${DEFAULT_ITEM_CLASSES}`}
           >
             <TbLogout class="size-5" />

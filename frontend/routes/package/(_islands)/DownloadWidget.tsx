@@ -1,12 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import type { DownloadDataPoint } from "../../../utils/api_types.ts";
 import {
   type AggregationPeriod,
   collectX,
   normalize,
 } from "./DownloadChart.tsx";
+import { useSignal } from "@preact/signals";
 
 interface Props {
   downloads: DownloadDataPoint[];
@@ -33,10 +34,10 @@ export function DownloadWidget(props: Props) {
     }
   }
 
-  const [hoveredDataPoint, setHoveredDataPoint] = useState<
-    { date: number; data: number } | null
-  >(null);
-  const [graphRendered, setGraphRendered] = useState(false);
+  const hoveredDataPoint = useSignal<{ date: number; data: number } | null>(
+    null,
+  );
+  const graphRendered = useSignal(false);
 
   useEffect(() => {
     // deno-lint-ignore no-explicit-any
@@ -64,17 +65,17 @@ export function DownloadWidget(props: Props) {
           sparkline: { enabled: true },
           events: {
             mouseLeave() {
-              setHoveredDataPoint(null);
+              hoveredDataPoint.value = null;
             },
           },
         },
         tooltip: {
           custom: ({ dataPointIndex }: { dataPointIndex: number }) => {
             const hoveredData = data[dataPointIndex];
-            setHoveredDataPoint({
+            hoveredDataPoint.value = {
               date: hoveredData[0],
               data: hoveredData[1],
-            });
+            };
             return "";
           },
         },
@@ -120,7 +121,7 @@ export function DownloadWidget(props: Props) {
         },
       });
       chart.render();
-      setGraphRendered(true);
+      graphRendered.value = true;
     })();
     return () => {
       chart.destroy();
@@ -136,24 +137,24 @@ export function DownloadWidget(props: Props) {
         class="font-mono text-xs space-y-2 z-10 text-nowrap"
         style={{ width: `${max.toString().length + 1}ch` }}
       >
-        {graphRendered && (
+        {graphRendered.value && (
           <>
             <div>
-              {hoveredDataPoint
+              {hoveredDataPoint.value
                 ? `${
-                  new Date(hoveredDataPoint.date).toISOString()
+                  new Date(hoveredDataPoint.value.date).toISOString()
                     .split("T")[0]
                 } to ${
                   new Date(
-                    hoveredDataPoint.date + 6 * 24 * 60 * 60 * 1000,
+                    hoveredDataPoint.value.date + 6 * 24 * 60 * 60 * 1000,
                   ).toISOString()
                     .split("T")[0]
                 }`
                 : "Weekly downloads"}
             </div>
             <div>
-              {hoveredDataPoint
-                ? hoveredDataPoint.data.toLocaleString()
+              {hoveredDataPoint.value
+                ? hoveredDataPoint.value.data.toLocaleString()
                 : data.at(-1)![1].toLocaleString()}
             </div>
           </>
