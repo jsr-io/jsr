@@ -34,7 +34,9 @@ export function DownloadWidget(props: Props) {
     }
   }
 
-  const hoveredDataPoint = useSignal<{ date: number; data: number } | null>(null);
+  const hoveredDataPoint = useSignal<{ date: number; data: number } | null>(
+    null,
+  );
   const graphRendered = useSignal(false);
 
   useEffect(() => {

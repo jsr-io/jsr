@@ -108,7 +108,7 @@ export function TicketModal(
               meta,
             };
 
-            status.value = "submitting"
+            status.value = "submitting";
 
             api.post<Ticket>(path`/tickets`, data).then((res) => {
               if (res.ok) {
@@ -202,7 +202,9 @@ export function TicketModal(
                     <>
                       <div>
                         The ticket was submitted. You can view it{" "}
-                        <a href={`/ticket/${ticket.value!.id}`} class="link">here</a>
+                        <a href={`/ticket/${ticket.value!.id}`} class="link">
+                          here
+                        </a>
                       </div>
                       <button
                         type="button"

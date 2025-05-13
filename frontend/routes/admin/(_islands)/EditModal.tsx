@@ -126,7 +126,7 @@ export function EditModal(
               return;
             }
 
-            status.value = "submitting"
+            status.value = "submitting";
 
             api.patch(path, data).then((res) => {
               if (res.ok) {
@@ -184,7 +184,8 @@ export function EditModal(
                           class={BASE_INPUT_STYLING}
                           value={state.value[field.name] ? "true" : "false"}
                           onChange={(event) => {
-                            state.value[field.name] = event.currentTarget.value === "true";
+                            state.value[field.name] =
+                              event.currentTarget.value === "true";
                           }}
                         >
                           <option value="true">true</option>
@@ -201,7 +202,8 @@ export function EditModal(
                           class={BASE_INPUT_STYLING}
                           value={state.value[field.name] as string}
                           onChange={(event) => {
-                            state.value[field.name] = +event.currentTarget.value;
+                            state.value[field.name] = +event.currentTarget
+                              .value;
                           }}
                         />
                       );
