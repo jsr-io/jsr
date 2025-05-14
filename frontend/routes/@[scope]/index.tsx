@@ -10,6 +10,7 @@ import { ScopePendingInvite } from "./(_components)/ScopePendingInvite.tsx";
 import { ListDisplay } from "../../components/List.tsx";
 import { PackageHit } from "../../components/PackageHit.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
+import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function ScopePackagesPage(
   { params, data, url, state },
@@ -18,15 +19,21 @@ export default define.page<typeof handler>(function ScopePackagesPage(
 
   return (
     <div class="mb-20">
+      <link hidden rel="stylesheet" href="/api/ddoc/style.css" />
+      <link hidden rel="stylesheet" href="/api/ddoc/comrak.css" />
+      <script hidden href="/api/ddoc/script.js" />
+
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Packages" iam={iam} scope={data.scope.scope} />
       <ScopePendingInvite userInvites={data.userInvites} scope={params.scope} />
       <ListDisplay
         pagination={data}
         currentUrl={url}
+        id="packageList"
       >
         {data.packages.map((entry) => PackageHit(entry))}
       </ListDisplay>
+      <div class="ddoc hidden space-y-7" id="docSearchResults" />
     </div>
   );
 });

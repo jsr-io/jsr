@@ -34,7 +34,6 @@ use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
-use std::borrow::Cow;
 use std::io;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -1248,6 +1247,8 @@ pub async fn get_docs_handler(
     readme,
     package.runtime_compat,
     registry_url,
+    None,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1257,9 +1258,6 @@ pub async fn get_docs_handler(
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
-      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
       main: docs.main,
@@ -1335,9 +1333,10 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
+    None,
   );
 
-  let search_index = deno_doc::html::generate_search_index(&ctx);
+  let search_index = deno_doc::html::search::generate_search_index(&ctx);
 
   Ok(search_index)
 }
@@ -1407,6 +1406,8 @@ pub async fn get_docs_search_html_handler(
     None,
     package.runtime_compat,
     registry_url,
+    Some(format!("{}/{}/", scope, package_name)),
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1575,9 +1576,6 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-    comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
-    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
 }

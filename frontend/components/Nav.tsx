@@ -4,6 +4,7 @@ import { NavOverflow } from "./NavOverflow.tsx";
 
 export interface NavProps {
   children?: ComponentChildren;
+  end?: ComponentChildren;
   noTopMargin?: boolean;
 }
 
@@ -13,6 +14,7 @@ export function Nav(props: NavProps) {
       class={`${
         props.noTopMargin ? "" : "mt-3"
       } border-b border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 max-w-full flex justify-between overflow-x-auto items-end`}
+      id="nav-items"
     >
       <style
         // deno-lint-ignore react-no-danger
@@ -31,12 +33,17 @@ export function Nav(props: NavProps) {
         />
       </noscript>
       <ul
-        id="nav-items"
         data-unattached
         class="flex flex-row *:border-b-0 *:rounded-b-none"
       >
         {props.children}
       </ul>
+      {props.end && <ul
+        data-unattached
+        class="flex flex-row items-center *:border-b-0 *:rounded-b-none"
+      >
+        {props.end}
+      </ul>}
       <NavOverflow />
     </nav>
   );

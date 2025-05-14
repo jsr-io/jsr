@@ -13,6 +13,7 @@ use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
+use deno_doc::html::search::SearchIndexNode;
 use deno_doc::DocNodeDef;
 use deno_error::JsErrorBox;
 use deno_graph::source::load_data_url;
@@ -68,7 +69,7 @@ pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
   pub module_graph_2: HashMap<String, ModuleInfo>,
   pub doc_nodes_json: Bytes,
-  pub doc_search_json: serde_json::Value,
+  pub doc_search: Vec<SearchIndexNode>,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
   pub readme_path: Option<PackagePath>,
@@ -174,7 +175,6 @@ async fn analyze_package_inner(
     jsr_url_provider: &PassthroughJsrUrlProvider,
     es_parser: Some(&module_analyzer.analyzer),
     resolver: Default::default(),
-    npm_resolver: Default::default(),
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
   });
 
@@ -252,8 +252,8 @@ async fn analyze_package_inner(
     doc_nodes,
     main_entrypoint,
     info.rewrite_map,
-    scope,
-    name,
+    scope.clone(),
+    name.clone(),
     version,
     true,
     None,
@@ -266,20 +266,33 @@ async fn analyze_package_inner(
       bun: None,
     },
     registry_url.to_string(),
+    Some(format!("{scope}/{name}/")),
   );
-  let search_index = deno_doc::html::generate_search_index(&ctx);
-  let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
-  {
-    obj.remove("nodes").unwrap()
-  } else {
-    unreachable!()
-  };
+
+  let doc_nodes = ctx
+    .doc_nodes
+    .values()
+    .flatten()
+    .map(std::borrow::Cow::Borrowed);
+  let partitions =
+    deno_doc::html::partition::partition_nodes_by_name(&ctx, doc_nodes, true);
+
+  let mut doc_search = partitions
+    .into_iter()
+    .flat_map(|(name, nodes)| {
+      deno_doc::html::search::doc_nodes_into_search_index_node(
+        &ctx, nodes, name, None,
+      )
+    })
+    .collect::<Vec<_>>();
+
+  doc_search.sort_by(|a, b| a.file.cmp(&b.file));
 
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
     doc_nodes_json,
-    doc_search_json,
+    doc_search,
     dependencies,
     npm_tarball,
     readme_path,
@@ -602,7 +615,6 @@ async fn rebuild_npm_tarball_inner(
     jsr_url_provider: &PassthroughJsrUrlProvider,
     es_parser: Some(&module_analyzer.analyzer),
     resolver: None,
-    npm_resolver: None,
     workspace_fast_check: WorkspaceFastCheckOption::Enabled(&workspace_members),
   });
 

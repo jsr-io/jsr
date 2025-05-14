@@ -9,6 +9,7 @@ import { TbFolder, TbSourceCode } from "tb-icons";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 import { format as formatBytes } from "@std/fmt/bytes";
+import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
@@ -22,20 +23,9 @@ export default define.page<typeof handler>(function PackagePage(
     <div class="mb-20">
       {data.source && (
         <>
-          <style
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
-          />
-          <style
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: data.source.css }}
-          />
-          <script
-            hidden
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: data.source.script }}
-            defer
-          />
+          <link hidden rel="stylesheet" href="/api/ddoc/style.css" />
+          <link hidden rel="stylesheet" href="/api/ddoc/comrak.css" />
+          <script hidden href="/api/ddoc/script.js" />
         </>
       )}
       <PackageHeader

@@ -143,9 +143,6 @@ export async function packageDataWithDocs(
       selectedVersion: pkgDocsResp!.data.version,
       selectedVersionIsLatestUnyanked: !version,
       docs: {
-        css: pkgDocsResp.data.css,
-        comrakCss: pkgDocsResp.data.comrakCss,
-        script: pkgDocsResp.data.script,
         breadcrumbs: pkgDocsResp.data.breadcrumbs,
         toc: pkgDocsResp.data.toc,
         main: pkgDocsResp.data.main,
@@ -198,9 +195,6 @@ export async function packageDataWithSource(
     selectedVersionIsLatestUnyanked: !version && pkgSourceResp !== null,
     source: pkgSourceResp
       ? ({
-        css: pkgSourceResp.data.css,
-        comrakCss: pkgSourceResp.data.comrakCss,
-        script: pkgSourceResp.data.script,
         source: pkgSourceResp.data.source,
       } satisfies Source)
       : null,
