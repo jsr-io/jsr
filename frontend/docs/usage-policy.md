@@ -125,7 +125,7 @@ or other laws.
 ## Reporting violations
 
 If you believe that a package on JSR violates this usage policy, please
-[contact us](mailto:report@jsr.io).
+open a ticket via the "Report Package" button located on the package page.
 
 ## Changes to this policy
 
