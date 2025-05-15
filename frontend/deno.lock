@@ -46,8 +46,9 @@
     "npm:@orama/highlight@~0.1.8": "0.1.8",
     "npm:@orama/orama@2": "2.1.1",
     "npm:@oramacloud/client@1": "1.3.20",
-    "npm:@preact/signals@1.2.1": "1.2.1_preact@10.24.3",
+    "npm:@preact/signals@1.2.1": "1.2.1_preact@10.22.1",
     "npm:@preact/signals@^1.2.3": "1.3.0_preact@10.24.3",
+    "npm:@preact/signals@^2.0.4": "2.0.4_preact@10.22.1",
     "npm:@types/node@*": "22.5.4",
     "npm:@viz-js/viz@^3.11.0": "3.11.0",
     "npm:apexcharts@^4.5.0": "4.5.0_@svgdotjs+svg.js@3.2.4_@svgdotjs+svg.select.js@4.0.2__@svgdotjs+svg.js@3.2.4",
@@ -66,13 +67,14 @@
     "npm:postcss@8.4": "8.4.47",
     "npm:postcss@8.4.35": "8.4.35",
     "npm:postmark@4.0.5": "4.0.5",
-    "npm:preact-render-to-string@6.3.1": "6.3.1_preact@10.24.3",
+    "npm:preact-render-to-string@6.3.1": "6.3.1_preact@10.22.1",
     "npm:preact-render-to-string@^6.5.11": "6.5.11_preact@10.24.3",
     "npm:preact@10": "10.24.3",
     "npm:preact@10.22.1": "10.22.1",
     "npm:preact@^10.22.1": "10.24.3",
     "npm:preact@^10.24.1": "10.24.3",
     "npm:preact@^10.25.1": "10.26.6",
+    "npm:preact@^10.26.6": "10.26.6",
     "npm:prismjs@^1.29.0": "1.29.0",
     "npm:sanitize-html@^2.13.0": "2.16.0",
     "npm:tailwindcss@3.4": "3.4.14_postcss@8.4.47",
@@ -580,11 +582,11 @@
     "@preact/signals-core@1.8.0": {
       "integrity": "sha512-OBvUsRZqNmjzCZXWLxkZfhcgT+Fk8DDcT/8vD6a1xhDemodyy87UJRJfASMuSD8FaAIeGgGm85ydXhm7lr4fyA=="
     },
-    "@preact/signals@1.2.1_preact@10.24.3": {
+    "@preact/signals@1.2.1_preact@10.22.1": {
       "integrity": "sha512-hRPvp1C2ooDzOHqfnhdpHgoIFDbYFAXLhoid3+jSItuPPD/J0r/UsiWKv/8ZO/oEhjRaP0M5niuRYsWqmY2GEA==",
       "dependencies": [
         "@preact/signals-core",
-        "preact@10.24.3"
+        "preact@10.22.1"
       ]
     },
     "@preact/signals@1.3.0_preact@10.24.3": {
@@ -592,6 +594,13 @@
       "dependencies": [
         "@preact/signals-core",
         "preact@10.24.3"
+      ]
+    },
+    "@preact/signals@2.0.4_preact@10.22.1": {
+      "integrity": "sha512-9241aGnIv7y0IGzaq2vkBMe8/0jGnnmEEUeFmAoTWsaj8q/BW2PVekL8nHVJcy69bBww6rwEy3A1tc6yPE0sJA==",
+      "dependencies": [
+        "@preact/signals-core",
+        "preact@10.22.1"
       ]
     },
     "@svgdotjs/svg.draggable.js@3.0.6_@svgdotjs+svg.js@3.2.4": {
@@ -1711,10 +1720,10 @@
         "axios"
       ]
     },
-    "preact-render-to-string@6.3.1_preact@10.24.3": {
+    "preact-render-to-string@6.3.1_preact@10.22.1": {
       "integrity": "sha512-NQ28WrjLtWY6lKDlTxnFpKHZdpjfF+oE6V4tZ0rTrunHrtZp6Dm0oFrcJalt/5PNeqJz4j1DuZDS0Y6rCBoqDA==",
       "dependencies": [
-        "preact@10.24.3",
+        "preact@10.22.1",
         "pretty-format"
       ]
     },
@@ -2142,13 +2151,12 @@
       "npm:@orama/highlight@~0.1.8",
       "npm:@orama/orama@2",
       "npm:@oramacloud/client@1",
-      "npm:@preact/signals@1.2.1",
+      "npm:@preact/signals@^2.0.4",
       "npm:@viz-js/viz@^3.11.0",
       "npm:apexcharts@^4.5.0",
       "npm:marked-smartypants@1.1.6",
       "npm:postcss@8.4",
-      "npm:preact-render-to-string@6.3.1",
-      "npm:preact@10",
+      "npm:preact@^10.26.6",
       "npm:prismjs@^1.29.0",
       "npm:tailwindcss@3.4",
       "npm:twas@^2.1.3"

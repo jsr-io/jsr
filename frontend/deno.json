@@ -19,9 +19,8 @@
     "fresh": "jsr:@fresh/core@^2.0.0-alpha.33",
     "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
 
-    "preact": "npm:preact@^10",
-    "preact-render-to-string": "npm:preact-render-to-string@6.3.1",
-    "@preact/signals": "npm:@preact/signals@1.2.1",
+    "preact": "npm:preact@^10.26.6",
+    "@preact/signals": "npm:@preact/signals@^2.0.4",
 
     "@std/path": "jsr:@std/path@1",
     "@std/http": "jsr:@std/http@1",
