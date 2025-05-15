@@ -36,6 +36,8 @@ export default define.page<typeof handler>(
 
         <GitHubRepository package={data.package} />
 
+        <SelectReadmeSourceEditor source={data.package.readmeSource} />
+
         <ArchivePackage isArchived={data.package.isArchived} />
 
         <DeletePackage hasVersions={data.package.versionCount > 0} />
@@ -100,6 +102,41 @@ function DescriptionEditor(props: { description: string }) {
       <div class="mt-4 max-w-3xl flex flex-col gap-4">
         <PackageDescriptionEditor description={props.description} />
       </div>
+    </form>
+  );
+}
+
+function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
+  return (
+    <form class="border-t pt-8 mt-12" method="POST" autocomplete="off">
+      <h2 class="text-xl font-sans font-bold" id="description">Source</h2>
+
+      <p class="mt-2 text-secondary max-w-3xl">
+        The source to use to display the content on the main page.
+      </p>
+
+      <div class="mt-4 max-w-3xl flex flex-col gap-4">
+        <select
+          name="source"
+          className="input-container input select w-full mt-4 block py-2 px-4"
+        >
+          <option value="readme" selected={props.source === "readme"}>
+            Readme
+          </option>
+          <option value="jsdoc" selected={props.source === "jsdoc"}>
+            JSDoc
+          </option>
+        </select>
+      </div>
+
+      <button
+        class="button-primary mt-8"
+        type="submit"
+        name="action"
+        value="updateReadmeSource"
+      >
+        Save changes
+      </button>
     </form>
   );
 }
@@ -348,6 +385,19 @@ export const handler = define.handlers({
         );
         if (!descriptionRes.ok) {
           throw descriptionRes;
+        }
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
+      case "updateReadmeSource": {
+        const sourceRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { readmeSource: data.get("source") },
+        );
+        if (!sourceRes.ok) {
+          throw sourceRes;
         }
         return new Response(null, {
           status: 303,
