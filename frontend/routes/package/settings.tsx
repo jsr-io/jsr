@@ -109,7 +109,7 @@ function DescriptionEditor(props: { description: string }) {
 function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
   return (
     <form class="border-t pt-8 mt-12" method="POST" autocomplete="off">
-      <h2 class="text-xl font-sans font-bold" id="description">Source</h2>
+      <h2 class="text-xl font-sans font-bold" id="description">Readme Source</h2>
 
       <p class="mt-2 text-secondary max-w-3xl">
         The source to use to display the content on the main page.
@@ -124,7 +124,7 @@ function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
             Readme
           </option>
           <option value="jsdoc" selected={props.source === "jsdoc"}>
-            JSDoc
+            JSDoc (with Readme fallback)
           </option>
         </select>
       </div>
