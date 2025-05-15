@@ -140,7 +140,7 @@ export function ScopeSymbolSearch(
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
   return (
-    <div class="flex-none justify-self-end">
+    <div class="flex-none">
       <input
         type="search"
         placeholder={placeholder}

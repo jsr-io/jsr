@@ -7,30 +7,78 @@ const NAV_OVERFLOW_SCRIPT = /* js */ `
 const navMenuEl = document.getElementById("nav-menu");
 const navItemsEl = document.getElementById("nav-items");
 const navOverflow = navMenuEl.parentElement;
+const navList = navItemsEl.querySelector("ul");
 
-const navItems = new Map();
-for (let i = 0; i < navItemsEl.children.length; i++) {
-  const el = navItemsEl.children[i];
-  navItems.set(el, el.clientWidth);
+// Get all navigation items and their original order
+const navItems = [];
+for (let i = 0; i < navList.children.length; i++) {
+  const el = navList.children[i];
+  navItems.push({
+    element: el,
+    width: el.clientWidth,
+    position: i,
+    isActive: el.hasAttribute('data-active')
+  });
 }
 
-const active = navItemsEl.querySelector("[data-active]");
-
 function updateNavItems() {
-  const navWidth = navItemsEl.parentElement.offsetWidth;
-  let sumWidth = 50 + navItems.get(active);
+  const navWidth = navItemsEl.offsetWidth - 50; // 50px for the overflow button
+  let availableWidth = navWidth;
   let displayMenu = false;
-  for (const [el, width] of navItems.entries()) {
-    if (el !== active) sumWidth += width;
-    if (sumWidth > navWidth && el !== active) {
-      displayMenu = true;
-      navMenuEl.appendChild(el);
+  
+  // First, move all non-active items to the menu
+  for (const item of navItems) {
+    if (!item.isActive) {
+      navMenuEl.appendChild(item.element);
     } else {
-      navItemsEl.appendChild(el);
+      availableWidth -= item.width;
     }
   }
+  
+  // Get items from menu and prepare for sorting
+  const menuItems = [...navMenuEl.children];
+  const itemsFromMenu = [];
+  
+  for (const el of menuItems) {
+    const itemData = navItems.find(item => item.element === el);
+    if (itemData) {
+      itemsFromMenu.push(itemData);
+    }
+  }
+  
+  itemsFromMenu.sort((a, b) => a.position - b.position);
 
+  // Add items back to navbar from left-to-right until we run out of space
+  for (const item of itemsFromMenu) {
+    if (item.width <= availableWidth) {
+      navList.appendChild(item.element);
+      availableWidth -= item.width;
+    } else {
+      displayMenu = true;
+    }
+  }
+  
   navOverflow.classList[displayMenu ? "remove" : "add"]("hidden");
+  
+  // Now sort items in the overflow menu to match the original order
+  const overflowItems = [...navMenuEl.children];
+  
+  // First remove all items from the menu
+  while (navMenuEl.firstChild) {
+    navMenuEl.removeChild(navMenuEl.firstChild);
+  }
+  
+  // Sort for menu display: in their original left-to-right order
+  overflowItems.sort((a, b) => {
+    const itemA = navItems.find(item => item.element === a);
+    const itemB = navItems.find(item => item.element === b);
+    return itemA.position - itemB.position;
+  });
+  
+  // Add them back in the correct order
+  for (const el of overflowItems) {
+    navMenuEl.appendChild(el);
+  }
 }
 
 globalThis.addEventListener("resize", () => updateNavItems());
