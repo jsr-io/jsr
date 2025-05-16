@@ -17,7 +17,15 @@ const oramaIndexId = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_INDEX_ID");
 export function ScopeNav(props: ScopeNavProps) {
   const baseUrl = `/@${props.scope}`;
   return (
-    <Nav>
+    <Nav
+      end={
+        <ScopeSymbolSearch
+          scope={props.scope}
+          indexId={oramaIndexId}
+          apiKey={oramaApiKey}
+        />
+      }
+    >
       <NavItem href={baseUrl} active={props.active === "Packages"}>
         Packages
       </NavItem>
@@ -35,13 +43,6 @@ export function ScopeNav(props: ScopeNavProps) {
           Settings
         </NavItem>
       )}
-      <div className="nav-search-item">
-        <ScopeSymbolSearch
-          scope={props.scope}
-          indexId={oramaIndexId}
-          apiKey={oramaApiKey}
-        />
-      </div>
     </Nav>
   );
 }

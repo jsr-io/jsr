@@ -1333,7 +1333,7 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
-    None,
+    Some(format!("{scope}/{package_name}/")),
   );
 
   let search_index = deno_doc::html::search::generate_search_index(&ctx);

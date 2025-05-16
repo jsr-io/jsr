@@ -3,106 +3,66 @@ import TbDots from "tb-icons/TbDots";
 
 const NAV_OVERFLOW_SCRIPT = /* js */ `
 (() => {
-"use strict";
-const navMenuEl = document.getElementById("nav-menu");
-const navItemsEl = document.getElementById("nav-items");
-const navOverflow = navMenuEl.parentElement;
-const navList = navItemsEl.querySelector("ul");
-
-// Get all navigation items and their original order
-const navItems = [];
-for (let i = 0; i < navList.children.length; i++) {
-  const el = navList.children[i];
-  navItems.push({
-    element: el,
-    width: el.clientWidth,
-    position: i,
-    isActive: el.hasAttribute('data-active')
-  });
-}
-
-function updateNavItems() {
-  const navWidth = navItemsEl.offsetWidth - 50; // 50px for the overflow button
-  let availableWidth = navWidth;
-  let displayMenu = false;
+  "use strict";
+  const navOverflowMenuEl = document.getElementById("nav-overflow-menu");
+  const navOverflowButton = navOverflowMenuEl.parentElement;
   
-  // First, move all non-active items to the menu
-  for (const item of navItems) {
-    if (!item.isActive) {
-      navMenuEl.appendChild(item.element);
-    } else {
-      availableWidth -= item.width;
+	const navItems = document.getElementById("nav-items");
+  const navItemListsEl = document.querySelectorAll("#nav-items > ul");
+  
+  const navItemsParents = new Map();
+  const navItemsWidths = new Map();
+	for (const list of navItemListsEl) {
+	  for (const el of list.children) {
+			navItemsParents.set(el, list);
+      navItemsWidths.set(el, el.clientWidth);
+	  }
+	}
+
+  const active = navItems.querySelector("[data-active]");
+
+  function updateNavItems() {
+    const navWidth = navItems.offsetWidth;
+    let sumWidth = 50 + navItemsWidths.get(active);
+    let displayOverflowMenu = false;
+    for (const [el, width] of navItemsWidths.entries()) {
+      if (el !== active) sumWidth += width;
+      if (sumWidth > navWidth && el !== active) {
+        displayOverflowMenu = true;
+        navOverflowMenuEl.appendChild(el);
+      } else {
+				let parent = navItemsParents.get(el);
+        parent.appendChild(el);
+      }
     }
+  
+    navOverflowButton.classList[displayOverflowMenu ? "remove" : "add"]("hidden");
   }
   
-  // Get items from menu and prepare for sorting
-  const menuItems = [...navMenuEl.children];
-  const itemsFromMenu = [];
-  
-  for (const el of menuItems) {
-    const itemData = navItems.find(item => item.element === el);
-    if (itemData) {
-      itemsFromMenu.push(itemData);
-    }
+  globalThis.addEventListener("resize", () => updateNavItems());
+  updateNavItems();
+  for (const list of navItemListsEl) {
+    list.removeAttribute("data-unattached");
+  }
+		
+  let open = false;
+  function renderOverflowMenuPopup() {
+    navOverflowMenuEl.setAttribute("aria-expanded", String(open));
+    navOverflowMenuEl.classList[open ? "remove" : "add"]("hidden");
   }
   
-  itemsFromMenu.sort((a, b) => a.position - b.position);
-
-  // Add items back to navbar from left-to-right until we run out of space
-  for (const item of itemsFromMenu) {
-    if (item.width <= availableWidth) {
-      navList.appendChild(item.element);
-      availableWidth -= item.width;
-    } else {
-      displayMenu = true;
-    }
-  }
-  
-  navOverflow.classList[displayMenu ? "remove" : "add"]("hidden");
-  
-  // Now sort items in the overflow menu to match the original order
-  const overflowItems = [...navMenuEl.children];
-  
-  // First remove all items from the menu
-  while (navMenuEl.firstChild) {
-    navMenuEl.removeChild(navMenuEl.firstChild);
-  }
-  
-  // Sort for menu display: in their original left-to-right order
-  overflowItems.sort((a, b) => {
-    const itemA = navItems.find(item => item.element === a);
-    const itemB = navItems.find(item => item.element === b);
-    return itemA.position - itemB.position;
-  });
-  
-  // Add them back in the correct order
-  for (const el of overflowItems) {
-    navMenuEl.appendChild(el);
-  }
-}
-
-globalThis.addEventListener("resize", () => updateNavItems());
-updateNavItems();
-navItemsEl.removeAttribute("data-unattached");
-
-let open = false;
-function renderOverflowMenuPopup() {
-  navMenuEl.setAttribute("aria-expanded", String(open));
-  navMenuEl.classList[open ? "remove" : "add"]("hidden");
-}
-
-navOverflow.addEventListener("click", () => {
-  open = !open;
-  renderOverflowMenuPopup();
-});
-
-function outsideClick(e) {
-  if (navMenuEl.contains(e.target)) {
-    open = false;
+  navOverflowButton.addEventListener("click", () => {
+    open = !open;
     renderOverflowMenuPopup();
+  });
+  
+  function outsideClick(e) {
+    if (navOverflowMenuEl.contains(e.target)) {
+      open = false;
+      renderOverflowMenuPopup();
+    }
   }
-}
-document.addEventListener("click", outsideClick);
+  document.addEventListener("click", outsideClick);
 })();
 `;
 
@@ -118,7 +78,7 @@ export function NavOverflow() {
           <TbDots class="size-6" />
         </span>
         <div
-          id="nav-menu"
+          id="nav-overflow-menu"
           class="absolute top-[120%] -right-2 z-[70] px-1 py-2 rounded border-1.5 border-current dark:border-cyan-700 bg-white dark:bg-jsr-gray-950 w-56 shadow overflow-hidden opacity-100 translate-y-0 transition [&>a]:rounded hidden"
         />
       </button>

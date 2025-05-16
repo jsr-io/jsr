@@ -4,23 +4,17 @@ import { NavOverflow } from "./NavOverflow.tsx";
 
 export interface NavProps {
   children?: ComponentChildren;
-  end?: ComponentChildren; 
+  end?: ComponentChildren;
   noTopMargin?: boolean;
 }
 
 export function Nav(props: NavProps) {
   return (
-    <nav
-      class={`${
-        props.noTopMargin ? "" : "mt-3"
-      } border-b border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 max-w-full flex justify-between overflow-x-auto items-end`}
-      id="nav-items"
-    >
+    <>
       <style
         // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{
-          __html:
-            "nav:has(#nav-items[data-unattached]) { visibility: hidden; }",
+          __html: "#nav-items:has(ul[data-unattached]) { visibility: hidden; }",
         }}
       />
       <noscript>
@@ -28,36 +22,31 @@ export function Nav(props: NavProps) {
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html:
-              "nav:has(#nav-items[data-unattached]) { visibility: visible !important }",
+              "#nav-items:has(ul[data-unattached]) { visibility: visible !important }",
           }}
         />
       </noscript>
-      <style
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{
-          __html: `
-            .nav-search-item {
-              margin-left: auto;
-              padding: 0 !important;
-              background: none !important;
-              border: none !important;
-              font-weight: normal !important;
-            }
-            .nav-search-item:hover {
-              background: none !important;
-            }
-          `,
-        }}
-      />
-      <ul
-        data-unattached
-        class="flex flex-row *:border-b-0 *:rounded-b-none w-full"
+
+      <nav
+        class={`${
+          props.noTopMargin ? "" : "mt-3"
+        } border-b border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 max-w-full flex justify-between overflow-x-auto items-stretch`}
+        id="nav-items"
       >
-        {props.children}
-      </ul>
-      {props.end && <div className="ml-auto">{props.end}</div>}
-      <NavOverflow />
-    </nav>
+        <ul data-unattached class="flex flex-row *:border-b-0 *:rounded-b-none">
+          {props.children}
+        </ul>
+        {props.end && (
+          <ul
+            data-unattached
+            class="ml-auto flex flex-row *:border-b-0 *:rounded-b-none"
+          >
+            {props.end}
+          </ul>
+        )}
+        <NavOverflow />
+      </nav>
+    </>
   );
 }
 
@@ -67,7 +56,6 @@ export interface NavItemProps {
   chip?: number;
   notification?: boolean;
   children?: ComponentChildren;
-  className?: string;
 }
 
 export function NavItem(props: NavItemProps) {
@@ -77,7 +65,7 @@ export function NavItem(props: NavItemProps) {
         props.active
           ? "bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-1 border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 font-semibold"
           : ""
-      } ${props.className || ""}`}
+      }`}
       data-active={props.active ? "true" : undefined}
       href={props.href}
     >
