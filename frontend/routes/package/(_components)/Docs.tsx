@@ -1,20 +1,24 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { PackageVersionWithUser, User } from "../../../utils/api_types.ts";
-import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
+import { PackageSymbolSearch } from "../(_islands)/PackageSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
 import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 import { TbFlag } from "tb-icons";
+import { asset } from "fresh/runtime";
 
 interface DocsProps {
   docs: Docs;
   params: Params;
   selectedVersion: PackageVersionWithUser;
+  isLatestVersion: boolean;
   showProvenanceBadge?: boolean;
   user: User | null;
   scope: string;
   pkg: string;
+  oramaIndexId?: string;
+  oramaApiKey?: string;
 }
 
 const USAGE_SELECTOR_SCRIPT = `(() => {
@@ -34,33 +38,24 @@ document.querySelector('.usages').addEventListener('change', (e) => {
 });
 })()`;
 
+const oramaApiKey = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_API_KEY");
+const oramaIndexId = Deno.env.get("ORAMA_SYMBOLS_PUBLIC_INDEX_ID");
+
 export function DocsView({
   docs,
   params,
   selectedVersion,
   showProvenanceBadge,
+  isLatestVersion,
   user,
   scope,
   pkg,
 }: DocsProps) {
   return (
     <div class="pt-6 pb-8 space-y-8">
-      <style
-        hidden
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: docs.css }}
-      />
-      <style
-        hidden
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: docs.comrakCss }}
-      />
-      <script
-        hidden
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: docs.script }}
-        defer
-      />
+      <link hidden rel="stylesheet" href="/api/ddoc/style.css" />
+      <link hidden rel="stylesheet" href="/api/ddoc/comrak.css" />
+      <script hidden href="/api/ddoc/script.js" />
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
@@ -69,6 +64,9 @@ export function DocsView({
           scope={params.scope}
           package={params.package}
           version={selectedVersion.version}
+          isLatestVersion={isLatestVersion}
+          indexId={oramaIndexId}
+          apiKey={oramaApiKey}
         />
       )}
 
@@ -176,10 +174,13 @@ export function DocsView({
             }`}
           >
             {!docs.breadcrumbs && (
-              <LocalSymbolSearch
+              <PackageSymbolSearch
                 scope={params.scope}
                 pkg={params.package}
                 version={selectedVersion.version}
+                isLatestVersion={isLatestVersion}
+                indexId={oramaIndexId}
+                apiKey={oramaApiKey}
               />
             )}
 

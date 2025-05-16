@@ -59,6 +59,9 @@ pub fn api_router() -> Router<Body, ApiError> {
       util::json(publishing_task::get_handler),
     )
     .scope("/tickets", tickets_router())
+    .get("/ddoc/style.css", util::cache(CacheDuration::ONE_MINUTE, ddoc_style_handler))
+    .get("/ddoc/comrak.css", util::cache(CacheDuration::ONE_MINUTE, ddoc_comrak_handler))
+    .get("/ddoc/script.js", util::cache(CacheDuration::ONE_MINUTE, ddoc_script_handler))
     .get("/.well-known/openapi", openapi_handler)
     .build()
     .unwrap()
@@ -71,6 +74,36 @@ async fn openapi_handler(
   let resp = Response::builder()
     .header("Content-Type", "application/x-yaml")
     .body(Body::from(openapi))
+    .unwrap();
+  Ok(resp)
+}
+
+async fn ddoc_style_handler(
+  _: hyper::Request<Body>,
+) -> util::ApiResult<Response<Body>> {
+  let resp = Response::builder()
+    .header("Content-Type", "text/css")
+    .body(Body::from(deno_doc::html::STYLESHEET))
+    .unwrap();
+  Ok(resp)
+}
+
+async fn ddoc_comrak_handler(
+  _: hyper::Request<Body>,
+) -> util::ApiResult<Response<Body>> {
+  let resp = Response::builder()
+    .header("Content-Type", "text/css")
+    .body(Body::from(deno_doc::html::comrak::COMRAK_STYLESHEET))
+    .unwrap();
+  Ok(resp)
+}
+
+async fn ddoc_script_handler(
+  _: hyper::Request<Body>,
+) -> util::ApiResult<Response<Body>> {
+  let resp = Response::builder()
+    .header("Content-Type", "application/javascript")
+    .body(Body::from(deno_doc::html::SCRIPT_JS))
     .unwrap();
   Ok(resp)
 }

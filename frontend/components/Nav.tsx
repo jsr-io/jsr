@@ -4,21 +4,17 @@ import { NavOverflow } from "./NavOverflow.tsx";
 
 export interface NavProps {
   children?: ComponentChildren;
+  end?: ComponentChildren;
   noTopMargin?: boolean;
 }
 
 export function Nav(props: NavProps) {
   return (
-    <nav
-      class={`${
-        props.noTopMargin ? "" : "mt-3"
-      } border-b border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 max-w-full flex justify-between overflow-x-auto items-end`}
-    >
+    <>
       <style
         // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{
-          __html:
-            "nav:has(#nav-items[data-unattached]) { visibility: hidden; }",
+          __html: "#nav-items:has(ul[data-unattached]) { visibility: hidden; }",
         }}
       />
       <noscript>
@@ -26,19 +22,31 @@ export function Nav(props: NavProps) {
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{
             __html:
-              "nav:has(#nav-items[data-unattached]) { visibility: visible !important }",
+              "#nav-items:has(ul[data-unattached]) { visibility: visible !important }",
           }}
         />
       </noscript>
-      <ul
+
+      <nav
+        class={`${
+          props.noTopMargin ? "" : "mt-3"
+        } border-b border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 max-w-full flex justify-between overflow-x-auto items-stretch`}
         id="nav-items"
-        data-unattached
-        class="flex flex-row *:border-b-0 *:rounded-b-none"
       >
-        {props.children}
-      </ul>
-      <NavOverflow />
-    </nav>
+        <ul data-unattached class="flex flex-row *:border-b-0 *:rounded-b-none">
+          {props.children}
+        </ul>
+        {props.end && (
+          <ul
+            data-unattached
+            class="ml-auto flex flex-row *:border-b-0 *:rounded-b-none"
+          >
+            {props.end}
+          </ul>
+        )}
+        <NavOverflow />
+      </nav>
+    </>
   );
 }
 

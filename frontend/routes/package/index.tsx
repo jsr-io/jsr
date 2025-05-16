@@ -37,6 +37,8 @@ export default define.page<typeof handler>(function PackagePage(
             docs={data.docs}
             params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            isLatestVersion={data.package.latestVersion ==
+              data.selectedVersion.version}
             user={state.user}
             scope={data.package.scope}
             pkg={data.package.name}
