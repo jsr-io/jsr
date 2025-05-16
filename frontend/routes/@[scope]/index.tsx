@@ -33,7 +33,7 @@ export default define.page<typeof handler>(function ScopePackagesPage(
       >
         {data.packages.map((entry) => PackageHit(entry))}
       </ListDisplay>
-      <div class="ddoc hidden space-y-7" id="docSearchResults" />
+      <div class="ddoc hidden space-y-7 mt-7" id="docSearchResults" />
     </div>
   );
 });

@@ -136,6 +136,10 @@ export function ScopeSymbolSearch(
     }
   });
 
+  if (!props.indexId) {
+    return null;
+  }
+
   const placeholder = `Search for symbols${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
