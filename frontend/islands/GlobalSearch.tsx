@@ -314,7 +314,7 @@ export function GlobalSearch(
           )}
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute inline-flex items-center ${sizeClasses} `}
             >
               <div class="whitespace-nowrap overflow-hidden">
                 <div ref={inputOverlayContent2Ref}>
