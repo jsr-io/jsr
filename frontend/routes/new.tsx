@@ -61,7 +61,7 @@ export default define.page<typeof handler>(function New(props) {
                   />
                 )
                 : (
-                  <div class="space-y-4 bg-jsr-gray-50 border-jsr-gray-100 p-4 rounded-xl">
+                  <div class="space-y-4 bg-jsr-gray-50 dark:bg-jsr-gray-900 border-jsr-gray-900 dark:border-jsr-gray-50 p-4 rounded-xl">
                     <p class="text-jsr-gray-700 dark:text-white">
                       You must be logged in to publish a package.
                     </p>
