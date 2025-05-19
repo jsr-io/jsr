@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef, useState } from "preact/hooks";
-import { NewTicket, Ticket, TicketKind, User } from "../utils/api_types.ts";
+import { ApiTicket, NewTicket, TicketKind, User } from "../utils/api_types.ts";
 import type { ComponentChildren } from "preact";
 import { TbLoader2 } from "tb-icons";
 import { api, path } from "../utils/api.ts";
@@ -31,7 +31,7 @@ export function TicketModal(
   const [status, setStatus] = useState<"pending" | "submitting" | "submitted">(
     "pending",
   );
-  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [ticket, setTicket] = useState<ApiTicket | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const ref = useRef<HTMLFormElement>(null);
 
@@ -111,7 +111,7 @@ export function TicketModal(
 
             setStatus("submitting");
 
-            api.post<Ticket>(path`/tickets`, data).then((res) => {
+            api.post<ApiTicket>(path`/tickets`, data).then((res) => {
               if (res.ok) {
                 setStatus("submitted");
                 setTicket(res.data);
