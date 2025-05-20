@@ -18,7 +18,7 @@ export function ScopeNav(props: ScopeNavProps) {
   const baseUrl = `/@${props.scope}`;
   return (
     <Nav
-      end={
+      end={props.active === "Packages" && (
         <div>
           <ScopeSymbolSearch
             scope={props.scope}
@@ -26,7 +26,7 @@ export function ScopeNav(props: ScopeNavProps) {
             apiKey={oramaApiKey}
           />
         </div>
-      }
+      )}
     >
       <NavItem href={baseUrl} active={props.active === "Packages"}>
         Packages
