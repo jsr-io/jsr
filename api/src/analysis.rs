@@ -276,13 +276,20 @@ async fn analyze_package_inner(
     .map(std::borrow::Cow::Borrowed);
   let partitions =
     deno_doc::html::partition::partition_nodes_by_name(&ctx, doc_nodes, true);
-  let render_ctx = deno_doc::html::RenderContext::new(&ctx, &[], deno_doc::html::UrlResolveKind::AllSymbols);
+  let render_ctx = deno_doc::html::RenderContext::new(
+    &ctx,
+    &[],
+    deno_doc::html::UrlResolveKind::AllSymbols,
+  );
 
   let mut doc_search = partitions
     .into_iter()
     .flat_map(|(name, nodes)| {
       deno_doc::html::search::doc_nodes_into_search_index_node(
-        &render_ctx, nodes, name, None,
+        &render_ctx,
+        nodes,
+        name,
+        None,
       )
     })
     .collect::<Vec<_>>();

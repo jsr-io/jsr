@@ -577,14 +577,18 @@ pub fn generate_docs_html(
           (
             render_ctx.clone(),
             {
-              let mut header = deno_doc::html::SectionHeaderCtx::new_for_all_symbols(
-                &render_ctx,
-                &path,
-              );
+              let mut header =
+                deno_doc::html::SectionHeaderCtx::new_for_all_symbols(
+                  &render_ctx,
+                  &path,
+                );
 
               if let Some(header) = &mut header {
-                if let Some(all_symbols_section_prefix) = &all_symbols_section_prefix {
-                  header.title = format!("{all_symbols_section_prefix}{}", header.title);
+                if let Some(all_symbols_section_prefix) =
+                  &all_symbols_section_prefix
+                {
+                  header.title =
+                    format!("{all_symbols_section_prefix}{}", header.title);
                 }
               }
 
