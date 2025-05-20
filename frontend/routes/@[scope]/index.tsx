@@ -10,7 +10,6 @@ import { ScopePendingInvite } from "./(_components)/ScopePendingInvite.tsx";
 import { ListDisplay } from "../../components/List.tsx";
 import { PackageHit } from "../../components/PackageHit.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
-import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function ScopePackagesPage(
   { params, data, url, state },

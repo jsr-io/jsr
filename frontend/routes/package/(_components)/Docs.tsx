@@ -6,7 +6,6 @@ import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 import { TbFlag } from "tb-icons";
-import { asset } from "fresh/runtime";
 
 interface DocsProps {
   docs: Docs;

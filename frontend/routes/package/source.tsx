@@ -9,7 +9,6 @@ import { TbFolder, TbSourceCode } from "tb-icons";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 import { format as formatBytes } from "@std/fmt/bytes";
-import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
