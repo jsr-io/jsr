@@ -19,11 +19,13 @@ export function ScopeNav(props: ScopeNavProps) {
   return (
     <Nav
       end={
-        <ScopeSymbolSearch
-          scope={props.scope}
-          indexId={oramaIndexId}
-          apiKey={oramaApiKey}
-        />
+        <div>
+          <ScopeSymbolSearch
+            scope={props.scope}
+            indexId={oramaIndexId}
+            apiKey={oramaApiKey}
+          />
+        </div>
       }
     >
       <NavItem href={baseUrl} active={props.active === "Packages"}>

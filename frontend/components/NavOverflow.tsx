@@ -51,13 +51,21 @@ const NAV_OVERFLOW_SCRIPT = /* js */ `
     navOverflowMenuEl.classList[open ? "remove" : "add"]("hidden");
   }
   
-  navOverflowButton.addEventListener("click", () => {
+  navOverflowButton.addEventListener("click", (e) => {
+    // Check if the click is on an input or if any parent up to the event currentTarget is an input
+    let el = e.target;
+    while (el && el !== e.currentTarget) {
+			console.log(el.tagName);
+      if (el.tagName === 'INPUT') return;
+      el = el.parentElement;
+    }
+		
     open = !open;
     renderOverflowMenuPopup();
   });
   
   function outsideClick(e) {
-    if (navOverflowMenuEl.contains(e.target)) {
+    if (!navOverflowMenuEl.parent.contains(e.target)) {
       open = false;
       renderOverflowMenuPopup();
     }
