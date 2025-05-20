@@ -8,11 +8,12 @@ import {
   Ticket,
 } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
+import { useSignal } from "@preact/signals";
 
 export function TicketMessageInput(
   { ticket, user }: { ticket: Ticket; user: FullUser },
 ) {
-  const [message, setMessage] = useState("");
+  const message = useSignal("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export function TicketMessageInput(
       onSubmit={(e) => {
         e.preventDefault();
 
-        if (message.trim() === "") {
+        if (message.value.trim() === "") {
           setError("Message cannot be empty");
           return;
         }
@@ -39,7 +40,7 @@ export function TicketMessageInput(
         api.post(
           path`/tickets/${ticket.id}`,
           {
-            message,
+            message: message.value,
           } satisfies NewTicketMessage,
         ).then((resp) => {
           if (resp.ok) {
@@ -56,7 +57,7 @@ export function TicketMessageInput(
         value={message}
         rows={3}
         placeholder="Type your message here..."
-        onChange={(e) => setMessage(e.currentTarget!.value)}
+        onChange={(e) => message.value = e.currentTarget!.value}
       />
       <div class="flex justify-end gap-4 items-center">
         {error && (
