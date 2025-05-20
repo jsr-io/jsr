@@ -6,6 +6,7 @@ import { TbCheck, TbCopy } from "tb-icons";
 interface CopyButtonProps {
   title: string;
   text: string;
+  class?: string;
 }
 
 export function CopyButton(props: CopyButtonProps) {
@@ -32,7 +33,9 @@ export function CopyButton(props: CopyButtonProps) {
       class={(copied.value
         ? "text-green-700 dark:text-green-500"
         : "text-jsr-gray-700 dark:text-gray-300") +
-        " hover:bg-jsr-gray-100/30 dark:hover:bg-jsr-gray-700/50 p-1.5 -mx-1.5 -my-1 rounded-full"}
+        ` hover:bg-jsr-gray-100/30 dark:hover:bg-jsr-gray-700/50 p-1.5 -mx-1.5 -my-1 rounded-full ${
+          props.class ?? ""
+        }`}
     >
       {copied.value ? <TbCheck /> : <TbCopy />}
     </button>
