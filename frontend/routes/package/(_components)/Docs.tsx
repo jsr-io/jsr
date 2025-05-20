@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import { asset } from "fresh/runtime";
 import type { PackageVersionWithUser, User } from "../../../utils/api_types.ts";
 import { PackageSymbolSearch } from "../(_islands)/PackageSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
@@ -52,9 +53,9 @@ export function DocsView({
 }: DocsProps) {
   return (
     <div class="pt-6 pb-8 space-y-8">
-      <link hidden rel="stylesheet" href="/api/ddoc/style.css" />
-      <link hidden rel="stylesheet" href="/api/ddoc/comrak.css" />
-      <script hidden href="/api/ddoc/script.js" />
+      <link hidden rel="stylesheet" href={asset("/ddoc/style.css")} />
+      <link hidden rel="stylesheet" href={asset("/ddoc/comrak.css")} />
+      <script hidden href={asset("/ddoc/script.js")} />
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky

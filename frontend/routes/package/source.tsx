@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
+import { asset } from "fresh/runtime";
 import type { SourceDirEntry } from "../../utils/api_types.ts";
 import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
@@ -22,9 +23,9 @@ export default define.page<typeof handler>(function PackagePage(
     <div class="mb-20">
       {data.source && (
         <>
-          <link hidden rel="stylesheet" href="/api/ddoc/style.css" />
-          <link hidden rel="stylesheet" href="/api/ddoc/comrak.css" />
-          <script hidden href="/api/ddoc/script.js" />
+          <link hidden rel="stylesheet" href={asset("/ddoc/style.css")} />
+          <link hidden rel="stylesheet" href={asset("/ddoc/comrak.css")} />
+          <script hidden href={asset("/ddoc/script.js")} />
         </>
       )}
       <PackageHeader

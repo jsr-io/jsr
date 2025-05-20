@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
+import { asset } from "fresh/runtime";
 import { define } from "../../util.ts";
 import type { List, Package, ScopeInvite } from "../../utils/api_types.ts";
 import { APIResponse, path } from "../../utils/api.ts";
@@ -18,9 +19,9 @@ export default define.page<typeof handler>(function ScopePackagesPage(
 
   return (
     <div class="mb-20">
-      <link hidden rel="stylesheet" href="/api/ddoc/style.css" />
-      <link hidden rel="stylesheet" href="/api/ddoc/comrak.css" />
-      <script hidden href="/api/ddoc/script.js" />
+      <link hidden rel="stylesheet" href={asset("/ddoc/style.css")} />
+      <link hidden rel="stylesheet" href={asset("/ddoc/comrak.css")} />
+      <script hidden href={asset("/ddoc/script.js")} />
 
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Packages" iam={iam} scope={data.scope.scope} />

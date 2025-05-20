@@ -58,6 +58,9 @@ jobs:
         run: cargo build --all-targets --tests
         working-directory: api
 
+      - name: Check uncommitted changes
+        run: git diff --exit-code
+
       - name: Test
         run: cargo test
         working-directory: api
