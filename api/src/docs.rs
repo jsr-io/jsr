@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::db::GithubRepository;
 use crate::db::RuntimeCompat;
+use crate::db::{GithubRepository, ReadmeSource};
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
@@ -539,6 +539,7 @@ pub fn generate_docs_html(
   readme: Option<String>,
   runtime_compat: RuntimeCompat,
   registry_url: String,
+  readme_source: ReadmeSource,
   id_prefix: Option<String>,
   all_symbols_section_prefix: Option<String>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
@@ -580,13 +581,13 @@ pub fn generate_docs_html(
                 &render_ctx,
                 &path,
               );
-              
+
               if let Some(header) = &mut header {
                 if let Some(all_symbols_section_prefix) = &all_symbols_section_prefix {
                   header.title = format!("{all_symbols_section_prefix}{}", header.title);
                 }
               }
-              
+
               header
             },
             nodes,
@@ -624,13 +625,16 @@ pub fn generate_docs_html(
       let render_ctx =
         RenderContext::new(&ctx, doc_nodes, UrlResolveKind::Root);
 
-      let mut index_module_doc = ctx
-        .main_entrypoint
-        .as_ref()
-        .map(|entrypoint| {
-          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, entrypoint)
-        })
-        .unwrap_or_default();
+      let mut index_module_doc = match readme_source {
+        ReadmeSource::JSDoc => ctx
+          .main_entrypoint
+          .as_ref()
+          .map(|entrypoint| {
+            deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, entrypoint)
+          })
+          .unwrap_or_default(),
+        ReadmeSource::Readme => Default::default(),
+      };
 
       if index_module_doc.sections.docs.is_none() {
         let markdown = readme
