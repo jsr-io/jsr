@@ -3526,15 +3526,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
         assert!(toc.is_some(), "{:?}", toc)
       }
@@ -3552,15 +3548,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("all symbols"),
           "{:?}",
@@ -3582,15 +3574,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("hello"),
           "{:?}",
@@ -3615,15 +3603,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("读取多键1"),
           "{:?}",
@@ -3644,7 +3628,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"kind":"search","nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
+      json!({"kind":"search","nodes":[{"id":"scope/foo/_namespace_hello","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"id":"scope/foo/_namespace_读取多键1","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist

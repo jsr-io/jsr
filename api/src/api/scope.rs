@@ -564,6 +564,7 @@ pub async fn get_docs_search_html_handler(
       None,
       package.runtime_compat,
       registry_url.clone(),
+      package.readme_source,
       Some(format!("{}/{}/", scope, package.name)),
       Some(format!("@{}/{}/", scope, package.name)),
     )
