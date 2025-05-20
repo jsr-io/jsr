@@ -245,6 +245,10 @@ errors!(
     status: NOT_FOUND,
     "The requested ticket was not found.",
   },
+  TicketMessageEmpty {
+    status: BAD_REQUEST,
+    "The ticket message is empty.",
+  },
   TicketMetaNotValid {
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
