@@ -62,5 +62,5 @@
       "head"
     ]
   },
-  "exclude": ["_fresh/", "**/_fresh/*"]
+  "exclude": ["_fresh/", "**/_fresh/*", "static/ddoc/*"]
 }
