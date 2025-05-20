@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { LocalSymbolSearch } from "./LocalSymbolSearch.tsx";
+import { PackageSymbolSearch } from "./PackageSymbolSearch.tsx";
 
 export interface BreadcrumbsStickyProps {
   content: string;
@@ -9,6 +9,9 @@ export interface BreadcrumbsStickyProps {
   scope: string;
   package: string;
   version: string;
+  isLatestVersion: boolean;
+  indexId?: string;
+  apiKey?: string;
 }
 
 export function BreadcrumbsSticky(
@@ -22,11 +25,7 @@ export function BreadcrumbsSticky(
       if (ref.current) {
         const rect = ref.current.getBoundingClientRect();
 
-        if (rect.top <= 0) {
-          sticky.value = true;
-        } else {
-          sticky.value = false;
-        }
+        sticky.value = rect.top <= 0;
       }
     };
 
@@ -53,11 +52,14 @@ export function BreadcrumbsSticky(
         />
 
         <div class="lg:col-[span_3/_-1]">
-          <LocalSymbolSearch
+          <PackageSymbolSearch
             scope={props.scope}
             pkg={props.package}
             version={props.version}
+            isLatestVersion={props.isLatestVersion}
             content={props.searchContent}
+            indexId={props.indexId}
+            apiKey={props.apiKey}
           />
         </div>
       </div>

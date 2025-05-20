@@ -10,15 +10,19 @@ export interface ListDisplayItem {
 }
 
 export function ListDisplay(
-  { title, pagination, currentUrl, children }: {
+  { title, pagination, currentUrl, children, id }: {
     title?: string;
     pagination?: PaginationData;
     currentUrl?: URL;
     children: ListDisplayItem[];
+    id?: string;
   },
 ) {
   return (
-    <div class="mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden">
+    <div
+      class="mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"
+      id={id}
+    >
       {title &&
         (
           <div class="px-5 py-4 border-b border-jsr-cyan-50 dark:border-jsr-cyan-900 bg-jsr-gray-50 dark:bg-jsr-gray-900 leading-none">

@@ -206,7 +206,7 @@ async fn process_publishing_task(
     npm_tarball_info,
     readme_path,
     meta,
-    doc_search_json,
+    doc_search,
   } = output;
 
   upload_version_manifest(
@@ -234,7 +234,7 @@ async fn process_publishing_task(
     orama_client.upsert_symbols(
       &publishing_task.package_scope,
       &publishing_task.package_name,
-      doc_search_json,
+      &doc_search,
     );
   }
 

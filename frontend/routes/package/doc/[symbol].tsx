@@ -34,6 +34,8 @@ export default define.page<typeof handler>(function Symbol(
         docs={data.docs}
         params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
+        isLatestVersion={data.package.latestVersion ==
+          data.selectedVersion.version}
         user={state.user}
         scope={data.package.scope}
         pkg={data.package.name}

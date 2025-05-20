@@ -34,7 +34,6 @@ use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
-use std::borrow::Cow;
 use std::io;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -847,12 +846,12 @@ pub async fn version_publish_handler(
       hash_.lock().unwrap().as_mut().unwrap().update(&bytes);
       total_size_.fetch_add(bytes.len() as u64, Ordering::SeqCst);
       if total_size_.load(Ordering::SeqCst) > MAX_PUBLISH_TARBALL_SIZE {
-        Err(io::Error::new(io::ErrorKind::Other, "Payload too large"))
+        Err(io::Error::other("Payload too large"))
       } else {
         Ok(bytes)
       }
     }
-    Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+    Err(err) => Err(io::Error::other(err)),
   });
 
   let upload_result = buckets
@@ -1262,6 +1261,8 @@ pub async fn get_docs_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1271,9 +1272,6 @@ pub async fn get_docs_handler(
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
-      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
       main: docs.main,
@@ -1349,9 +1347,10 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
+    Some(format!("{scope}/{package_name}/")),
   );
 
-  let search_index = deno_doc::html::generate_search_index(&ctx);
+  let search_index = deno_doc::html::search::generate_search_index(&ctx);
 
   Ok(search_index)
 }
@@ -1422,6 +1421,8 @@ pub async fn get_docs_search_html_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    Some(format!("{}/{}/", scope, package_name)),
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1590,9 +1591,6 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-    comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
-    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
 }
@@ -1949,6 +1947,7 @@ lazy_static::lazy_static! {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
+#[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
   registry_url: Url,
@@ -3528,15 +3527,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
         assert!(toc.is_some(), "{:?}", toc)
       }
@@ -3554,15 +3549,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("all symbols"),
           "{:?}",
@@ -3584,15 +3575,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("hello"),
           "{:?}",
@@ -3617,15 +3604,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("读取多键1"),
           "{:?}",
@@ -3646,7 +3629,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"kind":"search","nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
+      json!({"kind":"search","nodes":[{"id":"scope/foo/_namespace_hello","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"id":"scope/foo/_namespace_读取多键1","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist
