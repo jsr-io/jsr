@@ -144,6 +144,126 @@ pub enum ScopeNameValidateError {
   DoubleHyphens,
 }
 
+/// A scope description, like 'This is a user scope' or 'Admin scope'.
+/// The description must be at least 5 characters long, and at most 200 characters and can be empty.
+/// The description can contain utf-8 characters, including emoji.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ScopeDescription(String);
+
+impl ScopeDescription {
+  pub fn new(
+    description: String,
+  ) -> Result<Self, ScopeDescriptionValidateError> {
+    if description.len() > 200 {
+      return Err(ScopeDescriptionValidateError::TooLong);
+    }
+
+    if description.len() < 5 && !description.is_empty() {
+      return Err(ScopeDescriptionValidateError::TooShort);
+    }
+
+    Ok(ScopeDescription(description))
+  }
+
+  pub fn default() -> Self {
+    ScopeDescription("".to_owned())
+  }
+}
+
+impl TryFrom<&str> for ScopeDescription {
+  type Error = ScopeDescriptionValidateError;
+  fn try_from(value: &str) -> Result<Self, Self::Error> {
+    Self::new(value.to_owned())
+  }
+}
+
+impl TryFrom<String> for ScopeDescription {
+  type Error = ScopeDescriptionValidateError;
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    Self::new(value)
+  }
+}
+
+impl std::fmt::Display for ScopeDescription {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl std::fmt::Debug for ScopeDescription {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl<'a> serde::Deserialize<'a> for ScopeDescription {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: serde::Deserializer<'a>,
+  {
+    let s: String = String::deserialize(deserializer)?;
+    Self::new(s).map_err(serde::de::Error::custom)
+  }
+}
+
+impl serde::Serialize for ScopeDescription {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    self.0.serialize(serializer)
+  }
+}
+
+impl sqlx::Decode<'_, Postgres> for ScopeDescription {
+  fn decode(
+    value: PgValueRef<'_>,
+  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
+    Self::new(s).map_err(|e| Box::new(e) as _)
+  }
+}
+
+impl<'q> sqlx::Encode<'q, Postgres> for ScopeDescription {
+  fn encode_by_ref(
+    &self,
+    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
+  ) -> sqlx::encode::IsNull {
+    <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
+      &self.0, buf,
+    )
+  }
+}
+
+impl sqlx::Type<Postgres> for ScopeDescription {
+  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
+    <String as sqlx::Type<Postgres>>::type_info()
+  }
+}
+
+impl sqlx::postgres::PgHasArrayType for ScopeDescription {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
+  }
+}
+
+impl std::ops::Deref for ScopeDescription {
+  type Target = String;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum ScopeDescriptionValidateError {
+  #[error("scope description must be at most 200 characters long")]
+  TooLong,
+
+  #[error("scope description must be at least 5 character long")]
+  TooShort,
+}
+
 /// A package name, like 'foo' or 'bar'. The name is not prefixed with an @.
 /// The name must be at least 2 character long, and at most 58 characters long.
 /// The name must only contain alphanumeric characters and hyphens.

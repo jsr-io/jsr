@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -208,6 +209,7 @@ pub struct NewPublishingTask<'s> {
 #[derive(Debug)]
 pub struct Scope {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
   pub creator: Uuid,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -237,6 +239,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Scope {
   fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
     Ok(Self {
       scope: try_get_row_or(row, "scope", "scope_scope")?,
+      description: try_get_row_or(row, "description", "scope_description")?,
       creator: try_get_row_or(row, "creator", "scope_creator")?,
       updated_at: try_get_row_or(row, "updated_at", "scope_updated_at")?,
       created_at: try_get_row_or(row, "created_at", "scope_created_at")?,
