@@ -6,6 +6,7 @@ import type {
   PackageDownloadsRecentVersion,
 } from "../../../utils/api_types.ts";
 import type ApexCharts from "apexcharts";
+import { off } from "node:process";
 
 interface Props {
   downloads: PackageDownloadsRecentVersion[];
@@ -31,7 +32,8 @@ const getChartOptions = (
     foreColor: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
   },
   legend: {
-    horizontalAlign: "center",
+    horizontalAlign: "right",
+    offsetY: -1,
     position: "top",
     showForSingleSeries: true,
     labels: {
@@ -81,7 +83,7 @@ const getChartOptions = (
       breakpoint: 768,
       options: {
         legend: {
-          horizontalAlign: "left",
+          offsetY: -30,
         },
       },
     },
@@ -134,7 +136,7 @@ export function DownloadChart(props: Props) {
   return (
     <div class="relative">
       {graphRendered && (
-        <div className="absolute flex md:flex-col md:-top-4 gap-2 pt-1 text-sm pl-5 z-20">
+        <div className="absolute flex md:-top-4 gap-2 pt-4 text-sm pl-4  z-20">
           <div className="flex items-center gap-2">
             <label htmlFor="aggregationPeriod" className="text-secondary">
               Aggregation Period:
@@ -182,7 +184,16 @@ export function DownloadChart(props: Props) {
           </div>
         </div>
       )}
-      <div className="h-[300px] md:pt-0 pt-10 text-secondary">
+      <style>
+        {`
+        @media (min-width: 768px) {
+          .apexcharts-legend.apexcharts-align-right.apx-legend-position-top {
+            right: 125px !important;
+          }
+        }
+      `}
+      </style>
+      <div className="h-[300px] md:pt-0 pt-5 text-secondary">
         <div ref={chartDivRef} />
       </div>
     </div>
