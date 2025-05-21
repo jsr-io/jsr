@@ -13,98 +13,96 @@ interface Props {
 
 export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
+const getChartOptions = (
+  isDarkMode: boolean,
+): ApexCharts.ApexOptions => ({
+  chart: {
+    type: "area",
+    stacked: true,
+    animations: {
+      enabled: false,
+    },
+    height: "100%",
+    width: "100%",
+    zoom: {
+      allowMouseWheelZoom: false,
+    },
+    background: "transparent",
+    foreColor: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+  },
+  legend: {
+    horizontalAlign: "center",
+    position: "top",
+    showForSingleSeries: true,
+    labels: {
+      colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+    },
+  },
+  tooltip: {
+    theme: isDarkMode ? "dark" : "light",
+  },
+  dataLabels: {
+    enabled: false,
+  },
+  stroke: {
+    curve: "straight",
+    width: 1.7,
+  },
+  xaxis: {
+    type: "datetime",
+    tooltip: {
+      enabled: false,
+    },
+    labels: {
+      style: {
+        colors: isDarkMode ? "#ced3da" : "#515d6c", // jsr-gray-200 for dark mode, jsr-gray-600 for light
+      },
+    },
+    axisBorder: {
+      color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
+    },
+    axisTicks: {
+      color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
+    },
+  },
+  yaxis: {
+    labels: {
+      style: {
+        colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+      },
+    },
+  },
+  grid: {
+    borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
+    strokeDashArray: 3,
+  },
+  responsive: [
+    {
+      breakpoint: 768,
+      options: {
+        legend: {
+          horizontalAlign: "left",
+        },
+      },
+    },
+  ],
+});
+
 export function DownloadChart(props: Props) {
   const chartDivRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ApexCharts>(null);
   const [graphRendered, setGraphRendered] = useState(false);
-
-  const getChartOptions = (
-    isDarkMode: boolean,
-  ) => ({
-    chart: {
-      type: "area",
-      stacked: true,
-      animations: {
-        enabled: false,
-      },
-      height: "100%",
-      width: "100%",
-      zoom: {
-        allowMouseWheelZoom: false,
-      },
-      background: "transparent",
-      foreColor: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
-    },
-    legend: {
-      horizontalAlign: "center",
-      position: "top",
-      showForSingleSeries: true,
-      labels: {
-        colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
-      },
-    },
-    tooltip: {
-      items: {
-        padding: 0,
-      },
-      theme: isDarkMode ? "dark" : "light",
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    stroke: {
-      curve: "straight",
-      width: 1.7,
-    },
-    series: getSeries(props.downloads, "weekly"),
-    xaxis: {
-      type: "datetime",
-      tooltip: {
-        enabled: false,
-      },
-      labels: {
-        style: {
-          colors: isDarkMode ? "#ced3da" : "#515d6c", // jsr-gray-200 for dark mode, jsr-gray-600 for light
-        },
-      },
-      axisBorder: {
-        color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
-      },
-      axisTicks: {
-        color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
-      },
-    },
-    yaxis: {
-      labels: {
-        style: {
-          colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
-        },
-      },
-    },
-    grid: {
-      borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
-      strokeDashArray: 3,
-    },
-    responsive: [
-      {
-        breakpoint: 768,
-        options: {
-          legend: {
-            horizontalAlign: "left",
-          },
-        },
-      },
-    ],
-  });
 
   useEffect(() => {
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
       const isDarkMode = document.documentElement.classList.contains("dark");
 
+      const initialOptions = getChartOptions(isDarkMode);
+      initialOptions.series = getSeries(props.downloads, "weekly");
       chartRef.current = new ApexCharts(
         chartDivRef.current!,
-        getChartOptions(isDarkMode),
+        initialOptions,
       );
 
       chartRef.current.render();
