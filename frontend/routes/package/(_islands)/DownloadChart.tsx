@@ -1,12 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import type {
   DownloadDataPoint,
   PackageDownloadsRecentVersion,
 } from "../../../utils/api_types.ts";
 import type ApexCharts from "apexcharts";
-import { off } from "node:process";
+import { useSignal } from "@preact/signals";
 
 interface Props {
   downloads: PackageDownloadsRecentVersion[];
@@ -93,7 +93,7 @@ const getChartOptions = (
 export function DownloadChart(props: Props) {
   const chartDivRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ApexCharts>(null);
-  const [graphRendered, setGraphRendered] = useState(false);
+  const graphRendered = useSignal(false);
 
   useEffect(() => {
     (async () => {
@@ -108,7 +108,7 @@ export function DownloadChart(props: Props) {
       );
 
       chartRef.current.render();
-      setGraphRendered(true);
+      graphRendered.value = true;
 
       // Listen for theme changes
       const observer = new MutationObserver(() => {
@@ -135,7 +135,7 @@ export function DownloadChart(props: Props) {
 
   return (
     <div class="relative">
-      {graphRendered && (
+      {graphRendered.value && (
         <div className="absolute flex md:-top-4 gap-2 pt-4 text-sm pl-4  z-20">
           <div className="flex items-center gap-2">
             <label htmlFor="aggregationPeriod" className="text-secondary">
