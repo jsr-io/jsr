@@ -1248,6 +1248,16 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       );
       map.insert(
         UsageComposerEntry {
+          name: "vlt".to_string(),
+          icon: Some(
+            r#"<img src="/logos/vlt.svg" alt="vlt logo" draggable="false" />"#
+              .into(),
+          ),
+        },
+        format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
+      );
+      map.insert(
+        UsageComposerEntry {
           name: "npm".to_string(),
           icon: Some(
             r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
