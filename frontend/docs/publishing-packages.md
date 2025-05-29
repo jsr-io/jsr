@@ -101,7 +101,7 @@ export * from "./greet.ts";
 ### Importing npm packages
 
 You may import npm packages specified in the `"dependencies"` of a
-`package.json`, ones specified in an import map or `deno.json`, or ones
+`package.json`, ones specified in an import map or `deno.json(c)`, or ones
 specified in source code using `npm:` specifiers.
 
 ```json
@@ -123,7 +123,7 @@ import * as express from "npm:express@4";
 ### Importing JSR packages
 
 You may import JSR packages specified in the `"dependencies"` of a
-`package.json`, ones specified in an import map or `deno.json`, or ones
+`package.json`, ones specified in an import map or `deno.json(c)`, or ones
 specified in source code using `jsr:` specifiers.
 [Learn more about using packages.](/docs/using-packages)
 
@@ -161,13 +161,13 @@ export function readJsonFile(path: string) {
 
 You may use a dependency manifest like a `package.json`, or an
 [import map](https://docs.deno.com/runtime/manual/basics/import_maps) (like the
-`deno.json` file) to simplify your imports. During publishing, `jsr publish` /
-`deno publish` will automatically rewrite the specifiers in your source code to
-fully qualified specifiers that do not require an import map / `package.json`
+`deno.json(c)` file) to simplify your imports. During publishing, `jsr publish`
+/ `deno publish` will automatically rewrite the specifiers in your source code
+to fully qualified specifiers that do not require an import map / `package.json`
 anymore.
 
 ```json
-// import_map.json / deno.json
+// import_map.json / deno.json(c)
 {
   "imports": {
     "@luca/greet": "jsr:@luca/greet@1",
@@ -201,10 +201,10 @@ consumers of your package.
 After you have written your code, you must add a config file to your package.
 This file contains package metadata like the name, version, and entrypoint(s).
 This file should be named `jsr.json`. Deno users can also include the required
-JSR properties in their `deno.json` to avoid having to create another file.
+JSR properties in their `deno.json(c)` to avoid having to create another file.
 
 ```json
-// jsr.json / deno.json
+// jsr.json / deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
@@ -346,16 +346,16 @@ jobs:
 
 This workflow will run every time you push to the `main` branch of your
 repository. It will publish your package to JSR, and will automatically use the
-correct version number based on the version in your `jsr.json` file.
-`jsr publish` will not attempt to publish if the version specified in your
-`jsr.json` file is already published to JSR.
+correct version number based on the version in your `jsr.json`/`deno.json(c)`
+file. `jsr publish` will not attempt to publish if the version specified in your
+`jsr.json`/`deno.json(c)` file is already published to JSR.
 
 ## Filtering files
 
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
 root of your package. Additionally, you can specify the `include` and `exclude`
-fields in your `jsr.json` / `deno.json` file to include, ignore, or un-gitignore
-specific files.
+fields in your `jsr.json` / `deno.json(c)` file to include, ignore, or
+un-gitignore specific files.
 
 For example, to only selectively include certain files, you can specify a glob
 that matches all files by using the `include` option:
@@ -398,13 +398,13 @@ You may also exclude certain files via the `exclude` option:
 }
 ```
 
-When using Deno, the `include` and `exclude` options in `deno.json` are used for
-many other Deno subcommands as well, such as `deno test`, `deno lint` and
+When using Deno, the `include` and `exclude` options in `deno.json(c)` are used
+for many other Deno subcommands as well, such as `deno test`, `deno lint` and
 `deno fmt`. You can use `publish.include` and `publish.exclude` in your
-`deno.json` file to specify options that only apply to `deno publish`.
+`deno.json(c)` file to specify options that only apply to `deno publish`.
 
 ```json
-// deno.json
+// deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
@@ -431,7 +431,7 @@ be ignored when publishing.
 This may however be inconvenient if you want to publish the `dist/` directory,
 because you have `"exports"` pointing to it (or a subdirectory of it). In this
 case, you can un-ignore the `dist/` directory by using a negation in the
-`exclude` field in your `jsr.json` / `deno.json` file.
+`exclude` field in your `jsr.json` / `deno.json(c)` file.
 
 ```json
 // jsr.json

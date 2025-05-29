@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { TbCheck, TbClock } from "tb-icons";
 import {
   AdminUpdateTicketRequest,
@@ -8,11 +8,23 @@ import {
   Ticket,
 } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
+import { useSignal } from "@preact/signals";
 
 export function TicketMessageInput(
   { ticket, user }: { ticket: Ticket; user: FullUser },
 ) {
-  const [message, setMessage] = useState("");
+  const message = useSignal("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (error) {
+      const timeout = setTimeout(() => {
+        setError(null);
+      }, 3000); // 3 seconds
+
+      return () => clearTimeout(timeout);
+    }
+  }, [error]);
 
   return (
     <form
@@ -20,10 +32,15 @@ export function TicketMessageInput(
       onSubmit={(e) => {
         e.preventDefault();
 
+        if (message.value.trim() === "") {
+          setError("Message cannot be empty");
+          return;
+        }
+
         api.post(
           path`/tickets/${ticket.id}`,
           {
-            message,
+            message: message.value,
           } satisfies NewTicketMessage,
         ).then((resp) => {
           if (resp.ok) {
@@ -40,9 +57,16 @@ export function TicketMessageInput(
         value={message}
         rows={3}
         placeholder="Type your message here..."
-        onChange={(e) => setMessage(e.currentTarget!.value)}
+        onChange={(e) => message.value = e.currentTarget!.value}
       />
-      <div class="flex justify-end gap-4">
+      <div class="flex justify-end gap-4 items-center">
+        {error && (
+          <div class="text-red-500 font-semibold">
+            <p>
+              {error}
+            </p>
+          </div>
+        )}
         <button type="submit" class="button-primary">Send message</button>
         {user.isStaff && (
           <button

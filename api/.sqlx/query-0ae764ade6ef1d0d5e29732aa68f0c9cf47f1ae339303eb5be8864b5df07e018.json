@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET runtime_compat = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
+  "query": "\n      INSERT INTO packages (scope, name)\n      VALUES ($1, $2)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"latest_version\"\n      ",
   "describe": {
     "columns": [
       {
@@ -30,31 +30,46 @@
       },
       {
         "ordinal": 5,
+        "name": "readme_source: ReadmeSource",
+        "type_info": {
+          "Custom": {
+            "name": "package_readme_source",
+            "kind": {
+              "Enum": [
+                "readme",
+                "jsdoc"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "when_featured",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "is_archived",
         "type_info": "Bool"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "version_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "latest_version",
         "type_info": "Text"
       }
@@ -62,8 +77,7 @@
     "parameters": {
       "Left": [
         "Text",
-        "Text",
-        "Jsonb"
+        "Text"
       ]
     },
     "nullable": [
@@ -71,6 +85,7 @@
       false,
       false,
       true,
+      false,
       false,
       true,
       false,
@@ -80,5 +95,5 @@
       null
     ]
   },
-  "hash": "0e6453194ba94b386880a6909a099cbc3fabdcbcf560da4837c327d0772d5344"
+  "hash": "0ae764ade6ef1d0d5e29732aa68f0c9cf47f1ae339303eb5be8864b5df07e018"
 }

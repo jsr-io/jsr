@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+// deno-lint-ignore-file react-no-danger
 import { HttpError, RouteConfig } from "fresh";
 import type { FullUser, Package } from "../../utils/api_types.ts";
 import { define } from "../../util.ts";
@@ -57,8 +58,8 @@ export default define.page<typeof handler>(function PackagePage({
                   fields to your config file:
                 </p>
                 <div class="mt-2 -mb-2">
-                  <div class="bg-jsr-gray-700 dark:bg-jsr-gray-900 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
-                    jsr.json / deno.json
+                  <div class="bg-jsr-gray-700 text-white rounded-t font-mono text-sm px-2 py-0.5 inline-block select-none">
+                    jsr.json / deno.json(c)
                   </div>
                 </div>
                 <pre class="bg-slate-900 dark:bg-slate-800 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
@@ -160,6 +161,25 @@ export default define.page<typeof handler>(function PackagePage({
   );
 });
 
+const WORKFLOW_CODE = `\
+name: Publish
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>permissions:</span>
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  contents: read</span>
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  id-token: write</span>
+    steps:
+      - uses: actions/checkout@v4
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  - name: Publish package</span>
+    <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>    run: npx jsr publish</span>
+`;
+
 function GitHubActions({ pkg, canEdit, user }: {
   pkg: Package;
   canEdit: boolean;
@@ -244,27 +264,15 @@ function GitHubActions({ pkg, canEdit, user }: {
           title="Copy workflow path"
         />
       </div>
-      <pre class="bg-slate-900 dark:bg-slate-800 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto">
-        <code>
-          {`\
-name: Publish
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-\n`}
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`    permissions:\n`}</span>
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`      contents: read\n`}</span>
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`      id-token: write\n`}</span>
-          {`
-    steps:
-      - uses: actions/checkout@v4\n\n`}
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`      - name: Publish package\n`}</span>
-          <span class="bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]">{`        run: npx jsr publish\n`}</span>
+      <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto relative">
+      	<div class="bg-white dark:bg-jsr-gray-900 text-white rounded p-0.5 absolute top-2 right-2 z-1 size-8 flex justify-center items-center">
+		<CopyButton
+		  text={WORKFLOW_CODE.replace(/<[^>]+>/g, '')}
+		  title="Copy workflow code"
+		/>
+	</div>
+        <code
+          dangerouslySetInnerHTML={{__html: WORKFLOW_CODE}}>
         </code>
       </pre>
 

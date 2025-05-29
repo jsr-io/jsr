@@ -80,7 +80,7 @@ like the name, version, and entrypoint(s). The
 modules should be importable by users of your package.
 
 ```json
-// jsr.json / deno.json
+// jsr.json / deno.json(c)
 {
   "name": "@luca/greet",
   "version": "1.0.0",
