@@ -117,6 +117,10 @@ pub async fn post_message_handler(
     return Err(ApiError::TicketNotFound);
   }
 
+  if new_message.message.is_empty() {
+    return Err(ApiError::TicketMessageEmpty);
+  }
+
   let (message, message_author) = db
     .ticket_add_message(id, current_user.id, new_message)
     .await?;
