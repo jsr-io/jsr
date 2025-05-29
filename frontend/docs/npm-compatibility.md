@@ -19,9 +19,10 @@ downloaded from jsr.io and installed in your `node_modules` directory.
 
 ## Installing and using JSR packages
 
-If you are using a recent version of pnpm (10.9+) or Yarn (4.9+), you can
-install JSR packages using `pnpm install` or `yarn add` without any additional
-configuration. These versions of pnpm and Yarn both support JSR out of the box.
+If you are using a recent version of pnpm (10.9+), Yarn (4.9+) or vlt, you can
+install JSR packages using `pnpm install`, `yarn add` or `vlt install` without
+any additional configuration. These versions of pnpm and Yarn both support JSR
+out of the box.
 
 ```sh
 pnpm install jsr:@luca/cases
@@ -29,6 +30,10 @@ pnpm install jsr:@luca/cases
 
 ```sh
 yarn add jsr:@luca/cases
+```
+
+```sh
+vlt install jsr:@luca/cases
 ```
 
 If you are using npm, an older version of pnpm or Yarn, or Bun, you can use the
@@ -88,9 +93,9 @@ from npm.
 
 The `@jsr` npm scope is served from the JSR registry at `https://npm.jsr.io`.
 
-Recent versions of `yarn` and `pnpm` automatically configure pull packages in
-the `@jsr` scope from `https://npm.jsr.io`, so you don't need to do anything
-special to use JSR packages with these package managers.
+Recent versions of `yarn`, `pnpm` and `vlt` automatically configure pull
+packages in the `@jsr` scope from `https://npm.jsr.io`, so you don't need to do
+anything special to use JSR packages with these package managers.
 
 For other package managers, and older versions of `yarn` and `pnpm`, you need to
 configure your package manager to use the JSR registry to install JSR packages.
