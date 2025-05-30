@@ -436,7 +436,7 @@ pub struct PackageVersionMeta {
   pub has_readme_examples: bool,
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
-  pub all_fast_check: bool,
+  pub all_fast_check: bool, // mean no slow types
   pub has_provenance: bool,
 }
 
