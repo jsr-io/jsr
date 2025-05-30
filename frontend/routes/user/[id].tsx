@@ -2,7 +2,7 @@
 import { HttpError } from "fresh";
 import { define } from "../../util.ts";
 import { path } from "../../utils/api.ts";
-import { FullUser, Scope, User } from "../../utils/api_types.ts";
+import { FullUser, Package, Scope, User } from "../../utils/api_types.ts";
 import { ListPanel } from "../../components/ListPanel.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
 
@@ -32,14 +32,27 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
             </div>
           )}
 
-        {
-          /*<div>
-          <span class="font-semibold">Recently published</span>
-          <div class="text-tertiary text-base"
-            TODO: all packages recently published by this user
-          </div>
-        </div>*/
-        }
+        {data.packages.length > 0
+          ? (
+            <ListPanel
+              title="Recently published"
+              subtitle={state.user?.id === data.user.id
+                ? "Packages you have published."
+                : "Packages this user has published."}
+              // deno-lint-ignore jsx-no-children-prop
+              children={data.packages.map((pkg) => ({
+                value: `@${pkg.scope}/${pkg.name}`,
+                href: `/@${pkg.scope}/${pkg.name}`,
+              }))}
+            />
+          )
+          : (
+            <div class="p-3 text-jsr-gray-500 text-center italic">
+              {state.user?.id === data.user.id ? "You have" : "This user has"}
+              {" "}
+              not published any packages recently.
+            </div>
+          )}
       </div>
     </AccountLayout>
   );
@@ -47,10 +60,11 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const [currentUser, userRes, scopesRes] = await Promise.all([
+    const [currentUser, userRes, scopesRes, packagesRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<User>(path`/users/${ctx.params.id}`),
       ctx.state.api.get<Scope[]>(path`/users/${ctx.params.id}/scopes`),
+      ctx.state.api.get<Package[]>(path`/users/${ctx.params.id}/packages`),
     ]);
     if (currentUser instanceof Response) return currentUser;
 
@@ -62,6 +76,7 @@ export const handler = define.handlers({
       throw userRes; // gracefully handle errors
     }
     if (!scopesRes.ok) throw scopesRes; // gracefully handle errors
+    if (!packagesRes.ok) throw packagesRes; // gracefully handle errors
 
     let user: User | FullUser = userRes.data;
     if (ctx.params.id === currentUser?.id) {
@@ -75,6 +90,7 @@ export const handler = define.handlers({
       data: {
         user,
         scopes: scopesRes.data,
+        packages: packagesRes.data,
       },
     };
   },
