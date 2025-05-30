@@ -126,7 +126,7 @@ export function ScopeSelect(
   return (
     <>
       <select
-        class="w-full mt-4 block py-2 px-4 input-container input select"
+        class="w-full mt-4 block py-2 px-4 input-container input select dark:bg-jsr-gray-900"
         onChange={(e) => scope.value = e.currentTarget.value}
         value={scope}
         disabled={locked}

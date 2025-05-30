@@ -1,13 +1,12 @@
 # This Dockerfile is adapted from https://whitfin.io/blog/speeding-up-rust-docker-builds/
 
-FROM rust:1.83 as build
+FROM rust:bookworm AS build
 
 # create a new empty shell project
 RUN USER=root cargo new --bin registry_api
 WORKDIR /registry_api
 
 # copy over your manifests
-COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
 # this build step will cache your dependencies
@@ -24,7 +23,7 @@ RUN rm ./target/release/deps/registry_api*
 RUN cargo build --release
 
 # our final base
-FROM debian:bookworm-20230703-slim
+FROM debian:bookworm-20250428-slim
 
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 

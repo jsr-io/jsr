@@ -491,6 +491,19 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
       Ok(ApiPackage::from((package, repo, meta)))
     }
+    ApiUpdatePackageRequest::ReadmeSource(source) => {
+      let package = db
+        .update_package_source(
+          &user.id,
+          sudo,
+          &scope,
+          &package_name,
+          source.into(),
+        )
+        .await?;
+
+      Ok(ApiPackage::from((package, repo, meta)))
+    }
   }
 }
 
@@ -1248,6 +1261,7 @@ pub async fn get_docs_handler(
     readme,
     package.runtime_compat,
     registry_url,
+    package.readme_source,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1407,6 +1421,7 @@ pub async fn get_docs_search_html_handler(
     None,
     package.runtime_compat,
     registry_url,
+    package.readme_source,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -2358,7 +2373,6 @@ mod test {
   use indexmap::IndexSet;
   use serde_json::json;
 
-  use crate::api::ApiDependency;
   use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
@@ -2372,6 +2386,7 @@ mod test {
   use crate::api::ApiSource;
   use crate::api::ApiSourceDirEntry;
   use crate::api::ApiSourceDirEntryKind;
+  use crate::api::{ApiDependency, ApiReadmeSource};
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
   use crate::db::ExportsMap;
@@ -3257,6 +3272,67 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     let package: ApiPackage = resp.expect_ok().await;
     assert!(package.when_featured.is_none());
+  }
+
+  #[tokio::test]
+  async fn update_package_readme_source() {
+    let mut t = TestSetup::new().await;
+
+    let scope = t.scope.scope.clone();
+
+    let name = PackageName::try_from("foo").unwrap();
+    let res = t
+      .ephemeral_database
+      .create_package(&scope, &name)
+      .await
+      .unwrap();
+    assert!(matches!(res, CreatePackageResult::Ok(_)));
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert_eq!(package.readme_source, ApiReadmeSource::JSDoc);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "readmeSource": "readme"
+      }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert_eq!(package.readme_source, ApiReadmeSource::Readme);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({
+        "readmeSource": "jsdoc"
+      }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert_eq!(package.readme_source, ApiReadmeSource::JSDoc);
+
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo2")
+      .body_json(json!({
+        "readmeSource": "readme"
+      }))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
+      .await;
   }
 
   #[tokio::test]

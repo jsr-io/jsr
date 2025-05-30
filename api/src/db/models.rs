@@ -348,6 +348,15 @@ pub struct Package {
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub readme_source: ReadmeSource,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::Type, Serialize, Deserialize)]
+#[sqlx(type_name = "package_readme_source", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum ReadmeSource {
+  Readme,
+  JSDoc,
 }
 
 impl FromRow<'_, sqlx::postgres::PgRow> for Package {
@@ -384,6 +393,11 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Package {
         "package_when_featured",
       )?,
       is_archived: try_get_row_or(row, "is_archived", "package_is_archived")?,
+      readme_source: try_get_row_or(
+        row,
+        "readme_source",
+        "package_readme_source",
+      )?,
     })
   }
 }

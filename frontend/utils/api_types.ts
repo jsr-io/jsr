@@ -123,7 +123,10 @@ export interface Package {
   latestVersion: string | null;
   whenFeatured: string | null;
   isArchived: boolean;
+  readmeSource: ReadmeSource;
 }
+
+export type ReadmeSource = "readme" | "jsdoc";
 
 export interface PackageVersion {
   scope: string;

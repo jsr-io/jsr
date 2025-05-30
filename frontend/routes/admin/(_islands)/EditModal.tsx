@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef } from "preact/hooks";
 import { TbLoader2 } from "tb-icons";
 import { api, APIPath } from "../../../utils/api.ts";
+import { useSignal } from "@preact/signals";
 
 interface FieldBase {
   name: string;
@@ -43,11 +44,9 @@ export function EditModal(
     fields: Field[];
   },
 ) {
-  const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<"pending" | "submitting">(
-    "pending",
-  );
-  const [state, setState] = useState(
+  const open = useSignal(false);
+  const status = useSignal<"pending" | "submitting">("pending");
+  const state = useSignal(
     Object.fromEntries(fields.map((field) => [field.name, field.value])),
   );
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -59,7 +58,7 @@ export function EditModal(
         (ref.current && !ref.current.contains(e.target as Element)) &&
         (buttonRef.current && !buttonRef.current.contains(e.target as Element))
       ) {
-        setOpen(false);
+        open.value = false;
       }
     }
     document.addEventListener("click", outsideClick);
@@ -67,9 +66,9 @@ export function EditModal(
   }, []);
 
   useEffect(() => {
-    if (!open && status !== "pending") {
+    if (!open.value && status.value !== "pending") {
       setTimeout(() => {
-        setStatus("pending");
+        status.value = "pending";
       }, 200);
     }
   }, [open]);
@@ -83,14 +82,14 @@ export function EditModal(
         id={`${prefix}-edit-modal`}
         class={`button-${style}`}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open ? "true" : "false"}
+        onClick={() => open.value = !open.value}
+        aria-expanded={open.value ? "true" : "false"}
       >
         edit
       </button>
       <div
         class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-950/70 z-[80] flex justify-center items-center overflow-hidden ${
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
+          open.value ? "opacity-100" : "opacity-0 pointer-events-none"
         } transition`}
         aria-labelledby={`${prefix}-edit-modal`}
         role="region"
@@ -99,9 +98,9 @@ export function EditModal(
         <form
           ref={ref}
           class={`space-y-3 z-[90] rounded border-1.5 border-current dark:border-cyan-700 bg-white dark:bg-jsr-gray-950 shadow min-w-96 ${
-            status === "pending" ? "w-[40vw]" : ""
+            status.value === "pending" ? "w-[40vw]" : ""
           } max-w-[95vw] max-h-[95vh] px-6 py-4 ${
-            open ? "translate-y-0" : "translate-y-5"
+            open.value ? "translate-y-0" : "translate-y-5"
           } transition`}
           style="--tw-shadow-color: rgba(156,163,175,0.2);"
           onSubmit={(e) => {
@@ -111,7 +110,7 @@ export function EditModal(
             const data: any = {};
 
             for (const field of fields) {
-              const val = state[field.name];
+              const val = state.value[field.name];
 
               if (field.value !== undefined) {
                 if (field.value !== val) {
@@ -123,11 +122,11 @@ export function EditModal(
             }
 
             if (Object.keys(data).length === 0) {
-              setOpen(false);
+              open.value = false;
               return;
             }
 
-            setStatus("submitting");
+            status.value = "submitting";
 
             api.patch(path, data).then((res) => {
               if (res.ok) {
@@ -140,7 +139,7 @@ export function EditModal(
             {title}
           </h2>
 
-          {status === "pending"
+          {status.value === "pending"
             ? (
               <>
                 {fields.map((field) => {
@@ -153,12 +152,9 @@ export function EditModal(
                           name={field.name}
                           required={field.required}
                           class={`${BASE_INPUT_STYLING} min-h-[4em] max-h-[20em]`}
-                          value={state[field.name] as string}
+                          value={state.value[field.name] as string}
                           onChange={(event) => {
-                            setState((state) => {
-                              state[field.name] = event.currentTarget.value;
-                              return state;
-                            });
+                            state.value[field.name] = event.currentTarget.value;
                           }}
                         />
                       );
@@ -169,12 +165,9 @@ export function EditModal(
                           name={field.name}
                           required={field.required}
                           class={BASE_INPUT_STYLING}
-                          value={state[field.name] as string}
+                          value={state.value[field.name] as string}
                           onChange={(event) => {
-                            setState((state) => {
-                              state[field.name] = event.currentTarget.value;
-                              return state;
-                            });
+                            state.value[field.name] = event.currentTarget.value;
                           }}
                         >
                           {field.values!.map((value) => (
@@ -189,13 +182,10 @@ export function EditModal(
                           name={field.name}
                           required={field.required}
                           class={BASE_INPUT_STYLING}
-                          value={state[field.name] ? "true" : "false"}
+                          value={state.value[field.name] ? "true" : "false"}
                           onChange={(event) => {
-                            setState((state) => {
-                              state[field.name] =
-                                event.currentTarget.value === "true";
-                              return state;
-                            });
+                            state.value[field.name] =
+                              event.currentTarget.value === "true";
                           }}
                         >
                           <option value="true">true</option>
@@ -210,12 +200,10 @@ export function EditModal(
                           name={field.name}
                           required={field.required}
                           class={BASE_INPUT_STYLING}
-                          value={state[field.name] as string}
+                          value={state.value[field.name] as string}
                           onChange={(event) => {
-                            setState((state) => {
-                              state[field.name] = +event.currentTarget.value;
-                              return state;
-                            });
+                            state.value[field.name] = +event.currentTarget
+                              .value;
                           }}
                         />
                       );
@@ -227,12 +215,9 @@ export function EditModal(
                           name={field.name}
                           required={field.required}
                           class={BASE_INPUT_STYLING}
-                          value={state[field.name] as string}
+                          value={state.value[field.name] as string}
                           onChange={(event) => {
-                            setState((state) => {
-                              state[field.name] = event.currentTarget.value;
-                              return state;
-                            });
+                            state.value[field.name] = event.currentTarget.value;
                           }}
                         />
                       );
@@ -257,7 +242,7 @@ export function EditModal(
                     type="button"
                     class="button-danger"
                     onClick={() => {
-                      setOpen(false);
+                      open.value = false;
                       ref.current?.reset();
                     }}
                   >
@@ -268,7 +253,7 @@ export function EditModal(
             )
             : (
               <div class="flex flex-col gap-3 items-center justify-center py-6">
-                {status === "submitting" && (
+                {status.value === "submitting" && (
                   <TbLoader2 class="w-8 h-8 animate-spin" />
                 )}
               </div>
