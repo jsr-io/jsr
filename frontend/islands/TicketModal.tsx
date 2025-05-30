@@ -1,9 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef } from "preact/hooks";
 import { ApiTicket, NewTicket, TicketKind, User } from "../utils/api_types.ts";
 import type { ComponentChildren } from "preact";
 import { TbLoader2 } from "tb-icons";
 import { api, path } from "../utils/api.ts";
+import { useSignal } from "@preact/signals";
 
 interface Field {
   name: string;
@@ -27,11 +28,9 @@ export function TicketModal(
     extraMeta?: Record<string, string | undefined>;
   },
 ) {
-  const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<"pending" | "submitting" | "submitted">(
-    "pending",
-  );
-  const [ticket, setTicket] = useState<ApiTicket | null>(null);
+  const open = useSignal(false);
+  const status = useSignal<"pending" | "submitting" | "submitted">("pending");
+  const ticket = useSignal<NewTicket | ApiTicket | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const ref = useRef<HTMLFormElement>(null);
 
@@ -41,7 +40,7 @@ export function TicketModal(
         (ref.current && !ref.current.contains(e.target as Element)) &&
         (buttonRef.current && !buttonRef.current.contains(e.target as Element))
       ) {
-        setOpen(false);
+        open.value = false;
       }
     }
     document.addEventListener("click", outsideClick);
@@ -49,9 +48,9 @@ export function TicketModal(
   }, []);
 
   useEffect(() => {
-    if (!open && status !== "pending") {
+    if (!open.value && status.value !== "pending") {
       setTimeout(() => {
-        setStatus("pending");
+        status.value = "pending";
       }, 200);
     }
   }, [open]);
@@ -65,8 +64,8 @@ export function TicketModal(
         id={`${prefix}-ticket-modal`}
         class={`button-${style}`}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open ? "true" : "false"}
+        onClick={() => open.value = !open.value}
+        aria-expanded={open.value ? "true" : "false"}
         disabled={!user}
         title={user ? "" : "Please log-in to use this button"}
       >
@@ -74,7 +73,7 @@ export function TicketModal(
       </button>
       <div
         class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-950/70 z-[80] flex justify-center items-center overflow-hidden ${
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
+          open.value ? "opacity-100" : "opacity-0 pointer-events-none"
         } transition`}
         aria-labelledby={`${prefix}-ticket-modal`}
         role="region"
@@ -83,9 +82,9 @@ export function TicketModal(
         <form
           ref={ref}
           class={`space-y-3 z-[90] rounded border-1.5 border-current dark:border-cyan-700 bg-white dark:bg-jsr-gray-950 shadow min-w-96 ${
-            status === "pending" ? "w-[40vw]" : ""
+            status.value === "pending" ? "w-[40vw]" : ""
           } max-w-[95vw] max-h-[95vh] px-6 py-4 ${
-            open ? "translate-y-0" : "translate-y-5"
+            open.value ? "translate-y-0" : "translate-y-5"
           } transition`}
           style="--tw-shadow-color: rgba(156,163,175,0.2);"
           onSubmit={(e) => {
@@ -109,12 +108,12 @@ export function TicketModal(
               meta,
             };
 
-            setStatus("submitting");
+            status.value = "submitting";
 
             api.post<ApiTicket>(path`/tickets`, data).then((res) => {
               if (res.ok) {
-                setStatus("submitted");
-                setTicket(res.data);
+                status.value = "submitted";
+                ticket.value = res.data;
               }
             });
           }}
@@ -123,7 +122,7 @@ export function TicketModal(
             New Ticket: {title}
           </h2>
 
-          {status === "pending"
+          {status.value === "pending"
             ? (
               <>
                 <div class="text-sm text-secondary">
@@ -186,7 +185,7 @@ export function TicketModal(
                     type="button"
                     class="button-danger"
                     onClick={() => {
-                      setOpen(false);
+                      open.value = false;
                       ref.current?.reset();
                     }}
                   >
@@ -197,19 +196,21 @@ export function TicketModal(
             )
             : (
               <div class="flex flex-col gap-3 items-center justify-center py-6">
-                {status === "submitting"
+                {status.value === "submitting"
                   ? <TbLoader2 class="w-8 h-8 animate-spin" />
                   : (
                     <>
                       <div>
                         The ticket was submitted. You can view it{" "}
-                        <a href={`/ticket/${ticket!.id}`} class="link">here</a>
+                        <a href={`/ticket/${ticket.value!}`} class="link">
+                          here
+                        </a>
                       </div>
                       <button
                         type="button"
                         class="button-danger"
                         onClick={() => {
-                          setOpen(false);
+                          open.value = false;
                           ref.current?.reset();
                         }}
                       >
