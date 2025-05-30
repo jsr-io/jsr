@@ -2399,10 +2399,9 @@ mod test {
   use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
   use crate::db::TokenType;
-  use crate::ids::PackageName;
-  use crate::ids::PackagePath;
-  use crate::ids::ScopeName;
-  use crate::ids::Version;
+  use crate::ids::{
+    PackageName, PackagePath, ScopeDescription, ScopeName, Version,
+  };
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
@@ -2600,7 +2599,13 @@ mod test {
     // create scope2 for user2, try creating a package with user1
     let scope2 = ScopeName::new("scope2".into()).unwrap();
     t.db()
-      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id)
+      .create_scope(
+        &t.user2.user.id,
+        false,
+        &scope2,
+        t.user2.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let mut resp = t
