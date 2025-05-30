@@ -425,8 +425,8 @@ pub mod test {
   use crate::db::{Database, NewUser, User};
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
-  use crate::util::sanitize_redirect_url;
   use crate::ids::ScopeDescription;
+  use crate::util::sanitize_redirect_url;
   use crate::ApiError;
   use crate::MainRouterOptions;
   use hyper::http::HeaderName;

@@ -517,9 +517,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(
-        json!({ "scope": "scope1", "description": "" }),
-      )
+      .body_json(json!({ "scope": "scope1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -606,7 +604,9 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope1", "description": "Super scope 🐢 !!!" }))
+      .body_json(
+        json!({ "scope": "scope1", "description": "Super scope 🐢 !!!" }),
+      )
       .call()
       .await
       .unwrap();
@@ -614,7 +614,9 @@ pub mod tests {
     let mut resp: Response<Body> = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope2",  "description": "Super scope 🐢 !!!" }))
+      .body_json(
+        json!({ "scope": "scope2",  "description": "Super scope 🐢 !!!" }),
+      )
       .call()
       .await
       .unwrap();

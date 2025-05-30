@@ -2399,7 +2399,9 @@ mod test {
   use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
   use crate::db::TokenType;
-  use crate::ids::{PackageName, PackagePath, ScopeName, Version, ScopeDescription};
+  use crate::ids::{
+    PackageName, PackagePath, ScopeDescription, ScopeName, Version,
+  };
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
