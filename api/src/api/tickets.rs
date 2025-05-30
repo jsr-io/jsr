@@ -250,11 +250,16 @@ mod test {
 
     let mut message_contents: Vec<String> = Vec::new();
     for event in &ticket_overview.events {
-      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event {
+      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
+      {
         message_contents.push(message.message.clone());
       }
     }
-    assert!(message_contents.len() >= 2, "Expected at least 2 messages, found {}", message_contents.len());
+    assert!(
+      message_contents.len() >= 2,
+      "Expected at least 2 messages, found {}",
+      message_contents.len()
+    );
     assert_eq!(message_contents[0], "test");
     assert_eq!(message_contents[1], "test2");
 
@@ -276,15 +281,21 @@ mod test {
       .call()
       .await
       .unwrap();
-    let staff_ticket_overview: super::ApiTicketOverview = resp.expect_ok().await;
-    
+    let staff_ticket_overview: super::ApiTicketOverview =
+      resp.expect_ok().await;
+
     let mut staff_message_contents: Vec<String> = Vec::new();
     for event in &staff_ticket_overview.events {
-      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event {
+      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
+      {
         staff_message_contents.push(message.message.clone());
       }
     }
-    assert!(staff_message_contents.len() >= 2, "Expected at least 2 messages for staff view, found {}", staff_message_contents.len());
+    assert!(
+      staff_message_contents.len() >= 2,
+      "Expected at least 2 messages for staff view, found {}",
+      staff_message_contents.len()
+    );
     assert_eq!(staff_message_contents[0], "test");
     assert_eq!(staff_message_contents[1], "test2");
   }
