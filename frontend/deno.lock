@@ -3,9 +3,10 @@
   "specifiers": {
     "jsr:@deno/gfm@0.11": "0.11.0",
     "jsr:@denosaurs/emoji@~0.3.1": "0.3.1",
-    "jsr:@fresh/core@^2.0.0-alpha.1": "2.0.0-alpha.33",
+    "jsr:@fresh/core@^2.0.0-alpha.1": "2.0.0-alpha.34",
     "jsr:@fresh/core@^2.0.0-alpha.25": "2.0.0-alpha.25",
     "jsr:@fresh/core@^2.0.0-alpha.33": "2.0.0-alpha.33",
+    "jsr:@fresh/core@^2.0.0-alpha.34": "2.0.0-alpha.34",
     "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7": "0.0.1-alpha.7",
     "jsr:@luca/esbuild-deno-loader@0.11": "0.11.1",
     "jsr:@preact-icons/common@^1.0.12": "1.1.0",
@@ -74,6 +75,7 @@
     "npm:preact@^10.22.1": "10.24.3",
     "npm:preact@^10.24.1": "10.24.3",
     "npm:preact@^10.25.1": "10.26.6",
+    "npm:preact@^10.26.5": "10.26.6",
     "npm:preact@^10.26.6": "10.26.6",
     "npm:prismjs@^1.29.0": "1.29.0",
     "npm:sanitize-html@^2.13.0": "2.16.0",
@@ -143,6 +145,29 @@
         "npm:esbuild-wasm",
         "npm:preact-render-to-string@^6.5.11",
         "npm:preact@^10.25.1"
+      ]
+    },
+    "@fresh/core@2.0.0-alpha.34": {
+      "integrity": "e177fc69b049b04128de87d243bd7de76582417d80d8d12dc19dd6786f196efa",
+      "dependencies": [
+        "jsr:@luca/esbuild-deno-loader",
+        "jsr:@std/crypto",
+        "jsr:@std/datetime",
+        "jsr:@std/encoding@1",
+        "jsr:@std/fmt@1",
+        "jsr:@std/fs",
+        "jsr:@std/html",
+        "jsr:@std/http@^1.0.15",
+        "jsr:@std/jsonc",
+        "jsr:@std/media-types@1",
+        "jsr:@std/path@1",
+        "jsr:@std/semver",
+        "npm:@opentelemetry/api",
+        "npm:@preact/signals@^2.0.4",
+        "npm:esbuild",
+        "npm:esbuild-wasm",
+        "npm:preact-render-to-string@^6.5.11",
+        "npm:preact@^10.26.6"
       ]
     },
     "@fresh/plugin-tailwind@0.0.1-alpha.7": {
@@ -2140,7 +2165,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@deno/gfm@0.11",
-      "jsr:@fresh/core@^2.0.0-alpha.33",
+      "jsr:@fresh/core@^2.0.0-alpha.34",
       "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
       "jsr:@preact-icons/tb@^1.0.12",
       "jsr:@std/fmt@^1.0.6",
