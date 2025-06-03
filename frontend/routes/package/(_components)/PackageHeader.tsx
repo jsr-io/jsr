@@ -174,7 +174,7 @@ export function PackageHeader({
           )}
         </div>
 
-        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right pb-4 md:ml-auto">
+        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right md:ml-auto">
           <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
             {runtimeCompat &&
               (
