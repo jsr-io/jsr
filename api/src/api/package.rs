@@ -846,12 +846,12 @@ pub async fn version_publish_handler(
       hash_.lock().unwrap().as_mut().unwrap().update(&bytes);
       total_size_.fetch_add(bytes.len() as u64, Ordering::SeqCst);
       if total_size_.load(Ordering::SeqCst) > MAX_PUBLISH_TARBALL_SIZE {
-        Err(io::Error::new(io::ErrorKind::Other, "Payload too large"))
+        Err(io::Error::other("Payload too large"))
       } else {
         Ok(bytes)
       }
     }
-    Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+    Err(err) => Err(io::Error::other(err)),
   });
 
   let upload_result = buckets
@@ -1950,6 +1950,7 @@ lazy_static::lazy_static! {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
+#[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
   registry_url: Url,

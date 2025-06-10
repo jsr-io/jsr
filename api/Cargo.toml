@@ -93,12 +93,10 @@ regex = "1.10.2"
 postmark = { version = "=0.10.0", features = ["reqwest-rustls-tls"] }
 handlebars = "5.0.0"
 jsonc-parser = { version = "0.23", features = ["serde"] }
-deno_npm = "0.27.2"
 sha1 = "0.10.6"
 infer = "0.15.0"
 x509-parser = { version = "0.15.1", features = ["verify"] }
 sitemap-rs = "0.2.1"
-html-escape = "0.2.13"
 
 tree-sitter-highlight = "0.22.6"
 tree-sitter-javascript = "0.21.4"

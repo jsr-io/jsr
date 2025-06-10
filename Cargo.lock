@@ -916,7 +916,7 @@ checksum = "0f883bd8eae4dfc8019d925ec3dd04b634b6af9346a5168acc259d55f5f5021d"
 dependencies = [
  "base64 0.22.1",
  "capacity_builder",
- "deno_error 0.6.1",
+ "deno_error",
  "deno_media_type",
  "deno_terminal",
  "dprint-swc-ext",
@@ -982,36 +982,15 @@ dependencies = [
 
 [[package]]
 name = "deno_error"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19fae9fe305307b5ef3ee4e8244c79cffcca421ab0ce8634dea0c6b1342f220f"
-dependencies = [
- "deno_error_macro 0.5.6",
- "libc",
-]
-
-[[package]]
-name = "deno_error"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "612ec3fc481fea759141b0c57810889b0a4fb6fee8f10748677bfe492fd30486"
 dependencies = [
- "deno_error_macro 0.6.1",
+ "deno_error_macro",
  "libc",
  "serde",
  "serde_json",
  "url",
-]
-
-[[package]]
-name = "deno_error_macro"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5abb2556e91848b66f562451fcbcdee2a3b7c88281828908dcf7cca355f5d997"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
 ]
 
 [[package]]
@@ -1035,10 +1014,10 @@ dependencies = [
  "capacity_builder",
  "data-url",
  "deno_ast",
- "deno_error 0.6.1",
+ "deno_error",
  "deno_media_type",
  "deno_path_util",
- "deno_semver 0.8.0",
+ "deno_semver",
  "deno_unsync",
  "encoding_rs",
  "futures",
@@ -1060,18 +1039,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deno_lockfile"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "632e835a53ed667d62fdd766c5780fe8361c831d3e3fbf1a760a0b7896657587"
-dependencies = [
- "deno_semver 0.7.1",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "deno_media_type"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1084,51 +1051,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "deno_npm"
-version = "0.27.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4adceb4c34f10e837d0e3ae76e88dddefb13e83c05c1ef1699fa5519241c9d27"
-dependencies = [
- "async-trait",
- "capacity_builder",
- "deno_error 0.5.6",
- "deno_lockfile",
- "deno_semver 0.7.1",
- "futures",
- "log",
- "monch",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "url",
-]
-
-[[package]]
 name = "deno_path_util"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "516f813389095889776b81cc9108ff6f336fd9409b4b12fc0138aea23d2708e1"
 dependencies = [
- "deno_error 0.6.1",
+ "deno_error",
  "percent-encoding",
  "sys_traits",
- "thiserror 2.0.12",
- "url",
-]
-
-[[package]]
-name = "deno_semver"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4775271f9b5602482698f76d24ea9ed8ba27af7f587a7e9a876916300c542435"
-dependencies = [
- "capacity_builder",
- "deno_error 0.5.6",
- "ecow",
- "hipstr",
- "monch",
- "once_cell",
- "serde",
  "thiserror 2.0.12",
  "url",
 ]
@@ -1140,7 +1070,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2d807160e754edb1989b4a19cac1ac5299065a7a89ff98682a2366cbaa25795"
 dependencies = [
  "capacity_builder",
- "deno_error 0.6.1",
+ "deno_error",
  "ecow",
  "hipstr",
  "monch",
@@ -2104,7 +2034,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f315e535cb94a0e80704278d630990bb48834c8c8d976acf0a2f6bc8fede7c38"
 dependencies = [
  "boxed_error",
- "deno_error 0.6.1",
+ "deno_error",
  "indexmap 2.5.0",
  "log",
  "percent-encoding",
@@ -3284,15 +3214,13 @@ dependencies = [
  "crc32fast",
  "deno_ast",
  "deno_doc",
- "deno_error 0.6.1",
+ "deno_error",
  "deno_graph",
- "deno_npm",
- "deno_semver 0.8.0",
+ "deno_semver",
  "dotenvy",
  "flate2",
  "futures",
  "handlebars 5.1.2",
- "html-escape",
  "hyper",
  "indexmap 2.5.0",
  "infer",
@@ -5630,7 +5558,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e51cf5f08b357e64cd7642ab4bbeb11aecab9e15520692129624fb9908b8df2c"
 dependencies = [
- "deno_error 0.6.1",
+ "deno_error",
  "thiserror 2.0.12",
 ]
 

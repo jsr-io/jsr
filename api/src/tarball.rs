@@ -97,7 +97,7 @@ pub async fn process_tarball(
     .await
     .map_err(PublishError::GcsDownloadError)?
     .ok_or(PublishError::MissingTarball)?
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+    .map_err(io::Error::other);
 
   let async_read = stream.into_async_read();
   let mut tar = async_tar::Archive::new(async_read)
