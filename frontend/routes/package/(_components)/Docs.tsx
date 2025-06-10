@@ -79,12 +79,12 @@ export function DocsView({
           }`}
         >
           <div
-            class="ddoc"
+            class="ddoc mb-20"
             id="docMain"
             // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: docs.main }}
           />
-          <div class="ddoc hidden" id="docSearchResults" />
+          <div class="ddoc hidden mb-20" id="docSearchResults" />
 
           <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
             {showProvenanceBadge && selectedVersion.rekorLogId && (

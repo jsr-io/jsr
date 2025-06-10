@@ -29,7 +29,7 @@ pnpm dlx jsr add @luca/cases
 
 If you're using Deno, the `deno add` command will add an
 [import map](https://docs.deno.com/runtime/manual/basics/import_maps) entry for
-the JSR module you specified in a `deno.json` file. That entry will look
+the JSR module you specified in a `deno.json(c)` file. That entry will look
 something like this:
 
 ```json

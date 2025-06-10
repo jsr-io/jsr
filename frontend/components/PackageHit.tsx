@@ -4,6 +4,7 @@ import type { Package, RuntimeCompat } from "../utils/api_types.ts";
 import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
 import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
+import TbArchive from "tb-icons/TbArchive";
 
 const runtimeCompatExists = (compat: RuntimeCompat) => {
   return compat?.browser || compat?.deno || compat?.node || compat?.workerd ||
@@ -16,13 +17,19 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
     content: (
       <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
         <div class="grow-1">
-          <div class="flex flex-wrap items-baseline gap-2">
+          <div class="flex flex-wrap items-baseline gap-x-2 mb-2 md:mb-0">
             <span class="text-jsr-cyan-700 dark:text-cyan-400 font-semibold">
               {`@${pkg.scope}/${pkg.name}`}
             </span>
             {(pkg as Package).latestVersion && (
               <div class="text-tertiary max-w-20 truncate font-semibold text-sm">
                 {`v${(pkg as Package).latestVersion}`}
+              </div>
+            )}
+            {(pkg as Package).isArchived && (
+              <div class="text-xs flex items-center gap-1 bg-jsr-yellow-600 text-white px-2 py-0.5 rounded-full">
+                <TbArchive class="size-3" />
+                Archived
               </div>
             )}
           </div>

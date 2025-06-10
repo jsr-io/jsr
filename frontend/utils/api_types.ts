@@ -122,7 +122,10 @@ export interface Package {
   latestVersion: string | null;
   whenFeatured: string | null;
   isArchived: boolean;
+  readmeSource: ReadmeSource;
 }
+
+export type ReadmeSource = "readme" | "jsdoc";
 
 export interface PackageVersion {
   scope: string;
@@ -184,14 +187,6 @@ export interface PackageVersionSource {
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;
-}
-
-export interface Alias {
-  name: string;
-  majorVersion: number;
-  target: string;
-  updatedAt: string;
-  createdAt: string;
 }
 
 export interface Authorization {

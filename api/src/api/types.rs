@@ -188,36 +188,6 @@ impl From<User> for ApiFullUser {
   }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiCreateAliasRequest {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiAlias {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-  pub updated_at: DateTime<Utc>,
-  pub created_at: DateTime<Utc>,
-}
-
-impl From<Alias> for ApiAlias {
-  fn from(alias: Alias) -> Self {
-    Self {
-      name: alias.name,
-      major_version: alias.major_version,
-      target: alias.target,
-      updated_at: alias.updated_at,
-      created_at: alias.created_at,
-    }
-  }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiScope {
@@ -478,6 +448,7 @@ pub struct ApiPackage {
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub readme_source: ApiReadmeSource,
 }
 
 impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
@@ -504,6 +475,7 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       latest_version: package.latest_version,
       when_featured: package.when_featured,
       is_archived: package.is_archived,
+      readme_source: package.readme_source.into(),
     }
   }
 }
@@ -520,8 +492,34 @@ pub enum ApiUpdatePackageRequest {
   Description(String),
   GithubRepository(Option<ApiUpdatePackageGithubRepositoryRequest>),
   RuntimeCompat(ApiRuntimeCompat),
+  ReadmeSource(ApiReadmeSource),
   IsFeatured(bool),
   IsArchived(bool),
+}
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiReadmeSource {
+  Readme,
+  JSDoc,
+}
+
+impl From<ApiReadmeSource> for ReadmeSource {
+  fn from(value: ApiReadmeSource) -> Self {
+    match value {
+      ApiReadmeSource::Readme => ReadmeSource::Readme,
+      ApiReadmeSource::JSDoc => ReadmeSource::JSDoc,
+    }
+  }
+}
+
+impl From<ReadmeSource> for ApiReadmeSource {
+  fn from(value: ReadmeSource) -> Self {
+    match value {
+      ReadmeSource::Readme => ApiReadmeSource::Readme,
+      ReadmeSource::JSDoc => ApiReadmeSource::JSDoc,
+    }
+  }
 }
 
 #[derive(Debug, Deserialize)]
