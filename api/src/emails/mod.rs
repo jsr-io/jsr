@@ -4,8 +4,8 @@ use std::sync::OnceLock;
 
 use handlebars::Handlebars;
 use handlebars::RenderError;
-use postmark::reqwest::PostmarkClient;
 use postmark::Query;
+use postmark::reqwest::PostmarkClient;
 use serde::Serialize;
 
 use crate::ids::ScopeName;
@@ -97,8 +97,8 @@ impl EmailArgs<'_> {
   }
 }
 
-fn init_handlebars(
-) -> Result<Handlebars<'static>, Box<handlebars::TemplateError>> {
+fn init_handlebars()
+-> Result<Handlebars<'static>, Box<handlebars::TemplateError>> {
   let mut t: Handlebars<'static> = Handlebars::new();
 
   t.register_template_string(

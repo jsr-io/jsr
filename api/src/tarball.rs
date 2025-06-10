@@ -22,23 +22,23 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use thiserror::Error;
-use tracing::instrument;
 use tracing::Span;
+use tracing::instrument;
 use url::Url;
 use uuid::Uuid;
 
-use crate::analysis::analyze_package;
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
+use crate::analysis::analyze_package;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
+use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcp::GcsError;
 use crate::gcp::GcsUploadOptions;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcs_paths::docs_v1_path;
 use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
@@ -60,7 +60,7 @@ static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
 pub struct ProcessTarballOutput {
   pub file_infos: Vec<FileInfo>,
-  pub module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
+  pub module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
   pub exports: ExportsMap,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball_info: NpmTarballInfo,
@@ -502,7 +502,9 @@ pub enum PublishError {
   #[error("path '{path}' is invalid: .git files are not allowed")]
   InvalidGitPath { path: String },
 
-  #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed ({info})")]
+  #[error(
+    "invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed ({info})"
+  )]
   InvalidExternalImport { specifier: String, info: String },
 
   #[error("modifying global types is not allowed {specifier}:{line}:{column}")]
@@ -519,14 +521,18 @@ pub enum PublishError {
     column: usize,
   },
 
-  #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
+  #[error(
+    "triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}"
+  )]
   BannedTripleSlashDirectives {
     specifier: String,
     line: usize,
     column: usize,
   },
 
-  #[error("import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}")]
+  #[error(
+    "import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}"
+  )]
   BannedImportAssertion {
     specifier: String,
     line: usize,
@@ -554,9 +560,7 @@ pub enum PublishError {
   #[error("case-insensitive duplicate path '{a}' and '{b}'")]
   CaseInsensitiveDuplicatePath { a: PackagePath, b: PackagePath },
 
-  #[error(
-    "missing config file '{0}', is it perhaps excluded from publishing?"
-  )]
+  #[error("missing config file '{0}', is it perhaps excluded from publishing?")]
   MissingConfigFile(Box<PackagePath>),
 
   #[error("invalid config file '{path}': {error}")]
@@ -565,21 +569,23 @@ pub enum PublishError {
     error: anyhow::Error,
   },
 
-  #[error("package name specified during publish does not match name in config file '{path}', expected {publish_task_name}, got {deno_json_name}")]
+  #[error(
+    "package name specified during publish does not match name in config file '{path}', expected {publish_task_name}, got {deno_json_name}"
+  )]
   ConfigFileNameMismatch {
     path: Box<PackagePath>,
     deno_json_name: ScopedPackageName,
     publish_task_name: ScopedPackageName,
   },
-  #[error("version specified during publish does not match version in config file '{path}', expected {publish_task_version}, got {deno_json_version}")]
+  #[error(
+    "version specified during publish does not match version in config file '{path}', expected {publish_task_version}, got {deno_json_version}"
+  )]
   ConfigFileVersionMismatch {
     path: Box<PackagePath>,
     deno_json_version: Box<Version>,
     publish_task_version: Box<Version>,
   },
-  #[error(
-    "invalid 'exports' field in config file '{path}': {invalid_exports}"
-  )]
+  #[error("invalid 'exports' field in config file '{path}': {invalid_exports}")]
   ConfigFileExportsInvalid {
     path: Box<PackagePath>,
     invalid_exports: String,
@@ -612,10 +618,14 @@ pub enum PublishError {
     ScopedPackageNameValidateError,
   ),
 
-  #[error("unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint")]
+  #[error(
+    "unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint"
+  )]
   UnresolvableJsrDependency(PackageReq),
 
-  #[error("invalid 'jsr:' dependency subpath: '{req}', resolved to {resolved_version}, has no export '{exports_key}'")]
+  #[error(
+    "invalid 'jsr:' dependency subpath: '{req}', resolved to {resolved_version}, has no export '{exports_key}'"
+  )]
   InvalidJsrDependencySubPath {
     req: Box<PackageReqReference>,
     resolved_version: Version,
@@ -760,7 +770,9 @@ pub fn exports_map_from_json(
       ));
     }
     if !value.starts_with("./") {
-      return Err(format!("the path '{value}' for {key} could not be resolved as a relative path from the config file, did you mean './{value}'?"));
+      return Err(format!(
+        "the path '{value}' for {key} could not be resolved as a relative path from the config file, did you mean './{value}'?"
+      ));
     }
     if value.ends_with('/') || !has_extension(value) {
       return Err(format!(

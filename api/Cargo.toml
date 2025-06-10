@@ -1,7 +1,7 @@
 [package]
 name = "registry_api"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 resolver = "2"
 
 [dependencies]
@@ -74,14 +74,14 @@ opentelemetry = { version = "0.19", features = [
 ] }
 opentelemetry-otlp = "0.12"
 opentelemetry-gcloud-trace = "0.5.0"
-deno_semver = "0.7.1"
+deno_semver = "0.8.0"
 flate2 = "1"
 thiserror = "2"
 async-tar = "0.4.2"
-deno_graph = "0.89.4"
-deno_ast = { version = "0.46.5", features = ["view"] }
-deno_doc = { version = "0.171.1", features = ["comrak"] }
-deno_error = "0.5.5"
+deno_graph = "0.95.1"
+deno_ast = { version = "0.48.0", features = ["view"] }
+deno_doc = { version = "=0.178.1", features = ["comrak"] }
+deno_error = "0.6.1"
 comrak = { version = "0.29.0", default-features = false }
 ammonia = "4.0.0"
 async-trait = "0.1.73"
@@ -115,5 +115,5 @@ lazy_static = "1.5.0"
 
 [dev-dependencies]
 flate2 = "1"
-deno_semver = "0.7.1"
+deno_semver = "0.8.0"
 pretty_assertions = "1.4.0"

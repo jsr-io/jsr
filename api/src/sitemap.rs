@@ -10,9 +10,9 @@ use sitemap_rs::url_builder::UrlBuilder;
 use sitemap_rs::url_set::UrlSet;
 use tracing::error;
 
+use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::db::Database;
-use crate::RegistryUrl;
 
 #[allow(deprecated)] // the replacement can not be used in const positions in stable
 const TWO_DAYS: chrono::Duration = chrono::Duration::days(2);

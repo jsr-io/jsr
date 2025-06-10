@@ -7,10 +7,10 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
-use sqlx::types::Json;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::ValueRef;
+use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::ids::PackageName;

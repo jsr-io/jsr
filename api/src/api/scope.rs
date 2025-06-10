@@ -2,32 +2,32 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
+use crate::RegistryUrl;
 use crate::api::package::package_router;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
-use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::ext::RequestExt;
 use routerify::Router;
+use routerify::ext::RequestExt;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
-use super::errors::map_unique_violation;
 use super::errors::ApiError;
+use super::errors::map_unique_violation;
 use super::types::*;
 
-use crate::auth::lookup_user_by_github_login;
 use crate::auth::GithubOauth2Client;
+use crate::auth::lookup_user_by_github_login;
 use crate::db::*;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
+use crate::util::decode_json;
 
 pub fn scope_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -368,13 +368,13 @@ async fn update_member_handler(
   let scope_member = match res {
     ScopeMemberUpdateResult::Ok(scope_member) => scope_member,
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
-      return Err(ApiError::NoScopeOwnerAvailable)
+      return Err(ApiError::NoScopeOwnerAvailable);
     }
     ScopeMemberUpdateResult::TargetIsLastAdmin => {
-      return Err(ApiError::ScopeMustHaveAdmin)
+      return Err(ApiError::ScopeMustHaveAdmin);
     }
     ScopeMemberUpdateResult::TargetNotMember => {
-      return Err(ApiError::ScopeMemberNotFound)
+      return Err(ApiError::ScopeMemberNotFound);
     }
   };
 
@@ -413,13 +413,13 @@ pub async fn delete_member_handler(
   match res {
     ScopeMemberUpdateResult::Ok(_) => {}
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
-      return Err(ApiError::NoScopeOwnerAvailable)
+      return Err(ApiError::NoScopeOwnerAvailable);
     }
     ScopeMemberUpdateResult::TargetIsLastAdmin => {
-      return Err(ApiError::ScopeMustHaveAdmin)
+      return Err(ApiError::ScopeMustHaveAdmin);
     }
     ScopeMemberUpdateResult::TargetNotMember => {
-      return Err(ApiError::ScopeMemberNotFound)
+      return Err(ApiError::ScopeMemberNotFound);
     }
   };
 
