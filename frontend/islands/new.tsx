@@ -135,7 +135,7 @@ export function ScopeSelect(
         <option value="" disabled selected class="hidden text-jsr-gray-100">
           ---
         </option>
-        {scopes.value.map((scope, idx) => (
+        {scopes.value.sort((a, b) => a.localeCompare(b)).map((scope, idx) => (
           <option key={idx} value={scope}>{scope}</option>
         ))}
       </select>
