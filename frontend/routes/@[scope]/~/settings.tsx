@@ -1,14 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { ComponentChildren } from "preact";
+import { TbCheck, TbTrash } from "tb-icons";
 import { define } from "../../../util.ts";
 import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../(_components)/ScopeNav.tsx";
+import { ScopeDescriptionForm } from "../(_islands)/ScopeDescriptionForm.tsx";
 import { FullScope, User } from "../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../utils/data.ts";
 import { path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
-import TbCheck from "tb-icons/TbCheck";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 
@@ -19,6 +20,7 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
     <div class="mb-20">
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
+      <ScopeDescription scope={data.scope} />
       <ScopeQuotas scope={data.scope} user={state.user!} />
       <GitHubActionsSecurity scope={data.scope} />
       <RequirePublishingFromCI scope={data.scope} />
@@ -26,6 +28,19 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
     </div>
   );
 });
+
+function ScopeDescription({ scope }: { scope: FullScope }) {
+  return (
+    <div class="mb-8">
+      <h2 class="text-lg sm:text-xl font-semibold">Description</h2>
+      <p>
+        The description of the scope{" "}
+        <code class="font-mono">@{scope.scope}</code>:
+      </p>
+      <ScopeDescriptionForm scope={scope} />
+    </div>
+  );
+}
 
 function ScopeQuotas({ scope, user }: { scope: FullScope; user: User }) {
   return (
@@ -264,6 +279,7 @@ function DeleteScope({ scope }: { scope: FullScope }) {
         name="action"
         value="deleteScope"
       >
+        <TbTrash class="size-5" />
         Delete scope
       </button>
       {!isEmpty && (

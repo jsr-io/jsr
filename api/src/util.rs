@@ -427,6 +427,7 @@ pub mod test {
   use crate::db::{Database, NewUser, User};
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
+  use crate::ids::ScopeDescription;
   use crate::util::sanitize_redirect_url;
   use hyper::Body;
   use hyper::HeaderMap;
@@ -552,9 +553,15 @@ pub mod test {
 
       let scope_name = "scope".try_into().unwrap();
 
-      db.create_scope(&user1.user.id, false, &scope_name, user1.user.id)
-        .await
-        .unwrap();
+      db.create_scope(
+        &user1.user.id,
+        false,
+        &scope_name,
+        user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
       let (scope, _, _) = db
         .update_scope_limits(
           &staff_user.user.id,

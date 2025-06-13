@@ -300,7 +300,7 @@ pub async fn process_tarball(
     )
   })
   .await
-  .unwrap()?;
+  .map_err(|e| PublishError::UnexpectedError(format!("{:?}", e)))??;
 
   // ensure all of the JSR dependencies are resolvable
   for (kind, req) in dependencies.iter() {
@@ -618,6 +618,9 @@ pub enum PublishError {
     ScopedPackageNameValidateError,
   ),
 
+  #[error("unexpected error: {0}")]
+  UnexpectedError(String),
+
   #[error(
     "unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint"
   )]
@@ -642,6 +645,7 @@ impl PublishError {
       PublishError::GcsUploadError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
+      PublishError::UnexpectedError(_) => None,
       PublishError::InvalidTarball(_) => Some("invalidTarball"),
       PublishError::LinkInTarball { .. } => Some("linkInTarball"),
       PublishError::InvalidEntryType { .. } => Some("invalidEntryType"),
