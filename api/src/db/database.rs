@@ -4846,28 +4846,43 @@ impl Database {
     user_id: &uuid::Uuid,
   ) -> Result<Vec<Package>> {
     let packages = sqlx::query_as!(
-        Package,
-        r#"
+      Package,
+      r#"
         SELECT DISTINCT ON (packages.scope, packages.name)
-          packages.scope as "scope: ScopeName",
-          packages.name as "name: PackageName",
-          packages.description,
-          packages.github_repository_id,
-          packages.runtime_compat as "runtime_compat: RuntimeCompat",
-          packages.when_featured,
-          packages.is_archived,
-          packages.readme_source as "readme_source: ReadmeSource",
-          packages.updated_at,
-          packages.created_at,
-          (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
-          (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
-        FROM packages
-        JOIN scope_members ON packages.scope = scope_members.scope
-        WHERE scope_members.user_id = $1
-        ORDER BY packages.scope, packages.name, packages.created_at DESC
+            packages.scope as "scope: ScopeName",
+            packages.name as "name: PackageName",
+            packages.description,
+            packages.github_repository_id,
+            packages.runtime_compat as "runtime_compat: RuntimeCompat",
+            packages.when_featured,
+            packages.is_archived,
+            packages.readme_source as "readme_source: ReadmeSource",
+            packages.updated_at,
+            packages.created_at,
+            (
+              SELECT COUNT(created_at)
+              FROM package_versions
+              WHERE scope = packages.scope AND name = packages.name
+            ) as "version_count!",
+            (
+              SELECT version
+              FROM package_versions
+              WHERE scope = packages.scope
+                AND name = packages.name
+                AND version NOT LIKE '%-%'
+                AND is_yanked = false
+              ORDER BY version DESC LIMIT 1
+            ) as "latest_version"
+        FROM publishing_tasks
+        JOIN packages
+          ON packages.scope = publishing_tasks.package_scope
+          AND packages.name = publishing_tasks.package_name
+        WHERE publishing_tasks.user_id = $1
+          AND publishing_tasks.status = 'success'
+        ORDER BY packages.scope, packages.name, publishing_tasks.created_at DESC
         LIMIT 10;
         "#,
-        user_id
+      user_id
     )
     .fetch_all(&self.pool)
     .await?;
