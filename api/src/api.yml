@@ -1299,6 +1299,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /users/{id}/packages:
+    get:
+      summary: List recently published packages by user
+      description: Returns a list of packages that a user has recently published
+      operationId: listUserPackages
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /authorizations:
     post:
       summary: Create authorization
