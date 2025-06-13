@@ -87,10 +87,10 @@ mod tests {
     assert!(
       deno_semver::Version::parse_standard(&format!("{crazy}_meta")).is_err()
     );
-    assert!(deno_semver::Version::parse_standard(&format!(
-      "{crazy}_meta.json"
-    ))
-    .is_err());
+    assert!(
+      deno_semver::Version::parse_standard(&format!("{crazy}_meta.json"))
+        .is_err()
+    );
     // Therefore /r/:scope/:package/:version_meta.json is ok.
   }
 }

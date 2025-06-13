@@ -3,14 +3,15 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
 use std::borrow::Cow;
 
+use crate::RegistryUrl;
 use crate::db::Database;
 use crate::db::PackagePublishPermission;
 use crate::db::Permission;
@@ -20,10 +21,9 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiCreateTokenRequest;
 use super::ApiCreatedToken;

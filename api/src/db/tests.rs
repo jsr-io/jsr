@@ -237,11 +237,12 @@ async fn packages() {
   let alice2 = db.get_user(alice.id).await.unwrap().unwrap();
   assert_eq!(alice2.scope_usage, 1);
 
-  assert!(db
-    .get_scope_member(&scope_name, alice.id)
-    .await
-    .unwrap()
-    .is_some());
+  assert!(
+    db.get_scope_member(&scope_name, alice.id)
+      .await
+      .unwrap()
+      .is_some()
+  );
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()
@@ -580,11 +581,12 @@ async fn oauth_state() {
   assert_eq!(oauth_state3.pkce_code_verifier, "b");
   assert_eq!(oauth_state3.redirect_url, "c");
 
-  assert!(db
-    .delete_oauth_state(&oauth_state.csrf_token)
-    .await
-    .unwrap()
-    .is_none())
+  assert!(
+    db.delete_oauth_state(&oauth_state.csrf_token)
+      .await
+      .unwrap()
+      .is_none()
+  )
 }
 
 #[tokio::test]

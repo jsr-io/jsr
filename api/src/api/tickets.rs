@@ -2,13 +2,14 @@
 
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use std::borrow::Cow;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
+use crate::RegistryUrl;
 use crate::db::NewTicket;
 use crate::db::NewTicketMessage;
 use crate::db::{Database, UserPublic};
@@ -16,10 +17,9 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiError;
 use super::ApiTicket;

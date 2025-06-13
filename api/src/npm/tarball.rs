@@ -4,18 +4,18 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use base64::Engine;
-use deno_ast::apply_text_changes;
 use deno_ast::SourceTextInfo;
 use deno_ast::TextChange;
-use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::DependencyDescriptor;
-use deno_graph::ModuleAnalyzer;
+use deno_ast::apply_text_changes;
 use deno_graph::ModuleGraph;
-use deno_graph::ModuleInfo;
 use deno_graph::ModuleSpecifier;
-use deno_graph::ParsedSourceStore;
 use deno_graph::PositionRange;
 use deno_graph::Resolution;
+use deno_graph::analysis::DependencyDescriptor;
+use deno_graph::analysis::ModuleAnalyzer;
+use deno_graph::analysis::ModuleInfo;
+use deno_graph::ast::CapturingModuleAnalyzer;
+use deno_graph::ast::ParsedSourceStore;
 use deno_semver::package::PackageReqReference;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -34,18 +34,18 @@ use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
 
+use super::NPM_TARBALL_REVISION;
 use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
-use super::specifiers::follow_specifier;
-use super::specifiers::relative_import_specifier;
-use super::specifiers::rewrite_file_specifier;
 use super::specifiers::Extension;
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
+use super::specifiers::follow_specifier;
+use super::specifiers::relative_import_specifier;
+use super::specifiers::rewrite_file_specifier;
 use super::types::NpmExportConditions;
 use super::types::NpmMappedJsrPackageName;
 use super::types::NpmPackageJson;
-use super::NPM_TARBALL_REVISION;
 
 pub struct NpmTarball {
   /// The gzipped tarball contents.
@@ -455,27 +455,29 @@ fn rewrite_specifiers(
         }
       }
       DependencyDescriptor::Dynamic(desc) => match &desc.argument {
-        deno_graph::DynamicArgument::String(specifier) => {
+        deno_graph::analysis::DynamicArgument::String(specifier) => {
           if let Some(specifier) = specifier_rewriter.rewrite(specifier, kind) {
             add_text_change(&mut text_changes, specifier, &desc.argument_range);
           }
         }
-        deno_graph::DynamicArgument::Template(_) => {}
-        deno_graph::DynamicArgument::Expr => {}
+        deno_graph::analysis::DynamicArgument::Template(_) => {}
+        deno_graph::analysis::DynamicArgument::Expr => {}
       },
     }
   }
 
   for ts_ref in &module_info.ts_references {
     match ts_ref {
-      deno_graph::TypeScriptReference::Path(s) => {
+      deno_graph::analysis::TypeScriptReference::Path(s) => {
         if let Some(specifier) =
           specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
         {
           add_text_change(&mut text_changes, specifier, &s.range);
         }
       }
-      deno_graph::TypeScriptReference::Types { specifier, .. } => {
+      deno_graph::analysis::TypeScriptReference::Types {
+        specifier, ..
+      } => {
         match kind {
           RewriteKind::Source => {
             // Type reference comments in JS are a Deno specific concept, and
@@ -617,15 +619,15 @@ mod tests {
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
-  use deno_graph::source::MemoryLoader;
-  use deno_graph::source::NullFileSystem;
-  use deno_graph::source::Source;
   use deno_graph::BuildFastCheckTypeGraphOptions;
   use deno_graph::BuildOptions;
   use deno_graph::GraphKind;
   use deno_graph::ModuleGraph;
   use deno_graph::WorkspaceFastCheckOption;
   use deno_graph::WorkspaceMember;
+  use deno_graph::source::MemoryLoader;
+  use deno_graph::source::NullFileSystem;
+  use deno_graph::source::Source;
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
@@ -636,14 +638,14 @@ mod tests {
   use crate::analysis::PassthroughJsrUrlProvider;
   use crate::db::DependencyKind;
   use crate::ids::PackagePath;
+  use crate::npm::NPM_TARBALL_REVISION;
   use crate::npm::tests::helpers;
   use crate::npm::tests::helpers::Spec;
-  use crate::npm::NPM_TARBALL_REVISION;
   use crate::tarball::exports_map_from_json;
 
-  use super::create_npm_tarball;
   use super::NpmTarballFiles;
   use super::NpmTarballOptions;
+  use super::create_npm_tarball;
 
   async fn test_npm_tarball(
     spec_path: &Path,
@@ -708,6 +710,7 @@ mod tests {
     graph
       .build(
         roots,
+        vec![],
         &loader,
         BuildOptions {
           is_dynamic: false,
@@ -731,7 +734,6 @@ mod tests {
       jsr_url_provider: &PassthroughJsrUrlProvider,
       es_parser: Some(&module_analyzer.analyzer),
       resolver: None,
-      npm_resolver: None,
       workspace_fast_check: WorkspaceFastCheckOption::Enabled(
         &workspace_members,
       ),
