@@ -15,6 +15,7 @@ use tracing::Span;
 
 use crate::db::*;
 use crate::iam::ReqIamExt;
+use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
 use crate::util::decode_json;
@@ -202,7 +203,13 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&staff.id, true, &scope, user_id)
+    .create_scope(
+      &staff.id,
+      true,
+      &scope,
+      user_id,
+      &ScopeDescription::default(),
+    )
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 
