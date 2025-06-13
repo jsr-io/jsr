@@ -4856,6 +4856,7 @@ impl Database {
           packages.runtime_compat as "runtime_compat: RuntimeCompat",
           packages.when_featured,
           packages.is_archived,
+          packages.readme_source as "readme_source: ReadmeSource",
           packages.updated_at,
           packages.created_at,
           (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
