@@ -42,18 +42,24 @@ while (true) {
     );
     // deno-lint-ignore no-explicit-any
     const searchJson: any = await searchRes.json();
-    for (const node of searchJson.nodes) {
-      node.scope = pkg.scope;
-      node.package = pkg.name;
-    }
+    const search = searchJson.nodes.map((searchNode) => ({
+      target_id: searchNode.id,
+      name: searchNode.name,
+      file: searchNode.file,
+      doc: searchNode.doc,
+      url: searchNode.url,
+      deprecated: searchNode.deprecated,
+      scope: pkg.scope,
+      package: pkg.name,
+    }));
 
-    const strData = JSON.stringify(searchJson.nodes);
+    const strData = JSON.stringify(search);
     const chunks = Math.ceil(strData.length / MAX_ORAMA_INSERT_SIZE);
 
     for (
       const chunkItem of chunk(
-        searchJson.nodes,
-        searchJson.nodes.length / chunks,
+        search,
+        search.length / chunks,
       )
     ) {
       const notifyRes = await fetch(`${ORAMA_URL}/${index}/notify`, {

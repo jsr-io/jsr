@@ -1,6 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::borrow::Cow;
-
 use crate::db::*;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -631,9 +629,6 @@ pub enum ApiPackageVersionDocs {
   #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
-    css: Cow<'static, str>,
-    comrak_css: Cow<'static, str>,
-    script: Cow<'static, str>,
     breadcrumbs: Option<String>,
     toc: Option<String>,
     main: String,
@@ -687,9 +682,6 @@ pub enum ApiSource {
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageVersionSource {
   pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
-  pub comrak_css: Cow<'static, str>,
-  pub script: Cow<'static, str>,
   pub source: ApiSource,
 }
 
