@@ -3,7 +3,7 @@ import { HttpError } from "fresh";
 import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { define } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { Ticket } from "../../utils/api_types.ts";
+import { ApiTicket } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
 import twas from "twas";
 import { TbCheck, TbClock } from "tb-icons";
@@ -77,7 +77,7 @@ export const handler = define.handlers({
   async GET(ctx) {
     const [currentUser, ticketsRes] = await Promise.all([
       ctx.state.userPromise,
-      ctx.state.api.get<Ticket[]>(path`/user/tickets`),
+      ctx.state.api.get<ApiTicket[]>(path`/user/tickets`),
     ]);
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
