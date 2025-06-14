@@ -16,10 +16,11 @@ export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
 const getChartOptions = (
   isDarkMode: boolean,
+  stacked: boolean,
 ): ApexCharts.ApexOptions => ({
   chart: {
     type: "area",
-    stacked: true,
+    stacked,
     animations: {
       enabled: false,
     },
@@ -94,6 +95,7 @@ const getChartOptions = (
 export function DownloadChart(props: Props) {
   const chartDivRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ApexCharts>(null);
+  const stackedRef = useRef(true);
   const graphRendered = useSignal(false);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function DownloadChart(props: Props) {
       const { default: ApexCharts } = await import("apexcharts");
       const isDarkMode = document.documentElement.classList.contains("dark");
 
-      const initialOptions = getChartOptions(isDarkMode);
+      const initialOptions = getChartOptions(isDarkMode, stackedRef.current);
       initialOptions.series = getSeries(props.downloads, "weekly");
       chartRef.current = new ApexCharts(
         chartDivRef.current!,
@@ -117,7 +119,9 @@ export function DownloadChart(props: Props) {
           "dark",
         );
         if (chartRef.current) {
-          chartRef.current?.updateOptions(getChartOptions(newIsDarkMode));
+          chartRef.current?.updateOptions(
+            getChartOptions(newIsDarkMode, stackedRef.current),
+          );
         }
       });
 
@@ -169,7 +173,7 @@ export function DownloadChart(props: Props) {
               id="displayAs"
               onChange={(e) => {
                 const newDisplay = e.currentTarget.value === "stacked";
-
+                stackedRef.current = newDisplay;
                 // Update chart with new options including the new stacked display
                 chartRef.current?.updateOptions(
                   { chart: { stacked: newDisplay } },
