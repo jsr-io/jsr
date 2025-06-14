@@ -253,7 +253,8 @@
   }
 
   .search-input-tag {
-    @apply bg-blue-300/40 rounded-sm px-0.5 -mx-0.5 dark:bg-blue-900/40;
+    @apply text-blue-500 bg-blue-300/40 rounded-sm px-0.5 -mx-0.5
+      dark:bg-blue-900/40;
   }
 
   .select {

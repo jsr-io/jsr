@@ -24,6 +24,13 @@
         "1.0.0"
       ]
     },
+    "license": {
+      "type": "string",
+      "description": "The license of this JSR package.",
+      "examples": [
+        "MIT"
+      ]
+    },
     "exports": {
       "oneOf": [
         {

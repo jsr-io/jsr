@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use deno_semver::VersionParseError;
-use sqlx::postgres::PgValueRef;
 use sqlx::Postgres;
+use sqlx::postgres::PgValueRef;
 use thiserror::Error;
 
 /// A scope name, like `user` or `admin`. The name is not prefixed with an @.
@@ -134,7 +134,9 @@ pub enum ScopeNameValidateError {
   #[error("scope name must be at most 20 characters long")]
   TooLong,
 
-  #[error("scope name must contain only lowercase ascii alphanumeric characters and hyphens")]
+  #[error(
+    "scope name must contain only lowercase ascii alphanumeric characters and hyphens"
+  )]
   InvalidCharacters,
 
   #[error("scope name must not start or end with a hyphen")]
@@ -142,6 +144,126 @@ pub enum ScopeNameValidateError {
 
   #[error("scope name must not contain double hyphens")]
   DoubleHyphens,
+}
+
+/// A scope description, like 'This is a user scope' or 'Admin scope'.
+/// The description must be at least 5 characters long, and at most 200 characters and can be empty.
+/// The description can contain utf-8 characters, including emoji.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ScopeDescription(String);
+
+impl ScopeDescription {
+  pub fn new(
+    description: String,
+  ) -> Result<Self, ScopeDescriptionValidateError> {
+    if description.len() > 200 {
+      return Err(ScopeDescriptionValidateError::TooLong);
+    }
+
+    if description.len() < 5 && !description.is_empty() {
+      return Err(ScopeDescriptionValidateError::TooShort);
+    }
+
+    Ok(ScopeDescription(description))
+  }
+
+  pub fn default() -> Self {
+    ScopeDescription("".to_owned())
+  }
+}
+
+impl TryFrom<&str> for ScopeDescription {
+  type Error = ScopeDescriptionValidateError;
+  fn try_from(value: &str) -> Result<Self, Self::Error> {
+    Self::new(value.to_owned())
+  }
+}
+
+impl TryFrom<String> for ScopeDescription {
+  type Error = ScopeDescriptionValidateError;
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    Self::new(value)
+  }
+}
+
+impl std::fmt::Display for ScopeDescription {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl std::fmt::Debug for ScopeDescription {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl<'a> serde::Deserialize<'a> for ScopeDescription {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: serde::Deserializer<'a>,
+  {
+    let s: String = String::deserialize(deserializer)?;
+    Self::new(s).map_err(serde::de::Error::custom)
+  }
+}
+
+impl serde::Serialize for ScopeDescription {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    self.0.serialize(serializer)
+  }
+}
+
+impl sqlx::Decode<'_, Postgres> for ScopeDescription {
+  fn decode(
+    value: PgValueRef<'_>,
+  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+    let s: String = sqlx::Decode::<'_, Postgres>::decode(value)?;
+    Self::new(s).map_err(|e| Box::new(e) as _)
+  }
+}
+
+impl<'q> sqlx::Encode<'q, Postgres> for ScopeDescription {
+  fn encode_by_ref(
+    &self,
+    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
+  ) -> sqlx::encode::IsNull {
+    <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
+      &self.0, buf,
+    )
+  }
+}
+
+impl sqlx::Type<Postgres> for ScopeDescription {
+  fn type_info() -> <Postgres as sqlx::Database>::TypeInfo {
+    <String as sqlx::Type<Postgres>>::type_info()
+  }
+}
+
+impl sqlx::postgres::PgHasArrayType for ScopeDescription {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    <String as sqlx::postgres::PgHasArrayType>::array_type_info()
+  }
+}
+
+impl std::ops::Deref for ScopeDescription {
+  type Target = String;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum ScopeDescriptionValidateError {
+  #[error("scope description must be at most 200 characters long")]
+  TooLong,
+
+  #[error("scope description must be at least 5 character long")]
+  TooShort,
 }
 
 /// A package name, like 'foo' or 'bar'. The name is not prefixed with an @.
@@ -275,7 +397,9 @@ pub enum PackageNameValidateError {
   #[error("package name must be at most 58 characters long")]
   TooLong,
 
-  #[error("package name must contain only lowercase ascii alphanumeric characters and hyphens")]
+  #[error(
+    "package name must contain only lowercase ascii alphanumeric characters and hyphens"
+  )]
   InvalidCharacters,
 
   #[error("package name must not start or end with a hyphen")]
@@ -302,7 +426,9 @@ pub enum ScopedPackageNameValidateError {
   #[error("scope must start with '@' sign")]
   MissingAtPrefix,
 
-  #[error("scoped package name must contain '/' separator between scope and package name")]
+  #[error(
+    "scoped package name must contain '/' separator between scope and package name"
+  )]
   MissingSlashSeparator,
 }
 
@@ -461,9 +587,7 @@ pub enum VersionValidateError {
   #[error("invalid semver version: {0}")]
   InvalidVersion(VersionParseError),
 
-  #[error(
-    "version must be normalized: expected {normalized}, got {specified}"
-  )]
+  #[error("version must be normalized: expected {normalized}, got {specified}")]
   NotNormalized {
     specified: String,
     normalized: String,
@@ -717,10 +841,14 @@ fn valid_char(c: char) -> Option<PackagePathValidationError> {
 
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum PackagePathValidationError {
-  #[error("package path must be at most 155 characters long, but is {0} characters long")]
+  #[error(
+    "package path must be at most 155 characters long, but is {0} characters long"
+  )]
   TooLong(usize),
 
-  #[error("the last path component must be at most 95 characters long, but is {0} characters long")]
+  #[error(
+    "the last path component must be at most 95 characters long, but is {0} characters long"
+  )]
   LastPathComponentTooLong(usize),
 
   #[error("package path must be prefixed with a slash")]
@@ -899,10 +1027,12 @@ mod tests {
     assert!(PackageName::try_from("f").is_err());
     assert!(PackageName::try_from("Foo").is_err());
     assert!(PackageName::try_from("oooF").is_err());
-    assert!(PackageName::try_from(
-      "very-long-name-is-very-very-very-very-very-very-very-very-long"
-    )
-    .is_err());
+    assert!(
+      PackageName::try_from(
+        "very-long-name-is-very-very-very-very-very-very-very-very-long"
+      )
+      .is_err()
+    );
     assert!(PackageName::try_from("foo_bar").is_err());
     assert!(PackageName::try_from("-foo").is_err());
     assert!(PackageName::try_from("foo-").is_err());
@@ -1087,43 +1217,61 @@ mod tests {
   #[test]
   fn test_package_path_is_readme() {
     // Valid READMEs
-    assert!(PackagePath::try_from("/README.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/README.txt")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/README.markdown")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/readme.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/readme.txt")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/readme.markdown")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/ReAdMe.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
+    assert!(
+      PackagePath::try_from("/README.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/README.txt")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/README.markdown")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/readme.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/readme.txt")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/readme.markdown")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/ReAdMe.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
 
     // Invalid READMEs
-    assert!(!PackagePath::try_from("/foo/README.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(!PackagePath::try_from("/foo.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
+    assert!(
+      !PackagePath::try_from("/foo/README.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      !PackagePath::try_from("/foo.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
   }
 }

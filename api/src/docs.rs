@@ -1,23 +1,28 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::db::GithubRepository;
+use crate::db::ReadmeSource;
 use crate::db::RuntimeCompat;
-use crate::db::{GithubRepository, ReadmeSource};
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
-use comrak::nodes::{Ast, AstNode, NodeValue};
+use comrak::nodes::Ast;
+use comrak::nodes::AstNode;
+use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::html::pages::SymbolPage;
+use deno_doc::DocNode;
+use deno_doc::DocNodeDef;
+use deno_doc::Location;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
+use deno_doc::html::HANDLEBARS;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
-use deno_doc::html::HANDLEBARS;
-use deno_doc::Location;
-use deno_doc::{DocNode, DocNodeDef};
+use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::util::Id;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -268,7 +273,7 @@ struct WebType {
 pub fn generate_docs(
   mut source_files: Vec<ModuleSpecifier>,
   graph: &deno_graph::ModuleGraph,
-  analyzer: &deno_graph::CapturingModuleAnalyzer,
+  analyzer: &deno_graph::ast::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
   source_files.sort();
 
@@ -510,6 +515,7 @@ pub fn get_generate_ctx<'a>(
       markdown_renderer,
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
+      id_prefix: None,
     },
     None,
     deno_doc::html::FileMode::Normal,
@@ -587,7 +593,7 @@ pub fn generate_docs_html(
         .render(
           "symbol_content",
           &deno_doc::html::SymbolContentCtx {
-            id: String::new(),
+            id: Id::empty(),
             sections,
             docs: None,
           },
