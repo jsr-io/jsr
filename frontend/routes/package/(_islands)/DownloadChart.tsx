@@ -82,6 +82,7 @@ const getChartOptions = (
     {
       breakpoint: 768,
       options: {
+        horizontalAlign: "left",
         legend: {
           offsetY: -30,
         },
@@ -136,7 +137,7 @@ export function DownloadChart(props: Props) {
   return (
     <div class="relative">
       {graphRendered.value && (
-        <div className="absolute flex md:-top-4 gap-2 pt-4 text-sm pl-4  z-20">
+        <div className="absolute flex top-2 md:-top-4 gap-2 pt-4 text-sm pl-4  z-20">
           <div className="flex items-center gap-2">
             <label htmlFor="aggregationPeriod" className="text-secondary">
               Aggregation Period:
@@ -186,6 +187,14 @@ export function DownloadChart(props: Props) {
       )}
       <style>
         {`
+        .apexcharts-legend.apexcharts-align-right.apx-legend-position-top {
+          right: unset !important;
+        }
+        @media (max-width: 598px) {
+          .apexcharts-toolbar {
+            top: -28px !important;
+          }
+        }
         @media (min-width: 768px) {
           .apexcharts-legend.apexcharts-align-right.apx-legend-position-top {
             right: 125px !important;
