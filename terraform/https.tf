@@ -120,7 +120,7 @@ resource "google_compute_url_map" "frontend_https" {
   #
   # Additionally, any requests originating from the Googlebot user agent are
   # punched through to the frontend service, never to the modules bucket.
-  # 
+  #
   # These restrictions are in place to prevent users from accessing hosted files
   # in navigation requests, while allowing access to them (even cross-site) when
   # using `fetch`. We disallow loading resources directly from `<img>` and
@@ -160,13 +160,16 @@ resource "google_compute_url_map" "frontend_https" {
         full_path_match = "/sitemap-packages.xml"
       }
       match_rules {
-        full_path_match = "/login"
-      }
-      match_rules {
-        full_path_match = "/login/callback"
+        prefix_match = "/login"
       }
       match_rules {
         full_path_match = "/logout"
+      }
+      match_rules {
+        prefix_match = "/connect"
+      }
+      match_rules {
+        prefix_match = "/disconnect"
       }
     }
 
