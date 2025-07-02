@@ -15,7 +15,7 @@ export function GitHubActionsLink(
   const error = useSignal("");
 
   useEffect(() => {
-    if (user) {
+    if (user && user.githubId) {
       cachedGitHubLogin(user)
         .then((login) => {
           if (owner.value == "") owner.value = login;

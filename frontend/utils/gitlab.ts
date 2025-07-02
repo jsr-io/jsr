@@ -2,14 +2,14 @@
 import { User } from "./api_types.ts";
 import { getOrInsertItem } from "./client_cache.ts";
 
-export async function cachedGitHubLogin(user: User): Promise<string> {
+export async function cachedGitLabUsername(user: User): Promise<string> {
   return await getOrInsertItem(
-    `gh-login-${user.githubId}`,
+    `gl-username-${user.gitlabId}`,
     () => {
       const MAX_RETRIES = 3;
-      const fetchGithubUser = async (retryCount = 0) => {
+      const fetchGitlabUser = async (retryCount = 0) => {
         const response = await fetch(
-          `https://api.github.com/user/${user.githubId}`,
+          `https://gitlab.com/api/v4/users/${user.gitlabId}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -19,27 +19,27 @@ export async function cachedGitHubLogin(user: User): Promise<string> {
 
         if (
           response.status === 403 &&
-          response.headers.get("x-ratelimit-remaining") === "0"
+          response.headers.get("RateLimit-Remaining") === "0"
         ) {
-          throw new Error("GitLub API rate limit exceeded");
+          throw new Error("GitLab API rate limit exceeded");
         }
 
         const data = await response.json();
 
-        if (!data.login) {
+        if (!data.username) {
           if (retryCount >= MAX_RETRIES) {
             throw new Error(
-              "Failed to fetch GitHub login after maximum retries",
+              "Failed to fetch GitLab username after maximum retries",
             );
           }
 
           await new Promise((resolve) => setTimeout(resolve, 100));
-          return fetchGithubUser(retryCount + 1);
+          return fetchGitlabUser(retryCount + 1);
         }
-        return data.login;
+        return data.username;
       };
 
-      return fetchGithubUser();
+      return fetchGitlabUser();
     },
   );
 }

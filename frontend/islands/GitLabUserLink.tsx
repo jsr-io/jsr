@@ -1,17 +1,17 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import TbBrandGithub from "tb-icons/TbBrandGithub";
+import TbBrandGitlab from "tb-icons/TbBrandGitlab";
 import { useEffect } from "preact/hooks";
 import { User } from "../utils/api_types.ts";
-import { cachedGitHubLogin } from "../utils/github.ts";
+import { cachedGitLabUsername } from "../utils/gitlab.ts";
 
-export function GitHubUserLink({ user }: { user: User }) {
+export function GitLabUserLink({ user }: { user: User }) {
   const login = useSignal("");
   const error = useSignal(false);
 
   useEffect(() => {
-    if (user.githubId !== null) {
-      cachedGitHubLogin(user)
+    if (user.gitlabId !== null) {
+      cachedGitLabUsername(user)
         .then((login_) => {
           login.value = login_;
         })
@@ -24,13 +24,13 @@ export function GitHubUserLink({ user }: { user: User }) {
   });
 
   const icon = (
-    <TbBrandGithub
+    <TbBrandGitlab
       class="size-6 text-white rounded-full p-1 bg-jsr-gray-900"
       aria-hidden
     />
   );
 
-  if (user.githubId === null) {
+  if (user.gitlabId === null) {
     return (
       <span className="text-tertiary text-sm inline-flex justify-center items-center gap-1">
         {icon}
@@ -55,7 +55,7 @@ export function GitHubUserLink({ user }: { user: User }) {
     return (
       <a
         class="link inline-flex justify-center items-center gap-1"
-        href={"https://github.com/" + login.value}
+        href={"https://gitlab.com/" + login.value}
       >
         {icon}
         {login.value}

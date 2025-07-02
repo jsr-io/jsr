@@ -25,7 +25,7 @@ use uuid::Uuid;
 use crate::api::ApiError;
 use crate::db::Database;
 use crate::db::Permissions;
-use crate::github::verify_oidc_token;
+use crate::external::github::verify_oidc_token;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
@@ -205,6 +205,27 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
   Ok(req)
 }
 
+pub fn full_auth<H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let handler = Arc::new(auth(handler));
+
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+
+    async move {
+      let req = auth_middleware(req).await?;
+      let res = handler(req).await?;
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
 enum AuthorizationToken<'s> {
   Bearer(&'s str),
   GithubOIDC(&'s str),
@@ -338,7 +359,7 @@ pub trait RequestIdExt {
   fn param_version_or_latest(&self) -> Result<VersionOrLatest, ApiError>;
 }
 
-fn param<'a>(
+pub fn param<'a>(
   req: &'a Request<Body>,
   name: &str,
 ) -> Result<&'a String, ApiError> {
@@ -502,6 +523,7 @@ pub mod test {
           email: None,
           avatar_url: "https://avatars0.githubusercontent.com/u/952?v=4",
           github_id: Some(101),
+          gitlab_id: Some(101),
           is_blocked: false,
           is_staff: false,
         },
@@ -516,6 +538,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(102),
+          gitlab_id: Some(102),
           is_blocked: false,
           is_staff: false,
         },
@@ -530,6 +553,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(103),
+          gitlab_id: Some(103),
           is_blocked: false,
           is_staff: false,
         },
@@ -544,6 +568,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(104),
+          gitlab_id: Some(104),
           is_blocked: false,
           is_staff: true,
         },

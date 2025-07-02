@@ -105,15 +105,22 @@ export function Header({
             )}
             <Divider />
             <DarkModeToggle />
-            <Divider />
-            {user
-              ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-              : (
-                <a href={loginUrl} class="link-header flex items-center gap-2">
-                  <TbBrandGithub class="size-5 flex-none" aria-hidden />
-                  Sign in
-                </a>
-              )}
+            {url.pathname !== "/login" && (
+              <>
+                <Divider />
+                {user
+                  ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
+                  : (
+                    <a
+                      href={loginUrl}
+                      class="link-header flex items-center gap-2"
+                    >
+                      <TbBrandGithub class="size-5 flex-none" aria-hidden />
+                      Sign in
+                    </a>
+                  )}
+              </>
+            )}
           </div>
         </div>
         <div class="mt-4 sm:hidden">

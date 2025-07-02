@@ -69,7 +69,9 @@ export default define.page<typeof handler>(function ScopeMembersPage(
           />
         ))}
       </Table>
-      {iam.canAdmin && <MemberInvite scope={data.scope.scope} />}
+      {iam.canAdmin && (
+        <MemberInvite currentUser={state.user!} scope={data.scope.scope} />
+      )}
       {data.scopeMember && (
         <ScopeMemberLeave
           userId={data.scopeMember.user.id}
@@ -183,7 +185,9 @@ export function InviteItem(props: InviteItemProps) {
   );
 }
 
-function MemberInvite({ scope }: { scope: string }) {
+function MemberInvite(
+  { currentUser, scope }: { currentUser: FullUser; scope: string },
+) {
   return (
     <div class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-8">
       <h2 class="text-lg font-semibold">Invite member</h2>
@@ -192,7 +196,7 @@ function MemberInvite({ scope }: { scope: string }) {
         in this scope and create new packages. They will not be able to manage
         members unless they are granted admin status.
       </p>
-      <ScopeInviteForm scope={scope} />
+      <ScopeInviteForm currentUser={currentUser} scope={scope} />
     </div>
   );
 }

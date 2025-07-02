@@ -9,8 +9,6 @@ use crate::util::ApiResult;
 use crate::util::USER_AGENT;
 use anyhow::Context;
 use hyper::StatusCode;
-use percent_encoding::AsciiSet;
-use percent_encoding::CONTROLS;
 use serde::Deserialize;
 use serde::Deserializer;
 use tracing::error;
@@ -72,7 +70,7 @@ impl GitHubUserClient {
     &self,
     name: &str,
   ) -> Result<Option<User>, anyhow::Error> {
-    let name = sanitize_url_part(name);
+    let name = super::sanitize_url_part(name);
     let res = self.request(&format!("/users/{name}")).await?;
     let status = res.status();
     if status == StatusCode::NOT_FOUND {
@@ -93,8 +91,8 @@ impl GitHubUserClient {
     owner: &str,
     name: &str,
   ) -> Result<Option<Repository>, anyhow::Error> {
-    let owner = sanitize_url_part(owner);
-    let name = sanitize_url_part(name);
+    let owner = super::sanitize_url_part(owner);
+    let name = super::sanitize_url_part(name);
     let res = self.request(&format!("/repos/{owner}/{name}")).await?;
     let status = res.status();
     if status == StatusCode::NOT_FOUND {
@@ -110,6 +108,48 @@ impl GitHubUserClient {
   }
 }
 
+pub struct GitHubAppClient {
+  id: String,
+  secret: String,
+}
+
+impl GitHubAppClient {
+  pub fn new(client_id: String, client_secret: String) -> Self {
+    Self {
+      id: client_id,
+      secret: client_secret,
+    }
+  }
+
+  #[instrument(name = "GitHubAppClient::delete_authorization", skip(self), err)]
+  pub async fn delete_authorization(
+    &self,
+    access_token: String,
+  ) -> Result<(), anyhow::Error> {
+    let res = reqwest::Client::builder()
+      .user_agent(USER_AGENT)
+      .build()?
+      .delete(format!(
+        "https://api.github.com/applications/{}/grant",
+        self.id
+      ))
+      .basic_auth(&self.id, Some(&self.secret))
+      .json(&serde_json::json!({ "access_token": access_token }))
+      .send()
+      .await?;
+
+    let status = res.status();
+    if status.is_success() {
+      Ok(())
+    } else {
+      let response = res.text().await?;
+      Err(anyhow::anyhow!(
+        "failed to delete authorization (status {status}): {response}"
+      ))
+    }
+  }
+}
+
 #[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
 pub struct User {
   pub id: i64,
@@ -118,7 +158,6 @@ pub struct User {
   pub avatar_url: String,
   pub created_at: Option<chrono::DateTime<chrono::Utc>>,
   pub email: Option<String>,
-  pub company: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -145,17 +184,6 @@ pub struct RepositoryOwner {
 #[derive(Deserialize)]
 pub struct RepositoryPermissions {
   pub push: bool,
-}
-
-/// https://url.spec.whatwg.org/#fragment-percent-encode-set
-const FRAGMENT: &AsciiSet =
-  &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
-
-/// https://url.spec.whatwg.org/#path-percent-encode-set
-const PATH: &AsciiSet = &FRAGMENT.add(b'#').add(b'?').add(b'{').add(b'}');
-
-fn sanitize_url_part(part: &str) -> String {
-  percent_encoding::percent_encode(part.as_bytes(), PATH).to_string()
 }
 
 fn deserialize_number_from_string<'de, T, D>(
