@@ -49,14 +49,16 @@ pub async fn login_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let (auth_url, csrf_token) = (match &service {
     OauthService::GitHub => {
       let github_oauth2_client = req.data::<github::Oauth2Client>().unwrap();
-      let authorization_request =
-        github_oauth2_client.0.authorize_url(oauth2::CsrfToken::new_random);
+      let authorization_request = github_oauth2_client
+        .0
+        .authorize_url(oauth2::CsrfToken::new_random);
       github::set_scopes(authorization_request)
     }
     OauthService::GitLab => {
       let gitlab_oauth2_client = req.data::<gitlab::Oauth2Client>().unwrap();
-      let authorization_request =
-        gitlab_oauth2_client.0.authorize_url(oauth2::CsrfToken::new_random);
+      let authorization_request = gitlab_oauth2_client
+        .0
+        .authorize_url(oauth2::CsrfToken::new_random);
       gitlab::set_scopes(authorization_request)
     }
   })
@@ -127,7 +129,8 @@ pub async fn login_callback_handler(
       };
 
       let github_oauth2_client = req.data::<github::Oauth2Client>().unwrap();
-      let res = github_oauth2_client.0
+      let res = github_oauth2_client
+        .0
         .exchange_code(oauth2::AuthorizationCode::new(code))
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
@@ -141,7 +144,8 @@ pub async fn login_callback_handler(
     }
     OauthService::GitLab => {
       let gitlab_oauth2_client = req.data::<gitlab::Oauth2Client>().unwrap();
-      let res = gitlab_oauth2_client.0
+      let res = gitlab_oauth2_client
+        .0
         .exchange_code(oauth2::AuthorizationCode::new(code))
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
@@ -206,8 +210,9 @@ pub async fn connect_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let (auth_url, csrf_token) = (match &service {
     OauthService::GitHub => {
       let github_oauth2_client = req.data::<github::Oauth2Client>().unwrap();
-      let authorization_request =
-        github_oauth2_client.0.authorize_url(oauth2::CsrfToken::new_random);
+      let authorization_request = github_oauth2_client
+        .0
+        .authorize_url(oauth2::CsrfToken::new_random);
       github::set_scopes(authorization_request).set_redirect_uri(Cow::Owned(
         RedirectUrl::from_url(
           Url::options()
@@ -219,8 +224,9 @@ pub async fn connect_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     }
     OauthService::GitLab => {
       let gitlab_oauth2_client = req.data::<gitlab::Oauth2Client>().unwrap();
-      let authorization_request =
-        gitlab_oauth2_client.0.authorize_url(oauth2::CsrfToken::new_random);
+      let authorization_request = gitlab_oauth2_client
+        .0
+        .authorize_url(oauth2::CsrfToken::new_random);
       gitlab::set_scopes(authorization_request).set_redirect_uri(Cow::Owned(
         RedirectUrl::from_url(
           Url::options()
@@ -302,19 +308,18 @@ pub async fn connect_callback_handler(
       };
 
       let github_oauth2_client = req.data::<github::Oauth2Client>().unwrap();
-      let res = github_oauth2_client.0
+      let res = github_oauth2_client
+        .0
         .exchange_code(oauth2::AuthorizationCode::new(code))
         .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
           oauth_state.pkce_code_verifier,
         ))
-        .set_redirect_uri(Cow::Owned(
-          RedirectUrl::from_url(
-            Url::options()
-              .base_url(Some(&registry_url))
-              .parse("./connect/callback/github")
-              .unwrap(),
-          ),
-        ))
+        .set_redirect_uri(Cow::Owned(RedirectUrl::from_url(
+          Url::options()
+            .base_url(Some(&registry_url))
+            .parse("./connect/callback/github")
+            .unwrap(),
+        )))
         .request_async(async_http_client)
         .await?;
 
@@ -325,22 +330,20 @@ pub async fn connect_callback_handler(
     }
     OauthService::GitLab => {
       let gitlab_oauth2_client = req.data::<gitlab::Oauth2Client>().unwrap();
-      let res =
-        gitlab_oauth2_client.0
-          .exchange_code(oauth2::AuthorizationCode::new(code))
-          .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
-            oauth_state.pkce_code_verifier,
-          ))
-          .set_redirect_uri(Cow::Owned(
-            RedirectUrl::from_url(
-              Url::options()
-                .base_url(Some(&registry_url))
-                .parse("./connect/callback/gitlab")
-                .unwrap(),
-            ),
-          ))
-          .request_async(async_http_client)
-          .await?;
+      let res = gitlab_oauth2_client
+        .0
+        .exchange_code(oauth2::AuthorizationCode::new(code))
+        .set_pkce_verifier(oauth2::PkceCodeVerifier::new(
+          oauth_state.pkce_code_verifier,
+        ))
+        .set_redirect_uri(Cow::Owned(RedirectUrl::from_url(
+          Url::options()
+            .base_url(Some(&registry_url))
+            .parse("./connect/callback/gitlab")
+            .unwrap(),
+        )))
+        .request_async(async_http_client)
+        .await?;
 
       db.delete_oauth_state(&oauth_state.csrf_token).await?;
 
@@ -395,16 +398,20 @@ pub async fn disconnect_handler(
         db.user_set_gitlab_id(user.id, None).await?;
         let identity = db.delete_gitlab_identity(gitlab_id).await?;
         let gitlab_oauth2_client = req.data::<gitlab::Oauth2Client>().unwrap();
-        gitlab_oauth2_client.0.revoke_token(
-          StandardRevocableToken::RefreshToken(RefreshToken::new(
-            identity.refresh_token.unwrap(),
-          )),
-        )?;
-        gitlab_oauth2_client.0.revoke_token(
-          StandardRevocableToken::AccessToken(AccessToken::new(
+        gitlab_oauth2_client
+          .0
+          .revoke_token(StandardRevocableToken::RefreshToken(
+            RefreshToken::new(identity.refresh_token.unwrap()),
+          ))?
+          .request_async(async_http_client)
+          .await?;
+        gitlab_oauth2_client
+          .0
+          .revoke_token(StandardRevocableToken::AccessToken(AccessToken::new(
             identity.access_token.unwrap(),
-          )),
-        )?;
+          )))?
+          .request_async(async_http_client)
+          .await?;
       }
     }
   }

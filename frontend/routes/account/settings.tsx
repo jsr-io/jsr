@@ -4,7 +4,7 @@ import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { QuotaCard } from "../../components/QuotaCard.tsx";
 import { define } from "../../util.ts";
 import { TicketModal } from "../../islands/TicketModal.tsx";
-import { TbBrandGithub, TbBrandGitlab } from "tb-icons";
+import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
   data,
@@ -80,14 +80,12 @@ export default define.page<typeof handler>(function AccountInvitesPage({
               name="GitHub"
               serviceId="github"
               id={data.user.githubId}
-              icon={TbBrandGithub}
               connectionsCount={connectionsCount}
             />
             <Connection
               name="GitLab"
               serviceId="gitlab"
               id={data.user.gitlabId}
-              icon={TbBrandGitlab}
               connectionsCount={connectionsCount}
             />
           </div>
@@ -110,19 +108,20 @@ export default define.page<typeof handler>(function AccountInvitesPage({
 });
 
 function Connection(
-  { name, serviceId, id, icon: Icon, connectionsCount }: {
+  { name, serviceId, id, connectionsCount }: {
     name: string;
     serviceId: string;
     id: number | null;
-    icon: any;
     connectionsCount: number;
   },
 ) {
   if (connectionsCount === 1 && id !== null) {
-    return <button disabled class="button-primary" type="button">
-      <Icon class="size-4" />
-      Disconnect {name}
-    </button>
+    return (
+      <button disabled class="button-primary" type="button">
+        <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} />
+        Disconnect {name}
+      </button>
+    );
   }
 
   return (
@@ -130,7 +129,7 @@ function Connection(
       href={`/${id === null ? "" : "dis"}connect/${serviceId}`}
       class="button-primary"
     >
-      <Icon class="size-4" />
+      <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} />
       {id === null ? "Connect" : "Disconnect"} {name}
     </a>
   );

@@ -78,7 +78,7 @@ impl GitLabUserClient {
     }
   }
 
-  #[instrument(name = "GitLabUserClient::get_repo", skip(self), err)]
+  /*#[instrument(name = "GitLabUserClient::get_repo", skip(self), err)]
   pub async fn get_repo(
     &self,
     owner: &str,
@@ -98,7 +98,7 @@ impl GitLabUserClient {
     }
     let repo: Repository = res.json().await?;
     Ok(Some(repo))
-  }
+  }*/
 }
 
 #[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
@@ -116,7 +116,7 @@ pub struct Email {
   pub email: String,
   pub confirmed_at: Option<chrono::DateTime<chrono::Utc>>,
 }
-
+/*
 #[derive(Deserialize)]
 pub struct Repository {
   pub id: i64,
@@ -141,3 +141,4 @@ pub struct RepositoryPermissions {
 pub struct RepositoryAccess {
   pub access_level: u8,
 }
+*/

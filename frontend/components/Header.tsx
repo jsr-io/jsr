@@ -7,6 +7,7 @@ import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
+import { SignInMenu } from "../islands/SignInMenu.tsx";
 
 export function Header({
   user,
@@ -110,15 +111,7 @@ export function Header({
                 <Divider />
                 {user
                   ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-                  : (
-                    <a
-                      href={loginUrl}
-                      class="link-header flex items-center gap-2"
-                    >
-                      <TbBrandGithub class="size-5 flex-none" aria-hidden />
-                      Sign in
-                    </a>
-                  )}
+                  : <SignInMenu />}
               </>
             )}
           </div>

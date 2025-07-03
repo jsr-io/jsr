@@ -378,6 +378,24 @@ impl From<oauth2::ConfigurationError> for ApiError {
   }
 }
 
+impl
+  From<
+    oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  > for ApiError
+{
+  fn from(
+    error: oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  ) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 impl From<GcsError> for ApiError {
   fn from(error: GcsError) -> ApiError {
     anyhow::Error::from(error).into()

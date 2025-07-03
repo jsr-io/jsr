@@ -21,14 +21,16 @@ use tracing::instrument;
 type GitLabTokenResponse =
   StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
-pub struct Oauth2Client(pub oauth2::Client<
-  BasicErrorResponse,
-  GitLabTokenResponse,
-  BasicTokenType,
-  StandardTokenIntrospectionResponse<EmptyExtraTokenFields, BasicTokenType>,
-  StandardRevocableToken,
-  BasicRevocationErrorResponse,
->);
+pub struct Oauth2Client(
+  pub  oauth2::Client<
+    BasicErrorResponse,
+    GitLabTokenResponse,
+    BasicTokenType,
+    StandardTokenIntrospectionResponse<EmptyExtraTokenFields, BasicTokenType>,
+    StandardRevocableToken,
+    BasicRevocationErrorResponse,
+  >,
+);
 
 fn new_gitlab_identity_from_oauth_response(
   res: GitLabTokenResponse,
@@ -69,7 +71,8 @@ pub async fn access_token(
     }
 
     // Get new tokens
-    let res = gitlab_oauth2_client.0
+    let res = gitlab_oauth2_client
+      .0
       .exchange_refresh_token(&oauth2::RefreshToken::new(
         glid.refresh_token.clone().unwrap(),
       ))

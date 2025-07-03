@@ -29,14 +29,17 @@ impl ExtraTokenFields for GithubTokenExtraFields {}
 type GithubTokenResponse =
   StandardTokenResponse<GithubTokenExtraFields, BasicTokenType>;
 
-pub struct Oauth2Client(pub oauth2::Client<
-  BasicErrorResponse,
-  GithubTokenResponse,
-  BasicTokenType,
-  StandardTokenIntrospectionResponse<GithubTokenExtraFields, BasicTokenType>,
-  StandardRevocableToken,
-  BasicRevocationErrorResponse,
->, pub String);
+pub struct Oauth2Client(
+  pub  oauth2::Client<
+    BasicErrorResponse,
+    GithubTokenResponse,
+    BasicTokenType,
+    StandardTokenIntrospectionResponse<GithubTokenExtraFields, BasicTokenType>,
+    StandardRevocableToken,
+    BasicRevocationErrorResponse,
+  >,
+  pub String,
+);
 
 fn new_github_identity_from_oauth_response(
   res: StandardTokenResponse<GithubTokenExtraFields, BasicTokenType>,
@@ -89,7 +92,8 @@ pub async fn access_token(
     }
 
     // Get new tokens
-    let res = github_oauth2_client.0
+    let res = github_oauth2_client
+      .0
       .exchange_refresh_token(&oauth2::RefreshToken::new(
         ghid.refresh_token.clone().unwrap(),
       ))
