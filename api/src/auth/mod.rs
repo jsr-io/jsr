@@ -30,7 +30,7 @@ enum OauthService {
 }
 
 fn service_param(req: &Request<Body>) -> Result<OauthService, ApiError> {
-  let service = crate::util::param(&req, "service")?;
+  let service = crate::util::param(req, "service")?;
 
   Ok(match service.as_str() {
     "github" => OauthService::GitHub,

@@ -147,9 +147,7 @@ pub async fn generate_access_token(
       is_staff: false,
     };
 
-    let db_user = db.upsert_user_by_gitlab_id(new_user).await?;
-
-    db_user
+    db.upsert_user_by_gitlab_id(new_user).await?
   };
 
   let expires_at = Utc::now() + Duration::try_days(7).unwrap();
