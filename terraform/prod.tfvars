@@ -6,4 +6,5 @@ orama_package_public_index_id = "jsr-j7uqzz"
 orama_docs_public_api_key     = "q9ikYsh66FPVJHEGydHhyxsIfBSpwCjp"
 orama_docs_public_index_id    = "jsr-docs-hgtqb6"
 github_client_id              = "Iv1.c0627603fa450ec3"
+gitlab_client_id              = "ffcfde310e3fc7cc2e9061c28f08268664a80b7d8b56011d239c46d7debf6fd8"
 production                    = true

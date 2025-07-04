@@ -3,10 +3,10 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
+import { SignInMenu } from "../islands/SignInMenu.tsx";
 
 export function Header({
   user,
@@ -20,7 +20,6 @@ export function Header({
   searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
-  const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
   const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
@@ -105,15 +104,18 @@ export function Header({
             )}
             <Divider />
             <DarkModeToggle />
-            <Divider />
-            {user
-              ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-              : (
-                <a href={loginUrl} class="link-header flex items-center gap-2">
-                  <TbBrandGithub class="size-5 flex-none" aria-hidden />
-                  Sign in
-                </a>
-              )}
+            {url.pathname !== "/login" && (
+              <>
+                <Divider />
+                {user
+                  ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
+                  : (
+                    <SignInMenu
+                      redirect={`?redirect=${encodeURIComponent(redirectUrl)}`}
+                    />
+                  )}
+              </>
+            )}
           </div>
         </div>
         <div class="mt-4 sm:hidden">
