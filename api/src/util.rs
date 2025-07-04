@@ -440,12 +440,14 @@ impl RequestIdExt for Request<Body> {
 pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
-  use crate::auth::GithubOauth2Client;
   use crate::buckets::BucketWithQueue;
   use crate::buckets::Buckets;
+  use crate::db::Database;
   use crate::db::EphemeralDatabase;
   use crate::db::NewGithubIdentity;
-  use crate::db::{Database, NewUser, User};
+  use crate::db::NewGitlabIdentity;
+  use crate::db::NewUser;
+  use crate::db::User;
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
   use crate::ids::ScopeDescription;
@@ -482,7 +484,9 @@ pub mod test {
     #[allow(dead_code)]
     pub scope: crate::db::Scope,
     #[allow(dead_code)]
-    pub github_oauth2_client: GithubOauth2Client,
+    pub github_oauth2_client: crate::auth::github::Oauth2Client,
+    #[allow(dead_code)]
+    pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
     pub service: RequestService<Body, ApiError>,
   }
 
@@ -501,19 +505,13 @@ pub mod test {
         docs_bucket: BucketWithQueue::new(docs_bucket),
         npm_bucket: BucketWithQueue::new(npm_bucket),
       };
-      let github_oauth2_client = GithubOauth2Client::new(
-        oauth2::ClientId::new("".to_string()),
-        Some(oauth2::ClientSecret::new("".to_string())),
-        oauth2::AuthUrl::new(
-          "https://github.com/login/oauth/authorize".to_string(),
-        )
-        .unwrap(),
-        Some(
-          oauth2::TokenUrl::new(
-            "https://github.com/login/oauth/access_token".to_string(),
-          )
-          .unwrap(),
-        ),
+      let registry_url = "http://jsr-tests.test".parse().unwrap();
+      let github_oauth2_client =
+        crate::auth::github::Oauth2Client::new("".to_string(), "".to_string());
+      let gitlab_oauth2_client = crate::auth::gitlab::Oauth2Client::new(
+        &registry_url,
+        "".to_string(),
+        "".to_string(),
       );
 
       let user1 = Self::create_user(
@@ -604,9 +602,10 @@ pub mod test {
         database: db,
         buckets: buckets.clone(),
         github_client: github_oauth2_client.clone(),
+        gitlab_client: gitlab_oauth2_client.clone(),
         orama_client: None,
         email_sender: None,
-        registry_url: "http://jsr-tests.test".parse().unwrap(),
+        registry_url,
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
@@ -629,6 +628,7 @@ pub mod test {
         staff_user,
         scope,
         github_oauth2_client,
+        gitlab_oauth2_client,
         service,
       }
     }
@@ -644,6 +644,14 @@ pub mod test {
         access_token_expires_at: None,
         refresh_token: None,
         refresh_token_expires_at: None,
+      })
+      .await
+      .unwrap();
+      db.upsert_gitlab_identity(NewGitlabIdentity {
+        gitlab_id: new_user.gitlab_id.unwrap(),
+        access_token: None,
+        access_token_expires_at: None,
+        refresh_token: None,
       })
       .await
       .unwrap();

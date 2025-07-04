@@ -29,6 +29,7 @@ impl ExtraTokenFields for GithubTokenExtraFields {}
 type GithubTokenResponse =
   StandardTokenResponse<GithubTokenExtraFields, BasicTokenType>;
 
+#[derive(Clone)]
 pub struct Oauth2Client(
   pub  oauth2::Client<
     BasicErrorResponse,
@@ -40,6 +41,28 @@ pub struct Oauth2Client(
   >,
   pub String,
 );
+
+impl Oauth2Client {
+  pub fn new(id: String, secret: String) -> Self {
+    Self(
+      oauth2::Client::new(
+        oauth2::ClientId::new(id),
+        Some(oauth2::ClientSecret::new(secret.clone())),
+        oauth2::AuthUrl::new(
+          "https://github.com/login/oauth/authorize".to_string(),
+        )
+        .unwrap(),
+        Some(
+          oauth2::TokenUrl::new(
+            "https://github.com/login/oauth/access_token".to_string(),
+          )
+          .unwrap(),
+        ),
+      ),
+      secret,
+    )
+  }
+}
 
 fn new_github_identity_from_oauth_response(
   res: StandardTokenResponse<GithubTokenExtraFields, BasicTokenType>,

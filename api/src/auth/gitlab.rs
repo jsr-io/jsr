@@ -7,7 +7,6 @@ use crate::util::ApiResult;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
-use oauth2::EmptyExtraTokenFields;
 use oauth2::StandardRevocableToken;
 use oauth2::StandardTokenIntrospectionResponse;
 use oauth2::StandardTokenResponse;
@@ -16,11 +15,14 @@ use oauth2::basic::BasicErrorResponse;
 use oauth2::basic::BasicRevocationErrorResponse;
 use oauth2::basic::BasicTokenType;
 use oauth2::reqwest::async_http_client;
+use oauth2::{EmptyExtraTokenFields, RedirectUrl, RevocationUrl};
 use tracing::instrument;
+use url::Url;
 
 type GitLabTokenResponse =
   StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>;
 
+#[derive(Clone)]
 pub struct Oauth2Client(
   pub  oauth2::Client<
     BasicErrorResponse,
@@ -31,6 +33,33 @@ pub struct Oauth2Client(
     BasicRevocationErrorResponse,
   >,
 );
+
+impl Oauth2Client {
+  pub fn new(registry_url: &Url, id: String, secret: String) -> Self {
+    Self(
+      oauth2::Client::new(
+        oauth2::ClientId::new(id),
+        Some(oauth2::ClientSecret::new(secret)),
+        oauth2::AuthUrl::new("https://gitlab.com/oauth/authorize".to_string())
+          .unwrap(),
+        Some(
+          oauth2::TokenUrl::new("https://gitlab.com/oauth/token".to_string())
+            .unwrap(),
+        ),
+      )
+      .set_revocation_uri(
+        RevocationUrl::new("https://gitlab.com/oauth/revoke".to_string())
+          .unwrap(),
+      )
+      .set_redirect_uri(RedirectUrl::from_url(
+        Url::options()
+          .base_url(Some(registry_url))
+          .parse("./login/callback/gitlab")
+          .unwrap(),
+      )),
+    )
+  }
+}
 
 fn new_gitlab_identity_from_oauth_response(
   res: GitLabTokenResponse,

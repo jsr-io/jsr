@@ -1,3 +1,4 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use percent_encoding::AsciiSet;
 use percent_encoding::CONTROLS;
 

@@ -50,7 +50,6 @@ use crate::tracing::setup_tracing;
 use clap::Parser;
 use hyper::Body;
 use hyper::Server;
-use oauth2::{RedirectUrl, RevocationUrl};
 use routerify::Router;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -212,47 +211,15 @@ async fn main() {
       )
     });
 
-  let github_client = auth::github::Oauth2Client(
-    oauth2::Client::new(
-      oauth2::ClientId::new(config.github_client_id),
-      Some(oauth2::ClientSecret::new(
-        config.github_client_secret.clone(),
-      )),
-      oauth2::AuthUrl::new(
-        "https://github.com/login/oauth/authorize".to_string(),
-      )
-      .unwrap(),
-      Some(
-        oauth2::TokenUrl::new(
-          "https://github.com/login/oauth/access_token".to_string(),
-        )
-        .unwrap(),
-      ),
-    ),
+  let github_client = auth::github::Oauth2Client::new(
+    config.github_client_id,
     config.github_client_secret,
   );
 
-  let gitlab_client = auth::gitlab::Oauth2Client(
-    oauth2::Client::new(
-      oauth2::ClientId::new(config.gitlab_client_id),
-      Some(oauth2::ClientSecret::new(config.gitlab_client_secret)),
-      oauth2::AuthUrl::new("https://gitlab.com/oauth/authorize".to_string())
-        .unwrap(),
-      Some(
-        oauth2::TokenUrl::new("https://gitlab.com/oauth/token".to_string())
-          .unwrap(),
-      ),
-    )
-    .set_revocation_uri(
-      RevocationUrl::new("https://gitlab.com/oauth/revoke".to_string())
-        .unwrap(),
-    )
-    .set_redirect_uri(RedirectUrl::from_url(
-      Url::options()
-        .base_url(Some(&config.registry_url))
-        .parse("./login/callback/gitlab")
-        .unwrap(),
-    )),
+  let gitlab_client = auth::gitlab::Oauth2Client::new(
+    &config.registry_url,
+    config.gitlab_client_id,
+    config.gitlab_client_secret,
   );
 
   let orama_client = if let Some(orama_package_private_api_key) =
