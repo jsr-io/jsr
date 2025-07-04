@@ -26,6 +26,15 @@ variable "github_client_secret" {
   sensitive = true
 }
 
+variable "gitlab_client_id" {
+  type = string
+}
+
+variable "gitlab_client_secret" {
+  type      = string
+  sensitive = true
+}
+
 variable "postmark_token" {
   type      = string
   sensitive = true
