@@ -90,3 +90,33 @@ JFrog Artifactory.
 
 Aligning JSRs package tarball URLs with the NPM upstream is being tracked in
 [issue #405](https://github.com/jsr-io/jsr/issues/405).
+
+### Configuring a JSR upstream with Cloudsmith
+
+To use JSR as an upstream source in Cloudsmith, follow the steps below to create and configure a new upstream proxy in your Cloudsmith repository:
+
+#### Step 1: Add JSR as an Upstream Proxy
+
+1. Navigate to your Cloudsmith repository:  
+   `https://app.cloudsmith.com/MY_WORKSPACE/MY_REPOSITORY`
+
+2. Click the **Upstreams** tab.
+
+3. Click **+ Add Upstream Proxy** and select `npm` as the format.
+
+4. Fill out the form:
+    - **Name**: e.g., `JSR-Testing`
+    - **Proxy URL**: `https://npm.jsr.io`
+
+5. Click **+ Create Upstream Proxy** to save the configuration.
+
+#### Step 2: Install JSR Packages via Cloudsmith
+
+After configuring the upstream, you can install and cache JSR packages through Cloudsmith.
+
+1. Follow the **Set Me Up** instructions in Cloudsmith to configure your package manager (e.g., npm, yarn, pnpm).
+
+2. Use the relevant install command. For example, to install `@orderly/devkit` from JSR, run:
+
+   ```bash
+   npm install @jsr/orderly__devkit
