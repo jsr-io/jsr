@@ -4,7 +4,7 @@ import twas from "twas";
 import { AccountNav, AccountNavTab } from "./AccountNav.tsx";
 import { FullUser, User } from "../../../utils/api_types.ts";
 import { GitHubUserLink } from "../../../islands/GithubUserLink.tsx";
-import { GitLabUserLink } from "../../../islands/GitLabUserLink.tsx";
+//import { GitLabUserLink } from "../../../islands/GitLabUserLink.tsx";
 
 interface AccountLayoutProps {
   user: User | FullUser;

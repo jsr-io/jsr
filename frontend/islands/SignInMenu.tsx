@@ -7,7 +7,7 @@ import { asset } from "fresh/runtime";
 const SHARED_ITEM_CLASSES =
   "flex items-center justify-start gap-2 px-4 py-2.5 focus-visible:ring-2 ring-inset outline-none";
 
-export function SignInMenu() {
+export function SignInMenu({ redirect }: { redirect: string }) {
   const open = useSignal(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -47,7 +47,7 @@ export function SignInMenu() {
       >
         <div class="divide-y divide-jsr-gray-800">
           <a
-            href="/login/github"
+            href={"/login/github" + redirect}
             tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black text-jsr-gray-950`}
           >
@@ -55,7 +55,7 @@ export function SignInMenu() {
             Sign In with GitHub
           </a>
           <a
-            href="/login/gitlab"
+            href={"/login/gitlab" + redirect}
             tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black text-jsr-gray-950`}
           >

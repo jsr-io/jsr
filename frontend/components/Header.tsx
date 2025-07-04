@@ -3,7 +3,6 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
@@ -21,7 +20,6 @@ export function Header({
   searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
-  const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
   const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
@@ -111,7 +109,7 @@ export function Header({
                 <Divider />
                 {user
                   ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-                  : <SignInMenu />}
+                  : <SignInMenu redirect={`?redirect=${encodeURIComponent(redirectUrl)}`} />}
               </>
             )}
           </div>
