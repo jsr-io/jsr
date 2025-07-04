@@ -109,7 +109,11 @@ export function Header({
                 <Divider />
                 {user
                   ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-                  : <SignInMenu redirect={`?redirect=${encodeURIComponent(redirectUrl)}`} />}
+                  : (
+                    <SignInMenu
+                      redirect={`?redirect=${encodeURIComponent(redirectUrl)}`}
+                    />
+                  )}
               </>
             )}
           </div>
