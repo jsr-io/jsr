@@ -2,11 +2,11 @@
 use chrono::DateTime;
 use chrono::Utc;
 use serde_json::json;
-use sqlx::migrate;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
 use sqlx::Result;
 use sqlx::Row;
+use sqlx::migrate;
+use sqlx::postgres::PgPoolOptions;
 use tracing::instrument;
 use uuid::Uuid;
 

@@ -94,7 +94,7 @@ export function MemberItem(props: MemberItemProps) {
     <TableRow key={member.user.id}>
       <TableData>
         <a
-          class="text-jsr-cyan-700 hover:text-jsr-cyan-400 hover:underline"
+          class="text-jsr-cyan-700 dark:text-cyan-400 hover:text-jsr-cyan-400 hover:underline"
           href={`/user/${member.user.id}`}
         >
           {member.user.name}

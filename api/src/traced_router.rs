@@ -9,31 +9,31 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::future::ready;
 use std::future::Future;
 use std::future::Ready;
+use std::future::ready;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
 use futures::FutureExt;
+use hyper::Request;
+use hyper::Response;
 use hyper::body::HttpBody;
 use hyper::header::HeaderValue;
 use hyper::server::conn::AddrStream;
 use hyper::service::Service;
-use hyper::Request;
-use hyper::Response;
 use opentelemetry::global;
 use opentelemetry::trace::TraceContextExt;
 use routerify::RequestService;
 use routerify::RequestServiceBuilder;
 use routerify::Router;
+use tracing::Instrument;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::info_span;
-use tracing::Instrument;
-use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[derive(Debug)]
@@ -43,9 +43,9 @@ pub struct TracedRouterService<B, E> {
 }
 
 impl<
-    B: HttpBody + Send + Sync + 'static,
-    E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
-  > TracedRouterService<B, E>
+  B: HttpBody + Send + Sync + 'static,
+  E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+> TracedRouterService<B, E>
 {
   /// Creates a new service with the provided router and it's ready to be used with the hyper [`serve`](https://docs.rs/hyper/0.14.4/hyper/server/struct.Builder.html#method.serve)
   /// method. `is_internal` determines if the router will respect incoming tracing headers.
@@ -62,9 +62,9 @@ impl<
 }
 
 impl<
-    B: HttpBody + Send + Sync + 'static,
-    E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
-  > Service<&AddrStream> for TracedRouterService<B, E>
+  B: HttpBody + Send + Sync + 'static,
+  E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+> Service<&AddrStream> for TracedRouterService<B, E>
 {
   type Response = TracedRequestService<B, E>;
   type Error = Infallible;
@@ -93,9 +93,9 @@ pub struct TracedRequestService<B, E> {
 type PinBox<T> = Pin<Box<T>>;
 
 impl<
-    B: HttpBody + Send + Sync + 'static,
-    E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
-  > Service<Request<hyper::Body>> for TracedRequestService<B, E>
+  B: HttpBody + Send + Sync + 'static,
+  E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+> Service<Request<hyper::Body>> for TracedRequestService<B, E>
 {
   type Response = Response<B>;
   type Error = routerify::RouteError;
@@ -171,9 +171,9 @@ pub struct TracedRequestServiceBuilder<B, E> {
 }
 
 impl<
-    B: HttpBody + Send + Sync + 'static,
-    E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
-  > TracedRequestServiceBuilder<B, E>
+  B: HttpBody + Send + Sync + 'static,
+  E: Into<Box<dyn std::error::Error + Send + Sync>> + 'static,
+> TracedRequestServiceBuilder<B, E>
 {
   pub fn new(router: Router<B, E>) -> routerify::Result<Self> {
     let builder = RequestServiceBuilder::new(router)?;

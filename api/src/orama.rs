@@ -9,10 +9,10 @@ use crate::db::PackageVersionMeta;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::util::USER_AGENT;
-use tracing::error;
-use tracing::instrument;
 use tracing::Instrument;
 use tracing::Span;
+use tracing::error;
+use tracing::instrument;
 
 const MAX_ORAMA_INSERT_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
 

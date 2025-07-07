@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use deno_semver::VersionParseError;
-use sqlx::postgres::PgValueRef;
 use sqlx::Postgres;
+use sqlx::postgres::PgValueRef;
 use thiserror::Error;
 
 /// A scope name, like `user` or `admin`. The name is not prefixed with an @.
@@ -134,7 +134,9 @@ pub enum ScopeNameValidateError {
   #[error("scope name must be at most 20 characters long")]
   TooLong,
 
-  #[error("scope name must contain only lowercase ascii alphanumeric characters and hyphens")]
+  #[error(
+    "scope name must contain only lowercase ascii alphanumeric characters and hyphens"
+  )]
   InvalidCharacters,
 
   #[error("scope name must not start or end with a hyphen")]
@@ -395,7 +397,9 @@ pub enum PackageNameValidateError {
   #[error("package name must be at most 58 characters long")]
   TooLong,
 
-  #[error("package name must contain only lowercase ascii alphanumeric characters and hyphens")]
+  #[error(
+    "package name must contain only lowercase ascii alphanumeric characters and hyphens"
+  )]
   InvalidCharacters,
 
   #[error("package name must not start or end with a hyphen")]
@@ -422,7 +426,9 @@ pub enum ScopedPackageNameValidateError {
   #[error("scope must start with '@' sign")]
   MissingAtPrefix,
 
-  #[error("scoped package name must contain '/' separator between scope and package name")]
+  #[error(
+    "scoped package name must contain '/' separator between scope and package name"
+  )]
   MissingSlashSeparator,
 }
 
@@ -581,9 +587,7 @@ pub enum VersionValidateError {
   #[error("invalid semver version: {0}")]
   InvalidVersion(VersionParseError),
 
-  #[error(
-    "version must be normalized: expected {normalized}, got {specified}"
-  )]
+  #[error("version must be normalized: expected {normalized}, got {specified}")]
   NotNormalized {
     specified: String,
     normalized: String,
@@ -837,10 +841,14 @@ fn valid_char(c: char) -> Option<PackagePathValidationError> {
 
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum PackagePathValidationError {
-  #[error("package path must be at most 155 characters long, but is {0} characters long")]
+  #[error(
+    "package path must be at most 155 characters long, but is {0} characters long"
+  )]
   TooLong(usize),
 
-  #[error("the last path component must be at most 95 characters long, but is {0} characters long")]
+  #[error(
+    "the last path component must be at most 95 characters long, but is {0} characters long"
+  )]
   LastPathComponentTooLong(usize),
 
   #[error("package path must be prefixed with a slash")]
@@ -1019,10 +1027,12 @@ mod tests {
     assert!(PackageName::try_from("f").is_err());
     assert!(PackageName::try_from("Foo").is_err());
     assert!(PackageName::try_from("oooF").is_err());
-    assert!(PackageName::try_from(
-      "very-long-name-is-very-very-very-very-very-very-very-very-long"
-    )
-    .is_err());
+    assert!(
+      PackageName::try_from(
+        "very-long-name-is-very-very-very-very-very-very-very-very-long"
+      )
+      .is_err()
+    );
     assert!(PackageName::try_from("foo_bar").is_err());
     assert!(PackageName::try_from("-foo").is_err());
     assert!(PackageName::try_from("foo-").is_err());
@@ -1207,43 +1217,61 @@ mod tests {
   #[test]
   fn test_package_path_is_readme() {
     // Valid READMEs
-    assert!(PackagePath::try_from("/README.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/README.txt")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/README.markdown")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/readme.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/readme.txt")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/readme.markdown")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(PackagePath::try_from("/ReAdMe.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
+    assert!(
+      PackagePath::try_from("/README.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/README.txt")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/README.markdown")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/readme.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/readme.txt")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/readme.markdown")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      PackagePath::try_from("/ReAdMe.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
 
     // Invalid READMEs
-    assert!(!PackagePath::try_from("/foo/README.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
-    assert!(!PackagePath::try_from("/foo.md")
-      .unwrap()
-      .case_insensitive()
-      .is_readme());
+    assert!(
+      !PackagePath::try_from("/foo/README.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
+    assert!(
+      !PackagePath::try_from("/foo.md")
+        .unwrap()
+        .case_insensitive()
+        .is_readme()
+    );
   }
 }

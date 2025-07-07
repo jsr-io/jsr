@@ -6,17 +6,17 @@ use std::task::Poll;
 use std::time::Duration;
 use std::time::Instant;
 
-use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 use pin_project::pin_project;
 use tokio::sync::oneshot;
 use tokio::time::Sleep;
-use tracing::debug;
-use tracing::instrument::Instrumented;
 use tracing::Instrument;
 use tracing::Span;
+use tracing::debug;
+use tracing::instrument::Instrumented;
 use uuid::Uuid;
 
 /// [DynamicTaskQueue] is a task queue that runs tasks in parallel. The queue

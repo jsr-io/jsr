@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-use deno_ast::emit;
-use deno_ast::fold_program;
-use deno_ast::swc::ecma_visit::VisitMutWith;
 use deno_ast::EmittedSourceText;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
 use deno_ast::TranspileOptions;
+use deno_ast::emit;
+use deno_ast::fold_program;
+use deno_ast::swc::ecma_visit::VisitMutWith;
 use deno_graph::FastCheckTypeModule;
 use url::Url;
 
