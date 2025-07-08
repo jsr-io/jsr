@@ -20,7 +20,7 @@ export function Header({
   searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
-  const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
+  const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
   const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
   const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
@@ -34,6 +34,8 @@ export function Header({
   const oramaIndexId = searchKind === "packages"
     ? oramaPackageIndexId
     : oramaDocsIndexId;
+
+  const prodProxy = !!Deno.env.get("PROD_PROXY");
 
   const isHomepage = url.pathname === "/";
 
@@ -108,12 +110,16 @@ export function Header({
               <>
                 <Divider />
                 {user
-                  ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-                  : (
-                    <SignInMenu
-                      redirect={`?redirect=${encodeURIComponent(redirectUrl)}`}
+                  ? (
+                    <UserMenu
+                      user={user}
+                      sudo={sudo}
+                      logoutUrl={`/logout${redirect}`}
                     />
-                  )}
+                  )
+                  : (prodProxy
+                    ? <a href={`/login${redirect}`} class="link-header" />
+                    : <SignInMenu redirect={redirect} />)}
               </>
             )}
           </div>
