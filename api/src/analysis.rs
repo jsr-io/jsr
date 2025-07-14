@@ -5,8 +5,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::common::Span;
 use deno_ast::LineAndColumnDisplay;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
@@ -14,34 +12,36 @@ use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
 use deno_doc::html::search::SearchIndexNode;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::comments::CommentKind;
 use deno_doc::DocNodeDef;
 use deno_error::JsErrorBox;
-use deno_graph::source::load_data_url;
+use deno_graph::BuildFastCheckTypeGraphOptions;
+use deno_graph::BuildOptions;
+use deno_graph::GraphKind;
+use deno_graph::ModuleGraph;
+use deno_graph::WorkspaceFastCheckOption;
+use deno_graph::WorkspaceMember;
+use deno_graph::analysis::ModuleInfo;
+use deno_graph::ast::CapturingModuleAnalyzer;
+use deno_graph::ast::DefaultEsParser;
+use deno_graph::ast::ParsedSourceStore;
 use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
-use deno_graph::BuildFastCheckTypeGraphOptions;
-use deno_graph::BuildOptions;
-use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::DefaultEsParser;
-use deno_graph::GraphKind;
-use deno_graph::ModuleGraph;
-use deno_graph::ModuleInfo;
-use deno_graph::ParsedSourceStore;
-use deno_graph::WorkspaceFastCheckOption;
-use deno_graph::WorkspaceMember;
+use deno_graph::source::load_data_url;
+use deno_semver::StackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageNv;
 use deno_semver::package::PackageReqReference;
-use deno_semver::StackString;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
-use regex::bytes::Regex as BytesRegex;
 use regex::Regex;
-use tracing::instrument;
+use regex::bytes::Regex as BytesRegex;
 use tracing::Instrument;
+use tracing::instrument;
 use url::Url;
 
 use crate::buckets::BucketWithQueue;
@@ -54,10 +54,10 @@ use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::npm::create_npm_tarball;
 use crate::npm::NpmTarball;
 use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
+use crate::npm::create_npm_tarball;
 use crate::tarball::PublishError;
 
 pub struct PackageAnalysisData {
@@ -142,15 +142,15 @@ async fn analyze_package_inner(
     exports: exports.clone().into_inner(),
   };
   let workspace_members = vec![workspace_member.clone()];
-  let mut graph = deno_graph::ModuleGraph::new(GraphKind::All);
+  let mut graph = ModuleGraph::new(GraphKind::All);
   graph
     .build(
       roots.clone(),
+      vec![],
       &SyncLoader { files: &files },
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
@@ -163,6 +163,7 @@ async fn analyze_package_inner(
         executor: Default::default(),
         locker: None,
         skip_dynamic_deps: false,
+        module_info_cacher: Default::default(),
       },
     )
     .await;
@@ -494,6 +495,7 @@ impl SyncLoader<'_> {
         };
         Ok(Some(deno_graph::source::LoadResponse::Module {
           content: bytes.into(),
+          mtime: None,
           specifier: specifier.clone(),
           maybe_headers: None,
         }))
@@ -590,6 +592,7 @@ async fn rebuild_npm_tarball_inner(
   graph
     .build(
       roots.clone(),
+      vec![],
       &GcsLoader {
         files: &files,
         bucket: &modules_bucket,
@@ -600,7 +603,6 @@ async fn rebuild_npm_tarball_inner(
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
@@ -613,6 +615,7 @@ async fn rebuild_npm_tarball_inner(
         executor: Default::default(),
         locker: None,
         skip_dynamic_deps: false,
+        module_info_cacher: Default::default(),
       },
     )
     .await;
@@ -680,6 +683,7 @@ impl GcsLoader<'_> {
           };
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
+            mtime: None,
             specifier,
             maybe_headers: None,
           }))
@@ -715,10 +719,10 @@ impl deno_graph::source::Loader for GcsLoader<'_> {
 #[derive(Default)]
 pub struct ModuleParser(DefaultEsParser);
 
-impl deno_graph::EsParser for ModuleParser {
+impl deno_graph::ast::EsParser for ModuleParser {
   fn parse_program(
     &self,
-    options: deno_graph::ParseOptions,
+    options: deno_graph::ast::ParseOptions,
   ) -> Result<ParsedSource, deno_ast::ParseDiagnostic> {
     let source = self.0.parse_program(options)?;
     if let Some(err) = source.diagnostics().first() {
@@ -762,13 +766,13 @@ impl ModuleAnalyzer {
 }
 
 #[async_trait::async_trait(?Send)]
-impl deno_graph::ModuleAnalyzer for ModuleAnalyzer {
+impl deno_graph::analysis::ModuleAnalyzer for ModuleAnalyzer {
   async fn analyze(
     &self,
     specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
-  ) -> Result<ModuleInfo, deno_ast::ParseDiagnostic> {
+  ) -> Result<ModuleInfo, JsErrorBox> {
     let module_info =
       self.analyzer.analyze(specifier, source, media_type).await?;
     self

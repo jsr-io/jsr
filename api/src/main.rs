@@ -28,9 +28,9 @@ mod tracing;
 mod tree_sitter;
 mod util;
 
-use crate::api::api_router;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
+use crate::api::api_router;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::BucketWithQueue;
 use crate::buckets::Buckets;
@@ -43,11 +43,11 @@ use crate::orama::OramaClient;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
-use crate::tasks::tasks_router;
 use crate::tasks::NpmTarballBuildQueue;
+use crate::tasks::tasks_router;
 use crate::traced_router::TracedRouterService;
-use crate::tracing::setup_tracing;
 use crate::tracing::TracingExportTarget;
+use crate::tracing::setup_tracing;
 
 use clap::Parser;
 use hyper::Body;

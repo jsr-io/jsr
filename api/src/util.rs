@@ -1,24 +1,24 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use futures::FutureExt;
-use hyper::body;
-use hyper::header;
-use hyper::header::COOKIE;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use hyper::body;
+use hyper::header;
+use hyper::header::COOKIE;
 use oauth2::http::HeaderName;
 use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 use url::Url;
 use uuid::Uuid;
 
@@ -417,6 +417,8 @@ impl RequestIdExt for Request<Body> {
 
 #[cfg(test)]
 pub mod test {
+  use crate::ApiError;
+  use crate::MainRouterOptions;
   use crate::auth::GithubOauth2Client;
   use crate::buckets::BucketWithQueue;
   use crate::buckets::Buckets;
@@ -425,16 +427,15 @@ pub mod test {
   use crate::db::{Database, NewUser, User};
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
+  use crate::ids::ScopeDescription;
   use crate::util::sanitize_redirect_url;
-  use crate::ApiError;
-  use crate::MainRouterOptions;
-  use hyper::http::HeaderName;
-  use hyper::http::HeaderValue;
-  use hyper::service::Service;
   use hyper::Body;
   use hyper::HeaderMap;
   use hyper::Response;
   use hyper::StatusCode;
+  use hyper::http::HeaderName;
+  use hyper::http::HeaderValue;
+  use hyper::service::Service;
   use routerify::RequestService;
   use routerify::RouteError;
   use serde::de::DeserializeOwned;
@@ -552,9 +553,15 @@ pub mod test {
 
       let scope_name = "scope".try_into().unwrap();
 
-      db.create_scope(&user1.user.id, false, &scope_name, user1.user.id)
-        .await
-        .unwrap();
+      db.create_scope(
+        &user1.user.id,
+        false,
+        &scope_name,
+        user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
       let (scope, _, _) = db
         .update_scope_limits(
           &staff_user.user.id,

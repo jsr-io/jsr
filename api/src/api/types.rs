@@ -2,6 +2,7 @@
 use crate::db::*;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::provenance::ProvenanceBundle;
@@ -190,6 +191,7 @@ impl From<User> for ApiFullUser {
 #[serde(rename_all = "camelCase")]
 pub struct ApiScope {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -198,6 +200,7 @@ impl From<Scope> for ApiScope {
   fn from(scope: Scope) -> Self {
     Self {
       scope: scope.scope,
+      description: scope.description,
       updated_at: scope.updated_at,
       created_at: scope.created_at,
     }
@@ -219,6 +222,7 @@ pub struct ApiScopeQuotas {
 #[serde(rename_all = "camelCase")]
 pub struct ApiFullScope {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
   pub creator: ApiUser,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -233,6 +237,7 @@ impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
     assert_eq!(scope.creator, user.id);
     Self {
       scope: scope.scope,
+      description: scope.description,
       creator: user.into(),
       updated_at: scope.updated_at,
       created_at: scope.created_at,
@@ -261,6 +266,7 @@ pub enum ApiScopeOrFullScope {
 #[serde(rename_all = "camelCase")]
 pub struct ApiCreateScopeRequest {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -744,6 +750,8 @@ pub enum ApiUpdateScopeRequest {
   GhActionsVerifyActor(bool),
   #[serde(rename = "requirePublishingFromCI")]
   RequirePublishingFromCI(bool),
+  #[serde(rename = "description")]
+  Description(Option<String>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

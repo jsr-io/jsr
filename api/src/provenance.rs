@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use anyhow::{bail, Result};
-use base64::prelude::BASE64_STANDARD;
+use anyhow::{Result, bail};
 use base64::Engine as _;
+use base64::prelude::BASE64_STANDARD;
 use serde::Deserialize;
 use serde::Serialize;
 use x509_parser::parse_x509_certificate;

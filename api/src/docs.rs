@@ -1,23 +1,27 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::db::GithubRepository;
+use crate::db::ReadmeSource;
 use crate::db::RuntimeCompat;
-use crate::db::{GithubRepository, ReadmeSource};
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
-use comrak::nodes::{Ast, AstNode, NodeValue};
+use comrak::nodes::Ast;
+use comrak::nodes::AstNode;
+use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::html::pages::SymbolPage;
+use deno_doc::DocNode;
+use deno_doc::DocNodeDef;
+use deno_doc::Location;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
+use deno_doc::html::HANDLEBARS;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
-use deno_doc::html::HANDLEBARS;
-use deno_doc::Location;
-use deno_doc::{DocNode, DocNodeDef};
+use deno_doc::html::pages::SymbolPage;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -268,7 +272,7 @@ struct WebType {
 pub fn generate_docs(
   mut source_files: Vec<ModuleSpecifier>,
   graph: &deno_graph::ModuleGraph,
-  analyzer: &deno_graph::CapturingModuleAnalyzer,
+  analyzer: &deno_graph::ast::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
   source_files.sort();
 
@@ -1264,6 +1268,16 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
           ),
         },
         format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+      );
+      map.insert(
+        UsageComposerEntry {
+          name: "vlt".to_string(),
+          icon: Some(
+            r#"<img src="/logos/vlt.svg" alt="vlt logo" draggable="false" />"#
+              .into(),
+          ),
+        },
+        format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {

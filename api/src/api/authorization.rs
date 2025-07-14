@@ -5,20 +5,20 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use rand::Rng;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use sha2::Digest;
 use url::Url;
 
+use crate::RegistryUrl;
 use crate::db::Database;
 use crate::db::NewAuthorization;
 use crate::db::TokenType;
 use crate::iam::ReqIamExt;
 use crate::token::create_token;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiAuthorization;
 use super::ApiAuthorizationExchangeRequest;
