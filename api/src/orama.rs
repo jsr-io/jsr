@@ -1,18 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
-use std::sync::Arc;
-
 use crate::api::ApiPackageScore;
 use crate::db::Package;
 use crate::db::PackageVersionMeta;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::util::USER_AGENT;
-use tracing::Instrument;
-use tracing::Span;
+use deno_doc::html::search::SearchIndexNode;
+use std::sync::Arc;
 use tracing::error;
 use tracing::instrument;
+use tracing::Instrument;
+use tracing::Span;
 
 const MAX_ORAMA_INSERT_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
 
@@ -138,7 +138,7 @@ impl OramaClient {
     &self,
     scope_name: &ScopeName,
     package_name: &PackageName,
-    search: serde_json::Value,
+    search: &[SearchIndexNode],
   ) {
     let package = format!("{scope_name}/{package_name}");
     let body = serde_json::json!({
@@ -172,17 +172,21 @@ impl OramaClient {
         .instrument(span),
     );
 
-    let search = if let serde_json::Value::Array(mut array) = search {
-      for entry in &mut array {
-        let obj = entry.as_object_mut().unwrap();
-        obj.insert("scope".to_string(), scope_name.to_string().into());
-        obj.insert("package".to_string(), package_name.to_string().into());
-      }
-
-      array
-    } else {
-      unreachable!()
-    };
+    let search = search
+      .iter()
+      .map(|node| {
+        serde_json::json!({
+          "target_id": node.id,
+          "name": node.name,
+          "file": node.file,
+          "doc": node.doc,
+          "url": node.url,
+          "deprecated": node.deprecated,
+          "scope": scope_name.to_string(),
+          "package": package_name.to_string(),
+        })
+      })
+      .collect::<Vec<_>>();
 
     let chunks = {
       let str_data = serde_json::to_string(&search).unwrap();

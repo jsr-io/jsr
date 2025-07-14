@@ -33,7 +33,6 @@ use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
-use std::borrow::Cow;
 use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -1261,6 +1260,8 @@ pub async fn get_docs_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1270,9 +1271,6 @@ pub async fn get_docs_handler(
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
-      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
       main: docs.main,
@@ -1348,9 +1346,10 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
+    Some(format!("{scope}/{package_name}/")),
   );
 
-  let search_index = deno_doc::html::generate_search_index(&ctx);
+  let search_index = deno_doc::html::search::generate_search_index(&ctx);
 
   Ok(search_index)
 }
@@ -1421,6 +1420,8 @@ pub async fn get_docs_search_html_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    Some(format!("{}/{}/", scope, package_name)),
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1589,9 +1590,6 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
-    comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
-    script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
 }
@@ -3536,15 +3534,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
         assert!(toc.is_some(), "{:?}", toc)
       }
@@ -3562,15 +3556,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("all symbols"),
           "{:?}",
@@ -3592,15 +3582,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("hello"),
           "{:?}",
@@ -3625,15 +3611,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
-        comrak_css: _,
-        script: _,
         breadcrumbs,
         toc,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(
           breadcrumbs.as_ref().unwrap().contains("读取多键1"),
           "{:?}",
@@ -3654,7 +3636,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"kind":"search","nodes":[{"id":"namespace_hello","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"id":"namespace_读取多键1","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
+      json!({"kind":"search","nodes":[{"id":"scope/foo/_namespace_hello","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"id":"scope/foo/_namespace_读取多键1","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist

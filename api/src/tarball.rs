@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 use async_tar::EntryType;
 use bytes::Bytes;
 use deno_ast::MediaType;
+use deno_doc::html::search::SearchIndexNode;
 use deno_graph::ModuleGraphError;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
@@ -66,7 +67,7 @@ pub struct ProcessTarballOutput {
   pub npm_tarball_info: NpmTarballInfo,
   pub readme_path: Option<PackagePath>,
   pub meta: PackageVersionMeta,
-  pub doc_search_json: serde_json::Value,
+  pub doc_search: Vec<SearchIndexNode>,
 }
 
 pub struct NpmTarballInfo {
@@ -283,7 +284,7 @@ pub async fn process_tarball(
     data: PackageAnalysisData { exports, files },
     module_graph_2,
     doc_nodes_json,
-    doc_search_json,
+    doc_search,
     dependencies,
     npm_tarball,
     readme_path,
@@ -460,7 +461,7 @@ pub async fn process_tarball(
     npm_tarball_info,
     readme_path,
     meta,
-    doc_search_json,
+    doc_search,
   })
 }
 
