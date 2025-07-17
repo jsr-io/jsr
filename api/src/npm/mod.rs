@@ -27,6 +27,7 @@ pub use self::tarball::NpmTarball;
 pub use self::tarball::NpmTarballFiles;
 pub use self::tarball::NpmTarballOptions;
 pub use self::tarball::create_npm_tarball;
+pub use self::tarball::serve_npm_tarball;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 

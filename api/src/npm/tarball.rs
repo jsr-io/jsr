@@ -24,8 +24,10 @@ use sha2::Digest;
 use tar::Header;
 use tracing::error;
 use url::Url;
+use routerify::prelude::RequestExt;
 
 use crate::buckets::BucketWithQueue;
+use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
@@ -33,6 +35,8 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
+use crate::api::ApiError;
+use crate::gcs_paths::npm_tarball_path;
 
 use super::NPM_TARBALL_REVISION;
 use super::emit::transpile_to_dts;
@@ -818,4 +822,129 @@ mod tests {
         .unwrap_or_else(|e| panic!("failed to test npm tarball {path:?}: {e}"));
     }
   }
+}
+
+pub async fn serve_npm_tarball(
+  req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, ApiError> {
+  // Handle OPTIONS preflight requests
+  if req.method() == hyper::Method::OPTIONS {
+    let mut response = hyper::Response::builder()
+      .status(StatusCode::NO_CONTENT)
+      .body(hyper::Body::empty())
+      .unwrap();
+    add_cors_headers(&mut response);
+    return Ok(response);
+  }
+  
+  // Handle GET requests
+  let mut response = match serve_npm_tarball_inner(req).await {
+    Ok(response) => response,
+    Err(err) => {
+      let mut response = hyper::Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .body(hyper::Body::empty())
+        .unwrap();
+      add_cors_headers(&mut response);
+      return Ok(response);
+    }
+  };
+  
+  add_cors_headers(&mut response);
+  Ok(response)
+}
+
+fn add_cors_headers(response: &mut hyper::Response<hyper::Body>) {
+  response.headers_mut().insert(
+    "Access-Control-Allow-Origin",
+    hyper::header::HeaderValue::from_static("*"),
+  );
+  response.headers_mut().insert(
+    "Access-Control-Allow-Methods",
+    hyper::header::HeaderValue::from_static("GET, OPTIONS"),
+  );
+  response.headers_mut().insert(
+    "Access-Control-Allow-Headers",
+    hyper::header::HeaderValue::from_static("Content-Type, Authorization, npm-command, npm-scope, npm-session, user-agent"),
+  );
+  response.headers_mut().insert(
+    "Access-Control-Max-Age",
+    hyper::header::HeaderValue::from_static("86400"),
+  );
+}
+
+async fn serve_npm_tarball_inner(
+  req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, ApiError> {
+  let revision_str = req.param("revision").ok_or(ApiError::NotFound)?;
+  let revision: u32 = revision_str.parse().map_err(|_| ApiError::NotFound)?;
+  
+  // Get the remaining path parts
+  let path = req.uri().path();
+  let path_parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
+  if path_parts.len() < 3 {
+    return Err(ApiError::NotFound);
+  }
+  
+  let package_path = path_parts[1..].join("/");
+  let package_parts: Vec<&str> = package_path.split('/').collect();
+  if package_parts.len() != 2 {
+    return Err(ApiError::NotFound);
+  }
+  
+  let package_name_part = package_parts[0];
+  let version_file = package_parts[1];
+  
+  if !package_name_part.starts_with("@jsr/") {
+    return Err(ApiError::NotFound);
+  }
+  
+  let package_name = &package_name_part[5..]; // Remove "@jsr/"
+  let parts: Vec<&str> = package_name.split("__").collect();
+  if parts.len() != 2 {
+    return Err(ApiError::NotFound);
+  }
+  
+  let scope = parts[0];
+  let package = parts[1];
+  
+  let version = version_file.trim_end_matches(".tgz");
+  
+  let scope_name = ScopeName::try_from(scope).map_err(|_| ApiError::NotFound)?;
+  let package_name = PackageName::try_from(package).map_err(|_| ApiError::NotFound)?;
+  let version = Version::try_from(version).map_err(|_| ApiError::NotFound)?;
+  
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<crate::buckets::Buckets>().unwrap();
+  
+  // Get the npm tarball from the database
+  let npm_tarball = db
+    .get_latest_npm_tarball_for_version(&scope_name, &package_name, &version)
+    .await
+    .map_err(|_| ApiError::NotFound)?
+    .ok_or(ApiError::NotFound)?;
+  
+  // Check if the revision matches
+  if npm_tarball.revision != revision {
+    return Err(ApiError::NotFound);
+  }
+  
+  // Get the tarball bytes from GCS
+  let gcs_path = npm_tarball_path(&scope_name, &package_name, &version, revision);
+  let bytes = buckets
+    .npm_bucket
+    .download(gcs_path.into())
+    .await
+    .map_err(|_| ApiError::NotFound)?
+    .ok_or(ApiError::NotFound)?;
+  
+  let mut response = hyper::Response::builder()
+    .status(StatusCode::OK)
+    .header("Content-Type", "application/octet-stream")
+    .header("Content-Length", bytes.len().to_string())
+    .header("Cache-Control", "public, max-age=31536000, immutable")
+    .body(hyper::Body::from(bytes))
+    .unwrap();
+  
+  Ok(response)
 }

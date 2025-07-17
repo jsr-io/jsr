@@ -39,6 +39,7 @@ use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
 use crate::gcp::Queue;
+use crate::npm::serve_npm_tarball;
 use crate::orama::OramaClient;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
@@ -75,6 +76,8 @@ pub struct MainRouterOptions {
 
 pub struct RegistryUrl(pub Url);
 pub struct NpmUrl(pub Url);
+
+
 
 pub(crate) fn main_router(
   MainRouterOptions {
@@ -115,6 +118,9 @@ pub(crate) fn main_router(
       .get("/login", auth::login_handler)
       .get("/login/callback", auth::login_callback_handler)
       .get("/logout", auth::logout_handler)
+      // Add CORS headers to tarball endpoints
+      .get("/~/:revision/*", serve_npm_tarball)
+      .options("/~/:revision/*", serve_npm_tarball)
   } else {
     builder
   };
