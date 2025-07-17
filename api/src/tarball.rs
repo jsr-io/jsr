@@ -78,6 +78,15 @@ pub struct NpmTarballInfo {
   pub size: u64,
 }
 
+static SUPPORTED_LICENSE_FILE_NAMES: [&str; 6] = [
+  "/LICENSE",
+  "/LICENSE.md",
+  "/LICENSE.txt",
+  "/LICENCE",
+  "/LICENCE.md",
+  "/LICENCE.txt",
+];
+
 #[instrument(
   name = "process_tarball",
   skip(buckets, registry_url, publishing_task),
@@ -272,6 +281,34 @@ pub async fn process_tarball(
         .to_string(),
     });
   }
+/*
+  {
+    let mut store = askalono::Store::new();
+    store
+      .load_spdx(
+        std::path::Path::new(concat!(
+          env!("CARGO_MANIFEST_DIR"),
+          "/license-list-data/json/details"
+        )),
+        false,
+      )
+      .unwrap();
+
+    for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
+      if let Some(license_file) = files.get(&PackagePath::new(license_file_name.to_string()).unwrap()) {
+        let license_content = String::from_utf8_lossy(license_file);
+        let analyzed = store.analyze(&askalono::TextData::new(license_content.as_ref()));
+        
+        if analyzed.score > 0.8 {
+          dbg!(analyzed.name);
+        }
+        
+        break;
+      }
+    }
+  }
+
+*/
 
   let span = Span::current();
   let scope = publishing_task.package_scope.clone();
@@ -717,6 +754,7 @@ pub struct FileInfo {
 pub struct ConfigFile {
   pub name: ScopedPackageName,
   pub version: Option<Version>,
+  pub license: Option<String>,
   pub exports: Option<serde_json::Value>,
 }
 
