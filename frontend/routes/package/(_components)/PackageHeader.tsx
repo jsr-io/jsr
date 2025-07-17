@@ -202,23 +202,33 @@ export function PackageHeader({
           </div>
 
           <div>
-            {selectedVersion?.createdAt && (
-              <div class="flex flex-row items-baseline md:items-end md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
-                <div>Published</div>
-                <div
-                  class="leading-none font-normal"
-                  title={new Date(selectedVersion.createdAt).toISOString()
-                    .slice(
-                      0,
-                      10,
-                    )}
-                >
-                  {`${
-                    twas(new Date(selectedVersion.createdAt).getTime())
-                  } (${selectedVersion.version})`}
+            <div class="flex flex-row items-baseline md:items-end gap-2 md:gap-8 text-sm font-bold">
+              {selectedVersion?.license && (
+                <div>
+                  <div>License</div>
+                  <div class="leading-none font-normal">
+                    {selectedVersion.license}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {selectedVersion?.createdAt && (
+                <div>
+                  <div>Published</div>
+                  <div
+                    class="leading-none font-normal"
+                    title={new Date(selectedVersion.createdAt).toISOString()
+                      .slice(
+                        0,
+                        10,
+                      )}
+                  >
+                    {`${
+                      twas(new Date(selectedVersion.createdAt).getTime())
+                    } (${selectedVersion.version})`}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {downloads && downloads.total.length > 1 && (

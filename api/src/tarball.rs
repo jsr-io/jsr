@@ -67,6 +67,7 @@ pub struct ProcessTarballOutput {
   pub readme_path: Option<PackagePath>,
   pub meta: PackageVersionMeta,
   pub doc_search_json: serde_json::Value,
+  pub license: String,
 }
 
 pub struct NpmTarballInfo {
@@ -281,34 +282,49 @@ pub async fn process_tarball(
         .to_string(),
     });
   }
-/*
-  {
-    let mut store = askalono::Store::new();
-    store
-      .load_spdx(
-        std::path::Path::new(concat!(
-          env!("CARGO_MANIFEST_DIR"),
-          "/license-list-data/json/details"
-        )),
-        false,
-      )
-      .unwrap();
 
-    for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
-      if let Some(license_file) = files.get(&PackagePath::new(license_file_name.to_string()).unwrap()) {
-        let license_content = String::from_utf8_lossy(license_file);
-        let analyzed = store.analyze(&askalono::TextData::new(license_content.as_ref()));
-        
-        if analyzed.score > 0.8 {
-          dbg!(analyzed.name);
-        }
-        
-        break;
+  let mut license: Option<String> = None;
+  let mut store = askalono::Store::new();
+  store
+    .load_spdx(
+      std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/license-list-data/json/details"
+      )),
+      false,
+    )
+    .unwrap();
+
+  for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
+    if let Some(license_file) =
+      files.get(&PackagePath::new(license_file_name.to_string()).unwrap())
+    {
+      let license_content = String::from_utf8_lossy(license_file);
+      let analyzed =
+        store.analyze(&askalono::TextData::new(license_content.as_ref()));
+      if analyzed.score > 0.8 {
+        license = Some(analyzed.name.to_string());
+      } else {
+        return Err(PublishError::InvalidLicense);
       }
+
+      break;
     }
   }
 
-*/
+  if license.is_none() {
+    if let Some(license) = &config_file.license {
+      if store.get_original(&license).is_none() {
+        return Err(PublishError::InvalidLicense);
+      }
+    }
+
+    license = config_file.license;
+  }
+
+  if license.is_none() {
+    return Err(PublishError::MissingLicense);
+  }
 
   let span = Span::current();
   let scope = publishing_task.package_scope.clone();
@@ -498,6 +514,7 @@ pub async fn process_tarball(
     readme_path,
     meta,
     doc_search_json,
+    license: license.unwrap(),
   })
 }
 
@@ -671,6 +688,14 @@ pub enum PublishError {
     resolved_version: Version,
     exports_key: String,
   },
+
+  #[error(
+    "Missing license. Either provide a LICENSE file or specify the \"license\" field in your configuration file"
+  )]
+  MissingLicense,
+
+  #[error("Invalid license")]
+  InvalidLicense,
 }
 
 impl PublishError {
@@ -733,6 +758,8 @@ impl PublishError {
       PublishError::InvalidJsrDependencySubPath { .. } => {
         Some("invalidJsrDependencySubPath")
       }
+      PublishError::MissingLicense => Some("missingLicense"),
+      PublishError::InvalidLicense => Some("invalidLicense"),
     }
   }
 }

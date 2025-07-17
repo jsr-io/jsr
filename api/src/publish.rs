@@ -207,6 +207,7 @@ async fn process_publishing_task(
     readme_path,
     meta,
     doc_search_json,
+    license,
   } = output;
 
   upload_version_manifest(
@@ -227,6 +228,7 @@ async fn process_publishing_task(
     &npm_tarball_info,
     readme_path,
     meta,
+    license,
   )
   .await?;
 
@@ -297,6 +299,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
   npm_tarball_info: &NpmTarballInfo,
   readme_path: Option<PackagePath>,
   meta: PackageVersionMeta,
+  license: String,
 ) -> Result<(), anyhow::Error> {
   let uses_npm = dependencies
     .iter()
@@ -311,6 +314,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
     uses_npm,
     exports: &exports,
     meta,
+    license,
   };
 
   let new_package_files = file_infos

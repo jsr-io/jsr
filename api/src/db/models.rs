@@ -416,6 +416,7 @@ pub struct PackageVersion {
   pub lifetime_download_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -430,6 +431,7 @@ pub struct NewPackageVersion<'s> {
   pub exports: &'s ExportsMap,
   pub uses_npm: bool,
   pub meta: PackageVersionMeta,
+  pub license: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
