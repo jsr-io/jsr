@@ -84,6 +84,7 @@ use crate::tarball::gcs_tarball_path;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
+use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::util::decode_json;
@@ -792,6 +793,7 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
@@ -898,7 +900,8 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
-      buckets.clone(),
+      buckets,
+      license_store,
       registry_url,
       npm_url,
       db,
@@ -2712,6 +2715,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2772,6 +2776,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2814,6 +2819,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2983,6 +2989,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2997,6 +3004,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3011,6 +3019,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -4250,7 +4259,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         },
         ApiSourceDirEntry {
           name: "jsr.json".to_string(),
-          size: 74,
+          size: 93,
           kind: ApiSourceDirEntryKind::File,
         },
         ApiSourceDirEntry {

@@ -49,6 +49,7 @@ use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
@@ -90,12 +91,13 @@ static SUPPORTED_LICENSE_FILE_NAMES: [&str; 6] = [
 
 #[instrument(
   name = "process_tarball",
-  skip(buckets, registry_url, publishing_task),
+  skip(buckets, license_store, registry_url, publishing_task),
   err
 )]
 pub async fn process_tarball(
   db: &Database,
   buckets: &Buckets,
+  license_store: &LicenseStore,
   registry_url: Url,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
@@ -283,48 +285,34 @@ pub async fn process_tarball(
     });
   }
 
-  let mut license: Option<String> = None;
-  let mut store = askalono::Store::new();
-  store
-    .load_spdx(
-      std::path::Path::new(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/license-list-data/json/details"
-      )),
-      false,
-    )
-    .unwrap();
-
-  for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
-    if let Some(license_file) =
-      files.get(&PackagePath::new(license_file_name.to_string()).unwrap())
-    {
-      let license_content = String::from_utf8_lossy(license_file);
-      let analyzed =
-        store.analyze(&askalono::TextData::new(license_content.as_ref()));
-      if analyzed.score > 0.8 {
-        license = Some(analyzed.name.to_string());
-      } else {
-        return Err(PublishError::InvalidLicense);
-      }
-
-      break;
+  let license = if let Some(license) = config_file.license {
+    if license_store.0.get_original(&license).is_none() {
+      return Err(PublishError::InvalidLicense);
+    } else {
+      license
     }
-  }
+  } else {
+    let mut license = None;
+    for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
+      if let Some(license_file) =
+        files.get(&PackagePath::new(license_file_name.to_string()).unwrap())
+      {
+        let license_content = String::from_utf8_lossy(license_file);
+        let analyzed = license_store
+          .0
+          .analyze(&askalono::TextData::new(license_content.as_ref()));
+        if analyzed.score > 0.8 {
+          license = Some(analyzed.name.to_string());
+        } else {
+          return Err(PublishError::InvalidLicense);
+        }
 
-  if license.is_none() {
-    if let Some(license) = &config_file.license {
-      if store.get_original(&license).is_none() {
-        return Err(PublishError::InvalidLicense);
+        break;
       }
     }
 
-    license = config_file.license;
-  }
-
-  if license.is_none() {
-    return Err(PublishError::MissingLicense);
-  }
+    license.ok_or_else(|| PublishError::MissingLicense)?
+  };
 
   let span = Span::current();
   let scope = publishing_task.package_scope.clone();
@@ -514,7 +502,7 @@ pub async fn process_tarball(
     readme_path,
     meta,
     doc_search_json,
-    license: license.unwrap(),
+    license,
   })
 }
 
