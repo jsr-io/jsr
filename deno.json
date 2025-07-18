@@ -36,7 +36,8 @@
     "api/testdata/",
     ".gcs/",
     "frontend/_fresh",
-    "e2e/vendor"
+    "e2e/vendor",
+    "api/license-list-data"
   ],
   "imports": {
     "@deno/gfm": "jsr:@deno/gfm@^0.10.0",

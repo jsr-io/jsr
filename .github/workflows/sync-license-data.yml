@@ -2,7 +2,7 @@ name: Sync SPDX License Data
 
 on:
   schedule:
-    - cron: '0 6 1 * *'
+    - cron: "0 6 1 * *"
   workflow_dispatch:
 
 jobs:
@@ -31,11 +31,11 @@ jobs:
         run: |
           # Remove existing license data
           rm -rf api/license-list-data/json/details
-          
+
           # Copy the new license data
           mkdir -p api/license-list-data/json
           cp -r spdx-temp/json/details api/license-list-data/json/
-          
+
           # Clean up temp directory
           rm -rf spdx-temp
 
@@ -60,13 +60,13 @@ jobs:
           title: "feat: update SPDX license data"
           body: |
             ## Summary
-            
+
             This PR updates the SPDX license data with the latest version from the upstream repository.
-            
+
             ### Changes
             - Updated license data in `api/license-list-data/json/details/`
             - Synced with latest SPDX license-list-data repository
-            
+
             ### Automation
             This PR was created automatically by the monthly sync workflow.
           branch: update-spdx-license-data
