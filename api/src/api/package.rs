@@ -2003,6 +2003,8 @@ async fn analyze_deps_tree(
         locker: None,
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
       },
     )
     .await;

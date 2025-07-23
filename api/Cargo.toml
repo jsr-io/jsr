@@ -78,9 +78,9 @@ deno_semver = "0.8.0"
 flate2 = "1"
 thiserror = "2"
 async-tar = "0.4.2"
-deno_graph = "0.95.1"
+deno_graph = "0.97.0"
 deno_ast = { version = "0.48.0", features = ["view"] }
-deno_doc = { version = "=0.178.1", features = ["comrak"] }
+deno_doc = { version = "=0.180.0", features = ["comrak"] }
 deno_error = "0.6.1"
 comrak = { version = "0.29.0", default-features = false }
 ammonia = "4.0.0"
@@ -92,7 +92,7 @@ pin-project = "1.1.3"
 regex = "1.10.2"
 postmark = { version = "=0.10.0", features = ["reqwest-rustls-tls"] }
 handlebars = "5.0.0"
-jsonc-parser = { version = "0.23", features = ["serde"] }
+jsonc-parser = { version = "0.26.3", features = ["serde"] }
 sha1 = "0.10.6"
 infer = "0.15.0"
 x509-parser = { version = "0.15.1", features = ["verify"] }
