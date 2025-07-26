@@ -2,18 +2,19 @@
 import { useSignal } from "@preact/signals";
 import { useCallback, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
-import { ScopeInvite } from "../../../utils/api_types.ts";
+import type { FullUser, ScopeInvite } from "../../../utils/api_types.ts";
 import { api, path } from "../../../utils/api.ts";
 import { TbUsersPlus } from "tb-icons";
 
 interface ScopeInviteFormProps {
+  currentUser: FullUser;
   scope: string;
 }
 
 export function ScopeInviteForm(props: ScopeInviteFormProps) {
   const submitting = useSignal(false);
   const error = useSignal<string>("");
-  const kind = useSignal<"github" | "id">("github");
+  const kind = useSignal<"github" | "gitlab" | "id">("github");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const onSubmit = useCallback(
@@ -30,6 +31,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
         path`/scopes/${props.scope}/members`,
         {
           githubLogin: kind === "github" ? inviteValue : undefined,
+          gitlabUsername: kind === "gitlab" ? inviteValue : undefined,
           id: kind === "id" ? inviteValue : undefined,
         },
       ).then((res) => {
@@ -70,7 +72,26 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
               }
             }}
           >
-            <option value="github" selected>GitHub</option>
+            <option
+              value="github"
+              selected={props.currentUser.githubId !== null}
+              disabled={props.currentUser.githubId === null}
+              title={props.currentUser.githubId === null
+                ? "This option is disabled because you don't have a GitHub account linked to your JSR account."
+                : ""}
+            >
+              GitHub
+            </option>
+            <option
+              value="gitlab"
+              selected={props.currentUser.gitlabId !== null}
+              disabled={props.currentUser.gitlabId === null}
+              title={props.currentUser.githubId === null
+                ? "This option is disabled because you don't have a GitLab account linked to your JSR account."
+                : ""}
+            >
+              GitLab
+            </option>
             <option value="id">User ID</option>
           </select>
           <input
@@ -79,7 +100,7 @@ export function ScopeInviteForm(props: ScopeInviteFormProps) {
             name="inviteValue"
             placeholder={kind.value === "github"
               ? "GitHub username"
-              : "User ID"}
+              : (kind.value === "gitlab" ? "GitLab username" : "User ID")}
             required
             ref={inputRef}
             disabled={submitting}

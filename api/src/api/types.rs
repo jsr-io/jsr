@@ -120,6 +120,7 @@ pub struct ApiUser {
   pub id: Uuid,
   pub name: String,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub avatar_url: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -131,6 +132,7 @@ impl From<User> for ApiUser {
       id: user.id,
       name: user.name,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -144,6 +146,7 @@ impl From<UserPublic> for ApiUser {
       id: user.id,
       name: user.name,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -161,6 +164,7 @@ pub struct ApiFullUser {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i32,
@@ -179,6 +183,7 @@ impl From<User> for ApiFullUser {
       updated_at: user.updated_at,
       created_at: user.created_at,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       is_blocked: user.is_blocked,
       is_staff: user.is_staff,
       scope_usage: user.scope_usage as i32,
@@ -298,6 +303,7 @@ impl From<(ScopeMember, UserPublic)> for ApiScopeMember {
 #[serde(rename_all = "camelCase")]
 pub enum ApiAddScopeMemberRequest {
   GithubLogin(String),
+  GitlabUsername(String),
   Id(Uuid),
 }
 

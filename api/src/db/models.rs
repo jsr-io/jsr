@@ -28,6 +28,7 @@ pub struct User {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i64,
@@ -44,6 +45,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
       email: try_get_row_or(row, "email", "user_email")?,
       avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
       github_id: try_get_row_or(row, "github_id", "user_github_id")?,
+      gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
       is_blocked: try_get_row_or(row, "is_blocked", "user_is_blocked")?,
       is_staff: try_get_row_or(row, "is_staff", "user_is_staff")?,
       scope_usage: try_get_row_or(row, "scope_usage", "user_scope_usage")?,
@@ -66,6 +68,7 @@ pub struct UserPublic {
   pub name: String,
   pub avatar_url: String,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -77,6 +80,7 @@ impl From<User> for UserPublic {
       name: user.name,
       avatar_url: user.avatar_url,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       updated_at: user.updated_at,
       created_at: user.created_at,
     }
@@ -90,6 +94,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for UserPublic {
       name: try_get_row_or(row, "name", "user_name")?,
       avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
       github_id: try_get_row_or(row, "github_id", "user_github_id")?,
+      gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
       updated_at: try_get_row_or(row, "created_at", "user_created_at")?,
       created_at: try_get_row_or(row, "created_at", "user_created_at")?,
     })
@@ -102,6 +107,7 @@ pub struct NewUser<'s> {
   pub email: Option<&'s str>,
   pub avatar_url: &'s str,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
 }
@@ -570,6 +576,35 @@ impl From<GithubIdentity> for NewGithubIdentity {
       access_token_expires_at: t.access_token_expires_at,
       refresh_token: t.refresh_token,
       refresh_token_expires_at: t.refresh_token_expires_at,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct GitlabIdentity {
+  pub gitlab_id: i64,
+  pub access_token: Option<String>,
+  pub access_token_expires_at: Option<DateTime<Utc>>,
+  pub refresh_token: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewGitlabIdentity {
+  pub gitlab_id: i64,
+  pub access_token: Option<String>,
+  pub access_token_expires_at: Option<DateTime<Utc>>,
+  pub refresh_token: Option<String>,
+}
+
+impl From<GitlabIdentity> for NewGitlabIdentity {
+  fn from(t: GitlabIdentity) -> Self {
+    Self {
+      gitlab_id: t.gitlab_id,
+      access_token: t.access_token,
+      access_token_expires_at: t.access_token_expires_at,
+      refresh_token: t.refresh_token,
     }
   }
 }
