@@ -4,5 +4,6 @@
   "exports": {
     "./a": "./a.js",
     "./b": "./b.js"
-  }
+  },
+  "license": "MIT"
 }

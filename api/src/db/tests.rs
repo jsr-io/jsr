@@ -430,6 +430,7 @@ async fn create_package_version_and_finalize_publishing_task() {
         uses_npm: true,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       },
       &package_files,
       &package_version_dependencies,
@@ -507,6 +508,7 @@ async fn package_files() {
       exports: &ExportsMap::mock(),
       uses_npm: false,
       meta: Default::default(),
+      license: "MIT".to_string(),
     })
     .await
     .unwrap();
