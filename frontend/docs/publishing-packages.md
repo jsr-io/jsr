@@ -323,6 +323,10 @@ from GitHub Actions. To do this, create a workflow file in your repository, for
 example at `.github/workflows/publish.yml`. In this workflow file, you can
 create a job that publishes your package using the `jsr publish` command.
 
+Tip: to avoid running the workflow on every commit, restrict it to run only when
+the file that contains your package version changes (`deno.json`, `deno.jsonc`
+or `jsr.json`):
+
 ```yaml
 # .github/workflows/publish.yml
 
@@ -332,6 +336,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "deno.json"
+      - "deno.jsonc"
+      - "jsr.json"
 
 jobs:
   publish:
@@ -344,11 +352,12 @@ jobs:
       - run: npx jsr publish
 ```
 
-This workflow will run every time you push to the `main` branch of your
-repository. It will publish your package to JSR, and will automatically use the
-correct version number based on the version in your `jsr.json`/`deno.json(c)`
-file. `jsr publish` will not attempt to publish if the version specified in your
-`jsr.json`/`deno.json(c)` file is already published to JSR.
+This workflow will run only when you push to the `main` branch **and** one of
+`deno.json`, `deno.jsonc` or `jsr.json` is changed. It will publish your package
+to JSR, and will automatically use the correct version number based on the
+version in your `jsr.json`/`deno.json(c)` file. `jsr publish` will not attempt
+to publish if the version specified in your `jsr.json`/`deno.json(c)` file is
+already published to JSR.
 
 ## Filtering files
 
