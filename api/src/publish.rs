@@ -926,7 +926,8 @@ pub mod tests {
             "type": "static",
             "kind": "import",
             "specifier": "./test.js",
-            "specifierRange": [[3,15],[3,26]]
+            "specifierRange": [[3,15],[3,26]],
+            "sideEffect": true
           },
           {
             "type": "static",
@@ -937,7 +938,8 @@ pub mod tests {
             },
             "specifier": "./jsr.json",
             "specifierRange": [[6,7],[6,19]],
-            "importAttributes": { "known": { "type" : "json" } }
+            "importAttributes": { "known": { "type" : "json" } },
+            "sideEffect": true
           }
         ],
         "jsxImportSource": {

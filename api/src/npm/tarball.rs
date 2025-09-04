@@ -183,7 +183,7 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
-          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .analyze(&js.specifier, js.source.text.clone(), js.media_type)
           .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
@@ -204,7 +204,7 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
-          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .analyze(&js.specifier, js.source.text.clone(), js.media_type)
           .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
@@ -241,7 +241,7 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
-          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .analyze(&js.specifier, js.source.text.clone(), js.media_type)
           .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
