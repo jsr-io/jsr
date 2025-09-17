@@ -659,14 +659,14 @@ pub mod test {
       Url::parse("http://npm.jsr-tests.test").unwrap()
     }
 
-    pub fn http(&mut self) -> TestHttpClient {
+    pub fn http(&'_ mut self) -> TestHttpClient<'_, '_> {
       TestHttpClient {
         service: &mut self.service,
         auth: Some(&self.user1.token),
       }
     }
 
-    pub fn unauthed_http(&mut self) -> TestHttpClient {
+    pub fn unauthed_http(&'_ mut self) -> TestHttpClient<'_, '_> {
       TestHttpClient {
         service: &mut self.service,
         auth: None,
