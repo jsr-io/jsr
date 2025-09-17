@@ -557,9 +557,10 @@ impl Database {
       Ok(package) => package,
       Err(err) => {
         if let Some(dberr) = err.as_database_error()
-          && dberr.is_unique_violation() {
-            return Ok(CreatePackageResult::AlreadyExists);
-          }
+          && dberr.is_unique_violation()
+        {
+          return Ok(CreatePackageResult::AlreadyExists);
+        }
         return Err(err);
       }
     };
@@ -2722,9 +2723,10 @@ impl Database {
       }
       Err(err) => {
         if let Some(dberr) = err.as_database_error()
-          && dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
+        }
         Err(err)
       }
     }
@@ -2772,9 +2774,10 @@ impl Database {
       }
       Err(err) => {
         if let Some(dberr) = err.as_database_error()
-          && dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
+        }
         Err(err)
       }
     }
@@ -2887,9 +2890,9 @@ impl Database {
     if !scope_member.is_admin
       && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
-      {
-        return Ok(result);
-      }
+    {
+      return Ok(result);
+    }
 
     tx.commit().await?;
 
@@ -3589,9 +3592,10 @@ impl Database {
       .await?;
 
     if let Some(authorization) = &maybe_authorization
-      && authorization.user_id.is_some() {
-        tx.commit().await?;
-      }
+      && authorization.user_id.is_some()
+    {
+      tx.commit().await?;
+    }
 
     Ok(maybe_authorization)
   }

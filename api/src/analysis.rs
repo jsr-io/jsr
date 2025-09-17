@@ -429,24 +429,24 @@ impl deno_graph::source::Resolver for JsrResolver {
   ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
     if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text)
       && self.member.name == package_ref.req().name
-        && self
-          .member
-          .version
-          .as_ref()
-          .map(|v| package_ref.req().version_req.matches(v))
-          .unwrap_or(true)
-      {
-        let export_name = package_ref.sub_path().unwrap_or(".");
-        let Some(export) = self.member.exports.get(export_name) else {
-          return Err(deno_graph::source::ResolveError::Other(
-            JsErrorBox::generic(format!(
-              "export '{}' not found in jsr:{}",
-              export_name, self.member.name
-            )),
-          ));
-        };
-        return Ok(self.member.base.join(export).unwrap());
-      }
+      && self
+        .member
+        .version
+        .as_ref()
+        .map(|v| package_ref.req().version_req.matches(v))
+        .unwrap_or(true)
+    {
+      let export_name = package_ref.sub_path().unwrap_or(".");
+      let Some(export) = self.member.exports.get(export_name) else {
+        return Err(deno_graph::source::ResolveError::Other(
+          JsErrorBox::generic(format!(
+            "export '{}' not found in jsr:{}",
+            export_name, self.member.name
+          )),
+        ));
+      };
+      return Ok(self.member.base.join(export).unwrap());
+    }
 
     Ok(deno_graph::resolve_import(
       specifier_text,

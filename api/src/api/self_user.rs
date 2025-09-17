@@ -210,11 +210,12 @@ async fn create_token(
   }
 
   if let Some(permissions) = permissions.as_ref()
-    && permissions.0.len() != 1 {
-      return Err(ApiError::MalformedRequest {
-        msg: "permissions must contain exactly one element".into(),
-      });
-    }
+    && permissions.0.len() != 1
+  {
+    return Err(ApiError::MalformedRequest {
+      msg: "permissions must contain exactly one element".into(),
+    });
+  }
 
   let iam = req.iam();
   let user = iam.check_authorization_approve_access()?;

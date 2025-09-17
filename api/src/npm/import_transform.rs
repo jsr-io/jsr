@@ -39,9 +39,9 @@ impl VisitMut for ImportRewriteTransformer<'_> {
       && let Some(remapped) = self
         .specifier_rewriter
         .rewrite(src.value.as_str(), self.kind)
-      {
-        node.src = Some(Box::new(remapped.into()));
-      }
+    {
+      node.src = Some(Box::new(remapped.into()));
+    }
   }
 
   fn visit_mut_export_all(&mut self, node: &mut ExportAll) {
@@ -71,20 +71,21 @@ impl VisitMut for ImportRewriteTransformer<'_> {
 
     if let Callee::Import(_) = node.callee
       && let Some(arg) = node.args.first()
-        && let Expr::Lit(Lit::Str(lit_str)) = *arg.expr.clone() {
-          let maybe_rewritten =
-            self.specifier_rewriter.rewrite(&lit_str.value, self.kind);
-          if let Some(rewritten) = maybe_rewritten {
-            let replacer = Expr::Lit(Lit::Str(Str {
-              span: lit_str.span,
-              value: rewritten.into(),
-              raw: None,
-            }));
-            node.args[0] = ExprOrSpread {
-              spread: None,
-              expr: Box::new(replacer),
-            };
-          }
-        }
+      && let Expr::Lit(Lit::Str(lit_str)) = *arg.expr.clone()
+    {
+      let maybe_rewritten =
+        self.specifier_rewriter.rewrite(&lit_str.value, self.kind);
+      if let Some(rewritten) = maybe_rewritten {
+        let replacer = Expr::Lit(Lit::Str(Str {
+          span: lit_str.span,
+          value: rewritten.into(),
+          raw: None,
+        }));
+        node.args[0] = ExprOrSpread {
+          spread: None,
+          expr: Box::new(replacer),
+        };
+      }
+    }
   }
 }

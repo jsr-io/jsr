@@ -248,13 +248,14 @@ pub async fn process_tarball(
     });
   }
   if let Some(config_file_version) = config_file.version
-    && config_file_version != publishing_task.package_version {
-      return Err(PublishError::ConfigFileVersionMismatch {
-        path: Box::new(publishing_task.config_file.clone()),
-        deno_json_version: Box::new(config_file_version),
-        publish_task_version: Box::new(publishing_task.package_version.clone()),
-      });
-    }
+    && config_file_version != publishing_task.package_version
+  {
+    return Err(PublishError::ConfigFileVersionMismatch {
+      path: Box::new(publishing_task.config_file.clone()),
+      deno_json_version: Box::new(config_file_version),
+      publish_task_version: Box::new(publishing_task.package_version.clone()),
+    });
+  }
 
   let exports =
     exports_map_from_json(config_file.exports).map_err(|invalid_exports| {

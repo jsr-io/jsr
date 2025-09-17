@@ -162,9 +162,10 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
           db.get_token_by_hash(&crate::token::hash(token)).await?
         {
           if let Some(expires_at) = token.expires_at
-            && expires_at < chrono::Utc::now() {
-              return Err(ApiError::InvalidBearerToken);
-            }
+            && expires_at < chrono::Utc::now()
+          {
+            return Err(ApiError::InvalidBearerToken);
+          }
 
           let user = db.get_user(token.user_id).await?.unwrap();
           span.record("user.id", field::display(user.id));
@@ -239,14 +240,15 @@ fn extract_token_and_sudo(
   }
 
   if let Some(auth) = headers.get(header::AUTHORIZATION)
-    && let Ok(auth) = auth.to_str() {
-      if let Some(token) = auth.strip_prefix("Bearer ") {
-        return Some((AuthorizationToken::Bearer(token), sudo));
-      }
-      if let Some(token) = auth.strip_prefix("githuboidc ") {
-        return Some((AuthorizationToken::GithubOIDC(token), sudo));
-      }
+    && let Ok(auth) = auth.to_str()
+  {
+    if let Some(token) = auth.strip_prefix("Bearer ") {
+      return Some((AuthorizationToken::Bearer(token), sudo));
     }
+    if let Some(token) = auth.strip_prefix("githuboidc ") {
+      return Some((AuthorizationToken::GithubOIDC(token), sudo));
+    }
+  }
 
   None
 }
