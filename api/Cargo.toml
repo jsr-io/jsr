@@ -74,14 +74,14 @@ opentelemetry = { version = "0.19", features = [
 ] }
 opentelemetry-otlp = "0.12"
 opentelemetry-gcloud-trace = "0.5.0"
-deno_semver = "0.8.0"
+deno_semver = "0.9.0"
 flate2 = "1"
 thiserror = "2"
 async-tar = "0.4.2"
-deno_graph = "0.97.0"
-deno_ast = { version = "0.48.0", features = ["view"] }
-deno_doc = { version = "=0.180.0", features = ["comrak"] }
-deno_error = "0.6.1"
+deno_graph = "0.100.0"
+deno_ast = { version = "0.50.2", features = ["view"] }
+deno_doc = { version = "0.183.0", features = ["comrak"] }
+deno_error = "0.7.0"
 comrak = { version = "0.29.0", default-features = false }
 ammonia = "4.0.0"
 async-trait = "0.1.73"

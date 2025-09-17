@@ -213,8 +213,8 @@ enum AuthorizationToken<'s> {
 static X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
 
 fn extract_token_and_sudo(
-  req: &Request<Body>,
-) -> Option<(AuthorizationToken, bool)> {
+  req: &'_ Request<Body>,
+) -> Option<(AuthorizationToken<'_>, bool)> {
   let headers = req.headers();
 
   let mut sudo = headers
