@@ -775,14 +775,13 @@ pub async fn version_publish_handler(
 
   // If there is a content-length header, check it isn't too big.
   // We don't rely on this, we will also check MAX_PAYLOAD_SIZE later.
-  if let Some(size) = req.body().size_hint().upper() {
-    if size > MAX_PUBLISH_TARBALL_SIZE {
+  if let Some(size) = req.body().size_hint().upper()
+    && size > MAX_PUBLISH_TARBALL_SIZE {
       return Err(ApiError::TarballSizeLimitExceeded {
         size,
         max_size: MAX_PUBLISH_TARBALL_SIZE,
       });
     }
-  }
 
   // Ensure the upload is gzip encoded.
   match req.headers().get(hyper::header::CONTENT_ENCODING) {
@@ -869,15 +868,14 @@ pub async fn version_publish_handler(
 
   let hash = hash.lock().unwrap().take().unwrap().finalize();
   let hash = format!("sha256-{:02x}", hash);
-  if let Some(tarball_hash) = access_restriction.tarball_hash {
-    if tarball_hash != hash {
+  if let Some(tarball_hash) = access_restriction.tarball_hash
+    && tarball_hash != hash {
       error!(
         "Tarball hash mismatch: expected {}, got {}",
         tarball_hash, hash
       );
       return Err(ApiError::MissingPermission);
     }
-  }
 
   // If the upload failed due to the size limit, we can cancel the task.
   let total_size = total_size.load(Ordering::SeqCst);
@@ -1830,8 +1828,8 @@ impl DepTreeLoader {
             return Ok(None);
           };
 
-          if version.is_none() {
-            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
+          if version.is_none()
+            && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
               let version = captures.name("version").unwrap();
               let meta =
                 serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
@@ -1847,7 +1845,6 @@ impl DepTreeLoader {
                 meta.exports,
               );
             }
-          }
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
@@ -2158,23 +2155,20 @@ impl<'a> GraphDependencyCollector<'a> {
       let mut children = IndexSet::new();
       match module {
         Module::Js(module) => {
-          if let Some(types_dep) = &module.maybe_types_dependency {
-            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          if let Some(types_dep) = &module.maybe_types_dependency
+            && let Some(child) = self.build_resolved_info(&types_dep.dependency)
             {
               children.insert(child);
             }
-          }
           for dep in module.dependencies.values() {
-            if !dep.maybe_code.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
+            if !dep.maybe_code.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_code) {
                 children.insert(child);
               }
-            }
-            if !dep.maybe_type.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
+            if !dep.maybe_type.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_type) {
                 children.insert(child);
               }
-            }
           }
         }
         Module::Json(_)

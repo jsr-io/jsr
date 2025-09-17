@@ -68,11 +68,10 @@ pub fn transpile_to_js(
       emit((&program).into(), &comments, &source_map, &emit_options)?;
     let mut source = text.into_bytes();
 
-    if let Some(last) = source.last() {
-      if *last != b'\n' {
+    if let Some(last) = source.last()
+      && *last != b'\n' {
         source.push(b'\n');
       }
-    }
 
     source
       .extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());
@@ -116,11 +115,10 @@ pub fn transpile_to_dts(
     emit((&program).into(), &comments, &source_map, &emit_options)?;
   let mut source = text.into_bytes();
 
-  if let Some(last) = source.last() {
-    if *last != b'\n' {
+  if let Some(last) = source.last()
+    && *last != b'\n' {
       source.push(b'\n');
     }
-  }
 
   source.extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());
 

@@ -126,8 +126,8 @@ pub async fn post_message_handler(
     .await?;
 
   // only send email to ticket creator if the message was not sent by ticket creator
-  if creator.id != message_author.id {
-    if let Some(email) = &creator.email {
+  if creator.id != message_author.id
+    && let Some(email) = &creator.email {
       let email_sender = req.data::<Option<EmailSender>>().unwrap();
       let registry_url = req.data::<RegistryUrl>().unwrap();
       if let Some(email_sender) = email_sender {
@@ -148,7 +148,6 @@ pub async fn post_message_handler(
           })?;
       }
     }
-  }
 
   Ok((message, message_author).into())
 }

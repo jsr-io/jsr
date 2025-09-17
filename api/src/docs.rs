@@ -138,8 +138,8 @@ fn match_node_value<'a>(
 ) {
   match &node.data.borrow().value {
     NodeValue::BlockQuote => {
-      if let Some(paragraph_child) = node.first_child() {
-        if paragraph_child.data.borrow().value == NodeValue::Paragraph {
+      if let Some(paragraph_child) = node.first_child()
+        && paragraph_child.data.borrow().value == NodeValue::Paragraph {
           let alert = paragraph_child.first_child().and_then(|text_child| {
             if let NodeValue::Text(text) = &text_child.data.borrow().value {
               match text
@@ -235,7 +235,6 @@ fn match_node_value<'a>(
             node.detach();
           }
         }
-      }
     }
     NodeValue::Link(link) => {
       if link.url.ends_with(".mov") || link.url.ends_with(".mp4") {
@@ -341,11 +340,10 @@ pub fn get_docs_info(
     } else {
       name.strip_prefix('.').unwrap_or(name)
     };
-    if let Some(entrypoint) = entrypoint {
-      if key.strip_prefix('/').unwrap_or(key) == entrypoint {
+    if let Some(entrypoint) = entrypoint
+      && key.strip_prefix('/').unwrap_or(key) == entrypoint {
         entrypoint_url = Some(specifier.clone());
       }
-    }
     rewrite_map.insert(specifier, key.into());
   }
 
@@ -397,8 +395,8 @@ fn get_url_rewriter(
       base.clone()
     };
 
-    if !is_readme {
-      if let Some(current_file) = current_file {
+    if !is_readme
+      && let Some(current_file) = current_file {
         let (path, _file) = current_file
           .specifier
           .path()
@@ -406,7 +404,6 @@ fn get_url_rewriter(
           .unwrap_or((current_file.specifier.path(), ""));
         return format!("{base}{path}/{url}");
       }
-    }
 
     format!("{base}/{url}")
   })
@@ -1135,12 +1132,11 @@ impl HrefResolver for DocResolver {
           let req = jsr_package_req.req();
 
           let mut version_path = Cow::Borrowed("");
-          if let Some(range) = req.version_req.range() {
-            if let Ok(version) = Version::new(&range.to_string()) {
+          if let Some(range) = req.version_req.range()
+            && let Ok(version) = Version::new(&range.to_string()) {
               // If using a specific version, link to it (e.g. prerelease)
               version_path = Cow::Owned(format!("@{}", version));
             }
-          }
 
           let mut internal_path = Cow::Borrowed("");
           if let Some(path) = jsr_package_req.sub_path() {

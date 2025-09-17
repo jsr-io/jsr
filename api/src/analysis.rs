@@ -427,8 +427,8 @@ impl deno_graph::source::Resolver for JsrResolver {
     referrer_range: &deno_graph::Range,
     _kind: deno_graph::source::ResolutionKind,
   ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
-    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text) {
-      if self.member.name == package_ref.req().name
+    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text)
+      && self.member.name == package_ref.req().name
         && self
           .member
           .version
@@ -447,7 +447,6 @@ impl deno_graph::source::Resolver for JsrResolver {
         };
         return Ok(self.member.base.join(export).unwrap());
       }
-    }
 
     Ok(deno_graph::resolve_import(
       specifier_text,

@@ -556,11 +556,10 @@ impl Database {
     let package = match res {
       Ok(package) => package,
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_unique_violation() {
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_unique_violation() {
             return Ok(CreatePackageResult::AlreadyExists);
           }
-        }
         return Err(err);
       }
     };
@@ -2722,11 +2721,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation() {
             return Ok(false);
           }
-        }
         Err(err)
       }
     }
@@ -2773,11 +2771,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation() {
             return Ok(false);
           }
-        }
         Err(err)
       }
     }
@@ -2887,13 +2884,12 @@ impl Database {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    if !scope_member.is_admin {
-      if let Some(result) =
+    if !scope_member.is_admin
+      && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
       {
         return Ok(result);
       }
-    }
 
     tx.commit().await?;
 
@@ -3592,11 +3588,10 @@ impl Database {
       .fetch_optional(&mut *tx)
       .await?;
 
-    if let Some(authorization) = &maybe_authorization {
-      if authorization.user_id.is_some() {
+    if let Some(authorization) = &maybe_authorization
+      && authorization.user_id.is_some() {
         tx.commit().await?;
       }
-    }
 
     Ok(maybe_authorization)
   }

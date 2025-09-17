@@ -127,12 +127,11 @@ pub async fn create_npm_tarball<'a>(
 
     match js.media_type {
       deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
-        if let Some(types_dep) = &js.maybe_types_dependency {
-          if let Resolution::Ok(resolved) = &types_dep.dependency {
+        if let Some(types_dep) = &js.maybe_types_dependency
+          && let Resolution::Ok(resolved) = &types_dep.dependency {
             declaration_rewrites
               .insert(module.specifier(), resolved.specifier.clone());
           }
-        }
       }
       deno_ast::MediaType::Jsx => {
         let source_specifier =
@@ -141,12 +140,11 @@ pub async fn create_npm_tarball<'a>(
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
-        if let Some(types_dep) = &js.maybe_types_dependency {
-          if let Resolution::Ok(resolved) = &types_dep.dependency {
+        if let Some(types_dep) = &js.maybe_types_dependency
+          && let Resolution::Ok(resolved) = &types_dep.dependency {
             declaration_rewrites
               .insert(module.specifier(), resolved.specifier.clone());
           }
-        }
       }
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         // no extra work needed for these, as they can not have type dependencies
@@ -582,20 +580,17 @@ pub fn create_npm_exports(
 
     if let Some(source_specifier) =
       follow_specifier(&specifier, source_rewrites)
-    {
-      if source_specifier.scheme() == "file"
+      && source_specifier.scheme() == "file"
         && package_files.contains_key(source_specifier.path())
       {
         let new_specifier =
           relative_import_specifier(&package_json_specifier, source_specifier);
         conditions.default = Some(new_specifier);
       }
-    }
 
     if let Some(types_specifier) =
       follow_specifier(&specifier, declaration_rewrites)
-    {
-      if types_specifier.scheme() == "file"
+      && types_specifier.scheme() == "file"
         && package_files.contains_key(types_specifier.path())
       {
         let new_specifier =
@@ -604,7 +599,6 @@ pub fn create_npm_exports(
           conditions.types = Some(new_specifier);
         }
       }
-    }
 
     npm_exports.insert(key.clone(), conditions);
   }
