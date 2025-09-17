@@ -165,6 +165,7 @@ async fn analyze_package_inner(
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
         unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;
@@ -597,6 +598,7 @@ async fn rebuild_npm_tarball_inner(
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
         unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;
