@@ -17,10 +17,11 @@ use std::collections::HashMap;
 ///   "name": "foo",
 ///   "versions": {
 ///     "0.1.2": {
-///       "main": "./mod.ts"
+///       "yanked": true,
+///       "datetime": "2025-09-17T15:37:51.191487057Z"
 ///     },
 ///     "0.1.3": {
-///       "main": "./mod.ts"
+///       "datetime": "2025-09-17T15:37:51.191487057Z"
 ///     },
 ///   }
 /// }
@@ -57,6 +58,7 @@ impl PackageMetadata {
         version.version,
         PackageMetadataVersion {
           yanked: version.is_yanked,
+          datetime: version.created_at,
         },
       );
     }
@@ -68,6 +70,7 @@ impl PackageMetadata {
 pub struct PackageMetadataVersion {
   #[serde(skip_serializing_if = "is_false", default)]
   pub yanked: bool,
+  pub datetime: chrono::DateTime<chrono::Utc>,
 }
 
 /// This struct stores information specific to a particular published version.
