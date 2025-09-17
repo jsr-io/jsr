@@ -127,11 +127,11 @@ pub async fn create_npm_tarball<'a>(
 
     match js.media_type {
       deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
-        if let Some(types_dep) = &js.maybe_types_dependency {
-          if let Resolution::Ok(resolved) = &types_dep.dependency {
-            declaration_rewrites
-              .insert(module.specifier(), resolved.specifier.clone());
-          }
+        if let Some(types_dep) = &js.maybe_types_dependency
+          && let Resolution::Ok(resolved) = &types_dep.dependency
+        {
+          declaration_rewrites
+            .insert(module.specifier(), resolved.specifier.clone());
         }
       }
       deno_ast::MediaType::Jsx => {
@@ -141,11 +141,11 @@ pub async fn create_npm_tarball<'a>(
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
-        if let Some(types_dep) = &js.maybe_types_dependency {
-          if let Resolution::Ok(resolved) = &types_dep.dependency {
-            declaration_rewrites
-              .insert(module.specifier(), resolved.specifier.clone());
-          }
+        if let Some(types_dep) = &js.maybe_types_dependency
+          && let Resolution::Ok(resolved) = &types_dep.dependency
+        {
+          declaration_rewrites
+            .insert(module.specifier(), resolved.specifier.clone());
         }
       }
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
@@ -582,27 +582,23 @@ pub fn create_npm_exports(
 
     if let Some(source_specifier) =
       follow_specifier(&specifier, source_rewrites)
+      && source_specifier.scheme() == "file"
+      && package_files.contains_key(source_specifier.path())
     {
-      if source_specifier.scheme() == "file"
-        && package_files.contains_key(source_specifier.path())
-      {
-        let new_specifier =
-          relative_import_specifier(&package_json_specifier, source_specifier);
-        conditions.default = Some(new_specifier);
-      }
+      let new_specifier =
+        relative_import_specifier(&package_json_specifier, source_specifier);
+      conditions.default = Some(new_specifier);
     }
 
     if let Some(types_specifier) =
       follow_specifier(&specifier, declaration_rewrites)
+      && types_specifier.scheme() == "file"
+      && package_files.contains_key(types_specifier.path())
     {
-      if types_specifier.scheme() == "file"
-        && package_files.contains_key(types_specifier.path())
-      {
-        let new_specifier =
-          relative_import_specifier(&package_json_specifier, types_specifier);
-        if conditions.default.as_ref() != Some(&new_specifier) {
-          conditions.types = Some(new_specifier);
-        }
+      let new_specifier =
+        relative_import_specifier(&package_json_specifier, types_specifier);
+      if conditions.default.as_ref() != Some(&new_specifier) {
+        conditions.types = Some(new_specifier);
       }
     }
 

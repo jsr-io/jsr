@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Identifier } from "npm:@mdn/browser-compat-data";
-import data from "npm:@mdn/browser-compat-data" with { type: "json" };
+import { Identifier } from "@mdn/browser-compat-data";
+import data from "@mdn/browser-compat-data" with { type: "json" };
 
 const webBuiltins: { id: string[]; docs: string }[] = [];
 

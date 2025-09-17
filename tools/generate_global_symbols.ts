@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { doc } from "https://deno.land/x/deno_doc@0.100.0/mod.ts";
-import type { DocNode } from "https://deno.land/x/deno_doc@0.100.0/types.d.ts";
+import { doc } from "@deno/doc";
+import type { DocNode } from "@deno/doc";
 
 const symbols: Set<string> = new Set();
 
