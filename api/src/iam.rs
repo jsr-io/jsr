@@ -320,11 +320,11 @@ impl From<(i64, GithubOidcTokenAud, Option<User>)> for IamInfo {
 }
 
 pub trait ReqIamExt {
-  fn iam(&self) -> IamHandler;
+  fn iam(&'_ self) -> IamHandler<'_>;
 }
 
 impl ReqIamExt for Request<Body> {
-  fn iam(&self) -> IamHandler {
+  fn iam(&'_ self) -> IamHandler<'_> {
     let db = self.data().unwrap();
     let IamInfo {
       principal,
