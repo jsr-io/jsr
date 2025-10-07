@@ -4,54 +4,55 @@ use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
-use deno_ast::ParseDiagnostic;
 use deno_error::JsErrorBox;
+use deno_graph::BuildOptions;
+use deno_graph::GraphKind;
+use deno_graph::Module;
+use deno_graph::Resolution;
+use deno_graph::WorkspaceMember;
+use deno_graph::analysis::ModuleInfo;
+use deno_graph::ast::CapturingModuleAnalyzer;
 use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
-use deno_graph::BuildOptions;
-use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::GraphKind;
-use deno_graph::Module;
-use deno_graph::ModuleInfo;
-use deno_graph::Resolution;
-use deno_graph::WorkspaceMember;
 use deno_semver::StackString;
-use futures::future::Either;
 use futures::StreamExt;
-use hyper::body::HttpBody;
+use futures::future::Either;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use hyper::body::HttpBody;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use regex::Regex;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
 use std::io;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use tracing::Instrument;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Instrument;
-use tracing::Span;
 use url::Url;
 use uuid::Uuid;
 
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
-use crate::auth::access_token;
 use crate::auth::GithubOauth2Client;
+use crate::auth::access_token;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
 use crate::db::CreatePackageResult;
@@ -66,8 +67,8 @@ use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
 use crate::gcp;
-use crate::gcp::GcsUploadOptions;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::gcp::GcsUploadOptions;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -81,15 +82,13 @@ use crate::provenance;
 use crate::publish::publish_task;
 use crate::tarball::gcs_tarball_path;
 use crate::util;
-use crate::util::decode_json;
-use crate::util::pagination;
-use crate::util::search;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
-use crate::NpmUrl;
-use crate::RegistryUrl;
+use crate::util::decode_json;
+use crate::util::pagination;
+use crate::util::search;
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -307,13 +306,13 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let package = match res {
     CreatePackageResult::Ok(package) => package,
     CreatePackageResult::AlreadyExists => {
-      return Err(ApiError::PackageAlreadyExists)
+      return Err(ApiError::PackageAlreadyExists);
     }
     CreatePackageResult::PackageLimitExceeded(limit) => {
-      return Err(ApiError::PackageLimitExceeded { limit })
+      return Err(ApiError::PackageLimitExceeded { limit });
     }
     CreatePackageResult::WeeklyPackageLimitExceeded(limit) => {
-      return Err(ApiError::WeeklyPackageLimitExceeded { limit })
+      return Err(ApiError::WeeklyPackageLimitExceeded { limit });
     }
   };
 
@@ -776,13 +775,13 @@ pub async fn version_publish_handler(
 
   // If there is a content-length header, check it isn't too big.
   // We don't rely on this, we will also check MAX_PAYLOAD_SIZE later.
-  if let Some(size) = req.body().size_hint().upper() {
-    if size > MAX_PUBLISH_TARBALL_SIZE {
-      return Err(ApiError::TarballSizeLimitExceeded {
-        size,
-        max_size: MAX_PUBLISH_TARBALL_SIZE,
-      });
-    }
+  if let Some(size) = req.body().size_hint().upper()
+    && size > MAX_PUBLISH_TARBALL_SIZE
+  {
+    return Err(ApiError::TarballSizeLimitExceeded {
+      size,
+      max_size: MAX_PUBLISH_TARBALL_SIZE,
+    });
   }
 
   // Ensure the upload is gzip encoded.
@@ -826,10 +825,10 @@ pub async fn version_publish_handler(
     CreatePublishingTaskResult::Exists(task) => {
       return Err(ApiError::DuplicateVersionPublish {
         task: Box::new(task.into()),
-      })
+      });
     }
     CreatePublishingTaskResult::WeeklyPublishAttemptsLimitExceeded(limit) => {
-      return Err(ApiError::WeeklyPublishAttemptsLimitExceeded { limit })
+      return Err(ApiError::WeeklyPublishAttemptsLimitExceeded { limit });
     }
   };
 
@@ -847,12 +846,12 @@ pub async fn version_publish_handler(
       hash_.lock().unwrap().as_mut().unwrap().update(&bytes);
       total_size_.fetch_add(bytes.len() as u64, Ordering::SeqCst);
       if total_size_.load(Ordering::SeqCst) > MAX_PUBLISH_TARBALL_SIZE {
-        Err(io::Error::new(io::ErrorKind::Other, "Payload too large"))
+        Err(io::Error::other("Payload too large"))
       } else {
         Ok(bytes)
       }
     }
-    Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+    Err(err) => Err(io::Error::other(err)),
   });
 
   let upload_result = buckets
@@ -870,14 +869,14 @@ pub async fn version_publish_handler(
 
   let hash = hash.lock().unwrap().take().unwrap().finalize();
   let hash = format!("sha256-{:02x}", hash);
-  if let Some(tarball_hash) = access_restriction.tarball_hash {
-    if tarball_hash != hash {
-      error!(
-        "Tarball hash mismatch: expected {}, got {}",
-        tarball_hash, hash
-      );
-      return Err(ApiError::MissingPermission);
-    }
+  if let Some(tarball_hash) = access_restriction.tarball_hash
+    && tarball_hash != hash
+  {
+    error!(
+      "Tarball hash mismatch: expected {}, got {}",
+      tarball_hash, hash
+    );
+    return Err(ApiError::MissingPermission);
   }
 
   // If the upload failed due to the size limit, we can cancel the task.
@@ -1788,6 +1787,7 @@ impl DepTreeLoader {
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
+            mtime: None,
             specifier: specifier.clone(),
             maybe_headers: None,
           }))
@@ -1830,27 +1830,28 @@ impl DepTreeLoader {
             return Ok(None);
           };
 
-          if version.is_none() {
-            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
-              let version = captures.name("version").unwrap();
-              let meta =
-                serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+          if version.is_none()
+            && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
+          {
+            let version = captures.name("version").unwrap();
+            let meta =
+              serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
 
-              let mut lock = exports.lock().await;
-              lock.insert(
-                format!(
-                  "@{}/{}@{}",
-                  scope.as_str(),
-                  package.as_str(),
-                  version.as_str()
-                ),
-                meta.exports,
-              );
-            }
+            let mut lock = exports.lock().await;
+            lock.insert(
+              format!(
+                "@{}/{}@{}",
+                scope.as_str(),
+                package.as_str(),
+                version.as_str()
+              ),
+              meta.exports,
+            );
           }
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
+            mtime: None,
             specifier: specifier.clone(),
             maybe_headers: None,
           }))
@@ -1907,13 +1908,13 @@ impl Default for DepTreeAnalyzer {
 }
 
 #[async_trait::async_trait(?Send)]
-impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
+impl deno_graph::analysis::ModuleAnalyzer for DepTreeAnalyzer {
   async fn analyze(
     &self,
     specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
-  ) -> Result<ModuleInfo, ParseDiagnostic> {
+  ) -> Result<ModuleInfo, JsErrorBox> {
     let module_info =
       self.analyzer.analyze(specifier, source, media_type).await?;
 
@@ -1949,6 +1950,7 @@ lazy_static::lazy_static! {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
+#[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
   registry_url: Url,
@@ -1985,11 +1987,11 @@ async fn analyze_deps_tree(
   graph
     .build(
       roots.clone(),
+      vec![],
       &loader,
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
@@ -2000,6 +2002,10 @@ async fn analyze_deps_tree(
         executor: Default::default(),
         locker: None,
         skip_dynamic_deps: false,
+        module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;
@@ -2153,22 +2159,21 @@ impl<'a> GraphDependencyCollector<'a> {
       let mut children = IndexSet::new();
       match module {
         Module::Js(module) => {
-          if let Some(types_dep) = &module.maybe_types_dependency {
-            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          if let Some(types_dep) = &module.maybe_types_dependency
+            && let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          {
+            children.insert(child);
+          }
+          for dep in module.dependencies.values() {
+            if !dep.maybe_code.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_code)
             {
               children.insert(child);
             }
-          }
-          for dep in module.dependencies.values() {
-            if !dep.maybe_code.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
-                children.insert(child);
-              }
-            }
-            if !dep.maybe_type.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
-                children.insert(child);
-              }
+            if !dep.maybe_type.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_type)
+            {
+              children.insert(child);
             }
           }
         }
@@ -2399,10 +2404,9 @@ mod test {
   use crate::db::Permissions;
   use crate::db::PublishingTaskStatus;
   use crate::db::TokenType;
-  use crate::ids::PackageName;
-  use crate::ids::PackagePath;
-  use crate::ids::ScopeName;
-  use crate::ids::Version;
+  use crate::ids::{
+    PackageName, PackagePath, ScopeDescription, ScopeName, Version,
+  };
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
@@ -2600,7 +2604,13 @@ mod test {
     // create scope2 for user2, try creating a package with user1
     let scope2 = ScopeName::new("scope2".into()).unwrap();
     t.db()
-      .create_scope(&t.user2.user.id, false, &scope2, t.user2.user.id)
+      .create_scope(
+        &t.user2.user.id,
+        false,
+        &scope2,
+        t.user2.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let mut resp = t
@@ -2782,8 +2792,8 @@ mod test {
   #[tokio::test]
   async fn test_package_provenance() {
     use crate::provenance::*;
-    use base64::prelude::BASE64_STANDARD;
     use base64::Engine;
+    use base64::prelude::BASE64_STANDARD;
 
     let mut t = TestSetup::new().await;
     let scope = t.scope.scope.clone();
@@ -3646,7 +3656,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"kind":"search","nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
+      json!({"kind":"search","nodes":[{"id":"namespace_hello","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"id":"namespace_读取多键1","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist

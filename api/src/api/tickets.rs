@@ -2,13 +2,14 @@
 
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use std::borrow::Cow;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
+use crate::RegistryUrl;
 use crate::db::NewTicket;
 use crate::db::NewTicketMessage;
 use crate::db::{Database, UserPublic};
@@ -16,10 +17,9 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiError;
 use super::ApiTicket;
@@ -161,32 +161,36 @@ pub async fn post_message_handler(
     return Err(ApiError::TicketNotFound);
   }
 
+  if new_message.message.is_empty() {
+    return Err(ApiError::TicketMessageEmpty);
+  }
+
   let (message, message_author) = db
     .ticket_add_message(id, current_user.id, new_message)
     .await?;
 
   // only send email to ticket creator if the message was not sent by ticket creator
-  if creator.id != message_author.id {
-    if let Some(email) = &creator.email {
-      let email_sender = req.data::<Option<EmailSender>>().unwrap();
-      let registry_url = req.data::<RegistryUrl>().unwrap();
-      if let Some(email_sender) = email_sender {
-        let email_args = EmailArgs::SupportTicketMessage {
-          ticket_id: Cow::Owned(ticket.id.to_string()),
-          name: Cow::Owned(creator.name),
-          content: Cow::Borrowed(&message.message),
-          registry_url: Cow::Borrowed(registry_url.0.as_str()),
-          registry_name: Cow::Borrowed(&email_sender.from_name),
-          support_email: Cow::Borrowed(&email_sender.from),
-        };
-        email_sender
-          .send(email.clone(), email_args)
-          .await
-          .map_err(|e| {
-            tracing::error!("failed to send email: {:?}", e);
-            ApiError::InternalServerError
-          })?;
-      }
+  if creator.id != message_author.id
+    && let Some(email) = &creator.email
+  {
+    let email_sender = req.data::<Option<EmailSender>>().unwrap();
+    let registry_url = req.data::<RegistryUrl>().unwrap();
+    if let Some(email_sender) = email_sender {
+      let email_args = EmailArgs::SupportTicketMessage {
+        ticket_id: Cow::Owned(ticket.id.to_string()),
+        name: Cow::Owned(creator.name),
+        content: Cow::Borrowed(&message.message),
+        registry_url: Cow::Borrowed(registry_url.0.as_str()),
+        registry_name: Cow::Borrowed(&email_sender.from_name),
+        support_email: Cow::Borrowed(&email_sender.from),
+      };
+      email_sender
+        .send(email.clone(), email_args)
+        .await
+        .map_err(|e| {
+          tracing::error!("failed to send email: {:?}", e);
+          ApiError::InternalServerError
+        })?;
     }
   }
 

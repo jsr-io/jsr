@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n      scopes.scope as \"scope: ScopeName\",\n      scopes.creator,\n      scopes.package_limit,\n      scopes.new_package_per_week_limit,\n      scopes.publish_attempts_per_week_limit,\n      scopes.verify_oidc_actor,\n      scopes.require_publishing_from_ci,\n      scopes.updated_at,\n      scopes.created_at\n      FROM scopes\n      LEFT JOIN scope_members ON scope_members.scope = scopes.scope\n      WHERE user_id = $1",
+  "query": "\n        UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2\n        RETURNING\n          scope as \"scope: ScopeName\",\n          description as \"description: ScopeDescription\",\n          creator,\n          package_limit,\n          new_package_per_week_limit,\n          publish_attempts_per_week_limit,\n          verify_oidc_actor,\n          require_publishing_from_ci,\n          updated_at,\n          created_at\n\n      ",
   "describe": {
     "columns": [
       {
@@ -10,48 +10,54 @@
       },
       {
         "ordinal": 1,
+        "name": "description: ScopeDescription",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
         "name": "creator",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "package_limit",
         "type_info": "Int4"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "new_package_per_week_limit",
         "type_info": "Int4"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "publish_attempts_per_week_limit",
         "type_info": "Int4"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "verify_oidc_actor",
         "type_info": "Bool"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "require_publishing_from_ci",
         "type_info": "Bool"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Bool",
+        "Text"
       ]
     },
     "nullable": [
@@ -63,8 +69,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "353d93cde6d9eace115c2753931d4d706f9ac9c599db7ffa1e06ad6fc944faea"
+  "hash": "d88d885e4a737dbe4602a46b83cf0ce70d75216e6252b4ceebc75c0c6d542afb"
 }

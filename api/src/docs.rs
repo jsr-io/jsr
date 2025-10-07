@@ -1,23 +1,28 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::db::GithubRepository;
+use crate::db::ReadmeSource;
 use crate::db::RuntimeCompat;
-use crate::db::{GithubRepository, ReadmeSource};
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
-use comrak::nodes::{Ast, AstNode, NodeValue};
+use comrak::nodes::Ast;
+use comrak::nodes::AstNode;
+use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::html::pages::SymbolPage;
+use deno_doc::DocNode;
+use deno_doc::DocNodeDef;
+use deno_doc::Location;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
+use deno_doc::html::HANDLEBARS;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
-use deno_doc::html::HANDLEBARS;
-use deno_doc::Location;
-use deno_doc::{DocNode, DocNodeDef};
+use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::util::Id;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -133,102 +138,101 @@ fn match_node_value<'a>(
 ) {
   match &node.data.borrow().value {
     NodeValue::BlockQuote => {
-      if let Some(paragraph_child) = node.first_child() {
-        if paragraph_child.data.borrow().value == NodeValue::Paragraph {
-          let alert = paragraph_child.first_child().and_then(|text_child| {
-            if let NodeValue::Text(text) = &text_child.data.borrow().value {
-              match text
-                .split_once(' ')
-                .map_or((text.as_str(), None), |(kind, title)| {
-                  (kind, Some(title))
-                }) {
-                ("[!NOTE]", title) => {
-                  Some((Alert::Note, title.unwrap_or("Note").to_string()))
-                }
-                ("[!TIP]", title) => {
-                  Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
-                }
-                ("[!IMPORTANT]", title) => Some((
-                  Alert::Important,
-                  title.unwrap_or("Important").to_string(),
-                )),
-                ("[!WARNING]", title) => {
-                  Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
-                }
-                ("[!CAUTION]", title) => {
-                  Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
-                }
-                _ => None,
+      if let Some(paragraph_child) = node.first_child()
+        && paragraph_child.data.borrow().value == NodeValue::Paragraph
+      {
+        let alert = paragraph_child.first_child().and_then(|text_child| {
+          if let NodeValue::Text(text) = &text_child.data.borrow().value {
+            match text
+              .split_once(' ')
+              .map_or((text.as_str(), None), |(kind, title)| {
+                (kind, Some(title))
+              }) {
+              ("[!NOTE]", title) => {
+                Some((Alert::Note, title.unwrap_or("Note").to_string()))
               }
-            } else {
-              None
+              ("[!TIP]", title) => {
+                Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
+              }
+              ("[!IMPORTANT]", title) => Some((
+                Alert::Important,
+                title.unwrap_or("Important").to_string(),
+              )),
+              ("[!WARNING]", title) => {
+                Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
+              }
+              ("[!CAUTION]", title) => {
+                Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
+              }
+              _ => None,
             }
-          });
-
-          if let Some((alert, title)) = alert {
-            let start_col = node.data.borrow().sourcepos.start;
-
-            let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-              NodeValue::Document,
-              start_col,
-            ))));
-
-            let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
-              Ast::new(NodeValue::Paragraph, start_col),
-            )));
-
-            for child_node in paragraph_child.children().skip(1) {
-              node_without_alert.append(child_node);
-            }
-            for child_node in node.children().skip(1) {
-              node_without_alert.append(child_node);
-            }
-
-            document.append(node_without_alert);
-
-            let html =
-              deno_doc::html::comrak::render_node(document, options, plugins);
-
-            let alert_title = match alert {
-              Alert::Note => {
-                format!("{}{title}", include_str!("./docs/info-circle.svg"))
-              }
-              Alert::Tip => {
-                format!("{}{title}", include_str!("./docs/bulb.svg"))
-              }
-              Alert::Important => {
-                format!("{}{title}", include_str!("./docs/warning-message.svg"))
-              }
-              Alert::Warning => format!(
-                "{}{title}",
-                include_str!("./docs/warning-triangle.svg")
-              ),
-              Alert::Caution => {
-                format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
-              }
-            };
-
-            let html = format!(
-              r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
-              match alert {
-                Alert::Note => "note",
-                Alert::Tip => "tip",
-                Alert::Important => "important",
-                Alert::Warning => "warning",
-                Alert::Caution => "caution",
-              }
-            );
-
-            let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-              NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
-                block_type: 6,
-                literal: html,
-              }),
-              start_col,
-            ))));
-            node.insert_before(alert_node);
-            node.detach();
+          } else {
+            None
           }
+        });
+
+        if let Some((alert, title)) = alert {
+          let start_col = node.data.borrow().sourcepos.start;
+
+          let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+            NodeValue::Document,
+            start_col,
+          ))));
+
+          let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
+            Ast::new(NodeValue::Paragraph, start_col),
+          )));
+
+          for child_node in paragraph_child.children().skip(1) {
+            node_without_alert.append(child_node);
+          }
+          for child_node in node.children().skip(1) {
+            node_without_alert.append(child_node);
+          }
+
+          document.append(node_without_alert);
+
+          let html =
+            deno_doc::html::comrak::render_node(document, options, plugins);
+
+          let alert_title = match alert {
+            Alert::Note => {
+              format!("{}{title}", include_str!("./docs/info-circle.svg"))
+            }
+            Alert::Tip => {
+              format!("{}{title}", include_str!("./docs/bulb.svg"))
+            }
+            Alert::Important => {
+              format!("{}{title}", include_str!("./docs/warning-message.svg"))
+            }
+            Alert::Warning => {
+              format!("{}{title}", include_str!("./docs/warning-triangle.svg"))
+            }
+            Alert::Caution => {
+              format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
+            }
+          };
+
+          let html = format!(
+            r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
+            match alert {
+              Alert::Note => "note",
+              Alert::Tip => "tip",
+              Alert::Important => "important",
+              Alert::Warning => "warning",
+              Alert::Caution => "caution",
+            }
+          );
+
+          let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+            NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+              block_type: 6,
+              literal: html,
+            }),
+            start_col,
+          ))));
+          node.insert_before(alert_node);
+          node.detach();
         }
       }
     }
@@ -268,7 +272,7 @@ struct WebType {
 pub fn generate_docs(
   mut source_files: Vec<ModuleSpecifier>,
   graph: &deno_graph::ModuleGraph,
-  analyzer: &deno_graph::CapturingModuleAnalyzer,
+  analyzer: &deno_graph::ast::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
   source_files.sort();
 
@@ -336,10 +340,10 @@ pub fn get_docs_info(
     } else {
       name.strip_prefix('.').unwrap_or(name)
     };
-    if let Some(entrypoint) = entrypoint {
-      if key.strip_prefix('/').unwrap_or(key) == entrypoint {
-        entrypoint_url = Some(specifier.clone());
-      }
+    if let Some(entrypoint) = entrypoint
+      && key.strip_prefix('/').unwrap_or(key) == entrypoint
+    {
+      entrypoint_url = Some(specifier.clone());
     }
     rewrite_map.insert(specifier, key.into());
   }
@@ -392,15 +396,13 @@ fn get_url_rewriter(
       base.clone()
     };
 
-    if !is_readme {
-      if let Some(current_file) = current_file {
-        let (path, _file) = current_file
-          .specifier
-          .path()
-          .rsplit_once('/')
-          .unwrap_or((current_file.specifier.path(), ""));
-        return format!("{base}{path}/{url}");
-      }
+    if !is_readme && let Some(current_file) = current_file {
+      let (path, _file) = current_file
+        .specifier
+        .path()
+        .rsplit_once('/')
+        .unwrap_or((current_file.specifier.path(), ""));
+      return format!("{base}{path}/{url}");
     }
 
     format!("{base}/{url}")
@@ -510,6 +512,7 @@ pub fn get_generate_ctx<'a>(
       markdown_renderer,
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
+      id_prefix: None,
     },
     None,
     deno_doc::html::FileMode::Normal,
@@ -587,7 +590,7 @@ pub fn generate_docs_html(
         .render(
           "symbol_content",
           &deno_doc::html::SymbolContentCtx {
-            id: String::new(),
+            id: Id::empty(),
             sections,
             docs: None,
           },
@@ -1129,11 +1132,11 @@ impl HrefResolver for DocResolver {
           let req = jsr_package_req.req();
 
           let mut version_path = Cow::Borrowed("");
-          if let Some(range) = req.version_req.range() {
-            if let Ok(version) = Version::new(&range.to_string()) {
-              // If using a specific version, link to it (e.g. prerelease)
-              version_path = Cow::Owned(format!("@{}", version));
-            }
+          if let Some(range) = req.version_req.range()
+            && let Ok(version) = Version::new(&range.to_string())
+          {
+            // If using a specific version, link to it (e.g. prerelease)
+            version_path = Cow::Owned(format!("@{}", version));
           }
 
           let mut internal_path = Cow::Borrowed("");
@@ -1245,6 +1248,16 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
           ),
         },
         format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+      );
+      map.insert(
+        UsageComposerEntry {
+          name: "vlt".to_string(),
+          icon: Some(
+            r#"<img src="/logos/vlt.svg" alt="vlt logo" draggable="false" />"#
+              .into(),
+          ),
+        },
+        format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {

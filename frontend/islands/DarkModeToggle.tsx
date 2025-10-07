@@ -52,7 +52,7 @@ export default function DarkModeToggle() {
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       type="button"
     >
-      {isDark
+      {isDark.value
         ? <TbBrightnessUpFilled class="size-5" />
         : <TbMoonFilled class="size-5" />}
     </button>

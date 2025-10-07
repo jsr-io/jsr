@@ -2,17 +2,18 @@
 use chrono::DateTime;
 use chrono::Utc;
 use serde_json::json;
-use sqlx::migrate;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
 use sqlx::Result;
 use sqlx::Row;
+use sqlx::migrate;
+use sqlx::postgres::PgPoolOptions;
 use tracing::instrument;
 use uuid::Uuid;
 
 use crate::api::ApiMetrics;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -555,10 +556,10 @@ impl Database {
     let package = match res {
       Ok(package) => package,
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_unique_violation() {
-            return Ok(CreatePackageResult::AlreadyExists);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_unique_violation()
+        {
+          return Ok(CreatePackageResult::AlreadyExists);
         }
         return Err(err);
       }
@@ -970,8 +971,9 @@ impl Database {
     &self,
     actor_id: &Uuid,
     is_sudo: bool,
-    scope: &ScopeName,
+    scope_name: &ScopeName,
     user_id: Uuid,
+    scope_description: &ScopeDescription,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
@@ -985,7 +987,7 @@ impl Database {
         "create_scope"
       },
       json!({
-          "scope": scope,
+          "scope": scope_name,
           "user_id": user_id,
       }),
     )
@@ -998,6 +1000,7 @@ impl Database {
             INSERT INTO scopes (scope, creator) VALUES ($1, $2)
             RETURNING
             scope,
+            description,
             creator,
             package_limit,
             new_package_per_week_limit,
@@ -1013,6 +1016,7 @@ impl Database {
         )
         SELECT
         scope as "scope: ScopeName",
+        description as "description: ScopeDescription",
         creator,
         package_limit,
         new_package_per_week_limit,
@@ -1023,8 +1027,8 @@ impl Database {
         created_at
         FROM ins_scope
         "#,
-      scope as _,
-      user_id
+      scope_name,
+      user_id,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -1123,6 +1127,7 @@ impl Database {
       )
       SELECT
       scopes.scope as "scope_scope: ScopeName",
+      scopes.description as "scope_description: ScopeDescription",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -1143,6 +1148,7 @@ impl Database {
       .map(|r| {
         let scope = Scope {
           scope: r.scope_scope,
+          description: r.scope_description,
           creator: r.scope_creator,
           updated_at: r.scope_updated_at,
           created_at: r.scope_created_at,
@@ -1200,6 +1206,7 @@ impl Database {
     let scopes = sqlx::query(&format!(
       r#"SELECT
       scopes.scope as "scope_scope",
+      scopes.description as "scope_description",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -1254,6 +1261,7 @@ impl Database {
       Scope,
       r#"SELECT
       scope as "scope: ScopeName",
+      description as "description: ScopeDescription",
       creator,
       package_limit,
       new_package_per_week_limit,
@@ -1276,6 +1284,7 @@ impl Database {
       Scope,
       r#"SELECT
       scope as "scope: ScopeName",
+      description as "description: ScopeDescription",
       creator,
       package_limit,
       new_package_per_week_limit,
@@ -1285,7 +1294,7 @@ impl Database {
       updated_at,
       created_at
       FROM scopes WHERE scope = $1"#,
-      scope as _
+      scope
     )
     .fetch_optional(&self.pool)
     .await
@@ -1339,6 +1348,7 @@ impl Database {
         UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -1392,6 +1402,7 @@ impl Database {
         UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -1403,6 +1414,56 @@ impl Database {
 
       "#,
       require_publishing_from_ci,
+      scope as _
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope)
+  }
+
+  #[instrument(name = "Database::scope_set_description", skip(self), err)]
+  pub async fn scope_set_description(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    description: Option<String>,
+  ) -> Result<Scope> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_set_description",
+      json!({
+        "scope": scope,
+        "description": description,
+      }),
+    )
+    .await?;
+
+    let scope = sqlx::query_as!(
+      Scope,
+      r#"
+        UPDATE scopes SET description = $1 WHERE scope = $2
+        RETURNING
+          scope as "scope: ScopeName",
+          description as "description: ScopeDescription",
+          creator,
+          package_limit,
+          new_package_per_week_limit,
+          publish_attempts_per_week_limit,
+          verify_oidc_actor,
+          require_publishing_from_ci,
+          updated_at,
+          created_at
+
+      "#,
+      description,
       scope as _
     )
     .fetch_one(&mut *tx)
@@ -2375,6 +2436,7 @@ impl Database {
       Scope,
       r#"SELECT
       scopes.scope as "scope: ScopeName",
+      scopes.description as "description: ScopeDescription",
       scopes.creator,
       scopes.package_limit,
       scopes.new_package_per_week_limit,
@@ -2660,10 +2722,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2711,10 +2773,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2825,12 +2887,11 @@ impl Database {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    if !scope_member.is_admin {
-      if let Some(result) =
+    if !scope_member.is_admin
+      && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
-      {
-        return Ok(result);
-      }
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -3530,10 +3591,10 @@ impl Database {
       .fetch_optional(&mut *tx)
       .await?;
 
-    if let Some(authorization) = &maybe_authorization {
-      if authorization.user_id.is_some() {
-        tx.commit().await?;
-      }
+    if let Some(authorization) = &maybe_authorization
+      && authorization.user_id.is_some()
+    {
+      tx.commit().await?;
     }
 
     Ok(maybe_authorization)

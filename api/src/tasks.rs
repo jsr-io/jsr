@@ -4,28 +4,30 @@ use std::collections::HashSet;
 use bytes::Bytes;
 use chrono::DateTime;
 use chrono::Utc;
+use deno_semver::StackString;
+use deno_semver::VersionReq;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageSubPath;
-use deno_semver::StackString;
-use deno_semver::VersionReq;
-use futures::stream;
 use futures::StreamExt;
+use futures::stream;
 use hyper::Body;
 use hyper::Request;
-use routerify::ext::RequestExt;
 use routerify::Router;
+use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
-use crate::analysis::rebuild_npm_tarball;
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
+use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
@@ -34,21 +36,19 @@ use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
 use crate::gcp;
-use crate::gcp::GcsUploadOptions;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
+use crate::gcp::GcsUploadOptions;
 use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::npm::generate_npm_version_manifest;
 use crate::publish;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
-use crate::NpmUrl;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
 pub struct LogsBigQueryTable(
@@ -466,9 +466,7 @@ mod tests {
   use crate::db::NewPackageVersion;
   use crate::db::PackageVersionMeta;
   use crate::gcp::BigQueryQueryResult;
-  use crate::ids::PackageName;
-  use crate::ids::ScopeName;
-  use crate::ids::Version;
+  use crate::ids::{PackageName, ScopeDescription, ScopeName, Version};
 
   use super::deserialize_version_download_count_from_bigquery;
 
@@ -551,12 +549,24 @@ mod tests {
     let v0_219_3 = Version::new("0.219.3").unwrap();
     let v1_0_0 = Version::new("1.0.0").unwrap();
 
-    db.create_scope(&Uuid::nil(), false, &std, Uuid::nil())
-      .await
-      .unwrap();
-    db.create_scope(&Uuid::nil(), false, &luca, Uuid::nil())
-      .await
-      .unwrap();
+    db.create_scope(
+      &Uuid::nil(),
+      false,
+      &std,
+      Uuid::nil(),
+      &ScopeDescription::default(),
+    )
+    .await
+    .unwrap();
+    db.create_scope(
+      &Uuid::nil(),
+      false,
+      &luca,
+      Uuid::nil(),
+      &ScopeDescription::default(),
+    )
+    .await
+    .unwrap();
     db.create_package(&std, &fs).await.unwrap();
     db.create_package(&luca, &flag).await.unwrap();
     db.create_package_version_for_test(NewPackageVersion {
@@ -659,7 +669,7 @@ mod tests {
       .get_package_versions_downloads_24h(
         &std,
         &fs,
-        &[v0_215_0.clone()],
+        std::slice::from_ref(&v0_215_0),
         "2024-06-01T00:00:00Z".parse().unwrap(),
         "2024-07-31T00:00:00Z".parse().unwrap(),
       )
@@ -677,7 +687,7 @@ mod tests {
       .get_package_versions_downloads_24h(
         &luca,
         &flag,
-        &[v1_0_0.clone()],
+        std::slice::from_ref(&v1_0_0),
         "2024-06-01T00:00:00Z".parse().unwrap(),
         "2024-07-31T00:00:00Z".parse().unwrap(),
       )

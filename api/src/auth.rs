@@ -3,32 +3,32 @@
 
 use crate::api::ApiError;
 use crate::db::*;
-use crate::util::sanitize_redirect_url;
 use crate::util::ApiResult;
+use crate::util::sanitize_redirect_url;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
-use hyper::header;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use oauth2::basic::BasicErrorResponse;
-use oauth2::basic::BasicRevocationErrorResponse;
-use oauth2::basic::BasicTokenType;
-use oauth2::reqwest::async_http_client;
+use hyper::header;
 use oauth2::ExtraTokenFields;
 use oauth2::Scope;
 use oauth2::StandardRevocableToken;
 use oauth2::StandardTokenIntrospectionResponse;
 use oauth2::StandardTokenResponse;
 use oauth2::TokenResponse;
+use oauth2::basic::BasicErrorResponse;
+use oauth2::basic::BasicRevocationErrorResponse;
+use oauth2::basic::BasicTokenType;
+use oauth2::reqwest::async_http_client;
 use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
-use tracing::instrument;
 use tracing::Span;
+use tracing::instrument;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct GithubTokenExtraFields {
