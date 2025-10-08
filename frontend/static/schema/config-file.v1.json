@@ -53,7 +53,8 @@
         "MPL-2.0",
         "MS-PL",
         "UNLICENSED"
-      ]
+      ],
+      "default": "MIT"
     },
     "exports": {
       "oneOf": [
