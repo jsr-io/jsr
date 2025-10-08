@@ -256,13 +256,13 @@ errors!(
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
-  if let Some(db_err) = err.as_database_error() {
-    if let Some(code) = db_err.code() {
-      // Code 23505 is unique_violation.
-      // See https://www.postgresql.org/docs/13/errcodes-appendix.html
-      if code == "23505" {
-        return new_err;
-      }
+  if let Some(db_err) = err.as_database_error()
+    && let Some(code) = db_err.code()
+  {
+    // Code 23505 is unique_violation.
+    // See https://www.postgresql.org/docs/13/errcodes-appendix.html
+    if code == "23505" {
+      return new_err;
     }
   }
   err.into()

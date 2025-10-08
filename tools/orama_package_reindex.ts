@@ -4,7 +4,7 @@ import type {
   Package,
   RuntimeCompat,
 } from "../frontend/utils/api_types.ts";
-import { chunk } from "jsr:@std/collections";
+import { chunk } from "@std/collections";
 
 const index = Deno.env.get("ORAMA_PACKAGE_INDEX_ID");
 const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");

@@ -161,10 +161,10 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
         if let Some(token) =
           db.get_token_by_hash(&crate::token::hash(token)).await?
         {
-          if let Some(expires_at) = token.expires_at {
-            if expires_at < chrono::Utc::now() {
-              return Err(ApiError::InvalidBearerToken);
-            }
+          if let Some(expires_at) = token.expires_at
+            && expires_at < chrono::Utc::now()
+          {
+            return Err(ApiError::InvalidBearerToken);
           }
 
           let user = db.get_user(token.user_id).await?.unwrap();
@@ -213,8 +213,8 @@ enum AuthorizationToken<'s> {
 static X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
 
 fn extract_token_and_sudo(
-  req: &Request<Body>,
-) -> Option<(AuthorizationToken, bool)> {
+  req: &'_ Request<Body>,
+) -> Option<(AuthorizationToken<'_>, bool)> {
   let headers = req.headers();
 
   let mut sudo = headers
@@ -239,14 +239,14 @@ fn extract_token_and_sudo(
     }
   }
 
-  if let Some(auth) = headers.get(header::AUTHORIZATION) {
-    if let Ok(auth) = auth.to_str() {
-      if let Some(token) = auth.strip_prefix("Bearer ") {
-        return Some((AuthorizationToken::Bearer(token), sudo));
-      }
-      if let Some(token) = auth.strip_prefix("githuboidc ") {
-        return Some((AuthorizationToken::GithubOIDC(token), sudo));
-      }
+  if let Some(auth) = headers.get(header::AUTHORIZATION)
+    && let Ok(auth) = auth.to_str()
+  {
+    if let Some(token) = auth.strip_prefix("Bearer ") {
+      return Some((AuthorizationToken::Bearer(token), sudo));
+    }
+    if let Some(token) = auth.strip_prefix("githuboidc ") {
+      return Some((AuthorizationToken::GithubOIDC(token), sudo));
     }
   }
 
@@ -659,14 +659,14 @@ pub mod test {
       Url::parse("http://npm.jsr-tests.test").unwrap()
     }
 
-    pub fn http(&mut self) -> TestHttpClient {
+    pub fn http(&'_ mut self) -> TestHttpClient<'_, '_> {
       TestHttpClient {
         service: &mut self.service,
         auth: Some(&self.user1.token),
       }
     }
 
-    pub fn unauthed_http(&mut self) -> TestHttpClient {
+    pub fn unauthed_http(&'_ mut self) -> TestHttpClient<'_, '_> {
       TestHttpClient {
         service: &mut self.service,
         auth: None,

@@ -775,13 +775,13 @@ pub async fn version_publish_handler(
 
   // If there is a content-length header, check it isn't too big.
   // We don't rely on this, we will also check MAX_PAYLOAD_SIZE later.
-  if let Some(size) = req.body().size_hint().upper() {
-    if size > MAX_PUBLISH_TARBALL_SIZE {
-      return Err(ApiError::TarballSizeLimitExceeded {
-        size,
-        max_size: MAX_PUBLISH_TARBALL_SIZE,
-      });
-    }
+  if let Some(size) = req.body().size_hint().upper()
+    && size > MAX_PUBLISH_TARBALL_SIZE
+  {
+    return Err(ApiError::TarballSizeLimitExceeded {
+      size,
+      max_size: MAX_PUBLISH_TARBALL_SIZE,
+    });
   }
 
   // Ensure the upload is gzip encoded.
@@ -869,14 +869,14 @@ pub async fn version_publish_handler(
 
   let hash = hash.lock().unwrap().take().unwrap().finalize();
   let hash = format!("sha256-{:02x}", hash);
-  if let Some(tarball_hash) = access_restriction.tarball_hash {
-    if tarball_hash != hash {
-      error!(
-        "Tarball hash mismatch: expected {}, got {}",
-        tarball_hash, hash
-      );
-      return Err(ApiError::MissingPermission);
-    }
+  if let Some(tarball_hash) = access_restriction.tarball_hash
+    && tarball_hash != hash
+  {
+    error!(
+      "Tarball hash mismatch: expected {}, got {}",
+      tarball_hash, hash
+    );
+    return Err(ApiError::MissingPermission);
   }
 
   // If the upload failed due to the size limit, we can cancel the task.
@@ -1830,23 +1830,23 @@ impl DepTreeLoader {
             return Ok(None);
           };
 
-          if version.is_none() {
-            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
-              let version = captures.name("version").unwrap();
-              let meta =
-                serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+          if version.is_none()
+            && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
+          {
+            let version = captures.name("version").unwrap();
+            let meta =
+              serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
 
-              let mut lock = exports.lock().await;
-              lock.insert(
-                format!(
-                  "@{}/{}@{}",
-                  scope.as_str(),
-                  package.as_str(),
-                  version.as_str()
-                ),
-                meta.exports,
-              );
-            }
+            let mut lock = exports.lock().await;
+            lock.insert(
+              format!(
+                "@{}/{}@{}",
+                scope.as_str(),
+                package.as_str(),
+                version.as_str()
+              ),
+              meta.exports,
+            );
           }
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
@@ -2005,6 +2005,7 @@ async fn analyze_deps_tree(
         module_info_cacher: Default::default(),
         unstable_bytes_imports: false,
         unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;
@@ -2158,22 +2159,21 @@ impl<'a> GraphDependencyCollector<'a> {
       let mut children = IndexSet::new();
       match module {
         Module::Js(module) => {
-          if let Some(types_dep) = &module.maybe_types_dependency {
-            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          if let Some(types_dep) = &module.maybe_types_dependency
+            && let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          {
+            children.insert(child);
+          }
+          for dep in module.dependencies.values() {
+            if !dep.maybe_code.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_code)
             {
               children.insert(child);
             }
-          }
-          for dep in module.dependencies.values() {
-            if !dep.maybe_code.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
-                children.insert(child);
-              }
-            }
-            if !dep.maybe_type.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
-                children.insert(child);
-              }
+            if !dep.maybe_type.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_type)
+            {
+              children.insert(child);
             }
           }
         }
