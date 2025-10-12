@@ -41,7 +41,7 @@ export const handler = define.handlers({
       }
     } else {
       const url = new URL(
-        "https://jsr.test" + ctx.url.pathname + ctx.url.search,
+        "https://jsr.io" + ctx.url.pathname + ctx.url.search,
       );
 
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
