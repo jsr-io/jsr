@@ -22,8 +22,12 @@ interface GlobalSearchProps {
 }
 
 const searchHints: JSX.Element[] = [
-  <p key="scope:">Hint: use <code class="">scope:</code> to search for packages by scope</p>,
-  <p key="runtime:">Hint: use <code class="font-mono">runtime:</code> to search for documentation by runtime</p>,
+  <p key="scope:">
+    Hint: use <code>scope:</code> to search for packages by scope
+  </p>,
+  <p key="runtime:">
+    Hint: use <code>runtime:</code> to search for documentation by runtime
+  </p>,
 ];
 
 // The maximum time between a query and the result for that query being
@@ -98,7 +102,8 @@ export function GlobalSearch(
 
   // Initialize random hint once on mount
   useEffect(() => {
-    randomHint.value = searchHints[Math.floor(Math.random() * searchHints.length)];
+    randomHint.value =
+      searchHints[Math.floor(Math.random() * searchHints.length)];
   }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
@@ -395,7 +400,7 @@ function SuggestionList(
             {randomHint.value || "Loading..."}
           </div>
         )
-        : !suggestions.value || suggestions.value.length === 0
+        : suggestions.value === null || suggestions.value.length === 0
         ? (
           <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
             No matching results to display
