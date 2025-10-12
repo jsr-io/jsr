@@ -1,4 +1,4 @@
-// Copyright 2025 the JSR authors. All rights reserved. MIT license.
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { assertEquals, assertLessOrEqual } from "jsr:@std/assert@1.0.15";
 import { numberFormat } from "./number_format.ts";
 

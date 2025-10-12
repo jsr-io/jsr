@@ -1,4 +1,4 @@
-// Copyright 2025 the JSR authors. All rights reserved. MIT license.
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 const scales: [number, string][] = [
   [1_000_000_000, "b"],
   [1_000_000, "m"],
