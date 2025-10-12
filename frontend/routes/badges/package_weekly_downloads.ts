@@ -1,4 +1,4 @@
-// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+// Copyright 2025 the JSR authors. All rights reserved. MIT license.
 import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
 import { PackageDownloads } from "../../utils/api_types.ts";
