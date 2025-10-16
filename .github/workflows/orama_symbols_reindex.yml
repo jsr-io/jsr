@@ -17,7 +17,7 @@ jobs:
     environment:
       name: ${{ github.event.inputs.environment }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - uses: denoland/setup-deno@v2
       - name: Deploy
         env:
