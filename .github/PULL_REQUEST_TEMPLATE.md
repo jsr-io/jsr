@@ -3,7 +3,7 @@
 - [ ] The PR title follows
       [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
 - [ ] Is this closing an open issue? If so, link it, else include a proper
-      description of the changes and rason behind them.
+      description of the changes and reason behind them.
 - [ ] Does the PR have changes to the frontend? If so, include screenshots or a
       recording of the changes.
       <br/>If it affect colors, please include screenshots/recording in both
