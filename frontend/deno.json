@@ -14,6 +14,7 @@
   },
   "imports": {
     "apexcharts": "npm:apexcharts@^4.5.0",
+    "badge-maker": "npm:badge-maker@^4.1.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.12",
     "@std/fmt": "jsr:@std/fmt@^1.0.6",
     "fresh": "jsr:@fresh/core@^2.0.0-alpha.25",
