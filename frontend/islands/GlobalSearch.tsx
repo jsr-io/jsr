@@ -26,7 +26,7 @@ const searchHints: JSX.Element[] = [
     Hint: use <code>scope:</code> to search for packages by scope
   </p>,
   <p key="runtime:">
-    Hint: use <code>runtime:</code> to search for documentation by runtime
+    Hint: use <code>runtime:</code> to search for packages by compatible runtime
   </p>,
 ];
 
