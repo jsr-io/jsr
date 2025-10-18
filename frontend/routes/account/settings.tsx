@@ -4,10 +4,14 @@ import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { QuotaCard } from "../../components/QuotaCard.tsx";
 import { define } from "../../util.ts";
 import { TicketModal } from "../../islands/TicketModal.tsx";
+import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
   data,
 }) {
+  // @ts-ignore this is possible, typescript just doesnt like it.
+  const connectionsCount = !!data.user.githubId + !!data.user.gitlabId;
+
   return (
     <AccountLayout user={data.user} active="Settings">
       <div class="flex flex-col gap-12">
@@ -66,6 +70,27 @@ export default define.page<typeof handler>(function AccountInvitesPage({
           </div>
         </div>
         <div>
+          <h2 class="text-xl mb-2 font-bold">Connected accounts</h2>
+          <p class="mt-2 text-secondary max-w-xl">
+            You may connect other services at any point, however at least one
+            service needs to be connected at any time.
+          </p>
+          <div class="flex gap-5 mt-4">
+            <Connection
+              name="GitHub"
+              serviceId="github"
+              id={data.user.githubId}
+              connectionsCount={connectionsCount}
+            />
+            <Connection
+              name="GitLab"
+              serviceId="gitlab"
+              id={data.user.gitlabId}
+              connectionsCount={connectionsCount}
+            />
+          </div>
+        </div>
+        <div>
           <h2 class="text-xl mb-2 font-bold">Delete account</h2>
           <p class="mt-2 text-secondary max-w-xl">
             You may delete your account at any time. If you delete your account,
@@ -81,6 +106,34 @@ export default define.page<typeof handler>(function AccountInvitesPage({
     </AccountLayout>
   );
 });
+
+function Connection(
+  { name, serviceId, id, connectionsCount }: {
+    name: string;
+    serviceId: string;
+    id: number | null;
+    connectionsCount: number;
+  },
+) {
+  if (connectionsCount === 1 && id !== null) {
+    return (
+      <button disabled class="button-primary" type="button">
+        <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} />
+        Disconnect {name}
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={`/${id === null ? "" : "dis"}connect/${serviceId}`}
+      class="button-primary"
+    >
+      <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} />
+      {id === null ? "Connect" : "Disconnect"} {name}
+    </a>
+  );
+}
 
 export const handler = define.handlers({
   async GET(ctx) {

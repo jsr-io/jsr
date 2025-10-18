@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO gitlab_identities (gitlab_id, access_token, access_token_expires_at, refresh_token) VALUES ($1, $2, $3, $4)\n      ON CONFLICT (gitlab_id) DO\n      UPDATE SET access_token = $2, access_token_expires_at = $3, refresh_token = $4\n      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "gitlab_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "access_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "access_token_expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "refresh_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "99129732598ec2104db096e0745ff681f078ce0a8f200c005282f5481ce688a7"
+}
