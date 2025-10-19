@@ -30,7 +30,7 @@ export function TicketModal(
 ) {
   const open = useSignal(false);
   const status = useSignal<"pending" | "submitting" | "submitted">("pending");
-  const ticket = useSignal<NewTicket | ApiTicket | null>(null);
+  const ticket = useSignal<ApiTicket | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const ref = useRef<HTMLFormElement>(null);
 
@@ -202,7 +202,7 @@ export function TicketModal(
                     <>
                       <div>
                         The ticket was submitted. You can view it{" "}
-                        <a href={`/ticket/${ticket.value!}`} class="link">
+                        <a href={`/ticket/${ticket.value!.id}`} class="link">
                           here
                         </a>
                       </div>

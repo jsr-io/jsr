@@ -38,36 +38,24 @@ pub fn tickets_router() -> Router<Body, ApiError> {
 
 #[instrument(name = "GET /api/tickets/:id", skip(req), err, fields(id))]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
-  let id = match req.param_uuid("id") {
-    Ok(id) => id,
-    Err(_) => {
-      return Err(ApiError::MalformedRequest {
-        msg: "Invalid ID".into(),
-      })
-    }
-  };
+  let id = req.param_uuid("id")?;
+
   Span::current().record("id", field::display(id));
 
-  let db = match req.data::<Database>() {
-    Some(db) => db,
-    None => return Err(ApiError::InternalServerError),
-  };
+  let db = req.data::<Database>().unwrap();
 
-  let ticket = match db.get_ticket(id).await {
-    Ok(Some(ticket)) => ticket,
-    Ok(None) => return Err(ApiError::TicketNotFound),
-    Err(_) => return Err(ApiError::InternalServerError),
-  };
+  let (ticket, creator, messages) =
+    db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
 
   let ticket_audit = db.get_ticket_audit_logs(id).await;
 
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;
 
-  if current_user == &ticket.1 || iam.check_admin_access().is_ok() {
+  if current_user == &creator || iam.check_admin_access().is_ok() {
     let mut events: Vec<ApiTicketMessageOrAuditLog> = Vec::new();
 
-    for message in ticket.2 {
+    for message in messages {
       events.push(ApiTicketMessageOrAuditLog::Message {
         message: message.0,
         user: message.1,
@@ -90,7 +78,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
       }
     });
 
-    Ok((ticket.0, ticket.1, events).into())
+    Ok((ticket, creator, events).into())
   } else {
     Err(ApiError::TicketNotFound)
   }
