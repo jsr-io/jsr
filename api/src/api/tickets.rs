@@ -24,6 +24,8 @@ use crate::util::decode_json;
 use super::ApiError;
 use super::ApiTicket;
 use super::ApiTicketMessage;
+use super::ApiTicketMessageOrAuditLog;
+use super::ApiTicketOverview;
 
 pub fn tickets_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -35,18 +37,48 @@ pub fn tickets_router() -> Router<Body, ApiError> {
 }
 
 #[instrument(name = "GET /api/tickets/:id", skip(req), err, fields(id))]
-pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicket> {
+pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   let id = req.param_uuid("id")?;
+
   Span::current().record("id", field::display(id));
 
   let db = req.data::<Database>().unwrap();
-  let ticket = db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
+
+  let (ticket, creator, messages) =
+    db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
+
+  let ticket_audit = db.get_ticket_audit_logs(id).await;
 
   let iam = req.iam();
-
   let current_user = iam.check_current_user_access()?;
-  if current_user == &ticket.1 || iam.check_admin_access().is_ok() {
-    Ok(ticket.into())
+
+  if current_user == &creator || iam.check_admin_access().is_ok() {
+    let mut events: Vec<ApiTicketMessageOrAuditLog> = Vec::new();
+
+    for message in messages {
+      events.push(ApiTicketMessageOrAuditLog::Message {
+        message: message.0,
+        user: message.1,
+      });
+    }
+
+    if let Ok(audit_logs) = ticket_audit {
+      for audit_log in audit_logs {
+        events.push(ApiTicketMessageOrAuditLog::AuditLog {
+          audit_log: audit_log.0,
+          user: audit_log.1,
+        });
+      }
+    }
+
+    events.sort_by_key(|event| match event {
+      ApiTicketMessageOrAuditLog::Message { message, .. } => message.created_at,
+      ApiTicketMessageOrAuditLog::AuditLog { audit_log, .. } => {
+        audit_log.created_at
+      }
+    });
+
+    Ok((ticket, creator, events).into())
   } else {
     Err(ApiError::TicketNotFound)
   }
@@ -206,9 +238,22 @@ mod test {
       .call()
       .await
       .unwrap();
-    let ticket: ApiTicket = resp.expect_ok().await;
-    assert_eq!(ticket.messages[0].message, "test");
-    assert_eq!(ticket.messages[1].message, "test2");
+    let ticket_overview: super::ApiTicketOverview = resp.expect_ok().await;
+
+    let mut message_contents: Vec<String> = Vec::new();
+    for event in &ticket_overview.events {
+      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
+      {
+        message_contents.push(message.message.clone());
+      }
+    }
+    assert!(
+      message_contents.len() >= 2,
+      "Expected at least 2 messages, found {}",
+      message_contents.len()
+    );
+    assert_eq!(message_contents[0], "test");
+    assert_eq!(message_contents[1], "test2");
 
     let other_user_token = t.user2.token.clone();
     let mut resp = t
@@ -228,6 +273,22 @@ mod test {
       .call()
       .await
       .unwrap();
-    let _ticket: ApiTicket = resp.expect_ok().await;
+    let staff_ticket_overview: super::ApiTicketOverview =
+      resp.expect_ok().await;
+
+    let mut staff_message_contents: Vec<String> = Vec::new();
+    for event in &staff_ticket_overview.events {
+      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
+      {
+        staff_message_contents.push(message.message.clone());
+      }
+    }
+    assert!(
+      staff_message_contents.len() >= 2,
+      "Expected at least 2 messages for staff view, found {}",
+      staff_message_contents.len()
+    );
+    assert_eq!(staff_message_contents[0], "test");
+    assert_eq!(staff_message_contents[1], "test2");
   }
 }

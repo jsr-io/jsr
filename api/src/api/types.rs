@@ -1026,6 +1026,52 @@ pub struct ApiPackageDownloadsRecentVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum ApiTicketMessageOrAuditLog {
+  Message {
+    message: TicketMessage,
+    user: UserPublic,
+  },
+  #[serde(rename_all = "camelCase")]
+  AuditLog {
+    audit_log: AuditLog,
+    user: UserPublic,
+  },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketOverview {
+  pub id: Uuid,
+  pub kind: TicketKind,
+  pub creator: ApiUser,
+  pub meta: serde_json::Value,
+  pub closed: bool,
+  pub events: Vec<ApiTicketMessageOrAuditLog>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
+  for ApiTicketOverview
+{
+  fn from(
+    (value, user, events): (Ticket, User, Vec<ApiTicketMessageOrAuditLog>),
+  ) -> Self {
+    Self {
+      id: value.id,
+      kind: value.kind,
+      creator: user.into(),
+      meta: value.meta,
+      closed: value.closed,
+      events,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicket {
   pub id: Uuid,
