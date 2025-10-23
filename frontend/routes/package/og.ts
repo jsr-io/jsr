@@ -34,7 +34,7 @@ const LATEST_BADGE_COLOR = Image.rgbToColor(247, 222, 30);
 
 const JSR_LOGO_HEIGHT = 100;
 
-const DESCRIPTION_MAX_BREAK_POINT = 60;
+const DESCRIPTION_MAX_BREAK_POINT = 40;
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -220,7 +220,7 @@ export const handler = define.handlers({
 
       for (const word of splittedBySpace) {
         firstLine.push(word);
-        const { width } = Image.renderText(dmmonoFont, 30, firstLine.join(" "));
+        const { width } = Image.renderText(dmmonoFont, 40, firstLine.join(" "));
         if (width > WIDTH - 2 * PADDING) {
           firstLine.pop();
           break;
@@ -240,7 +240,7 @@ export const handler = define.handlers({
 
     const descriptionText = Image.renderText(
       dmmonoFont,
-      30,
+      40,
       descriptionString,
       COLOR_GRAY,
     );
@@ -262,7 +262,7 @@ export const handler = define.handlers({
       );
       const publishDateText = Image.renderText(
         dmmonoFont,
-        25,
+        32,
         twas(new Date(selectedVersion.createdAt).getTime()),
         COLOR_GRAY,
       );
