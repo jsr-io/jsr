@@ -26,7 +26,9 @@ impl ScopeName {
     if !name
       .chars()
       // temp allow underscores
-      .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.')
+      .all(|c| {
+        c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.'
+      })
     {
       return Err(ScopeNameValidateError::InvalidCharacters);
     }
