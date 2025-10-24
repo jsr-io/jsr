@@ -8,8 +8,8 @@ use thiserror::Error;
 
 /// A scope name, like `user` or `admin`. The name is not prefixed with an @.
 /// The name must be at least 2 characters long, and at most 20 characters long.
-/// The name must only contain alphanumeric characters and hyphens.
-/// The name must not start or end with a hyphen.
+/// The name must only contain alphanumeric characters, hyphens, and dots.
+/// The name must not start or end with a hyphen or dot.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ScopeName(String);
 
@@ -26,7 +26,7 @@ impl ScopeName {
     if !name
       .chars()
       // temp allow underscores
-      .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+      .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.')
     {
       return Err(ScopeNameValidateError::InvalidCharacters);
     }
@@ -35,8 +35,16 @@ impl ScopeName {
       return Err(ScopeNameValidateError::LeadingOrTrailingHyphens);
     }
 
+    if name.starts_with('.') || name.ends_with('.') {
+      return Err(ScopeNameValidateError::LeadingOrTrailingDots);
+    }
+
     if name.contains("--") {
       return Err(ScopeNameValidateError::DoubleHyphens);
+    }
+
+    if name.contains("..") {
+      return Err(ScopeNameValidateError::DoubleDots);
     }
 
     Ok(ScopeName(name))
@@ -135,15 +143,21 @@ pub enum ScopeNameValidateError {
   TooLong,
 
   #[error(
-    "scope name must contain only lowercase ascii alphanumeric characters and hyphens"
+    "scope name must contain only lowercase ascii alphanumeric characters, hyphens, and dots"
   )]
   InvalidCharacters,
 
   #[error("scope name must not start or end with a hyphen")]
   LeadingOrTrailingHyphens,
 
+  #[error("scope name must not start or end with a dot")]
+  LeadingOrTrailingDots,
+
   #[error("scope name must not contain double hyphens")]
   DoubleHyphens,
+
+  #[error("scope name must not contain double dots")]
+  DoubleDots,
 }
 
 /// A scope description, like 'This is a user scope' or 'Admin scope'.
@@ -992,6 +1006,10 @@ mod tests {
     assert!(ScopeName::try_from("foo-123-bar").is_ok());
     assert!(ScopeName::try_from("f123").is_ok());
     assert!(ScopeName::try_from("foo-bar-baz-qux").is_ok());
+    assert!(ScopeName::try_from("foo.bar").is_ok());
+    assert!(ScopeName::try_from("foo.bar.baz").is_ok());
+    assert!(ScopeName::try_from("foo-bar.baz").is_ok());
+    assert!(ScopeName::try_from("foo.123").is_ok());
 
     // Test invalid scope names
     assert!(ScopeName::try_from("").is_err());
@@ -1007,6 +1025,11 @@ mod tests {
     assert!(ScopeName::try_from("-123-foo").is_err());
     assert!(ScopeName::try_from("foo-123-bar-").is_err());
     assert!(ScopeName::try_from("@foo").is_err());
+    assert!(ScopeName::try_from(".foo").is_err());
+    assert!(ScopeName::try_from("foo.").is_err());
+    assert!(ScopeName::try_from("foo..bar").is_err());
+    assert!(ScopeName::try_from(".foo.bar").is_err());
+    assert!(ScopeName::try_from("foo.bar.").is_err());
   }
 
   #[test]
