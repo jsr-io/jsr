@@ -167,7 +167,7 @@ export function DownloadChart(props: Props) {
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="displayAs" className="text-secondary">
-              Display As
+              Display as
             </label>
             <select
               id="displayAs"
