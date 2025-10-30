@@ -4,10 +4,10 @@ use futures::Stream;
 use hyper::HeaderMap;
 use hyper::StatusCode;
 use percent_encoding::NON_ALPHANUMERIC;
-use reqwest::multipart;
-use reqwest::multipart::Part;
 use reqwest::Body;
 use reqwest::Response;
+use reqwest::multipart;
+use reqwest::multipart::Part;
 use serde::Deserialize;
 use serde_json::json;
 use std::borrow::Cow;
@@ -707,10 +707,10 @@ impl FakeGcsTester {
 #[cfg(test)]
 impl Drop for FakeGcsTester {
   fn drop(&mut self) {
-    if let Some(proc) = self.proc.as_mut() {
-      if let Err(err) = proc.kill() {
-        eprintln!("failed to kill FakeGcsTester on drop: {err}");
-      }
+    if let Some(proc) = self.proc.as_mut()
+      && let Err(err) = proc.kill()
+    {
+      eprintln!("failed to kill FakeGcsTester on drop: {err}");
     }
   }
 }

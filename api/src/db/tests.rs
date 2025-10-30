@@ -2,6 +2,7 @@
 use crate::db::*;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
@@ -19,7 +20,13 @@ async fn publishing_tasks() {
   let config_file = "/jsr.json".try_into().unwrap();
 
   let _scope = db
-    .create_scope(&user_id, false, &scope_name, user_id)
+    .create_scope(
+      &user_id,
+      false,
+      &scope_name,
+      user_id,
+      &ScopeDescription::default(),
+    )
     .await
     .unwrap();
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
@@ -217,18 +224,25 @@ async fn packages() {
   let scope_name = "scope".try_into().unwrap();
   let package_name = "testpkg".try_into().unwrap();
 
-  db.create_scope(&alice.id, false, &scope_name, alice.id)
-    .await
-    .unwrap();
+  db.create_scope(
+    &alice.id,
+    false,
+    &scope_name,
+    alice.id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
 
   let alice2 = db.get_user(alice.id).await.unwrap().unwrap();
   assert_eq!(alice2.scope_usage, 1);
 
-  assert!(db
-    .get_scope_member(&scope_name, alice.id)
-    .await
-    .unwrap()
-    .is_some());
+  assert!(
+    db.get_scope_member(&scope_name, alice.id)
+      .await
+      .unwrap()
+      .is_some()
+  );
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()
@@ -285,9 +299,15 @@ async fn scope_members() {
 
   let scope_name = "scope".try_into().unwrap();
 
-  db.create_scope(&bob.id, false, &scope_name, bob.id)
-    .await
-    .unwrap();
+  db.create_scope(
+    &bob.id,
+    false,
+    &scope_name,
+    bob.id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
 
   let scope = db
     .get_scope(&ScopeName::try_from("scope").unwrap())
@@ -350,7 +370,7 @@ async fn create_package_version_and_finalize_publishing_task() {
     .await
     .unwrap();
 
-  db.create_scope(&bob.id, false, &scope, bob.id)
+  db.create_scope(&bob.id, false, &scope, bob.id, &ScopeDescription::default())
     .await
     .unwrap();
 
@@ -461,9 +481,15 @@ async fn package_files() {
   let package_name = "testpkg".try_into().unwrap();
   let version = "1.2.3".try_into().unwrap();
 
-  db.create_scope(&user.id, false, &scope_name, user.id)
-    .await
-    .unwrap();
+  db.create_scope(
+    &user.id,
+    false,
+    &scope_name,
+    user.id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()
@@ -555,11 +581,12 @@ async fn oauth_state() {
   assert_eq!(oauth_state3.pkce_code_verifier, "b");
   assert_eq!(oauth_state3.redirect_url, "c");
 
-  assert!(db
-    .delete_oauth_state(&oauth_state.csrf_token)
-    .await
-    .unwrap()
-    .is_none())
+  assert!(
+    db.delete_oauth_state(&oauth_state.csrf_token)
+      .await
+      .unwrap()
+      .is_none()
+  )
 }
 
 #[tokio::test]
@@ -597,60 +624,4 @@ async fn tokens() {
 
   let no_token = db.get_token_by_hash("1").await.unwrap();
   assert!(no_token.is_none());
-}
-
-#[test]
-fn alias_target_parsing() {
-  use std::str::FromStr;
-  assert_eq!(
-    AliasTarget::from_str("npm:express").unwrap(),
-    AliasTarget::Npm("express".to_string())
-  );
-  assert_eq!(
-    AliasTarget::from_str("jsr:@ry/mysql").unwrap(),
-    AliasTarget::Jsr(
-      ScopeName::new("ry".to_string()).unwrap(),
-      PackageName::new("mysql".to_string()).unwrap()
-    )
-  );
-  assert!(AliasTarget::from_str("bad").is_err());
-}
-
-#[tokio::test]
-async fn aliases() {
-  let db = EphemeralDatabase::create().await;
-
-  let aliases = db.list_aliases_for_package("express").await.unwrap();
-  assert_eq!(aliases.len(), 0);
-
-  let alias = db
-    .create_alias("express", 1, AliasTarget::Npm("express".to_string()))
-    .await
-    .unwrap();
-  assert_eq!(alias.name, "express");
-  assert_eq!(alias.major_version, 1);
-  assert_eq!(alias.target, AliasTarget::Npm("express".to_string()));
-
-  let aliases = db.list_aliases_for_package("express").await.unwrap();
-  assert_eq!(aliases.len(), 1);
-  assert_eq!(aliases[0].target, AliasTarget::Npm("express".to_string()));
-
-  // Because there's no such package @badscope/badpackage, this should fail the
-  // foreign key constraint.
-  let err = db
-    .create_alias(
-      "foo",
-      1,
-      AliasTarget::Jsr(
-        "badscope".try_into().unwrap(),
-        "badpackage".try_into().unwrap(),
-      ),
-    )
-    .await
-    .unwrap_err();
-  assert_eq!(
-    err.as_database_error().unwrap().code().unwrap(),
-    "23503",
-    "expected 'violates foreign key constraint'"
-  );
 }

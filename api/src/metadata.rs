@@ -17,10 +17,11 @@ use std::collections::HashMap;
 ///   "name": "foo",
 ///   "versions": {
 ///     "0.1.2": {
-///       "main": "./mod.ts"
+///       "yanked": true,
+///       "createdAt": "2025-09-17T15:37:51.191487057Z"
 ///     },
 ///     "0.1.3": {
-///       "main": "./mod.ts"
+///       "createdAt": "2025-09-17T15:37:51.191487057Z"
 ///     },
 ///   }
 /// }
@@ -57,6 +58,7 @@ impl PackageMetadata {
         version.version,
         PackageMetadataVersion {
           yanked: version.is_yanked,
+          created_at: version.created_at,
         },
       );
     }
@@ -65,9 +67,11 @@ impl PackageMetadata {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PackageMetadataVersion {
   #[serde(skip_serializing_if = "is_false", default)]
   pub yanked: bool,
+  pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// This struct stores information specific to a particular published version.
@@ -111,7 +115,7 @@ pub struct PackageMetadataVersion {
 #[serde(rename_all = "camelCase")]
 pub struct VersionMetadata {
   pub manifest: HashMap<PackagePath, ManifestEntry>,
-  pub module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
+  pub module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
   pub exports: IndexMap<String, String>,
 }
 

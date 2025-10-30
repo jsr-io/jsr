@@ -50,8 +50,8 @@ build for your platform with:
 deno upgrade --canary
 ```
 
-Then, from within your package folder (probably the one with your `deno.json` or
-`mod.ts`), execute the following command:
+Then, from within your package folder (probably the one with your `deno.json(c)`
+or `mod.ts`), execute the following command:
 
 ```bash
 deno run -Ar jsr:@deno/x-to-jsr
@@ -99,7 +99,7 @@ _Vendor dependencies_
 
 You can also
 [vendor your dependencies](https://docs.deno.com/runtime/manual/basics/vendoring/)
-by adding `"vendor": true` to your `deno.json` file. This will download local
+by adding `"vendor": true` to your `deno.json(c)` file. This will download local
 versions of your HTTPS dependencies to a `vendor` directory when the project is
 ran.
 

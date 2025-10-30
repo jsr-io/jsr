@@ -7,18 +7,16 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
-use sqlx::types::Json;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::ValueRef;
-use thiserror::Error;
+use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::ids::PackageName;
-use crate::ids::PackageNameValidateError;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
-use crate::ids::ScopeNameValidateError;
 use crate::ids::Version;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -211,6 +209,7 @@ pub struct NewPublishingTask<'s> {
 #[derive(Debug)]
 pub struct Scope {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
   pub creator: Uuid,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -240,6 +239,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Scope {
   fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
     Ok(Self {
       scope: try_get_row_or(row, "scope", "scope_scope")?,
+      description: try_get_row_or(row, "description", "scope_description")?,
       creator: try_get_row_or(row, "creator", "scope_creator")?,
       updated_at: try_get_row_or(row, "updated_at", "scope_updated_at")?,
       created_at: try_get_row_or(row, "created_at", "scope_created_at")?,
@@ -348,6 +348,15 @@ pub struct Package {
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub readme_source: ReadmeSource,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::Type, Serialize, Deserialize)]
+#[sqlx(type_name = "package_readme_source", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum ReadmeSource {
+  Readme,
+  JSDoc,
 }
 
 impl FromRow<'_, sqlx::postgres::PgRow> for Package {
@@ -384,6 +393,11 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Package {
         "package_when_featured",
       )?,
       is_archived: try_get_row_or(row, "is_archived", "package_is_archived")?,
+      readme_source: try_get_row_or(
+        row,
+        "readme_source",
+        "package_readme_source",
+      )?,
     })
   }
 }
@@ -425,7 +439,7 @@ pub struct PackageVersionMeta {
   pub has_readme_examples: bool,
   pub all_entrypoints_docs: bool,
   pub percentage_documented_symbols: f32,
-  pub all_fast_check: bool,
+  pub all_fast_check: bool, // mean no slow types
   pub has_provenance: bool,
 }
 
@@ -640,99 +654,6 @@ impl sqlx::Type<sqlx::Postgres> for Permissions {
   fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
     <sqlx::types::Json<Permissions> as sqlx::Type<sqlx::Postgres>>::type_info()
   }
-}
-
-#[derive(Debug, Clone)]
-pub struct Alias {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-  pub updated_at: DateTime<Utc>,
-  pub created_at: DateTime<Utc>,
-}
-
-#[derive(Clone, PartialEq)]
-pub enum AliasTarget {
-  Jsr(ScopeName, PackageName),
-  Npm(String),
-}
-
-impl std::fmt::Display for AliasTarget {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    match self {
-      Self::Jsr(scope, name) => write!(f, "jsr:@{}/{}", scope, name),
-      Self::Npm(name) => write!(f, "npm:{}", name),
-    }
-  }
-}
-
-impl std::fmt::Debug for AliasTarget {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    std::fmt::Display::fmt(self, f)
-  }
-}
-
-impl std::str::FromStr for AliasTarget {
-  type Err = AliasTargetParseError;
-
-  fn from_str(s: &str) -> Result<Self, Self::Err> {
-    let Some((scheme, target)) = s.split_once(':') else {
-      return Err(AliasTargetParseError::MissingScheme);
-    };
-    match scheme {
-      "jsr" => {
-        let Some((scope_with_at, name)) = target.split_once('/') else {
-          return Err(AliasTargetParseError::MissingSlashInJSRTarget);
-        };
-        let Some(scope) = scope_with_at.strip_prefix('@') else {
-          return Err(
-            AliasTargetParseError::MissingAtPrefixingScopeNameInJSRTarget,
-          );
-        };
-        let scope_name = ScopeName::try_from(scope)
-          .map_err(AliasTargetParseError::InvalidScopeName)?;
-        let package_name = PackageName::try_from(name)
-          .map_err(AliasTargetParseError::InvalidPackageName)?;
-        Ok(Self::Jsr(scope_name, package_name))
-      }
-      "npm" => Ok(Self::Npm(target.to_owned())),
-      _ => Err(AliasTargetParseError::UnknownScheme(scheme.to_owned())),
-    }
-  }
-}
-
-impl serde::Serialize for AliasTarget {
-  fn serialize<S: serde::Serializer>(
-    &self,
-    serializer: S,
-  ) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(&self.to_string())
-  }
-}
-
-impl<'de> serde::Deserialize<'de> for AliasTarget {
-  fn deserialize<D: serde::Deserializer<'de>>(
-    deserializer: D,
-  ) -> Result<Self, D::Error> {
-    let s = String::deserialize(deserializer)?;
-    s.parse().map_err(serde::de::Error::custom)
-  }
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum AliasTargetParseError {
-  #[error("missing target scheme")]
-  MissingScheme,
-  #[error("unknown target scheme: {0}")]
-  UnknownScheme(String),
-  #[error("missing slash in JSR target")]
-  MissingSlashInJSRTarget,
-  #[error("missing @ prefix for scope in JSR target")]
-  MissingAtPrefixingScopeNameInJSRTarget,
-  #[error("invalid scope name: {0}")]
-  InvalidScopeName(ScopeNameValidateError),
-  #[error("invalid package name: {0}")]
-  InvalidPackageName(PackageNameValidateError),
 }
 
 #[derive(Debug)]

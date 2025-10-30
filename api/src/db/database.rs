@@ -2,17 +2,18 @@
 use chrono::DateTime;
 use chrono::Utc;
 use serde_json::json;
-use sqlx::migrate;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
 use sqlx::Result;
 use sqlx::Row;
+use sqlx::migrate;
+use sqlx::postgres::PgPoolOptions;
 use tracing::instrument;
 use uuid::Uuid;
 
 use crate::api::ApiMetrics;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 
@@ -485,7 +486,7 @@ impl Database {
     name: &PackageName,
   ) -> Result<Option<PackageWithGitHubRepoAndMeta>> {
     sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at",
+      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat: RuntimeCompat", packages.readme_source "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
@@ -509,6 +510,7 @@ impl Database {
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
           Some(GithubRepository {
@@ -542,7 +544,7 @@ impl Database {
       r#"
       INSERT INTO packages (scope, name)
       VALUES ($1, $2)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
       "#,
@@ -554,10 +556,10 @@ impl Database {
     let package = match res {
       Ok(package) => package,
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_unique_violation() {
-            return Ok(CreatePackageResult::AlreadyExists);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_unique_violation()
+        {
+          return Ok(CreatePackageResult::AlreadyExists);
         }
         return Err(err);
       }
@@ -624,7 +626,7 @@ impl Database {
       r#"UPDATE packages
       SET description = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta""#,
@@ -645,6 +647,7 @@ impl Database {
           latest_version: r.latest_version,
           when_featured: r.when_featured,
           is_archived: r.is_archived,
+          readme_source: r.readme_source,
         };
 
         (package, None, r.package_version_meta.unwrap_or_default())
@@ -703,7 +706,7 @@ impl Database {
       r#"UPDATE packages
       SET github_repository_id = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta""#,
@@ -724,6 +727,7 @@ impl Database {
           latest_version: r.latest_version,
           when_featured: r.when_featured,
           is_archived: r.is_archived,
+          readme_source: r.readme_source,
         };
 
         (package, r.package_version_meta.unwrap_or_default())
@@ -767,7 +771,7 @@ impl Database {
       r#"UPDATE packages
       SET github_repository_id = NULL
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
       scope as _,
@@ -814,7 +818,7 @@ impl Database {
       r#"UPDATE packages
       SET runtime_compat = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
       scope as _,
@@ -859,7 +863,7 @@ impl Database {
       r#"UPDATE packages
       SET when_featured = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
       scope as _,
@@ -903,7 +907,7 @@ impl Database {
       r#"UPDATE packages
       SET is_archived = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", when_featured, is_archived, updated_at, created_at,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
       scope as _,
@@ -918,13 +922,58 @@ impl Database {
     Ok(package)
   }
 
+  #[instrument(name = "Database::update_package_source", skip(self), err)]
+  pub async fn update_package_source(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    name: &PackageName,
+    source: ReadmeSource,
+  ) -> Result<Package> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "package_update_source",
+      json!({
+          "scope": scope,
+          "name": name,
+          "source": source,
+      }),
+    )
+    .await?;
+
+    let package = sqlx::query_as!(
+      Package,
+      r#"UPDATE packages
+      SET readme_source = $3
+      WHERE scope = $1 AND name = $2
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+      scope as _,
+      name as _,
+      source as _,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
+  }
+
   #[instrument(name = "Database::create_scope", skip(self), err)]
   pub async fn create_scope(
     &self,
     actor_id: &Uuid,
     is_sudo: bool,
-    scope: &ScopeName,
+    scope_name: &ScopeName,
     user_id: Uuid,
+    scope_description: &ScopeDescription,
   ) -> Result<Scope> {
     let mut tx = self.pool.begin().await?;
 
@@ -938,7 +987,7 @@ impl Database {
         "create_scope"
       },
       json!({
-          "scope": scope,
+          "scope": scope_name,
           "user_id": user_id,
       }),
     )
@@ -951,6 +1000,7 @@ impl Database {
             INSERT INTO scopes (scope, creator) VALUES ($1, $2)
             RETURNING
             scope,
+            description,
             creator,
             package_limit,
             new_package_per_week_limit,
@@ -966,6 +1016,7 @@ impl Database {
         )
         SELECT
         scope as "scope: ScopeName",
+        description as "description: ScopeDescription",
         creator,
         package_limit,
         new_package_per_week_limit,
@@ -976,8 +1027,8 @@ impl Database {
         created_at
         FROM ins_scope
         "#,
-      scope as _,
-      user_id
+      scope_name,
+      user_id,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -1076,6 +1127,7 @@ impl Database {
       )
       SELECT
       scopes.scope as "scope_scope: ScopeName",
+      scopes.description as "scope_description: ScopeDescription",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -1096,6 +1148,7 @@ impl Database {
       .map(|r| {
         let scope = Scope {
           scope: r.scope_scope,
+          description: r.scope_description,
           creator: r.scope_creator,
           updated_at: r.scope_updated_at,
           created_at: r.scope_created_at,
@@ -1153,6 +1206,7 @@ impl Database {
     let scopes = sqlx::query(&format!(
       r#"SELECT
       scopes.scope as "scope_scope",
+      scopes.description as "scope_description",
       scopes.creator as "scope_creator",
       scopes.package_limit as "scope_package_limit",
       scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
@@ -1207,6 +1261,7 @@ impl Database {
       Scope,
       r#"SELECT
       scope as "scope: ScopeName",
+      description as "description: ScopeDescription",
       creator,
       package_limit,
       new_package_per_week_limit,
@@ -1229,6 +1284,7 @@ impl Database {
       Scope,
       r#"SELECT
       scope as "scope: ScopeName",
+      description as "description: ScopeDescription",
       creator,
       package_limit,
       new_package_per_week_limit,
@@ -1238,7 +1294,7 @@ impl Database {
       updated_at,
       created_at
       FROM scopes WHERE scope = $1"#,
-      scope as _
+      scope
     )
     .fetch_optional(&self.pool)
     .await
@@ -1292,6 +1348,7 @@ impl Database {
         UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -1345,6 +1402,7 @@ impl Database {
         UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
         RETURNING
           scope as "scope: ScopeName",
+          description as "description: ScopeDescription",
           creator,
           package_limit,
           new_package_per_week_limit,
@@ -1366,6 +1424,56 @@ impl Database {
     Ok(scope)
   }
 
+  #[instrument(name = "Database::scope_set_description", skip(self), err)]
+  pub async fn scope_set_description(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    description: Option<String>,
+  ) -> Result<Scope> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "scope_set_description",
+      json!({
+        "scope": scope,
+        "description": description,
+      }),
+    )
+    .await?;
+
+    let scope = sqlx::query_as!(
+      Scope,
+      r#"
+        UPDATE scopes SET description = $1 WHERE scope = $2
+        RETURNING
+          scope as "scope: ScopeName",
+          description as "description: ScopeDescription",
+          creator,
+          package_limit,
+          new_package_per_week_limit,
+          publish_attempts_per_week_limit,
+          verify_oidc_actor,
+          require_publishing_from_ci,
+          updated_at,
+          created_at
+
+      "#,
+      description,
+      scope as _
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(scope)
+  }
+
   #[instrument(name = "Database::list_packages_by_scope", skip(self), err)]
   pub async fn list_packages_by_scope(
     &self,
@@ -1377,7 +1485,7 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     let packages = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
+      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
@@ -1385,7 +1493,7 @@ impl Database {
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
-      ORDER BY packages.name
+      ORDER BY packages.is_archived ASC, packages.name
       OFFSET $3 LIMIT $4"#,
       scope as _,
       show_archived,
@@ -1405,6 +1513,7 @@ impl Database {
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
           Some(GithubRepository {
@@ -1503,7 +1612,7 @@ impl Database {
     } || "packages.name ASC, packages.scope ASC");
 
     let packages = sqlx::query(
-      &format!(r#"SELECT packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
+      &format!(r#"SELECT packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat", packages.when_featured "package_when_featured", packages.readme_source "package_readme_source", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta",
@@ -1566,7 +1675,7 @@ impl Database {
     Vec<PackageWithGitHubRepoAndMeta>,
   )> {
     let newest = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
+      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
@@ -1590,6 +1699,7 @@ impl Database {
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
           Some(GithubRepository {
@@ -1633,7 +1743,7 @@ impl Database {
       .await?;
 
     let featured = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
+      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
         (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
@@ -1657,6 +1767,7 @@ impl Database {
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
           Some(GithubRepository {
@@ -2263,136 +2374,6 @@ impl Database {
       .await
   }
 
-  #[instrument(name = "Database::list_aliases_for_package", skip(self), err)]
-  pub async fn list_aliases_for_package(
-    &self,
-    name: &str,
-  ) -> Result<Vec<Alias>> {
-    let rows = sqlx::query!(
-      r#"SELECT
-      name, major_version,
-      target_jsr_scope as "target_jsr_scope: ScopeName",
-      target_jsr_name as "target_jsr_name: PackageName",
-      target_npm,
-      updated_at,
-      created_at
-      FROM aliases
-      WHERE name = $1"#,
-      name
-    )
-    .map(|row| {
-      let target =
-        match (&row.target_jsr_scope, &row.target_jsr_name, &row.target_npm) {
-          (Some(scope), Some(name), None) => {
-            AliasTarget::Jsr(scope.clone(), name.clone())
-          }
-          (None, None, Some(name)) => AliasTarget::Npm(name.clone()),
-          _ => unreachable!(),
-        };
-      Alias {
-        name: row.name.clone(),
-        major_version: row.major_version,
-        target,
-        updated_at: row.updated_at,
-        created_at: row.created_at,
-      }
-    })
-    .fetch_all(&self.pool)
-    .await?;
-    Ok(rows)
-  }
-
-  #[instrument(name = "Database::list_aliases", skip(self), err)]
-  pub async fn list_aliases(
-    &self,
-    start: i64,
-    limit: i64,
-    maybe_search_query: Option<&str>,
-  ) -> Result<Vec<Alias>> {
-    let search = format!("%{}%", maybe_search_query.unwrap_or(""));
-    let rows = sqlx::query!(
-      r#"SELECT
-      name, major_version,
-      target_jsr_scope as "target_jsr_scope: ScopeName",
-      target_jsr_name as "target_jsr_name: PackageName",
-      target_npm,
-      updated_at,
-      created_at
-      FROM aliases
-      WHERE name ILIKE $1
-      OFFSET $2
-      LIMIT $3"#,
-      search,
-      start,
-      limit
-    )
-    .map(|row| {
-      let target =
-        match (&row.target_jsr_scope, &row.target_jsr_name, &row.target_npm) {
-          (Some(scope), Some(name), None) => {
-            AliasTarget::Jsr(scope.clone(), name.clone())
-          }
-          (None, None, Some(name)) => AliasTarget::Npm(name.clone()),
-          _ => unreachable!(),
-        };
-      Alias {
-        name: row.name.clone(),
-        major_version: row.major_version,
-        target,
-        updated_at: row.updated_at,
-        created_at: row.created_at,
-      }
-    })
-    .fetch_all(&self.pool)
-    .await?;
-    Ok(rows)
-  }
-
-  #[instrument(name = "Database::create_alias", skip(self), err)]
-  pub async fn create_alias(
-    &self,
-    name: &str,
-    major_version: i32,
-    target: AliasTarget,
-  ) -> Result<Alias> {
-    let (target_jsr_scope, target_jsr_name, target_npm) = match target {
-      AliasTarget::Jsr(scope, name) => (Some(scope), Some(name), None),
-      AliasTarget::Npm(name) => (None, None, Some(name)),
-    };
-    let row = sqlx::query!(
-      r#"
-      INSERT INTO aliases (name, major_version, target_jsr_scope, target_jsr_name, target_npm)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING name, major_version,
-      target_jsr_scope as "target_jsr_scope: ScopeName",
-      target_jsr_name as "target_jsr_name: PackageName",
-      target_npm,
-      updated_at,
-      created_at
-      "#,
-      name,
-      major_version,
-      target_jsr_scope as _,
-      target_jsr_name as _,
-      target_npm
-    )
-      .fetch_one(&self.pool)
-      .await?;
-    let target =
-      match (row.target_jsr_scope, row.target_jsr_name, row.target_npm) {
-        (Some(scope), Some(name), None) => AliasTarget::Jsr(scope, name),
-        (None, None, Some(name)) => AliasTarget::Npm(name),
-        _ => unreachable!(),
-      };
-    Ok(Alias {
-      name: row.name,
-      major_version: row.major_version,
-      target,
-      updated_at: row.updated_at,
-      created_at: row.created_at,
-    })
-  }
-
   #[instrument(name = "Database::get_scope_member", skip(self), err)]
   pub async fn get_scope_member(
     &self,
@@ -2455,6 +2436,7 @@ impl Database {
       Scope,
       r#"SELECT
       scopes.scope as "scope: ScopeName",
+      scopes.description as "description: ScopeDescription",
       scopes.creator,
       scopes.package_limit,
       scopes.new_package_per_week_limit,
@@ -2740,10 +2722,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2791,10 +2773,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2905,12 +2887,11 @@ impl Database {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    if !scope_member.is_admin {
-      if let Some(result) =
+    if !scope_member.is_admin
+      && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
-      {
-        return Ok(result);
-      }
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -3610,10 +3591,10 @@ impl Database {
       .fetch_optional(&mut *tx)
       .await?;
 
-    if let Some(authorization) = &maybe_authorization {
-      if authorization.user_id.is_some() {
-        tx.commit().await?;
-      }
+    if let Some(authorization) = &maybe_authorization
+      && authorization.user_id.is_some()
+    {
+      tx.commit().await?;
     }
 
     Ok(maybe_authorization)

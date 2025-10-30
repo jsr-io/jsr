@@ -8,10 +8,10 @@ mod tests;
 mod types;
 
 use chrono::SecondsFormat;
-use deno_semver::package::PackageReq;
-use deno_semver::package::PackageReqReference;
 use deno_semver::StackString;
 use deno_semver::VersionReq;
+use deno_semver::package::PackageReq;
+use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
 use std::borrow::Cow;
 use url::Url;
@@ -23,10 +23,10 @@ use crate::npm::tarball::create_npm_dependencies;
 use crate::npm::types::NpmDistInfo;
 use crate::npm::types::NpmPackageInfo;
 
-pub use self::tarball::create_npm_tarball;
 pub use self::tarball::NpmTarball;
 pub use self::tarball::NpmTarballFiles;
 pub use self::tarball::NpmTarballOptions;
+pub use self::tarball::create_npm_tarball;
 pub use self::types::NpmMappedJsrPackageName;
 use self::types::NpmVersionInfo;
 

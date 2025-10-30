@@ -1,11 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import type {
   DownloadDataPoint,
   PackageDownloadsRecentVersion,
 } from "../../../utils/api_types.ts";
 import type ApexCharts from "apexcharts";
+import { useSignal } from "@preact/signals";
 
 interface Props {
   downloads: PackageDownloadsRecentVersion[];
@@ -16,7 +17,7 @@ export type AggregationPeriod = "daily" | "weekly" | "monthly";
 export function DownloadChart(props: Props) {
   const chartDivRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ApexCharts>(null);
-  const [graphRendered, setGraphRendered] = useState(false);
+  const graphRendered = useSignal(false);
 
   const getChartOptions = (
     isDarkMode: boolean,
@@ -86,6 +87,16 @@ export function DownloadChart(props: Props) {
       borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
       strokeDashArray: 3,
     },
+    responsive: [
+      {
+        breakpoint: 768,
+        options: {
+          legend: {
+            horizontalAlign: "left",
+          },
+        },
+      },
+    ],
   });
 
   useEffect(() => {
@@ -99,7 +110,7 @@ export function DownloadChart(props: Props) {
       );
 
       chartRef.current.render();
-      setGraphRendered(true);
+      graphRendered.value = true;
 
       // Listen for theme changes
       const observer = new MutationObserver(() => {
@@ -126,7 +137,7 @@ export function DownloadChart(props: Props) {
 
   return (
     <div class="relative">
-      {graphRendered && (
+      {graphRendered.value && (
         <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
           <label htmlFor="aggregationPeriod" className="text-secondary">
             Aggregation Period:
@@ -152,7 +163,7 @@ export function DownloadChart(props: Props) {
                 ),
               );
             }}
-            className="input-container input px-1.5 py-0.5"
+            className="input-container input select w-20"
           >
             <option value="daily">Daily</option>
             <option value="weekly" selected>Weekly</option>
@@ -160,7 +171,7 @@ export function DownloadChart(props: Props) {
           </select>
         </div>
       )}
-      <div className="h-[300px] text-secondary">
+      <div className="h-[300px] md:pt-0 pt-10 text-secondary">
         <div ref={chartDivRef} />
       </div>
     </div>

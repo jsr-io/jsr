@@ -101,7 +101,7 @@ export default define.page<typeof handler>(function Versions({
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-8">
+      <div class="mt-4 md:mt-8">
         <DownloadChart downloads={data.downloads.recentVersions} />
       </div>
 
@@ -225,14 +225,14 @@ function Version({
             {isPublished
               ? (
                 <a
-                  class="font-bold z-10 after:absolute after:inset-0 after:content-empty"
+                  class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty"
                   href={`/@${version.scope}/${version.package}@${version.version}`}
                 >
                   {format(semver)}
                 </a>
               )
               : (
-                <span class="font-bold z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
+                <span class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
                   {format(semver)}
                 </span>
               )}

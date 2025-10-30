@@ -1,9 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect } from "preact/hooks";
 import { TbBrightnessUpFilled, TbMoonFilled } from "tb-icons";
+import { useSignal } from "@preact/signals";
 
 export default function DarkModeToggle() {
-  const [isDark, setIsDark] = useState(false);
+  const isDark = useSignal(false);
 
   useEffect(() => {
     const isDarkStored = localStorage.getItem("darkMode");
@@ -12,14 +13,14 @@ export default function DarkModeToggle() {
     const initialDarkMode = isDarkStored === "true" ||
       isDarkStored === null && isDarkPreference;
 
-    setIsDark(initialDarkMode);
+    isDark.value = initialDarkMode;
     updateTheme(initialDarkMode);
 
     const mediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
       if (localStorage.getItem("darkMode") === null) {
         const newDarkMode = mediaQuery.matches;
-        setIsDark(newDarkMode);
+        isDark.value = newDarkMode;
         updateTheme(newDarkMode);
       }
     };
@@ -37,8 +38,8 @@ export default function DarkModeToggle() {
   }
 
   function toggleDarkMode() {
-    const newDarkMode = !isDark;
-    setIsDark(newDarkMode);
+    const newDarkMode = !isDark.value;
+    isDark.value = newDarkMode;
     updateTheme(newDarkMode);
     localStorage.setItem("darkMode", newDarkMode.toString());
   }
@@ -51,7 +52,7 @@ export default function DarkModeToggle() {
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       type="button"
     >
-      {isDark
+      {isDark.value
         ? <TbBrightnessUpFilled class="size-5" />
         : <TbMoonFilled class="size-5" />}
     </button>

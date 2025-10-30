@@ -5,12 +5,16 @@ import {
   useSignal,
   useSignalEffect,
 } from "@preact/signals";
-import { Package, Scope, User } from "../utils/api_types.ts";
-import { api, path } from "../utils/api.ts";
 import { ComponentChildren } from "preact";
 import twas from "twas";
+import { api, path } from "../utils/api.ts";
+import {
+  validatePackageName,
+  validateScopeDescription,
+  validateScopeName,
+} from "../utils/ids.ts";
 import { TicketModal } from "./TicketModal.tsx";
-
+import type { Package, Scope, User } from "../utils/api_types.ts";
 interface IconColorProps {
   done: Signal<unknown>;
   children: ComponentChildren;
@@ -122,7 +126,7 @@ export function ScopeSelect(
   return (
     <>
       <select
-        class="w-full mt-4 block py-2 px-4 input-container input select"
+        class="w-full mt-4 block py-2 px-4 input-container input select dark:bg-jsr-gray-900"
         onChange={(e) => scope.value = e.currentTarget.value}
         value={scope}
         disabled={locked}
@@ -131,7 +135,7 @@ export function ScopeSelect(
         <option value="" disabled selected class="hidden text-jsr-gray-100">
           ---
         </option>
-        {scopes.value.map((scope, idx) => (
+        {scopes.value.sort((a, b) => a.localeCompare(b)).map((scope, idx) => (
           <option key={idx} value={scope}>{scope}</option>
         ))}
       </select>
@@ -158,27 +162,24 @@ export function ScopeSelect(
 function CreateScope(
   props: {
     initialValue: string | undefined;
-    onCreate: (scope: string) => void;
+    onCreate: (scope: string, description: string) => void;
     locked: boolean;
     user: User;
   },
 ) {
   const newScope = useSignal(props.initialValue ?? "");
+  const description = useSignal("");
   const errorCode = useSignal("");
   const error = useSignal("");
   const message = useComputed(() => {
     if (error.value) return error.value;
-    if (newScope.value.length === 0) {
-      return "";
+    const validationError = validateScopeName(newScope.value);
+    if (validationError) {
+      return validationError;
     }
-    if (newScope.value.length > 20) {
-      return "Scope name cannot be longer than 20 characters.";
-    }
-    if (!/^[a-z0-9\-]+$/.test(newScope.value)) {
-      return "Scope name can only contain lowercase letters, numbers, and hyphens.";
-    }
-    if (/^-/.test(newScope.value)) {
-      return "Scope name must start with a letter or number.";
+    const descriptionError = validateScopeDescription(description.value);
+    if (descriptionError) {
+      return descriptionError;
     }
     return "";
   });
@@ -188,9 +189,10 @@ function CreateScope(
 
     const resp = await api.post<Scope>(path`/scopes`, {
       scope: newScope.value,
+      description: description.value,
     });
     if (resp.ok) {
-      props.onCreate(newScope.value);
+      props.onCreate(newScope.value, description.value);
     } else {
       console.error(resp);
       errorCode.value = resp.code;
@@ -220,6 +222,28 @@ function CreateScope(
               const newScope = e.currentTarget.value;
               if (newScope !== "" && newScope.length < 2) {
                 error.value = "Scope name must be at least 2 characters long.";
+              }
+            }}
+          />
+        </label>
+        <label class="flex items-center w-full md:w-full input-container pl-4 py-[2px] pr-[2px]">
+          <textarea
+            class="input py-1.5 pr-4 pl-[1px] flex-grow-1 rounded-md"
+            name="description"
+            placeholder="Enter a description for the scope (optional)"
+            disabled={props.locked}
+            data-locked={props.locked || undefined}
+            value={description}
+            onInput={(e) => {
+              description.value = e.currentTarget.value;
+              error.value = "";
+              errorCode.value = "";
+            }}
+            onBlur={(e) => {
+              const newDescription = e.currentTarget.value;
+              const descriptionError = validateScopeDescription(newDescription);
+              if (descriptionError) {
+                error.value = descriptionError;
               }
             }}
           />
@@ -295,17 +319,9 @@ export function PackageName(
   const message = useComputed(() => {
     if (error.value) return error.value;
     if (name.value.length === 0) return "";
-    if (name.value.startsWith("@")) {
-      return "Enter only the package name, do not include the scope.";
-    }
-    if (name.value.length > 58) {
-      return "Package name cannot be longer than 58 characters.";
-    }
-    if (!/^[a-z0-9\-]+$/.test(name.value)) {
-      return "Package name can only contain lowercase letters, numbers, and hyphens.";
-    }
-    if (/^-/.test(name.value)) {
-      return "Package name must start with a letter or number.";
+    const validationError = validatePackageName(name.value);
+    if (validationError) {
+      return validationError;
     }
     return "";
   });

@@ -1,38 +1,37 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::buckets::Buckets;
-use crate::orama::OramaClient;
 use crate::NpmUrl;
 use crate::RegistryUrl;
+use crate::buckets::Buckets;
+use crate::orama::OramaClient;
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
-use tracing::field;
-use tracing::instrument;
 use tracing::Instrument;
 use tracing::Span;
+use tracing::field;
+use tracing::instrument;
 
 use crate::db::*;
 use crate::iam::ReqIamExt;
+use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
+use crate::util::ApiResult;
+use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 use crate::util::sort;
-use crate::util::ApiResult;
-use crate::util::RequestIdExt;
 
-use super::map_unique_violation;
-use super::types::*;
 use super::ApiError;
 use super::PublishQueue;
+use super::map_unique_violation;
+use super::types::*;
 
 pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/aliases", util::auth(util::json(list_aliases)))
-    .post("/aliases", util::auth(util::json(create_alias)))
     .get("/users", util::auth(util::json(list_users)))
     .patch("/users/:user_id", util::auth(util::json(update_user)))
     .get("/scopes", util::auth(util::json(list_scopes)))
@@ -52,45 +51,6 @@ pub fn admin_router() -> Router<Body, ApiError> {
     .get("/audit_logs", util::auth(util::json(list_audit_logs)))
     .build()
     .unwrap()
-}
-
-#[instrument(name = "GET /api/admin/aliases", skip(req), err)]
-pub async fn list_aliases(req: Request<Body>) -> ApiResult<Vec<ApiAlias>> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
-  let db = req.data::<Database>().unwrap();
-  let (start, limit) = pagination(&req);
-  let maybe_search = search(&req);
-  let alias = db.list_aliases(start, limit, maybe_search).await?;
-
-  Ok(alias.into_iter().map(|alias| alias.into()).collect())
-}
-
-#[instrument(
-  name = "POST /api/admin/aliases",
-  skip(req),
-  err,
-  fields(name, major_version)
-)]
-pub async fn create_alias(mut req: Request<Body>) -> ApiResult<ApiAlias> {
-  let iam = req.iam();
-  iam.check_admin_access()?;
-
-  let ApiCreateAliasRequest {
-    name,
-    major_version,
-    target,
-  } = decode_json(&mut req).await?;
-
-  let span = Span::current();
-  span.record("name", &name);
-  span.record("major_version", major_version);
-
-  let db = req.data::<Database>().unwrap();
-  let alias = db.create_alias(&name, major_version, target).await?;
-
-  Ok(alias.into())
 }
 
 #[instrument(name = "GET /api/admin/users", skip(req), err)]
@@ -243,7 +203,13 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&staff.id, true, &scope, user_id)
+    .create_scope(
+      &staff.id,
+      true,
+      &scope,
+      user_id,
+      &ScopeDescription::default(),
+    )
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 

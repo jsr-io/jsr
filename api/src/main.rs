@@ -28,9 +28,9 @@ mod tracing;
 mod tree_sitter;
 mod util;
 
-use crate::api::api_router;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
+use crate::api::api_router;
 use crate::auth::GithubOauth2Client;
 use crate::buckets::BucketWithQueue;
 use crate::buckets::Buckets;
@@ -43,11 +43,11 @@ use crate::orama::OramaClient;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
-use crate::tasks::tasks_router;
 use crate::tasks::NpmTarballBuildQueue;
+use crate::tasks::tasks_router;
 use crate::traced_router::TracedRouterService;
-use crate::tracing::setup_tracing;
 use crate::tracing::TracingExportTarget;
+use crate::tracing::setup_tracing;
 
 use clap::Parser;
 use hyper::Body;
@@ -273,42 +273,5 @@ async fn main() {
   println!("App is running on: {}", addr);
   if let Err(err) = server.await {
     eprintln!("Server error: {}", err);
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use crate::util::test::TestSetup;
-  use serde_json::json;
-
-  // Test the case where everything is fine and a publishing task is created.
-  #[tokio::test]
-  async fn alias_route() {
-    let mut t = TestSetup::new().await;
-    let token = t.staff_user.token.clone();
-    let resp = t
-      .http()
-      .post("/api/admin/aliases")
-      .body_json(json!({
-        "name": "express",
-        "majorVersion": 1,
-        "target": "npm:express"
-      }))
-      .token(Some(&token))
-      .call()
-      .await
-      .unwrap();
-    assert!(
-      resp.status().is_success(),
-      "unsuccessful response: {:?}",
-      resp
-    );
-    let aliases = t.db().list_aliases_for_package("express").await.unwrap();
-    assert_eq!(aliases.len(), 1);
-    assert_eq!(aliases[0].major_version, 1);
-    assert_eq!(
-      aliases[0].target,
-      crate::db::AliasTarget::Npm("express".to_string())
-    );
   }
 }
