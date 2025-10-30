@@ -35,6 +35,10 @@ jobs:
       - name: Lint
         run: deno task lint:frontend
 
+      - name: Test
+        run: deno task test
+        working-directory: frontend
+
       - name: Build Fresh
         run: deno task build
         working-directory: frontend

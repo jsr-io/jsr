@@ -1278,7 +1278,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:1\n\n  +\n  ~"
+      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:2\n\n  +\n   ~"
     );
   }
 
