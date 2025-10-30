@@ -98,7 +98,7 @@ resource "google_compute_url_map" "frontend_https" {
         allow_credentials = false
         expose_headers    = ["*"]
         allow_origins     = ["*"]
-        allow_headers     = ["Authorization", "X-Cloud-Trace-Context"]
+        allow_headers     = ["Authorization", "X-Cloud-Trace-Context", "npm-command", "npm-scope", "npm-session", "user-agent"]
         max_age           = 3600
       }
     }
