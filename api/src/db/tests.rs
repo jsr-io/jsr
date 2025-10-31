@@ -127,6 +127,7 @@ async fn users() {
     email: None,
     avatar_url: "",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: true,
   };
@@ -137,6 +138,7 @@ async fn users() {
     email: Some("alice@example.com"),
     avatar_url: "https://example.com/alice.png",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: true,
   };
@@ -215,6 +217,7 @@ async fn packages() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -291,6 +294,7 @@ async fn scope_members() {
       email: None,
       avatar_url: "https://example.com/bob.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -322,6 +326,7 @@ async fn scope_members() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -363,6 +368,7 @@ async fn create_package_version_and_finalize_publishing_task() {
       name: "Bob",
       email: None,
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
       avatar_url: "https://example.com/bob.png",
@@ -471,6 +477,7 @@ async fn package_files() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -598,6 +605,7 @@ async fn tokens() {
     email: Some("alice@example.com"),
     avatar_url: "https://example.com/alice.png",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: false,
   };

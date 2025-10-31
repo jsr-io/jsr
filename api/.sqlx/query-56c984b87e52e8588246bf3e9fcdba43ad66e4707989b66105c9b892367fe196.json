@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT scope_members.scope as \"scope_member_scope: ScopeName\", scope_members.user_id as \"scope_member_user_id\", scope_members.is_admin as \"scope_member_is_admin\", scope_members.updated_at as \"scope_member_updated_at\", scope_members.created_at as \"scope_member_created_at\",\n        users.id as \"user_id\", users.name as \"user_name\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\",\nusers.gitlab_id as \"user_gitlab_id\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\"\n      FROM scope_members\n      LEFT JOIN users ON scope_members.user_id = users.id\n      WHERE scope = $1\n      ORDER BY users.name ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope_member_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "scope_member_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "scope_member_is_admin",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "scope_member_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "scope_member_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "user_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "user_avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "user_gitlab_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "user_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "user_created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "56c984b87e52e8588246bf3e9fcdba43ad66e4707989b66105c9b892367fe196"
+}
