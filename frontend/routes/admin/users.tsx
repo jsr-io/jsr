@@ -38,7 +38,9 @@ export default define.page<typeof handler>(function Users({ data, url }) {
         {data.users.map((user) => (
           <TableRow key={user.id}>
             <TableData flex>
-              <AdminCopyButton value={user.id} label="copy user ID">ID</AdminCopyButton>
+              <AdminCopyButton value={user.id} label="copy user ID">
+                ID
+              </AdminCopyButton>
               <a href={`/user/${user.id}`} class="underline underline-offset-2">
                 {user.name}
               </a>
