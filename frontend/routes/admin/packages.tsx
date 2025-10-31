@@ -6,7 +6,7 @@ import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import { define } from "../../util.ts";
 import twas from "twas";
-import { CopyButton } from "./(_islands)/CopyButton.tsx";
+import { AdminCopyButton } from "./(_islands)/AdminCopyButton.tsx";
 
 export default define.page<typeof handler>(function Packages({ data, url }) {
   return (
@@ -59,12 +59,12 @@ export default define.page<typeof handler>(function Packages({ data, url }) {
             <TableData flex>
               {pkg.githubRepository && (
                 <>
-                  <CopyButton
+                  <AdminCopyButton
                     value={pkg.githubRepository.id.toString()}
                     label="copy GitHub ID"
                   >
                     ID
-                  </CopyButton>
+                  </AdminCopyButton>
                   <a
                     href={`github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                     class="underline underline-offset-2"
