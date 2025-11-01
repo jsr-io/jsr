@@ -228,7 +228,7 @@ function CreateScope(
         </label>
         <label class="flex items-center w-full md:w-full input-container pl-4 py-[2px] pr-[2px]">
           <textarea
-            class="input py-1.5 pr-4 pl-[1px] flex-grow-1 rounded-md"
+            class="input py-1.5 pr-4 w-full pl-[1px] flex-grow-1 rounded-md"
             name="description"
             placeholder="Enter a description for the scope (optional)"
             disabled={props.locked}

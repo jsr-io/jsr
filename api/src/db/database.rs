@@ -4564,6 +4564,65 @@ impl Database {
     Ok(Some((ticket, user, messages)))
   }
 
+  #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
+  pub async fn get_ticket_audit_logs(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Vec<(AuditLog, UserPublic)>> {
+    let mut tx = self.pool.begin().await?;
+
+    let audit_logs = sqlx::query!(
+      r#"
+        SELECT
+          audit_logs.actor_id as "audit_actor_id",
+          audit_logs.is_sudo as "audit_is_sudo",
+          audit_logs.action as "audit_action",
+          audit_logs.meta as "audit_meta",
+          audit_logs.created_at as "audit_created_at",
+          users.id as "user_id",
+          users.name as "user_name",
+          users.avatar_url as "user_avatar_url",
+          users.github_id as "user_github_id",
+          users.updated_at as "user_updated_at",
+          users.created_at as "user_created_at"
+        FROM
+          audit_logs
+        LEFT JOIN
+          users ON audit_logs.actor_id = users.id
+        WHERE 
+          audit_logs.meta::text LIKE $1
+        ORDER BY audit_logs.created_at DESC;
+        "#,
+      format!("%\"ticket_id\": \"{}\"%", ticket_id),
+    )
+    .map(|r| {
+      let audit_log = AuditLog {
+        actor_id: r.audit_actor_id,
+        is_sudo: r.audit_is_sudo,
+        action: r.audit_action,
+        meta: r.audit_meta,
+        created_at: r.audit_created_at,
+      };
+
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (audit_log, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(audit_logs)
+  }
+
   #[instrument(name = "Database::ticket_add_message", skip(self), err)]
   pub async fn ticket_add_message(
     &self,
