@@ -6,8 +6,14 @@ export const validateScopeName = (name: string) => {
   if (name.length < 3) {
     return "Name must be at least 3 characters.";
   }
-  if (!/^[a-zA-Z0-9-_]+$/.test(name)) {
-    return "Name can only contain letters, numbers, dashes, and underscores.";
+  if (!/^[a-z0-9-.]+$/.test(name)) {
+    return "Name can only contain lowercase letters, numbers, dashes, and dots.";
+  }
+  if (name.startsWith(".") || name.endsWith(".")) {
+    return "Name must not start or end with a dot.";
+  }
+  if (name.includes("..")) {
+    return "Name must not contain consecutive dots.";
   }
   return null;
 };
