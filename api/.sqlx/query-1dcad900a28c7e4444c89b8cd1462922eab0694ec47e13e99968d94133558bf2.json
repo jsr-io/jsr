@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      WITH usage AS (\n        SELECT\n          (SELECT COUNT(created_at) FROM packages WHERE scope = $1) AS package,\n          (SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND created_at > now() - '1 week'::interval) AS new_package_per_week,\n          (SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope = $1 AND created_at > now() - '1 week'::interval) AS publish_attempts_per_week\n      )\n      SELECT\n      scopes.scope as \"scope_scope: ScopeName\",\n      scopes.description as \"scope_description: ScopeDescription\",\n      scopes.creator as \"scope_creator\",\n      scopes.package_limit as \"scope_package_limit\",\n      scopes.new_package_per_week_limit as \"scope_new_package_per_week_limit\",\n      scopes.publish_attempts_per_week_limit as \"scope_publish_attempts_per_week_limit\",\n      scopes.verify_oidc_actor as \"scope_verify_oidc_actor\",\n      scopes.require_publishing_from_ci as \"scope_require_publishing_from_ci\",\n      scopes.updated_at as \"scope_updated_at\",\n      scopes.created_at as \"scope_created_at\",\n      users.id as \"user_id\", users.name as \"user_name\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\",\nusers.gitlab_id as \"user_gitlab_id\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n      usage.package as \"usage_package\", usage.new_package_per_week as \"usage_new_package_per_week\", usage.publish_attempts_per_week as \"usage_publish_attempts_per_week\"\n      FROM scopes\n      LEFT JOIN users ON scopes.creator = users.id\n      CROSS JOIN usage\n      WHERE scopes.scope = $1\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "scope_description: ScopeDescription",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "scope_creator",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "scope_package_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "scope_new_package_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "scope_publish_attempts_per_week_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "scope_verify_oidc_actor",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "scope_require_publishing_from_ci",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "scope_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "scope_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "user_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "user_avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "user_gitlab_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "user_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "user_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 17,
+        "name": "usage_package",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 18,
+        "name": "usage_new_package_per_week",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 19,
+        "name": "usage_publish_attempts_per_week",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "1dcad900a28c7e4444c89b8cd1462922eab0694ec47e13e99968d94133558bf2"
+}

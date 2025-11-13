@@ -253,6 +253,18 @@ errors!(
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
   },
+  UnknownLoginService {
+    status: BAD_REQUEST,
+    "The login service is not known.",
+  },
+  ConnectTakenService {
+    status: BAD_REQUEST,
+    "Another user is already connected with this user from the provided service.",
+  },
+  DisconnectLastService {
+    status: BAD_REQUEST,
+    "You cannot disconnect the last connected service.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
@@ -362,6 +374,24 @@ impl From<oauth2::RequestTokenError<ApiError, oauth2::DeviceCodeErrorResponse>>
 
 impl From<oauth2::ConfigurationError> for ApiError {
   fn from(error: oauth2::ConfigurationError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl
+  From<
+    oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  > for ApiError
+{
+  fn from(
+    error: oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  ) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

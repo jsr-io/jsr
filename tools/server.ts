@@ -62,8 +62,9 @@ async function handler(req: Request): Promise<Response> {
         url.pathname === "/sitemap.xml" ||
         url.pathname === "/sitemap-scopes.xml" ||
         url.pathname === "/sitemap-packages.xml" ||
-        url.pathname === "/login" ||
-        url.pathname === "/login/callback" ||
+        url.pathname.startsWith("/login/") ||
+        url.pathname.startsWith("/connect/") ||
+        url.pathname.startsWith("/disconnect/") ||
         url.pathname === "/logout"
       ) {
         const apiUrl = `${API_SERVER}${url.pathname}${url.search}`;
