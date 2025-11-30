@@ -943,10 +943,11 @@ pub async fn version_provenance_statements_handler(
     .await?;
 
   if let Some(orama_client) = orama_client {
-    let (package, _, meta) = db
-      .get_package(&scope, &package)
-      .await?
-      .ok_or(ApiError::InternalServerError)?;
+    let (package, _, meta) =
+      db.get_package(&scope, &package).await?.ok_or_else(|| {
+        error!("package not found after inserting provenance statement");
+        ApiError::InternalServerError
+      })?;
     orama_client.upsert_package(&package, &meta);
   }
 
