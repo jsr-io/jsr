@@ -14,6 +14,7 @@ use hyper::StatusCode;
 use routerify::Router;
 use routerify::ext::RequestExt;
 use tracing::Span;
+use tracing::error;
 use tracing::field;
 use tracing::instrument;
 
@@ -385,10 +386,13 @@ async fn update_member_handler(
     }
   };
 
-  let user = db
-    .get_user_public(scope_member.user_id)
-    .await?
-    .ok_or(ApiError::InternalServerError)?;
+  let user =
+    db.get_user_public(scope_member.user_id)
+      .await?
+      .ok_or_else(|| {
+        error!("user not found for scope member: {}", scope_member.user_id);
+        ApiError::InternalServerError
+      })?;
 
   Ok((scope_member, user).into())
 }

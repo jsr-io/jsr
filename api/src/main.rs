@@ -146,7 +146,7 @@ async fn main() {
   let database = Database::connect(
     &config.database_url,
     config.database_pool_size,
-    Duration::from_secs(5),
+    Duration::from_secs(15),
   )
   .await
   .unwrap();
