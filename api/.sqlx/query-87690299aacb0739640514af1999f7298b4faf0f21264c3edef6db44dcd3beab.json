@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT package_versions.version as \"version: Version\", package_versions.is_yanked as \"is_yanked\", package_versions.created_at as \"created_at\",\n      npm_tarballs.revision as \"npm_tarball_revision\", npm_tarballs.sha1 as \"npm_tarball_sha1\", npm_tarballs.sha512 as \"npm_tarball_sha512\"\n      FROM package_versions\n      INNER JOIN LATERAL (\n        SELECT revision, sha1, sha512\n        FROM npm_tarballs\n        WHERE npm_tarballs.scope = package_versions.scope\n        AND npm_tarballs.name = package_versions.name\n        AND npm_tarballs.version = package_versions.version\n        ORDER BY revision DESC\n        LIMIT 1\n      ) npm_tarballs ON true\n      WHERE package_versions.scope = $1 AND package_versions.name = $2\n      ORDER BY package_versions.version DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "is_yanked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "npm_tarball_revision",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "npm_tarball_sha1",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "npm_tarball_sha512",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "87690299aacb0739640514af1999f7298b4faf0f21264c3edef6db44dcd3beab"
+}
