@@ -1933,6 +1933,39 @@ impl Database {
   }
 
   #[instrument(
+    name = "Database::list_package_versions_for_npm_version_manifest",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_npm_version_manifest(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForNpmVersionManifest>> {
+    sqlx::query_as!(
+      PackageVersionForNpmVersionManifest,
+      r#"SELECT package_versions.version as "version: Version", package_versions.is_yanked as "is_yanked", package_versions.created_at as "created_at",
+      npm_tarballs.revision as "npm_tarball_revision", npm_tarballs.sha1 as "npm_tarball_sha1", npm_tarballs.sha512 as "npm_tarball_sha512"
+      FROM package_versions
+      INNER JOIN LATERAL (
+        SELECT revision, sha1, sha512
+        FROM npm_tarballs
+        WHERE npm_tarballs.scope = package_versions.scope
+        AND npm_tarballs.name = package_versions.name
+        AND npm_tarballs.version = package_versions.version
+        ORDER BY revision DESC
+        LIMIT 1
+      ) npm_tarballs ON true
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(
     name = "Database::get_latest_unyanked_version_for_package",
     skip(self),
     err
@@ -3618,6 +3651,25 @@ impl Database {
     .execute(&self.pool)
     .await?;
     Ok(res.rows_affected() > 0)
+  }
+
+  #[instrument(name = "Database::list_package_dependencies", skip(self), err)]
+  pub async fn list_package_dependencies(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionDependency>> {
+    sqlx::query_as!(
+      PackageVersionDependency,
+      r#"SELECT package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at
+      FROM package_version_dependencies
+      WHERE package_scope = $1 AND package_name = $2
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
