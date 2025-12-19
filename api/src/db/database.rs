@@ -1933,6 +1933,29 @@ impl Database {
   }
 
   #[instrument(
+    name = "Database::list_package_versions_for_resolution",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_resolution(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForResolution>> {
+    sqlx::query_as!(
+      PackageVersionForResolution,
+      r#"SELECT package_versions.version as "version: Version", package_versions.exports as "exports: ExportsMap"
+      FROM package_versions
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(
     name = "Database::list_package_versions_for_npm_version_manifest",
     skip(self),
     err

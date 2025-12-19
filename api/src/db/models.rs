@@ -434,6 +434,12 @@ pub struct NewPackageVersion<'s> {
 }
 
 #[derive(Debug)]
+pub struct PackageVersionForResolution {
+  pub version: Version,
+  pub exports: ExportsMap,
+}
+
+#[derive(Debug)]
 pub struct PackageVersionForNpmVersionManifest {
   pub version: Version,
   pub is_yanked: bool,
