@@ -678,7 +678,7 @@ pub enum PublishError {
   },
 
   #[error(
-    "Missing license. Either provide a LICENSE file or specify the \"license\" field in your configuration file"
+    "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
   )]
   MissingLicense,
 
