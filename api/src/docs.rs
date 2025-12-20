@@ -137,102 +137,101 @@ fn match_node_value<'a>(
 ) {
   match &node.data.borrow().value {
     NodeValue::BlockQuote => {
-      if let Some(paragraph_child) = node.first_child() {
-        if paragraph_child.data.borrow().value == NodeValue::Paragraph {
-          let alert = paragraph_child.first_child().and_then(|text_child| {
-            if let NodeValue::Text(text) = &text_child.data.borrow().value {
-              match text
-                .split_once(' ')
-                .map_or((text.as_str(), None), |(kind, title)| {
-                  (kind, Some(title))
-                }) {
-                ("[!NOTE]", title) => {
-                  Some((Alert::Note, title.unwrap_or("Note").to_string()))
-                }
-                ("[!TIP]", title) => {
-                  Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
-                }
-                ("[!IMPORTANT]", title) => Some((
-                  Alert::Important,
-                  title.unwrap_or("Important").to_string(),
-                )),
-                ("[!WARNING]", title) => {
-                  Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
-                }
-                ("[!CAUTION]", title) => {
-                  Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
-                }
-                _ => None,
+      if let Some(paragraph_child) = node.first_child()
+        && paragraph_child.data.borrow().value == NodeValue::Paragraph
+      {
+        let alert = paragraph_child.first_child().and_then(|text_child| {
+          if let NodeValue::Text(text) = &text_child.data.borrow().value {
+            match text
+              .split_once(' ')
+              .map_or((text.as_str(), None), |(kind, title)| {
+                (kind, Some(title))
+              }) {
+              ("[!NOTE]", title) => {
+                Some((Alert::Note, title.unwrap_or("Note").to_string()))
               }
-            } else {
-              None
+              ("[!TIP]", title) => {
+                Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
+              }
+              ("[!IMPORTANT]", title) => Some((
+                Alert::Important,
+                title.unwrap_or("Important").to_string(),
+              )),
+              ("[!WARNING]", title) => {
+                Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
+              }
+              ("[!CAUTION]", title) => {
+                Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
+              }
+              _ => None,
             }
-          });
-
-          if let Some((alert, title)) = alert {
-            let start_col = node.data.borrow().sourcepos.start;
-
-            let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-              NodeValue::Document,
-              start_col,
-            ))));
-
-            let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
-              Ast::new(NodeValue::Paragraph, start_col),
-            )));
-
-            for child_node in paragraph_child.children().skip(1) {
-              node_without_alert.append(child_node);
-            }
-            for child_node in node.children().skip(1) {
-              node_without_alert.append(child_node);
-            }
-
-            document.append(node_without_alert);
-
-            let html =
-              deno_doc::html::comrak::render_node(document, options, plugins);
-
-            let alert_title = match alert {
-              Alert::Note => {
-                format!("{}{title}", include_str!("./docs/info-circle.svg"))
-              }
-              Alert::Tip => {
-                format!("{}{title}", include_str!("./docs/bulb.svg"))
-              }
-              Alert::Important => {
-                format!("{}{title}", include_str!("./docs/warning-message.svg"))
-              }
-              Alert::Warning => format!(
-                "{}{title}",
-                include_str!("./docs/warning-triangle.svg")
-              ),
-              Alert::Caution => {
-                format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
-              }
-            };
-
-            let html = format!(
-              r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
-              match alert {
-                Alert::Note => "note",
-                Alert::Tip => "tip",
-                Alert::Important => "important",
-                Alert::Warning => "warning",
-                Alert::Caution => "caution",
-              }
-            );
-
-            let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-              NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
-                block_type: 6,
-                literal: html,
-              }),
-              start_col,
-            ))));
-            node.insert_before(alert_node);
-            node.detach();
+          } else {
+            None
           }
+        });
+
+        if let Some((alert, title)) = alert {
+          let start_col = node.data.borrow().sourcepos.start;
+
+          let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+            NodeValue::Document,
+            start_col,
+          ))));
+
+          let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
+            Ast::new(NodeValue::Paragraph, start_col),
+          )));
+
+          for child_node in paragraph_child.children().skip(1) {
+            node_without_alert.append(child_node);
+          }
+          for child_node in node.children().skip(1) {
+            node_without_alert.append(child_node);
+          }
+
+          document.append(node_without_alert);
+
+          let html =
+            deno_doc::html::comrak::render_node(document, options, plugins);
+
+          let alert_title = match alert {
+            Alert::Note => {
+              format!("{}{title}", include_str!("./docs/info-circle.svg"))
+            }
+            Alert::Tip => {
+              format!("{}{title}", include_str!("./docs/bulb.svg"))
+            }
+            Alert::Important => {
+              format!("{}{title}", include_str!("./docs/warning-message.svg"))
+            }
+            Alert::Warning => {
+              format!("{}{title}", include_str!("./docs/warning-triangle.svg"))
+            }
+            Alert::Caution => {
+              format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
+            }
+          };
+
+          let html = format!(
+            r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
+            match alert {
+              Alert::Note => "note",
+              Alert::Tip => "tip",
+              Alert::Important => "important",
+              Alert::Warning => "warning",
+              Alert::Caution => "caution",
+            }
+          );
+
+          let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+            NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+              block_type: 6,
+              literal: html,
+            }),
+            start_col,
+          ))));
+          node.insert_before(alert_node);
+          node.detach();
         }
       }
     }
@@ -340,10 +339,10 @@ pub fn get_docs_info(
     } else {
       name.strip_prefix('.').unwrap_or(name)
     };
-    if let Some(entrypoint) = entrypoint {
-      if key.strip_prefix('/').unwrap_or(key) == entrypoint {
-        entrypoint_url = Some(specifier.clone());
-      }
+    if let Some(entrypoint) = entrypoint
+      && key.strip_prefix('/').unwrap_or(key) == entrypoint
+    {
+      entrypoint_url = Some(specifier.clone());
     }
     rewrite_map.insert(specifier, key.into());
   }
@@ -396,15 +395,13 @@ fn get_url_rewriter(
       base.clone()
     };
 
-    if !is_readme {
-      if let Some(current_file) = current_file {
-        let (path, _file) = current_file
-          .specifier
-          .path()
-          .rsplit_once('/')
-          .unwrap_or((current_file.specifier.path(), ""));
-        return format!("{base}{path}/{url}");
-      }
+    if !is_readme && let Some(current_file) = current_file {
+      let (path, _file) = current_file
+        .specifier
+        .path()
+        .rsplit_once('/')
+        .unwrap_or((current_file.specifier.path(), ""));
+      return format!("{base}{path}/{url}");
     }
 
     format!("{base}/{url}")
@@ -1152,11 +1149,11 @@ impl HrefResolver for DocResolver {
           let req = jsr_package_req.req();
 
           let mut version_path = Cow::Borrowed("");
-          if let Some(range) = req.version_req.range() {
-            if let Ok(version) = Version::new(&range.to_string()) {
-              // If using a specific version, link to it (e.g. prerelease)
-              version_path = Cow::Owned(format!("@{}", version));
-            }
+          if let Some(range) = req.version_req.range()
+            && let Ok(version) = Version::new(&range.to_string())
+          {
+            // If using a specific version, link to it (e.g. prerelease)
+            version_path = Cow::Owned(format!("@{}", version));
           }
 
           let mut internal_path = Cow::Borrowed("");

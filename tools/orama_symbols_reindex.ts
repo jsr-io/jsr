@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { List, Package } from "../frontend/utils/api_types.ts";
-import { chunk } from "jsr:@std/collections";
+import { chunk } from "@std/collections";
 
 const index = Deno.env.get("ORAMA_SYMBOLS_INDEX_ID");
 const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");

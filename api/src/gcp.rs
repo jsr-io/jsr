@@ -707,10 +707,10 @@ impl FakeGcsTester {
 #[cfg(test)]
 impl Drop for FakeGcsTester {
   fn drop(&mut self) {
-    if let Some(proc) = self.proc.as_mut() {
-      if let Err(err) = proc.kill() {
-        eprintln!("failed to kill FakeGcsTester on drop: {err}");
-      }
+    if let Some(proc) = self.proc.as_mut()
+      && let Err(err) = proc.kill()
+    {
+      eprintln!("failed to kill FakeGcsTester on drop: {err}");
     }
   }
 }

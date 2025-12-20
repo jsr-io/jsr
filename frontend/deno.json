@@ -2,7 +2,8 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "check": "deno fmt --check && deno lint && deno check **/*.ts && deno check **/*.tsx",
-    "dev": "deno run -A --watch=static/,routes/ dev.ts",
+    "dev": "deno run --env-file -A --watch=static/,routes/ dev.ts",
+    "test": "deno test",
     "build": "deno run -A dev.ts build",
     "start": "deno run -A main.ts",
     "update": "deno run -A -r jsr:@fresh/update ."

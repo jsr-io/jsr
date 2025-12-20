@@ -14,11 +14,14 @@ use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use indexmap::IndexMap;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use url::Url;
 
 use crate::db::Database;
+use crate::db::PackageVersionDependency;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
+use crate::ids::Version;
 use crate::npm::tarball::create_npm_dependencies;
 use crate::npm::types::NpmDistInfo;
 use crate::npm::types::NpmPackageInfo;
@@ -43,7 +46,23 @@ pub async fn generate_npm_version_manifest<'a>(
     .await?
     .ok_or_else(|| anyhow::anyhow!("package not found: @{scope}/{name}"))?;
 
-  let versions = db.list_package_versions(scope, name).await?;
+  let versions = db
+    .list_package_versions_for_npm_version_manifest(scope, name)
+    .await?;
+
+  let all_dependencies = db.list_package_dependencies(scope, name).await?;
+
+  let mut dependencies_per_version: HashMap<
+    Version,
+    Vec<PackageVersionDependency>,
+  > = HashMap::new();
+
+  for dep in all_dependencies {
+    dependencies_per_version
+      .entry(dep.package_version.clone())
+      .or_default()
+      .push(dep);
+  }
 
   let mut out = NpmPackageInfo {
     name: NpmMappedJsrPackageName {
@@ -69,23 +88,16 @@ pub async fn generate_npm_version_manifest<'a>(
       .to_rfc3339_opts(SecondsFormat::Millis, true),
   );
 
-  for (version, _) in versions {
+  for version in versions {
     // We don't publish yanked versions in the NPM manifest.
     if version.is_yanked {
       continue;
     }
 
-    // Skip versions that don't have a tarball.
-    let Some(npm_tarball) = db
-      .get_latest_npm_tarball_for_version(scope, name, &version.version)
-      .await?
-    else {
-      continue;
-    };
+    let dependencies = dependencies_per_version
+      .remove(&version.version)
+      .unwrap_or_default();
 
-    let dependencies = db
-      .list_package_version_dependencies(scope, name, &version.version)
-      .await?;
     let dependencies = dependencies.into_iter().map(|dep| {
       let sub_path = if dep.dependency_path.is_empty() {
         None
@@ -108,7 +120,7 @@ pub async fn generate_npm_version_manifest<'a>(
       .base_url(Some(npm_url))
       .parse(&format!(
         "./~/{}/{}/{}.tgz",
-        npm_tarball.revision,
+        version.npm_tarball_revision,
         NpmMappedJsrPackageName {
           scope,
           package: name,
@@ -126,8 +138,8 @@ pub async fn generate_npm_version_manifest<'a>(
       description: package.description.clone(),
       dist: NpmDistInfo {
         tarball: tarball.to_string(),
-        shasum: npm_tarball.sha1,
-        integrity: format!("sha512-{}", npm_tarball.sha512),
+        shasum: version.npm_tarball_sha1,
+        integrity: format!("sha512-{}", version.npm_tarball_sha512),
       },
       dependencies: npm_dependencies,
     };

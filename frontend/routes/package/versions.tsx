@@ -225,14 +225,14 @@ function Version({
             {isPublished
               ? (
                 <a
-                  class="font-bold z-10 after:absolute after:inset-0 after:content-empty"
+                  class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty"
                   href={`/@${version.scope}/${version.package}@${version.version}`}
                 >
                   {format(semver)}
                 </a>
               )
               : (
-                <span class="font-bold z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
+                <span class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
                   {format(semver)}
                 </span>
               )}

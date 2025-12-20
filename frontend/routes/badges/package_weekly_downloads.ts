@@ -1,10 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
-import { define } from "../../util.ts";
-import { Scope } from "../../utils/api_types.ts";
+import { PackageDownloads } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
+import { define } from "../../util.ts";
 import { primaryColor, secondaryColor } from "../../utils/colors.ts";
+import { numberFormat } from "../../utils/number_format.ts";
+import { timeInAWeek } from "../../utils/date.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -14,21 +16,32 @@ export const handler = define.handlers({
       accepts(req, "application/json", "text/html", "image/*") ===
         "application/json"
     ) {
-      const scopeResp = await ctx.state.api.get<Scope>(
-        path`/scopes/${ctx.params.scope}`,
+      const packageResp = await ctx.state.api.get<PackageDownloads>(
+        path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/downloads`,
       );
 
-      if (!scopeResp.ok) {
-        if (scopeResp.code === "scopeNotFound") {
+      if (!packageResp.ok) {
+        if (packageResp.code === "packageNotFound") {
           return new Response(null, { status: 404 });
         } else {
-          throw scopeResp;
+          throw packageResp;
         }
       } else {
+        const totalCount = packageResp.data.total.reduce(
+          (acc, curr) => acc + curr.count,
+          0,
+        );
+        const firstDate = new Date(
+          packageResp.data.total.at(0)?.timeBucket ?? "",
+        );
+        const now = new Date();
+        const timeDifference = now.getTime() - firstDate.getTime();
+        const weeksDifference = (timeDifference / timeInAWeek) || 1; // If there is only one data point, we assume it's a week
+
         return Response.json({
           schemaVersion: 1,
-          label: "",
-          message: `@${scopeResp.data.scope}`,
+          label: "downloads",
+          message: `${numberFormat(totalCount / weeksDifference)}/week`,
           labelColor: secondaryColor,
           color: primaryColor,
         });
@@ -64,5 +77,5 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/badges/@:scope",
+  routeOverride: "/badges/@:scope/:package/weekly-downloads",
 };

@@ -10,7 +10,7 @@ interface CopyButtonProps {
   children?: ComponentChildren;
 }
 
-export function CopyButton(props: CopyButtonProps) {
+export function AdminCopyButton(props: CopyButtonProps) {
   const timer = useRef<number | null>(null);
   const checked = useSignal(false);
 

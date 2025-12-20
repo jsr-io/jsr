@@ -6,7 +6,7 @@ import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import { define } from "../../util.ts";
 import twas from "twas";
-import { CopyButton } from "./(_islands)/CopyButton.tsx";
+import { AdminCopyButton } from "./(_islands)/AdminCopyButton.tsx";
 import { EditModal } from "./(_islands)/EditModal.tsx";
 
 export default define.page<typeof handler>(function Users({ data, url }) {
@@ -38,7 +38,9 @@ export default define.page<typeof handler>(function Users({ data, url }) {
         {data.users.map((user) => (
           <TableRow key={user.id}>
             <TableData flex>
-              <CopyButton value={user.id} label="copy user ID">ID</CopyButton>
+              <AdminCopyButton value={user.id} label="copy user ID">
+                ID
+              </AdminCopyButton>
               <a href={`/user/${user.id}`} class="underline underline-offset-2">
                 {user.name}
               </a>

@@ -4,6 +4,7 @@ import { accepts } from "@std/http/negotiation";
 import { define } from "../../util.ts";
 import { Package } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
+import { primaryColor, secondaryColor } from "../../utils/colors.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -28,8 +29,8 @@ export const handler = define.handlers({
           schemaVersion: 1,
           label: "",
           message: packageResp.data.latestVersion,
-          labelColor: "rgb(247,223,30)",
-          color: "rgb(8,51,68)",
+          labelColor: secondaryColor,
+          color: primaryColor,
         });
       }
     } else {
@@ -43,7 +44,7 @@ export const handler = define.handlers({
       shieldsUrl.searchParams.set("cacheSeconds", "300");
 
       if (!ctx.url.searchParams.has("logoColor")) {
-        shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
+        shieldsUrl.searchParams.set("logoColor", primaryColor);
       }
 
       const res = await fetch(shieldsUrl);

@@ -1,4 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use std::borrow::Cow;
+use std::sync::OnceLock;
+
 use crate::api::package::package_router;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
@@ -12,8 +15,6 @@ use hyper::StatusCode;
 use routerify::Router;
 use routerify::ext::RequestExt;
 use tracing::Span;
-use std::borrow::Cow;
-use std::sync::OnceLock;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
@@ -398,10 +399,13 @@ async fn update_member_handler(
     }
   };
 
-  let user = db
-    .get_user_public(scope_member.user_id)
-    .await?
-    .ok_or(ApiError::InternalServerError)?;
+  let user =
+    db.get_user_public(scope_member.user_id)
+      .await?
+      .ok_or_else(|| {
+        error!("user not found for scope member: {}", scope_member.user_id);
+        ApiError::InternalServerError
+      })?;
 
   Ok((scope_member, user).into())
 }

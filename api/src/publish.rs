@@ -144,7 +144,13 @@ pub async fn publish_task(
               &publishing_task.package_name,
             )
             .await?
-            .ok_or(ApiError::InternalServerError)?;
+            .ok_or_else(|| {
+              error!(
+                "package not found after successful publishing: {}/{}",
+                &publishing_task.package_scope, &publishing_task.package_name
+              );
+              ApiError::InternalServerError
+            })?;
           orama_client.upsert_package(&package, &meta);
         }
         return Ok(());
@@ -926,7 +932,8 @@ pub mod tests {
             "type": "static",
             "kind": "import",
             "specifier": "./test.js",
-            "specifierRange": [[3,15],[3,26]]
+            "specifierRange": [[3,15],[3,26]],
+            "sideEffect": true
           },
           {
             "type": "static",
@@ -937,7 +944,8 @@ pub mod tests {
             },
             "specifier": "./jsr.json",
             "specifierRange": [[6,7],[6,19]],
-            "importAttributes": { "known": { "type" : "json" } }
+            "importAttributes": { "known": { "type" : "json" } },
+            "sideEffect": true
           }
         ],
         "jsxImportSource": {
@@ -1276,7 +1284,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:1\n\n  +\n  ~"
+      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:2\n\n  +\n   ~"
     );
   }
 

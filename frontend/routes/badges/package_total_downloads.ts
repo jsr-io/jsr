@@ -1,10 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
-import { define } from "../../util.ts";
-import { Scope } from "../../utils/api_types.ts";
+import { PackageDownloads } from "../../utils/api_types.ts";
 import { path } from "../../utils/api.ts";
+import { define } from "../../util.ts";
 import { primaryColor, secondaryColor } from "../../utils/colors.ts";
+import { numberFormat } from "../../utils/number_format.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -14,27 +15,34 @@ export const handler = define.handlers({
       accepts(req, "application/json", "text/html", "image/*") ===
         "application/json"
     ) {
-      const scopeResp = await ctx.state.api.get<Scope>(
-        path`/scopes/${ctx.params.scope}`,
+      const packageResp = await ctx.state.api.get<PackageDownloads>(
+        path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/downloads`,
       );
 
-      if (!scopeResp.ok) {
-        if (scopeResp.code === "scopeNotFound") {
+      if (!packageResp.ok) {
+        if (packageResp.code === "packageNotFound") {
           return new Response(null, { status: 404 });
         } else {
-          throw scopeResp;
+          throw packageResp;
         }
       } else {
+        const totalCount = packageResp.data.total.reduce(
+          (acc, curr) => acc + curr.count,
+          0,
+        );
+
         return Response.json({
           schemaVersion: 1,
-          label: "",
-          message: `@${scopeResp.data.scope}`,
+          label: "downloads",
+          message: numberFormat(totalCount),
           labelColor: secondaryColor,
           color: primaryColor,
         });
       }
     } else {
-      const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
+      const url = new URL(
+        "https://jsr.io" + ctx.url.pathname + ctx.url.search,
+      );
 
       const shieldsUrl = new URL("https://img.shields.io/endpoint");
       shieldsUrl.search = url.search;
@@ -64,5 +72,5 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/badges/@:scope",
+  routeOverride: "/badges/@:scope/:package/total-downloads",
 };

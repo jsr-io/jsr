@@ -9,7 +9,7 @@ import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
-import { useIsMobileDevice, useMacLike } from "../utils/os.ts";
+import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
 
@@ -20,6 +20,15 @@ interface GlobalSearchProps {
   jumbo?: boolean;
   kind?: SearchKind;
 }
+
+const searchHints: JSX.Element[] = [
+  <p key="scope:">
+    Hint: use <code>scope:</code> to search for packages by scope
+  </p>,
+  <p key="runtime:">
+    Hint: use <code>runtime:</code> to search for packages by compatible runtime
+  </p>,
+];
 
 // The maximum time between a query and the result for that query being
 // displayed, if there is a more recent pending query.
@@ -52,10 +61,9 @@ export function GlobalSearch(
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
-    isFocused.value && search.value.length > 0
+    isFocused.value && (search.value.length > 0 || kind !== "docs")
   );
   const macLike = useMacLike();
-  const isMobileDevice = useIsMobileDevice();
 
   const orama = useMemo(() => {
     if (IS_BROWSER && indexId) {
@@ -66,13 +74,7 @@ export function GlobalSearch(
     }
   }, [indexId, apiKey]);
 
-  // focus the "search for packages" input box when the site loads
-  useEffect(() => {
-    if (location.pathname === "/" && !isMobileDevice) {
-      (document.querySelector("#global-search-input") as HTMLInputElement)
-        ?.focus();
-    }
-  }, []);
+  const randomHint = useSignal<JSX.Element | null>(null);
 
   useEffect(() => {
     const outsideClick = (e: Event) => {
@@ -97,6 +99,12 @@ export function GlobalSearch(
       globalThis.removeEventListener("keydown", keyboardHandler);
     };
   });
+
+  // Initialize random hint once on mount
+  useEffect(() => {
+    randomHint.value =
+      searchHints[Math.floor(Math.random() * searchHints.length)];
+  }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
@@ -356,6 +364,7 @@ export function GlobalSearch(
           selectionIdx={selectionIdx}
           kind={kind}
           input={search}
+          randomHint={randomHint}
         />
       </div>
     </div>
@@ -369,7 +378,8 @@ function SuggestionList(
     showSuggestions,
     kind,
     input,
-  }: {
+    randomHint,
+  }: Readonly<{
     suggestions: Signal<
       (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
     >;
@@ -377,19 +387,20 @@ function SuggestionList(
     selectionIdx: Signal<number>;
     kind: SearchKind;
     input: Signal<string>;
-  },
+    randomHint: Signal<JSX.Element | null>;
+  }>,
 ) {
   if (!showSuggestions.value) return null;
 
   return (
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
-      {suggestions.value === null
+      {suggestions.value === null && kind === "packages"
         ? (
-          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4">
-            ...
+          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
+            {randomHint.value || "Loading..."}
           </div>
         )
-        : suggestions.value?.length === 0
+        : suggestions.value === null || suggestions.value.length === 0
         ? (
           <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
             No matching results to display

@@ -7,7 +7,7 @@ import { List, PublishingTask } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../../islands/PublishingTaskRequeue.tsx";
-import { CopyButton } from "./(_islands)/CopyButton.tsx";
+import { AdminCopyButton } from "./(_islands)/AdminCopyButton.tsx";
 
 export default define.page<typeof handler>(function PublishingTasks({
   data,
@@ -46,9 +46,9 @@ export default define.page<typeof handler>(function PublishingTasks({
         {data.publishingTasks.map((publishingTask) => (
           <TableRow key={publishingTask.id}>
             <TableData flex>
-              <CopyButton value={publishingTask.id} label="copy ID">
+              <AdminCopyButton value={publishingTask.id} label="copy ID">
                 ID
-              </CopyButton>
+              </AdminCopyButton>
               <div>
                 <span
                   class={`font-bold ${
@@ -71,12 +71,12 @@ export default define.page<typeof handler>(function PublishingTasks({
             <TableData flex>
               {publishingTask.user && (
                 <>
-                  <CopyButton
+                  <AdminCopyButton
                     value={publishingTask.user.id}
                     label="copy user ID"
                   >
                     ID
-                  </CopyButton>
+                  </AdminCopyButton>
                   <a
                     href={`/admin/users?search=${publishingTask.user.id}`}
                     class="underline underline-offset-2"
