@@ -22,7 +22,6 @@ use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
 use deno_doc::html::pages::SymbolPage;
-use deno_doc::html::util::Id;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -437,6 +436,7 @@ pub fn get_generate_ctx<'a>(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
+  id_prefix: Option<String>,
 ) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
@@ -512,7 +512,7 @@ pub fn get_generate_ctx<'a>(
       markdown_renderer,
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
-      id_prefix: None,
+      id_prefix,
     },
     None,
     deno_doc::html::FileMode::Normal,
@@ -541,6 +541,8 @@ pub fn generate_docs_html(
   runtime_compat: RuntimeCompat,
   registry_url: String,
   readme_source: ReadmeSource,
+  id_prefix: Option<String>,
+  all_symbols_section_prefix: Option<String>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
   let ctx = get_generate_ctx(
     doc_nodes_by_url,
@@ -554,6 +556,7 @@ pub fn generate_docs_html(
     readme.is_some(),
     runtime_compat,
     registry_url,
+    id_prefix,
   );
 
   match req {
@@ -574,10 +577,24 @@ pub fn generate_docs_html(
         partitions_by_kind.into_iter().map(|(path, nodes)| {
           (
             render_ctx.clone(),
-            deno_doc::html::SectionHeaderCtx::new_for_all_symbols(
-              &render_ctx,
-              &path,
-            ),
+            {
+              let mut header =
+                deno_doc::html::SectionHeaderCtx::new_for_all_symbols(
+                  &render_ctx,
+                  &path,
+                );
+
+              if let Some(header) = &mut header {
+                if let Some(all_symbols_section_prefix) =
+                  &all_symbols_section_prefix
+                {
+                  header.title =
+                    format!("{all_symbols_section_prefix}{}", header.title);
+                }
+              }
+
+              header
+            },
             nodes,
           )
         }),
@@ -590,7 +607,7 @@ pub fn generate_docs_html(
         .render(
           "symbol_content",
           &deno_doc::html::SymbolContentCtx {
-            id: Id::empty(),
+            id: deno_doc::html::util::Id::empty(),
             sections,
             docs: None,
           },

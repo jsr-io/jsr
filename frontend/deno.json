@@ -38,7 +38,7 @@
 
     "@orama/orama": "npm:@orama/orama@^2",
     "@orama/highlight": "npm:@orama/highlight@^0.1.8",
-    "@oramacloud/client": "npm:@oramacloud/client@^1",
+    "@oramacloud/client": "npm:@oramacloud/client@^2",
 
     "tailwindcss": "npm:tailwindcss@3.4",
     "postcss": "npm:postcss@8.4",
@@ -63,5 +63,5 @@
       "head"
     ]
   },
-  "exclude": ["_fresh/", "**/_fresh/*"]
+  "exclude": ["_fresh/", "**/_fresh/*", "static/ddoc/*"]
 }

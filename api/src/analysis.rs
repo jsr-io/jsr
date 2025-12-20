@@ -11,6 +11,7 @@ use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
+use deno_doc::html::search::SearchIndexNode;
 use deno_ast::swc::common::Span;
 use deno_ast::swc::common::comments::CommentKind;
 use deno_doc::DocNodeDef;
@@ -68,7 +69,7 @@ pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
   pub module_graph_2: HashMap<String, ModuleInfo>,
   pub doc_nodes_json: Bytes,
-  pub doc_search_json: serde_json::Value,
+  pub doc_search: Vec<SearchIndexNode>,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
   pub readme_path: Option<PackagePath>,
@@ -255,8 +256,8 @@ async fn analyze_package_inner(
     doc_nodes,
     main_entrypoint,
     info.rewrite_map,
-    scope,
-    name,
+    scope.clone(),
+    name.clone(),
     version,
     true,
     None,
@@ -269,20 +270,41 @@ async fn analyze_package_inner(
       bun: None,
     },
     registry_url.to_string(),
+    Some(format!("{scope}/{name}/")),
   );
-  let search_index = deno_doc::html::generate_search_index(&ctx);
-  let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
-  {
-    obj.remove("nodes").unwrap()
-  } else {
-    unreachable!()
-  };
+
+  let doc_nodes = ctx
+    .doc_nodes
+    .values()
+    .flatten()
+    .map(std::borrow::Cow::Borrowed);
+  let partitions =
+    deno_doc::html::partition::partition_nodes_by_name(&ctx, doc_nodes, true);
+  let render_ctx = deno_doc::html::RenderContext::new(
+    &ctx,
+    &[],
+    deno_doc::html::UrlResolveKind::AllSymbols,
+  );
+
+  let mut doc_search = partitions
+    .into_iter()
+    .flat_map(|(name, nodes)| {
+      deno_doc::html::search::doc_nodes_into_search_index_node(
+        &render_ctx,
+        nodes,
+        name,
+        None,
+      )
+    })
+    .collect::<Vec<_>>();
+
+  doc_search.sort_by(|a, b| a.file.cmp(&b.file));
 
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
     doc_nodes_json,
-    doc_search_json,
+    doc_search,
     dependencies,
     npm_tarball,
     readme_path,

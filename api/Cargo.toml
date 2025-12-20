@@ -115,3 +115,6 @@ lazy_static = "1.5.0"
 flate2 = "1"
 deno_semver = "0.8.0"
 pretty_assertions = "1.4.0"
+
+[build-dependencies]
+deno_doc = { version = "=0.183.0", features = ["comrak"] }

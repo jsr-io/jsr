@@ -36,6 +36,7 @@
     "api/testdata/",
     ".gcs/",
     "frontend/_fresh",
+    "frontend/static/ddoc/*",
     "e2e/vendor"
   ],
   "imports": {

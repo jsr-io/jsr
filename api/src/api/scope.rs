@@ -2,11 +2,12 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
-use crate::RegistryUrl;
 use crate::api::package::package_router;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
+use crate::RegistryUrl;
+use anyhow::Context;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
@@ -22,11 +23,16 @@ use super::errors::ApiError;
 use super::errors::map_unique_violation;
 use super::types::*;
 
-use crate::auth::GithubOauth2Client;
 use crate::auth::lookup_user_by_github_login;
+use crate::auth::GithubOauth2Client;
+use crate::buckets::Buckets;
 use crate::db::*;
+use crate::docs::DocNodesByUrl;
+use crate::docs::DocsRequest;
+use crate::docs::GeneratedDocsOutput;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
 
@@ -54,6 +60,13 @@ pub fn scope_router() -> Router<Body, ApiError> {
     .delete(
       "/:scope/invites/:user_id",
       util::auth(delete_invite_handler),
+    )
+    .get(
+      "/:scope/search_html",
+      util::cache(
+        CacheDuration::ONE_MINUTE,
+        util::json(get_docs_search_html_handler),
+      ),
     )
     .build()
     .unwrap()
@@ -499,6 +512,88 @@ pub async fn delete_invite_handler(
     .body(Body::empty())
     .unwrap();
   Ok(resp)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/search_html",
+  skip(req),
+  err,
+  fields(scope, user_id)
+)]
+pub async fn get_docs_search_html_handler(
+  req: Request<Body>,
+) -> ApiResult<String> {
+  let scope = req.param_scope()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+
+  let (_, packages) = db.list_packages_by_scope(&scope, false, 0, 100).await?;
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let mut outsearch = String::new();
+  for (package, _, _) in packages {
+    let (package, repo, _) = db
+      .get_package(&scope, &package.name)
+      .await?
+      .ok_or(ApiError::PackageNotFound)?;
+
+    let Some(version) = db
+      .get_latest_unyanked_version_for_package(&scope, &package.name)
+      .await?
+    else {
+      continue;
+    };
+
+    let docs_path =
+      crate::gcs_paths::docs_v1_path(&scope, &package.name, &version.version);
+    let docs = buckets.docs_bucket.download(docs_path.into()).await?;
+    let docs = docs.ok_or_else(|| {
+      error!(
+        "docs not found for {}/{}/{}",
+        scope, package.name, version.version
+      );
+      ApiError::InternalServerError
+    })?;
+
+    let doc_nodes: DocNodesByUrl =
+      serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+    let docs_info = crate::docs::get_docs_info(&version.exports, None);
+
+    let docs = crate::docs::generate_docs_html(
+      doc_nodes,
+      docs_info.main_entrypoint,
+      docs_info.rewrite_map,
+      DocsRequest::AllSymbols,
+      scope.clone(),
+      package.name.clone(),
+      version.version.clone(),
+      true,
+      repo,
+      None,
+      package.runtime_compat,
+      registry_url.clone(),
+      package.readme_source,
+      Some(format!("{}/{}/", scope, package.name)),
+      Some(format!("@{}/{}/", scope, package.name)),
+    )
+    .map_err(|e| {
+      error!("failed to generate docs: {}", e);
+      ApiError::InternalServerError
+    })?
+    .unwrap();
+
+    let search = match docs {
+      GeneratedDocsOutput::Docs(docs) => docs.main,
+      GeneratedDocsOutput::Redirect(_) => unreachable!(),
+    };
+
+    outsearch.push_str(&search);
+  }
+
+  Ok(outsearch)
 }
 
 #[cfg(test)]
