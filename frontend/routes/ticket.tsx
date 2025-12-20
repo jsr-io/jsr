@@ -1,12 +1,12 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
-import { define } from "../util.ts";
-import type { Ticket, TicketKind } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
-import twas from "twas";
-import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TbArrowLeft, TbCheck, TbClock } from "tb-icons";
+import twas from "twas";
+import { define } from "../util.ts";
+import { path } from "../utils/api.ts";
+import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TicketTitle } from "../components/TicketTitle.tsx";
+import type { ApiTicketOverview, TicketKind } from "../utils/api_types.ts";
 
 export default define.page<typeof handler>(function Ticket({
   data,
@@ -66,42 +66,69 @@ export default define.page<typeof handler>(function Ticket({
         </div>
       </div>
       <div class="space-y-3">
-        {data.ticket.messages.map((message) => {
-          const isOpener = message.author.id === data.ticket.creator.id;
-          return (
-            <div class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3">
-              <div class="flex justify-between mb-2">
-                <div class="flex items-center gap-3">
-                  <a
-                    class="contents"
-                    href={`/user/${message.author.id}`}
-                  >
-                    <img
-                      src={message.author.avatarUrl}
-                      class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
-                      alt={message.author.name}
-                    />
-                    <span class="font-semibold">{message.author.name}</span>
-                    {" "}
-                  </a>
-                  <span
-                    class={"rounded-full text-sm px-2 inline-block " +
-                      (isOpener
-                        ? "bg-jsr-cyan-500 text-white"
-                        : "bg-jsr-yellow-400 text-jsr-gray-800")}
-                  >
-                    {isOpener ? "User" : "Staff"}
-                  </span>
+        {data.ticket.events.map((event) => {
+          if (event.kind === "message") {
+            const { message, user } = event;
+            const isOpener = user.id === data.ticket.creator.id;
+
+            return (
+              <div class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3">
+                <div class="flex justify-between mb-2">
+                  <div class="flex items-center gap-3">
+                    <a
+                      class="contents"
+                      href={`/user/${message.author}`}
+                    >
+                      <img
+                        src={user.avatarUrl}
+                        class="w-7 aspect-square rounded-full ring-2 ring-jsr-cyan-700 select-none"
+                        alt={user.name}
+                      />
+                      <span class="font-semibold">{user.name}</span>
+                      {" "}
+                    </a>
+                    <span
+                      class={"rounded-full text-sm px-2 inline-block " +
+                        (isOpener
+                          ? "bg-jsr-cyan-500 text-white"
+                          : "bg-jsr-yellow-400 text-jsr-gray-800")}
+                    >
+                      {isOpener ? "User" : "Staff"}
+                    </span>
+                  </div>
+                  <div>
+                    {twas(new Date(message.updatedAt).getTime())}
+                  </div>
                 </div>
-                <div>
-                  {twas(new Date(message.createdAt).getTime())}
-                </div>
-              </div>
-              <pre class="mt-4 font-sans text-wrap">
+                <pre class="mt-4 font-sans text-wrap">
                 {message.message}
-              </pre>
-            </div>
-          );
+                </pre>
+              </div>
+            );
+          } else {
+            const { user, auditLog } = event;
+
+            return (
+              <div class="flex items-center gap-1.5">
+                <div
+                  class={`w-fit ${
+                    auditLog.meta.closed
+                      ? "bg-green-400 dark:bg-green-600"
+                      : "bg-orange-400 dark:bg-orange-600"
+                  } rounded-full p-1`}
+                >
+                  {auditLog.meta.closed
+                    ? <TbCheck class="text-white" />
+                    : <TbClock class="text-white" />}
+                </div>
+                <p class="text-sm">
+                  <span class="font-semibold">{user.name}</span>{" "}
+                  {auditLog.meta.closed ? "closed" : "opened"} the ticket{" "}
+                  {twas(new Date(auditLog.createdAt).getTime())}
+                </p>
+              </div>
+            );
+          }
         })}
       </div>
       {state.user!.id === data.ticket.creator.id &&
@@ -112,7 +139,11 @@ export default define.page<typeof handler>(function Ticket({
             {state.user!.email} when we respond to your ticket.
           </p>
         )}
-      <TicketMessageInput ticket={data.ticket} user={state.user!} />
+      <TicketMessageInput
+        ticketId={data.ticket.id}
+        closed={data.ticket.closed}
+        user={state.user!}
+      />
     </div>
   );
 });
@@ -145,7 +176,7 @@ export const handler = define.handlers({
   async GET(ctx) {
     const [currentUser, ticketResp] = await Promise.all([
       ctx.state.userPromise,
-      ctx.state.api.get<Ticket>(path`/tickets/${ctx.params.ticket}`),
+      ctx.state.api.get<ApiTicketOverview>(path`/tickets/${ctx.params.ticket}`),
     ]);
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");

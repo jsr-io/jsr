@@ -259,14 +259,14 @@ pub async fn process_tarball(
       publish_task_name: publishing_task_scoped_package_name,
     });
   }
-  if let Some(config_file_version) = config_file.version {
-    if config_file_version != publishing_task.package_version {
-      return Err(PublishError::ConfigFileVersionMismatch {
-        path: Box::new(publishing_task.config_file.clone()),
-        deno_json_version: Box::new(config_file_version),
-        publish_task_version: Box::new(publishing_task.package_version.clone()),
-      });
-    }
+  if let Some(config_file_version) = config_file.version
+    && config_file_version != publishing_task.package_version
+  {
+    return Err(PublishError::ConfigFileVersionMismatch {
+      path: Box::new(publishing_task.config_file.clone()),
+      deno_json_version: Box::new(config_file_version),
+      publish_task_version: Box::new(publishing_task.package_version.clone()),
+    });
   }
 
   let exports =
@@ -352,12 +352,12 @@ pub async fn process_tarball(
         })?;
 
       let mut versions = db
-        .list_package_versions(&package_scope.scope, &package_scope.package)
-        .await?
-        .into_iter()
-        .map(|v| v.0)
-        .collect::<Vec<_>>();
-      versions.sort_by_cached_key(|v| v.version.clone());
+        .list_package_versions_for_resolution(
+          &package_scope.scope,
+          &package_scope.package,
+        )
+        .await?;
+      versions.sort_by(|a, b| b.version.cmp(&a.version));
 
       let mut found = false;
       for version in versions.iter().rev() {

@@ -1,14 +1,26 @@
 {
-  "version": "4",
+  "version": "5",
   "specifiers": {
+    "jsr:@deno/cache-dir@0.14": "0.14.0",
+    "jsr:@deno/doc@0.183": "0.183.0",
     "jsr:@deno/gfm@0.10": "0.10.0",
     "jsr:@denosaurs/emoji@0.3": "0.3.1",
     "jsr:@std/async@^1.0.8": "1.0.9",
-    "jsr:@std/collections@^1.0.9": "1.0.9",
+    "jsr:@std/bytes@^1.0.5": "1.0.6",
+    "jsr:@std/bytes@^1.0.6": "1.0.6",
+    "jsr:@std/collections@^1.0.9": "1.1.3",
+    "jsr:@std/collections@^1.1.3": "1.1.3",
+    "jsr:@std/crypto@^1.0.5": "1.0.5",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/fmt@^1.0.3": "1.0.8",
+    "jsr:@std/fmt@^1.0.8": "1.0.8",
     "jsr:@std/front-matter@^1.0.5": "1.0.5",
+    "jsr:@std/fs@^1.0.6": "1.0.19",
+    "jsr:@std/io@0.225": "0.225.2",
     "jsr:@std/path@^1.0.8": "1.0.8",
     "jsr:@std/toml@^1.0.1": "1.0.2",
     "jsr:@std/yaml@^1.0.5": "1.0.5",
+    "npm:@mdn/browser-compat-data@^7.1.6": "7.1.6",
     "npm:github-slugger@2": "2.0.0",
     "npm:he@^1.2.0": "1.2.0",
     "npm:katex@0.16": "0.16.11",
@@ -20,6 +32,21 @@
     "npm:sanitize-html@^2.13.0": "2.13.1"
   },
   "jsr": {
+    "@deno/cache-dir@0.14.0": {
+      "integrity": "729f0b68e7fc96443c09c2c544b830ca70897bdd5168598446d752f7a4c731ad",
+      "dependencies": [
+        "jsr:@std/fmt@^1.0.3",
+        "jsr:@std/fs",
+        "jsr:@std/io",
+        "jsr:@std/path"
+      ]
+    },
+    "@deno/doc@0.183.0": {
+      "integrity": "19a30e7e3083245c4a232bdc19481e813032f49f7a6bb292b3993066c9137692",
+      "dependencies": [
+        "jsr:@deno/cache-dir"
+      ]
+    },
     "@deno/gfm@0.10.0": {
       "integrity": "51708205e3559a4aeb6afb29d07c5bfafe7941f91bb360351ef6621de9a39527",
       "dependencies": [
@@ -41,8 +68,23 @@
     "@std/async@1.0.9": {
       "integrity": "c6472fd0623b3f3daae023cdf7ca5535e1b721dfbf376562c0c12b3fb4867f91"
     },
+    "@std/bytes@1.0.6": {
+      "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
+    },
     "@std/collections@1.0.9": {
       "integrity": "4f58104ead08a04a2199374247f07befe50ba01d9cca8cbb23ab9a0419921e71"
+    },
+    "@std/collections@1.1.3": {
+      "integrity": "bf8b0818886df6a32b64c7d3b037a425111f28278d69fd0995aeb62777c986b0"
+    },
+    "@std/crypto@1.0.5": {
+      "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/fmt@1.0.8": {
+      "integrity": "71e1fc498787e4434d213647a6e43e794af4fd393ef8f52062246e06f7e372b7"
     },
     "@std/front-matter@1.0.5": {
       "integrity": "abddc64030a33eb5bc524b8c73e7c417cea09177aaeb4abf75a56b540c4b6e60",
@@ -51,13 +93,22 @@
         "jsr:@std/yaml"
       ]
     },
+    "@std/fs@1.0.19": {
+      "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06"
+    },
+    "@std/io@0.225.2": {
+      "integrity": "3c740cd4ee4c082e6cfc86458f47e2ab7cb353dc6234d5e9b1f91a2de5f4d6c7",
+      "dependencies": [
+        "jsr:@std/bytes@^1.0.5"
+      ]
+    },
     "@std/path@1.0.8": {
       "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
     },
     "@std/toml@1.0.2": {
       "integrity": "5892ba489c5b512265a384238a8fe8dddbbb9498b4b210ef1b9f0336a423a39b",
       "dependencies": [
-        "jsr:@std/collections"
+        "jsr:@std/collections@^1.0.9"
       ]
     },
     "@std/yaml@1.0.5": {
@@ -65,6 +116,9 @@
     }
   },
   "npm": {
+    "@mdn/browser-compat-data@7.1.6": {
+      "integrity": "sha512-//xJOI7gGx1OAHAMQq1V4by5gWOZNPSoZdYdUZRKtXuxLnBY5DwY0nZVe7tw4PJQeAeeUH9ZZeAlm1wpdod1Uw=="
+    },
     "commander@8.3.0": {
       "integrity": "sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww=="
     },
@@ -106,7 +160,8 @@
       "integrity": "sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw=="
     },
     "he@1.2.0": {
-      "integrity": "sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw=="
+      "integrity": "sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==",
+      "bin": true
     },
     "htmlparser2@8.0.2": {
       "integrity": "sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA==",
@@ -124,7 +179,8 @@
       "integrity": "sha512-RQrI8rlHY92OLf3rho/Ts8i/XvjgguEjOkO1BEXcU3N8BqPpSzBNwV/G0Ukr+P/l3ivvJUE/Fa/CwbS6HesGNQ==",
       "dependencies": [
         "commander"
-      ]
+      ],
+      "bin": true
     },
     "marked-alert@2.1.2_marked@12.0.2": {
       "integrity": "sha512-EFNRZ08d8L/iEIPLTlQMDjvwIsj03gxWCczYTht6DCiHJIZhMk4NK5gtPY9UqAYb09eV5VGT+jD4lp396E0I+w==",
@@ -146,10 +202,12 @@
       ]
     },
     "marked@12.0.2": {
-      "integrity": "sha512-qXUm7e/YKFoqFPYPa3Ukg9xlI5cyAtGmyEIzMfW//m6kXwCy2Ps9DYf5ioijFKQ8qyuscrHoY04iJGctu2Kg0Q=="
+      "integrity": "sha512-qXUm7e/YKFoqFPYPa3Ukg9xlI5cyAtGmyEIzMfW//m6kXwCy2Ps9DYf5ioijFKQ8qyuscrHoY04iJGctu2Kg0Q==",
+      "bin": true
     },
     "nanoid@3.3.7": {
-      "integrity": "sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g=="
+      "integrity": "sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==",
+      "bin": true
     },
     "parse-srcset@1.0.2": {
       "integrity": "sha512-/2qh0lav6CmI15FzA3i/2Bzk2zCgQhGMkvhOhKNcBVQ1ldgpbfiNTVslmooUmWJcADi1f1kIeynbDRVzNlfR6Q=="
@@ -183,12 +241,42 @@
       "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="
     }
   },
+  "remote": {
+    "https://deno.land/x/postgres@v0.19.5/client.ts": "f8395fb22363ff012841dd4e35ee14404ecd649f9e90041c615a3251b94ebab2",
+    "https://deno.land/x/postgres@v0.19.5/client/error.ts": "03e959971d421acd8064574f29550f4b6911634c984e58860306e9802e5fc991",
+    "https://deno.land/x/postgres@v0.19.5/connection/auth.ts": "96a8ce1798ad5ef615dc3b4c03d1ae9bb4b9f9e9f85f6430e4ac2b362725bb66",
+    "https://deno.land/x/postgres@v0.19.5/connection/connection.ts": "16d24bfc0649e5c0a178f4a3ba7044d5549226821093060a172734e211df33de",
+    "https://deno.land/x/postgres@v0.19.5/connection/connection_params.ts": "a7a55ce22e7f45b12d94191291a03b089f1133828098dbbc614fc6d9a5f5e154",
+    "https://deno.land/x/postgres@v0.19.5/connection/message.ts": "20da5d80fc4d7ddb7b850083e0b3fa8734eb26642221dad89c62e27d78e57a4d",
+    "https://deno.land/x/postgres@v0.19.5/connection/message_code.ts": "cfbc0f2a557a91637755e8cbed41d1f8536ffb47fdd5a8957e08625a830bbc12",
+    "https://deno.land/x/postgres@v0.19.5/connection/packet.ts": "17eb42ca261b4d58b4fae945b960c333ca76fa9b0bad5803b7636909e09897fc",
+    "https://deno.land/x/postgres@v0.19.5/connection/scram.ts": "4c138a1d9d866a8bb1c4386837a6a1ee9481b57380561a722439dbb0ecc215d6",
+    "https://deno.land/x/postgres@v0.19.5/debug.ts": "8add17699191f11e6830b8c95d9de25857d221bb2cf6c4ae22254d395895c1f9",
+    "https://deno.land/x/postgres@v0.19.5/mod.ts": "fd97a0e3e8db9318e327b0bca583114718653b61a131099af82a6afb9dbe3a69",
+    "https://deno.land/x/postgres@v0.19.5/pool.ts": "7b468e6e05044a0a68402379863c221d90aea701be70db482cc2fdab5ff3ca2f",
+    "https://deno.land/x/postgres@v0.19.5/query/array_parser.ts": "a044d6ee1a4dc685deac37116e025abe7fdc5bf7d18f3b3db36c3e9023468710",
+    "https://deno.land/x/postgres@v0.19.5/query/decode.ts": "7479fd7aea65c871a6bf0a38032d1091933b3d7ecb81ed5224cd7309fe5e68f6",
+    "https://deno.land/x/postgres@v0.19.5/query/decoders.ts": "ff58328637128ce6ca26964063e6a491566ab2defc7bd0d07a8c6fa57c422dfb",
+    "https://deno.land/x/postgres@v0.19.5/query/encode.ts": "2e9fc0c54f241ddec70d5f62a6ab7c060039101a8c8df7111f42f7996ab8453d",
+    "https://deno.land/x/postgres@v0.19.5/query/oid.ts": "21fc714ac212350ba7df496f88ea9e01a4ee0458911d0f2b6a81498e12e7af4c",
+    "https://deno.land/x/postgres@v0.19.5/query/query.ts": "a94abb12d5365eb64cfe5b6a84bb0a8a5aa6c9d92f588861825974765d4af803",
+    "https://deno.land/x/postgres@v0.19.5/query/transaction.ts": "d6989379be861d4673a72189ef245670dc884f93d2f723993052eae20cbfc545",
+    "https://deno.land/x/postgres@v0.19.5/utils/deferred.ts": "45651f19a1524f88414bbc9326ae1534854afe03f5b7537f713a3655ed2d7b9a",
+    "https://deno.land/x/postgres@v0.19.5/utils/utils.ts": "ff3abca25712fc0a1543103f8ebed057ae9d2bc251e286c883ac65e86fcdc6c9"
+  },
   "workspace": {
     "dependencies": [
+      "jsr:@deno/doc@0.183",
       "jsr:@deno/gfm@0.10",
       "jsr:@std/async@^1.0.8",
+      "jsr:@std/bytes@^1.0.6",
+      "jsr:@std/collections@^1.1.3",
+      "jsr:@std/crypto@^1.0.5",
+      "jsr:@std/encoding@^1.0.10",
+      "jsr:@std/fmt@^1.0.8",
       "jsr:@std/front-matter@^1.0.5",
       "jsr:@std/path@^1.0.8",
+      "npm:@mdn/browser-compat-data@^7.1.6",
       "npm:github-slugger@2"
     ]
   }

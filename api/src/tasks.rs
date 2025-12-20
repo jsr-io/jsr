@@ -671,7 +671,7 @@ mod tests {
       .get_package_versions_downloads_24h(
         &std,
         &fs,
-        &[v0_215_0.clone()],
+        std::slice::from_ref(&v0_215_0),
         "2024-06-01T00:00:00Z".parse().unwrap(),
         "2024-07-31T00:00:00Z".parse().unwrap(),
       )
@@ -689,7 +689,7 @@ mod tests {
       .get_package_versions_downloads_24h(
         &luca,
         &flag,
-        &[v1_0_0.clone()],
+        std::slice::from_ref(&v1_0_0),
         "2024-06-01T00:00:00Z".parse().unwrap(),
         "2024-07-31T00:00:00Z".parse().unwrap(),
       )

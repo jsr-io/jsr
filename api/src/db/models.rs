@@ -60,7 +60,8 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserPublic {
   pub id: Uuid,
   pub name: String,
@@ -432,6 +433,22 @@ pub struct NewPackageVersion<'s> {
   pub uses_npm: bool,
   pub meta: PackageVersionMeta,
   pub license: String,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionForResolution {
+  pub version: Version,
+  pub exports: ExportsMap,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionForNpmVersionManifest {
+  pub version: Version,
+  pub is_yanked: bool,
+  pub created_at: DateTime<Utc>,
+  pub npm_tarball_revision: i32,
+  pub npm_tarball_sha1: String,
+  pub npm_tarball_sha512: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -994,7 +1011,8 @@ pub struct NewTicketMessage {
   pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TicketMessage {
   pub ticket_id: Uuid,
   pub author: Uuid,
@@ -1005,7 +1023,8 @@ pub struct TicketMessage {
 
 pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditLog {
   pub actor_id: Uuid,
   pub is_sudo: bool,

@@ -556,10 +556,10 @@ impl Database {
     let package = match res {
       Ok(package) => package,
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_unique_violation() {
-            return Ok(CreatePackageResult::AlreadyExists);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_unique_violation()
+        {
+          return Ok(CreatePackageResult::AlreadyExists);
         }
         return Err(err);
       }
@@ -1934,6 +1934,62 @@ impl Database {
   }
 
   #[instrument(
+    name = "Database::list_package_versions_for_resolution",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_resolution(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForResolution>> {
+    sqlx::query_as!(
+      PackageVersionForResolution,
+      r#"SELECT package_versions.version as "version: Version", package_versions.exports as "exports: ExportsMap"
+      FROM package_versions
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::list_package_versions_for_npm_version_manifest",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_npm_version_manifest(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForNpmVersionManifest>> {
+    sqlx::query_as!(
+      PackageVersionForNpmVersionManifest,
+      r#"SELECT package_versions.version as "version: Version", package_versions.is_yanked as "is_yanked", package_versions.created_at as "created_at",
+      npm_tarballs.revision as "npm_tarball_revision", npm_tarballs.sha1 as "npm_tarball_sha1", npm_tarballs.sha512 as "npm_tarball_sha512"
+      FROM package_versions
+      INNER JOIN LATERAL (
+        SELECT revision, sha1, sha512
+        FROM npm_tarballs
+        WHERE npm_tarballs.scope = package_versions.scope
+        AND npm_tarballs.name = package_versions.name
+        AND npm_tarballs.version = package_versions.version
+        ORDER BY revision DESC
+        LIMIT 1
+      ) npm_tarballs ON true
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(
     name = "Database::get_latest_unyanked_version_for_package",
     skip(self),
     err
@@ -2724,10 +2780,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2775,10 +2831,10 @@ impl Database {
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2889,12 +2945,11 @@ impl Database {
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    if !scope_member.is_admin {
-      if let Some(result) =
+    if !scope_member.is_admin
+      && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
-      {
-        return Ok(result);
-      }
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -3594,10 +3649,10 @@ impl Database {
       .fetch_optional(&mut *tx)
       .await?;
 
-    if let Some(authorization) = &maybe_authorization {
-      if authorization.user_id.is_some() {
-        tx.commit().await?;
-      }
+    if let Some(authorization) = &maybe_authorization
+      && authorization.user_id.is_some()
+    {
+      tx.commit().await?;
     }
 
     Ok(maybe_authorization)
@@ -3621,6 +3676,25 @@ impl Database {
     .execute(&self.pool)
     .await?;
     Ok(res.rows_affected() > 0)
+  }
+
+  #[instrument(name = "Database::list_package_dependencies", skip(self), err)]
+  pub async fn list_package_dependencies(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionDependency>> {
+    sqlx::query_as!(
+      PackageVersionDependency,
+      r#"SELECT package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at
+      FROM package_version_dependencies
+      WHERE package_scope = $1 AND package_name = $2
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -4565,6 +4639,65 @@ impl Database {
     tx.commit().await?;
 
     Ok(Some((ticket, user, messages)))
+  }
+
+  #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
+  pub async fn get_ticket_audit_logs(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Vec<(AuditLog, UserPublic)>> {
+    let mut tx = self.pool.begin().await?;
+
+    let audit_logs = sqlx::query!(
+      r#"
+        SELECT
+          audit_logs.actor_id as "audit_actor_id",
+          audit_logs.is_sudo as "audit_is_sudo",
+          audit_logs.action as "audit_action",
+          audit_logs.meta as "audit_meta",
+          audit_logs.created_at as "audit_created_at",
+          users.id as "user_id",
+          users.name as "user_name",
+          users.avatar_url as "user_avatar_url",
+          users.github_id as "user_github_id",
+          users.updated_at as "user_updated_at",
+          users.created_at as "user_created_at"
+        FROM
+          audit_logs
+        LEFT JOIN
+          users ON audit_logs.actor_id = users.id
+        WHERE 
+          audit_logs.meta::text LIKE $1
+        ORDER BY audit_logs.created_at DESC;
+        "#,
+      format!("%\"ticket_id\": \"{}\"%", ticket_id),
+    )
+    .map(|r| {
+      let audit_log = AuditLog {
+        actor_id: r.audit_actor_id,
+        is_sudo: r.audit_is_sudo,
+        action: r.audit_action,
+        meta: r.audit_meta,
+        created_at: r.audit_created_at,
+      };
+
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (audit_log, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(audit_logs)
   }
 
   #[instrument(name = "Database::ticket_add_message", skip(self), err)]
