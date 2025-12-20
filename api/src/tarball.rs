@@ -682,7 +682,7 @@ pub enum PublishError {
   )]
   MissingLicense,
 
-  #[error("Invalid license")]
+  #[error("The license specified in the \"license\" field of your configuration file, or in the LICENSE file was not recognized.")]
   InvalidLicense,
 }
 
