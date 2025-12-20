@@ -1169,7 +1169,7 @@ pub mod tests {
     assert_eq!(error.code, "missingLicense");
     assert_eq!(
       error.message,
-      "Missing license. Either provide a LICENSE file or specify the \"license\" field in your configuration file"
+      "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
     );
   }
 
