@@ -69,11 +69,20 @@ variable "orama_symbols_data_source" {
   type = string
 }
 
+variable "orama_docs_project_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "orama_docs_public_api_key" {
+  type = string
+}
+
 variable "orama_docs_project_id" {
   type = string
 }
 
-variable "orama_docs_public_api_key" {
+variable "orama_docs_data_source" {
   type = string
 }
 
