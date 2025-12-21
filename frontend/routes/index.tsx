@@ -20,8 +20,8 @@ export default define.page<typeof handler>(function Home({ data }) {
   return (
     <div class="flex flex-col">
       <HomepageHero
+        projectId={Deno.env.get("ORAMA_PACKAGE_PROJECT_ID")}
         apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
-        indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
       />
       {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">

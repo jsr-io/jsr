@@ -24,17 +24,17 @@ export function Header({
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
   const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-  const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+  const oramaPackageProjectId = Deno.env.get("ORAMA_PACKAGE_PROJECT_ID");
 
   const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
-  const oramaDocsIndexId = Deno.env.get("ORAMA_DOCS_PUBLIC_INDEX_ID");
+  const oramaDocsProjectId = Deno.env.get("ORAMA_DOCS_PROJECT_ID");
 
   const oramaApiKey = searchKind === "packages"
     ? oramaPackageApiKey
     : oramaDocsApiKey;
-  const oramaIndexId = searchKind === "packages"
-    ? oramaPackageIndexId
-    : oramaDocsIndexId;
+  const oramaProjectId = searchKind === "packages"
+    ? oramaPackageProjectId
+    : oramaDocsProjectId;
 
   const isHomepage = url.pathname === "/";
 
@@ -68,8 +68,8 @@ export function Header({
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
+                projectId={oramaProjectId}
                 apiKey={oramaApiKey}
-                indexId={oramaIndexId}
                 kind={searchKind}
               />
             )}
@@ -120,8 +120,8 @@ export function Header({
           {!isHomepage && (
             <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
+              projectId={oramaProjectId}
               apiKey={oramaApiKey}
-              indexId={oramaIndexId}
               kind={searchKind}
             />
           )}
