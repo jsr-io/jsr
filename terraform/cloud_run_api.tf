@@ -16,10 +16,10 @@ locals {
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
     # ORAMA_PACKAGE_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_PACKAGE_PROJECT_ID" = var.orama_package_project_id
+    "ORAMA_PACKAGE_PROJECT_ID"  = var.orama_package_project_id
     "ORAMA_PACKAGE_DATA_SOURCE" = var.orama_package_data_source
     # ORAMA_SYMBOLS_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_SYMBOLS_PROJECT_ID" = var.orama_symbols_project_id
+    "ORAMA_SYMBOLS_PROJECT_ID"  = var.orama_symbols_project_id
     "ORAMA_SYMBOLS_DATA_SOURCE" = var.orama_symbols_data_source
 
     "REGISTRY_URL" = "https://${var.domain_name}"

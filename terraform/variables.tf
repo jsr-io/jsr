@@ -41,15 +41,15 @@ variable "orama_package_project_key" {
 }
 
 variable "orama_package_public_api_key" {
-  type      = string
+  type = string
 }
 
 variable "orama_package_project_id" {
-  type      = string
+  type = string
 }
 
 variable "orama_package_data_source" {
-  type      = string
+  type = string
 }
 
 variable "orama_symbols_project_key" {
@@ -58,15 +58,15 @@ variable "orama_symbols_project_key" {
 }
 
 variable "orama_symbols_public_api_key" {
-  type      = string
+  type = string
 }
 
 variable "orama_symbols_project_id" {
-  type      = string
+  type = string
 }
 
 variable "orama_symbols_data_source" {
-  type      = string
+  type = string
 }
 
 variable "orama_docs_project_id" {
