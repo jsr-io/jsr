@@ -2,16 +2,16 @@
 import { HttpError } from "fresh";
 import { ComponentChildren } from "preact";
 import { TbCheck, TbTrash } from "tb-icons";
-import { define } from "../../../util.ts";
-import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
-import { ScopeNav } from "../(_components)/ScopeNav.tsx";
-import { ScopeDescriptionForm } from "../(_islands)/ScopeDescriptionForm.tsx";
-import { FullScope, User } from "../../../utils/api_types.ts";
-import { scopeDataWithMember } from "../../../utils/data.ts";
-import { path } from "../../../utils/api.ts";
-import { QuotaCard } from "../../../components/QuotaCard.tsx";
-import { scopeIAM } from "../../../utils/iam.ts";
-import { TicketModal } from "../../../islands/TicketModal.tsx";
+import { define } from "../../../../util.ts";
+import { ScopeHeader } from "../../(_components)/ScopeHeader.tsx";
+import { ScopeNav } from "../../(_components)/ScopeNav.tsx";
+import { ScopeDescriptionForm } from "../../(_islands)/ScopeDescriptionForm.tsx";
+import { FullScope, User } from "../../../../utils/api_types.ts";
+import { scopeDataWithMember } from "../../../../utils/data.ts";
+import { path } from "../../../../utils/api.ts";
+import { QuotaCard } from "../../../../components/QuotaCard.tsx";
+import { scopeIAM } from "../../../../utils/iam.ts";
+import { TicketModal } from "../../../../islands/TicketModal.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, state },
@@ -31,12 +31,9 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
 
 function ScopeDescription({ scope }: { scope: FullScope }) {
   return (
-    <div class="mb-8">
+    <div class="mt-8">
       <h2 class="text-lg sm:text-xl font-semibold">Description</h2>
-      <p>
-        The description of the scope{" "}
-        <code class="font-mono">@{scope.scope}</code>:
-      </p>
+      <p>The description of the scope</p>
       <ScopeDescriptionForm scope={scope} />
     </div>
   );

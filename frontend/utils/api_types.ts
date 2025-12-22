@@ -401,3 +401,28 @@ export interface PackageDownloadsRecentVersion {
   version: string;
   downloads: DownloadDataPoint[];
 }
+
+export type WebhookEventKind =
+ | "package_version_published"
+ | "package_version_yanked"
+ | "package_version_deleted"
+ | "scope_package_created"
+ | "scope_package_archived"
+ | "scope_member_added"
+ | "scope_member_left";
+
+export type WebhookPayloadFormat = "json" | "discord";
+
+export interface WebhookEndpoint {
+  id: string;
+  scope: string;
+  package: string | null;
+  url: string;
+  description: string | null;
+  secret: string;
+  events: WebhookEventKind[];
+  payloadFormat: WebhookPayloadFormat,
+  isActive: boolean;
+  updatedAt: string;
+  createdAt: string;
+}

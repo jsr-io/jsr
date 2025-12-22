@@ -4664,7 +4664,7 @@ impl Database {
           audit_logs
         LEFT JOIN
           users ON audit_logs.actor_id = users.id
-        WHERE 
+        WHERE
           audit_logs.meta::text LIKE $1
         ORDER BY audit_logs.created_at DESC;
         "#,
@@ -4972,6 +4972,129 @@ impl Database {
     tx.commit().await?;
 
     Ok((total_scopes as usize, scopes))
+  }
+
+  #[instrument(
+    name = "Database::create_webhook_endpoint",
+    skip(self, new_webhook),
+    err
+  )]
+  pub async fn create_webhook_endpoint(
+    &self,
+    new_webhook: NewWebhookEndpoint<'_>,
+    actor_id: &Uuid,
+    is_sudo: bool,
+  ) -> Result<WebhookEndpoint> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "create_webhook_endpoint",
+      json!({
+        "scope": new_webhook.scope,
+        "package": new_webhook.package,
+        "url": new_webhook.url
+      }),
+    )
+    .await?;
+
+    let res = sqlx::query_as!(
+      WebhookEndpoint,
+      r#"INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at"#,
+      new_webhook.scope,
+      new_webhook.package as _,
+      new_webhook.url,
+      new_webhook.description,
+      new_webhook.secret,
+      new_webhook.events as _,
+      new_webhook.payload_format as _,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(res)
+  }
+
+  #[instrument(name = "Database::get_webhook_endpoint", skip(self), err)]
+  pub async fn get_webhook_endpoint(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    id: Uuid,
+  ) -> Result<WebhookEndpoint> {
+    sqlx::query_as!(
+      WebhookEndpoint,
+      r#"SELECT id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at
+        FROM webhook_endpoints
+        WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3"#,
+      scope as _,
+      package as _,
+      id,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::list_webhook_endpoints", skip(self), err)]
+  pub async fn list_webhook_endpoints(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+  ) -> Result<Vec<WebhookEndpoint>> {
+    sqlx::query_as!(
+      WebhookEndpoint,
+      r#"SELECT id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at
+        FROM webhook_endpoints
+        WHERE scope = $1 AND ($2::text IS NULL OR package = $2)"#,
+      scope as _,
+      package as _,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_webhook_endpoint", skip(self), err)]
+  pub async fn delete_webhook_endpoint(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    id: Uuid,
+  ) -> Result<()> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_webhook_endpoint",
+      json!({
+        "scope": scope,
+        "package": package,
+        "id": id
+      }),
+    )
+    .await?;
+
+    sqlx::query!(
+      r#"DELETE FROM webhook_endpoints WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3"#,
+      scope as _,
+      package as _,
+      id,
+    )
+      .execute(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(())
   }
 }
 

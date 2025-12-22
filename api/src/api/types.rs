@@ -1149,3 +1149,48 @@ impl From<(AuditLog, UserPublic)> for ApiAuditLog {
     }
   }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiCreateWebhookEndpointRequest {
+  pub package: Option<ScopeName>,
+  pub url: String,
+  pub description: Option<String>,
+  pub secret: String,
+  pub events: Vec<WebhookEventKind>,
+  pub payload_format: WebhookPayloadFormat,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiWebhookEndpoint {
+  pub id: Uuid,
+  pub scope: ScopeName,
+  pub package: Option<PackageName>,
+  pub url: String,
+  pub description: Option<String>,
+  pub has_secret: bool,
+  pub events: Vec<WebhookEventKind>,
+  pub payload_format: WebhookPayloadFormat,
+  pub is_active: bool,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<WebhookEndpoint> for ApiWebhookEndpoint {
+  fn from(value: WebhookEndpoint) -> Self {
+    Self {
+      id: value.id,
+      scope: value.scope,
+      package: value.package,
+      url: value.url,
+      description: value.description,
+      has_secret: value.secret.is_some(),
+      events: value.events,
+      payload_format: value.payload_format,
+      is_active: value.is_active,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}

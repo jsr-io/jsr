@@ -1,0 +1,116 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, scope AS \"scope: ScopeName\", package AS \"package: PackageName\", url, description, secret, events AS \"events: _\", payload_format AS \"payload_format: _\", is_active, updated_at, created_at\n        FROM webhook_endpoints\n        WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "package: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "secret",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "events: _",
+        "type_info": {
+          "Custom": {
+            "name": "_webhook_event_kind",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "webhook_event_kind",
+                  "kind": {
+                    "Enum": [
+                      "package_version_published",
+                      "package_version_yanked",
+                      "package_version_deleted",
+                      "scope_package_created",
+                      "scope_package_archived",
+                      "scope_member_added",
+                      "scope_member_left"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "payload_format: _",
+        "type_info": {
+          "Custom": {
+            "name": "webhook_payload_format",
+            "kind": {
+              "Enum": [
+                "json",
+                "discord"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7f3c9b05c2366415a18b97f1a3c2dd858c5b403cd4315ad0de5706e1ad5f0166"
+}

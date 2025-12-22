@@ -55,6 +55,22 @@ pub fn scope_router() -> Router<Body, ApiError> {
       "/:scope/invites/:user_id",
       util::auth(delete_invite_handler),
     )
+    .post(
+      "/:scope/webhooks",
+      util::auth(util::json(create_webhook_handler)),
+    )
+    .get(
+      "/:scope/webhooks",
+      util::auth(util::json(list_webhooks_handler)),
+    )
+    .get(
+      "/:scope/webhooks/:webhook",
+      util::auth(util::json(get_webhook_handler)),
+    )
+    .delete(
+      "/:scope/webhooks/:webhook",
+      util::auth(delete_webhook_handler),
+    )
     .build()
     .unwrap()
 }
@@ -499,6 +515,125 @@ pub async fn delete_invite_handler(
     .body(Body::empty())
     .unwrap();
   Ok(resp)
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn create_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiCreateWebhookEndpointRequest {
+    package,
+    url,
+    description,
+    secret,
+    events,
+    payload_format,
+  } = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .create_webhook_endpoint(
+      NewWebhookEndpoint {
+        scope: &scope,
+        package: package.as_ref(),
+        url: &url,
+        description: description.as_deref(),
+        secret: &secret,
+        events,
+        payload_format,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint =
+    db.get_webhook_endpoint(&scope, None, webhook_id).await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhooks_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookEndpoint>> {
+  let scope = req.param_scope()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints = db.list_webhook_endpoints(&scope, None).await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "DELETE /api/scopes/:scope/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn delete_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  db.delete_webhook_endpoint(&user.id, sudo, &scope, None, webhook_id)
+    .await?;
+
+  let res = Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(res)
 }
 
 #[cfg(test)]

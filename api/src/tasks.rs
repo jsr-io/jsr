@@ -1,29 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use std::collections::HashSet;
 
-use bytes::Bytes;
-use chrono::DateTime;
-use chrono::Utc;
-use deno_semver::StackString;
-use deno_semver::VersionReq;
-use deno_semver::package::PackageReq;
-use deno_semver::package::PackageReqReference;
-use deno_semver::package::PackageSubPath;
-use futures::StreamExt;
-use futures::stream;
-use hyper::Body;
-use hyper::Request;
-use routerify::Router;
-use routerify::ext::RequestExt;
-use routerify_query::RequestQueryExt;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::json;
-use tracing::Span;
-use tracing::error;
-use tracing::field;
-use tracing::instrument;
-
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
@@ -49,6 +26,29 @@ use crate::publish;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::decode_json;
+use bytes::Bytes;
+use chrono::DateTime;
+use chrono::Utc;
+use deno_semver::StackString;
+use deno_semver::VersionReq;
+use deno_semver::package::PackageReq;
+use deno_semver::package::PackageReqReference;
+use deno_semver::package::PackageSubPath;
+use futures::StreamExt;
+use futures::stream;
+use hyper::Body;
+use hyper::Request;
+use routerify::Router;
+use routerify::ext::RequestExt;
+use routerify_query::RequestQueryExt;
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use tracing::Span;
+use tracing::error;
+use tracing::field;
+use tracing::instrument;
+use uuid::Uuid;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
 pub struct LogsBigQueryTable(
@@ -67,6 +67,7 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/scrape_download_counts",
       util::json(scrape_download_counts_handler),
     )
+    .post("/webhook_dispatch", util::json(webhook_dispatch_handler))
     .build()
     .unwrap()
 }
@@ -451,6 +452,14 @@ fn deserialize_version_download_count_from_bigquery(
     kind,
     count,
   }))
+}
+
+#[instrument(name = "POST /tasks/webhook_dispatch", skip(req), err)]
+pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
+  let webhook_dispatch_id: Uuid = decode_json(&mut req).await?;
+  let db = req.data::<Database>().unwrap();
+
+  Ok(())
 }
 
 #[cfg(test)]

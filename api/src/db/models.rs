@@ -1042,3 +1042,127 @@ impl FromRow<'_, sqlx::postgres::PgRow> for AuditLog {
     })
   }
 }
+
+#[derive(Debug, Clone, PartialEq, sqlx::Type, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[sqlx(type_name = "webhook_event_kind", rename_all = "snake_case")]
+pub enum WebhookEventKind {
+  PackageVersionPublished,
+  PackageVersionYanked,
+  PackageVersionDeleted,
+  ScopePackageCreated,
+  ScopePackageArchived,
+  ScopeMemberAdded,
+  ScopeMemberLeft,
+}
+
+impl sqlx::postgres::PgHasArrayType for WebhookEventKind {
+  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+    // Postgres creates array types with an underscore prefix by default
+    sqlx::postgres::PgTypeInfo::with_name("_webhook_event_kind")
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::Type, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[sqlx(type_name = "webhook_payload_format", rename_all = "snake_case")]
+pub enum WebhookPayloadFormat {
+  Json,
+  Discord,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookEndpoint {
+  pub id: Uuid,
+  pub scope: ScopeName,
+  pub package: Option<PackageName>,
+  pub url: String,
+  pub description: Option<String>,
+  pub secret: Option<String>,
+  pub events: Vec<WebhookEventKind>,
+  pub payload_format: WebhookPayloadFormat,
+  pub is_active: bool,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl FromRow<'_, sqlx::postgres::PgRow> for WebhookEndpoint {
+  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+    Ok(Self {
+      id: try_get_row_or(row, "id", "webhook_endpoint_id")?,
+      scope: try_get_row_or(row, "scope", "webhook_endpoint_scope")?,
+      package: try_get_row_or(row, "package", "webhook_endpoint_package")?,
+      url: try_get_row_or(row, "url", "webhook_endpoint_url")?,
+      description: try_get_row_or(
+        row,
+        "description",
+        "webhook_endpoint_description",
+      )?,
+      secret: try_get_row_or(row, "secret", "webhook_endpoint_secret")?,
+      events: try_get_row_or(row, "events", "webhook_endpoint_events")?,
+      payload_format: try_get_row_or(row, "type", "webhook_endpoint_type")?,
+      is_active: try_get_row_or(
+        row,
+        "is_active",
+        "webhook_endpoint_is_active",
+      )?,
+      updated_at: try_get_row_or(
+        row,
+        "updated_at",
+        "webhook_endpoint_updated_at",
+      )?,
+      created_at: try_get_row_or(
+        row,
+        "created_at",
+        "webhook_endpoint_created_at",
+      )?,
+    })
+  }
+}
+
+pub struct NewWebhookEndpoint<'s> {
+  pub scope: &'s ScopeName,
+  pub package: Option<&'s ScopeName>,
+  pub url: &'s str,
+  pub description: Option<&'s str>,
+  pub secret: &'s str,
+  pub events: Vec<WebhookEventKind>,
+  pub payload_format: WebhookPayloadFormat,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookEvent {
+  pub id: Uuid,
+  pub scope: ScopeName,
+  pub package: Option<PackageName>,
+  pub event: WebhookEventKind,
+  pub payload: serde_json::Value,
+  pub idempotency_key: Option<String>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::Type)]
+#[sqlx(type_name = "task_status", rename_all = "lowercase")]
+pub enum WebhookDeliveryStatus {
+  Pending,
+  Success,
+  Failure,
+  Retrying,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookDelivery {
+  pub id: Uuid,
+  pub endpoint_id: Uuid,
+  pub event_id: Uuid,
+  pub status: WebhookDeliveryStatus,
+
+  pub request_headers: serde_json::Value,
+
+  pub response_http_code: Option<i32>,
+  pub response_headers: Option<serde_json::Value>,
+  pub response_body: Option<String>,
+
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
