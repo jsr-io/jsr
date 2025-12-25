@@ -113,13 +113,30 @@ export function LocalSymbolSearch(
           searchItem.style.setProperty("display", "none");
           const section = searchItem.parentElement!.parentElement!;
           section.hidden = true;
-          return {
+
+          const nodes = [{
             name,
             description: description?.innerText.replaceAll("\n", " ") ?? "",
             node: searchItem,
             section: section,
-          };
-        });
+          }];
+
+          for (
+            const property of searchItem.querySelectorAll(
+              ".namespaceItemContentSubItems > li > a",
+            )
+          ) {
+            nodes.push({
+              name: property.textContent,
+              description: "",
+              node: searchItem,
+              section: section,
+            });
+          }
+
+          return nodes;
+        })
+        .flat();
 
       await insertMultiple(oramaDb, searchItems);
       db.value = oramaDb;
@@ -182,6 +199,15 @@ export function LocalSymbolSearch(
           .children[0] as HTMLAnchorElement;
         titleElement.innerHTML =
           highlighter.highlight(titleElement.title, term).HTML;
+
+        for (
+          const property of doc.node.querySelectorAll(
+            ".namespaceItemContentSubItems > li > a",
+          )
+        ) {
+          property.innerHTML =
+            highlighter.highlight(property.textContent, term).HTML;
+        }
 
         const description = doc.node.getElementsByClassName(
           "markdown_summary",
