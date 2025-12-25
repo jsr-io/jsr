@@ -25,6 +25,7 @@ use super::types::*;
 use crate::auth::GithubOauth2Client;
 use crate::auth::lookup_user_by_github_login;
 use crate::db::*;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
@@ -390,7 +391,7 @@ async fn update_member_handler(
     .await?;
 
   let scope_member = match res {
-    ScopeMemberUpdateResult::Ok(scope_member) => scope_member,
+    ScopeMemberUpdateResult::Ok { scope_member, .. } => scope_member,
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
       return Err(ApiError::NoScopeOwnerAvailable);
     }
@@ -428,6 +429,7 @@ pub async fn delete_member_handler(
   Span::current().record("member", field::display(&member_id));
 
   let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
 
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
@@ -438,7 +440,16 @@ pub async fn delete_member_handler(
 
   let res = db.delete_scope_member(&scope, member_id).await?;
   match res {
-    ScopeMemberUpdateResult::Ok(_) => {}
+    ScopeMemberUpdateResult::Ok {
+      webhook_deliveries, ..
+    } => {
+      crate::tasks::enqueue_webhook_dispatches(
+        webhook_dispatch_queue,
+        db,
+        webhook_deliveries.unwrap(),
+      )
+      .await?;
+    }
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
       return Err(ApiError::NoScopeOwnerAvailable);
     }
@@ -530,7 +541,6 @@ pub async fn create_webhook_handler(
   Span::current().record("scope", field::display(&scope));
 
   let ApiCreateWebhookEndpointRequest {
-    package,
     url,
     description,
     secret,
@@ -547,7 +557,7 @@ pub async fn create_webhook_handler(
     .create_webhook_endpoint(
       NewWebhookEndpoint {
         scope: &scope,
-        package: package.as_ref(),
+        package: None,
         url: &url,
         description: description.as_deref(),
         secret: &secret,

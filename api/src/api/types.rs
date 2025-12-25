@@ -1153,7 +1153,6 @@ impl From<(AuditLog, UserPublic)> for ApiAuditLog {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiCreateWebhookEndpointRequest {
-  pub package: Option<ScopeName>,
   pub url: String,
   pub description: Option<String>,
   pub secret: String,

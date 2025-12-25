@@ -20,6 +20,7 @@ use crate::db::UserPublic;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
@@ -134,11 +135,19 @@ pub async fn accept_invite_handler(
   let current_user = iam.check_current_user_access()?.to_owned();
 
   let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
 
-  let member = db
+  let (member, webhook_deliveries) = db
     .accept_scope_invite(&current_user.id, &scope)
     .await?
     .ok_or(ApiError::ScopeInviteNotFound)?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    webhook_deliveries,
+  )
+  .await?;
 
   Ok((member, UserPublic::from(current_user)).into())
 }

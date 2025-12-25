@@ -60,6 +60,7 @@ use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
 use crate::db::NewGithubRepository;
 use crate::db::NewPublishingTask;
+use crate::db::NewWebhookEndpoint;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
@@ -81,6 +82,7 @@ use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
 use crate::tarball::gcs_tarball_path;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
@@ -91,6 +93,7 @@ use crate::util::pagination;
 use crate::util::search;
 
 use super::ApiCreatePackageRequest;
+use super::ApiCreateWebhookEndpointRequest;
 use super::ApiDependency;
 use super::ApiDependencyGraphItem;
 use super::ApiDependent;
@@ -115,6 +118,7 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
+use super::ApiWebhookEndpoint;
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -191,6 +195,22 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::json(list_publishing_tasks_handler),
     )
     .get("/:package/score", util::json(get_score_handler))
+    .post(
+      "/:package/webhooks",
+      util::auth(util::json(create_webhook_handler)),
+    )
+    .get(
+      " /:package/webhooks/:webhook",
+      util::auth(util::json(get_webhook_handler)),
+    )
+    .get(
+      "/:package/webhooks",
+      util::auth(util::json(list_webhooks_handler)),
+    )
+    .delete(
+      "/:package/webhooks/:webhook",
+      util::auth(delete_webhook_handler),
+    )
     .build()
     .unwrap()
 }
@@ -297,14 +317,18 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   iam.check_scope_write_access(&scope).await?;
 
   let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
 
   if db.check_is_bad_word(&package_name.to_string()).await? {
     return Err(ApiError::PackageNameNotAllowed);
   }
 
   let res = db.create_package(&scope, &package_name).await?;
-  let package = match res {
-    CreatePackageResult::Ok(package) => package,
+  let (package, webhook_deliveries) = match res {
+    CreatePackageResult::Ok {
+      package,
+      webhook_deliveries,
+    } => (package, webhook_deliveries),
     CreatePackageResult::AlreadyExists => {
       return Err(ApiError::PackageAlreadyExists);
     }
@@ -315,6 +339,13 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       return Err(ApiError::WeeklyPackageLimitExceeded { limit });
     }
   };
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    webhook_deliveries,
+  )
+  .await?;
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
@@ -470,7 +501,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::IsArchived(is_archived) => {
-      let package = db
+      let (package, webhook_deliveries) = db
         .update_package_is_archived(
           &user.id,
           sudo,
@@ -479,6 +510,15 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
           is_archived,
         )
         .await?;
+
+      let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+
+      crate::tasks::enqueue_webhook_dispatches(
+        webhook_dispatch_queue,
+        db,
+        webhook_deliveries,
+      )
+      .await?;
 
       if let Some(orama_client) = orama_client {
         if package.is_archived {
@@ -795,6 +835,8 @@ pub async fn version_publish_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let webhook_dispatch_queue =
+    req.data::<WebhookDispatchQueue>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
@@ -902,6 +944,7 @@ pub async fn version_publish_handler(
       registry_url,
       npm_url,
       db,
+      webhook_dispatch_queue,
       orama_client,
     )
     .instrument(span);
@@ -981,17 +1024,26 @@ pub async fn version_update_handler(
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  db.yank_package_version(
-    &user.id,
-    sudo,
-    &scope,
-    &package,
-    &version,
-    body.yanked,
+  let (_, webhook_deliveries) = db
+    .yank_package_version(
+      &user.id,
+      sudo,
+      &scope,
+      &package,
+      &version,
+      body.yanked,
+    )
+    .await?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    webhook_deliveries,
   )
   .await?;
 
@@ -1073,8 +1125,17 @@ pub async fn version_delete_handler(
     return Err(ApiError::DeleteVersionHasDependents);
   }
 
-  db.delete_package_version(&staff.id, &scope, &package, &version)
+  let webhook_deliveries = db
+    .delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
+
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    webhook_deliveries,
+  )
+  .await?;
 
   let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
   buckets.docs_bucket.delete_file(path.into()).await?;
@@ -2370,6 +2431,136 @@ pub async fn get_score_handler(
     .ok_or(ApiError::PackageNotFound)?;
 
   Ok(ApiPackageScore::from((&meta, &pkg)))
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn create_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiCreateWebhookEndpointRequest {
+    url,
+    description,
+    secret,
+    events,
+    payload_format,
+  } = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .create_webhook_endpoint(
+      NewWebhookEndpoint {
+        scope: &scope,
+        package: Some(&package),
+        url: &url,
+        description: description.as_deref(),
+        secret: &secret,
+        events,
+        payload_format,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .get_webhook_endpoint(&scope, Some(&package), webhook_id)
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhooks_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookEndpoint>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints =
+    db.list_webhook_endpoints(&scope, Some(&package)).await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "DELETE /api/scopes/:scope/packages/:package/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn delete_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  db.delete_webhook_endpoint(
+    &user.id,
+    sudo,
+    &scope,
+    Some(&package),
+    webhook_id,
+  )
+  .await?;
+
+  let res = Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(res)
 }
 
 #[cfg(test)]

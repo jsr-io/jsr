@@ -37,7 +37,6 @@ CREATE TABLE webhook_events (
     package TEXT,
     event webhook_event_kind NOT NULL,
     payload JSONB NOT NULL,
-    idempotency_key TEXT UNIQUE,
     created_at timestamptz NOT NULL DEFAULT now(),
 
     FOREIGN KEY (scope, package) REFERENCES packages (scope, name) ON DELETE CASCADE
@@ -51,7 +50,7 @@ CREATE TABLE webhook_deliveries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     endpoint_id UUID NOT NULL REFERENCES webhook_endpoints (id) ON DELETE CASCADE,
     event_id UUID NOT NULL REFERENCES webhook_events(id) ON DELETE CASCADE,
-    status webhook_delivery_status NOT NULL,
+    status webhook_delivery_status NOT NULL DEFAULT 'pending',
 
     request_headers JSONB,
 

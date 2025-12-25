@@ -6,12 +6,18 @@ import { define } from "../../../../util.ts";
 import { ScopeHeader } from "../../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../../(_components)/ScopeNav.tsx";
 import { ScopeDescriptionForm } from "../../(_islands)/ScopeDescriptionForm.tsx";
-import { FullScope, User } from "../../../../utils/api_types.ts";
+import {
+  FullScope, type Package,
+  User,
+  WebhookEndpoint,
+} from "../../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../../utils/data.ts";
 import { path } from "../../../../utils/api.ts";
 import { QuotaCard } from "../../../../components/QuotaCard.tsx";
 import { scopeIAM } from "../../../../utils/iam.ts";
 import { TicketModal } from "../../../../islands/TicketModal.tsx";
+import { ListDisplay } from "../../../../components/List.tsx";
+import { PackageHit } from "../../../../components/PackageHit.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, state },
@@ -24,6 +30,7 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
       <ScopeQuotas scope={data.scope} user={state.user!} />
       <GitHubActionsSecurity scope={data.scope} />
       <RequirePublishingFromCI scope={data.scope} />
+      <Webhooks scope={data.scope} webhooks={data.webhooks} />
       <DeleteScope scope={data.scope} />
     </div>
   );
@@ -222,6 +229,37 @@ function RequirePublishingFromCI({ scope }: { scope: FullScope }) {
   );
 }
 
+function Webhooks({ scope, webhooks }: { scope: FullScope; webhooks: WebhookEndpoint[] }) {
+  return (
+    <div class="mb-12 mt-12">
+      <h2 class="text-lg sm:text-xl font-semibold">Webhooks</h2>
+      <p class="mt-2 text-secondary max-w-2xl">
+        Webhooks let you receive notifications when packages are published or other events happen in the scope.
+      </p>
+      {webhooks.length > 0 && <ListDisplay>
+        {webhooks.map((entry) => ({
+          href: `./settings/webhooks/${entry.id}`,
+          content: (
+            <div class="grow-1 min-w-0 w-full flex flex-col md:flex-row gap-2 md:gap-4 justify-between">
+              <div class="flex-1 min-w-0 mb-2 md:mb-0 text-jsr-cyan-700 dark:text-cyan-400 font-semibold truncate">
+                {entry.description ?? entry.url}
+              </div>
+
+              <div class="flex-none whitespace-nowrap">
+                {entry.events.length} event{entry.events.length > 1 && "s"}
+              </div>
+            </div>
+          )
+        }))}
+	    </ListDisplay>}
+
+      <a href="./settings/webhooks/new" class="button-primary mt-8">
+        Create
+      </a>
+    </div>
+  )
+}
+
 interface CardButtonProps {
   title: ComponentChildren;
   description: ComponentChildren;
@@ -270,7 +308,7 @@ function DeleteScope({ scope }: { scope: FullScope }) {
         and publish packages to it. This action cannot be undone.
       </p>
       <button
-        class="mt-4 button-danger"
+        class="mt-8 button-danger"
         disabled={!isEmpty}
         type="submit"
         name="action"
@@ -291,9 +329,10 @@ function DeleteScope({ scope }: { scope: FullScope }) {
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const [user, data] = await Promise.all([
+    const [user, data, webhooksResp] = await Promise.all([
       ctx.state.userPromise,
       scopeDataWithMember(ctx.state, ctx.params.scope),
+      ctx.state.api.get<WebhookEndpoint[]>(path`/scopes/${ctx.params.scope}/webhooks`),
     ]);
     if (user instanceof Response) return user;
     if (data === null) throw new HttpError(404, "The scope was not found.");
@@ -301,11 +340,16 @@ export const handler = define.handlers({
     const iam = scopeIAM(ctx.state, data?.scopeMember, user);
     if (!iam.canAdmin) throw new HttpError(404, "The scope was not found.");
 
+    if (!webhooksResp.ok) {
+      throw webhooksResp; // graceful handle errors
+    }
+
     ctx.state.meta = { title: `Settings - @${data.scope.scope} - JSR` };
     return {
       data: {
         scope: data.scope as FullScope,
         iam,
+        webhooks: webhooksResp.data,
       },
     };
   },

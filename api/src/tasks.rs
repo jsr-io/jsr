@@ -8,10 +8,10 @@ use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
-use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
+use crate::db::{Database, WebhookPayloadFormat};
 use crate::gcp;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
@@ -25,6 +25,7 @@ use crate::npm::generate_npm_version_manifest;
 use crate::publish;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::USER_AGENT;
 use crate::util::decode_json;
 use bytes::Bytes;
 use chrono::DateTime;
@@ -35,9 +36,14 @@ use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageSubPath;
 use futures::StreamExt;
+use futures::TryFutureExt;
+use futures::future::FutureExt;
 use futures::stream;
+use hmac::Mac;
 use hyper::Body;
 use hyper::Request;
+use opentelemetry::trace::TraceContextExt;
+use reqwest::header::HeaderValue;
 use routerify::Router;
 use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
@@ -48,9 +54,13 @@ use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
+use tracing_futures::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use uuid::Uuid;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
+#[derive(Clone)]
+pub struct WebhookDispatchQueue(pub Option<gcp::Queue>);
 pub struct LogsBigQueryTable(
   pub Option<(gcp::BigQuery, /* logs table id */ String)>,
 );
@@ -459,7 +469,142 @@ pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
   let webhook_dispatch_id: Uuid = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
 
+  dispatch_webhook(db, webhook_dispatch_id).await?;
+
   Ok(())
+}
+
+const WEBHOOK_DISPATCH_ENQUEUE_PARALLELISM: usize = 32;
+
+#[instrument(name = "enqueue_webhook_dispatches", skip(queue, db), err)]
+pub async fn enqueue_webhook_dispatches(
+  queue: &WebhookDispatchQueue,
+  db: &Database,
+  webhook_dispatch_ids: Vec<Uuid>,
+) -> ApiResult<()> {
+  let mut futs = stream::iter(webhook_dispatch_ids)
+    .map(|webhook_dispatch_id| {
+      if let Some(queue) = &queue.0 {
+        let body = serde_json::to_vec(&webhook_dispatch_id).unwrap();
+        queue.task_buffer(None, Some(body.into())).boxed()
+      } else {
+        let span = Span::current();
+        let fut = dispatch_webhook(db, webhook_dispatch_id)
+          .instrument(span)
+          .map_err(anyhow::Error::from);
+        fut.boxed()
+      }
+    })
+    .buffer_unordered(WEBHOOK_DISPATCH_ENQUEUE_PARALLELISM);
+
+  while let Some(result) = futs.next().await {
+    result?;
+  }
+
+  Ok(())
+}
+
+#[instrument(name = "dispatch_webhook", skip(db), err)]
+async fn dispatch_webhook(
+  db: &Database,
+  webhook_dispatch_id: Uuid,
+) -> ApiResult<()> {
+  let webhook = db.get_webhook_for_dispatch(webhook_dispatch_id).await?;
+
+  let (json, signature) = match webhook.payload_format {
+    WebhookPayloadFormat::Json => {
+      let json = serde_json::to_value(webhook.payload)?;
+      let signature = if let Some(secret) = webhook.secret {
+        let mut hmac =
+          hmac::Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes())
+            .unwrap();
+        hmac.update(&serde_json::to_vec(&json)?);
+        let hash = hmac.finalize().into_bytes();
+        Some(format!("sha256={:02x}", hash))
+      } else {
+        None
+      };
+
+      (json, signature)
+    }
+    WebhookPayloadFormat::Discord => (webhook.payload.discord_format()?, None),
+  };
+
+  let mut headers = reqwest::header::HeaderMap::new();
+
+  headers.insert(
+    "X-JSR-Event",
+    serde_json::to_string(&webhook.event)?.parse().unwrap(),
+  );
+  headers.insert(
+    "X-JSR-Event-Id",
+    webhook.event_id.to_string().parse().unwrap(),
+  );
+  headers.insert(
+    reqwest::header::USER_AGENT,
+    HeaderValue::from_static(USER_AGENT),
+  );
+  headers.insert(
+    reqwest::header::CONTENT_TYPE,
+    HeaderValue::from_static("application/json"),
+  );
+
+  let span = Span::current();
+  let ctx = span.context();
+  let span_ref = ctx.span();
+  let span_ctx = span_ref.span_context();
+  let trace_id = span_ctx.trace_id().to_string();
+  headers.insert("x-deno-ray", trace_id.parse().unwrap());
+
+  if let Some(signature) = signature {
+    headers.insert("X-JSR-Signature", signature.parse().unwrap());
+  }
+
+  let request_headers = serde_json::to_value(headers_to_map(&headers))?;
+
+  let response = reqwest::Client::new()
+    .post(webhook.url)
+    .headers(headers)
+    .json(&json)
+    .send()
+    .await
+    .map_err(anyhow::Error::from)?;
+
+  let success = response.status().is_success();
+  let response_http_status = response.status().as_u16() as i32;
+  let response_headers =
+    serde_json::to_value(headers_to_map(response.headers()))?;
+  let response_body = response.text().await.map_err(anyhow::Error::from)?;
+
+  db.update_webhook_delivery(
+    webhook_dispatch_id,
+    if success {
+      crate::db::models::WebhookDeliveryStatus::Success
+    } else {
+      todo!()
+    },
+    request_headers,
+    response_http_status,
+    response_headers,
+    response_body,
+  )
+  .await?;
+
+  if !success {}
+
+  Ok(())
+}
+
+fn headers_to_map(
+  headers: &reqwest::header::HeaderMap,
+) -> std::collections::HashMap<String, Vec<String>> {
+  let mut header_hashmap = std::collections::HashMap::new();
+  for (k, v) in headers {
+    let k = k.as_str().to_owned();
+    let v = String::from_utf8_lossy(v.as_bytes()).into_owned();
+    header_hashmap.entry(k).or_insert_with(Vec::new).push(v)
+  }
+  header_hashmap
 }
 
 #[cfg(test)]

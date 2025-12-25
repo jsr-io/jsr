@@ -565,11 +565,7 @@ impl Database {
       }
     };
 
-    if let Some(res) = finalize_package_creation(tx, scope).await? {
-      return Ok(res);
-    };
-
-    Ok(CreatePackageResult::Ok(package))
+    finalize_package_creation(tx, scope, package).await
   }
 
   #[instrument(
@@ -886,7 +882,7 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
     is_archived: bool,
-  ) -> Result<Package> {
+  ) -> Result<(Package, Vec<Uuid>)> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -917,9 +913,18 @@ impl Database {
       .fetch_one(&mut *tx)
       .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      None,
+      WebhookEventKind::ScopePackageArchived,
+      WebhookPayload::ScopePackageArchived {},
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(package)
+    Ok((package, webhook_deliveries))
   }
 
   #[instrument(name = "Database::update_package_source", skip(self), err)]
@@ -1951,8 +1956,8 @@ impl Database {
       scope as _,
       name as _,
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -2225,7 +2230,7 @@ impl Database {
     name: &PackageName,
     version: &Version,
     yank: bool,
-  ) -> Result<PackageVersion> {
+  ) -> Result<(PackageVersion, Vec<Uuid>)> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -2268,9 +2273,18 @@ impl Database {
       .fetch_one(&mut *tx)
       .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      Some(name),
+      WebhookEventKind::PackageVersionYanked,
+      WebhookPayload::PackageVersionYanked {},
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(package_version)
+    Ok((package_version, webhook_deliveries))
   }
 
   #[instrument(name = "Database::delete_package_version", skip(self), err)]
@@ -2280,7 +2294,7 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
     version: &Version,
-  ) -> Result<()> {
+  ) -> Result<Vec<Uuid>> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -2296,8 +2310,7 @@ impl Database {
     )
     .await?;
 
-    sqlx::query_as!(
-      PackageVersion,
+    sqlx::query!(
       r#"DELETE FROM package_versions WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
       name as _,
@@ -2306,9 +2319,18 @@ impl Database {
       .execute(&mut *tx)
       .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      Some(name),
+      WebhookEventKind::PackageVersionDeleted,
+      WebhookPayload::PackageVersionDeleted {},
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(())
+    Ok(webhook_deliveries)
   }
 
   #[instrument(name = "Database::get_package_file", skip(self), err)]
@@ -2548,6 +2570,7 @@ impl Database {
     Ok(scope_invite)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_user_to_scope", skip(
     self,
     new_scope_member
@@ -2665,7 +2688,7 @@ impl Database {
     &self,
     target_user_id: &Uuid,
     scope: &ScopeName,
-  ) -> Result<Option<ScopeMember>> {
+  ) -> Result<Option<(ScopeMember, Vec<Uuid>)>> {
     let mut tx = self.pool.begin().await?;
 
     let res = sqlx::query!(
@@ -2689,9 +2712,18 @@ impl Database {
       .fetch_one(&mut *tx)
       .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      None,
+      WebhookEventKind::ScopeMemberAdded,
+      WebhookPayload::ScopeMemberAdded {},
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(Some(member))
+    Ok(Some((member, webhook_deliveries)))
   }
 
   #[instrument(name = "Database::delete_scope_invite", skip(self), err)]
@@ -2952,7 +2984,10 @@ impl Database {
 
     tx.commit().await?;
 
-    Ok(ScopeMemberUpdateResult::Ok(scope_member))
+    Ok(ScopeMemberUpdateResult::Ok {
+      scope_member,
+      webhook_deliveries: None,
+    })
   }
 
   #[instrument(name = "Database::delete_scope_member", skip(self), err)]
@@ -2994,9 +3029,24 @@ impl Database {
       return Ok(result);
     }
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      &scope,
+      None,
+      WebhookEventKind::ScopeMemberLeft,
+      WebhookPayload::ScopeMemberLeft {
+        scope: scope.clone(),
+        user_id,
+      },
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(ScopeMemberUpdateResult::Ok(scope_member))
+    Ok(ScopeMemberUpdateResult::Ok {
+      scope_member,
+      webhook_deliveries: Some(webhook_deliveries),
+    })
   }
 
   #[instrument(
@@ -3434,6 +3484,31 @@ impl Database {
     tx.commit().await?;
 
     Ok(task)
+  }
+  #[instrument(
+    name = "Database::process_webhooks_for_publish",
+    skip(self),
+    err
+  )]
+  pub async fn process_webhooks_for_publish(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<Uuid>> {
+    let mut tx = self.pool.begin().await?;
+
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      Some(name),
+      WebhookEventKind::PackageVersionPublished,
+      WebhookPayload::PackageVersionPublished {},
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(webhook_deliveries)
   }
 
   #[instrument(name = "Database::get_oauth_state", skip(self), err)]
@@ -5096,12 +5171,58 @@ impl Database {
 
     Ok(())
   }
+
+  #[instrument(name = "Database::get_webhook_delivery", skip(self), err)]
+  pub async fn get_webhook_for_dispatch(
+    &self,
+    id: Uuid,
+  ) -> Result<WebhookForDispatch> {
+    sqlx::query_as!(
+      WebhookForDispatch,
+      r#"SELECT
+          webhook_endpoints.url as "url", webhook_events.event as "event: _", webhook_events.id as "event_id", webhook_endpoints.secret as "secret", webhook_endpoints.payload_format AS "payload_format: _", webhook_events.payload as "payload: WebhookPayload"
+        FROM webhook_endpoints
+        LEFT JOIN webhook_deliveries ON webhook_endpoints.id = webhook_deliveries.endpoint_id
+        LEFT JOIN webhook_events ON webhook_events.id = webhook_deliveries.event_id
+        WHERE webhook_deliveries.id = $1"#,
+      id,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::update_webhook_delivery", skip(self), err)]
+  pub async fn update_webhook_delivery(
+    &self,
+    id: Uuid,
+    status: WebhookDeliveryStatus,
+    request_headers: serde_json::Value,
+    response_http_code: i32,
+    response_headers: serde_json::Value,
+    response_body: String,
+  ) -> Result<()> {
+    sqlx::query!(
+      r#"UPDATE webhook_deliveries
+        SET status = $2, request_headers = $3, response_http_code = $4, response_headers = $5, response_body = $6
+        WHERE id = $1"#,
+      id,
+      status as _,
+      request_headers,
+      response_http_code,
+      response_headers,
+      response_body,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
 }
 
 async fn finalize_package_creation(
   mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
   scope: &ScopeName,
-) -> Result<Option<CreatePackageResult>, sqlx::Error> {
+  package: Package,
+) -> Result<CreatePackageResult, sqlx::Error> {
   let (package_limit, new_package_per_week_limit) = sqlx::query!(
     r#"
     SELECT package_limit, new_package_per_week_limit FROM scopes WHERE scope = $1;
@@ -5128,9 +5249,9 @@ async fn finalize_package_creation(
 
   if packages_from_last_week > new_package_per_week_limit as i64 {
     tx.rollback().await?;
-    return Ok(Some(CreatePackageResult::WeeklyPackageLimitExceeded(
+    return Ok(CreatePackageResult::WeeklyPackageLimitExceeded(
       new_package_per_week_limit,
-    )));
+    ));
   }
 
   let total_packages = sqlx::query!(
@@ -5145,13 +5266,23 @@ async fn finalize_package_creation(
 
   if total_packages > package_limit as i64 {
     tx.rollback().await?;
-    return Ok(Some(CreatePackageResult::PackageLimitExceeded(
-      package_limit,
-    )));
+    return Ok(CreatePackageResult::PackageLimitExceeded(package_limit));
   }
 
+  let webhook_deliveries = insert_webhook_event(
+    &mut tx,
+    scope,
+    None,
+    WebhookEventKind::ScopePackageCreated,
+    WebhookPayload::ScopePackageCreated {},
+  )
+  .await?;
+
   tx.commit().await?;
-  Ok(None)
+  Ok(CreatePackageResult::Ok {
+    package,
+    webhook_deliveries,
+  })
 }
 
 async fn audit_log(
@@ -5174,9 +5305,47 @@ async fn audit_log(
   Ok(())
 }
 
+pub async fn insert_webhook_event(
+  tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+  scope: &ScopeName,
+  package: Option<&PackageName>,
+  event: WebhookEventKind,
+  payload: WebhookPayload,
+) -> Result<Vec<Uuid>> {
+  let event_id = sqlx::query!(
+    r#"INSERT INTO webhook_events (scope, package, event, payload) VALUES ($1, $2, $3, $4) RETURNING id"#,
+    scope as _,
+    package as _,
+    event as _,
+    payload as _,
+  )
+    .map(|r| r.id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+  let webhook_deliveries = sqlx::query!(
+    r#"INSERT INTO webhook_deliveries (endpoint_id, event_id)
+     SELECT webhook_endpoints.id, $1 FROM webhook_endpoints
+     WHERE webhook_endpoints.scope = $2 AND (webhook_endpoints.package IS NULL OR webhook_endpoints.package = $3) AND $4 = ANY(webhook_endpoints.events) AND webhook_endpoints.is_active = TRUE
+     RETURNING id"#,
+    event_id,
+    scope as _,
+    package as _,
+    event as _,
+  )
+    .map(|r| r.id)
+    .fetch_all(&mut **tx)
+    .await?;
+
+  Ok(webhook_deliveries)
+}
+
 #[derive(Debug)]
 pub enum ScopeMemberUpdateResult {
-  Ok(ScopeMember),
+  Ok {
+    scope_member: ScopeMember,
+    webhook_deliveries: Option<Vec<Uuid>>,
+  },
   TargetIsLastAdmin,
   TargetIsLastTransferableAdmin,
   TargetNotMember,
@@ -5184,7 +5353,10 @@ pub enum ScopeMemberUpdateResult {
 
 #[derive(Debug)]
 pub enum CreatePackageResult {
-  Ok(Package),
+  Ok {
+    package: Package,
+    webhook_deliveries: Vec<Uuid>,
+  },
   AlreadyExists,
   WeeklyPackageLimitExceeded(i32),
   PackageLimitExceeded(i32),

@@ -37,7 +37,7 @@ export function ListDisplay(
             >
               {item.content}
 
-              <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 flex-shrink-0 size-6" />
+              <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 shrink-0 size-6" />
             </a>
           </li>
         ))}

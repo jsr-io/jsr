@@ -1054,6 +1054,7 @@ pub enum WebhookEventKind {
   ScopePackageArchived,
   ScopeMemberAdded,
   ScopeMemberLeft,
+  // todo: package delete
 }
 
 impl sqlx::postgres::PgHasArrayType for WebhookEventKind {
@@ -1122,12 +1123,66 @@ impl FromRow<'_, sqlx::postgres::PgRow> for WebhookEndpoint {
 
 pub struct NewWebhookEndpoint<'s> {
   pub scope: &'s ScopeName,
-  pub package: Option<&'s ScopeName>,
+  pub package: Option<&'s PackageName>,
   pub url: &'s str,
   pub description: Option<&'s str>,
   pub secret: &'s str,
   pub events: Vec<WebhookEventKind>,
   pub payload_format: WebhookPayloadFormat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WebhookPayload {
+  PackageVersionPublished {},
+  PackageVersionYanked {},
+  PackageVersionDeleted {},
+  ScopePackageCreated {},
+  ScopePackageArchived {},
+  ScopeMemberAdded {},
+  ScopeMemberLeft { scope: ScopeName, user_id: Uuid },
+}
+
+impl WebhookPayload {
+  pub fn discord_format(self) -> Result<serde_json::Value, serde_json::Error> {
+    match self {
+      WebhookPayload::PackageVersionPublished { .. } => todo!(),
+      WebhookPayload::PackageVersionYanked { .. } => todo!(),
+      WebhookPayload::PackageVersionDeleted { .. } => todo!(),
+      WebhookPayload::ScopePackageCreated { .. } => todo!(),
+      WebhookPayload::ScopePackageArchived { .. } => todo!(),
+      WebhookPayload::ScopeMemberAdded { .. } => todo!(),
+      WebhookPayload::ScopeMemberLeft { .. } => todo!(),
+    }
+  }
+}
+
+impl sqlx::Decode<'_, sqlx::Postgres> for WebhookPayload {
+  fn decode(
+    value: sqlx::postgres::PgValueRef<'_>,
+  ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
+    let s: sqlx::types::Json<WebhookPayload> =
+      sqlx::Decode::<'_, sqlx::Postgres>::decode(value)?;
+    Ok(s.0)
+  }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for WebhookPayload {
+  fn encode_by_ref(
+    &self,
+    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
+  ) -> sqlx::encode::IsNull {
+    <sqlx::types::Json<&WebhookPayload> as sqlx::Encode<
+      '_,
+      sqlx::Postgres,
+    >>::encode_by_ref(&Json(self), buf)
+  }
+}
+
+impl sqlx::Type<sqlx::Postgres> for WebhookPayload {
+  fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
+    <sqlx::types::Json<WebhookPayload> as sqlx::Type<sqlx::Postgres>>::type_info(
+    )
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -1136,8 +1191,7 @@ pub struct WebhookEvent {
   pub scope: ScopeName,
   pub package: Option<PackageName>,
   pub event: WebhookEventKind,
-  pub payload: serde_json::Value,
-  pub idempotency_key: Option<String>,
+  pub payload: WebhookPayload,
   pub created_at: DateTime<Utc>,
 }
 
@@ -1165,4 +1219,14 @@ pub struct WebhookDelivery {
 
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookForDispatch {
+  pub url: String,
+  pub event: WebhookEventKind,
+  pub event_id: Uuid,
+  pub payload_format: WebhookPayloadFormat,
+  pub secret: Option<String>,
+  pub payload: WebhookPayload,
 }
