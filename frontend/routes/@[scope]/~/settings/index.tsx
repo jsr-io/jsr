@@ -7,7 +7,8 @@ import { ScopeHeader } from "../../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../../(_components)/ScopeNav.tsx";
 import { ScopeDescriptionForm } from "../../(_islands)/ScopeDescriptionForm.tsx";
 import {
-  FullScope, type Package,
+  FullScope,
+  type Package,
   User,
   WebhookEndpoint,
 } from "../../../../utils/api_types.ts";
@@ -229,35 +230,40 @@ function RequirePublishingFromCI({ scope }: { scope: FullScope }) {
   );
 }
 
-function Webhooks({ scope, webhooks }: { scope: FullScope; webhooks: WebhookEndpoint[] }) {
+function Webhooks(
+  { scope, webhooks }: { scope: FullScope; webhooks: WebhookEndpoint[] },
+) {
   return (
     <div class="mb-12 mt-12">
       <h2 class="text-lg sm:text-xl font-semibold">Webhooks</h2>
       <p class="mt-2 text-secondary max-w-2xl">
-        Webhooks let you receive notifications when packages are published or other events happen in the scope.
+        Webhooks let you receive notifications when packages are published or
+        other events happen in the scope.
       </p>
-      {webhooks.length > 0 && <ListDisplay>
-        {webhooks.map((entry) => ({
-          href: `./settings/webhooks/${entry.id}`,
-          content: (
-            <div class="grow-1 min-w-0 w-full flex flex-col md:flex-row gap-2 md:gap-4 justify-between">
-              <div class="flex-1 min-w-0 mb-2 md:mb-0 text-jsr-cyan-700 dark:text-cyan-400 font-semibold truncate">
-                {entry.description ?? entry.url}
-              </div>
+      {webhooks.length > 0 && (
+        <ListDisplay>
+          {webhooks.map((entry) => ({
+            href: `./settings/webhooks/${entry.id}`,
+            content: (
+              <div class="grow-1 min-w-0 w-full flex flex-col md:flex-row gap-2 md:gap-4 justify-between">
+                <div class="flex-1 min-w-0 mb-2 md:mb-0 text-jsr-cyan-700 dark:text-cyan-400 font-semibold truncate">
+                  {entry.description ?? entry.url}
+                </div>
 
-              <div class="flex-none whitespace-nowrap">
-                {entry.events.length} event{entry.events.length > 1 && "s"}
+                <div class="flex-none whitespace-nowrap">
+                  {entry.events.length} event{entry.events.length > 1 && "s"}
+                </div>
               </div>
-            </div>
-          )
-        }))}
-	    </ListDisplay>}
+            ),
+          }))}
+        </ListDisplay>
+      )}
 
       <a href="./settings/webhooks/new" class="button-primary mt-8">
         Create
       </a>
     </div>
-  )
+  );
 }
 
 interface CardButtonProps {
@@ -332,7 +338,9 @@ export const handler = define.handlers({
     const [user, data, webhooksResp] = await Promise.all([
       ctx.state.userPromise,
       scopeDataWithMember(ctx.state, ctx.params.scope),
-      ctx.state.api.get<WebhookEndpoint[]>(path`/scopes/${ctx.params.scope}/webhooks`),
+      ctx.state.api.get<WebhookEndpoint[]>(
+        path`/scopes/${ctx.params.scope}/webhooks`,
+      ),
     ]);
     if (user instanceof Response) return user;
     if (data === null) throw new HttpError(404, "The scope was not found.");

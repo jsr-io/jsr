@@ -146,6 +146,7 @@ pub async fn publish_task(
           .process_webhooks_for_publish(
             &publishing_task.package_scope,
             &publishing_task.package_name,
+            &publishing_task.package_version,
           )
           .await?;
 

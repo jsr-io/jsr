@@ -1,20 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { HttpError } from "fresh";
+import { HttpError, RouteConfig } from "fresh";
 import { define } from "../../../../../util.ts";
 import { ScopeHeader } from "../../../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../../../(_components)/ScopeNav.tsx";
 import { WebhookEdit } from "../../../../../islands/WebhookEdit.tsx";
-import {
+import type {
   FullScope,
-  WebhookDelivery,
+  WebhookDelivery as ApiWebhookDelivery,
   WebhookEndpoint,
 } from "../../../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../../../utils/data.ts";
 import { path } from "../../../../../utils/api.ts";
 import { scopeIAM } from "../../../../../utils/iam.ts";
-import {
-  WebhookDeliveries,
-} from "../../../../../components/WebhookDeliveries.tsx";
+import { WebhookDelivery } from "../../../../../components/WebhookDelivery.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data },
@@ -23,25 +21,21 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
     <div class="mb-20">
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
-      <WebhookEdit webhook={data.webhook} />
-      <WebhookDeliveries
-        webhook={data.webhook}
-        deliveries={data.webhookDeliveries}
-      />
+      <WebhookDelivery webhook={data.webhook} delivery={data.webhookDelivery} />
     </div>
   );
 });
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const [user, data, webhookResp, webhookDeliveriesResp] = await Promise.all([
+    const [user, data, webhookResp, webhookDeliveryResp] = await Promise.all([
       ctx.state.userPromise,
       scopeDataWithMember(ctx.state, ctx.params.scope),
       ctx.state.api.get<WebhookEndpoint>(
         path`/scopes/${ctx.params.scope}/webhooks/${ctx.params.webhook}`,
       ),
-      ctx.state.api.get<WebhookDelivery[]>(
-        path`/scopes/${ctx.params.scope}/webhooks/${ctx.params.webhook}/deliveries`,
+      ctx.state.api.get<ApiWebhookDelivery>(
+        path`/scopes/${ctx.params.scope}/webhooks/${ctx.params.webhook}/deliveries/${ctx.params.delivery}`,
       ),
     ]);
     if (user instanceof Response) return user;
@@ -56,11 +50,11 @@ export const handler = define.handlers({
       }
       throw webhookResp; // graceful handle errors
     }
-    if (!webhookDeliveriesResp.ok) {
-      if (webhookDeliveriesResp.code === "webhookNotFound") {
+    if (!webhookDeliveryResp.ok) {
+      if (webhookDeliveryResp.code === "webhookNotFound") {
         throw new HttpError(404, "The webhook was not found.");
       }
-      throw webhookDeliveriesResp; // graceful handle errors
+      throw webhookDeliveryResp; // graceful handle errors
     }
 
     ctx.state.meta = { title: `Webhook Settings - @${data.scope.scope} - JSR` };
@@ -68,9 +62,13 @@ export const handler = define.handlers({
       data: {
         scope: data.scope as FullScope,
         webhook: webhookResp.data,
-        webhookDeliveries: webhookDeliveriesResp.data,
+        webhookDelivery: webhookDeliveryResp.data,
         iam,
       },
     };
   },
 });
+
+export const config: RouteConfig = {
+  routeOverride: "/@:scope/~/settings/webhooks/:webhook/deliveries/:delivery",
+};

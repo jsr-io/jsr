@@ -3,14 +3,16 @@ CREATE TYPE webhook_event_kind AS ENUM (
     'package_version_yanked',
     'package_version_deleted',
     'scope_package_created',
+    'scope_package_deleted',
     'scope_package_archived',
     'scope_member_added',
-    'scope_member_left'
+    'scope_member_removed'
 );
 
 CREATE TYPE webhook_payload_format AS ENUM (
     'json',
-    'discord'
+    'discord',
+    'slack'
 );
 
 CREATE TABLE webhook_endpoints (

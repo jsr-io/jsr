@@ -72,6 +72,14 @@ pub fn scope_router() -> Router<Body, ApiError> {
       "/:scope/webhooks/:webhook",
       util::auth(delete_webhook_handler),
     )
+    .get(
+      "/:scope/webhooks/:webhook/deliveries",
+      util::auth(util::json(list_webhook_deliveries_handler)),
+    )
+    .get(
+      "/:scope/webhooks/:webhook/deliveries/:delivery",
+      util::auth(util::json(get_webhook_delivery_handler)),
+    )
     .build()
     .unwrap()
 }
@@ -644,6 +652,52 @@ pub async fn delete_webhook_handler(
     .body(Body::empty())
     .unwrap();
   Ok(res)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks/:webhook/deliveries",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhook_deliveries_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookDelivery>> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints = db.list_webhook_deliveries(webhook_id).await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks/deliveries/:delivery",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_delivery_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let delivery_id = req.param_uuid("delivery")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db.get_webhook_delivery(delivery_id).await?;
+
+  Ok(webhook_endpoint.into())
 }
 
 #[cfg(test)]

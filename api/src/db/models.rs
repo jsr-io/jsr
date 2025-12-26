@@ -1051,10 +1051,10 @@ pub enum WebhookEventKind {
   PackageVersionYanked,
   PackageVersionDeleted,
   ScopePackageCreated,
+  ScopePackageDeleted,
   ScopePackageArchived,
   ScopeMemberAdded,
   ScopeMemberLeft,
-  // todo: package delete
 }
 
 impl sqlx::postgres::PgHasArrayType for WebhookEventKind {
@@ -1070,6 +1070,7 @@ impl sqlx::postgres::PgHasArrayType for WebhookEventKind {
 pub enum WebhookPayloadFormat {
   Json,
   Discord,
+  Slack,
 }
 
 #[derive(Debug, Clone)]
@@ -1087,40 +1088,6 @@ pub struct WebhookEndpoint {
   pub created_at: DateTime<Utc>,
 }
 
-impl FromRow<'_, sqlx::postgres::PgRow> for WebhookEndpoint {
-  fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-    Ok(Self {
-      id: try_get_row_or(row, "id", "webhook_endpoint_id")?,
-      scope: try_get_row_or(row, "scope", "webhook_endpoint_scope")?,
-      package: try_get_row_or(row, "package", "webhook_endpoint_package")?,
-      url: try_get_row_or(row, "url", "webhook_endpoint_url")?,
-      description: try_get_row_or(
-        row,
-        "description",
-        "webhook_endpoint_description",
-      )?,
-      secret: try_get_row_or(row, "secret", "webhook_endpoint_secret")?,
-      events: try_get_row_or(row, "events", "webhook_endpoint_events")?,
-      payload_format: try_get_row_or(row, "type", "webhook_endpoint_type")?,
-      is_active: try_get_row_or(
-        row,
-        "is_active",
-        "webhook_endpoint_is_active",
-      )?,
-      updated_at: try_get_row_or(
-        row,
-        "updated_at",
-        "webhook_endpoint_updated_at",
-      )?,
-      created_at: try_get_row_or(
-        row,
-        "created_at",
-        "webhook_endpoint_created_at",
-      )?,
-    })
-  }
-}
-
 pub struct NewWebhookEndpoint<'s> {
   pub scope: &'s ScopeName,
   pub package: Option<&'s PackageName>,
@@ -1132,27 +1099,169 @@ pub struct NewWebhookEndpoint<'s> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
 pub enum WebhookPayload {
-  PackageVersionPublished {},
-  PackageVersionYanked {},
-  PackageVersionDeleted {},
-  ScopePackageCreated {},
-  ScopePackageArchived {},
-  ScopeMemberAdded {},
-  ScopeMemberLeft { scope: ScopeName, user_id: Uuid },
+  PackageVersionPublished {
+    scope: ScopeName,
+    package: PackageName,
+    version: Version,
+  },
+  PackageVersionYanked {
+    scope: ScopeName,
+    package: PackageName,
+    version: Version,
+    yanked: bool,
+  },
+  PackageVersionDeleted {
+    scope: ScopeName,
+    package: PackageName,
+    version: Version,
+  },
+  ScopePackageCreated {
+    scope: ScopeName,
+    package: PackageName,
+  },
+  ScopePackageDeleted {
+    scope: ScopeName,
+    package: PackageName,
+  },
+  ScopePackageArchived {
+    scope: ScopeName,
+    package: PackageName,
+    archived: bool,
+  },
+  ScopeMemberAdded {
+    scope: ScopeName,
+    user_id: Uuid,
+  },
+  ScopeMemberRemoved {
+    scope: ScopeName,
+    user_id: Uuid,
+  },
+}
+
+#[derive(Serialize)]
+struct ProviderEmbed {
+  color: String,
+  title: &'static str,
+  url: String,
+  description: String,
 }
 
 impl WebhookPayload {
-  pub fn discord_format(self) -> Result<serde_json::Value, serde_json::Error> {
+  fn into_embed_data(self) -> ProviderEmbed {
     match self {
-      WebhookPayload::PackageVersionPublished { .. } => todo!(),
-      WebhookPayload::PackageVersionYanked { .. } => todo!(),
-      WebhookPayload::PackageVersionDeleted { .. } => todo!(),
-      WebhookPayload::ScopePackageCreated { .. } => todo!(),
-      WebhookPayload::ScopePackageArchived { .. } => todo!(),
-      WebhookPayload::ScopeMemberAdded { .. } => todo!(),
-      WebhookPayload::ScopeMemberLeft { .. } => todo!(),
+      WebhookPayload::PackageVersionPublished {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: "".to_string(),
+        title: "Package version published",
+        url: format!("jsr.io/@{scope}/{package}/{version}"),
+        description: format!("@{scope}/{package}/{version} has been published"),
+      },
+      WebhookPayload::PackageVersionYanked {
+        scope,
+        package,
+        version,
+        yanked,
+      } => ProviderEmbed {
+        color: "".to_string(),
+        title: if yanked {
+          "Package version yanked"
+        } else {
+          "Package version unyanked"
+        },
+        url: format!("jsr.io/@{scope}/{package}/{version}"),
+        description: format!(
+          "@{scope}/{package}/{version} has been {}",
+          if yanked { "yanked" } else { "unyanked" }
+        ),
+      },
+      WebhookPayload::PackageVersionDeleted {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: "".to_string(),
+        title: "Package version deleted",
+        url: format!("jsr.io/@{scope}/{package}/{version}"),
+        description: format!("@{scope}/{package}/{version} has been deleted"),
+      },
+      WebhookPayload::ScopePackageCreated { scope, package } => ProviderEmbed {
+        color: "".to_string(),
+        title: "Package created",
+        url: format!("jsr.io/@{scope}/{package}"),
+        description: format!("@{scope}/{package} has been created"),
+      },
+      WebhookPayload::ScopePackageDeleted { scope, package } => ProviderEmbed {
+        color: "".to_string(),
+        title: "Package deleted",
+        url: format!("jsr.io/@{scope}"),
+        description: format!("@{scope}/{package} has been deleted"),
+      },
+      WebhookPayload::ScopePackageArchived {
+        scope,
+        package,
+        archived,
+      } => ProviderEmbed {
+        color: "".to_string(),
+        title: if archived {
+          "Package archived"
+        } else {
+          "Package unarchived"
+        },
+        url: format!("jsr.io/@{scope}"),
+        description: format!(
+          "@{scope}/{package} has been {}",
+          if archived { "archived" } else { "unarchived" }
+        ),
+      },
+      WebhookPayload::ScopeMemberAdded { scope, user_id } => ProviderEmbed {
+        color: "".to_string(),
+        title: "Scope member added",
+        url: format!("jsr.io/@{scope}"),
+        description: format!("{user_id} has been added to @{scope}"),
+      },
+      WebhookPayload::ScopeMemberRemoved { scope, user_id } => ProviderEmbed {
+        color: "".to_string(),
+        title: "Scope member removed",
+        url: format!("jsr.io/@{scope}"),
+        description: format!("{user_id} has been removed from @{scope}"),
+      },
     }
+  }
+
+  pub fn discord_format(self) -> serde_json::Value {
+    let embed = self.into_embed_data();
+
+    serde_json::json!({
+      "username": "JSR",
+      "avatar_url": "https://jsr.io/logo-square.svg",
+      "embeds": [embed],
+    })
+  }
+
+  pub fn slack_format(self) -> serde_json::Value {
+    let embed = self.into_embed_data();
+
+    serde_json::json!({
+      "attachments": [
+        {
+          "color": embed.color,
+          "blocks": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": format!("[{}]({})\n{}", embed.title, embed.url, embed.description),
+              }
+            }
+          ]
+        }
+      ]
+    })
   }
 }
 
@@ -1195,8 +1304,9 @@ pub struct WebhookEvent {
   pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "task_status", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum WebhookDeliveryStatus {
   Pending,
   Success,
@@ -1211,7 +1321,7 @@ pub struct WebhookDelivery {
   pub event_id: Uuid,
   pub status: WebhookDeliveryStatus,
 
-  pub request_headers: serde_json::Value,
+  pub request_headers: Option<serde_json::Value>,
 
   pub response_http_code: Option<i32>,
   pub response_headers: Option<serde_json::Value>,

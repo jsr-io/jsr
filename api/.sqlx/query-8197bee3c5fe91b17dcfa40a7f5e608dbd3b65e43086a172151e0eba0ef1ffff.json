@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO webhook_deliveries (endpoint_id, event_id)\n     SELECT webhook_endpoints.id, $1 FROM webhook_endpoints\n     WHERE webhook_endpoints.scope = $2 AND (webhook_endpoints.package IS NULL OR webhook_endpoints.package = $3) AND $4 = ANY(webhook_endpoints.events) AND webhook_endpoints.is_active = TRUE\n     RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        {
+          "Custom": {
+            "name": "webhook_event_kind",
+            "kind": {
+              "Enum": [
+                "package_version_published",
+                "package_version_yanked",
+                "package_version_deleted",
+                "scope_package_created",
+                "scope_package_deleted",
+                "scope_package_archived",
+                "scope_member_added",
+                "scope_member_removed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8197bee3c5fe91b17dcfa40a7f5e608dbd3b65e43086a172151e0eba0ef1ffff"
+}

@@ -403,15 +403,16 @@ export interface PackageDownloadsRecentVersion {
 }
 
 export type WebhookEventKind =
- | "package_version_published"
- | "package_version_yanked"
- | "package_version_deleted"
- | "scope_package_created"
- | "scope_package_archived"
- | "scope_member_added"
- | "scope_member_left";
+  | "package_version_published"
+  | "package_version_yanked"
+  | "package_version_deleted"
+  | "scope_package_created"
+  | "scope_package_deleted"
+  | "scope_package_archived"
+  | "scope_member_added"
+  | "scope_member_removed";
 
-export type WebhookPayloadFormat = "json" | "discord";
+export type WebhookPayloadFormat = "json" | "discord" | "slack";
 
 export interface WebhookEndpoint {
   id: string;
@@ -419,10 +420,29 @@ export interface WebhookEndpoint {
   package: string | null;
   url: string;
   description: string | null;
-  secret: string;
+  hasSecret: boolean;
   events: WebhookEventKind[];
-  payloadFormat: WebhookPayloadFormat,
+  payloadFormat: WebhookPayloadFormat;
   isActive: boolean;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export type WebhookDeliveryStatus =
+  | "pending"
+  | "success"
+  | "failure"
+  | "retrying";
+
+export interface WebhookDelivery {
+  id: string;
+  status: WebhookDeliveryStatus;
+  requestHeaders: Record<string, string[]> | null;
+  responseHttpCode: number | null;
+  responseHeaders: Record<string, string[]> | null;
+  responseBody: string | null;
+  payload: unknown;
+  event: WebhookEventKind;
   updatedAt: string;
   createdAt: string;
 }

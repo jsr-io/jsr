@@ -721,6 +721,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let package = req.param_package()?;
 
   let db: &Database = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
 
   let _ = db
     .get_package(&scope, &package)
@@ -730,10 +731,18 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  let deleted = db.delete_package(&user.id, sudo, &scope, &package).await?;
+  let (deleted, webhook_deliveries) =
+    db.delete_package(&user.id, sudo, &scope, &package).await?;
   if !deleted {
     return Err(ApiError::PackageNotEmpty);
   }
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    webhook_deliveries,
+  )
+  .await?;
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {

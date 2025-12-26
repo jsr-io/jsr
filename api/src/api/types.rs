@@ -1193,3 +1193,35 @@ impl From<WebhookEndpoint> for ApiWebhookEndpoint {
     }
   }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiWebhookDelivery {
+  pub id: Uuid,
+  pub status: WebhookDeliveryStatus,
+  pub event: WebhookEventKind,
+  pub payload: WebhookPayload,
+  pub request_headers: Option<serde_json::Value>,
+  pub response_http_code: Option<i32>,
+  pub response_headers: Option<serde_json::Value>,
+  pub response_body: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(WebhookDelivery, WebhookEvent)> for ApiWebhookDelivery {
+  fn from((delivery, event): (WebhookDelivery, WebhookEvent)) -> Self {
+    Self {
+      id: delivery.id,
+      status: delivery.status,
+      event: event.event,
+      payload: event.payload,
+      request_headers: delivery.request_headers,
+      response_http_code: delivery.response_http_code,
+      response_headers: delivery.response_headers,
+      response_body: delivery.response_body,
+      updated_at: delivery.updated_at,
+      created_at: delivery.created_at,
+    }
+  }
+}

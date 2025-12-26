@@ -49,9 +49,10 @@
                       "package_version_yanked",
                       "package_version_deleted",
                       "scope_package_created",
+                      "scope_package_deleted",
                       "scope_package_archived",
                       "scope_member_added",
-                      "scope_member_left"
+                      "scope_member_removed"
                     ]
                   }
                 }
@@ -69,7 +70,8 @@
             "kind": {
               "Enum": [
                 "json",
-                "discord"
+                "discord",
+                "slack"
               ]
             }
           }
@@ -111,9 +113,10 @@
                       "package_version_yanked",
                       "package_version_deleted",
                       "scope_package_created",
+                      "scope_package_deleted",
                       "scope_package_archived",
                       "scope_member_added",
-                      "scope_member_left"
+                      "scope_member_removed"
                     ]
                   }
                 }
@@ -127,7 +130,8 @@
             "kind": {
               "Enum": [
                 "json",
-                "discord"
+                "discord",
+                "slack"
               ]
             }
           }

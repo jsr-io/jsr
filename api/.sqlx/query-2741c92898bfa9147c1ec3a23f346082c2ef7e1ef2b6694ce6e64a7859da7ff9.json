@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO webhook_events (scope, package, event, payload) VALUES ($1, $2, $3, $4) RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        {
+          "Custom": {
+            "name": "webhook_event_kind",
+            "kind": {
+              "Enum": [
+                "package_version_published",
+                "package_version_yanked",
+                "package_version_deleted",
+                "scope_package_created",
+                "scope_package_deleted",
+                "scope_package_archived",
+                "scope_member_added",
+                "scope_member_removed"
+              ]
+            }
+          }
+        },
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2741c92898bfa9147c1ec3a23f346082c2ef7e1ef2b6694ce6e64a7859da7ff9"
+}

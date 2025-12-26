@@ -4,9 +4,7 @@ import { define } from "../../../../../util.ts";
 import { ScopeHeader } from "../../../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../../../(_components)/ScopeNav.tsx";
 import { WebhookEdit } from "../../../../../islands/WebhookEdit.tsx";
-import {
-  FullScope,
-} from "../../../../../utils/api_types.ts";
+import { FullScope } from "../../../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../../../utils/data.ts";
 import { path } from "../../../../../utils/api.ts";
 import { scopeIAM } from "../../../../../utils/iam.ts";

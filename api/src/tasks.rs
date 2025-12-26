@@ -469,7 +469,18 @@ pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
   let webhook_dispatch_id: Uuid = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
 
-  dispatch_webhook(db, webhook_dispatch_id).await?;
+  let retry_count = req
+    .headers()
+    .get("x-cloudtasks-taskretrycount")
+    .unwrap()
+    .to_str()
+    .unwrap()
+    .parse::<usize>()
+    .unwrap()
+    + 1;
+
+  // sync retry count value with terraform
+  dispatch_webhook(db, webhook_dispatch_id, 3 - retry_count).await?;
 
   Ok(())
 }
@@ -489,7 +500,7 @@ pub async fn enqueue_webhook_dispatches(
         queue.task_buffer(None, Some(body.into())).boxed()
       } else {
         let span = Span::current();
-        let fut = dispatch_webhook(db, webhook_dispatch_id)
+        let fut = dispatch_webhook(db, webhook_dispatch_id, 0)
           .instrument(span)
           .map_err(anyhow::Error::from);
         fut.boxed()
@@ -508,6 +519,7 @@ pub async fn enqueue_webhook_dispatches(
 async fn dispatch_webhook(
   db: &Database,
   webhook_dispatch_id: Uuid,
+  retries_left: usize,
 ) -> ApiResult<()> {
   let webhook = db.get_webhook_for_dispatch(webhook_dispatch_id).await?;
 
@@ -527,7 +539,8 @@ async fn dispatch_webhook(
 
       (json, signature)
     }
-    WebhookPayloadFormat::Discord => (webhook.payload.discord_format()?, None),
+    WebhookPayloadFormat::Discord => (webhook.payload.discord_format(), None),
+    WebhookPayloadFormat::Slack => (webhook.payload.slack_format(), None),
   };
 
   let mut headers = reqwest::header::HeaderMap::new();
@@ -580,8 +593,10 @@ async fn dispatch_webhook(
     webhook_dispatch_id,
     if success {
       crate::db::models::WebhookDeliveryStatus::Success
+    } else if retries_left != 0 {
+      crate::db::models::WebhookDeliveryStatus::Retrying
     } else {
-      todo!()
+      crate::db::models::WebhookDeliveryStatus::Failure
     },
     request_headers,
     response_http_status,
@@ -590,9 +605,12 @@ async fn dispatch_webhook(
   )
   .await?;
 
-  if !success {}
-
-  Ok(())
+  if !success {
+    todo!("error");
+    Ok(())
+  } else {
+    Ok(())
+  }
 }
 
 fn headers_to_map(

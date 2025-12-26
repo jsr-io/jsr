@@ -918,7 +918,11 @@ impl Database {
       scope,
       None,
       WebhookEventKind::ScopePackageArchived,
-      WebhookPayload::ScopePackageArchived {},
+      WebhookPayload::ScopePackageArchived {
+        scope: scope.clone(),
+        package: name.clone(),
+        archived: is_archived,
+      },
     )
     .await?;
 
@@ -2278,7 +2282,12 @@ impl Database {
       scope,
       Some(name),
       WebhookEventKind::PackageVersionYanked,
-      WebhookPayload::PackageVersionYanked {},
+      WebhookPayload::PackageVersionYanked {
+        scope: scope.clone(),
+        package: name.clone(),
+        version: version.clone(),
+        yanked: yank,
+      },
     )
     .await?;
 
@@ -2324,7 +2333,11 @@ impl Database {
       scope,
       Some(name),
       WebhookEventKind::PackageVersionDeleted,
-      WebhookPayload::PackageVersionDeleted {},
+      WebhookPayload::PackageVersionDeleted {
+        scope: scope.clone(),
+        package: name.clone(),
+        version: version.clone(),
+      },
     )
     .await?;
 
@@ -2717,7 +2730,10 @@ impl Database {
       scope,
       None,
       WebhookEventKind::ScopeMemberAdded,
-      WebhookPayload::ScopeMemberAdded {},
+      WebhookPayload::ScopeMemberAdded {
+        scope: scope.clone(),
+        user_id: target_user_id.clone(),
+      },
     )
     .await?;
 
@@ -2768,7 +2784,7 @@ impl Database {
     is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
-  ) -> Result<bool> {
+  ) -> Result<(bool, Vec<Uuid>)> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -2790,7 +2806,7 @@ impl Database {
       .fetch_one(&mut *tx)
       .await?;
     if status.count.unwrap() > 0 {
-      return Ok(false);
+      return Ok((false, vec![]));
     }
 
     let res = sqlx::query!(
@@ -2804,16 +2820,33 @@ impl Database {
     match res {
       Ok(res) => {
         let success = res.rows_affected() > 0;
-        if success {
+
+        let webhook_deliveries = if success {
+          let webhook_deliveries = insert_webhook_event(
+            &mut tx,
+            scope,
+            None,
+            WebhookEventKind::ScopePackageDeleted,
+            WebhookPayload::ScopePackageDeleted {
+              scope: scope.clone(),
+              package: name.clone(),
+            },
+          )
+          .await?;
+
           tx.commit().await?;
-        }
-        Ok(success)
+
+          webhook_deliveries
+        } else {
+          vec![]
+        };
+        Ok((success, webhook_deliveries))
       }
       Err(err) => {
         if let Some(dberr) = err.as_database_error()
           && dberr.is_foreign_key_violation()
         {
-          return Ok(false);
+          return Ok((false, vec![]));
         }
         Err(err)
       }
@@ -3034,7 +3067,7 @@ impl Database {
       &scope,
       None,
       WebhookEventKind::ScopeMemberLeft,
-      WebhookPayload::ScopeMemberLeft {
+      WebhookPayload::ScopeMemberRemoved {
         scope: scope.clone(),
         user_id,
       },
@@ -3494,6 +3527,7 @@ impl Database {
     &self,
     scope: &ScopeName,
     name: &PackageName,
+    version: &Version,
   ) -> Result<Vec<Uuid>> {
     let mut tx = self.pool.begin().await?;
 
@@ -3502,7 +3536,11 @@ impl Database {
       scope,
       Some(name),
       WebhookEventKind::PackageVersionPublished,
-      WebhookPayload::PackageVersionPublished {},
+      WebhookPayload::PackageVersionPublished {
+        scope: scope.clone(),
+        package: name.clone(),
+        version: version.clone(),
+      },
     )
     .await?;
 
@@ -5191,7 +5229,11 @@ impl Database {
       .await
   }
 
-  #[instrument(name = "Database::update_webhook_delivery", skip(self), err)]
+  #[instrument(
+    name = "Database::update_webhook_delivery",
+    skip(self, request_headers, response_headers, response_body),
+    err
+  )]
   pub async fn update_webhook_delivery(
     &self,
     id: Uuid,
@@ -5215,6 +5257,90 @@ impl Database {
     .execute(&self.pool)
     .await?;
     Ok(())
+  }
+
+  #[instrument(name = "Database::list_webhook_deliveries", skip(self), err)]
+  pub async fn list_webhook_deliveries(
+    &self,
+    webhook_endpoint_id: Uuid,
+  ) -> Result<Vec<(WebhookDelivery, WebhookEvent)>> {
+    sqlx::query!(
+      r#"SELECT
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
+      FROM webhook_deliveries
+      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
+      WHERE endpoint_id = $1"#,
+      webhook_endpoint_id,
+    )
+      .try_map(|r| {
+        let delivery = WebhookDelivery {
+          id: r.webhook_delivery_id,
+          endpoint_id: r.webhook_delivery_endpoint_id,
+          event_id: r.webhook_delivery_event_id,
+          status: r.webhook_delivery_status,
+          request_headers: r.webhook_delivery_request_headers,
+          response_http_code: r.webhook_delivery_response_http_code,
+          response_headers: r.webhook_delivery_response_headers,
+          response_body: r.webhook_delivery_response_body,
+          updated_at: r.webhook_delivery_updated_at,
+          created_at: r.webhook_delivery_created_at,
+        };
+        let event = WebhookEvent {
+          id: r.webhook_event_id,
+          scope: r.webhook_event_scope,
+          package: r.webhook_event_package,
+          event: r.webhook_event_event,
+          payload: r.webhook_event_payload,
+          created_at: r.webhook_event_created_at,
+        };
+
+        Ok((delivery, event))
+      })
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::get_webhook_deliveries", skip(self), err)]
+  pub async fn get_webhook_delivery(
+    &self,
+    webhook_delivery_id: Uuid,
+  ) -> Result<(WebhookDelivery, WebhookEvent)> {
+    sqlx::query!(
+      r#"SELECT
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
+      FROM webhook_deliveries
+      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
+      WHERE webhook_deliveries.id = $1"#,
+      webhook_delivery_id,
+    )
+      .try_map(|r| {
+        let delivery = WebhookDelivery {
+          id: r.webhook_delivery_id,
+          endpoint_id: r.webhook_delivery_endpoint_id,
+          event_id: r.webhook_delivery_event_id,
+          status: r.webhook_delivery_status,
+          request_headers: r.webhook_delivery_request_headers,
+          response_http_code: r.webhook_delivery_response_http_code,
+          response_headers: r.webhook_delivery_response_headers,
+          response_body: r.webhook_delivery_response_body,
+          updated_at: r.webhook_delivery_updated_at,
+          created_at: r.webhook_delivery_created_at,
+        };
+        let event = WebhookEvent {
+          id: r.webhook_event_id,
+          scope: r.webhook_event_scope,
+          package: r.webhook_event_package,
+          event: r.webhook_event_event,
+          payload: r.webhook_event_payload,
+          created_at: r.webhook_event_created_at,
+        };
+
+        Ok((delivery, event))
+      })
+      .fetch_one(&self.pool)
+      .await
   }
 }
 
@@ -5274,7 +5400,10 @@ async fn finalize_package_creation(
     scope,
     None,
     WebhookEventKind::ScopePackageCreated,
-    WebhookPayload::ScopePackageCreated {},
+    WebhookPayload::ScopePackageCreated {
+      scope: scope.clone(),
+      package: package.name.clone(),
+    },
   )
   .await?;
 

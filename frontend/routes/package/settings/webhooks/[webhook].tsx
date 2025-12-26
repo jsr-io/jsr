@@ -8,6 +8,9 @@ import { path } from "../../../../utils/api.ts";
 import { scopeIAM } from "../../../../utils/iam.ts";
 import { PackageHeader } from "../../(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "../../(_components)/PackageNav.tsx";
+import {
+  WebhookDeliveries,
+} from "../../../../components/WebhookDeliveries.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, params },
@@ -30,6 +33,8 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
       />
 
       <WebhookEdit webhook={data.webhook} packageLevel />
+
+      <WebhookDeliveries />
     </div>
   );
 });
@@ -39,7 +44,9 @@ export const handler = define.handlers({
     const [user, data, webhookResp] = await Promise.all([
       ctx.state.userPromise,
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
-      ctx.state.api.get<WebhookEndpoint>(path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/webhooks/${ctx.params.webhook}`),
+      ctx.state.api.get<WebhookEndpoint>(
+        path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/webhooks/${ctx.params.webhook}`,
+      ),
     ]);
     if (user instanceof Response) return user;
     if (data === null) throw new HttpError(404, "The scope was not found.");
