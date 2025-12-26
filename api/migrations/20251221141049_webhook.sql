@@ -55,6 +55,7 @@ CREATE TABLE webhook_deliveries (
     status webhook_delivery_status NOT NULL DEFAULT 'pending',
 
     request_headers JSONB,
+    request_body JSONB,
 
     response_http_code INT,
     response_headers JSONB,

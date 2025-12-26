@@ -5164,7 +5164,7 @@ impl Database {
       WebhookEndpoint,
       r#"SELECT id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at
         FROM webhook_endpoints
-        WHERE scope = $1 AND ($2::text IS NULL OR package = $2)"#,
+        WHERE scope = $1 AND ($2::text IS NULL OR package = $2)  ORDER BY created_at DESC"#,
       scope as _,
       package as _,
     )
@@ -5239,17 +5239,19 @@ impl Database {
     id: Uuid,
     status: WebhookDeliveryStatus,
     request_headers: serde_json::Value,
+    request_body: serde_json::Value,
     response_http_code: i32,
     response_headers: serde_json::Value,
     response_body: String,
   ) -> Result<()> {
     sqlx::query!(
       r#"UPDATE webhook_deliveries
-        SET status = $2, request_headers = $3, response_http_code = $4, response_headers = $5, response_body = $6
+        SET status = $2, request_headers = $3, request_body = $4, response_http_code = $5, response_headers = $6, response_body = $7
         WHERE id = $1"#,
       id,
       status as _,
       request_headers,
+      request_body,
       response_http_code,
       response_headers,
       response_body,
@@ -5266,11 +5268,11 @@ impl Database {
   ) -> Result<Vec<(WebhookDelivery, WebhookEvent)>> {
     sqlx::query!(
       r#"SELECT
-        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
-      WHERE endpoint_id = $1"#,
+      WHERE endpoint_id = $1 ORDER BY webhook_deliveries.created_at DESC"#,
       webhook_endpoint_id,
     )
       .try_map(|r| {
@@ -5280,6 +5282,7 @@ impl Database {
           event_id: r.webhook_delivery_event_id,
           status: r.webhook_delivery_status,
           request_headers: r.webhook_delivery_request_headers,
+          request_body: r.webhook_delivery_request_body,
           response_http_code: r.webhook_delivery_response_http_code,
           response_headers: r.webhook_delivery_response_headers,
           response_body: r.webhook_delivery_response_body,
@@ -5308,7 +5311,7 @@ impl Database {
   ) -> Result<(WebhookDelivery, WebhookEvent)> {
     sqlx::query!(
       r#"SELECT
-        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
@@ -5322,6 +5325,7 @@ impl Database {
           event_id: r.webhook_delivery_event_id,
           status: r.webhook_delivery_status,
           request_headers: r.webhook_delivery_request_headers,
+          request_body: r.webhook_delivery_request_body,
           response_http_code: r.webhook_delivery_response_http_code,
           response_headers: r.webhook_delivery_response_headers,
           response_body: r.webhook_delivery_response_body,

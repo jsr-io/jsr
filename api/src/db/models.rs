@@ -488,8 +488,7 @@ impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PackageVersionMeta {
 
 impl sqlx::Type<sqlx::Postgres> for PackageVersionMeta {
   fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
-    <sqlx::types::Json<PackageVersionMeta> as sqlx::Type<sqlx::Postgres>>::type_info(
-    )
+    <sqlx::types::Json<PackageVersionMeta> as sqlx::Type<sqlx::Postgres>>::type_info()
   }
 }
 
@@ -1140,131 +1139,6 @@ pub enum WebhookPayload {
   },
 }
 
-#[derive(Serialize)]
-struct ProviderEmbed {
-  color: String,
-  title: &'static str,
-  url: String,
-  description: String,
-}
-
-impl WebhookPayload {
-  fn into_embed_data(self) -> ProviderEmbed {
-    match self {
-      WebhookPayload::PackageVersionPublished {
-        scope,
-        package,
-        version,
-      } => ProviderEmbed {
-        color: "".to_string(),
-        title: "Package version published",
-        url: format!("jsr.io/@{scope}/{package}/{version}"),
-        description: format!("@{scope}/{package}/{version} has been published"),
-      },
-      WebhookPayload::PackageVersionYanked {
-        scope,
-        package,
-        version,
-        yanked,
-      } => ProviderEmbed {
-        color: "".to_string(),
-        title: if yanked {
-          "Package version yanked"
-        } else {
-          "Package version unyanked"
-        },
-        url: format!("jsr.io/@{scope}/{package}/{version}"),
-        description: format!(
-          "@{scope}/{package}/{version} has been {}",
-          if yanked { "yanked" } else { "unyanked" }
-        ),
-      },
-      WebhookPayload::PackageVersionDeleted {
-        scope,
-        package,
-        version,
-      } => ProviderEmbed {
-        color: "".to_string(),
-        title: "Package version deleted",
-        url: format!("jsr.io/@{scope}/{package}/{version}"),
-        description: format!("@{scope}/{package}/{version} has been deleted"),
-      },
-      WebhookPayload::ScopePackageCreated { scope, package } => ProviderEmbed {
-        color: "".to_string(),
-        title: "Package created",
-        url: format!("jsr.io/@{scope}/{package}"),
-        description: format!("@{scope}/{package} has been created"),
-      },
-      WebhookPayload::ScopePackageDeleted { scope, package } => ProviderEmbed {
-        color: "".to_string(),
-        title: "Package deleted",
-        url: format!("jsr.io/@{scope}"),
-        description: format!("@{scope}/{package} has been deleted"),
-      },
-      WebhookPayload::ScopePackageArchived {
-        scope,
-        package,
-        archived,
-      } => ProviderEmbed {
-        color: "".to_string(),
-        title: if archived {
-          "Package archived"
-        } else {
-          "Package unarchived"
-        },
-        url: format!("jsr.io/@{scope}"),
-        description: format!(
-          "@{scope}/{package} has been {}",
-          if archived { "archived" } else { "unarchived" }
-        ),
-      },
-      WebhookPayload::ScopeMemberAdded { scope, user_id } => ProviderEmbed {
-        color: "".to_string(),
-        title: "Scope member added",
-        url: format!("jsr.io/@{scope}"),
-        description: format!("{user_id} has been added to @{scope}"),
-      },
-      WebhookPayload::ScopeMemberRemoved { scope, user_id } => ProviderEmbed {
-        color: "".to_string(),
-        title: "Scope member removed",
-        url: format!("jsr.io/@{scope}"),
-        description: format!("{user_id} has been removed from @{scope}"),
-      },
-    }
-  }
-
-  pub fn discord_format(self) -> serde_json::Value {
-    let embed = self.into_embed_data();
-
-    serde_json::json!({
-      "username": "JSR",
-      "avatar_url": "https://jsr.io/logo-square.svg",
-      "embeds": [embed],
-    })
-  }
-
-  pub fn slack_format(self) -> serde_json::Value {
-    let embed = self.into_embed_data();
-
-    serde_json::json!({
-      "attachments": [
-        {
-          "color": embed.color,
-          "blocks": [
-            {
-              "type": "section",
-              "text": {
-                "type": "mrkdwn",
-                "text": format!("[{}]({})\n{}", embed.title, embed.url, embed.description),
-              }
-            }
-          ]
-        }
-      ]
-    })
-  }
-}
-
 impl sqlx::Decode<'_, sqlx::Postgres> for WebhookPayload {
   fn decode(
     value: sqlx::postgres::PgValueRef<'_>,
@@ -1305,7 +1179,7 @@ pub struct WebhookEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "task_status", rename_all = "lowercase")]
+#[sqlx(type_name = "webhook_delivery_status", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum WebhookDeliveryStatus {
   Pending,
@@ -1322,6 +1196,7 @@ pub struct WebhookDelivery {
   pub status: WebhookDeliveryStatus,
 
   pub request_headers: Option<serde_json::Value>,
+  pub request_body: Option<serde_json::Value>,
 
   pub response_http_code: Option<i32>,
   pub response_headers: Option<serde_json::Value>,

@@ -54,11 +54,11 @@ export function WebhookDelivery(
           </div>
         )}
 
-        {delivery.payload && (
+        {delivery.requestBody && (
           <div>
             <h3 class="text-xl font-semibold">Payload</h3>
             <Code>
-              {JSON.stringify(delivery.payload, null, 2)}
+              {JSON.stringify(delivery.requestBody, null, 2)}
             </Code>
           </div>
         )}
@@ -71,7 +71,14 @@ export function WebhookDelivery(
             {delivery.responseHttpCode && (
               <div class="flex items-center gap-2">
                 <h3 class="text-xl font-semibold">HTTP Status:</h3>
-                <code class={(delivery.responseHttpCode >= 200 && delivery.responseHttpCode <= 299) ? "text-green-500" : "text-red-500"}>{delivery.responseHttpCode}</code>
+                <code
+                  class={(delivery.responseHttpCode >= 200 &&
+                      delivery.responseHttpCode <= 299)
+                    ? "text-green-500"
+                    : "text-red-500"}
+                >
+                  {delivery.responseHttpCode}
+                </code>
               </div>
             )}
           </div>

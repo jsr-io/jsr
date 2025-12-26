@@ -8,10 +8,10 @@ use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
-use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
 use crate::db::{Database, WebhookPayloadFormat};
+use crate::db::{DownloadKind, WebhookPayload};
 use crate::gcp;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
@@ -468,6 +468,7 @@ fn deserialize_version_download_count_from_bigquery(
 pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
   let webhook_dispatch_id: Uuid = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   let retry_count = req
     .headers()
@@ -480,17 +481,23 @@ pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
     + 1;
 
   // sync retry count value with terraform
-  dispatch_webhook(db, webhook_dispatch_id, 3 - retry_count).await?;
+  dispatch_webhook(db, registry_url, webhook_dispatch_id, 3 - retry_count)
+    .await?;
 
   Ok(())
 }
 
 const WEBHOOK_DISPATCH_ENQUEUE_PARALLELISM: usize = 32;
 
-#[instrument(name = "enqueue_webhook_dispatches", skip(queue, db), err)]
+#[instrument(
+  name = "enqueue_webhook_dispatches",
+  skip(queue, db, registry_url),
+  err
+)]
 pub async fn enqueue_webhook_dispatches(
   queue: &WebhookDispatchQueue,
   db: &Database,
+  registry_url: &RegistryUrl,
   webhook_dispatch_ids: Vec<Uuid>,
 ) -> ApiResult<()> {
   let mut futs = stream::iter(webhook_dispatch_ids)
@@ -500,7 +507,7 @@ pub async fn enqueue_webhook_dispatches(
         queue.task_buffer(None, Some(body.into())).boxed()
       } else {
         let span = Span::current();
-        let fut = dispatch_webhook(db, webhook_dispatch_id, 0)
+        let fut = dispatch_webhook(db, registry_url, webhook_dispatch_id, 0)
           .instrument(span)
           .map_err(anyhow::Error::from);
         fut.boxed()
@@ -515,12 +522,114 @@ pub async fn enqueue_webhook_dispatches(
   Ok(())
 }
 
-#[instrument(name = "dispatch_webhook", skip(db), err)]
+#[instrument(name = "dispatch_webhook", skip(db, registry_url), err)]
 async fn dispatch_webhook(
   db: &Database,
+  registry_url: &RegistryUrl,
   webhook_dispatch_id: Uuid,
   retries_left: usize,
 ) -> ApiResult<()> {
+  #[derive(Serialize)]
+  struct ProviderEmbed {
+    color: u32,
+    title: &'static str,
+    url: String,
+    description: String,
+  }
+
+  fn payload_to_embed_data(
+    payload: WebhookPayload,
+    registry_url: &RegistryUrl,
+  ) -> ProviderEmbed {
+    const GREEN: u32 = 0x22c55e;
+    const YELLOW: u32 = 0xf7df1e;
+    const RED: u32 = 0xef4444;
+
+    let url = &registry_url.0;
+
+    match payload {
+      WebhookPayload::PackageVersionPublished {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: GREEN,
+        title: "Package version published",
+        url: format!("{url}/@{scope}/{package}/{version}"),
+        description: format!("@{scope}/{package}/{version} has been published"),
+      },
+      WebhookPayload::PackageVersionYanked {
+        scope,
+        package,
+        version,
+        yanked,
+      } => ProviderEmbed {
+        color: if yanked { RED } else { GREEN },
+        title: if yanked {
+          "Package version yanked"
+        } else {
+          "Package version unyanked"
+        },
+        url: format!("{url}/@{scope}/{package}/{version}"),
+        description: format!(
+          "@{scope}/{package}/{version} has been {}",
+          if yanked { "yanked" } else { "unyanked" }
+        ),
+      },
+      WebhookPayload::PackageVersionDeleted {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: RED,
+        title: "Package version deleted",
+        url: format!("{url}/@{scope}/{package}/{version}"),
+        description: format!("@{scope}/{package}/{version} has been deleted"),
+      },
+      WebhookPayload::ScopePackageCreated { scope, package } => ProviderEmbed {
+        color: GREEN,
+        title: "Package created",
+        url: format!("{url}/@{scope}/{package}"),
+        description: format!("@{scope}/{package} has been created"),
+      },
+      WebhookPayload::ScopePackageDeleted { scope, package } => ProviderEmbed {
+        color: RED,
+        title: "Package deleted",
+        url: format!("{url}/@{scope}"),
+        description: format!("@{scope}/{package} has been deleted"),
+      },
+      WebhookPayload::ScopePackageArchived {
+        scope,
+        package,
+        archived,
+      } => ProviderEmbed {
+        color: YELLOW,
+        title: if archived {
+          "Package archived"
+        } else {
+          "Package unarchived"
+        },
+        url: format!("{url}/@{scope}"),
+        description: format!(
+          "@{scope}/{package} has been {}",
+          if archived { "archived" } else { "unarchived" }
+        ),
+      },
+      WebhookPayload::ScopeMemberAdded { scope, user_id } => ProviderEmbed {
+        color: GREEN,
+        title: "Scope member added",
+        url: format!("{url}/@{scope}"),
+        description: format!("{user_id} has been added to @{scope}"),
+      },
+      WebhookPayload::ScopeMemberRemoved { scope, user_id } => ProviderEmbed {
+        color: RED,
+        title: "Scope member removed",
+        url: format!("{url}/@{scope}"),
+        description: format!("{user_id} has been removed from @{scope}"),
+      },
+    }
+  }
+
   let webhook = db.get_webhook_for_dispatch(webhook_dispatch_id).await?;
 
   let (json, signature) = match webhook.payload_format {
@@ -539,8 +648,37 @@ async fn dispatch_webhook(
 
       (json, signature)
     }
-    WebhookPayloadFormat::Discord => (webhook.payload.discord_format(), None),
-    WebhookPayloadFormat::Slack => (webhook.payload.slack_format(), None),
+    WebhookPayloadFormat::Discord => (
+      json!({
+        "username": "JSR",
+        "avatar_url": format!("{}/logo-square.png", registry_url.0),
+        "embeds": [payload_to_embed_data(webhook.payload, registry_url)],
+      }),
+      None,
+    ),
+    WebhookPayloadFormat::Slack => {
+      let embed = payload_to_embed_data(webhook.payload, registry_url);
+
+      (
+        json!({
+          "attachments": [
+            {
+              "color": embed.color,
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": format!("[{}]({})\n{}", embed.title, embed.url, embed.description),
+                  }
+                }
+              ]
+            }
+          ]
+        }),
+        None,
+      )
+    }
   };
 
   let mut headers = reqwest::header::HeaderMap::new();
@@ -599,6 +737,7 @@ async fn dispatch_webhook(
       crate::db::models::WebhookDeliveryStatus::Failure
     },
     request_headers,
+    json,
     response_http_status,
     response_headers,
     response_body,

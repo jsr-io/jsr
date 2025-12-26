@@ -438,10 +438,10 @@ export interface WebhookDelivery {
   id: string;
   status: WebhookDeliveryStatus;
   requestHeaders: Record<string, string[]> | null;
+  requestBody: unknown | null;
   responseHttpCode: number | null;
   responseHeaders: Record<string, string[]> | null;
   responseBody: string | null;
-  payload: unknown;
   event: WebhookEventKind;
   updatedAt: string;
   createdAt: string;
