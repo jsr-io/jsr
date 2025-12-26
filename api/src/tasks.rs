@@ -555,7 +555,7 @@ async fn dispatch_webhook(
       } => ProviderEmbed {
         color: GREEN,
         title: "Package version published",
-        url: format!("{url}/@{scope}/{package}/{version}"),
+        url: format!("{url}@{scope}/{package}/{version}"),
         description: format!("@{scope}/{package}/{version} has been published"),
       },
       WebhookPayload::PackageVersionYanked {
@@ -570,7 +570,7 @@ async fn dispatch_webhook(
         } else {
           "Package version unyanked"
         },
-        url: format!("{url}/@{scope}/{package}/{version}"),
+        url: format!("{url}@{scope}/{package}/{version}"),
         description: format!(
           "@{scope}/{package}/{version} has been {}",
           if yanked { "yanked" } else { "unyanked" }
@@ -583,19 +583,19 @@ async fn dispatch_webhook(
       } => ProviderEmbed {
         color: RED,
         title: "Package version deleted",
-        url: format!("{url}/@{scope}/{package}/{version}"),
+        url: format!("{url}@{scope}/{package}/{version}"),
         description: format!("@{scope}/{package}/{version} has been deleted"),
       },
       WebhookPayload::ScopePackageCreated { scope, package } => ProviderEmbed {
         color: GREEN,
         title: "Package created",
-        url: format!("{url}/@{scope}/{package}"),
+        url: format!("{url}@{scope}/{package}"),
         description: format!("@{scope}/{package} has been created"),
       },
       WebhookPayload::ScopePackageDeleted { scope, package } => ProviderEmbed {
         color: RED,
         title: "Package deleted",
-        url: format!("{url}/@{scope}"),
+        url: format!("{url}@{scope}"),
         description: format!("@{scope}/{package} has been deleted"),
       },
       WebhookPayload::ScopePackageArchived {
@@ -609,7 +609,7 @@ async fn dispatch_webhook(
         } else {
           "Package unarchived"
         },
-        url: format!("{url}/@{scope}"),
+        url: format!("{url}@{scope}"),
         description: format!(
           "@{scope}/{package} has been {}",
           if archived { "archived" } else { "unarchived" }
@@ -618,13 +618,13 @@ async fn dispatch_webhook(
       WebhookPayload::ScopeMemberAdded { scope, user_id } => ProviderEmbed {
         color: GREEN,
         title: "Scope member added",
-        url: format!("{url}/@{scope}"),
+        url: format!("{url}@{scope}"),
         description: format!("{user_id} has been added to @{scope}"),
       },
       WebhookPayload::ScopeMemberRemoved { scope, user_id } => ProviderEmbed {
         color: RED,
         title: "Scope member removed",
-        url: format!("{url}/@{scope}"),
+        url: format!("{url}@{scope}"),
         description: format!("{user_id} has been removed from @{scope}"),
       },
     }
@@ -651,7 +651,7 @@ async fn dispatch_webhook(
     WebhookPayloadFormat::Discord => (
       json!({
         "username": "JSR",
-        "avatar_url": format!("{}/logo-square.png", registry_url.0),
+        "avatar_url": format!("{}logo-square.png", registry_url.0),
         "embeds": [payload_to_embed_data(webhook.payload, registry_url)],
       }),
       None,
@@ -663,13 +663,14 @@ async fn dispatch_webhook(
         json!({
           "attachments": [
             {
-              "color": embed.color,
+              "fallback": embed.description,
+              "color": format!("#{:x}", embed.color),
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": format!("[{}]({})\n{}", embed.title, embed.url, embed.description),
+                    "text": format!("*<{}|{}>*\n{}", embed.url, embed.title, embed.description),
                   }
                 }
               ]
@@ -713,13 +714,30 @@ async fn dispatch_webhook(
 
   let request_headers = serde_json::to_value(headers_to_map(&headers))?;
 
-  let response = reqwest::Client::new()
+  let response = match reqwest::Client::new()
     .post(webhook.url)
     .headers(headers)
     .json(&json)
     .send()
     .await
-    .map_err(anyhow::Error::from)?;
+  {
+    Ok(response) => response,
+    Err(err) => {
+      db.update_webhook_delivery_for_error(
+        webhook_dispatch_id,
+        if retries_left != 0 {
+          crate::db::models::WebhookDeliveryStatus::Retrying
+        } else {
+          crate::db::models::WebhookDeliveryStatus::Failure
+        },
+        err.to_string(),
+        request_headers,
+        json,
+      )
+      .await?;
+      return Err(anyhow::Error::from(err).into());
+    }
+  };
 
   let success = response.status().is_success();
   let response_http_status = response.status().as_u16() as i32;

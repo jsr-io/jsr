@@ -1053,7 +1053,7 @@ pub enum WebhookEventKind {
   ScopePackageDeleted,
   ScopePackageArchived,
   ScopeMemberAdded,
-  ScopeMemberLeft,
+  ScopeMemberRemoved,
 }
 
 impl sqlx::postgres::PgHasArrayType for WebhookEventKind {
@@ -1078,7 +1078,7 @@ pub struct WebhookEndpoint {
   pub scope: ScopeName,
   pub package: Option<PackageName>,
   pub url: String,
-  pub description: Option<String>,
+  pub description: String,
   pub secret: Option<String>,
   pub events: Vec<WebhookEventKind>,
   pub payload_format: WebhookPayloadFormat,
@@ -1091,10 +1091,11 @@ pub struct NewWebhookEndpoint<'s> {
   pub scope: &'s ScopeName,
   pub package: Option<&'s PackageName>,
   pub url: &'s str,
-  pub description: Option<&'s str>,
-  pub secret: &'s str,
+  pub description: &'s str,
+  pub secret: Option<&'s str>,
   pub events: Vec<WebhookEventKind>,
   pub payload_format: WebhookPayloadFormat,
+  pub is_active: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1201,6 +1202,8 @@ pub struct WebhookDelivery {
   pub response_http_code: Option<i32>,
   pub response_headers: Option<serde_json::Value>,
   pub response_body: Option<String>,
+
+  pub error: Option<String>,
 
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,

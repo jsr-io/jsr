@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n        webhook_deliveries.id as \"webhook_delivery_id\", webhook_deliveries.endpoint_id as \"webhook_delivery_endpoint_id\", webhook_deliveries.event_id as \"webhook_delivery_event_id\", webhook_deliveries.status as \"webhook_delivery_status: WebhookDeliveryStatus\", webhook_deliveries.request_headers as \"webhook_delivery_request_headers\", webhook_deliveries.response_http_code as \"webhook_delivery_response_http_code\", webhook_deliveries.response_headers as \"webhook_delivery_response_headers\", webhook_deliveries.response_body as \"webhook_delivery_response_body\", webhook_deliveries.updated_at as \"webhook_delivery_updated_at\", webhook_deliveries.created_at as \"webhook_delivery_created_at\",\n        webhook_events.id as \"webhook_event_id\", webhook_events.scope as \"webhook_event_scope: ScopeName\", webhook_events.package as \"webhook_event_package: PackageName\", webhook_events.event as \"webhook_event_event: WebhookEventKind\", webhook_events.payload as \"webhook_event_payload: WebhookPayload\", webhook_events.created_at as \"webhook_event_created_at\"\n      FROM webhook_deliveries\n      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id\n      WHERE webhook_deliveries.id = $1",
+  "query": "SELECT\n        webhook_deliveries.id as \"webhook_delivery_id\", webhook_deliveries.endpoint_id as \"webhook_delivery_endpoint_id\", webhook_deliveries.event_id as \"webhook_delivery_event_id\", webhook_deliveries.status as \"webhook_delivery_status: WebhookDeliveryStatus\", webhook_deliveries.request_headers as \"webhook_delivery_request_headers\", webhook_deliveries.request_body as \"webhook_delivery_request_body\", webhook_deliveries.response_http_code as \"webhook_delivery_response_http_code\", webhook_deliveries.response_headers as \"webhook_delivery_response_headers\", webhook_deliveries.response_body as \"webhook_delivery_response_body\", webhook_deliveries.error as \"webhook_delivery_error\", webhook_deliveries.updated_at as \"webhook_delivery_updated_at\", webhook_deliveries.created_at as \"webhook_delivery_created_at\",\n        webhook_events.id as \"webhook_event_id\", webhook_events.scope as \"webhook_event_scope: ScopeName\", webhook_events.package as \"webhook_event_package: PackageName\", webhook_events.event as \"webhook_event_event: WebhookEventKind\", webhook_events.payload as \"webhook_event_payload: WebhookPayload\", webhook_events.created_at as \"webhook_event_created_at\"\n      FROM webhook_deliveries\n      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id\n      WHERE endpoint_id = $1 ORDER BY webhook_deliveries.created_at DESC",
   "describe": {
     "columns": [
       {
@@ -42,46 +42,56 @@
       },
       {
         "ordinal": 5,
+        "name": "webhook_delivery_request_body",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
         "name": "webhook_delivery_response_http_code",
         "type_info": "Int4"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "webhook_delivery_response_headers",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "webhook_delivery_response_body",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
+        "name": "webhook_delivery_error",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
         "name": "webhook_delivery_updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "webhook_delivery_created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "webhook_event_id",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 11,
+        "ordinal": 13,
         "name": "webhook_event_scope: ScopeName",
         "type_info": "Text"
       },
       {
-        "ordinal": 12,
+        "ordinal": 14,
         "name": "webhook_event_package: PackageName",
         "type_info": "Text"
       },
       {
-        "ordinal": 13,
+        "ordinal": 15,
         "name": "webhook_event_event: WebhookEventKind",
         "type_info": {
           "Custom": {
@@ -102,12 +112,12 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "webhook_event_payload: WebhookPayload",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 15,
+        "ordinal": 17,
         "name": "webhook_event_created_at",
         "type_info": "Timestamptz"
       }
@@ -126,6 +136,8 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false,
       false,
@@ -136,5 +148,5 @@
       false
     ]
   },
-  "hash": "db02cb7baac490f3485ca349de8ae7ca20eff5b3ddadc93147f0ef7966e81181"
+  "hash": "5e864659fe35feb32cb538b2f68297621a49b31d8ae6fe3386da792e4de9aa23"
 }

@@ -16,7 +16,7 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
     <div class="mb-20">
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
-      <WebhookEdit webhook={null} />
+      <WebhookEdit webhook={null} scope={data.scope.scope} />
     </div>
   );
 });

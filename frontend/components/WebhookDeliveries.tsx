@@ -6,6 +6,7 @@ import type {
 } from "../utils/api_types.ts";
 import { ListDisplay } from "./List.tsx";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbRefresh } from "tb-icons";
+import { WEBHOOK_EVENTS } from "../islands/WebhookEdit.tsx";
 
 export function WebhookDeliveries(
   { webhook, deliveries }: {
@@ -16,7 +17,6 @@ export function WebhookDeliveries(
   return (
     <div class="border-t pt-8 mt-12">
       <h2 class="text-lg sm:text-xl font-semibold">Deliveries</h2>
-
       <ListDisplay>
         {deliveries.map((entry) => ({
           href: `./${webhook.id}/deliveries/${entry.id}`,
@@ -31,7 +31,7 @@ export function WebhookDeliveries(
               </div>
 
               <div class="flex-none whitespace-nowrap">
-                {entry.event.replaceAll("_", " ")}
+                {WEBHOOK_EVENTS.find((event) => event.id === entry.event)!.name}
               </div>
             </div>
           ),

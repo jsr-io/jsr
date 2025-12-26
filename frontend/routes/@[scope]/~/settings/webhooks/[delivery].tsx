@@ -3,7 +3,6 @@ import { HttpError, RouteConfig } from "fresh";
 import { define } from "../../../../../util.ts";
 import { ScopeHeader } from "../../../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../../../(_components)/ScopeNav.tsx";
-import { WebhookEdit } from "../../../../../islands/WebhookEdit.tsx";
 import type {
   FullScope,
   WebhookDelivery as ApiWebhookDelivery,
@@ -21,7 +20,7 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
     <div class="mb-20">
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
-      <WebhookDelivery webhook={data.webhook} delivery={data.webhookDelivery} />
+      <WebhookDelivery delivery={data.webhookDelivery} />
     </div>
   );
 });

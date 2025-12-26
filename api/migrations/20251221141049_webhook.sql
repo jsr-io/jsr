@@ -17,10 +17,10 @@ CREATE TYPE webhook_payload_format AS ENUM (
 
 CREATE TABLE webhook_endpoints (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    scope TEXT NOT NULL references scopes (scope),
+    scope TEXT NOT NULL references scopes (scope) ON DELETE CASCADE,
     package TEXT,
     url TEXT NOT NULL,
-    description TEXT,
+    description TEXT NOT NULL DEFAULT '',
     secret VARCHAR(255),
     events webhook_event_kind[] NOT NULL,
     payload_format webhook_payload_format NOT NULL,
@@ -35,7 +35,7 @@ SELECT manage_updated_at('webhook_endpoints');
 
 CREATE TABLE webhook_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    scope TEXT NOT NULL references scopes (scope),
+    scope TEXT NOT NULL references scopes (scope) ON DELETE CASCADE,
     package TEXT,
     event webhook_event_kind NOT NULL,
     payload JSONB NOT NULL,
@@ -60,6 +60,8 @@ CREATE TABLE webhook_deliveries (
     response_http_code INT,
     response_headers JSONB,
     response_body TEXT,
+
+    error TEXT,
 
     updated_at timestamptz NOT NULL DEFAULT now(),
     created_at timestamptz NOT NULL DEFAULT now()

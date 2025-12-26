@@ -32,7 +32,11 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
         latestVersion={data.package.latestVersion}
       />
 
-      <WebhookEdit webhook={data.webhook} packageLevel />
+      <WebhookEdit
+        webhook={data.webhook}
+        scope={data.package.scope}
+        package={data.package.name}
+      />
 
       <WebhookDeliveries />
     </div>

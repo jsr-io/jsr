@@ -438,6 +438,7 @@ pub async fn delete_member_handler(
 
   let db = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
@@ -454,6 +455,7 @@ pub async fn delete_member_handler(
       crate::tasks::enqueue_webhook_dispatches(
         webhook_dispatch_queue,
         db,
+        registry_url,
         webhook_deliveries.unwrap(),
       )
       .await?;
@@ -554,6 +556,7 @@ pub async fn create_webhook_handler(
     secret,
     events,
     payload_format,
+    is_active,
   } = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
@@ -567,10 +570,11 @@ pub async fn create_webhook_handler(
         scope: &scope,
         package: None,
         url: &url,
-        description: description.as_deref(),
-        secret: &secret,
+        description: &description,
+        secret: secret.as_deref(),
         events,
         payload_format,
+        is_active,
       },
       &user.id,
       sudo,

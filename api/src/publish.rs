@@ -153,6 +153,7 @@ pub async fn publish_task(
         crate::tasks::enqueue_webhook_dispatches(
           &webhook_dispatch_queue,
           &db,
+          &RegistryUrl(registry_url.clone()),
           webhook_deliveries,
         )
         .await?;

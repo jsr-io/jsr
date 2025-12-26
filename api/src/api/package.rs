@@ -318,6 +318,7 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
   let db = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   if db.check_is_bad_word(&package_name.to_string()).await? {
     return Err(ApiError::PackageNameNotAllowed);
@@ -343,6 +344,7 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   crate::tasks::enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     db,
+    registry_url,
     webhook_deliveries,
   )
   .await?;
@@ -512,10 +514,12 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         .await?;
 
       let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+      let registry_url = req.data::<RegistryUrl>().unwrap();
 
       crate::tasks::enqueue_webhook_dispatches(
         webhook_dispatch_queue,
         db,
+        registry_url,
         webhook_deliveries,
       )
       .await?;
@@ -722,6 +726,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 
   let db: &Database = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   let _ = db
     .get_package(&scope, &package)
@@ -740,6 +745,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   crate::tasks::enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     db,
+    registry_url,
     webhook_deliveries,
   )
   .await?;
@@ -1034,6 +1040,7 @@ pub async fn version_update_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
@@ -1052,6 +1059,7 @@ pub async fn version_update_handler(
   crate::tasks::enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     db,
+    registry_url,
     webhook_deliveries,
   )
   .await?;
@@ -1139,9 +1147,11 @@ pub async fn version_delete_handler(
     .await?;
 
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
   crate::tasks::enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     db,
+    registry_url,
     webhook_deliveries,
   )
   .await?;
@@ -2461,6 +2471,7 @@ pub async fn create_webhook_handler(
     secret,
     events,
     payload_format,
+    is_active,
   } = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
@@ -2474,10 +2485,11 @@ pub async fn create_webhook_handler(
         scope: &scope,
         package: Some(&package),
         url: &url,
-        description: description.as_deref(),
-        secret: &secret,
+        description: &description,
+        secret: secret.as_deref(),
         events,
         payload_format,
+        is_active,
       },
       &user.id,
       sudo,

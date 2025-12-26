@@ -3066,7 +3066,7 @@ impl Database {
       &mut tx,
       &scope,
       None,
-      WebhookEventKind::ScopeMemberLeft,
+      WebhookEventKind::ScopeMemberRemoved,
       WebhookPayload::ScopeMemberRemoved {
         scope: scope.clone(),
         user_id,
@@ -5115,8 +5115,8 @@ impl Database {
 
     let res = sqlx::query_as!(
       WebhookEndpoint,
-      r#"INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      r#"INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at"#,
       new_webhook.scope,
       new_webhook.package as _,
@@ -5125,6 +5125,7 @@ impl Database {
       new_webhook.secret,
       new_webhook.events as _,
       new_webhook.payload_format as _,
+      new_webhook.is_active,
     )
       .fetch_one(&mut *tx)
       .await?;
@@ -5229,9 +5230,10 @@ impl Database {
       .await
   }
 
+  #[allow(clippy::too_many_arguments)]
   #[instrument(
     name = "Database::update_webhook_delivery",
-    skip(self, request_headers, response_headers, response_body),
+    skip(self, request_headers, request_body, response_headers, response_body),
     err
   )]
   pub async fn update_webhook_delivery(
@@ -5246,7 +5248,7 @@ impl Database {
   ) -> Result<()> {
     sqlx::query!(
       r#"UPDATE webhook_deliveries
-        SET status = $2, request_headers = $3, request_body = $4, response_http_code = $5, response_headers = $6, response_body = $7
+        SET status = $2, request_headers = $3, request_body = $4, response_http_code = $5, response_headers = $6, response_body = $7, error = null
         WHERE id = $1"#,
       id,
       status as _,
@@ -5261,6 +5263,35 @@ impl Database {
     Ok(())
   }
 
+  #[allow(clippy::too_many_arguments)]
+  #[instrument(
+    name = "Database::update_webhook_delivery",
+    skip(self, error, request_headers, request_body),
+    err
+  )]
+  pub async fn update_webhook_delivery_for_error(
+    &self,
+    id: Uuid,
+    status: WebhookDeliveryStatus,
+    error: String,
+    request_headers: serde_json::Value,
+    request_body: serde_json::Value,
+  ) -> Result<()> {
+    sqlx::query!(
+      r#"UPDATE webhook_deliveries
+        SET status = $2, error = $3, request_headers = $4, request_body = $5, response_http_code = null, response_headers = null, response_body = null
+        WHERE id = $1"#,
+      id,
+      status as _,
+      error,
+      request_headers,
+      request_body,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
+
   #[instrument(name = "Database::list_webhook_deliveries", skip(self), err)]
   pub async fn list_webhook_deliveries(
     &self,
@@ -5268,7 +5299,7 @@ impl Database {
   ) -> Result<Vec<(WebhookDelivery, WebhookEvent)>> {
     sqlx::query!(
       r#"SELECT
-        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.error as "webhook_delivery_error", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
@@ -5286,6 +5317,7 @@ impl Database {
           response_http_code: r.webhook_delivery_response_http_code,
           response_headers: r.webhook_delivery_response_headers,
           response_body: r.webhook_delivery_response_body,
+          error: r.webhook_delivery_error,
           updated_at: r.webhook_delivery_updated_at,
           created_at: r.webhook_delivery_created_at,
         };
@@ -5311,7 +5343,7 @@ impl Database {
   ) -> Result<(WebhookDelivery, WebhookEvent)> {
     sqlx::query!(
       r#"SELECT
-        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.error as "webhook_delivery_error", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
@@ -5329,6 +5361,7 @@ impl Database {
           response_http_code: r.webhook_delivery_response_http_code,
           response_headers: r.webhook_delivery_response_headers,
           response_body: r.webhook_delivery_response_body,
+          error: r.webhook_delivery_error,
           updated_at: r.webhook_delivery_updated_at,
           created_at: r.webhook_delivery_created_at,
         };

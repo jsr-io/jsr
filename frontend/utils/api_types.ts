@@ -442,6 +442,7 @@ export interface WebhookDelivery {
   responseHttpCode: number | null;
   responseHeaders: Record<string, string[]> | null;
   responseBody: string | null;
+  error: string | null;
   event: WebhookEventKind;
   updatedAt: string;
   createdAt: string;

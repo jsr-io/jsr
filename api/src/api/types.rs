@@ -1154,10 +1154,11 @@ impl From<(AuditLog, UserPublic)> for ApiAuditLog {
 #[serde(rename_all = "camelCase")]
 pub struct ApiCreateWebhookEndpointRequest {
   pub url: String,
-  pub description: Option<String>,
-  pub secret: String,
+  pub description: String,
+  pub secret: Option<String>,
   pub events: Vec<WebhookEventKind>,
   pub payload_format: WebhookPayloadFormat,
+  pub is_active: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1167,7 +1168,7 @@ pub struct ApiWebhookEndpoint {
   pub scope: ScopeName,
   pub package: Option<PackageName>,
   pub url: String,
-  pub description: Option<String>,
+  pub description: String,
   pub has_secret: bool,
   pub events: Vec<WebhookEventKind>,
   pub payload_format: WebhookPayloadFormat,
@@ -1205,6 +1206,7 @@ pub struct ApiWebhookDelivery {
   pub response_http_code: Option<i32>,
   pub response_headers: Option<serde_json::Value>,
   pub response_body: Option<String>,
+  pub error: Option<String>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -1220,6 +1222,7 @@ impl From<(WebhookDelivery, WebhookEvent)> for ApiWebhookDelivery {
       response_http_code: delivery.response_http_code,
       response_headers: delivery.response_headers,
       response_body: delivery.response_body,
+      error: delivery.error,
       updated_at: delivery.updated_at,
       created_at: delivery.created_at,
     }

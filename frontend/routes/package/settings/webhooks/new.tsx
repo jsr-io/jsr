@@ -27,7 +27,11 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
         latestVersion={data.package.latestVersion}
       />
 
-      <WebhookEdit webhook={null} packageLevel />
+      <WebhookEdit
+        webhook={null}
+        scope={data.package.scope}
+        package={data.package.name}
+      />
     </div>
   );
 });

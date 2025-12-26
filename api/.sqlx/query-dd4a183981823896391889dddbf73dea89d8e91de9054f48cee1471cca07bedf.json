@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, scope AS \"scope: ScopeName\", package AS \"package: PackageName\", url, description, secret, events AS \"events: _\", payload_format AS \"payload_format: _\", is_active, updated_at, created_at\n        FROM webhook_endpoints\n        WHERE scope = $1 AND ($2::text IS NULL OR package = $2)",
+  "query": "INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format, is_active)\n      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n      RETURNING id, scope AS \"scope: ScopeName\", package AS \"package: PackageName\", url, description, secret, events AS \"events: _\", payload_format AS \"payload_format: _\", is_active, updated_at, created_at",
   "describe": {
     "columns": [
       {
@@ -96,7 +96,47 @@
     "parameters": {
       "Left": [
         "Text",
-        "Text"
+        "Text",
+        "Text",
+        "Text",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "_webhook_event_kind",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "webhook_event_kind",
+                  "kind": {
+                    "Enum": [
+                      "package_version_published",
+                      "package_version_yanked",
+                      "package_version_deleted",
+                      "scope_package_created",
+                      "scope_package_deleted",
+                      "scope_package_archived",
+                      "scope_member_added",
+                      "scope_member_removed"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "webhook_payload_format",
+            "kind": {
+              "Enum": [
+                "json",
+                "discord",
+                "slack"
+              ]
+            }
+          }
+        },
+        "Bool"
       ]
     },
     "nullable": [
@@ -104,7 +144,7 @@
       false,
       true,
       false,
-      true,
+      false,
       true,
       false,
       false,
@@ -113,5 +153,5 @@
       false
     ]
   },
-  "hash": "e6e64fa567092f23a2f2233ee09119f4e41e142947a244743e5890a37800825a"
+  "hash": "dd4a183981823896391889dddbf73dea89d8e91de9054f48cee1471cca07bedf"
 }

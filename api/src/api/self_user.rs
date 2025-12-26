@@ -136,6 +136,7 @@ pub async fn accept_invite_handler(
 
   let db = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   let (member, webhook_deliveries) = db
     .accept_scope_invite(&current_user.id, &scope)
@@ -145,6 +146,7 @@ pub async fn accept_invite_handler(
   crate::tasks::enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     db,
+    registry_url,
     webhook_deliveries,
   )
   .await?;

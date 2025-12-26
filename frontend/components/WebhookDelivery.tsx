@@ -4,13 +4,12 @@ import twas from "twas";
 import type {
   WebhookDelivery,
   WebhookDeliveryStatus,
-  WebhookEndpoint,
 } from "../utils/api_types.ts";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbRefresh } from "tb-icons";
+import { WEBHOOK_EVENTS } from "../islands/WebhookEdit.tsx";
 
 export function WebhookDelivery(
-  { webhook, delivery }: {
-    webhook: WebhookEndpoint;
+  { delivery }: {
     delivery: WebhookDelivery;
   },
 ) {
@@ -21,7 +20,7 @@ export function WebhookDelivery(
       </div>
 
       <div>
-        {delivery.event.replaceAll("_", " ")}
+        {WEBHOOK_EVENTS.find((event) => event.id === delivery.event)!.name}
       </div>
 
       <div class="flex items-center gap-2">
@@ -84,31 +83,44 @@ export function WebhookDelivery(
           </div>
         </div>
 
-        {delivery.responseHeaders && (
-          <div>
-            <h3 class="text-xl font-semibold">Headers</h3>
-            <Code>
-              {Object.entries(delivery.responseHeaders)
-                .map(([k, vs]) =>
-                  vs.map((v) => (
-                    <div>
-                      <span class="font-bold">{k}:</span> {v}
-                    </div>
-                  ))
-                )
-                .flat()}
-            </Code>
-          </div>
-        )}
+        {delivery.error
+          ? (
+            <div>
+              <h3 class="text-xl font-semibold">Error</h3>
+              <Code>
+                {delivery.error}
+              </Code>
+            </div>
+          )
+          : (
+            <>
+              {delivery.responseHeaders && (
+                <div>
+                  <h3 class="text-xl font-semibold">Headers</h3>
+                  <Code>
+                    {Object.entries(delivery.responseHeaders)
+                      .map(([k, vs]) =>
+                        vs.map((v) => (
+                          <div>
+                            <span class="font-bold">{k}:</span> {v}
+                          </div>
+                        ))
+                      )
+                      .flat()}
+                  </Code>
+                </div>
+              )}
 
-        {delivery.responseBody && (
-          <div>
-            <h3 class="text-xl font-semibold">Body</h3>
-            <Code>
-              {delivery.responseBody}
-            </Code>
-          </div>
-        )}
+              {delivery.responseBody && (
+                <div>
+                  <h3 class="text-xl font-semibold">Body</h3>
+                  <Code>
+                    {delivery.responseBody}
+                  </Code>
+                </div>
+              )}
+            </>
+          )}
       </div>
     </div>
   );

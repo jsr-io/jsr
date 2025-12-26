@@ -8,7 +8,6 @@ import { ScopeNav } from "../../(_components)/ScopeNav.tsx";
 import { ScopeDescriptionForm } from "../../(_islands)/ScopeDescriptionForm.tsx";
 import {
   FullScope,
-  type Package,
   User,
   WebhookEndpoint,
 } from "../../../../utils/api_types.ts";
@@ -18,7 +17,6 @@ import { QuotaCard } from "../../../../components/QuotaCard.tsx";
 import { scopeIAM } from "../../../../utils/iam.ts";
 import { TicketModal } from "../../../../islands/TicketModal.tsx";
 import { ListDisplay } from "../../../../components/List.tsx";
-import { PackageHit } from "../../../../components/PackageHit.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, state },
@@ -31,7 +29,7 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
       <ScopeQuotas scope={data.scope} user={state.user!} />
       <GitHubActionsSecurity scope={data.scope} />
       <RequirePublishingFromCI scope={data.scope} />
-      <Webhooks scope={data.scope} webhooks={data.webhooks} />
+      <Webhooks webhooks={data.webhooks} />
       <DeleteScope scope={data.scope} />
     </div>
   );
@@ -231,7 +229,7 @@ function RequirePublishingFromCI({ scope }: { scope: FullScope }) {
 }
 
 function Webhooks(
-  { scope, webhooks }: { scope: FullScope; webhooks: WebhookEndpoint[] },
+  { webhooks }: { webhooks: WebhookEndpoint[] },
 ) {
   return (
     <div class="mb-12 mt-12">
@@ -247,7 +245,7 @@ function Webhooks(
             content: (
               <div class="grow-1 min-w-0 w-full flex flex-col md:flex-row gap-2 md:gap-4 justify-between">
                 <div class="flex-1 min-w-0 mb-2 md:mb-0 text-jsr-cyan-700 dark:text-cyan-400 font-semibold truncate">
-                  {entry.description ?? entry.url}
+                  {entry.description || entry.url}
                 </div>
 
                 <div class="flex-none whitespace-nowrap">

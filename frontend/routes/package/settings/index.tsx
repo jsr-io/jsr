@@ -333,7 +333,7 @@ function Webhooks({ webhooks }: { webhooks: WebhookEndpoint[] }) {
             content: (
               <div class="grow-1 min-w-0 w-full flex flex-col md:flex-row gap-2 md:gap-4 justify-between">
                 <div class="flex-1 min-w-0 mb-2 md:mb-0 text-jsr-cyan-700 dark:text-cyan-400 font-semibold truncate">
-                  {entry.description ?? entry.url}
+                  {entry.description || entry.url}
                 </div>
 
                 <div class="flex-none whitespace-nowrap">
