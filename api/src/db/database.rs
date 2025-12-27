@@ -78,7 +78,7 @@ impl Database {
   pub async fn get_user(&self, id: Uuid) -> Result<Option<User>> {
     sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -106,7 +106,7 @@ impl Database {
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(
       UserPublic,
-      r#"SELECT id, name, avatar_url, github_id, updated_at, created_at
+      r#"SELECT id, name, avatar_url, github_id, gitlab_id, updated_at, created_at
       FROM users
       WHERE id = $1"#,
       id
@@ -122,7 +122,7 @@ impl Database {
   ) -> Result<Option<User>> {
     sqlx::query_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -141,6 +141,37 @@ impl Database {
       FROM users
       WHERE github_id = $1"#,
       github_id
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::get_user_by_gitlab_id", skip(self), err)]
+  pub async fn get_user_by_gitlab_id(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<Option<User>> {
+    sqlx::query_as!(
+      User,
+      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
+            )
+          )
+        ) ELSE (
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
+        ) END) as "newer_ticket_messages_count!"
+      FROM users
+      WHERE gitlab_id = $1"#,
+      gitlab_id
     )
       .fetch_optional(&self.pool)
       .await
@@ -178,7 +209,7 @@ impl Database {
     } || "created_at DESC");
 
     let users: Vec<User> = sqlx::query_as(
-      &format!(r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      &format!(r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage",
         (CASE WHEN users.is_staff THEN (
@@ -228,9 +259,54 @@ impl Database {
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
     sqlx::query_as!(
       User,
+      r#"INSERT INTO users (name, email, avatar_url, github_id, gitlab_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
+            )
+          )
+        ) ELSE (
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
+        ) END) as "newer_ticket_messages_count!"
+      "#,
+      new_user.name,
+      new_user.email,
+      new_user.avatar_url,
+      new_user.github_id,
+      new_user.gitlab_id,
+      new_user.is_blocked,
+      new_user.is_staff
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::upsert_user_by_github_id", skip(
+    self,
+    new_user
+  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ))]
+  pub async fn upsert_user_by_github_id(
+    &self,
+    new_user: NewUser<'_>,
+  ) -> Result<User> {
+    assert!(new_user.github_id.is_some(), "github_id is required");
+    sqlx::query_as!(
+      User,
       r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      ON CONFLICT(github_id) DO UPDATE
+      SET name = $1, email = $2, avatar_url = $3
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -258,23 +334,23 @@ impl Database {
       .await
   }
 
-  #[instrument(name = "Database::upsert_user_by_github_id", skip(
+  #[instrument(name = "Database::upsert_user_by_gitlab_id", skip(
     self,
     new_user
-  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
   ))]
-  pub async fn upsert_user_by_github_id(
+  pub async fn upsert_user_by_gitlab_id(
     &self,
     new_user: NewUser<'_>,
   ) -> Result<User> {
-    assert!(new_user.github_id.is_some(), "github_id is required");
+    assert!(new_user.gitlab_id.is_some(), "gitlab_id is required");
     sqlx::query_as!(
       User,
-      r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
+      r#"INSERT INTO users (name, email, avatar_url, gitlab_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT(github_id) DO UPDATE
+      ON CONFLICT(gitlab_id) DO UPDATE
       SET name = $1, email = $2, avatar_url = $3
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -294,9 +370,75 @@ impl Database {
       new_user.name,
       new_user.email,
       new_user.avatar_url,
-      new_user.github_id,
+      new_user.gitlab_id,
       new_user.is_blocked,
       new_user.is_staff
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::user_set_github_id", skip(self), err)]
+  pub async fn user_set_github_id(
+    &self,
+    user: Uuid,
+    id: Option<i64>,
+  ) -> Result<User> {
+    sqlx::query_as!(
+      User,
+      r#"UPDATE users SET github_id = $1 WHERE id = $2
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
+            )
+          )
+        ) ELSE (
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
+        ) END) as "newer_ticket_messages_count!"
+      "#,
+      id,
+      user as _,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::user_set_gitlab_id", skip(self), err)]
+  pub async fn user_set_gitlab_id(
+    &self,
+    user: Uuid,
+    id: Option<i64>,
+  ) -> Result<User> {
+    sqlx::query_as!(
+      User,
+      r#"UPDATE users SET gitlab_id = $1 WHERE id = $2
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
+        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
+        (CASE WHEN users.is_staff THEN (
+          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
+              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
+            )
+          )
+        ) ELSE (
+          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
+            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
+              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
+            )
+          )
+        ) END) as "newer_ticket_messages_count!"
+      "#,
+      id,
+      user as _,
     )
       .fetch_one(&self.pool)
       .await
@@ -326,7 +468,7 @@ impl Database {
     let user = sqlx::query_as!(
       User,
       r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
@@ -370,7 +512,7 @@ impl Database {
     let user = sqlx::query_as!(
       User,
       r#"UPDATE users SET is_blocked = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -422,7 +564,7 @@ impl Database {
     let user = sqlx::query_as!(
       User,
       r#"UPDATE users SET scope_limit = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -456,7 +598,7 @@ impl Database {
       User,
       r#"DELETE FROM users
       WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (CASE WHEN users.is_staff THEN (
@@ -1136,7 +1278,8 @@ impl Database {
       scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.updated_at as "scope_updated_at",
       scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
@@ -1168,6 +1311,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -1215,7 +1359,7 @@ impl Database {
       scopes.verify_oidc_actor as "scope_verify_oidc_actor",
       scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope) AS "usage_package",
       (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_new_package_per_week",
       (SELECT COUNT(created_at) FROM publishing_tasks WHERE publishing_tasks.package_scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_publish_attempts_per_week"
@@ -1885,7 +2029,8 @@ impl Database {
         WHERE dl.scope = package_versions.scope
         AND dl.package = package_versions.name
         AND dl.version = package_versions.version) as "package_version_lifetime_download_count!",
-      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
+      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
       WHERE package_versions.scope = $1 AND package_versions.name = $2
@@ -1917,6 +2062,7 @@ impl Database {
             name: r.user_name.unwrap(),
             avatar_url: r.user_avatar_url.unwrap(),
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at.unwrap(),
             created_at: r.user_created_at.unwrap(),
           };
@@ -2454,7 +2600,8 @@ impl Database {
   ) -> Result<Vec<(ScopeMember, UserPublic)>> {
     sqlx::query!(
       r#"SELECT scope_members.scope as "scope_member_scope: ScopeName", scope_members.user_id as "scope_member_user_id", scope_members.is_admin as "scope_member_is_admin", scope_members.updated_at as "scope_member_updated_at", scope_members.created_at as "scope_member_created_at",
-        users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
+        users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
       FROM scope_members
       LEFT JOIN users ON scope_members.user_id = users.id
       WHERE scope = $1
@@ -2474,6 +2621,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -2577,8 +2725,8 @@ impl Database {
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
     sqlx::query!(
       r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.github_id as "target_user_github_id", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.github_id as "requesting_user_github_id", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.github_id as "target_user_github_id", target_user.gitlab_id as "target_user_gitlab_id", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
+        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.github_id as "requesting_user_github_id", requesting_user.gitlab_id as "requesting_user_gitlab_id", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
@@ -2598,6 +2746,7 @@ impl Database {
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
           github_id: r.target_user_github_id,
+          gitlab_id: r.target_user_gitlab_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -2606,6 +2755,7 @@ impl Database {
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
           github_id: r.requesting_user_github_id,
+          gitlab_id: r.requesting_user_gitlab_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -2622,8 +2772,8 @@ impl Database {
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
     sqlx::query!(
       r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.github_id as "target_user_github_id", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.github_id as "requesting_user_github_id", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.github_id as "target_user_github_id", target_user.gitlab_id as "target_user_gitlab_id", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
+        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.github_id as "requesting_user_github_id", requesting_user.gitlab_id as "requesting_user_gitlab_id", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
@@ -2643,6 +2793,7 @@ impl Database {
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
           github_id: r.target_user_github_id,
+          gitlab_id: r.target_user_gitlab_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -2651,6 +2802,7 @@ impl Database {
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
           github_id: r.requesting_user_github_id,
+          gitlab_id: r.requesting_user_gitlab_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -3029,6 +3181,7 @@ impl Database {
         users.name as "user_name?",
         users.avatar_url as "user_avatar_url?",
         users.github_id as "user_github_id?",
+users.gitlab_id as "user_gitlab_id?",
         users.updated_at as "user_updated_at?",
         users.created_at as "user_created_at?"
       FROM publishing_tasks
@@ -3058,6 +3211,7 @@ impl Database {
           name: r.user_name.unwrap(),
           avatar_url: r.user_avatar_url.unwrap(),
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at.unwrap(),
           created_at: r.user_created_at.unwrap(),
         }
@@ -3103,6 +3257,7 @@ impl Database {
         users.name as "user_name?",
         users.avatar_url as "user_avatar_url?",
         users.github_id as "user_github_id?",
+users.gitlab_id as "user_gitlab_id?",
         users.updated_at as "user_updated_at?",
         users.created_at as "user_created_at?"
         FROM task
@@ -3133,6 +3288,7 @@ impl Database {
             name: r.user_name.unwrap(),
             avatar_url: r.user_avatar_url.unwrap(),
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at.unwrap(),
             created_at: r.user_created_at.unwrap(),
           }
@@ -3202,6 +3358,7 @@ impl Database {
         users.name as "user_name?",
         users.avatar_url as "user_avatar_url?",
         users.github_id as "user_github_id?",
+        users.gitlab_id as "user_gitlab_id?",
         users.updated_at as "user_updated_at?",
         users.created_at as "user_created_at?"
       FROM publishing_tasks
@@ -3228,6 +3385,7 @@ impl Database {
         name: r.user_name.unwrap(),
         avatar_url: r.user_avatar_url.unwrap(),
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at.unwrap(),
         created_at: r.user_created_at.unwrap(),
       });
@@ -3277,6 +3435,7 @@ impl Database {
         users.name as "user_name",
         users.avatar_url as "user_avatar_url",
         users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
         users.updated_at as "user_updated_at",
         users.created_at as "user_created_at"
       FROM publishing_tasks
@@ -3342,6 +3501,7 @@ impl Database {
         users.name as "user_name?",
         users.avatar_url as "user_avatar_url?",
         users.github_id as "user_github_id?",
+users.gitlab_id as "user_gitlab_id?",
         users.updated_at as "user_updated_at?",
         users.created_at as "user_created_at?"
       FROM publishing_tasks
@@ -3372,6 +3532,7 @@ impl Database {
             name: r.user_name.unwrap(),
             avatar_url: r.user_avatar_url.unwrap(),
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at.unwrap(),
             created_at: r.user_created_at.unwrap(),
           }
@@ -3523,6 +3684,75 @@ impl Database {
       FROM github_identities
       WHERE github_id = $1",
       github_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_github_identity", skip(self), err)]
+  pub async fn delete_github_identity(
+    &self,
+    github_id: i64,
+  ) -> Result<GithubIdentity> {
+    sqlx::query_as!(
+      GithubIdentity,
+      "DELETE FROM github_identities WHERE github_id = $1
+      RETURNING github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at",
+      github_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::insert_gitlab_identity", skip(
+    self,
+    new_gitlab_identity
+  ), err, fields(gitlab_identity.gitlab_id = new_gitlab_identity.gitlab_id))]
+  pub async fn upsert_gitlab_identity(
+    &self,
+    new_gitlab_identity: NewGitlabIdentity,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "INSERT INTO gitlab_identities (gitlab_id, access_token, access_token_expires_at, refresh_token) VALUES ($1, $2, $3, $4)
+      ON CONFLICT (gitlab_id) DO
+      UPDATE SET access_token = $2, access_token_expires_at = $3, refresh_token = $4
+      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+      new_gitlab_identity.gitlab_id,
+      new_gitlab_identity.access_token,
+      new_gitlab_identity.access_token_expires_at,
+      new_gitlab_identity.refresh_token,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::get_gitlab_identity", skip(self), err)]
+  pub async fn get_gitlab_identity(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "SELECT gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at
+      FROM gitlab_identities
+      WHERE gitlab_id = $1",
+      gitlab_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_gitlab_identity", skip(self), err)]
+  pub async fn delete_gitlab_identity(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "DELETE FROM gitlab_identities WHERE gitlab_id = $1
+      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+      gitlab_id
     )
       .fetch_one(&self.pool)
       .await
@@ -4154,6 +4384,7 @@ impl Database {
             users.email as "user_email",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.is_blocked as "user_is_blocked",
             users.is_staff as "user_is_staff",
             users.scope_limit as "user_scope_limit",
@@ -4198,6 +4429,7 @@ impl Database {
           email: r.user_email,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           is_blocked: r.user_is_blocked,
           is_staff: r.user_is_staff,
           scope_usage: r.user_scope_usage,
@@ -4271,6 +4503,7 @@ impl Database {
         users.email as "user_email",
         users.avatar_url as "user_avatar_url",
         users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
         users.is_blocked as "user_is_blocked",
         users.is_staff as "user_is_staff",
         users.scope_limit as "user_scope_limit",
@@ -4327,6 +4560,7 @@ impl Database {
             users.name as "user_name",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.updated_at as "user_updated_at",
             users.created_at as "user_created_at"
         FROM ticket_messages
@@ -4348,6 +4582,7 @@ impl Database {
             name: r.user_name,
             avatar_url: r.user_avatar_url,
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at,
             created_at: r.user_created_at,
           };
@@ -4402,6 +4637,7 @@ impl Database {
         users.email as "user_email",
         users.avatar_url as "user_avatar_url",
         users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
         users.is_blocked as "user_is_blocked",
         users.is_staff as "user_is_staff",
         users.scope_limit as "user_scope_limit",
@@ -4446,6 +4682,7 @@ impl Database {
           email: r.user_email,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           is_blocked: r.user_is_blocked,
           is_staff: r.user_is_staff,
           scope_usage: r.user_scope_usage,
@@ -4474,6 +4711,7 @@ impl Database {
             users.name as "user_name",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.updated_at as "user_updated_at",
             users.created_at as "user_created_at"
         FROM ticket_messages
@@ -4495,6 +4733,7 @@ impl Database {
             name: r.user_name,
             avatar_url: r.user_avatar_url,
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at,
             created_at: r.user_created_at,
           };
@@ -4533,6 +4772,7 @@ impl Database {
             users.email as "user_email",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+            users.gitlab_id as "user_gitlab_id",
             users.is_blocked as "user_is_blocked",
             users.is_staff as "user_is_staff",
             users.scope_limit as "user_scope_limit",
@@ -4575,6 +4815,7 @@ impl Database {
           email: r.user_email,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
           is_blocked: r.user_is_blocked,
           is_staff: r.user_is_staff,
           scope_usage: r.user_scope_usage,
@@ -4604,6 +4845,7 @@ impl Database {
             users.name as "user_name",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.updated_at as "user_updated_at",
             users.created_at as "user_created_at"
         FROM ticket_messages
@@ -4625,6 +4867,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -4723,6 +4966,7 @@ impl Database {
             users.name as "user_name",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.updated_at as "user_updated_at",
             users.created_at as "user_created_at"
         FROM message
@@ -4746,6 +4990,7 @@ impl Database {
         name: r.user_name,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at,
         created_at: r.user_created_at,
       };
@@ -4806,6 +5051,7 @@ impl Database {
             users.email as "user_email",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.is_blocked as "user_is_blocked",
             users.is_staff as "user_is_staff",
             users.scope_limit as "user_scope_limit",
@@ -4849,6 +5095,7 @@ impl Database {
           email: r.user_email,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           is_blocked: r.user_is_blocked,
           is_staff: r.user_is_staff,
           scope_usage: r.user_scope_usage,
@@ -4875,6 +5122,7 @@ impl Database {
             users.name as "user_name",
             users.avatar_url as "user_avatar_url",
             users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id",
             users.updated_at as "user_updated_at",
             users.created_at as "user_created_at"
         FROM ticket_messages
@@ -4896,6 +5144,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -4937,7 +5186,8 @@ impl Database {
       audit_logs.action as "audit_log_action",
       audit_logs.meta as "audit_log_meta",
       audit_logs.created_at as "audit_log_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
       FROM audit_logs
       LEFT JOIN users ON audit_logs.actor_id = users.id
       WHERE (audit_logs.action ILIKE $1

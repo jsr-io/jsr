@@ -51,8 +51,7 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
-use crate::auth::GithubOauth2Client;
-use crate::auth::access_token;
+use crate::auth;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
 use crate::db::CreatePackageResult;
@@ -66,6 +65,7 @@ use crate::db::User;
 use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
+use crate::external::orama::OramaClient;
 use crate::gcp;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::GcsUploadOptions;
@@ -77,7 +77,6 @@ use crate::ids::Version;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
-use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
 use crate::tarball::gcs_tarball_path;
@@ -378,7 +377,6 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
   let db: &Database = req.data::<Database>().unwrap();
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
   let (package, repo, meta) = db
     .get_package(&scope, &package_name)
@@ -430,6 +428,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let github_oauth2_client =
+        req.data::<auth::github::Oauth2Client>().unwrap();
       update_github_repository(
         &user.id,
         sudo,
@@ -582,13 +582,13 @@ async fn update_description(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
+#[instrument(skip(db, scope, package, github_oauth2_client, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
   actor_id: &Uuid,
   is_sudo: bool,
   user: &User,
   db: &Database,
-  github_oauth2_client: &GithubOauth2Client,
+  github_oauth2_client: &auth::github::Oauth2Client,
   scope: ScopeName,
   package: PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
@@ -601,8 +601,9 @@ async fn update_github_repository(
   let ghid = db.get_github_identity(gh_user_id).await?;
   let mut new_ghid = ghid.into();
   let access_token =
-    access_token(db, github_oauth2_client, &mut new_ghid).await?;
-  let github_u2s_client = crate::github::GitHubUserClient::new(access_token);
+    auth::github::access_token(db, github_oauth2_client, &mut new_ghid).await?;
+  let github_u2s_client =
+    crate::external::github::GitHubUserClient::new(access_token);
 
   let repo = github_u2s_client
     .get_repo(&req.owner, &req.name)

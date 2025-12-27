@@ -21,7 +21,7 @@ export async function cachedGitHubLogin(user: User): Promise<string> {
           response.status === 403 &&
           response.headers.get("x-ratelimit-remaining") === "0"
         ) {
-          throw new Error("Github API rate limit exceeded");
+          throw new Error("GitHub API rate limit exceeded");
         }
 
         const data = await response.json();

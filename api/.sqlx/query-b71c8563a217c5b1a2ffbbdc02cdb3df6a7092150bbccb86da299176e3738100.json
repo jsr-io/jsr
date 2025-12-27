@@ -1,0 +1,135 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH task AS (\n          INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)\n          VALUES ($1, $2, $3, $4, $5)\n          RETURNING\n            id,\n            status,\n            error,\n            user_id,\n            package_scope,\n            package_name,\n            package_version,\n            config_file,\n            created_at,\n            updated_at\n        )\n        SELECT\n          task.id as \"task_id\",\n          task.status as \"task_status: PublishingTaskStatus\",\n          task.error as \"task_error: PublishingTaskError\",\n          task.user_id as \"task_user_id\",\n          task.package_scope as \"task_package_scope: ScopeName\",\n          task.package_name as \"task_package_name: PackageName\",\n          task.package_version as \"task_package_version: Version\",\n          task.config_file as \"task_config_file: PackagePath\",\n          task.created_at as \"task_created_at\",\n          task.updated_at as \"task_updated_at\",\n        users.id as \"user_id?\",\n        users.name as \"user_name?\",\n        users.avatar_url as \"user_avatar_url?\",\n        users.github_id as \"user_github_id?\",\nusers.gitlab_id as \"user_gitlab_id?\",\n        users.updated_at as \"user_updated_at?\",\n        users.created_at as \"user_created_at?\"\n        FROM task\n        LEFT JOIN users ON task.user_id = users.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "task_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "task_status: PublishingTaskStatus",
+        "type_info": {
+          "Custom": {
+            "name": "task_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "processing",
+                "processed",
+                "success",
+                "failure"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "task_error: PublishingTaskError",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "task_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "task_package_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "task_package_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "task_package_version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "task_config_file: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "task_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "task_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "user_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "user_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "user_avatar_url?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "user_github_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "user_gitlab_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "user_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "user_created_at?",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b71c8563a217c5b1a2ffbbdc02cdb3df6a7092150bbccb86da299176e3738100"
+}

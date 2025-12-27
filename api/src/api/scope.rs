@@ -22,8 +22,7 @@ use super::errors::ApiError;
 use super::errors::map_unique_violation;
 use super::types::*;
 
-use crate::auth::GithubOauth2Client;
-use crate::auth::lookup_user_by_github_login;
+use crate::auth;
 use crate::db::*;
 use crate::util;
 use crate::util::ApiResult;
@@ -248,7 +247,6 @@ async fn invite_member_handler(
   let invite = decode_json::<ApiAddScopeMemberRequest>(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
-  let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
@@ -257,11 +255,25 @@ async fn invite_member_handler(
 
   let new_user = match invite {
     ApiAddScopeMemberRequest::GithubLogin(github_login) => {
-      lookup_user_by_github_login(
+      let github_oauth2_client =
+        req.data::<auth::github::Oauth2Client>().unwrap();
+      auth::github::lookup_user_by_github_login(
         db,
         github_oauth2_client,
         current_user,
         &github_login,
+      )
+      .await?
+      .ok_or(ApiError::UserNotFound)?
+    }
+    ApiAddScopeMemberRequest::GitlabUsername(gitlab_username) => {
+      let gitlab_oauth2_client =
+        req.data::<auth::gitlab::Oauth2Client>().unwrap();
+      auth::gitlab::lookup_user_by_gitlab_username(
+        db,
+        gitlab_oauth2_client,
+        current_user,
+        &gitlab_username,
       )
       .await?
       .ok_or(ApiError::UserNotFound)?

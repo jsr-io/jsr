@@ -1,0 +1,155 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n        tickets.id as \"ticket_id\",\n        tickets.kind as \"ticket_kind: TicketKind\",\n        tickets.creator as \"ticket_creator\",\n        tickets.meta as \"ticket_meta\",\n        tickets.closed as \"ticket_closed\",\n        tickets.updated_at as \"ticket_updated_at\",\n        tickets.created_at as \"ticket_created_at\",\n        users.id as \"user_id\",\n        users.name as \"user_name\",\n        users.email as \"user_email\",\n        users.avatar_url as \"user_avatar_url\",\n        users.github_id as \"user_github_id\",\nusers.gitlab_id as \"user_gitlab_id\",\n        users.is_blocked as \"user_is_blocked\",\n        users.is_staff as \"user_is_staff\",\n        users.scope_limit as \"user_scope_limit\",\n        users.updated_at as \"user_updated_at\",\n        users.created_at as \"user_created_at\",\n        (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as \"user_invite_count!\",\n        (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as \"user_scope_usage!\",\n        (CASE WHEN users.is_staff THEN (\n          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n            )\n          )\n        ) ELSE (\n          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n            )\n          )\n        ) END) as \"user_newer_ticket_messages_count!\"\n    FROM tickets\n    INNER JOIN users ON users.id = tickets.creator\n    WHERE tickets.creator = $1\n    ORDER BY tickets.closed ASC, tickets.created_at DESC\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ticket_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "ticket_kind: TicketKind",
+        "type_info": {
+          "Custom": {
+            "name": "ticket_kind",
+            "kind": {
+              "Enum": [
+                "user_scope_quota_increase",
+                "scope_quota_increase",
+                "scope_claim",
+                "package_report",
+                "other"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ticket_creator",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "ticket_meta",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "ticket_closed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "ticket_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "ticket_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "user_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "user_email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "user_avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "user_gitlab_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "user_is_blocked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
+        "name": "user_is_staff",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "user_scope_limit",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 16,
+        "name": "user_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 17,
+        "name": "user_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 18,
+        "name": "user_invite_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 19,
+        "name": "user_scope_usage!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 20,
+        "name": "user_newer_ticket_messages_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0d8772210f861b434fd075b1569afeb4726d825e2740737bdad8de0236d97af2"
+}

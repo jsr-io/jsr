@@ -11,6 +11,18 @@ resource "google_secret_manager_secret_version" "github_client_secret" {
   secret_data = var.github_client_secret
 }
 
+resource "google_secret_manager_secret" "gitlab_client_secret" {
+  secret_id = "gitlab-client-secret"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "gitlab_client_secret" {
+  secret      = google_secret_manager_secret.gitlab_client_secret.id
+  secret_data = var.gitlab_client_secret
+}
+
 resource "google_secret_manager_secret" "postmark_token" {
   secret_id = "postmark-token"
   replication {
