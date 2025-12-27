@@ -1,0 +1,98 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT ON (packages.scope, packages.name)\n            packages.scope as \"scope: ScopeName\",\n            packages.name as \"name: PackageName\",\n            packages.description,\n            packages.github_repository_id,\n            packages.runtime_compat as \"runtime_compat: RuntimeCompat\",\n            packages.when_featured,\n            packages.is_archived,\n            packages.readme_source as \"readme_source: ReadmeSource\",\n            packages.updated_at,\n            packages.created_at,\n            (\n              SELECT COUNT(created_at)\n              FROM package_versions\n              WHERE scope = packages.scope AND name = packages.name\n            ) as \"version_count!\",\n            (\n              SELECT version\n              FROM package_versions\n              WHERE scope = packages.scope\n                AND name = packages.name\n                AND version NOT LIKE '%-%'\n                AND is_yanked = false\n              ORDER BY version DESC LIMIT 1\n            ) as \"latest_version\"\n        FROM publishing_tasks\n        JOIN packages\n          ON packages.scope = publishing_tasks.package_scope\n          AND packages.name = publishing_tasks.package_name\n        WHERE publishing_tasks.user_id = $1\n          AND publishing_tasks.status = 'success'\n        ORDER BY packages.scope, packages.name, publishing_tasks.created_at DESC\n        LIMIT 10;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "github_repository_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "runtime_compat: RuntimeCompat",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "when_featured",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "is_archived",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "readme_source: ReadmeSource",
+        "type_info": {
+          "Custom": {
+            "name": "package_readme_source",
+            "kind": {
+              "Enum": [
+                "readme",
+                "jsdoc"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "version_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "latest_version",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "76aa80d3f0b1f22bbbc97a37a7b757b93a1abe7ea2a4f196c061d063d86de412"
+}
