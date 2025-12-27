@@ -76,6 +76,7 @@ export function WebhookEdit(
   const secret = useSignal<string | null>("");
   const events = useSignal(new Set(webhook?.events ?? []));
   const isActive = useSignal(webhook?.isActive ?? true);
+  const processing = useSignal(false);
 
   return (
     <form
@@ -84,28 +85,52 @@ export function WebhookEdit(
       onSubmit={(e) => {
         e.preventDefault();
 
-        const body = {
-          description: description.value,
-          url: url.value,
-          payloadFormat: payloadFormat.value,
-          secret: secret.value || null,
-          events: Array.from(events.value),
-          isActive: isActive.value,
-        };
+        processing.value = true;
 
-        webhook
+        (webhook
           ? api.patch(
             pkg
               ? path`/scopes/${scope}/packages/${pkg}/webhooks/${webhook.id}`
               : path`/scopes/${scope}/webhooks/${webhook.id}`,
-            body,
+            {
+              description: description.value === webhook.description
+                ? undefined
+                : description.value,
+              url: url.value === webhook.url ? undefined : url.value,
+              payloadFormat: payloadFormat.value === webhook.payloadFormat
+                ? undefined
+                : payloadFormat.value,
+              secret: secret.value || null, // TODO
+              events: events.value.symmetricDifference(new Set(webhook.events))
+                  .size === 0
+                ? undefined
+                : Array.from(events.value),
+              isActive: isActive.value === webhook.isActive
+                ? undefined
+                : isActive.value,
+            },
           )
           : api.post(
             pkg
               ? path`/scopes/${scope}/packages/${pkg}/webhooks`
               : path`/scopes/${scope}/webhooks`,
-            body,
-          );
+            {
+              description: description.value,
+              url: url.value,
+              payloadFormat: payloadFormat.value,
+              secret: secret.value || null,
+              events: Array.from(events.value),
+              isActive: isActive.value,
+            },
+          )).then(() => {
+            if (webhook) {
+              location.reload();
+            } else {
+              location.href = pkg
+                ? `/@${scope}/${pkg}/settings#webhooks`
+                : `/@${scope}/~/settings#webhooks`;
+            }
+          });
       }}
     >
       <div class="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8">
@@ -118,6 +143,7 @@ export function WebhookEdit(
               placeholder="My webhook..."
               value={description}
               onInput={(e) => description.value = e.currentTarget.value}
+              disabled={processing}
             />
           </label>
           <label class="block">
@@ -131,6 +157,7 @@ export function WebhookEdit(
               value={url}
               onInput={(e) => url.value = e.currentTarget.value}
               required
+              disabled={processing}
             />
           </label>
           <label class="block">
@@ -141,6 +168,7 @@ export function WebhookEdit(
               name="payload_format"
               className="input-container input select w-full max-w-lg block px-3 py-2 text-sm mt-3"
               required
+              disabled={processing}
             >
               <option value="json" selected={payloadFormat.value === "json"}>
                 JSON
@@ -182,12 +210,14 @@ export function WebhookEdit(
                 // @ts-ignore null is acceptable
                 value={secret}
                 onInput={(e) => secret.value = e.currentTarget.value}
+                disabled={processing}
               />
               {webhook?.hasSecret && (
                 <button
                   class="button-danger"
                   type="button"
                   onClick={() => secret.value = null}
+                  disabled={processing}
                 >
                   Clear
                 </button>
@@ -198,7 +228,7 @@ export function WebhookEdit(
         <fieldset>
           <legend>
             <h2 class="text-lg sm:text-xl font-semibold">
-              Events <Required />
+              Events
             </h2>
           </legend>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
@@ -223,6 +253,7 @@ export function WebhookEdit(
                       events.value.delete(event.id);
                     }
                   }}
+                  disabled={processing}
                 />
                 <h3 class="sm:text-lg font-medium inline-block">
                   {event.name}
@@ -234,8 +265,29 @@ export function WebhookEdit(
         </fieldset>
       </div>
       <div class="flex gap-8 mt-8 items-center">
-        {webhook && <button type="submit" class="button-danger">Delete</button>}
-        <button type="submit" class="button-primary">
+        {webhook && (
+          <button
+            type="button"
+            class="button-danger"
+            disabled={processing}
+            onClick={() => {
+              processing.value = true;
+
+              api.delete(
+                pkg
+                  ? path`/scopes/${scope}/packages/${pkg}/webhooks/${webhook.id}`
+                  : path`/scopes/${scope}/webhooks/${webhook.id}`,
+              ).then(() => {
+                location.href = pkg
+                  ? `/@${scope}/${pkg}/settings#webhooks`
+                  : `/@${scope}/~/settings#webhooks`;
+              });
+            }}
+          >
+            Delete
+          </button>
+        )}
+        <button type="submit" class="button-primary" disabled={processing}>
           {webhook ? "Save" : "Create"}
         </button>
         <label class="block pl-6 ml-8">
@@ -244,6 +296,7 @@ export function WebhookEdit(
             class="-ml-6 mt-1.5 float-left"
             checked={isActive}
             onInput={(e) => isActive.value = e.currentTarget.checked}
+            disabled={processing}
           />
           <h2 class="sm:text-lg font-medium inline-block">Active</h2>
         </label>

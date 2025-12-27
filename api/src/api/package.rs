@@ -55,7 +55,6 @@ use crate::auth::GithubOauth2Client;
 use crate::auth::access_token;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
-use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
 use crate::db::NewGithubRepository;
@@ -64,6 +63,7 @@ use crate::db::NewWebhookEndpoint;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
+use crate::db::{CreatePackageResult, UpdateWebhookEndpoint};
 use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
@@ -92,8 +92,6 @@ use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 
-use super::ApiCreatePackageRequest;
-use super::ApiCreateWebhookEndpointRequest;
 use super::ApiDependency;
 use super::ApiDependencyGraphItem;
 use super::ApiDependent;
@@ -119,6 +117,8 @@ use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 use super::ApiWebhookEndpoint;
+use super::{ApiCreatePackageRequest, ApiUpdateWebhookEndpointRequest};
+use super::{ApiCreateWebhookEndpointRequest, ApiWebhookDelivery};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -207,9 +207,21 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/webhooks",
       util::auth(util::json(list_webhooks_handler)),
     )
+    .patch(
+      "/:package/webhooks/:webhook",
+      util::auth(util::json(update_webhook_handler)),
+    )
     .delete(
       "/:package/webhooks/:webhook",
       util::auth(delete_webhook_handler),
+    )
+    .get(
+      "/:package/webhooks/:webhook/deliveries",
+      util::auth(util::json(list_webhook_deliveries_handler)),
+    )
+    .get(
+      "/:package/webhooks/:webhook/deliveries/:delivery",
+      util::auth(util::json(get_webhook_delivery_handler)),
     )
     .build()
     .unwrap()
@@ -2526,6 +2538,55 @@ pub async fn get_webhook_handler(
 }
 
 #[instrument(
+  name = "PATCH /api/scopes/:scope/packages/:package/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn update_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiUpdateWebhookEndpointRequest {
+    url,
+    description,
+    secret,
+    events,
+    payload_format,
+    is_active,
+  } = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .update_webhook_endpoint(
+      &scope,
+      Some(&package),
+      webhook_id,
+      UpdateWebhookEndpoint {
+        url,
+        description,
+        secret,
+        events,
+        payload_format,
+        is_active,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
   name = "GET /api/scopes/:scope/packages/:package/webhooks",
   skip(req),
   err,
@@ -2582,6 +2643,59 @@ pub async fn delete_webhook_handler(
     .body(Body::empty())
     .unwrap();
   Ok(res)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks/:webhook/deliveries",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhook_deliveries_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookDelivery>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints = db
+    .list_webhook_deliveries(&scope, Some(&package), webhook_id)
+    .await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks/:webhook/deliveries/:delivery",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_delivery_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  let delivery_id = req.param_uuid("delivery")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .get_webhook_delivery(&scope, Some(&package), webhook_id, delivery_id)
+    .await?;
+
+  Ok(webhook_endpoint.into())
 }
 
 #[cfg(test)]
@@ -2655,7 +2769,7 @@ mod test {
         )
         .await
         .unwrap();
-      assert!(matches!(res, CreatePackageResult::Ok(_)));
+      assert!(matches!(res, CreatePackageResult::Ok { .. }));
     }
 
     let mut resp = t.http().get("/api/packages").call().await.unwrap();
@@ -2852,7 +2966,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -2906,7 +3020,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -2963,7 +3077,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3017,7 +3131,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -3186,7 +3300,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -3252,7 +3366,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3348,7 +3462,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3440,7 +3554,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3506,7 +3620,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3576,7 +3690,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       let res = t.ephemeral_database.create_package(&scope, &name).await;
 
       if i < 11 {
-        assert!(matches!(res.unwrap(), CreatePackageResult::Ok(_)));
+        assert!(matches!(res.unwrap(), CreatePackageResult::Ok { .. }));
       } else {
         assert!(matches!(
           res.unwrap(),
@@ -3607,7 +3721,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       let res = t.ephemeral_database.create_package(&scope, &name).await;
 
       if i < 11 {
-        assert!(matches!(res.unwrap(), CreatePackageResult::Ok(_)));
+        assert!(matches!(res.unwrap(), CreatePackageResult::Ok { .. }));
       } else {
         assert!(matches!(
           res.unwrap(),
@@ -3636,7 +3750,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let name = PackageName::new("foo".to_owned()).unwrap();
     let config_file = PackagePath::try_from("/jsr.json").unwrap();
 
-    let CreatePackageResult::Ok(package) =
+    let CreatePackageResult::Ok { package, .. } =
       t.db().create_package(&scope, &name).await.unwrap()
     else {
       unreachable!();
@@ -3701,7 +3815,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let name = PackageName::new("foo".to_owned()).unwrap();
 
-    let CreatePackageResult::Ok(_) =
+    let CreatePackageResult::Ok { .. } =
       t.db().create_package(&scope, &name).await.unwrap()
     else {
       unreachable!();
@@ -4214,7 +4328,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let url = format!("/api/scopes/{}/packages/{}", scope, name);
     let mut resp = t.http().delete(url).call().await.unwrap();
@@ -4250,7 +4364,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let url = format!("/api/scopes/{}/packages/{}", scope, name);
     let token = t.user2.token.clone();
@@ -4278,7 +4392,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let url = format!("/api/scopes/{}/packages/{}", scope, name);
     let token = t.user3.token.clone();
@@ -4331,7 +4445,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let version = Version::try_from("1.2.3").unwrap();
     let config_file = PackagePath::try_from("/jsr.json").unwrap();
@@ -4365,7 +4479,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()

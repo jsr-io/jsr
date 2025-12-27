@@ -30,7 +30,7 @@ async fn publishing_tasks() {
     .await
     .unwrap();
   let res = db.create_package(&scope_name, &package_name).await.unwrap();
-  assert!(matches!(res, CreatePackageResult::Ok(_)));
+  assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
   let CreatePublishingTaskResult::Created((pt, _)) = db
     .create_publishing_task(NewPublishingTask {
@@ -244,7 +244,7 @@ async fn packages() {
       .is_some()
   );
 
-  let CreatePackageResult::Ok(package) =
+  let CreatePackageResult::Ok { package, .. } =
     db.create_package(&scope_name, &package_name).await.unwrap()
   else {
     unreachable!()
@@ -374,7 +374,7 @@ async fn create_package_version_and_finalize_publishing_task() {
     .await
     .unwrap();
 
-  let CreatePackageResult::Ok(_package) =
+  let CreatePackageResult::Ok { .. } =
     db.create_package(&scope, &package_name).await.unwrap()
   else {
     unreachable!()
@@ -491,7 +491,7 @@ async fn package_files() {
   .await
   .unwrap();
 
-  let CreatePackageResult::Ok(package) =
+  let CreatePackageResult::Ok { package, .. } =
     db.create_package(&scope_name, &package_name).await.unwrap()
   else {
     unreachable!()

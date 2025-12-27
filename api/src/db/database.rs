@@ -5135,6 +5135,63 @@ impl Database {
     Ok(res)
   }
 
+  #[instrument(
+    name = "Database::update_webhook_endpoint",
+    skip(self, webhook),
+    err
+  )]
+  pub async fn update_webhook_endpoint(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    webhook_id: Uuid,
+    webhook: UpdateWebhookEndpoint,
+    actor_id: &Uuid,
+    is_sudo: bool,
+  ) -> Result<WebhookEndpoint> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_webhook_endpoint",
+      json!({
+        "scope": scope,
+        "package": package,
+        "webhook": webhook_id,
+        "url": webhook.url,
+        "description": webhook.description,
+        "secret": webhook.secret,
+        "events": webhook.events,
+        "payload_format": webhook.payload_format,
+        "is_active": webhook.is_active,
+      }),
+    )
+    .await?;
+
+    let webhook_endpoint = sqlx::query_as!(
+      WebhookEndpoint,
+      r#"UPDATE webhook_endpoints SET url = COALESCE($4, url), description = COALESCE($5, description), secret = COALESCE($6, secret), events = COALESCE($7, events), payload_format = COALESCE($8, payload_format), is_active = COALESCE($9, is_active) WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3
+        RETURNING id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at"#,
+      scope as _,
+      package as _,
+      webhook_id,
+      webhook.url,
+      webhook.description,
+      webhook.secret, // TODO
+      webhook.events as _,
+      webhook.payload_format as _,
+      webhook.is_active,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(webhook_endpoint)
+  }
+
   #[instrument(name = "Database::get_webhook_endpoint", skip(self), err)]
   pub async fn get_webhook_endpoint(
     &self,
@@ -5295,6 +5352,8 @@ impl Database {
   #[instrument(name = "Database::list_webhook_deliveries", skip(self), err)]
   pub async fn list_webhook_deliveries(
     &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
     webhook_endpoint_id: Uuid,
   ) -> Result<Vec<(WebhookDelivery, WebhookEvent)>> {
     sqlx::query!(
@@ -5303,7 +5362,9 @@ impl Database {
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
-      WHERE endpoint_id = $1 ORDER BY webhook_deliveries.created_at DESC"#,
+      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND endpoint_id = $3 ORDER BY webhook_deliveries.created_at DESC"#,
+      scope as _,
+      package as _,
       webhook_endpoint_id,
     )
       .try_map(|r| {
@@ -5339,6 +5400,9 @@ impl Database {
   #[instrument(name = "Database::get_webhook_deliveries", skip(self), err)]
   pub async fn get_webhook_delivery(
     &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    webhook_endpoint_id: Uuid,
     webhook_delivery_id: Uuid,
   ) -> Result<(WebhookDelivery, WebhookEvent)> {
     sqlx::query!(
@@ -5347,7 +5411,10 @@ impl Database {
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
-      WHERE webhook_deliveries.id = $1"#,
+      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND webhook_deliveries.endpoint_id = $3 AND webhook_deliveries.id = $4"#,
+      scope as _,
+      package as _,
+      webhook_endpoint_id,
       webhook_delivery_id,
     )
       .try_map(|r| {

@@ -548,6 +548,7 @@ pub mod tests {
       t.registry_url(),
       t.npm_url(),
       t.db(),
+      WebhookDispatchQueue(None),
       None,
     )
     .await

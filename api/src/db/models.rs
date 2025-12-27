@@ -1098,6 +1098,15 @@ pub struct NewWebhookEndpoint<'s> {
   pub is_active: bool,
 }
 
+pub struct UpdateWebhookEndpoint {
+  pub url: Option<String>,
+  pub description: Option<String>,
+  pub secret: Option<String>,
+  pub events: Option<Vec<WebhookEventKind>>,
+  pub payload_format: Option<WebhookPayloadFormat>,
+  pub is_active: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum WebhookPayload {

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n        webhook_deliveries.id as \"webhook_delivery_id\", webhook_deliveries.endpoint_id as \"webhook_delivery_endpoint_id\", webhook_deliveries.event_id as \"webhook_delivery_event_id\", webhook_deliveries.status as \"webhook_delivery_status: WebhookDeliveryStatus\", webhook_deliveries.request_headers as \"webhook_delivery_request_headers\", webhook_deliveries.request_body as \"webhook_delivery_request_body\", webhook_deliveries.response_http_code as \"webhook_delivery_response_http_code\", webhook_deliveries.response_headers as \"webhook_delivery_response_headers\", webhook_deliveries.response_body as \"webhook_delivery_response_body\", webhook_deliveries.error as \"webhook_delivery_error\", webhook_deliveries.updated_at as \"webhook_delivery_updated_at\", webhook_deliveries.created_at as \"webhook_delivery_created_at\",\n        webhook_events.id as \"webhook_event_id\", webhook_events.scope as \"webhook_event_scope: ScopeName\", webhook_events.package as \"webhook_event_package: PackageName\", webhook_events.event as \"webhook_event_event: WebhookEventKind\", webhook_events.payload as \"webhook_event_payload: WebhookPayload\", webhook_events.created_at as \"webhook_event_created_at\"\n      FROM webhook_deliveries\n      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id\n      WHERE webhook_deliveries.id = $1",
+  "query": "SELECT\n        webhook_deliveries.id as \"webhook_delivery_id\", webhook_deliveries.endpoint_id as \"webhook_delivery_endpoint_id\", webhook_deliveries.event_id as \"webhook_delivery_event_id\", webhook_deliveries.status as \"webhook_delivery_status: WebhookDeliveryStatus\", webhook_deliveries.request_headers as \"webhook_delivery_request_headers\", webhook_deliveries.request_body as \"webhook_delivery_request_body\", webhook_deliveries.response_http_code as \"webhook_delivery_response_http_code\", webhook_deliveries.response_headers as \"webhook_delivery_response_headers\", webhook_deliveries.response_body as \"webhook_delivery_response_body\", webhook_deliveries.error as \"webhook_delivery_error\", webhook_deliveries.updated_at as \"webhook_delivery_updated_at\", webhook_deliveries.created_at as \"webhook_delivery_created_at\",\n        webhook_events.id as \"webhook_event_id\", webhook_events.scope as \"webhook_event_scope: ScopeName\", webhook_events.package as \"webhook_event_package: PackageName\", webhook_events.event as \"webhook_event_event: WebhookEventKind\", webhook_events.payload as \"webhook_event_payload: WebhookPayload\", webhook_events.created_at as \"webhook_event_created_at\"\n      FROM webhook_deliveries\n      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id\n      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND endpoint_id = $3 ORDER BY webhook_deliveries.created_at DESC",
   "describe": {
     "columns": [
       {
@@ -124,6 +124,8 @@
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Text",
         "Uuid"
       ]
     },
@@ -148,5 +150,5 @@
       false
     ]
   },
-  "hash": "312983e9f1f3a62aa81a1e50398ccda39905c678e3269855726331f7bc432f66"
+  "hash": "5e1e0196eefc009cc3c400e84e7d27ee4ced0cd03477ae28bb5d771bc7b5f42a"
 }

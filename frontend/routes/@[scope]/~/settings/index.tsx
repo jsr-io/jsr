@@ -232,7 +232,7 @@ function Webhooks(
   { webhooks }: { webhooks: WebhookEndpoint[] },
 ) {
   return (
-    <div class="mb-12 mt-12">
+    <div class="mb-12 mt-12" id="webhooks">
       <h2 class="text-lg sm:text-xl font-semibold">Webhooks</h2>
       <p class="mt-2 text-secondary max-w-2xl">
         Webhooks let you receive notifications when packages are published or
