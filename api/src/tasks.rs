@@ -578,6 +578,7 @@ mod tests {
       readme_path: None,
       uses_npm: false,
       meta: PackageVersionMeta::default(),
+      license: "MIT".to_string(),
     })
     .await
     .unwrap();
@@ -590,6 +591,7 @@ mod tests {
       readme_path: None,
       uses_npm: false,
       meta: PackageVersionMeta::default(),
+      license: "MIT".to_string(),
     })
     .await
     .unwrap();

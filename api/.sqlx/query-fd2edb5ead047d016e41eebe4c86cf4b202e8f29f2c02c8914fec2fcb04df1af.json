@@ -1,0 +1,143 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT package_versions.scope as \"package_version_scope: ScopeName\", package_versions.name as \"package_version_name: PackageName\", package_versions.version as \"package_version_version: Version\", package_versions.user_id as \"package_version_user_id\", package_versions.readme_path as \"package_version_readme_path: PackagePath\", package_versions.exports as \"package_version_exports: ExportsMap\", package_versions.is_yanked as \"package_version_is_yanked\", package_versions.uses_npm as \"package_version_uses_npm\", package_versions.meta as \"package_version_meta: PackageVersionMeta\", package_versions.updated_at as \"package_version_updated_at\", package_versions.created_at as \"package_version_created_at\", package_versions.rekor_log_id as \"package_version_rekor_log_id\", package_versions.license as \"package_version_license\",\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"package_version_newer_versions_count!\",\n      (SELECT COALESCE(SUM(dl.count), 0)\n        FROM version_download_counts_24h as dl\n        WHERE dl.scope = package_versions.scope\n        AND dl.package = package_versions.name\n        AND dl.version = package_versions.version) as \"package_version_lifetime_download_count!\",\n      users.id as \"user_id?\", users.name as \"user_name?\", users.avatar_url as \"user_avatar_url?\", users.github_id as \"user_github_id\", users.updated_at as \"user_updated_at?\", users.created_at as \"user_created_at?\"\n      FROM package_versions\n      LEFT JOIN users ON package_versions.user_id = users.id\n      WHERE package_versions.scope = $1 AND package_versions.name = $2\n      ORDER BY package_versions.version DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "package_version_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "package_version_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "package_version_version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "package_version_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "package_version_readme_path: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "package_version_exports: ExportsMap",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "package_version_is_yanked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "package_version_uses_npm",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "package_version_meta: PackageVersionMeta",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "package_version_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "package_version_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "package_version_rekor_log_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "package_version_license",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "package_version_newer_versions_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "package_version_lifetime_download_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "user_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 16,
+        "name": "user_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 17,
+        "name": "user_avatar_url?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 18,
+        "name": "user_github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 19,
+        "name": "user_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 20,
+        "name": "user_created_at?",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "fd2edb5ead047d016e41eebe4c86cf4b202e8f29f2c02c8914fec2fcb04df1af"
+}

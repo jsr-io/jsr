@@ -104,6 +104,11 @@ export default [
     group: "Reference",
   },
   {
+    title: "Licenses",
+    id: "licenses",
+    group: "Reference",
+  },
+  {
     title: "Badges",
     id: "badges",
     group: "Reference",
