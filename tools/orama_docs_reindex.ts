@@ -3,11 +3,15 @@ import { pooledMap } from "@std/async/pool";
 import { stripSplitBySections } from "@deno/gfm";
 import { extractYaml } from "@std/front-matter";
 import GitHubSlugger from "github-slugger";
+import { OramaCloud } from "@orama/core";
 import TOC from "../frontend/docs/toc.ts";
 import { join } from "@std/path";
 
-const index = Deno.env.get("ORAMA_DOCS_INDEX_ID");
-const auth = Deno.env.get("ORAMA_DOCS_PRIVATE_API_KEY");
+const orama = new OramaCloud({
+  projectId: Deno.env.get("ORAMA_DOCS_PROJECT_ID")!,
+  apiKey: Deno.env.get("ORAMA_DOCS_PROJECT_KEY")!,
+});
+const datasource = orama.dataSource(Deno.env.get("ORAMA_DOCS_DATA_SOURCE")!);
 
 export interface OramaDocsHit {
   path: string;
@@ -17,22 +21,7 @@ export interface OramaDocsHit {
   content: string;
 }
 
-const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
-
-// Clear the index
-const resp1 = await fetch(`${ORAMA_URL}/${index}/snapshot`, {
-  method: "POST",
-  headers: {
-    authorization: `Bearer ${auth}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify([]),
-});
-if (!resp1.ok) {
-  throw new Error(
-    `Failed to clear index: ${resp1.status} ${await resp1.text()}`,
-  );
-}
+// TODO: clear
 
 // fill the index
 const path = "frontend/docs/";
@@ -83,31 +72,4 @@ const results = pooledMap(
 );
 
 const entries = (await Array.fromAsync(results)).flat();
-
-const resp2 = await fetch(`${ORAMA_URL}/${index}/notify`, {
-  method: "POST",
-  headers: {
-    authorization: `Bearer ${auth}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ "upsert": entries }),
-});
-if (!resp2.ok) {
-  throw new Error(
-    `Failed to upsert index: ${resp2.status} ${await resp2.text()}`,
-  );
-}
-
-// deploy the index
-const resp3 = await fetch(`${ORAMA_URL}/${index}/deploy`, {
-  method: "POST",
-  headers: {
-    authorization: `Bearer ${auth}`,
-    "Content-Type": "application/json",
-  },
-});
-if (!resp3.ok) {
-  throw new Error(
-    `Failed to deploy index: ${resp3.status} ${await resp3.text()}`,
-  );
-}
+await datasource.insertDocuments(entries);
