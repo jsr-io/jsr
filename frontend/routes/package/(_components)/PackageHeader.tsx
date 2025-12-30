@@ -28,10 +28,6 @@ export function PackageHeader({
   selectedVersion,
   downloads,
 }: PackageHeaderProps) {
-  const runtimeCompat = (
-    <RuntimeCompatIndicator runtimeCompat={pkg.runtimeCompat} />
-  );
-
   const selectedVersionSemver = selectedVersion &&
     parse(selectedVersion.version);
   const isNewerPrerelease = selectedVersionSemver &&
@@ -167,6 +163,57 @@ export function PackageHeader({
             </div>
           </div>
 
+          {/* Subheader metadata - all on one line */}
+          <div class="flex items-center gap-3 flex-wrap text-sm text-secondary">
+            <div class="flex items-center gap-1.5">
+              <span class="font-semibold">Works with</span>
+              <RuntimeCompatIndicator
+                runtimeCompat={pkg.runtimeCompat}
+                compact
+              />
+            </div>
+            {pkg.score !== null && (
+              <>
+                <span class="text-gray-300 dark:text-gray-600">•</span>
+                <a
+                  href={`/@${pkg.scope}/${pkg.name}/score`}
+                  class="flex items-center gap-1.5 hover:underline"
+                >
+                  <span class="font-semibold">JSR Score</span>
+                  <span class={getScoreTextColorClass(pkg.score)}>
+                    {pkg.score}%
+                  </span>
+                </a>
+              </>
+            )}
+            <span class="text-gray-300 dark:text-gray-600">•</span>
+            <div class="flex items-center gap-1.5">
+              {selectedVersion?.createdAt
+                ? (
+                  <>
+                    <span class="font-semibold">Published</span>
+                    <span
+                      title={new Date(selectedVersion.createdAt).toISOString()
+                        .slice(0, 10)}
+                    >
+                      {twas(new Date(selectedVersion.createdAt).getTime())}{" "}
+                      ({selectedVersion.version})
+                    </span>
+                  </>
+                )
+                : (
+                  <>
+                    <span class="font-semibold">Last updated</span>
+                    <span
+                      title={new Date(pkg.updatedAt).toISOString().slice(0, 10)}
+                    >
+                      {twas(new Date(pkg.updatedAt).getTime())}
+                    </span>
+                  </>
+                )}
+            </div>
+          </div>
+
           {pkg.description && (
             <p class="text-secondary max-w-3xl md:!mb-8">
               {pkg.description}
@@ -174,61 +221,14 @@ export function PackageHeader({
           )}
         </div>
 
-        <div class="flex flex-none md:items-end flex-col gap-2 md:gap-4 text-right md:ml-auto">
-          <div class="flex flex-col md:flex-row gap-2 md:gap-8 items-between">
-            {runtimeCompat &&
-              (
-                <div class="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1.5 text-sm font-bold">
-                  <div aria-hidden="true">Works with</div>
-                  {runtimeCompat}
-                </div>
-              )}
-
-            {pkg.score !== null && (
-              <a
-                class="flex flex-row md:flex-col items-baseline md:items-end gap-2 md:gap-1.5 text-sm font-bold"
-                href={`/@${pkg.scope}/${pkg.name}/score`}
-              >
-                <div>JSR Score</div>
-                <div
-                  class={`!leading-none md:text-xl ${
-                    getScoreTextColorClass(pkg.score)
-                  }`}
-                >
-                  {pkg.score}%
-                </div>
-              </a>
-            )}
-          </div>
-
-          <div>
-            {selectedVersion?.createdAt && (
-              <div class="flex flex-row items-baseline md:items-end md:flex-col gap-2 md:gap-1.5 text-sm font-bold">
-                <div>Published</div>
-                <div
-                  class="leading-none font-normal"
-                  title={new Date(selectedVersion.createdAt).toISOString()
-                    .slice(
-                      0,
-                      10,
-                    )}
-                >
-                  {`${
-                    twas(new Date(selectedVersion.createdAt).getTime())
-                  } (${selectedVersion.version})`}
-                </div>
-              </div>
-            )}
-          </div>
-
+        {/* Right column - Downloads only */}
+        <div class="flex flex-none md:items-end flex-col text-right md:ml-auto">
           {downloads && downloads.total.length > 1 && (
-            <div>
-              <DownloadWidget
-                downloads={downloads.total}
-                scope={pkg.scope}
-                pkg={pkg.name}
-              />
-            </div>
+            <DownloadWidget
+              downloads={downloads.total}
+              scope={pkg.scope}
+              pkg={pkg.name}
+            />
           )}
         </div>
       </div>
