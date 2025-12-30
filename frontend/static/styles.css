@@ -210,6 +210,10 @@
       dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
 
+  .jsr-link {
+    @apply link;
+  }
+
   .link-header {
     @apply link opsize-sm font-medium decoration-jsr-cyan-700/25
       hover:decoration-jsr-cyan-700 underline-offset-2
