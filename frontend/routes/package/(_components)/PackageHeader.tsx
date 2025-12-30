@@ -87,7 +87,7 @@ export function PackageHeader({
       )}
 
       <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6">
-        <div class="space-y-3.5 flex-shrink">
+        <div class="space-y-2 flex-shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
               <div class="flex items-baseline gap-x-1">
@@ -100,7 +100,7 @@ export function PackageHeader({
                     @{pkg.scope}
                   </a>/<a
                     href={`/@${pkg.scope}/${pkg.name}`}
-                    class="jsr-link font-semibold no-underline"
+                    class="jsr-link font-bold no-underline"
                     aria-label={`Package: ${pkg.name}`}
                   >
                     {pkg.name}
@@ -131,20 +131,20 @@ export function PackageHeader({
             <div class="flex items-center gap-2">
               {selectedVersion &&
                 pkg.latestVersion === selectedVersion?.version && (
-                <div class="chip sm:big-chip bg-jsr-yellow-400 dark:text-jsr-gray-800 select-none">
+                <div class="chip bg-jsr-yellow-400 dark:text-jsr-gray-800 select-none">
                   latest
                 </div>
               )}
 
               {selectedVersion?.yanked && (
-                <div class="chip sm:big-chip bg-red-500 text-white select-none">
+                <div class="chip bg-red-500 text-white select-none">
                   yanked
                 </div>
               )}
 
               {pkg.githubRepository && (
                 <a
-                  class="chip sm:big-chip bg-jsr-gray-100 dark:bg-jsr-gray-900 !inline-flex items-center gap-1 select-none"
+                  class="chip bg-jsr-gray-100 dark:bg-jsr-gray-900 !inline-flex items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -215,7 +215,7 @@ export function PackageHeader({
           </div>
 
           {pkg.description && (
-            <p class="text-secondary max-w-3xl md:!mb-8">
+            <p class="text-secondary text-base max-w-3xl mt-4 md:!mb-8">
               {pkg.description}
             </p>
           )}
