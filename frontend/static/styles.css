@@ -195,7 +195,7 @@
   .-section-x-inset-xl {
     @apply -mx-4 md:-mx-8 lg:-mx-10;
 
-    @media screen(xl) {
+    @screen xl {
       @container page (width > 0) {
         margin: 0 calc((112px + max(0px, 100cqw - 1280px)) / 2 * -1);
       }
