@@ -85,9 +85,19 @@ export function DownloadWidget(props: Props) {
         dataLabels: {
           enabled: false,
         },
+        colors: ["#0d7590"],
         stroke: {
           curve: "straight",
           width: 2,
+        },
+        fill: {
+          type: "gradient",
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.5,
+            opacityTo: 0.3,
+            stops: [0, 100],
+          },
         },
         series: [{ data }],
         xaxis: {
