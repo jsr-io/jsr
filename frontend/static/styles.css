@@ -53,7 +53,7 @@
 
     color: theme("colors.jsr-gray.800");
     --color-text-primary: theme("colors.jsr-gray.800");
-    --color-text-secondary: theme("colors.jsr-gray.600");
+    --color-text-secondary: theme("colors.jsr-gray.500");
     --color-text-tertiary: theme("colors.jsr-gray.500");
 
     --pct: 0;

@@ -3,26 +3,26 @@ import { HttpError } from "fresh";
 import { define } from "../../util.ts";
 import { path } from "../../utils/api.ts";
 import { FullUser, Scope, User } from "../../utils/api_types.ts";
-import { ListPanel } from "../../components/ListPanel.tsx";
+import { ScopeCard } from "../../components/ScopeCard.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
 
 export default define.page<typeof handler>(function UserPage({ data, state }) {
   return (
     <AccountLayout user={data.user} active="Profile">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
         {data.scopes.length > 0
           ? (
-            <ListPanel
-              title="Scopes"
-              subtitle={state.user?.id === data.user.id
-                ? "Scopes you are a member of."
-                : "Scopes this user belongs to."}
-              // deno-lint-ignore jsx-no-children-prop
-              children={data.scopes.map((scope) => ({
-                value: `@${scope.scope}`,
-                href: `/@${scope.scope}`,
-              }))}
-            />
+            <div>
+              <h3 class="text-lg md:text-xl font-semibold">Scopes</h3>
+              <p class="text-base text-tertiary mb-4">
+                {state.user?.id === data.user.id
+                  ? "Scopes you are a member of."
+                  : "Scopes this user belongs to."}
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.scopes.map((scope) => <ScopeCard scope={scope} />)}
+              </div>
+            </div>
           )
           : (
             <div class="p-3 text-tertiary text-center italic">

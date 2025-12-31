@@ -86,7 +86,7 @@ export function PackageHeader({
         </div>
       )}
 
-      <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6">
+      <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6 min-h-24">
         <div class="space-y-2 flex-shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
