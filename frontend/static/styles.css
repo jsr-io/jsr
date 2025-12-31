@@ -61,11 +61,6 @@
     @apply opsize-normal transition-colors duration-200;
   }
 
-  body {
-    font-size: 1.125rem;
-    font-weight: 400;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     :root {
       scroll-behavior: auto;
@@ -526,6 +521,10 @@ body .ddoc {
     @apply max-w-full;
   }
 
+  .usageContent pre.highlight {
+    @apply mt-1 !important;
+  }
+
   #module_doc, main {
     @apply pb-8;
   }
@@ -738,7 +737,7 @@ body .ddoc .or-bar {
     @apply h-[1px] w-full bg-jsr-gray-200 content-[""];
   }
 
-  @apply flex items-center justify-between gap-2 !mt-[2px] text-nowrap;
+  @apply flex items-center justify-between gap-2 !mt-2 text-nowrap;
 }
 
 @layer base {

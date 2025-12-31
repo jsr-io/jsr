@@ -180,7 +180,9 @@ export function PackageHeader({
                   class="flex items-center gap-1.5 hover:underline"
                 >
                   <span class="font-semibold">JSR Score</span>
-                  <span class={getScoreTextColorClass(pkg.score)}>
+                  <span
+                    class={`font-bold ${getScoreTextColorClass(pkg.score)}`}
+                  >
                     {pkg.score}%
                   </span>
                 </a>
