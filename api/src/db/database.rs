@@ -3518,6 +3518,7 @@ impl Database {
 
     Ok(task)
   }
+
   #[instrument(
     name = "Database::process_webhooks_for_publish",
     skip(self),
@@ -3525,21 +3526,20 @@ impl Database {
   )]
   pub async fn process_webhooks_for_publish(
     &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
+    task: &PublishingTask,
   ) -> Result<Vec<Uuid>> {
     let mut tx = self.pool.begin().await?;
 
     let webhook_deliveries = insert_webhook_event(
       &mut tx,
-      scope,
-      Some(name),
+      &task.package_scope,
+      Some(&task.package_name),
       WebhookEventKind::PackageVersionPublished,
       WebhookPayload::PackageVersionPublished {
-        scope: scope.clone(),
-        package: name.clone(),
-        version: version.clone(),
+        scope: task.package_scope.clone(),
+        package: task.package_name.clone(),
+        version: task.package_version.clone(),
+        user_id: task.user_id.clone(),
       },
     )
     .await?;

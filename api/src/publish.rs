@@ -142,13 +142,8 @@ pub async fn publish_task(
       }
       PublishingTaskStatus::Failure => return Ok(()),
       PublishingTaskStatus::Success => {
-        let webhook_deliveries = db
-          .process_webhooks_for_publish(
-            &publishing_task.package_scope,
-            &publishing_task.package_name,
-            &publishing_task.package_version,
-          )
-          .await?;
+        let webhook_deliveries =
+          db.process_webhooks_for_publish(&publishing_task).await?;
 
         crate::tasks::enqueue_webhook_dispatches(
           &webhook_dispatch_queue,

@@ -552,6 +552,7 @@ async fn dispatch_webhook(
         scope,
         package,
         version,
+        user_id: _,
       } => ProviderEmbed {
         color: GREEN,
         title: "Package version published",

@@ -1114,6 +1114,7 @@ pub enum WebhookPayload {
     scope: ScopeName,
     package: PackageName,
     version: Version,
+    user_id: Option<Uuid>,
   },
   PackageVersionYanked {
     scope: ScopeName,
