@@ -24,7 +24,7 @@ export function ListDisplay(
     >
       {title &&
         (
-          <div class="px-5 py-4 border-b border-jsr-cyan-50 dark:border-jsr-cyan-900 bg-jsr-gray-50 dark:bg-jsr-gray-900 leading-none">
+          <div class="px-5 py-4 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 leading-none">
             <span class="font-semibold">{title}</span>
           </div>
         )}

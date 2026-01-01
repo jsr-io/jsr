@@ -57,7 +57,7 @@ export default define.page<typeof handler>(function PackagePage(
         <div class="ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded-md overflow-hidden">
           <nav
             aria-label="File navigation"
-            class="flex items-center gap-2.5 px-5 py-3 bg-jsr-gray-50 dark:bg-jsr-gray-900 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900"
+            class="flex items-center gap-2.5 px-5 py-3 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900"
           >
             <TbFolderOpen
               class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 flex-shrink-0"
