@@ -14,16 +14,13 @@ export default define.page<typeof handler>(function AccountCreateTokenPage() {
         </a>
       </div>
       <div class="col-span-1 md:col-span-4">
-        <h2 class="text-xl font-bold">
+        <h2 class="text-xl mb-2 font-bold">
           Create a personal access token
         </h2>
-        <p class="text-secondary max-w-2xl mt-2">
+        <p class="text-secondary max-w-xl">
           Personal access tokens can be used to authenticate with JSR from the
-          command line or from other applications.
-        </p>
-        <p class="text-secondary max-w-2xl mt-3">
-          Actions performed by personal access tokens are attributed to your
-          account.
+          command line or from other applications. Actions performed by personal
+          access tokens are attributed to your account.
         </p>
         <CreateToken />
       </div>

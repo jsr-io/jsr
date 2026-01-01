@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { ComponentChildren } from "preact";
 
-type CardVariant = "cyan" | "gray" | "red" | "blue" | "green";
+type CardVariant = "cyan" | "gray" | "red" | "blue" | "green" | "orange";
 
 interface CardProps {
   children: ComponentChildren;
@@ -45,6 +45,12 @@ const variantStyles: Record<
     filled: "bg-green-50 dark:bg-green-900/30",
     interactive:
       "hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100 dark:hover:bg-green-800/40",
+  },
+  orange: {
+    base: "border-orange-300 dark:border-orange-700",
+    filled: "bg-orange-50 dark:bg-orange-900/30",
+    interactive:
+      "hover:border-orange-400 dark:hover:border-orange-600 hover:bg-orange-100 dark:hover:bg-orange-800/40",
   },
 };
 
