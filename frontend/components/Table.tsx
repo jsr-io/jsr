@@ -37,92 +37,107 @@ export function Table(
   }
 
   return (
-    <>
-      <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden ${
-          class_ ?? ""
-        }`}
-      >
-        <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-900">
-            <thead class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950">
-              <TableRow class="children:font-semibold">
-                {columns.map(({ align, class: _class, title, fieldName }) => {
-                  let icon;
+    <div
+      class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden ${
+        class_ ?? ""
+      }`}
+    >
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900">
+            <TableRow class="children:font-semibold">
+              {columns.map(({ align, class: _class, title, fieldName }) => {
+                let icon;
 
-                  if (fieldName) {
-                    if (sortBy === fieldName) {
-                      if (desc) {
-                        icon = <TbSortDescending class="size-5" />;
-                      } else {
-                        icon = <TbSortAscending class="size-5" />;
-                      }
+                if (fieldName) {
+                  if (sortBy === fieldName) {
+                    if (desc) {
+                      icon = (
+                        <TbSortDescending class="size-5" aria-hidden="true" />
+                      );
                     } else {
                       icon = (
-                        <TbSortDescending class="size-5 text-gray-400 group-hover:text-inherit" />
+                        <TbSortAscending class="size-5" aria-hidden="true" />
                       );
                     }
-                  }
-
-                  const url = new URL(currentUrl);
-                  if (fieldName) {
-                    url.searchParams.set(
-                      "sortBy",
-                      (sortBy === fieldName && desc)
-                        ? `!${fieldName}`
-                        : fieldName,
+                  } else {
+                    icon = (
+                      <TbSortDescending
+                        class="size-5 text-gray-400 group-hover:text-inherit"
+                        aria-hidden="true"
+                      />
                     );
                   }
+                }
 
-                  return (
-                    <th
-                      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
-                        _class ?? ""
-                      }`}
-                    >
-                      {fieldName
-                        ? (
-                          <a
-                            class={`flex items-center gap-2.5 group select-none ${
-                              align === "right" ? "justify-end" : ""
-                            }`}
-                            href={url.pathname + url.search}
-                          >
-                            {title}
-                            {icon}
-                          </a>
-                        )
-                        : (
-                          <div
-                            class={`flex items-center gap-2.5 group select-none ${
-                              align === "right" ? "justify-end" : ""
-                            }`}
-                          >
-                            {title}
-                            {icon}
-                          </div>
-                        )}
-                    </th>
+                const url = new URL(currentUrl);
+                if (fieldName) {
+                  url.searchParams.set(
+                    "sortBy",
+                    (sortBy === fieldName && desc)
+                      ? `!${fieldName}`
+                      : fieldName,
                   );
-                })}
-              </TableRow>
-            </thead>
-            <tbody class="divide-y divide-jsr-cyan-300/30 dark:divide-jsr-cyan-900 bg-white dark:bg-jsr-gray-950">
-              {children}
-            </tbody>
-          </table>
-        </div>
+                }
+
+                return (
+                  <th
+                    scope="col"
+                    aria-sort={sortBy === fieldName
+                      ? (desc ? "descending" : "ascending")
+                      : undefined}
+                    class={`py-2.5 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
+                      _class ?? ""
+                    }`}
+                  >
+                    {fieldName
+                      ? (
+                        <a
+                          class={`flex items-center gap-2.5 group select-none ${
+                            align === "right" ? "justify-end" : ""
+                          }`}
+                          href={url.pathname + url.search}
+                        >
+                          {title}
+                          {icon}
+                        </a>
+                      )
+                      : (
+                        <div
+                          class={`flex items-center gap-2.5 group select-none ${
+                            align === "right" ? "justify-end" : ""
+                          }`}
+                        >
+                          {title}
+                          {icon}
+                        </div>
+                      )}
+                  </th>
+                );
+              })}
+            </TableRow>
+          </thead>
+          <tbody class="divide-y divide-jsr-cyan-300/30 dark:divide-jsr-cyan-900 bg-white dark:bg-jsr-gray-950">
+            {children}
+          </tbody>
+          {pagination && (
+            <tfoot class="bg-white dark:bg-jsr-gray-950 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900">
+              <tr>
+                <td colspan={columns.length} class="py-3 px-4 sm:px-6">
+                  <div class="flex justify-end">
+                    <Pagination
+                      pagination={pagination}
+                      itemsCount={children.length}
+                      currentUrl={currentUrl}
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
       </div>
-      <div class="py-3 sm:px-6 flex justify-end items-center gap-6">
-        {pagination && (
-          <Pagination
-            pagination={pagination}
-            itemsCount={children.length}
-            currentUrl={currentUrl}
-          />
-        )}
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -142,14 +157,18 @@ function Pagination(
   nextURL.searchParams.set("page", (pagination.page + 1).toString());
 
   return (
-    <div class="flex items-center gap-3 text-secondary">
+    <nav
+      aria-label="Table pagination"
+      class="flex items-center gap-3 text-secondary"
+    >
       {hasPrevious && (
         <a
           href={prevURL.pathname + prevURL.search}
           class="hover:text-black dark:hover:text-white hover:bg-jsr-cyan-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
+          aria-label="Go to previous page"
           title="Previous page"
         >
-          <TbChevronLeft class="size-5" />
+          <TbChevronLeft class="size-5" aria-hidden="true" />
         </a>
       )}
       <div class="text-sm text-secondary">
@@ -165,12 +184,13 @@ function Pagination(
         <a
           href={nextURL.pathname + nextURL.search}
           class="hover:text-black dark:hover:text-white hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
+          aria-label="Go to next page"
           title="Next page"
         >
-          <TbChevronRight class="size-5" />
+          <TbChevronRight class="size-5" aria-hidden="true" />
         </a>
       )}
-    </div>
+    </nav>
   );
 }
 
@@ -213,7 +233,7 @@ export function TableData(
 ) {
   return (
     <td
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
+      class={`py-3 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
       title={title}
