@@ -1,13 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
-import {
-  TbChevronLeft,
-  TbChevronRight,
-  TbSortAscending,
-  TbSortDescending,
-} from "tb-icons";
+import { TbSortAscending, TbSortDescending } from "tb-icons";
 import { PaginationData } from "../util.ts";
+
+const PAGINATION_BUTTON_STYLE =
+  "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold text-primary ring-1 ring-inset ring-jsr-gray-300 dark:ring-jsr-cyan-800 hover:bg-jsr-gray-50 dark:hover:bg-jsr-gray-900 focus-visible:outline-offset-0 select-none";
 
 interface TableProps {
   columns: ColumnProps[];
@@ -121,16 +119,14 @@ export function Table(
             {children}
           </tbody>
           {pagination && (
-            <tfoot class="bg-white dark:bg-jsr-gray-950 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900">
+            <tfoot class="bg-white dark:bg-jsr-gray-950">
               <tr>
-                <td colspan={columns.length} class="py-3 px-4 sm:px-6">
-                  <div class="flex justify-end">
-                    <Pagination
-                      pagination={pagination}
-                      itemsCount={children.length}
-                      currentUrl={currentUrl}
-                    />
-                  </div>
+                <td colspan={columns.length}>
+                  <Pagination
+                    pagination={pagination}
+                    itemsCount={children.length}
+                    currentUrl={currentUrl}
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -148,48 +144,55 @@ function Pagination(
     currentUrl: URL;
   },
 ) {
-  const hasPrevious = pagination.page > 1;
-  const hasNext = pagination.limit * pagination.page < pagination.total;
+  const start = pagination.page * pagination.limit - pagination.limit;
 
   const prevURL = new URL(currentUrl);
   prevURL.searchParams.set("page", (pagination.page - 1).toString());
   const nextURL = new URL(currentUrl);
   nextURL.searchParams.set("page", (pagination.page + 1).toString());
 
+  const hasPrevious = pagination.page > 1;
+  const hasNext = pagination.limit * pagination.page < pagination.total;
+
   return (
     <nav
-      aria-label="Table pagination"
-      class="flex items-center gap-3 text-secondary"
+      class="flex items-center justify-between border-t border-jsr-cyan-900/10 dark:border-jsr-cyan-900 px-4 py-3 sm:px-6"
+      aria-label="Pagination"
     >
-      {hasPrevious && (
-        <a
-          href={prevURL.pathname + prevURL.search}
-          class="hover:text-black dark:hover:text-white hover:bg-jsr-cyan-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
-          aria-label="Go to previous page"
-          title="Previous page"
-        >
-          <TbChevronLeft class="size-5" aria-hidden="true" />
-        </a>
-      )}
-      <div class="text-sm text-secondary">
-        Showing items {(pagination.page * pagination.limit) - pagination.limit +
-          (Math.min(itemsCount, 1))}
-        -
-        {(pagination.page * pagination.limit) - pagination.limit +
-          ((itemsCount < pagination.limit) ? itemsCount : pagination.limit)} of
-        {" "}
-        {pagination.total}
+      <div class="hidden sm:block">
+        <p class="text-sm text-secondary">
+          {start + itemsCount === 0 ? "No results found" : (
+            <>
+              Showing <span class="font-semibold">{start + 1}</span> to{" "}
+              <span class="font-semibold">{start + itemsCount}</span>{" "}
+              results, out of{" "}
+              <span class="font-semibold">{pagination.total}</span>
+            </>
+          )}
+        </p>
       </div>
-      {hasNext && (
-        <a
-          href={nextURL.pathname + nextURL.search}
-          class="hover:text-black dark:hover:text-white hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
-          aria-label="Go to next page"
-          title="Next page"
-        >
-          <TbChevronRight class="size-5" aria-hidden="true" />
-        </a>
-      )}
+      <div class="flex flex-1 gap-3 justify-between sm:justify-end">
+        {hasPrevious
+          ? (
+            <a
+              href={prevURL.pathname + prevURL.search}
+              class={PAGINATION_BUTTON_STYLE}
+            >
+              Previous
+            </a>
+          )
+          : <span />}
+        {hasNext
+          ? (
+            <a
+              href={nextURL.pathname + nextURL.search}
+              class={PAGINATION_BUTTON_STYLE}
+            >
+              Next
+            </a>
+          )
+          : <span />}
+      </div>
     </nav>
   );
 }
