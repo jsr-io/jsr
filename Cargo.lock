@@ -3235,6 +3235,7 @@ dependencies = [
  "flate2",
  "futures",
  "handlebars 5.1.2",
+ "hmac",
  "hyper",
  "indexmap 2.5.0",
  "infer",

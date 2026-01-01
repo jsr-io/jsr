@@ -17,6 +17,7 @@ use crate::db::*;
 use crate::iam::ReqIamExt;
 use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
@@ -296,6 +297,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let webhook_dispatch_queue =
+    req.data::<WebhookDispatchQueue>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
@@ -313,6 +316,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       registry,
       npm_url,
       db,
+      webhook_dispatch_queue,
       orama_client,
     )
     .instrument(span);
