@@ -66,10 +66,10 @@ export function NavItem(props: NavItemProps) {
 
         {props.chip !== undefined && (
           <span
-            className={`chip ml-2 tabular-nums border-1 border-white dark:border-jsr-gray-950 ${
+            className={`chip ml-2 tabular-nums text-xs py-0.5 px-2 border-1 border-white dark:border-jsr-gray-950 ${
               (props.chip > 0 && props.notification)
                 ? "bg-orange-600 text-white"
-                : "bg-jsr-gray-200 dark:bg-jsr-gray-900 dark:text-gray-300"
+                : "bg-jsr-gray-100 text-jsr-gray-500 dark:bg-jsr-gray-800 dark:text-jsr-gray-400"
             }`}
           >
             {props.chip}
