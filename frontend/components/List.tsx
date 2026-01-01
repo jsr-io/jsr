@@ -31,7 +31,7 @@ export function ListDisplay(
           <li>
             <a
               href={item.href}
-              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 dark:hover:bg-jsr-yellow-950 focus:bg-jsr-yellow-100 dark:focus:bg-jsr-yellow-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
+              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 focus:bg-jsr-cyan-50 dark:focus:bg-jsr-cyan-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
                 item.parentClass ?? ""
               }`}
             >
