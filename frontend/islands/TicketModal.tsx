@@ -132,7 +132,6 @@ export function TicketModal(
           {status.value === "pending"
             ? (
               <>
-
                 <div class="space-y-4 mt-5">
                   {fields.map((field) => {
                     let input;

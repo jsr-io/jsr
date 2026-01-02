@@ -87,7 +87,8 @@ function Dependent(
           ))}
           {totalVersions > 5 && (
             <a href={`/@${scope}/${pkg}/versions`} class="link">
-              and {totalVersions - 5} additional version{totalVersions > 6 && "s"}
+              and {totalVersions - 5}{" "}
+              additional version{totalVersions > 6 && "s"}
             </a>
           )}
         </div>
