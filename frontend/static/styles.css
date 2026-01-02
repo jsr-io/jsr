@@ -333,7 +333,7 @@ body .ddoc {
     }
 
     .highlight {
-      @apply dark:bg-jsr-gray-900 !important;
+      @apply bg-white dark:bg-jsr-gray-900 !important;
 
       .lineNumbers {
         @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
@@ -700,6 +700,11 @@ body .ddoc {
 /* This is a utility class to make the ddoc content full width inside its container */
 .ddoc-full {
   @apply max-w-full !important;
+}
+
+/* Remove borders and top rounded corners from code blocks in the file browser since the wrapper already has these */
+.ddoc-full pre.highlight {
+  @apply border-0 rounded-t-none !important;
 }
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
