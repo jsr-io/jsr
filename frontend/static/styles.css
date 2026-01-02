@@ -517,6 +517,10 @@ body .ddoc {
     }
   }
 
+  .usageContent > div {
+    @apply text-jsr-gray-600 dark:text-jsr-gray-200;
+  }
+
   .usageContent .markdown {
     @apply max-w-full;
   }
@@ -533,6 +537,10 @@ body .ddoc {
 
   .toc .topSymbols {
     @apply max-lg:hidden;
+  }
+
+  .toc .documentNavigation > ul ul {
+    @apply text-jsr-gray-600 dark:text-jsr-gray-200;
   }
 
   @media (min-width: 768px) {
