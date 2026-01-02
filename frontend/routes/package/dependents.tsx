@@ -80,11 +80,15 @@ function Dependent(
       </TableData>
       <TableData class="!whitespace-normal">
         <div class="flex flex-wrap gap-x-4 gap-y-1">
-          {versions.map((version, idx) => <span key={idx}>{version}</span>)}
+          {versions.map((version, idx) => (
+            <a key={idx} href={`/@${scope}/${pkg}@${version}`} class="link">
+              {version}
+            </a>
+          ))}
           {totalVersions > 5 && (
-            <span>
+            <a href={`/@${scope}/${pkg}/versions`} class="link">
               and {totalVersions - 5} additional version{totalVersions > 6 && "s"}
-            </span>
+            </a>
           )}
         </div>
       </TableData>
