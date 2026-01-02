@@ -16,6 +16,7 @@ import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
 import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
+import { collectX, normalize } from "../(_islands)/DownloadChart.tsx";
 
 interface PackageHeaderProps {
   package: Package;
@@ -35,6 +36,14 @@ export function PackageHeader({
     selectedVersionSemver.prerelease.length !== 0 &&
     (pkg.latestVersion === null ||
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
+
+  // Calculate weekly downloads for mobile display
+  let weeklyDownloads: number | null = null;
+  if (downloads && downloads.total.length > 1) {
+    const xValues = collectX(downloads.total, "weekly");
+    const data = normalize(downloads.total, xValues, "weekly");
+    weeklyDownloads = data.length > 0 ? data[data.length - 1][1] : null;
+  }
 
   return (
     <div class="space-y-6 mt-0 md:mt-4">
@@ -87,8 +96,8 @@ export function PackageHeader({
       )}
 
       <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6 min-h-24">
-        <div class="space-y-2 flex-shrink">
-          <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center">
+        <div class="flex-shrink">
+          <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center mb-2">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
               <div class="flex items-baseline gap-x-1">
                 <span>
@@ -164,7 +173,7 @@ export function PackageHeader({
           </div>
 
           {/* Subheader metadata - all on one line */}
-          <div class="flex items-center gap-3 flex-wrap text-sm text-secondary">
+          <div class="flex items-center gap-3 flex-wrap text-sm text-secondary mb-4">
             <div class="flex items-center gap-1.5">
               <span class="font-semibold">Works with</span>
               <RuntimeCompatIndicator
@@ -185,6 +194,19 @@ export function PackageHeader({
                     {pkg.score}%
                   </span>
                 </a>
+              </>
+            )}
+            {weeklyDownloads !== null && (
+              <>
+                <span class="text-gray-300 dark:text-gray-600 md:hidden">
+                  •
+                </span>
+                <div class="md:hidden flex items-center gap-1.5">
+                  <span class="font-semibold">Downloads</span>
+                  <span>
+                    {weeklyDownloads.toLocaleString()}/wk
+                  </span>
+                </div>
               </>
             )}
             <span class="text-gray-300 dark:text-gray-600">•</span>
@@ -216,14 +238,14 @@ export function PackageHeader({
           </div>
 
           {pkg.description && (
-            <p class="text-secondary text-base max-w-3xl mt-4 md:!mb-8">
+            <p class="text-secondary text-base max-w-3xl mb-6">
               {pkg.description}
             </p>
           )}
         </div>
 
         {/* Right column - Downloads only */}
-        <div class="flex flex-none md:items-end flex-col text-right md:ml-auto">
+        <div class="hidden md:flex flex-none md:items-end flex-col text-right md:ml-auto">
           {downloads && downloads.total.length > 1 && (
             <DownloadWidget
               downloads={downloads.total}
