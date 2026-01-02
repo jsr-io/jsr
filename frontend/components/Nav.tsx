@@ -47,22 +47,24 @@ export interface NavItemProps {
   active?: boolean;
   chip?: number;
   notification?: boolean;
-  children?: ComponentChildren;
+  children?: string;
 }
 
 export function NavItem(props: NavItemProps) {
   return (
     <a
-      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 flex items-center select-none focus:outline-none focus-visible:outline-1 focus-visible:outline-jsr-cyan-300 dark:focus-visible:outline-jsr-cyan-600 focus-visible:outline-offset-0 focus-visible:ring-0 ${
+      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 flex items-center select-none focus:outline-none focus-visible:outline-1 focus-visible:outline-jsr-cyan-300 dark:focus-visible:outline-jsr-cyan-600 focus-visible:outline-offset-0 focus-visible:ring-0 border-1 ${
         props.active
-          ? "bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-1 border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 font-semibold"
-          : ""
+          ? "bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 font-semibold"
+          : "border-transparent"
       }`}
       data-active={props.active ? "true" : undefined}
       href={props.href}
     >
       <span className="flex items-center">
-        {props.children}
+        <span class="nav-item-text" data-text={props.children}>
+          {props.children}
+        </span>
 
         {props.chip !== undefined && (
           <span

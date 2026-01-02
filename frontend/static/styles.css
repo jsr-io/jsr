@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Nav item text - reserves space for bold text to prevent layout shift */
+.nav-item-text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nav-item-text::after {
+  content: attr(data-text);
+  font-weight: 600;
+  height: 0;
+  visibility: hidden;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none;
+}
+
 @font-face {
   font-family: "DM Sans";
   font-style: normal;
