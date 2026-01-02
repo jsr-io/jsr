@@ -311,12 +311,12 @@ pub async fn process_tarball(
         })?;
 
       let mut versions = db
-        .list_package_versions(&package_scope.scope, &package_scope.package)
-        .await?
-        .into_iter()
-        .map(|v| v.0)
-        .collect::<Vec<_>>();
-      versions.sort_by_cached_key(|v| v.version.clone());
+        .list_package_versions_for_resolution(
+          &package_scope.scope,
+          &package_scope.package,
+        )
+        .await?;
+      versions.sort_by(|a, b| b.version.cmp(&a.version));
 
       let mut found = false;
       for version in versions.iter().rev() {

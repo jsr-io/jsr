@@ -433,6 +433,22 @@ pub struct NewPackageVersion<'s> {
   pub meta: PackageVersionMeta,
 }
 
+#[derive(Debug)]
+pub struct PackageVersionForResolution {
+  pub version: Version,
+  pub exports: ExportsMap,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionForNpmVersionManifest {
+  pub version: Version,
+  pub is_yanked: bool,
+  pub created_at: DateTime<Utc>,
+  pub npm_tarball_revision: i32,
+  pub npm_tarball_sha1: String,
+  pub npm_tarball_sha512: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PackageVersionMeta {

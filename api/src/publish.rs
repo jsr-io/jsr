@@ -144,7 +144,13 @@ pub async fn publish_task(
               &publishing_task.package_name,
             )
             .await?
-            .ok_or(ApiError::InternalServerError)?;
+            .ok_or_else(|| {
+              error!(
+                "package not found after successful publishing: {}/{}",
+                &publishing_task.package_scope, &publishing_task.package_name
+              );
+              ApiError::InternalServerError
+            })?;
           orama_client.upsert_package(&package, &meta);
         }
         return Ok(());
