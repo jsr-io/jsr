@@ -70,6 +70,7 @@ export function LocalSymbolSearch(
   // deno-lint-ignore no-explicit-any
   const db = useSignal<undefined | Orama<any>>(undefined);
   const showResults = useSignal(false);
+  const hasResults = useSignal(true);
   const macLike = useMacLike();
   const searchCounter = useSignal(0);
 
@@ -299,20 +300,41 @@ export function LocalSymbolSearch(
         }
       }
 
+      hasResults.value = searchResult.hits.length > 0;
       searchCounter.value++;
       showResults.value = true;
     } else {
+      hasResults.value = true;
       showResults.value = false;
     }
   }
 
   if (IS_BROWSER) {
+    const noResultsId = "docSearchNoResults";
+    let noResultsEl = document.getElementById(noResultsId);
+
     if (showResults.value && searchCounter.value) {
       document.getElementById("docMain")!.classList.add("hidden");
       document.getElementById("docSearchResults")!.classList.remove("hidden");
+
+      if (!hasResults.value) {
+        if (!noResultsEl) {
+          noResultsEl = document.createElement("div");
+          noResultsEl.id = noResultsId;
+          noResultsEl.className = "text-secondary py-4";
+          noResultsEl.textContent = "No results found";
+          document.getElementById("docSearchResults")!.prepend(noResultsEl);
+        }
+        noResultsEl.classList.remove("hidden");
+      } else if (noResultsEl) {
+        noResultsEl.classList.add("hidden");
+      }
     } else {
       document.getElementById("docMain")!.classList.remove("hidden");
       document.getElementById("docSearchResults")!.classList.add("hidden");
+      if (noResultsEl) {
+        noResultsEl.classList.add("hidden");
+      }
     }
   }
 
