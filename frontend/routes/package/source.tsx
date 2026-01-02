@@ -74,7 +74,10 @@ export default define.page<typeof handler>(function PackagePage(
                 return (
                   <>
                     {i !== 0 && (
-                      <span class="text-secondary select-none" aria-hidden="true">
+                      <span
+                        class="text-secondary select-none"
+                        aria-hidden="true"
+                      >
                         /
                       </span>
                     )}
@@ -86,7 +89,9 @@ export default define.page<typeof handler>(function PackagePage(
                       )
                       : (
                         <a
-                          class={`text-jsr-cyan-700 dark:text-jsr-cyan-400 hover:text-jsr-cyan-900 dark:hover:text-jsr-cyan-300 ${isRoot ? "font-semibold" : ""}`}
+                          class={`text-jsr-cyan-700 dark:text-jsr-cyan-400 hover:text-jsr-cyan-900 dark:hover:text-jsr-cyan-300 ${
+                            isRoot ? "font-semibold" : ""
+                          }`}
                           href={sourceRoot + arr.slice(0, i + 1).join("/")}
                         >
                           {displayPart}
@@ -113,26 +118,29 @@ export default define.page<typeof handler>(function PackagePage(
                     ))}
                   </ListDisplay>
                 )
-              : (
-                data.source.source.view
-                  ? (
-                    <div class="ddoc">
-                      <div
-                        class="markdown ddoc-full children:!bg-transparent"
-                        // deno-lint-ignore react-no-danger
-                        dangerouslySetInnerHTML={{
-                          __html: data.source.source.view,
-                        }}
-                      />
-                    </div>
-                  )
-                  : (
-                    <div class="flex items-center gap-2 px-5 py-4 text-secondary">
-                      <TbFileOff class="size-5 flex-shrink-0" aria-hidden="true" />
-                      <span>Source cannot be displayed.</span>
-                    </div>
-                  )
-              )
+                : (
+                  data.source.source.view
+                    ? (
+                      <div class="ddoc">
+                        <div
+                          class="markdown ddoc-full children:!bg-transparent"
+                          // deno-lint-ignore react-no-danger
+                          dangerouslySetInnerHTML={{
+                            __html: data.source.source.view,
+                          }}
+                        />
+                      </div>
+                    )
+                    : (
+                      <div class="flex items-center gap-2 px-5 py-4 text-secondary">
+                        <TbFileOff
+                          class="size-5 flex-shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span>Source cannot be displayed.</span>
+                      </div>
+                    )
+                )
             )
             : (
               <div class="flex items-center gap-2 px-5 py-4 text-secondary">

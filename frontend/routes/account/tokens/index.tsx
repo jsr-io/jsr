@@ -68,7 +68,9 @@ export default define.page<typeof handler>(function AccountTokensPage({
           </p>
 
           <div class="flex flex-col gap-2 max-w-xl mt-4">
-            {sessions.map((token, idx) => <SessionRow key={idx} token={token} />)}
+            {sessions.map((token, idx) => (
+              <SessionRow key={idx} token={token} />
+            ))}
           </div>
 
           <p class="text-secondary text-sm mt-4">

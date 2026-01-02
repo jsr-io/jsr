@@ -71,9 +71,10 @@ export function Card({
     ? `${styles.interactive} transition-colors`
     : "";
 
-  const classes =
-    `${baseClasses} ${filledClasses} ${interactiveClasses} ${className ?? ""}`
-      .trim();
+  const classes = `${baseClasses} ${filledClasses} ${interactiveClasses} ${
+    className ?? ""
+  }`
+    .trim();
 
   if (href) {
     return (

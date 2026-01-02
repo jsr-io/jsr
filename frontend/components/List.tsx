@@ -20,7 +20,9 @@ export function ListDisplay(
 ) {
   return (
     <div
-      class={hasHeader ? "" : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"}
+      class={hasHeader
+        ? ""
+        : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"}
     >
       {title &&
         (

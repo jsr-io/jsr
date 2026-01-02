@@ -131,7 +131,12 @@ function ChoosePublishingEnvironment(
           GitHub Actions
         </label>
         <label class="mt-2 flex items-baseline">
-          <input type="radio" name="env" value="other_ci_service" class="mr-2" />
+          <input
+            type="radio"
+            name="env"
+            value="other_ci_service"
+            class="mr-2"
+          />
           A different CI service
         </label>
         <button type="submit" class="button-primary mt-4" disabled={disabled}>

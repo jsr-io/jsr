@@ -20,7 +20,9 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
                   : "Scopes this user belongs to."}
               </p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {data.scopes.map((scope) => <ScopeCard key={scope.scope} scope={scope} />)}
+                {data.scopes.map((scope) => (
+                  <ScopeCard key={scope.scope} scope={scope} />
+                ))}
               </div>
             </div>
           )
