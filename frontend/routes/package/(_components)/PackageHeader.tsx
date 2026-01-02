@@ -169,7 +169,6 @@ export function PackageHeader({
               <span class="font-semibold">Works with</span>
               <RuntimeCompatIndicator
                 runtimeCompat={pkg.runtimeCompat}
-                compact
               />
             </div>
             {pkg.score !== null && (
