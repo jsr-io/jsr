@@ -5,7 +5,7 @@ import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { TbFolder, TbSourceCode } from "tb-icons";
+import { TbFileOff, TbFolder, TbFolderOpen, TbSourceCode } from "tb-icons";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 import { format as formatBytes } from "@std/fmt/bytes";
@@ -53,74 +53,102 @@ export default define.page<typeof handler>(function PackagePage(
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="space-y-3 pt-3">
-        <div class="flex flex-row gap-1 items-center pt-1 pl-3">
-          {data.sourcePath.split("/").filter((part, i) =>
-            !(part === "" && i !== 0)
-          ).map((part, i, arr) => {
-            if (part === "") {
-              // @ts-ignore ok
-              part = (
-                <span class="text-lg font-semibold">
-                  Package root
-                </span>
-              );
-            }
-            return (
-              <>
-                {i !== 0 && (
-                  <span class="px-2 text-md text-secondary select-none">
-                    {"\u003E"}
-                  </span>
-                )}
+      <div class="pt-8">
+        <div class="ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded-md overflow-hidden">
+          <nav
+            aria-label="File navigation"
+            class="flex items-center gap-2.5 px-5 py-3 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900"
+          >
+            <TbFolderOpen
+              class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 flex-shrink-0"
+              aria-hidden="true"
+            />
+            <div class="flex flex-row flex-wrap gap-1 items-center">
+              {data.sourcePath.split("/").filter((part, i) =>
+                !(part === "" && i !== 0)
+              ).map((part, i, arr) => {
+                const isRoot = part === "";
+                const displayPart = isRoot ? "Package root" : part;
+                const isLast = (i + 1) >= arr.length;
 
-                {(i + 1) < arr.length
-                  ? (
-                    <a
-                      class="link"
-                      href={sourceRoot + arr.slice(0, i + 1).join("/")}
-                    >
-                      {part}
-                    </a>
-                  )
-                  : <span>{part}</span>}
-              </>
-            );
-          })}
+                return (
+                  <>
+                    {i !== 0 && (
+                      <span
+                        class="text-secondary select-none"
+                        aria-hidden="true"
+                      >
+                        /
+                      </span>
+                    )}
+                    {isLast
+                      ? (
+                        <span class={isRoot ? "font-semibold" : ""}>
+                          {displayPart}
+                        </span>
+                      )
+                      : (
+                        <a
+                          class={`text-jsr-cyan-700 dark:text-jsr-cyan-400 hover:text-jsr-cyan-900 dark:hover:text-jsr-cyan-300 ${
+                            isRoot ? "font-semibold" : ""
+                          }`}
+                          href={sourceRoot + arr.slice(0, i + 1).join("/")}
+                        >
+                          {displayPart}
+                        </a>
+                      )}
+                  </>
+                );
+              })}
+            </div>
+          </nav>
+
+          {data.source
+            ? (
+              data.source.source.kind == "dir"
+                ? (
+                  <ListDisplay hasHeader>
+                    {data.source.source.entries.map((entry) => (
+                      {
+                        href: (sourceRoot +
+                          (data.sourcePath === "/" ? "" : data.sourcePath) +
+                          "/") + entry.name,
+                        content: <DirEntry entry={entry} />,
+                      }
+                    ))}
+                  </ListDisplay>
+                )
+                : (
+                  data.source.source.view
+                    ? (
+                      <div class="ddoc">
+                        <div
+                          class="markdown ddoc-full children:!bg-transparent"
+                          // deno-lint-ignore react-no-danger
+                          dangerouslySetInnerHTML={{
+                            __html: data.source.source.view,
+                          }}
+                        />
+                      </div>
+                    )
+                    : (
+                      <div class="flex items-center gap-2 px-5 py-4 text-secondary">
+                        <TbFileOff
+                          class="size-5 flex-shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span>Source cannot be displayed.</span>
+                      </div>
+                    )
+                )
+            )
+            : (
+              <div class="flex items-center gap-2 px-5 py-4 text-secondary">
+                <TbFileOff class="size-5 flex-shrink-0" aria-hidden="true" />
+                <span>Source does not exist.</span>
+              </div>
+            )}
         </div>
-
-        {data.source
-          ? (
-            data.source.source.kind == "dir"
-              ? (
-                <ListDisplay>
-                  {data.source.source.entries.map((entry) => (
-                    {
-                      href: (sourceRoot +
-                        (data.sourcePath === "/" ? "" : data.sourcePath) +
-                        "/") + entry.name,
-                      content: <DirEntry entry={entry} />,
-                    }
-                  ))}
-                </ListDisplay>
-              )
-              : (
-                data.source.source.view
-                  ? (
-                    <div class="ddoc">
-                      <div
-                        class="markdown ddoc-full children:!bg-transparent"
-                        // deno-lint-ignore react-no-danger
-                        dangerouslySetInnerHTML={{
-                          __html: data.source.source.view,
-                        }}
-                      />
-                    </div>
-                  )
-                  : <i>Source can not be displayed.</i>
-              )
-          )
-          : <i>Source does not exist.</i>}
       </div>
     </div>
   );

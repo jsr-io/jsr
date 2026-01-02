@@ -39,7 +39,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
                 title="Request scope quota increase"
                 description={
                   <>
-                    <p class="mt-4 text-secondary">
+                    <p class="text-secondary">
                       We are unable to increase your scope quota without a valid
                       reason, and we require that you make use of your existing
                       scopes before requesting an increase. Please be aware of

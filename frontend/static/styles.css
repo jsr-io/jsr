@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Nav item text - reserves space for bold text to prevent layout shift */
+.nav-item-text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nav-item-text::after {
+  content: attr(data-text);
+  font-weight: 600;
+  height: 0;
+  visibility: hidden;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none;
+}
+
 @font-face {
   font-family: "DM Sans";
   font-style: normal;
@@ -53,17 +70,12 @@
 
     color: theme("colors.jsr-gray.800");
     --color-text-primary: theme("colors.jsr-gray.800");
-    --color-text-secondary: theme("colors.jsr-gray.600");
+    --color-text-secondary: theme("colors.jsr-gray.500");
     --color-text-tertiary: theme("colors.jsr-gray.500");
 
     --pct: 0;
 
     @apply opsize-normal transition-colors duration-200;
-  }
-
-  body {
-    font-size: 1.125rem;
-    font-weight: 400;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -195,7 +207,7 @@
   .-section-x-inset-xl {
     @apply -mx-4 md:-mx-8 lg:-mx-10;
 
-    @media screen(xl) {
+    @screen xl {
       @container page (width > 0) {
         margin: 0 calc((112px + max(0px, 100cqw - 1280px)) / 2 * -1);
       }
@@ -208,6 +220,10 @@
       focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
       dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
       dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
+  }
+
+  .jsr-link {
+    @apply link;
   }
 
   .link-header {
@@ -334,7 +350,7 @@ body .ddoc {
     }
 
     .highlight {
-      @apply dark:bg-jsr-gray-900 !important;
+      @apply bg-white dark:bg-jsr-gray-900 !important;
 
       .lineNumbers {
         @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
@@ -494,6 +510,25 @@ body .ddoc {
     @apply link;
   }
 
+  .namespaceSection .namespaceItem {
+    min-height: 3rem;
+  }
+
+  .namespaceSection .namespaceItem .namespaceItemContent > a {
+    line-height: 1;
+  }
+
+  .namespaceSection
+    .namespaceItem
+    .namespaceItemContent
+    .namespaceItemContentSubItems {
+    margin-top: 0;
+  }
+
+  .section > div:first-child > h2 {
+    margin-bottom: 0.25rem;
+  }
+
   .contextLink {
     /* cyan 700 at 25%; */
     text-decoration-color: #0e659040;
@@ -518,8 +553,16 @@ body .ddoc {
     }
   }
 
+  .usageContent > div {
+    @apply text-jsr-gray-600 dark:text-jsr-gray-200;
+  }
+
   .usageContent .markdown {
     @apply max-w-full;
+  }
+
+  .usageContent pre.highlight {
+    @apply mt-1 !important;
   }
 
   #module_doc, main {
@@ -530,6 +573,10 @@ body .ddoc {
 
   .toc .topSymbols {
     @apply max-lg:hidden;
+  }
+
+  .toc .documentNavigation > ul ul {
+    @apply text-jsr-gray-600 dark:text-jsr-gray-200;
   }
 
   @media (min-width: 768px) {
@@ -691,6 +738,11 @@ body .ddoc {
   @apply max-w-full !important;
 }
 
+/* Remove borders and top rounded corners from code blocks in the file browser since the wrapper already has these */
+.ddoc-full pre.highlight {
+  @apply border-0 rounded-t-none !important;
+}
+
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
 body:has(.ddoc) #footer {
   display: none;
@@ -734,7 +786,7 @@ body .ddoc .or-bar {
     @apply h-[1px] w-full bg-jsr-gray-200 content-[""];
   }
 
-  @apply flex items-center justify-between gap-2 !mt-[2px] text-nowrap;
+  @apply flex items-center justify-between gap-2 !mt-2 text-nowrap;
 }
 
 @layer base {

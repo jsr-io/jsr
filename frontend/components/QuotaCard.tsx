@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { ComponentChildren } from "preact";
+import { Card } from "./Card.tsx";
 
 export function QuotaCard(
   props: {
@@ -10,13 +11,13 @@ export function QuotaCard(
   },
 ) {
   return (
-    <div class="border-1.5 border-jsr-gray-200 dark:border-jsr-gray-800 rounded-md px-4 py-5 flex flex-col justify-between">
+    <Card variant="gray" class="py-5 flex flex-col justify-between">
       <div>
         <p class="font-semibold text-primary">{props.title}</p>
         <p class="text-secondary text-sm">{props.description}</p>
       </div>
       <QuotaUsage limit={props.limit} usage={props.usage} />
-    </div>
+    </Card>
   );
 }
 

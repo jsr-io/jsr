@@ -8,7 +8,7 @@ const output = await (new Deno.Command(Deno.execPath(), {
   args: ["types", "--unstable"],
 })).output();
 
-const docNodes = await doc("asset:types.ts", {
+const docNodesMap = await doc(["asset:types.ts"], {
   // deno-lint-ignore require-await
   async load(specifier: string) {
     return {
@@ -18,6 +18,7 @@ const docNodes = await doc("asset:types.ts", {
     };
   },
 });
+const docNodes = docNodesMap["asset:types.ts"];
 
 function getNodeName(docNode: DocNode, base?: string) {
   const name = base ? `${base}.${docNode.name}` : docNode.name;

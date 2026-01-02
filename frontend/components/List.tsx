@@ -10,18 +10,23 @@ export interface ListDisplayItem {
 }
 
 export function ListDisplay(
-  { title, pagination, currentUrl, children }: {
+  { title, pagination, currentUrl, children, hasHeader }: {
     title?: string;
     pagination?: PaginationData;
     currentUrl?: URL;
     children: ListDisplayItem[];
+    hasHeader?: boolean;
   },
 ) {
   return (
-    <div class="mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden">
+    <div
+      class={hasHeader
+        ? ""
+        : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"}
+    >
       {title &&
         (
-          <div class="px-5 py-4 border-b border-jsr-cyan-50 dark:border-jsr-cyan-900 bg-jsr-gray-50 dark:bg-jsr-gray-900 leading-none">
+          <div class="px-5 py-4 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 leading-none">
             <span class="font-semibold">{title}</span>
           </div>
         )}
@@ -31,7 +36,7 @@ export function ListDisplay(
           <li>
             <a
               href={item.href}
-              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 dark:hover:bg-jsr-yellow-950 focus:bg-jsr-yellow-100 dark:focus:bg-jsr-yellow-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
+              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 focus:bg-jsr-cyan-50 dark:focus:bg-jsr-cyan-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
                 item.parentClass ?? ""
               }`}
             >

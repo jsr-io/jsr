@@ -31,7 +31,7 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
 
 function ScopeDescription({ scope }: { scope: FullScope }) {
   return (
-    <div class="mb-8">
+    <div class="mt-8 mb-8">
       <h2 class="text-lg sm:text-xl font-semibold">Description</h2>
       <p>
         The description of the scope{" "}
