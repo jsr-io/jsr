@@ -118,16 +118,20 @@ export function TicketModal(
             });
           }}
         >
-          <h2 class="text-xl font-bold">
-            {title}
-          </h2>
+          <div class="space-y-2">
+            <h2 class="text-xl font-bold">
+              {title}
+            </h2>
+            {status.value === "pending" && (
+              <div class="text-secondary">
+                {description}
+              </div>
+            )}
+          </div>
 
           {status.value === "pending"
             ? (
               <>
-                <div class="text-secondary mt-1">
-                  {description}
-                </div>
 
                 <div class="space-y-4 mt-5">
                   {fields.map((field) => {
@@ -139,7 +143,7 @@ export function TicketModal(
                           <textarea
                             name={field.name}
                             required={field.required}
-                            class={`${BASE_INPUT_STYLING} min-h-[12em] max-h-[20em]`}
+                            class={`${BASE_INPUT_STYLING} min-h-[10em] max-h-[20em]`}
                           />
                         );
                         break;
@@ -181,8 +185,7 @@ export function TicketModal(
                   })}
                 </div>
 
-                <div class="flex justify-between pt-5 mt-5 border-t border-jsr-gray-200 dark:border-jsr-gray-700">
-                  <input type="submit" value="Submit" class="button-primary" />
+                <div class="flex justify-end gap-3 mt-5">
                   <button
                     type="button"
                     class="button-danger"
@@ -193,6 +196,7 @@ export function TicketModal(
                   >
                     Cancel
                   </button>
+                  <input type="submit" value="Submit" class="button-primary" />
                 </div>
               </>
             )
