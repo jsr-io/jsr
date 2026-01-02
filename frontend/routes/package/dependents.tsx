@@ -78,13 +78,15 @@ function Dependent(
           {name}
         </a>
       </TableData>
-      <TableData class="space-x-4">
-        {versions.map((version, idx) => <span key={idx}>{version}</span>)}
-        {totalVersions > 5 && (
-          <span>
-            and {totalVersions - 5} additional version{totalVersions > 6 && "s"}
-          </span>
-        )}
+      <TableData class="!whitespace-normal">
+        <div class="flex flex-wrap gap-x-4 gap-y-1">
+          {versions.map((version, idx) => <span key={idx}>{version}</span>)}
+          {totalVersions > 5 && (
+            <span>
+              and {totalVersions - 5} additional version{totalVersions > 6 && "s"}
+            </span>
+          )}
+        </div>
       </TableData>
     </TableRow>
   );

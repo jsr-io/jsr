@@ -209,32 +209,21 @@ export function PackageHeader({
                 </div>
               </>
             )}
-            <span class="text-gray-300 dark:text-gray-600">•</span>
-            <div class="flex items-center gap-1.5">
-              {selectedVersion?.createdAt
-                ? (
-                  <>
-                    <span class="font-semibold">Published</span>
-                    <span
-                      title={new Date(selectedVersion.createdAt).toISOString()
-                        .slice(0, 10)}
-                    >
-                      {twas(new Date(selectedVersion.createdAt).getTime())}{" "}
-                      ({selectedVersion.version})
-                    </span>
-                  </>
-                )
-                : (
-                  <>
-                    <span class="font-semibold">Last updated</span>
-                    <span
-                      title={new Date(pkg.updatedAt).toISOString().slice(0, 10)}
-                    >
-                      {twas(new Date(pkg.updatedAt).getTime())}
-                    </span>
-                  </>
-                )}
-            </div>
+            {selectedVersion?.createdAt && (
+              <>
+                <span class="text-gray-300 dark:text-gray-600">•</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-semibold">Published</span>
+                  <span
+                    title={new Date(selectedVersion.createdAt).toISOString()
+                      .slice(0, 10)}
+                  >
+                    {twas(new Date(selectedVersion.createdAt).getTime())}{" "}
+                    ({selectedVersion.version})
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           {pkg.description && (
