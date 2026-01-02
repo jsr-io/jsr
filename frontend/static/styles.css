@@ -493,6 +493,25 @@ body .ddoc {
     @apply link;
   }
 
+  .namespaceSection .namespaceItem {
+    min-height: 3rem;
+  }
+
+  .namespaceSection .namespaceItem .namespaceItemContent > a {
+    line-height: 1;
+  }
+
+  .namespaceSection
+    .namespaceItem
+    .namespaceItemContent
+    .namespaceItemContentSubItems {
+    margin-top: 0;
+  }
+
+  .section > div:first-child > h2 {
+    margin-bottom: 0.25rem;
+  }
+
   .contextLink {
     /* cyan 700 at 25%; */
     text-decoration-color: #0e659040;
