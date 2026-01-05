@@ -171,27 +171,31 @@ function Pagination(
           )}
         </p>
       </div>
-      <div class="flex flex-1 gap-3 justify-between sm:justify-end">
-        {hasPrevious
-          ? (
-            <a
-              href={prevURL.pathname + prevURL.search}
-              class={PAGINATION_BUTTON_STYLE}
-            >
-              Previous
-            </a>
-          )
-          : <span />}
-        {hasNext
-          ? (
-            <a
-              href={nextURL.pathname + nextURL.search}
-              class={PAGINATION_BUTTON_STYLE}
-            >
-              Next
-            </a>
-          )
-          : <span />}
+      <div
+        class={`flex flex-1 gap-3 ${
+          hasPrevious && hasNext
+            ? "justify-between"
+            : hasPrevious
+            ? "justify-start"
+            : "justify-end"
+        } sm:justify-end`}
+      >
+        {hasPrevious && (
+          <a
+            href={prevURL.pathname + prevURL.search}
+            class={PAGINATION_BUTTON_STYLE}
+          >
+            Previous
+          </a>
+        )}
+        {hasNext && (
+          <a
+            href={nextURL.pathname + nextURL.search}
+            class={PAGINATION_BUTTON_STYLE}
+          >
+            Next
+          </a>
+        )}
       </div>
     </nav>
   );

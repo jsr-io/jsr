@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { JSX } from "preact";
+import { createPortal } from "preact/compat";
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { IS_BROWSER } from "fresh/runtime";
@@ -160,6 +161,12 @@ export function LocalSymbolSearch(
 
   const previousResultNodes = useRef<HTMLElement[]>([]);
   const previousSections = useRef<Set<HTMLElement>>(new Set());
+  const searchResultsContainer = useRef<HTMLElement | null>(null);
+
+  // Get the search results container on mount
+  useEffect(() => {
+    searchResultsContainer.current = document.getElementById("docSearchResults");
+  }, []);
 
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
@@ -310,47 +317,41 @@ export function LocalSymbolSearch(
   }
 
   if (IS_BROWSER) {
-    const noResultsId = "docSearchNoResults";
-    let noResultsEl = document.getElementById(noResultsId);
-
     if (showResults.value && searchCounter.value) {
       document.getElementById("docMain")!.classList.add("hidden");
       document.getElementById("docSearchResults")!.classList.remove("hidden");
-
-      if (!hasResults.value) {
-        if (!noResultsEl) {
-          noResultsEl = document.createElement("div");
-          noResultsEl.id = noResultsId;
-          noResultsEl.className = "text-secondary py-4";
-          noResultsEl.textContent = "No results found";
-          document.getElementById("docSearchResults")!.prepend(noResultsEl);
-        }
-        noResultsEl.classList.remove("hidden");
-      } else if (noResultsEl) {
-        noResultsEl.classList.add("hidden");
-      }
     } else {
       document.getElementById("docMain")!.classList.remove("hidden");
       document.getElementById("docSearchResults")!.classList.add("hidden");
-      if (noResultsEl) {
-        noResultsEl.classList.add("hidden");
-      }
     }
   }
 
   const placeholder = `Search for symbols${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
+
+  const showNoResults = IS_BROWSER &&
+    searchResultsContainer.current &&
+    showResults.value &&
+    !hasResults.value;
+
   return (
-    <div class="flex-none">
-      <input
-        type="search"
-        placeholder={placeholder}
-        id="symbol-search-input"
-        class="block text-sm w-full py-2 px-2 input-container input border-1 border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
-        disabled={!db.value}
-        onInput={onInput}
-      />
-    </div>
+    <>
+      <div class="flex-none">
+        <input
+          type="search"
+          placeholder={placeholder}
+          id="symbol-search-input"
+          class="block text-sm w-full py-2 px-2 input-container input border-1 border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
+          disabled={!db.value}
+          onInput={onInput}
+        />
+      </div>
+      {showNoResults &&
+        createPortal(
+          <div class="text-secondary py-4">No results found</div>,
+          searchResultsContainer.current!,
+        )}
+    </>
   );
 }
