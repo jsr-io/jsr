@@ -165,7 +165,9 @@ export function LocalSymbolSearch(
 
   // Get the search results container on mount
   useEffect(() => {
-    searchResultsContainer.current = document.getElementById("docSearchResults");
+    searchResultsContainer.current = document.getElementById(
+      "docSearchResults",
+    );
   }, []);
 
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
