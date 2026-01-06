@@ -30,31 +30,34 @@ export default define.page<typeof handler>(
           latestVersion={data.package.latestVersion}
         />
 
-        <DescriptionEditor description={data.package.description} />
+        <div class="mt-8 flex flex-col gap-12">
+          <DescriptionEditor description={data.package.description} />
 
-        <RuntimeCompatEditor runtimeCompat={data.package.runtimeCompat} />
+          <RuntimeCompatEditor runtimeCompat={data.package.runtimeCompat} />
 
-        <GitHubRepository package={data.package} />
+          <GitHubRepository package={data.package} />
 
-        <SelectReadmeSourceEditor source={data.package.readmeSource} />
+          <SelectReadmeSourceEditor source={data.package.readmeSource} />
 
-        <ArchivePackage isArchived={data.package.isArchived} />
+          <ArchivePackage isArchived={data.package.isArchived} />
 
-        <DeletePackage hasVersions={data.package.versionCount > 0} />
+          <DeletePackage hasVersions={data.package.versionCount > 0} />
 
-        {data.iam.isStaff && (
-          <div class="border-t pt-8 mt-12">
-            <h2 class="text-xl font-sans font-bold">Staff area</h2>
+          {data.iam.isStaff && (
+            <div class="flex flex-col items-start gap-4">
+              <div>
+                <h2 class="text-xl font-sans font-bold">Staff area</h2>
+                <p class="text-secondary max-w-3xl">
+                  Feature a package on the homepage.
+                </p>
+              </div>
 
-            <p class="mt-2 text-secondary max-w-3xl">
-              Feature a package on the homepage.
-            </p>
-
-            <form method="POST">
-              <FeaturePackage package={data.package} />
-            </form>
-          </div>
-        )}
+              <form method="POST">
+                <FeaturePackage package={data.package} />
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     );
   },
@@ -62,23 +65,21 @@ export default define.page<typeof handler>(
 
 function GitHubRepository(props: { package: Package }) {
   return (
-    <div class="border-t pt-8 mt-12">
-      <h2 class="text-xl font-sans font-bold">GitHub Repository</h2>
-
-      <p class="mt-2 text-secondary max-w-3xl">
-        The GitHub repository is shown publicly on the package page.
-      </p>
-
-      <p class="mt-2 mb-4 text-secondary max-w-3xl">
-        Specifying a GitHub repository also enables securely publishing from
-        GitHub Actions using OIDC — no need to specify tokens or secrets.{" "}
-        <a
-          href={`/@${props.package.scope}/${props.package.name}/publish#from-ci`}
-          class="text-jsr-cyan-700 dark:text-cyan-400 hover:underline"
-        >
-          Set up publishing from GitHub Actions.
-        </a>
-      </p>
+    <div class="flex flex-col items-start gap-4">
+      <div>
+        <h2 class="text-xl font-sans font-bold">GitHub Repository</h2>
+        <p class="text-secondary max-w-3xl">
+          The GitHub repository is shown publicly on the package page.
+          Specifying a GitHub repository also enables securely publishing from
+          GitHub Actions using OIDC — no need to specify tokens or secrets.{" "}
+          <a
+            href={`/@${props.package.scope}/${props.package.name}/publish#from-ci`}
+            class="link"
+          >
+            Set up publishing from GitHub Actions.
+          </a>
+        </p>
+      </div>
 
       <PackageGitHubSettings
         scope={props.package.scope}
@@ -91,48 +92,52 @@ function GitHubRepository(props: { package: Package }) {
 
 function DescriptionEditor(props: { description: string }) {
   return (
-    <form class="mt-8" method="POST">
-      <h2 class="text-xl font-sans font-bold" id="description">Description</h2>
-
-      <p class="mt-2 text-secondary max-w-3xl">
-        The package description is shown on the package page and in search
-        results.
-      </p>
-
-      <div class="mt-4 max-w-3xl flex flex-col gap-4">
-        <PackageDescriptionEditor description={props.description} />
+    <form class="flex flex-col items-start gap-4" method="POST">
+      <div>
+        <h2 class="text-xl font-sans font-bold" id="description">
+          Description
+        </h2>
+        <p class="text-secondary max-w-3xl">
+          The package description is shown on the package page and in search
+          results.
+        </p>
       </div>
+
+      <PackageDescriptionEditor description={props.description} />
     </form>
   );
 }
 
 function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
   return (
-    <form class="border-t pt-8 mt-12" method="POST" autocomplete="off">
-      <h2 class="text-xl font-sans font-bold" id="description">
-        Readme Source
-      </h2>
-
-      <p class="mt-2 text-secondary max-w-3xl">
-        The source to use to display the content on the main page.
-      </p>
-
-      <div class="mt-4 max-w-3xl flex flex-col gap-4">
-        <select
-          name="source"
-          className="input-container input select w-full mt-4 block py-2 px-4"
-        >
-          <option value="readme" selected={props.source === "readme"}>
-            Readme
-          </option>
-          <option value="jsdoc" selected={props.source === "jsdoc"}>
-            JSDoc (with Readme fallback)
-          </option>
-        </select>
+    <form
+      class="flex flex-col items-start gap-4"
+      method="POST"
+      autocomplete="off"
+    >
+      <div>
+        <h2 class="text-xl font-sans font-bold" id="description">
+          Readme Source
+        </h2>
+        <p class="text-secondary max-w-3xl">
+          The source to use to display the content on the main page.
+        </p>
       </div>
 
+      <select
+        name="source"
+        className="input-container input select w-full max-w-sm block py-2 px-4"
+      >
+        <option value="readme" selected={props.source === "readme"}>
+          Readme
+        </option>
+        <option value="jsdoc" selected={props.source === "jsdoc"}>
+          JSDoc (with Readme fallback)
+        </option>
+      </select>
+
       <button
-        class="button-primary mt-8"
+        class="button-primary"
         type="submit"
         name="action"
         value="updateReadmeSource"
@@ -145,17 +150,18 @@ function SelectReadmeSourceEditor(props: { source: "readme" | "jsdoc" }) {
 
 function RuntimeCompatEditor(props: { runtimeCompat: RuntimeCompat }) {
   return (
-    <form class="border-t pt-8 mt-12" method="POST">
-      <h2 class="text-xl font-sans font-bold" id="runtime_compat">
-        Runtime Compat
-      </h2>
+    <form class="flex flex-col items-start gap-4" method="POST">
+      <div>
+        <h2 class="text-xl font-sans font-bold" id="runtime_compat">
+          Runtime Compat
+        </h2>
+        <p class="text-secondary max-w-3xl">
+          Set which runtimes this package is compatible with. This information
+          is shown on the package page and in search results.
+        </p>
+      </div>
 
-      <p class="mt-2 text-secondary max-w-3xl">
-        Set which packages this package is compatible with. This information is
-        shown on the package page and in search results.
-      </p>
-
-      <div class="mt-4 max-w-6xl grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div class="max-w-6xl grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         {RUNTIME_COMPAT_KEYS.map(([key, name]) => (
           <RuntimeCompatEditorItem
             key={key}
@@ -167,7 +173,7 @@ function RuntimeCompatEditor(props: { runtimeCompat: RuntimeCompat }) {
       </div>
 
       <button
-        class="button-primary mt-8"
+        class="button-primary"
         type="submit"
         name="action"
         value="updateRuntimeCompat"
@@ -208,19 +214,18 @@ function RuntimeCompatEditorItem({ name, id, value }: {
 function ArchivePackage(props: { isArchived: boolean }) {
   if (!props.isArchived) {
     return (
-      <form class="border-t pt-8 mt-12" method="POST">
-        <h2 class="text-xl font-sans font-bold">Archive package</h2>
-
-        <p className="mt-2 text-secondary max-w-3xl">
-          Archiving a package removes it from search indexing and the scope
-          page, making it undiscoverable to users.
-          <br />
-          Additionally, you won’t be able to publish new versions to this
-          package until you unarchive it.
-        </p>
+      <form class="flex flex-col items-start gap-4" method="POST">
+        <div>
+          <h2 class="text-xl font-sans font-bold">Archive package</h2>
+          <p class="text-secondary max-w-3xl">
+            Archiving a package removes it from search indexing and the scope
+            page, making it undiscoverable to users. Additionally, you won't be
+            able to publish new versions to this package until you unarchive it.
+          </p>
+        </div>
 
         <button
-          class="button-danger mt-4"
+          class="button-danger"
           type="submit"
           name="action"
           value="archivePackage"
@@ -231,18 +236,18 @@ function ArchivePackage(props: { isArchived: boolean }) {
     );
   } else {
     return (
-      <form class="border-t pt-8 mt-12" method="POST">
-        <h2 class="text-xl font-sans font-bold">Unarchive package</h2>
-
-        <p class="mt-2 text-secondary max-w-3xl">
-          Unarchiving a package restores its availability in search results and
-          makes it visible on the scope page again.
-          <br />
-          This also allows you to publish new versions to the package.
-        </p>
+      <form class="flex flex-col items-start gap-4" method="POST">
+        <div>
+          <h2 class="text-xl font-sans font-bold">Unarchive package</h2>
+          <p class="text-secondary max-w-3xl">
+            Unarchiving a package restores its availability in search results
+            and makes it visible on the scope page again. This also allows you
+            to publish new versions to the package.
+          </p>
+        </div>
 
         <button
-          class="button-danger mt-4"
+          class="button-danger"
           type="submit"
           name="action"
           value="unarchivePackage"
@@ -256,17 +261,17 @@ function ArchivePackage(props: { isArchived: boolean }) {
 
 function DeletePackage(props: { hasVersions: boolean }) {
   return (
-    <form class="border-t pt-8 mt-12" method="POST">
-      <h2 class="text-xl font-sans font-bold">Delete package</h2>
-
-      <p class="mt-2 text-secondary max-w-3xl">
-        A package can only be deleted if it has no published versions.
-        <br />
-        This action cannot be undone.
-      </p>
+    <form class="flex flex-col items-start gap-4" method="POST">
+      <div>
+        <h2 class="text-xl font-sans font-bold">Delete package</h2>
+        <p class="text-secondary max-w-3xl">
+          A package can only be deleted if it has no published versions. This
+          action cannot be undone.
+        </p>
+      </div>
 
       <button
-        class="button-danger mt-4"
+        class="button-danger"
         disabled={props.hasVersions}
         type="submit"
         name="action"
@@ -276,7 +281,7 @@ function DeletePackage(props: { hasVersions: boolean }) {
       </button>
 
       {props.hasVersions && (
-        <p class="mt-2 text-red-600">
+        <p class="text-red-600">
           This package cannot be deleted because it has published versions. Only
           empty packages can be deleted.
         </p>
@@ -289,7 +294,7 @@ function FeaturePackage(props: { package: Package }) {
   if (props.package.whenFeatured) {
     return (
       <button
-        class="button-danger mt-8"
+        class="button-danger"
         type="submit"
         name="action"
         value="isNotFeatured"
@@ -301,7 +306,7 @@ function FeaturePackage(props: { package: Package }) {
 
   return (
     <button
-      class="button-primary mt-8"
+      class="button-primary"
       type="submit"
       name="action"
       value="isFeatured"
