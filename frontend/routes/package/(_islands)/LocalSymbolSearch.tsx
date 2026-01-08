@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { JSX } from "preact";
+import { createPortal } from "preact/compat";
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { IS_BROWSER } from "fresh/runtime";
@@ -70,6 +71,7 @@ export function LocalSymbolSearch(
   // deno-lint-ignore no-explicit-any
   const db = useSignal<undefined | Orama<any>>(undefined);
   const showResults = useSignal(false);
+  const hasResults = useSignal(true);
   const macLike = useMacLike();
   const searchCounter = useSignal(0);
 
@@ -113,13 +115,30 @@ export function LocalSymbolSearch(
           searchItem.style.setProperty("display", "none");
           const section = searchItem.parentElement!.parentElement!;
           section.hidden = true;
-          return {
+
+          const nodes = [{
             name,
             description: description?.innerText.replaceAll("\n", " ") ?? "",
             node: searchItem,
             section: section,
-          };
-        });
+          }];
+
+          for (
+            const property of searchItem.querySelectorAll(
+              ".namespaceItemContentSubItems > li > a",
+            )
+          ) {
+            nodes.push({
+              name: property.textContent,
+              description: "",
+              node: searchItem,
+              section: section,
+            });
+          }
+
+          return nodes;
+        })
+        .flat();
 
       await insertMultiple(oramaDb, searchItems);
       db.value = oramaDb;
@@ -142,6 +161,14 @@ export function LocalSymbolSearch(
 
   const previousResultNodes = useRef<HTMLElement[]>([]);
   const previousSections = useRef<Set<HTMLElement>>(new Set());
+  const searchResultsContainer = useRef<HTMLElement | null>(null);
+
+  // Get the search results container on mount
+  useEffect(() => {
+    searchResultsContainer.current = document.getElementById(
+      "docSearchResults",
+    );
+  }, []);
 
   async function onInput(e: JSX.TargetedEvent<HTMLInputElement>) {
     if (e.currentTarget.value) {
@@ -182,6 +209,15 @@ export function LocalSymbolSearch(
           .children[0] as HTMLAnchorElement;
         titleElement.innerHTML =
           highlighter.highlight(titleElement.title, term).HTML;
+
+        for (
+          const property of doc.node.querySelectorAll(
+            ".namespaceItemContentSubItems > li > a",
+          )
+        ) {
+          property.innerHTML =
+            highlighter.highlight(property.textContent, term).HTML;
+        }
 
         const description = doc.node.getElementsByClassName(
           "markdown_summary",
@@ -273,9 +309,11 @@ export function LocalSymbolSearch(
         }
       }
 
+      hasResults.value = searchResult.hits.length > 0;
       searchCounter.value++;
       showResults.value = true;
     } else {
+      hasResults.value = true;
       showResults.value = false;
     }
   }
@@ -293,16 +331,29 @@ export function LocalSymbolSearch(
   const placeholder = `Search for symbols${
     macLike !== undefined ? ` (${macLike ? "⌘/" : "Ctrl+/"})` : ""
   }`;
+
+  const showNoResults = IS_BROWSER &&
+    searchResultsContainer.current &&
+    showResults.value &&
+    !hasResults.value;
+
   return (
-    <div class="flex-none">
-      <input
-        type="search"
-        placeholder={placeholder}
-        id="symbol-search-input"
-        class="block text-sm w-full py-2 px-2 input-container input border-1 border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
-        disabled={!db.value}
-        onInput={onInput}
-      />
-    </div>
+    <>
+      <div class="flex-none">
+        <input
+          type="search"
+          placeholder={placeholder}
+          id="symbol-search-input"
+          class="block text-sm w-full py-2 px-2 input-container input border-1 border-jsr-cyan-300/50 dark:border-jsr-cyan-800"
+          disabled={!db.value}
+          onInput={onInput}
+        />
+      </div>
+      {showNoResults &&
+        createPortal(
+          <div class="text-secondary py-4">No results found</div>,
+          searchResultsContainer.current!,
+        )}
+    </>
   );
 }

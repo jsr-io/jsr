@@ -4,9 +4,9 @@
     "jsr:@deno/cache-dir@0.14": "0.14.0",
     "jsr:@deno/doc@0.183": "0.183.0",
     "jsr:@deno/gfm@0.10": "0.10.0",
-    "jsr:@deno/sandbox@*": "0.4.4",
+    "jsr:@deno/graph@0.86": "0.86.9",
+    "jsr:@deno/graph@~0.82.3": "0.82.3",
     "jsr:@denosaurs/emoji@0.3": "0.3.1",
-    "jsr:@std/async@^1.0.15": "1.0.15",
     "jsr:@std/async@^1.0.8": "1.0.9",
     "jsr:@std/bytes@^1.0.5": "1.0.6",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
@@ -17,18 +17,12 @@
     "jsr:@std/fmt@^1.0.3": "1.0.8",
     "jsr:@std/fmt@^1.0.8": "1.0.8",
     "jsr:@std/front-matter@^1.0.5": "1.0.5",
-    "jsr:@std/fs@^1.0.19": "1.0.19",
     "jsr:@std/fs@^1.0.6": "1.0.19",
-    "jsr:@std/internal@^1.0.12": "1.0.12",
-    "jsr:@std/internal@^1.0.9": "1.0.12",
     "jsr:@std/io@0.225": "0.225.2",
     "jsr:@std/path@^1.0.8": "1.0.8",
-    "jsr:@std/path@^1.1.1": "1.1.3",
-    "jsr:@std/path@^1.1.2": "1.1.3",
     "jsr:@std/toml@^1.0.1": "1.0.2",
     "jsr:@std/yaml@^1.0.5": "1.0.5",
     "npm:@mdn/browser-compat-data@^7.1.6": "7.1.6",
-    "npm:devalue@5.3.2": "5.3.2",
     "npm:github-slugger@2": "2.0.0",
     "npm:he@^1.2.0": "1.2.0",
     "npm:katex@0.16": "0.16.11",
@@ -37,24 +31,24 @@
     "npm:marked-gfm-heading-id@^3.1.0": "3.2.0_marked@12.0.2",
     "npm:marked@12": "12.0.2",
     "npm:prismjs@^1.29.0": "1.29.0",
-    "npm:sanitize-html@^2.13.0": "2.13.1",
-    "npm:ws@^8.18.3": "8.18.3",
-    "npm:zod@4.1.5": "4.1.5"
+    "npm:sanitize-html@^2.13.0": "2.13.1"
   },
   "jsr": {
     "@deno/cache-dir@0.14.0": {
       "integrity": "729f0b68e7fc96443c09c2c544b830ca70897bdd5168598446d752f7a4c731ad",
       "dependencies": [
+        "jsr:@deno/graph@0.86",
         "jsr:@std/fmt@^1.0.3",
-        "jsr:@std/fs@^1.0.6",
+        "jsr:@std/fs",
         "jsr:@std/io",
-        "jsr:@std/path@^1.0.8"
+        "jsr:@std/path"
       ]
     },
     "@deno/doc@0.183.0": {
       "integrity": "19a30e7e3083245c4a232bdc19481e813032f49f7a6bb292b3993066c9137692",
       "dependencies": [
-        "jsr:@deno/cache-dir"
+        "jsr:@deno/cache-dir",
+        "jsr:@deno/graph@~0.82.3"
       ]
     },
     "@deno/gfm@0.10.0": {
@@ -72,26 +66,17 @@
         "npm:sanitize-html"
       ]
     },
-    "@deno/sandbox@0.4.4": {
-      "integrity": "d3c243b35c2f3fa7915105211afa87dff27c15c2948a01f650c2926ca0333c23",
-      "dependencies": [
-        "jsr:@std/async@^1.0.15",
-        "jsr:@std/encoding",
-        "jsr:@std/fs@^1.0.19",
-        "jsr:@std/path@^1.1.2",
-        "npm:devalue",
-        "npm:ws",
-        "npm:zod"
-      ]
+    "@deno/graph@0.82.3": {
+      "integrity": "5c1fe944368172a9c87588ac81b82eb027ca78002a57521567e6264be322637e"
+    },
+    "@deno/graph@0.86.9": {
+      "integrity": "c4f353a695bcc5246c099602977dabc6534eacea9999a35a8cb24e807192e6a1"
     },
     "@denosaurs/emoji@0.3.1": {
       "integrity": "b0aed5f55dec99e83da7c9637fe0a36d1d6252b7c99deaaa3fc5dea3fcf3da8b"
     },
     "@std/async@1.0.9": {
       "integrity": "c6472fd0623b3f3daae023cdf7ca5535e1b721dfbf376562c0c12b3fb4867f91"
-    },
-    "@std/async@1.0.15": {
-      "integrity": "55d1d9d04f99403fe5730ab16bdcc3c47f658a6bf054cafb38a50f046238116e"
     },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
@@ -119,14 +104,7 @@
       ]
     },
     "@std/fs@1.0.19": {
-      "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06",
-      "dependencies": [
-        "jsr:@std/internal@^1.0.9",
-        "jsr:@std/path@^1.1.1"
-      ]
-    },
-    "@std/internal@1.0.12": {
-      "integrity": "972a634fd5bc34b242024402972cd5143eac68d8dffaca5eaa4dba30ce17b027"
+      "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06"
     },
     "@std/io@0.225.2": {
       "integrity": "3c740cd4ee4c082e6cfc86458f47e2ab7cb353dc6234d5e9b1f91a2de5f4d6c7",
@@ -136,12 +114,6 @@
     },
     "@std/path@1.0.8": {
       "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
-    },
-    "@std/path@1.1.3": {
-      "integrity": "b015962d82a5e6daea980c32b82d2c40142149639968549c649031a230b1afb3",
-      "dependencies": [
-        "jsr:@std/internal@^1.0.12"
-      ]
     },
     "@std/toml@1.0.2": {
       "integrity": "5892ba489c5b512265a384238a8fe8dddbbb9498b4b210ef1b9f0336a423a39b",
@@ -162,9 +134,6 @@
     },
     "deepmerge@4.3.1": {
       "integrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A=="
-    },
-    "devalue@5.3.2": {
-      "integrity": "sha512-UDsjUbpQn9kvm68slnrs+mfxwFkIflOhkanmyabZ8zOYk8SMEIbJ3TK+88g70hSIeytu4y18f0z/hYHMTrXIWw=="
     },
     "dom-serializer@2.0.0": {
       "integrity": "sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==",
@@ -280,12 +249,6 @@
     },
     "source-map-js@1.2.1": {
       "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="
-    },
-    "ws@8.18.3": {
-      "integrity": "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg=="
-    },
-    "zod@4.1.5": {
-      "integrity": "sha512-rcUUZqlLJgBC33IT3PNMgsCq6TzLQEG/Ei/KTCU0PedSWRMAXoOUN+4t/0H+Q8bdnLPdqUYnvboJT0bn/229qg=="
     }
   },
   "remote": {
@@ -308,6 +271,7 @@
     "https://deno.land/x/postgres@v0.19.5/query/oid.ts": "21fc714ac212350ba7df496f88ea9e01a4ee0458911d0f2b6a81498e12e7af4c",
     "https://deno.land/x/postgres@v0.19.5/query/query.ts": "a94abb12d5365eb64cfe5b6a84bb0a8a5aa6c9d92f588861825974765d4af803",
     "https://deno.land/x/postgres@v0.19.5/query/transaction.ts": "d6989379be861d4673a72189ef245670dc884f93d2f723993052eae20cbfc545",
+    "https://deno.land/x/postgres@v0.19.5/query/types.ts": "540f6f973d493d63f2c0059a09f3368071f57931bba68bea408a635a3e0565d6",
     "https://deno.land/x/postgres@v0.19.5/utils/deferred.ts": "45651f19a1524f88414bbc9326ae1534854afe03f5b7537f713a3655ed2d7b9a",
     "https://deno.land/x/postgres@v0.19.5/utils/utils.ts": "ff3abca25712fc0a1543103f8ebed057ae9d2bc251e286c883ac65e86fcdc6c9"
   },
