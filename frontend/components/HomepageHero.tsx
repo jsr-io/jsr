@@ -18,9 +18,9 @@ body {
 }`;
 
 export function HomepageHero(
-  { apiKey, indexId }: {
+  { projectId, apiKey }: {
+    projectId: string | undefined;
     apiKey: string | undefined;
-    indexId: string | undefined;
   },
 ) {
   return (
@@ -75,8 +75,8 @@ export function HomepageHero(
         </div>
         <div class="w-full md:w-3/4 relative z-20">
           <GlobalSearch
+            projectId={projectId}
             apiKey={apiKey}
-            indexId={indexId}
             jumbo
           />
         </div>

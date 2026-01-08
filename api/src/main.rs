@@ -216,21 +216,32 @@ async fn main() {
     ),
   );
 
-  let orama_client = if let Some(orama_package_private_api_key) =
-    config.orama_package_private_api_key
-  {
-    Some(OramaClient::new(
-      orama_package_private_api_key,
-      config
-        .orama_package_index_id
-        .expect("orama_package_private_api_key was provided but no orama_package_index_id"),
-      config
-        .orama_symbols_index_id
-        .expect("orama_package_private_api_key was provided but no orama_symbols_index_id"),
-    ))
-  } else {
-    None
-  };
+  let orama_client =
+    if let Some(orama_package_project_id) = config.orama_package_project_id {
+      Some(
+        OramaClient::new(
+          orama_package_project_id,
+          config.orama_package_project_key.expect(
+            "package_project_id was provided but no orama_package_project_key",
+          ),
+          config.orama_package_data_source.expect(
+            "package_project_id was provided but no orama_package_data_source",
+          ),
+          config.orama_symbol_project_id.expect(
+            "package_project_id was provided but no orama_symbol_project_id",
+          ),
+          config.orama_symbol_project_key.expect(
+            "package_project_id was provided but no orama_symbol_project_key",
+          ),
+          config.orama_symbol_data_source.expect(
+            "package_project_id was provided but no orama_symbol_data_source",
+          ),
+        )
+        .await,
+      )
+    } else {
+      None
+    };
 
   let email_sender = config.postmark_token.map(|token| {
     EmailSender::new(
