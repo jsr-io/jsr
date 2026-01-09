@@ -51,7 +51,6 @@ export default async function App({
           type="font/woff2"
           crossOrigin="anonymous"
         />
-        <link rel="stylesheet" href={asset("/styles.css")} />
         <link rel="stylesheet" href={asset("/gfm.css")} />
         <link
           rel="icon"
@@ -73,7 +72,7 @@ export default async function App({
             (function() {
               const isDarkStored = localStorage.getItem('darkMode');
               const isDarkPreference = window.matchMedia('(prefers-color-scheme: dark)').matches;
-              
+
               if (isDarkStored === 'true' || (isDarkStored === null && isDarkPreference)) {
                 document.documentElement.classList.add('dark');
               } else {

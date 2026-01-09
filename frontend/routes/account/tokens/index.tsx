@@ -35,7 +35,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
                 <li class="py-2">
                   <a
                     href="/account/tokens/create"
-                    class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm"
+                    class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-hidden focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-xs"
                   >
                     <TbPlus />
                     Create new token
@@ -51,7 +51,7 @@ export default define.page<typeof handler>(function AccountTokensPage({
                 <p class="mt-2">
                   <a
                     href="/account/tokens/create"
-                    class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-none focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm"
+                    class="flex items-center gap-2 text-jsr-cyan-700 hover:text-jsr-cyan-600 hover:underline outline-hidden focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-xs"
                   >
                     <TbPlus />
                     Create new token

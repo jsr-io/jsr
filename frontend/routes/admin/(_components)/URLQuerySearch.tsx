@@ -10,7 +10,7 @@ export function URLQuerySearch(
   },
 ) {
   return (
-    <form method="GET" class="flex flex-grow gap-2 md:gap-4 mt-4" ref={formRef}>
+    <form method="GET" class="flex grow gap-2 md:gap-4 mt-4" ref={formRef}>
       {children}
       <input
         type="text"

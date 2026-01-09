@@ -36,7 +36,7 @@ export function Table(
 
   return (
     <div
-      class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden ${
+      class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded-sm overflow-hidden ${
         class_ ?? ""
       }`}
     >

@@ -237,7 +237,7 @@ interface CardButtonProps {
 function CardButton(props: CardButtonProps) {
   return (
     <button
-      class={`grid text-left rounded-xl p-6 group focus-visible:bg-jsr-yellow-50/30 dark:focus-visible:bg-jsr-yellow-950/30 hover:bg-jsr-yellow-50/30 dark:hover:bg-jsr-yellow-950/30 focus-visible:ring-2 outline-none active:bg-jsr-gray-100 dark:active:bg-jsr-gray-900 ring-2 ${
+      class={`grid text-left rounded-xl p-6 group focus-visible:bg-jsr-yellow-50/30 dark:focus-visible:bg-jsr-yellow-950/30 hover:bg-jsr-yellow-50/30 dark:hover:bg-jsr-yellow-950/30 focus-visible:ring-2 outline-hidden active:bg-jsr-gray-100 dark:active:bg-jsr-gray-900 ring-2 ${
         props.selected ? "ring-jsr-yellow-400" : "ring-jsr-gray-100/50"
       }`}
       type={props.type}
@@ -249,10 +249,10 @@ function CardButton(props: CardButtonProps) {
           {props.title}
         </p>
         <div
-          class={`-mt-2 -mr-2 h-6 w-6 rounded-full flex-shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700/20 ${
+          class={`-mt-2 -mr-2 h-6 w-6 rounded-full shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700/20 ${
             props.selected
-              ? "ring ring-jsr-cyan-950 bg-jsr-cyan-950 text-jsr-yellow"
-              : "ring"
+              ? "ring-3 ring-jsr-cyan-950 bg-jsr-cyan-950 text-jsr-yellow"
+              : "ring-3"
           }`}
         >
           {props.selected && <TbCheck class="stroke-2 size-9" />}

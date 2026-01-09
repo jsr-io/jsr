@@ -27,7 +27,7 @@ export function ListPanel(
           </div>
         )}
       </div>
-      <ol class="border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-800 rounded list-none overflow-hidden">
+      <ol class="border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-800 rounded-sm list-none overflow-hidden">
         {children.map((entry) => {
           return (
             <li
@@ -36,7 +36,7 @@ export function ListPanel(
                 : ""}
             >
               <a
-                class={`flex px-4 items-center py-3 group focus-visible:ring-2 ring-jsr-cyan-700 dark:ring-cyan-500 ring-inset outline-none hover:bg-jsr-yellow-200 dark:hover:bg-jsr-yellow-950 focus-visible:bg-jsr-yellow-200 dark:focus-visible:bg-jsr-yellow-950 ${
+                class={`flex px-4 items-center py-3 group focus-visible:ring-2 ring-jsr-cyan-700 dark:ring-cyan-500 ring-inset outline-hidden hover:bg-jsr-yellow-200 dark:hover:bg-jsr-yellow-950 focus-visible:bg-jsr-yellow-200 dark:focus-visible:bg-jsr-yellow-950 ${
                   entry.value === selected
                     ? "text-jsr-cyan-700 dark:text-cyan-400 font-bold"
                     : ""

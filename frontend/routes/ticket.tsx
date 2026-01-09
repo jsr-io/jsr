@@ -72,7 +72,7 @@ export default define.page<typeof handler>(function Ticket({
             const isOpener = user.id === data.ticket.creator.id;
 
             return (
-              <div class="w-full rounded border-1.5 border-current dark:border-cyan-700 px-4 py-3">
+              <div class="w-full rounded-sm border-1.5 border-current dark:border-cyan-700 px-4 py-3">
                 <div class="flex justify-between mb-2">
                   <div class="flex items-center gap-3">
                     <a

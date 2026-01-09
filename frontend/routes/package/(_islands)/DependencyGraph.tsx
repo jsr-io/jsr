@@ -206,8 +206,8 @@ function createDigraph(dependencies: DependencyGraphItem[]) {
 
   return `digraph "dependencies" {
   graph [rankdir="LR", concentrate=true]
-  node [fontname="Courier", shape="box", style="filled,rounded"]
-  
+  node [fontname="Courier", shape="box", style="filled,rounded-sm"]
+
   {
     rank=same
     ${Array.from(nodesWithNoParent).join("; ")}
@@ -364,7 +364,7 @@ function GraphControlButton(props: GraphControlButtonProps) {
     <button
       type="button"
       aria-label={props.title}
-      class={`${props.class} bg-white dark:bg-jsr-gray-900 text-jsr-gray-700 dark:text-white p-1.5 ring-1 ring-jsr-gray-700 dark:ring-white rounded-full sm:rounded hover:bg-jsr-gray-100/30 dark:hover:bg-jsr-gray-800/50`}
+      class={`${props.class} bg-white dark:bg-jsr-gray-900 text-jsr-gray-700 dark:text-white p-1.5 ring-1 ring-jsr-gray-700 dark:ring-white rounded-full sm:rounded-sm hover:bg-jsr-gray-100/30 dark:hover:bg-jsr-gray-800/50`}
       onClick={props.onClick}
       title={props.title}
     >
@@ -416,7 +416,7 @@ export function DependencyGraph(props: DependencyGraphProps) {
 
   return (
     <div
-      class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden relative h-[90vh]"
+      class="-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded-sm overflow-hidden relative h-[90vh]"
       onMouseDown={enableDrag}
       onMouseMove={onMouseMove}
       onMouseUp={disableDrag}

@@ -1,18 +1,12 @@
-// Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { Config, CSSRuleObject } from "tailwindcss/types/config.d.ts";
-import colors from "tailwindcss/colors.js";
-import plugin from "tailwindcss/plugin.js";
-import tailwindPkgJson from "tailwindcss/package.json" with { type: "json" };
-import postcss from "postcss";
+import type { Config } from "tailwindcss";
+import colors from "tailwindcss/colors";
 
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export default {
   content: [
     "{routes,islands,components}/**/*.{ts,tsx}",
   ],
   darkMode: "class",
-  plugins: [
-    ...(typeof Deno !== "undefined" ? [rewritePreflight()] : []),
-  ],
   theme: {
     fontFamily: {
       mono: [
@@ -167,40 +161,3 @@ export default {
     },
   },
 } satisfies Config;
-
-function rewritePreflight() {
-  return plugin(({ addBase }) => {
-    const preflight = postcss.parse(
-      Deno.readTextFileSync("./node_modules/tailwindcss/lib/css/preflight.css"),
-    );
-
-    // Tailwindcss applies `height: auto` for img and video tags in preflight css,
-    // which disrupts the common practice of resizing medias in markdown through the height attributes,
-    // because the height property in CSS has a higher priority than the DOM attribute.
-    //
-    // This should be able to be safely removed,
-    // see: https://github.com/tailwindlabs/tailwindcss/pull/7742#issuecomment-1061332148
-    preflight.walkRules(/^img,\s*video$/, (rule) => {
-      rule.nodes = rule.nodes.filter((node) =>
-        !(node.type === "decl" && node.prop === "height" &&
-          node.value === "auto")
-      );
-      preflight.insertAfter(
-        rule,
-        "img:where(:not(.markdown img)), video:where(:not(.markdown video)) { height: auto; }",
-      );
-    });
-
-    addBase([
-      postcss.comment({
-        text:
-          `! tailwindcss v${tailwindPkgJson.version} | MIT License | https://tailwindcss.com`,
-      }) as unknown as CSSRuleObject,
-      ...preflight.nodes as unknown as CSSRuleObject[],
-    ]);
-  }, {
-    corePlugins: {
-      preflight: false,
-    },
-  });
-}

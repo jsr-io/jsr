@@ -440,7 +440,7 @@ function PermissionsInput(
               />
               <span>Publish new versions of this package:</span>
             </label>
-            <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-88 rounded-md text-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 input-container">
+            <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-88 rounded-md text-primary shadow-xs pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 input-container">
               <span class="block">
                 @
               </span>
@@ -492,7 +492,7 @@ function PermissionsInput(
             <input type="radio" class="mr-2" name="permission" value="scope" />
             <span>Publish new versions of any packages in this scope:</span>
           </label>
-          <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-64 rounded-md text-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 input-container">
+          <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-64 rounded-md text-primary shadow-xs pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 input-container">
             <span class="block">
               @
             </span>

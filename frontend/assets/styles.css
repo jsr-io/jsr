@@ -1,6 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@config "../tailwind.config.ts";
+
+@layer base {
+  img:where(:not(.markdown img)), video:where(:not(.markdown video)) { height: auto; }
+}
 
 /* Nav item text - reserves space for bold text to prevent layout shift */
 .nav-item-text {
@@ -61,17 +65,17 @@
   *,
   *:before,
   *:after {
-    border-color: theme("colors.jsr-cyan.200");
+    border-color: var("colors.jsr-cyan.200");
   }
 
   :root {
     scroll-behavior: smooth;
-    scrollbar-color: theme("colors.jsr-cyan.200") theme("colors.jsr-cyan.50");
+    scrollbar-color: var("colors.jsr-cyan.200") var("colors.jsr-cyan.50");
 
-    color: theme("colors.jsr-gray.800");
-    --color-text-primary: theme("colors.jsr-gray.800");
-    --color-text-secondary: theme("colors.jsr-gray.500");
-    --color-text-tertiary: theme("colors.jsr-gray.500");
+    color: var("colors.jsr-gray.800");
+    --color-text-primary: var("colors.jsr-gray.800");
+    --color-text-secondary: var("colors.jsr-gray.500");
+    --color-text-tertiary: var("colors.jsr-gray.500");
 
     --pct: 0;
 
@@ -88,17 +92,17 @@
     *,
     *:before,
     *:after {
-      border-color: theme("colors.jsr-cyan.800");
+      border-color: var("colors.jsr-cyan.800");
     }
 
-    background-color: theme("colors.jsr-gray.950");
-    color: theme("colors.jsr-gray.100");
+    background-color: var("colors.jsr-gray.950");
+    color: var("colors.jsr-gray.100");
     color-scheme: only dark;
-    --color-text-primary: theme("colors.jsr-gray.100");
-    --color-text-secondary: theme("colors.jsr-gray.300");
-    --color-text-tertiary: theme("colors.jsr-gray.400");
+    --color-text-primary: var("colors.jsr-gray.100");
+    --color-text-secondary: var("colors.jsr-gray.300");
+    --color-text-tertiary: var("colors.jsr-gray.400");
 
-    scrollbar-color: theme("colors.jsr-gray.600") theme("colors.jsr-gray.950");
+    scrollbar-color: var("colors.jsr-gray.600") var("colors.jsr-gray.950");
 
     #vizgraph {
       > g > polygon {
@@ -106,11 +110,11 @@
       }
 
       path[stroke="black"] {
-        @apply stroke-white;
+        @apply stroke-[#fff];
       }
 
       polygon[stroke="black"] {
-        @apply fill-white stroke-white;
+        @apply fill-[#fff] stroke-[#fff];
       }
     }
   }
@@ -122,27 +126,48 @@
   }
 }
 
-@layer utilities {
-  .opsize-sm {
-    font-variation-settings: "opsz" 32;
-  }
-  .opsize-normal {
-    font-variation-settings: "opsz" 16;
-  }
+@utility opsize-sm {
+  font-variation-settings: "opsz" 32;
+}
 
-  .bg-striped {
-    background: repeating-linear-gradient(
-      -45deg,
-      theme("colors.orange.50"),
-      theme("colors.orange.50") 1rem,
-      theme("colors.white") 1rem,
-      theme("colors.white") 2rem
-    );
-  }
+@utility opsize-normal {
+  font-variation-settings: "opsz" 16;
+}
 
-  .content-empty {
-    content: "";
-  }
+@utility bg-striped {
+  background: repeating-linear-gradient(
+    -45deg,
+    var("colors.orange.50"),
+    var("colors.orange.50") 1rem,
+    var("colors.white") 1rem,
+    var("colors.white") 2rem
+  );
+}
+
+@utility content-empty {
+  content: "";
+}
+
+@utility button {
+  @apply text-jsr-gray-700 dark:text-gray-200 inline-flex items-center gap-2
+  py-2.5 px-4.5 rounded-md leading-tight font-medium whitespace-nowrap
+  hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4
+  focus:outline-offset-2 select-none;
+}
+
+@utility link {
+  @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+  decoration-jsr-cyan-700/50 underline-offset-2 outline-hidden
+  focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-xs
+  dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+  dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
+}
+
+@utility input-container {
+  @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
+  border-jsr-cyan-900/30 dark:border-jsr-gray-600
+  focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400
+  appearance-none;
 }
 
 @layer components {
@@ -216,8 +241,8 @@
 
   .link {
     @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
-      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
-      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-hidden
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-xs
       dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
       dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
@@ -258,7 +283,7 @@
 
   .input {
     @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300
-      outline-none bg-transparent disabled:cursor-not-allowed
+      outline-hidden bg-transparent disabled:cursor-not-allowed
       dark:placeholder:text-jsr-gray-400
       dark:disabled:placeholder:text-jsr-gray-500;
   }
@@ -269,12 +294,12 @@
   }
 
   .search-input-tag {
-    @apply text-blue-500 bg-blue-300/40 rounded-sm px-0.5 -mx-0.5
+    @apply text-blue-500 bg-blue-300/40 rounded-xs px-0.5 -mx-0.5
       dark:bg-blue-900/40;
   }
 
   .select {
-    @apply appearance-none outline-none opacity-100 pl-1;
+    @apply appearance-none outline-hidden opacity-100 pl-1;
     background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>')
       no-repeat;
     /* 0.25 = pl-1 */
@@ -312,33 +337,29 @@
 /* !important seems necessary for taking precedent over current ddoc styling */
 body .ddoc {
   &:is(.dark *) {
-    --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
+    --ddoc-usage-active-bg: var("colors.jsr-cyan.950");
   }
 
   .markdown {
     h1 {
-      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
-        !important;
+      @apply mt-8! -mx-4! px-4! md:mx-0! md:px-0! text-3xl! md:text-4xl! font-semibold!;
     }
 
     /* Styles the first H1 in a readme a little differently */
     h1:first-of-type {
-      @apply mt-0 border-none mb-6 !important;
+      @apply mt-0! border-none! mb-6!;
     }
 
     h2 {
-      @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-xl md:text-2xl font-bold
-        md:font-medium !important;
+      @apply mt-8! -mx-4! px-4! md:mx-0! md:px-0! text-xl! md:text-2xl! font-bold! md:font-medium!;
     }
 
     h3 {
-      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium
-        !important;
+      @apply mt-6! -mx-4! px-4! md:mx-0! md:px-0! font-bold! md:font-medium!;
     }
 
     h4 {
-      @apply mt-6 -mx-4 px-4 md:mx-0 md:px-0 font-bold md:font-medium
-        !important;
+      @apply mt-6! -mx-4! px-4! md:mx-0! md:px-0! font-bold! md:font-medium!;
     }
 
     :not(pre) > code {
@@ -350,12 +371,12 @@ body .ddoc {
     }
 
     .highlight {
-      @apply bg-white dark:bg-jsr-gray-900 !important;
+      @apply bg-white! dark:bg-jsr-gray-900!;
 
       .lineNumbers {
         @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
           flex-none dark:border-jsr-gray-800;
-        @apply mr-3 !important;
+        @apply mr-3!;
 
         > a {
           @apply block;
@@ -498,7 +519,7 @@ body .ddoc {
     }
 
     :not(pre) > code {
-      @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50 !important;
+      @apply bg-jsr-cyan-100/50! dark:bg-jsr-cyan-900/50!;
     }
   }
 
@@ -532,7 +553,7 @@ body .ddoc {
   .contextLink {
     /* cyan 700 at 25%; */
     text-decoration-color: #0e659040;
-    color: theme("colors.jsr-cyan.700");
+    color: var("colors.jsr-cyan.700");
   }
 
   .usages {
@@ -562,7 +583,7 @@ body .ddoc {
   }
 
   .usageContent pre.highlight {
-    @apply mt-1 !important;
+    @apply mt-1!;
   }
 
   #module_doc, main {
@@ -729,18 +750,18 @@ body .ddoc {
   .contextLink {
     /* cyan 300 at 25%; */
     text-decoration-color: #67bef940;
-    color: theme("colors.jsr-cyan.300");
+    color: var("colors.jsr-cyan.300");
   }
 }
 
 /* This is a utility class to make the ddoc content full width inside its container */
 .ddoc-full {
-  @apply max-w-full !important;
+  @apply max-w-full!;
 }
 
 /* Remove borders and top rounded corners from code blocks in the file browser since the wrapper already has these */
 .ddoc-full pre.highlight {
-  @apply border-0 rounded-t-none !important;
+  @apply border-0! rounded-t-none!;
 }
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
@@ -792,29 +813,29 @@ body .ddoc .or-bar {
 @layer base {
   /* I hate having all these !important tags, but it's the only way to override some of the GFM styles */
   :root {
-    --color-accent-fg: theme("colors.slate.100") !important;
-    --color-border-default: theme("colors.slate.300") !important;
-    --bgColor-neutral-muted: theme("colors.jsr-gray.100") !important;
-    --color-neutral-muted: theme("colors.jsr-gray.600") !important;
-    --color-accent-fg: theme("colors.cyan.700") !important;
-    --fgColor-muted: theme("colors.jsr-gray.600") !important;
-    --color-fg-default: theme("colors.jsr-gray.700") !important;
+    --color-accent-fg: var("colors.slate.100") !important;
+    --color-border-default: var("colors.slate.300") !important;
+    --bgColor-neutral-muted: var("colors.jsr-gray.100") !important;
+    --color-neutral-muted: var("colors.jsr-gray.600") !important;
+    --color-accent-fg: var("colors.cyan.700") !important;
+    --fgColor-muted: var("colors.jsr-gray.600") !important;
+    --color-fg-default: var("colors.jsr-gray.700") !important;
     --base-text-weight-semibold: 500;
-    --bgColor-muted: theme("colors.slate.50");
+    --bgColor-muted: var("colors.slate.50");
     --text-shadow:
       0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em
       white, 0 0 0.5em white;
   }
 
   .dark {
-    --color-accent-fg: theme("colors.slate.300") !important;
-    --color-border-default: theme("colors.slate.600") !important;
-    --bgColor-neutral-muted: theme("colors.jsr-gray.800") !important;
-    --color-neutral-muted: theme("colors.jsr-gray.300") !important;
-    --color-accent-fg: theme("colors.cyan.400") !important;
-    --fgColor-muted: theme("colors.jsr-gray.300") !important;
-    --color-fg-default: theme("colors.gray.200") !important;
-    --bgColor-muted: theme("colors.jsr-gray.800");
+    --color-accent-fg: var("colors.slate.300") !important;
+    --color-border-default: var("colors.slate.600") !important;
+    --bgColor-neutral-muted: var("colors.jsr-gray.800") !important;
+    --color-neutral-muted: var("colors.jsr-gray.300") !important;
+    --color-accent-fg: var("colors.cyan.400") !important;
+    --fgColor-muted: var("colors.jsr-gray.300") !important;
+    --color-fg-default: var("colors.gray.200") !important;
+    --bgColor-muted: var("colors.jsr-gray.800");
     --text-shadow:
       0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em
       black, 0 0 0.5em black;

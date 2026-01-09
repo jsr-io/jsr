@@ -38,7 +38,7 @@ function QuotaUsage(props: { limit: number; usage: number }) {
   return (
     <div class="mt-4 flex items-center gap-2">
       <div
-        class={`overflow-hidden h-3 w-full rounded bg-jsr-yellow-50 dark:bg-jsr-yellow-950 ring-1 ${ringColor}`}
+        class={`overflow-hidden h-3 w-full rounded-sm bg-jsr-yellow-50 dark:bg-jsr-yellow-950 ring-1 ${ringColor}`}
       >
         <div
           style={{ width: `${percent * 100}%` }}

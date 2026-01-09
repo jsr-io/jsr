@@ -22,7 +22,7 @@ export function ListDisplay(
     <div
       class={hasHeader
         ? ""
-        : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"}
+        : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded-sm overflow-hidden"}
     >
       {title &&
         (
@@ -36,13 +36,13 @@ export function ListDisplay(
           <li>
             <a
               href={item.href}
-              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 focus:bg-jsr-cyan-50 dark:focus:bg-jsr-cyan-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
+              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 focus:bg-jsr-cyan-50 dark:focus:bg-jsr-cyan-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-hidden ${
                 item.parentClass ?? ""
               }`}
             >
               {item.content}
 
-              <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 flex-shrink-0 size-6" />
+              <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 shrink-0 size-6" />
             </a>
           </li>
         ))}

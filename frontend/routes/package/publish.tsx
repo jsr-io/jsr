@@ -201,11 +201,11 @@ function GitHubActions({ pkg, canEdit, user }: {
           </p>
           <p>
             You will need to run{" "}
-            <code class="bg-jsr-gray-200 dark:bg-jsr-gray-800 px-1.5 py-0.5 rounded-sm">
+            <code class="bg-jsr-gray-200 dark:bg-jsr-gray-800 px-1.5 py-0.5 rounded-xs">
               deno publish
             </code>{" "}
             or{" "}
-            <code class="bg-jsr-gray-200 dark:bg-jsr-gray-800 px-1.5 py-0.5 rounded-sm">
+            <code class="bg-jsr-gray-200 dark:bg-jsr-gray-800 px-1.5 py-0.5 rounded-xs">
               npx jsr publish
             </code>{" "}
             in your action.
@@ -250,7 +250,7 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
       <p class="mt-4">
         Set up your workflow with OIDC permissions and a step to run{" "}
-        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded-sm py-[1px] px-2 text-sm">
           npx jsr publish
         </code>:
       </p>
@@ -265,7 +265,7 @@ function GitHubActions({ pkg, canEdit, user }: {
         />
       </div>
       <pre class="bg-slate-900 text-white rounded-lg rounded-tl-none p-4 mb-2 w-full max-w-full overflow-auto relative">
-      	<div class="bg-white dark:bg-jsr-gray-900 text-white rounded p-0.5 absolute top-2 right-2 z-1 size-8 flex justify-center items-center">
+      	<div class="bg-white dark:bg-jsr-gray-900 text-white rounded-sm p-0.5 absolute top-2 right-2 z-1 size-8 flex justify-center items-center">
 		<CopyButton
 		  text={WORKFLOW_CODE.replace(/<[^>]+>/g, '')}
 		  title="Copy workflow code"
@@ -278,11 +278,11 @@ function GitHubActions({ pkg, canEdit, user }: {
 
       <p class="mt-4">
         You can also use{" "}
-        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded-sm py-[1px] px-2 text-sm">
           deno publish
         </code>{" "}
         instead of{" "}
-        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded-sm py-[1px] px-2 text-sm">
           npx jsr publish
         </code>. When doing that, make sure to install Deno in your workflow
         first.

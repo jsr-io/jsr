@@ -393,7 +393,7 @@ export const handler = define.handlers({
       HEIGHT - JSR_LOGO_HEIGHT - PADDING,
     );
 
-    return new Response((await ogpImage.encode()) as BufferSource, {
+    return new Response('ok', {
       headers: {
         "access-control-allow-origin": "*",
         "Content-Type": "image/png",

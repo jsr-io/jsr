@@ -204,7 +204,7 @@ function Version({
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 md:gap-6">
           <div
-            class={`rounded-full size-12 flex items-center justify-center border hover:shadow z-20 select-none font-bold text-xs ${
+            class={`rounded-full size-12 flex items-center justify-center border hover:shadow-sm z-20 select-none font-bold text-xs ${
               (!isPublished && isFailed) || version?.yanked
                 ? "bg-red-300 border-red-400 text-red-700"
                 : (!isPublished

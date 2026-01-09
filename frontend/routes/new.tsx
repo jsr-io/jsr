@@ -21,7 +21,7 @@ export default define.page<typeof handler>(function New(props) {
   return (
     <>
       <div class="flex flex-col md:grid md:grid-cols-2 gap-12">
-        <div class="w-full space-y-4 flex-shrink-0">
+        <div class="w-full space-y-4 shrink-0">
           <h1 class="mb-8 font-bold text-3xl leading-none">
             Publish a package
           </h1>
