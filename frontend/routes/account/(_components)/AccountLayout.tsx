@@ -13,26 +13,26 @@ interface AccountLayoutProps {
 
 export function AccountLayout({ user, active, children }: AccountLayoutProps) {
   return (
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <div class="gap-4 flex flex-row md:flex-col items-center pr-4 md:pb-8 md:pt-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div class="gap-4 flex flex-row md:flex-col items-center md:items-start md:pb-8 md:pt-4">
         <img
-          class="rounded-full size-16 md:size-32 lg:size-40 ring-2 ring-offset-1 ring-jsr-cyan-700"
+          class="rounded-full size-16 md:size-60 ring-2 ring-offset-1 ring-jsr-cyan-700"
           src={user.avatarUrl}
           alt="user icon"
         />
-        <div class="max-w-60 md:max-w-32 lg:max-w-40">
-          <h1 class="text-2xl leading-none font-semibold truncate">
+        <div>
+          <h1 class="text-xl md:text-2xl leading-tight font-semibold">
             {user.name}
           </h1>
-          <p class="text-xs text-secondary">
+          <p class="text-sm text-secondary">
             Created account {twas(new Date(user.createdAt).getTime())}
           </p>
-          <p class="text-base mt-2">
+          <p class="text-sm mt-2">
             <GitHubUserLink user={user} />
           </p>
         </div>
       </div>
-      <div class="md:col-span-4">
+      <div class="md:col-span-3">
         {"inviteCount" in user &&
           <AccountNav user={user} active={active} />}
         <div class="mt-8">

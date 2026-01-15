@@ -32,7 +32,7 @@ export default define.page<typeof handler>(function PackagePage({
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
-      <div class="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-y-8 lg:gap-x-16">
+      <div class="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-y-8 lg:gap-x-16">
         <div>
           <h2 class="font-bold text-2xl lg:text-3xl mb-8 text-balance">
             How to publish:
