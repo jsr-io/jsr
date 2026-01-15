@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n          audit_logs.actor_id as \"audit_actor_id\",\n          audit_logs.is_sudo as \"audit_is_sudo\",\n          audit_logs.action as \"audit_action\",\n          audit_logs.meta as \"audit_meta\",\n          audit_logs.created_at as \"audit_created_at\",\n          users.id as \"user_id\",\n          users.name as \"user_name\",\n          users.avatar_url as \"user_avatar_url\",\n          users.github_id as \"user_github_id\",\n          users.updated_at as \"user_updated_at\",\n          users.created_at as \"user_created_at\"\n        FROM\n          audit_logs\n        LEFT JOIN\n          users ON audit_logs.actor_id = users.id\n        WHERE \n          audit_logs.meta::text LIKE $1\n        ORDER BY audit_logs.created_at DESC;\n        ",
+  "query": "\n        SELECT\n          audit_logs.actor_id as \"audit_actor_id\",\n          audit_logs.is_sudo as \"audit_is_sudo\",\n          audit_logs.action as \"audit_action\",\n          audit_logs.meta as \"audit_meta\",\n          audit_logs.created_at as \"audit_created_at\",\n          users.id as \"user_id\",\n          users.name as \"user_name\",\n          users.avatar_url as \"user_avatar_url\",\n          users.github_id as \"user_github_id\",\n          users.updated_at as \"user_updated_at\",\n          users.created_at as \"user_created_at\"\n        FROM\n          audit_logs\n        LEFT JOIN\n          users ON audit_logs.actor_id = users.id\n        WHERE\n          audit_logs.meta::text LIKE $1\n        ORDER BY audit_logs.created_at DESC;\n        ",
   "describe": {
     "columns": [
       {
@@ -78,5 +78,5 @@
       false
     ]
   },
-  "hash": "1a5aa7ce4a5d4e1406709fbe9b9f551649fe57c3ee47629d9c62455c7ee3e764"
+  "hash": "a3a2216da3088328e296bca671120eab17ef6674a1b321922f171a2ec86427bb"
 }

@@ -425,7 +425,7 @@ fn get_url_rewriter(
     registry_url
   )
 )]
-pub fn get_generate_ctx<'a>(
+pub fn get_generate_ctx(
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
