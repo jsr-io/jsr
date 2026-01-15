@@ -1,9 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { API } from "./utils/api.ts";
-import type { FullUser, RuntimeCompat } from "./utils/api_types.ts";
-import type { TraceSpan } from "./utils/tracing.ts";
-import type { SourceDir, SourceFile } from "./utils/api_types.ts";
 import { createDefine } from "fresh";
+
+import type { API } from "./utils/api.ts";
+import type {
+  FullUser,
+  RuntimeCompat,
+  SourceDir,
+  SourceFile,
+} from "./utils/api_types.ts";
+import type { TraceSpan } from "./utils/tracing.ts";
 
 export const define = createDefine<State>();
 
