@@ -72,18 +72,18 @@ variable "production" {
 }
 
 variable "cloudflare_api_token" {
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "cloudflare_account_id" {
-  type        = string
+  type = string
 }
 
 variable "cloudflare_analytics_dataset" {
-  type        = string
+  type = string
 }
 
 variable "cloudflare_zone_id" {
-  type        = string
+  type = string
 }

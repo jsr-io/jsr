@@ -42,7 +42,7 @@ resource "google_cloud_scheduler_job" "orama_package_deploy" {
       "Authorization" = "Bearer ${var.orama_package_private_api_key}"
     }
   }
-  }
+}
 
 resource "google_cloud_scheduler_job" "orama_symbols_deploy" {
   name        = "orama-symbols-deploy"
@@ -50,7 +50,7 @@ resource "google_cloud_scheduler_job" "orama_symbols_deploy" {
   schedule    = "*/15 * * * *"
   region      = "us-central1"
 
-    http_target {
+  http_target {
     http_method = "POST"
     uri         = "https://api.oramasearch.com/api/v1/webhooks/${var.orama_symbols_index_id}/deploy"
     headers = {
