@@ -31,6 +31,7 @@ use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
+use crate::cloudflare;
 use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
@@ -51,6 +52,12 @@ use crate::util::ApiResult;
 use crate::util::decode_json;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
+pub struct AnalyticsEngineConfig(
+  pub  Option<(
+    cloudflare::AnalyticsEngineClient,
+    /* dataset name */ String,
+  )>,
+);
 pub struct LogsBigQueryTable(
   pub Option<(gcp::BigQuery, /* logs table id */ String)>,
 );
@@ -248,6 +255,12 @@ pub async fn scrape_download_counts_handler(
     error!("BigQuery not configured");
     return Err(ApiError::InternalServerError);
   };
+  let analytics_engine = req.data::<AnalyticsEngineConfig>().unwrap();
+  let Some((analytics_client, dataset_name)) = analytics_engine.0.as_ref()
+  else {
+    error!("Analytics Engine not configured");
+    return Err(ApiError::InternalServerError);
+  };
 
   let time_window = req
     .query("intervalHrs")
@@ -396,7 +409,116 @@ ORDER BY
   insert_bigquery_download_entries(&db, npm_tgz_rows, DownloadKind::NpmTgz)
     .await?;
 
+  let jsr_downloads = analytics_client
+    .query_downloads(format!(
+      r#"
+SELECT
+  toIso8601(toStartOfInterval(timestamp, INTERVAL '4' HOUR)) as time_bucket,
+  blob2 as scope,
+  blob3 as package,
+  blob4 as version,
+  intDiv(sum(_sample_interval), 1) as count,
+FROM
+  {}
+WHERE
+  timestamp BETWEEN toDateTime('{}') AND toDateTime('{}')
+  AND blob1 = 'jsr'
+GROUP BY
+  time_bucket,
+  scope,
+  package,
+  version
+ORDER BY
+  time_bucket DESC
+      "#,
+      dataset_name,
+      start_timestamp.to_rfc3339(),
+      current_timestamp.to_rfc3339(),
+    ))
+    .await
+    .map_err(|e| {
+      error!("Failed to query JSR downloads from Analytics Engine: {}", e);
+      ApiError::InternalServerError
+    })?;
+
+  insert_analytics_download_entries(&db, jsr_downloads, DownloadKind::JsrMeta)
+    .await?;
+
+  let npm_downloads = analytics_client
+    .query_downloads(format!(
+      r#"
+SELECT
+  toIso8601(toStartOfInterval(timestamp, INTERVAL '4' HOUR)) as time_bucket,
+  blob2 as scope,
+  blob3 as package,
+  blob4 as version,
+  intDiv(sum(_sample_interval), 1) as count,
+FROM
+  {}
+WHERE
+  timestamp BETWEEN toDateTime('{}') AND toDateTime('{}')
+  AND blob1 = 'npm'
+GROUP BY
+  time_bucket,
+  scope,
+  package,
+  version
+ORDER BY
+  time_bucket DESC
+      "#,
+      dataset_name,
+      start_timestamp.to_rfc3339(),
+      current_timestamp.to_rfc3339(),
+    ))
+    .await
+    .map_err(|e| {
+      error!("Failed to query NPM downloads from Analytics Engine: {}", e);
+      ApiError::InternalServerError
+    })?;
+
+  insert_analytics_download_entries(&db, npm_downloads, DownloadKind::NpmTgz)
+    .await?;
+
   Ok(())
+}
+
+async fn insert_analytics_download_entries(
+  db: &Database,
+  records: Vec<cloudflare::DownloadRecord>,
+  kind: DownloadKind,
+) -> Result<(), ApiError> {
+  let mut entries = Vec::with_capacity(records.len());
+  for record in records {
+    if let Some(entry) =
+      deserialize_version_download_count_from_analytics(record, kind)
+    {
+      entries.push(entry);
+    }
+  }
+
+  db.insert_download_entries(entries).await?;
+
+  Ok(())
+}
+
+fn deserialize_version_download_count_from_analytics(
+  record: cloudflare::DownloadRecord,
+  kind: DownloadKind,
+) -> Option<VersionDownloadCount> {
+  let time_bucket = DateTime::parse_from_rfc3339(&record.time_bucket)
+    .ok()?
+    .with_timezone(&Utc);
+  let scope = ScopeName::new(record.scope).ok()?;
+  let package = PackageName::new(record.package).ok()?;
+  let version = Version::new(&record.version).ok()?;
+  Some(VersionDownloadCount {
+    time_bucket,
+    scope,
+    package,
+    version,
+    kind,
+    count: record.count,
+  })
 }
 
 async fn insert_bigquery_download_entries(

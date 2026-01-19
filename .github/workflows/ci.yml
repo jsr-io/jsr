@@ -43,6 +43,29 @@ jobs:
         run: deno task build
         working-directory: frontend
 
+  worker:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Check formatting
+        run: deno fmt --check
+        working-directory: lb
+
+      - name: Lint
+        run: deno task lint:lb
+
+      - name: Build worker
+        run: deno task build
+        working-directory: lb
+
   test:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
@@ -183,6 +206,10 @@ jobs:
           workload_identity_provider: projects/1067420915575/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-staging.iam.gserviceaccount.com
 
+      - name: Build Cloudflare Worker
+        run: deno task build
+        working-directory: lb
+
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
@@ -239,6 +266,10 @@ jobs:
           project_id: deno-registry3-prod
           workload_identity_provider: projects/614736529383/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-prod.iam.gserviceaccount.com
+
+      - name: Build Cloudflare Worker
+        run: deno task build
+        working-directory: lb
 
       - name: terraform plan
         run: |

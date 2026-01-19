@@ -1,0 +1,12 @@
+{
+  "name": "jsr-lb",
+  "main": "dist/main.js",
+  "compatibility_date": "2026-01-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "analytics_engine_datasets": [
+    {
+      "binding": "DOWNLOADS",
+      "dataset": "DOWNLOADS"
+    }
+  ]
+}

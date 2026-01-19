@@ -70,3 +70,9 @@ variable "production" {
   type    = bool
   default = false
 }
+
+variable "cloudflare_analytics_api_token" {
+  type        = string
+  description = "Cloudflare API token with Analytics Engine read permissions for download tracking"
+  sensitive   = true
+}
