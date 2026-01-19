@@ -31,7 +31,7 @@ locals {
     "GCP_PROJECT_ID"         = var.gcp_project
 
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
-    "CLOUDFLARE_ANALYTICS_DATASET" = cloudflare_workers_analytics_engine.jsr_lb.name
+    "CLOUDFLARE_ANALYTICS_DATASET" = var.cloudflare_analytics_dataset
   }
 }
 
@@ -127,7 +127,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
         name = "CLOUDFLARE_API_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.cloudflare_analytics_api_token.id
+            secret  = google_secret_manager_secret.cloudflare_api_token.id
             version = "latest"
           }
         }
@@ -275,7 +275,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         name = "CLOUDFLARE_API_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.cloudflare_analytics_api_token.id
+            secret  = google_secret_manager_secret.cloudflare_api_token.id
             version = "latest"
           }
         }
@@ -357,8 +357,8 @@ resource "google_secret_manager_secret_iam_member" "orama_symbols_index_id" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "cloudflare_analytics_api_token" {
-  secret_id = google_secret_manager_secret.cloudflare_analytics_api_token.id
+resource "google_secret_manager_secret_iam_member" "cloudflare_api_token" {
+  secret_id = google_secret_manager_secret.cloudflare_api_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

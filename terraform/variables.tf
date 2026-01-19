@@ -71,8 +71,19 @@ variable "production" {
   default = false
 }
 
-variable "cloudflare_analytics_api_token" {
+variable "cloudflare_api_token" {
   type        = string
-  description = "Cloudflare API token with Analytics Engine read permissions for download tracking"
   sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  type        = string
+}
+
+variable "cloudflare_analytics_dataset" {
+  type        = string
+}
+
+variable "cloudflare_zone_id" {
+  type        = string
 }

@@ -6,4 +6,5 @@ orama_package_public_index_id = "jsr-j7uqzz"
 orama_docs_public_api_key     = "q9ikYsh66FPVJHEGydHhyxsIfBSpwCjp"
 orama_docs_public_index_id    = "jsr-docs-hgtqb6"
 github_client_id              = "Iv1.c0627603fa450ec3"
+cloudflare_account_id         = "12222222222222222222222222222222"
 production                    = true
