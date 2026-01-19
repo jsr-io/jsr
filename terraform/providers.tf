@@ -2,13 +2,17 @@
 terraform {
   backend "gcs" {
     # gsutil mb -p deno-registry3-staging -l us-central1 -b on gs://deno-registry3-staging-terraform
-    bucket = "${var.gcp_project}-terraform"
+    # Bucket must be specified via -backend-config="bucket=<project>-terraform" or backend config file
     prefix = "terraform/state"
   }
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = ">= 6.0.0, < 7.0.0"
+    }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = ">= 5.0.0, < 6.0.0"
     }
   }
 }
