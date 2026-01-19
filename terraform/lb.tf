@@ -1,4 +1,5 @@
-# Data source to get Cloud Run URLs
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
 data "google_cloud_run_service" "registry_api" {
   name     = "registry-api"
   location = "us-central1"

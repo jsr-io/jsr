@@ -1,3 +1,5 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
 declare global {
   // Cloudflare Workers ExecutionContext
   interface ExecutionContext {
