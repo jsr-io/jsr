@@ -8,48 +8,54 @@ use crate::db::Package;
 use crate::db::PackageVersionMeta;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
-use crate::util::USER_AGENT;
+use oramacore_client::OramaCloud;
+use oramacore_client::cloud::CloudSearchParams;
+use oramacore_client::cloud::DataSourceNamespace;
+use oramacore_client::cloud::ProjectManagerConfig;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::error;
 use tracing::instrument;
 
-const MAX_ORAMA_INSERT_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
-
 #[derive(Clone)]
 pub struct OramaClient {
-  private_api_key: Arc<str>,
-  package_index_id: Arc<str>,
-  symbols_index_id: Arc<str>,
+  symbols_client: Arc<OramaCloud>,
+  package_datasource: Arc<DataSourceNamespace>,
+  symbols_datasource: Arc<DataSourceNamespace>,
 }
 
 impl OramaClient {
-  pub fn new(
-    private_api_key: String,
-    package_index_id: String,
-    symbols_index_id: String,
+  pub async fn new(
+    package_project_id: String,
+    package_project_key: String,
+    package_data_source: String,
+    symbol_project_id: String,
+    symbol_project_key: String,
+    symbol_data_source: String,
   ) -> Self {
-    Self {
-      private_api_key: private_api_key.into(),
-      package_index_id: package_index_id.into(),
-      symbols_index_id: symbols_index_id.into(),
-    }
-  }
+    let package_client = OramaCloud::new(ProjectManagerConfig::new(
+      package_project_id,
+      package_project_key,
+    ))
+    .await
+    .unwrap();
 
-  async fn request(
-    &self,
-    path: &str,
-    payload: serde_json::Value,
-  ) -> Result<reqwest::Response, anyhow::Error> {
-    let response = reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .build()?
-      .post(format!("https://api.oramasearch.com/api/v1{}", path))
-      .json(&payload)
-      .bearer_auth(&self.private_api_key)
-      .send()
-      .await?;
-    Ok(response)
+    let package_datasource = package_client.data_source(package_data_source);
+
+    let symbols_client = OramaCloud::new(ProjectManagerConfig::new(
+      symbol_project_id,
+      symbol_project_key,
+    ))
+    .await
+    .unwrap();
+
+    let symbols_datasource = symbols_client.data_source(symbol_data_source);
+
+    Self {
+      symbols_client: Arc::new(symbols_client),
+      package_datasource: Arc::new(package_datasource),
+      symbols_datasource: Arc::new(symbols_datasource),
+    }
   }
 
   #[instrument(name = "OramaClient::upsert_package", skip(self))]
@@ -69,36 +75,21 @@ impl OramaClient {
       .as_ref()
       .map(|_| ApiPackageScore::from((meta, package)).score_percentage());
     let body = serde_json::json!({
-      "upsert": [
-        {
-          "id": id,
-          "scope": &package.scope,
-          "name": &package.name,
-          "description": &package.description,
-          "runtimeCompat": &package.runtime_compat,
-          "score": score,
-          "_omc:number": score.unwrap_or(0),
-        }
-      ]
+      "id": id,
+      "scope": &package.scope,
+      "name": &package.name,
+      "description": &package.description,
+      "runtimeCompat": &package.runtime_compat,
+      "score": score,
+      "_omc:number": score.unwrap_or(0),
     });
     let span = Span::current();
-    let client = self.clone();
-    let path = format!("/webhooks/{}/notify", self.package_index_id);
+    let package_datasource = self.package_datasource.clone();
     tokio::spawn(
       async move {
-        let res = match  client.request(&path, body).await {
-          Ok(res) => res,
-          Err(err) => {
-            error!("failed to OramaClient::upsert_package: {err}");
-            return;
-          }
-        };
-        let status = res.status();
-        if !status.is_success() {
-          let response = res.text().await.unwrap_or_default();
-          error!(
-            "failed to OramaClient::upsert_package for {id} (status {status}): {response}"
-          );
+        if let Err(err) = package_datasource.upsert_documents(vec![body]).await
+        {
+          error!("failed to OramaClient::upsert_package: {err}");
         }
       }
       .instrument(span),
@@ -108,28 +99,15 @@ impl OramaClient {
   #[instrument(name = "OramaClient::delete_package", skip(self))]
   pub fn delete_package(&self, scope: &ScopeName, package: &PackageName) {
     let id = format!("@{scope}/{package}");
-    let body = serde_json::json!({ "remove": [id] });
     let span = Span::current();
-    let client = self.clone();
-    let path = format!("/webhooks/{}/notify", self.package_index_id);
+    let package_datasource = self.package_datasource.clone();
     tokio::spawn(
       async move {
-        let res = match client.request(&path, body).await {
-          Ok(res) => res,
-          Err(err) => {
-            error!("failed to OramaClient::delete_package: {err}");
-            return;
-          }
-        };
-        let status = res.status();
-        if !status.is_success() {
-          let response = res.text().await.unwrap_or_default();
-          error!(
-            "failed to OramaClient::delete_package for {id} (status {status}): {response}"
-          );
+        if let Err(err) = package_datasource.delete_documents(vec![id]).await {
+          error!("failed to OramaClient::delete_package: {err}");
         }
       }
-        .instrument(span),
+      .instrument(span),
     );
   }
 
@@ -140,39 +118,51 @@ impl OramaClient {
     package_name: &PackageName,
     search: serde_json::Value,
   ) {
-    let package = format!("{scope_name}/{package_name}");
-    let body = serde_json::json!({
-      "remove": [
-        {
-          "scope": &scope_name,
-          "name": &package_name,
-        }
-      ]
+    let where_clause = serde_json::json!({
+      "scope": &scope_name,
+      "name": &package_name,
     });
     let span = Span::current();
-    let client = self.clone();
-    let path = format!("/webhooks/{}/notify", self.symbols_index_id);
+    let symbols_client = self.symbols_client.clone();
+    let symbols_datasource = self.symbols_datasource.clone();
     tokio::spawn(
       async move {
-        let res = match client.request(&path, body).await {
+        #[derive(serde::Deserialize)]
+        struct IDDocument {
+          id: String,
+        }
+
+        let res = match symbols_client
+          .search::<IDDocument>(&CloudSearchParams {
+            where_clause: Some(where_clause),
+            ..Default::default()
+          })
+          .await
+        {
           Ok(res) => res,
           Err(err) => {
             error!("failed to delete on OramaClient::upsert_symbols: {err}");
             return;
           }
         };
-        let status = res.status();
-        if !status.is_success() {
-          let response = res.text().await.unwrap_or_default();
-          error!(
-            "failed to delete on OramaClient::upsert_symbols for {package} (status {status}): {response}"
-          );
+
+        if let Err(err) = symbols_datasource
+          .delete_documents(
+            res
+              .hits
+              .into_iter()
+              .map(|doc| doc.document.id)
+              .collect::<Vec<_>>(),
+          )
+          .await
+        {
+          error!("failed to OramaClient::upsert_symbols: {err}");
         }
       }
-        .instrument(span),
+      .instrument(span),
     );
 
-    let search = if let serde_json::Value::Array(mut array) = search {
+    let new_symbols = if let serde_json::Value::Array(mut array) = search {
       for entry in &mut array {
         let obj = entry.as_object_mut().unwrap();
         obj.insert("scope".to_string(), scope_name.to_string().into());
@@ -184,39 +174,16 @@ impl OramaClient {
       unreachable!()
     };
 
-    let chunks = {
-      let str_data = serde_json::to_string(&search).unwrap();
-      ((str_data.len() as f64 / MAX_ORAMA_INSERT_SIZE).ceil() as usize).max(1)
-    };
-
-    let chunks_size = search.len() / chunks;
-    if chunks_size != 0 {
-      for chunk in search.chunks(chunks_size) {
-        let body = serde_json::json!({ "upsert": &chunk });
-        let package = format!("{scope_name}/{package_name}");
-        let span = Span::current();
-        let client = self.clone();
-        let path = format!("/webhooks/{}/notify", self.symbols_index_id);
-        tokio::spawn(
-          async move {
-            let res = match client.request(&path, body).await {
-              Ok(res) => res,
-              Err(err) => {
-                error!("failed to insert on OramaClient::upsert_symbols: {err}");
-                return;
-              }
-            };
-            let status = res.status();
-            if !status.is_success() {
-              let response = res.text().await.unwrap_or_default();
-              error!(
-            "failed to insert on OramaClient::upsert_symbols for {package} (status {status}): {response}"
-          );
-            }
-          }
-            .instrument(span),
-        );
+    let span = Span::current();
+    let symbols_datasource = self.symbols_datasource.clone();
+    tokio::spawn(
+      async move {
+        if let Err(err) = symbols_datasource.insert_documents(new_symbols).await
+        {
+          error!("failed to OramaClient::upsert_symbols: {err}");
+        }
       }
-    }
+      .instrument(span),
+    );
   }
 }
