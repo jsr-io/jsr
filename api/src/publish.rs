@@ -1171,6 +1171,15 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn npm_jsr_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("npm_jsr_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
   async fn bun_import() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("bun_import");

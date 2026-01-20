@@ -34,6 +34,7 @@ use deno_semver::StackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageNv;
+use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
@@ -768,6 +769,30 @@ impl deno_graph::analysis::ModuleAnalyzer for ModuleAnalyzer {
   }
 }
 
+fn convert_npm_jsr_to_jsr_ref(npm_req: &NpmPackageReqReference) -> Option<PackageReqReference> {
+  let name = &npm_req.req().name;
+  if let Some(stripped) = name.strip_prefix("@jsr/") {
+    let parts: Vec<&str> = stripped.split("__").collect();
+    if parts.len() == 2 {
+      let scope = parts[0];
+      let package = parts[1];
+      let new_name = format!("@{}/{}", scope, package);
+      let new_req = PackageReq {
+        name: new_name.as_str().into(),
+        version_req: npm_req.req().version_req.clone(),
+      };
+      Some(PackageReqReference {
+        req: new_req,
+        sub_path: npm_req.sub_path().map(|s| s.into()),
+      })
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+}
+
 fn collect_dependencies(
   graph: &ModuleGraph,
 ) -> Result<HashSet<(DependencyKind, PackageReqReference)>, PublishError> {
@@ -782,7 +807,15 @@ fn collect_dependencies(
             if req.req().version_req.version_text() == "*" {
               return Err(PublishError::NpmMissingConstraint(req));
             } else {
-              dependencies.insert((DependencyKind::Npm, req.into_inner()));
+              if req.req().name.starts_with("@jsr/") {
+                if let Some(jsr_ref) = convert_npm_jsr_to_jsr_ref(&req) {
+                  dependencies.insert((DependencyKind::Jsr, jsr_ref));
+                } else {
+                  dependencies.insert((DependencyKind::Npm, req.into_inner()));
+                }
+              } else {
+                dependencies.insert((DependencyKind::Npm, req.into_inner()));
+              }
             }
           }
           Err(err) => {
