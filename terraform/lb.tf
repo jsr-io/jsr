@@ -24,34 +24,34 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
       dataset = local.worker_download_analytics_dataset
-    }, {
+      }, {
       type = "plain_text"
       name = "ROOT_DOMAIN"
       text = var.domain_name
-    }, {
+      }, {
       type = "plain_text"
       name = "API_DOMAIN"
       text = local.api_domain
-    }, {
+      }, {
       type = "plain_text"
       name = "NPM_DOMAIN"
       text = local.npm_domain
-    }, {
-      type = "secret_text"
+      }, {
+      type        = "secret_text"
       secret_name = "REGISTRY_API_URL"
-      text = data.google_cloud_run_service.registry_api.status[0].url
-    }, {
-      type = "secret_text"
+      text        = data.google_cloud_run_service.registry_api.status[0].url
+      }, {
+      type        = "secret_text"
       secret_name = "REGISTRY_FRONTEND_URL"
-      text = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
-    }, {
-      type = "secret_text"
+      text        = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
+      }, {
+      type        = "secret_text"
       secret_name = "MODULES_BUCKET"
-      text = google_storage_bucket.modules.name
-    }, {
-      type = "secret_text"
+      text        = google_storage_bucket.modules.name
+      }, {
+      type        = "secret_text"
       secret_name = "NPM_BUCKET"
-      text = google_storage_bucket.npm.name
+      text        = google_storage_bucket.npm.name
     }
   ]
 
