@@ -23,6 +23,8 @@ locals {
     MODULES_BUCKET        = google_storage_bucket.modules.name
     NPM_BUCKET            = google_storage_bucket.npm.name
   }
+
+  worker_download_analytics_dataset = "${var.gcp_project}-downloads"
 }
 
 resource "cloudflare_workers_script" "jsr_lb" {
@@ -52,7 +54,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
     {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
-      dataset = var.cloudflare_analytics_dataset
+      dataset = local.worker_download_analytics_dataset
     }
   ]
 
