@@ -8,6 +8,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
   account_id  = var.cloudflare_account_id
   script_name = "${var.gcp_project}-jsr-lb"
   content     = file("${path.module}/../lb/dist/main.js")
+  main_module = "worker.js"
 
   bindings = [
     {
