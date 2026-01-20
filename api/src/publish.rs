@@ -1173,6 +1173,10 @@ pub mod tests {
   #[tokio::test]
   async fn npm_jsr_import() {
     let t = TestSetup::new().await;
+    // First publish the dependency package
+    let dep_task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(dep_task.status, PublishingTaskStatus::Success);
+    // Then publish the package that depends on it
     let bytes = create_mock_tarball("npm_jsr_import");
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");

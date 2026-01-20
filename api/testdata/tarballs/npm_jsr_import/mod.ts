@@ -1,2 +1,2 @@
-import "npm:@jsr/scope__foo@1.0.0";
+import "npm:@jsr/scope__foo@1.2.3";
 export const hello = "Hello, world!";
