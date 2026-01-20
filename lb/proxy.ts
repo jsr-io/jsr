@@ -37,7 +37,9 @@ export async function proxyToCloudRun(
 
   try {
     const response = await fetch(backendRequest, {
-      cache: "no-store",
+      cf: {
+        cacheEverything: true,
+      },
     });
     return response;
   } catch (error) {
