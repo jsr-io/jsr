@@ -11,19 +11,6 @@ data "google_cloud_run_service" "registry_frontend_us_central1" {
 }
 
 locals {
-  worker_env_vars = {
-    ROOT_DOMAIN = var.domain_name
-    API_DOMAIN  = local.api_domain
-    NPM_DOMAIN  = local.npm_domain
-  }
-
-  worker_secrets = {
-    REGISTRY_API_URL      = data.google_cloud_run_service.registry_api.status[0].url
-    REGISTRY_FRONTEND_URL = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
-    MODULES_BUCKET        = google_storage_bucket.modules.name
-    NPM_BUCKET            = google_storage_bucket.npm.name
-  }
-
   worker_download_analytics_dataset = "${var.gcp_project}-downloads"
 }
 
@@ -32,29 +19,39 @@ resource "cloudflare_workers_script" "jsr_lb" {
   script_name = "${var.gcp_project}-jsr-lb"
   content     = file("${path.module}/../lb/dist/main.js")
 
-  # Plain text environment variables
-  dynamic "plain_text_binding" {
-    for_each = local.worker_env_vars
-    content {
-      name = plain_text_binding.key
-      text = plain_text_binding.value
-    }
-  }
-
-  # Secret text bindings for backend URLs and bucket names
-  dynamic "secret_text_binding" {
-    for_each = local.worker_secrets
-    content {
-      name = secret_text_binding.key
-      text = secret_text_binding.value
-    }
-  }
-
   bindings = [
     {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
       dataset = local.worker_download_analytics_dataset
+    }, {
+      type = "plain_text"
+      name = "ROOT_DOMAIN"
+      text = var.domain_name
+    }, {
+      type = "plain_text"
+      name = "API_DOMAIN"
+      text = local.api_domain
+    }, {
+      type = "plain_text"
+      name = "NPM_DOMAIN"
+      text = local.npm_domain
+    }, {
+      type = "secret_text"
+      secret_name = "REGISTRY_API_URL"
+      text = data.google_cloud_run_service.registry_api.status[0].url
+    }, {
+      type = "secret_text"
+      secret_name = "REGISTRY_FRONTEND_URL"
+      text = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
+    }, {
+      type = "secret_text"
+      secret_name = "MODULES_BUCKET"
+      text = google_storage_bucket.modules.name
+    }, {
+      type = "secret_text"
+      secret_name = "NPM_BUCKET"
+      text = google_storage_bucket.npm.name
     }
   ]
 
