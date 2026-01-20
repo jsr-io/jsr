@@ -1,10 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-data "google_cloud_run_service" "registry_api" {
-  name     = "registry-api"
-  location = "us-central1"
-}
-
 locals {
   worker_download_analytics_dataset = "${var.gcp_project}-downloads"
 }
@@ -34,7 +29,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }, {
       type = "secret_text"
       name = "REGISTRY_API_URL"
-      text = data.google_cloud_run_service.registry_api.status[0].url
+      text = google_cloud_run_v2_service.registry_api.uri
       }, {
       type = "secret_text"
       name = "REGISTRY_FRONTEND_URL"
