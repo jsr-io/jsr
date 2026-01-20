@@ -37,21 +37,21 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name = "NPM_DOMAIN"
       text = local.npm_domain
       }, {
-      type        = "secret_text"
-      secret_name = "REGISTRY_API_URL"
-      text        = data.google_cloud_run_service.registry_api.status[0].url
+      type = "secret_text"
+      name = "REGISTRY_API_URL"
+      text = data.google_cloud_run_service.registry_api.status[0].url
       }, {
-      type        = "secret_text"
-      secret_name = "REGISTRY_FRONTEND_URL"
-      text        = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
+      type = "secret_text"
+      name = "REGISTRY_FRONTEND_URL"
+      text = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
       }, {
-      type        = "secret_text"
-      secret_name = "MODULES_BUCKET"
-      text        = google_storage_bucket.modules.name
+      type = "secret_text"
+      name = "MODULES_BUCKET"
+      text = google_storage_bucket.modules.name
       }, {
-      type        = "secret_text"
-      secret_name = "NPM_BUCKET"
-      text        = google_storage_bucket.npm.name
+      type = "secret_text"
+      name = "NPM_BUCKET"
+      text = google_storage_bucket.npm.name
     }
   ]
 
