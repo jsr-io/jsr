@@ -88,13 +88,11 @@ export function setDebugHeaders(
   response: Response,
   metadata: {
     backend: Backend;
-    cacheStatus: string;
     isBot?: boolean;
     version?: string;
   },
 ) {
   response.headers.set("X-JSR-Backend", metadata.backend);
-  response.headers.set("X-JSR-Cache-Status", metadata.cacheStatus);
   if (metadata.isBot !== undefined) {
     response.headers.set(
       "X-JSR-Bot-Detected",

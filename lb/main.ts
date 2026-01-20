@@ -2,7 +2,6 @@
 
 import type { WorkerEnv } from "./types.ts";
 import { proxyToCloudRun, proxyToGCS } from "./proxy.ts";
-import { handleWithCache } from "./cache.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -72,17 +71,16 @@ export async function handleAPIRequest(
     return handleCORSPreflight(API);
   }
 
-  const { response, cacheStatus } = await handleWithCache(
+  const response = await proxyToCloudRun(
     request,
-    proxyToCloudRun(request, env.REGISTRY_API_URL, (path) => `/api${path}`),
-    API,
+    env.REGISTRY_API_URL,
+    (path) => `/api${path}`,
   );
 
   setSecurityHeaders(response, API);
   setCORSHeaders(response, API);
   setDebugHeaders(response, {
     backend: API,
-    cacheStatus,
     version: "1.0.0",
   });
 
@@ -98,22 +96,17 @@ export async function handleNPMRequest(
   }
 
   const url = new URL(request.url);
-  const { response, cacheStatus } = await handleWithCache(
-    request,
-    proxyToGCS(request, env.NPM_BUCKET, (path) => {
-      if (path === "/" || path === "/-/ping") {
-        return "/root.json";
-      }
-      return path;
-    }),
-    NPM,
-  );
+  const response = await proxyToGCS(request, env.NPM_BUCKET, (path) => {
+    if (path === "/" || path === "/-/ping") {
+      return "/root.json";
+    }
+    return path;
+  });
 
   setSecurityHeaders(response, NPM);
   setCORSHeaders(response, NPM);
   setDebugHeaders(response, {
     backend: NPM,
-    cacheStatus,
     version: "1.0.0",
   });
 
@@ -216,19 +209,14 @@ function isAPIRoute(path: string): boolean {
 async function handleFrontendRoute(
   request: Request,
   env: WorkerEnv,
-  isFromBot: boolean,
+  isBot: boolean,
 ): Promise<Response> {
-  const { response, cacheStatus } = await handleWithCache(
-    request,
-    proxyToCloudRun(request, env.REGISTRY_FRONTEND_URL),
-    FRONTEND,
-  );
+  const response = await proxyToCloudRun(request, env.REGISTRY_FRONTEND_URL);
 
   setSecurityHeaders(response, FRONTEND);
   setDebugHeaders(response, {
     backend: FRONTEND,
-    cacheStatus,
-    isBot: isFromBot,
+    isBot,
     version: "1.0.0",
   });
 
@@ -240,17 +228,12 @@ async function handleModuleFileRoute(
   env: WorkerEnv,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const { response, cacheStatus } = await handleWithCache(
-    request,
-    proxyToGCS(request, env.MODULES_BUCKET),
-    MODULES,
-  );
+  const response = await proxyToGCS(request, env.MODULES_BUCKET);
 
   setSecurityHeaders(response, MODULES);
   setCORSHeaders(response, MODULES);
   setDebugHeaders(response, {
     backend: MODULES,
-    cacheStatus,
     version: "1.0.0",
   });
 

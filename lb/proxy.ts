@@ -1,12 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-export type ProxyCb = () => Promise<Response>;
-
-export function proxyToCloudRun(
+export async function proxyToCloudRun(
   request: Request,
   backendUrl: string,
   pathRewrite?: (path: string) => string,
-): ProxyCb {
+): Promise<Response> {
   const url = new URL(request.url);
   let path = url.pathname;
   if (pathRewrite) {
@@ -37,27 +35,27 @@ export function proxyToCloudRun(
     redirect: "manual",
   });
 
-  return async () => {
-    try {
-      const response = await fetch(backendRequest);
-      return response;
-    } catch (error) {
-      console.error("Cloud Run proxy error:", error);
-      return new Response("Bad Gateway", {
-        status: 502,
-        headers: {
-          "Content-Type": "text/plain",
-        },
-      });
-    }
-  };
+  try {
+    const response = await fetch(backendRequest, {
+      cache: "no-store",
+    });
+    return response;
+  } catch (error) {
+    console.error("Cloud Run proxy error:", error);
+    return new Response("Bad Gateway", {
+      status: 502,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }
 }
 
-export function proxyToGCS(
+export async function proxyToGCS(
   request: Request,
   bucketName: string,
   pathRewrite?: (path: string) => string,
-): ProxyCb {
+): Promise<Response> {
   const url = new URL(request.url);
   let path = url.pathname;
   if (pathRewrite) {
@@ -86,26 +84,24 @@ export function proxyToGCS(
 
   const method = request.method === "HEAD" ? "HEAD" : "GET";
 
-  return async () => {
-    try {
-      const response = await fetch(gcsUrl, {
-        method,
-        headers,
-        redirect: "follow",
-        cf: {
-          cacheEverything: true,
-        },
-      });
+  try {
+    const response = await fetch(gcsUrl, {
+      method,
+      headers,
+      redirect: "follow",
+      cf: {
+        cacheEverything: true,
+      },
+    });
 
-      return response;
-    } catch (error) {
-      console.error("GCS proxy error:", error);
-      return new Response("Bad Gateway", {
-        status: 502,
-        headers: {
-          "Content-Type": "text/plain",
-        },
-      });
-    }
-  };
+    return response;
+  } catch (error) {
+    console.error("GCS proxy error:", error);
+    return new Response("Bad Gateway", {
+      status: 502,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }
 }
