@@ -5,7 +5,7 @@ data "google_cloud_run_service" "registry_api" {
   location = "us-central1"
 }
 
-data "google_cloud_run_service" "registry_frontend_us_central1" {
+data "google_cloud_run_service" "registry-frontend-us-central1" {
   name     = "registry-frontend"
   location = "us-central1"
 }
@@ -43,7 +43,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }, {
       type = "secret_text"
       name = "REGISTRY_FRONTEND_URL"
-      text = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
+      text = data.google_cloud_run_service.registry-frontend-us-central1.status[0].url
       }, {
       type = "secret_text"
       name = "MODULES_BUCKET"
