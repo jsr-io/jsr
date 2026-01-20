@@ -19,7 +19,7 @@ resource "google_dns_record_set" "ns" {
   managed_zone = google_dns_managed_zone.default.name
   type         = "NS"
   ttl          = 300
-  rrdatas      = data.cloudflare_zone.zone.name_servers
+  rrdatas      = [for record in data.cloudflare_zone.zone.name_servers : "${record}."]
 }
 
 resource "cloudflare_dns_record" "a" {
@@ -28,7 +28,7 @@ resource "cloudflare_dns_record" "a" {
   type    = "A"
   content = google_compute_global_address.frontend_ipv4.address
   proxied = true
-  ttl     = 300
+  ttl     = 1
 }
 
 resource "cloudflare_dns_record" "aaaa" {
@@ -37,7 +37,7 @@ resource "cloudflare_dns_record" "aaaa" {
   type    = "AAAA"
   content = google_compute_global_address.frontend_ipv6.address
   proxied = true
-  ttl     = 300
+  ttl     = 1
 }
 
 resource "cloudflare_dns_record" "api_a" {
@@ -46,7 +46,7 @@ resource "cloudflare_dns_record" "api_a" {
   type    = "A"
   content = google_compute_global_address.frontend_ipv4.address
   proxied = true
-  ttl     = 300
+  ttl     = 1
 }
 
 resource "cloudflare_dns_record" "api_aaaa" {
@@ -55,7 +55,7 @@ resource "cloudflare_dns_record" "api_aaaa" {
   type    = "AAAA"
   content = google_compute_global_address.frontend_ipv6.address
   proxied = true
-  ttl     = 300
+  ttl     = 1
 }
 
 resource "cloudflare_dns_record" "npm_a" {
@@ -64,7 +64,7 @@ resource "cloudflare_dns_record" "npm_a" {
   type    = "A"
   content = google_compute_global_address.frontend_ipv4.address
   proxied = true
-  ttl     = 300
+  ttl     = 1
 }
 
 resource "cloudflare_dns_record" "npm_aaaa" {
@@ -73,5 +73,5 @@ resource "cloudflare_dns_record" "npm_aaaa" {
   type    = "AAAA"
   content = google_compute_global_address.frontend_ipv6.address
   proxied = true
-  ttl     = 300
+  ttl     = 1
 }
