@@ -92,6 +92,9 @@ export function proxyToGCS(
         method,
         headers,
         redirect: "follow",
+        cf: {
+          cacheEverything: true,
+        },
       });
 
       return response;

@@ -23,23 +23,10 @@ declare global {
     default: Cache;
   }
 
-  // Cloudflare Workers Request cf property
-  interface Request {
-    cf?: IncomingRequestCfProperties;
-  }
-
-  interface IncomingRequestCfProperties {
-    colo?: string;
-    country?: string;
-    city?: string;
-    continent?: string;
-    latitude?: string;
-    longitude?: string;
-    postalCode?: string;
-    metroCode?: string;
-    region?: string;
-    regionCode?: string;
-    timezone?: string;
+  interface RequestInit {
+    cf?: {
+      cacheEverything?: boolean;
+    };
   }
 }
 
