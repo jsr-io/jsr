@@ -10,7 +10,6 @@ import {
   setDebugHeaders,
   setSecurityHeaders,
 } from "./headers.ts";
-import { getFrontendUrl } from "./regions.ts";
 import { isBot } from "./bots.ts";
 import { trackJSRDownload, trackNPMDownload } from "./analytics.ts";
 
@@ -227,18 +226,15 @@ async function handleFrontendRoute(
   env: WorkerEnv,
   isFromBot: boolean,
 ): Promise<Response> {
-  const { region, url } = getFrontendUrl(request, env);
-
   const { response, cacheStatus } = await handleWithCache(
     request,
-    proxyToCloudRun(request, url),
+    proxyToCloudRun(request, env.REGISTRY_FRONTEND_URL),
     FRONTEND,
   );
 
   setSecurityHeaders(response, FRONTEND);
   setDebugHeaders(response, {
     backend: FRONTEND,
-    region,
     cacheStatus,
     isBot: isFromBot,
     version: "1.0.0",

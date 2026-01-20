@@ -43,24 +43,18 @@ declare global {
   }
 }
 
-// Worker environment bindings
 export interface WorkerEnv {
-  // Cloud Run backend URLs
   REGISTRY_API_URL: string;
 
-  // Frontend URLs per region (JSON stringified map)
-  REGISTRY_FRONTEND_URLS: string;
+  REGISTRY_FRONTEND_URL: string;
 
-  // GCS bucket names
   MODULES_BUCKET: string;
   NPM_BUCKET: string;
 
-  // Domain names
   ROOT_DOMAIN: string;
   API_DOMAIN: string;
   NPM_DOMAIN: string;
 
-  // Feature flags
   ENABLE_CACHE: string;
   ENABLE_BOT_DETECTION: string;
 

@@ -10,36 +10,6 @@ data "google_cloud_run_service" "registry_frontend_us_central1" {
   location = "us-central1"
 }
 
-data "google_cloud_run_service" "registry_frontend_europe_west1" {
-  name     = "registry-frontend"
-  location = "europe-west1"
-}
-
-data "google_cloud_run_service" "registry_frontend_asia_northeast1" {
-  name     = "registry-frontend"
-  location = "asia-northeast1"
-}
-
-data "google_cloud_run_service" "registry_frontend_asia_south1" {
-  name     = "registry-frontend"
-  location = "asia-south1"
-}
-
-data "google_cloud_run_service" "registry_frontend_asia_southeast1" {
-  name     = "registry-frontend"
-  location = "asia-southeast1"
-}
-
-data "google_cloud_run_service" "registry_frontend_southamerica_east1" {
-  name     = "registry-frontend"
-  location = "southamerica-east1"
-}
-
-data "google_cloud_run_service" "registry_frontend_australia_southeast1" {
-  name     = "registry-frontend"
-  location = "australia-southeast1"
-}
-
 locals {
   worker_env_vars = {
     ROOT_DOMAIN = var.domain_name
@@ -48,18 +18,10 @@ locals {
   }
 
   worker_secrets = {
-    REGISTRY_API_URL = data.google_cloud_run_service.registry_api.status[0].url
-    REGISTRY_FRONTEND_URLS = jsonencode({
-      "us-central1"          = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
-      "europe-west1"         = data.google_cloud_run_service.registry_frontend_europe_west1.status[0].url
-      "asia-northeast1"      = data.google_cloud_run_service.registry_frontend_asia_northeast1.status[0].url
-      "asia-south1"          = data.google_cloud_run_service.registry_frontend_asia_south1.status[0].url
-      "asia-southeast1"      = data.google_cloud_run_service.registry_frontend_asia_southeast1.status[0].url
-      "southamerica-east1"   = data.google_cloud_run_service.registry_frontend_southamerica_east1.status[0].url
-      "australia-southeast1" = data.google_cloud_run_service.registry_frontend_australia_southeast1.status[0].url
-    })
-    MODULES_BUCKET = google_storage_bucket.modules.name
-    NPM_BUCKET     = google_storage_bucket.npm.name
+    REGISTRY_API_URL      = data.google_cloud_run_service.registry_api.status[0].url
+    REGISTRY_FRONTEND_URL = data.google_cloud_run_service.registry_frontend_us_central1.status[0].url
+    MODULES_BUCKET        = google_storage_bucket.modules.name
+    NPM_BUCKET            = google_storage_bucket.npm.name
   }
 }
 
