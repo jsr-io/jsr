@@ -169,18 +169,10 @@ export async function handleRootRequest(
     return await handleFrontendRoute(request, env, true);
   } else if (path.startsWith("/@")) {
     if (!canAccessModuleFile(request)) {
-      return new Response(
-        "Access to module files requires programmatic access (fetch API or CLI tools). Direct browser navigation is not allowed for security reasons.",
-        {
-          status: 403,
-          headers: {
-            "Content-Type": "text/plain",
-          },
-        },
-      );
+      return await handleFrontendRoute(request, env, false);
+    } else {
+      return await handleModuleFileRoute(request, env);
     }
-
-    return await handleModuleFileRoute(request, env);
   } else {
     return await handleFrontendRoute(request, env, false);
   }
