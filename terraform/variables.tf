@@ -6,10 +6,6 @@ variable "gcp_project" {
 variable "domain_name" {
   type = string
 }
-locals {
-  api_domain = "api.${var.domain_name}"
-  npm_domain = "npm.${var.domain_name}"
-}
 
 variable "api_image_id" {
   description = "the Docker image ID for the API service"
