@@ -40,7 +40,7 @@ locals {
 resource "google_cloud_run_v2_service" "registry_api" {
   name     = "registry-api"
   location = "us-central1"
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     service_account = google_service_account.registry_api.email
