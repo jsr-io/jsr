@@ -27,7 +27,7 @@ export interface WorkerEnv {
 
   REGISTRY_FRONTEND_URL: string;
 
-  BUCKET_ENDPOINT?: string;
+  GCS_ENDPOINT?: string;
   MODULES_BUCKET: string;
   NPM_BUCKET: string;
 

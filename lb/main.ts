@@ -95,12 +95,17 @@ export async function handleNPMRequest(
   }
 
   const url = new URL(request.url);
-  const response = await proxyToGCS(request, env.BUCKET_ENDPOINT, env.NPM_BUCKET, (path) => {
-    if (path === "/" || path === "/-/ping") {
-      return "/root.json";
-    }
-    return path;
-  });
+  const response = await proxyToGCS(
+    request,
+    env.GCS_ENDPOINT,
+    env.NPM_BUCKET,
+    (path) => {
+      if (path === "/" || path === "/-/ping") {
+        return "/root.json";
+      }
+      return path;
+    },
+  );
 
   setSecurityHeaders(response, NPM);
   setCORSHeaders(response, NPM);
@@ -227,7 +232,11 @@ async function handleModuleFileRoute(
   env: WorkerEnv,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const response = await proxyToGCS(request, env.BUCKET_ENDPOINT, env.MODULES_BUCKET);
+  const response = await proxyToGCS(
+    request,
+    env.GCS_ENDPOINT,
+    env.MODULES_BUCKET,
+  );
 
   setSecurityHeaders(response, MODULES);
   setCORSHeaders(response, MODULES);

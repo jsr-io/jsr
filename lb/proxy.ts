@@ -70,7 +70,9 @@ export async function proxyToGCS(
   }
   path = path.slice(1);
 
-  const gcsUrl = `${bucketEndpoint ?? "https://storage.googleapis.com"}/${bucketName}/${path}`;
+  const gcsUrl = `${
+    bucketEndpoint ?? "https://storage.googleapis.com"
+  }/${bucketName}/${path}`;
 
   const headers = new Headers();
 
