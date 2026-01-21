@@ -89,7 +89,6 @@ export function setDebugHeaders(
   metadata: {
     backend: Backend;
     isBot?: boolean;
-    version?: string;
   },
 ) {
   response.headers.set("X-JSR-Backend", metadata.backend);
@@ -98,9 +97,6 @@ export function setDebugHeaders(
       "X-JSR-Bot-Detected",
       metadata.isBot ? "true" : "false",
     );
-  }
-  if (metadata.version) {
-    response.headers.set("X-JSR-Worker-Version", metadata.version);
   }
 }
 

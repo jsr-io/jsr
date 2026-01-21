@@ -65,6 +65,7 @@ export async function route(
 export async function handleAPIRequest(
   request: Request,
   env: WorkerEnv,
+  rewritePath: boolean = true,
 ): Promise<Response> {
   if (isCORSPreflight(request)) {
     return handleCORSPreflight(API);
@@ -73,14 +74,13 @@ export async function handleAPIRequest(
   const response = await proxyToCloudRun(
     request,
     env.REGISTRY_API_URL,
-    (path) => `/api${path}`,
+    rewritePath ? (path) => `/api${path}` : undefined,
   );
 
   setSecurityHeaders(response, API);
   setCORSHeaders(response, API);
   setDebugHeaders(response, {
     backend: API,
-    version: "1.0.0",
   });
 
   return response;
@@ -111,7 +111,6 @@ export async function handleNPMRequest(
   setCORSHeaders(response, NPM);
   setDebugHeaders(response, {
     backend: NPM,
-    version: "1.0.0",
   });
 
   if (response.ok && request.method === "GET") {
@@ -161,7 +160,7 @@ export async function handleRootRequest(
   const path = url.pathname;
 
   if (isAPIRoute(path)) {
-    return await handleAPIRequest(request, env);
+    return await handleAPIRequest(request, env, false);
   } else if (isBot(request)) {
     return await handleFrontendRoute(request, env, true);
   } else if (path.startsWith("/@")) {
@@ -221,7 +220,6 @@ async function handleFrontendRoute(
   setDebugHeaders(response, {
     backend: FRONTEND,
     isBot,
-    version: "1.0.0",
   });
 
   return response;
@@ -242,7 +240,6 @@ async function handleModuleFileRoute(
   setCORSHeaders(response, MODULES);
   setDebugHeaders(response, {
     backend: MODULES,
-    version: "1.0.0",
   });
 
   if (response.ok && request.method === "GET") {
