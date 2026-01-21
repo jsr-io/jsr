@@ -806,16 +806,14 @@ fn collect_dependencies(
           Ok(req) => {
             if req.req().version_req.version_text() == "*" {
               return Err(PublishError::NpmMissingConstraint(req));
-            } else {
-              if req.req().name.starts_with("@jsr/") {
-                if let Some(jsr_ref) = convert_npm_jsr_to_jsr_ref(&req) {
-                  dependencies.insert((DependencyKind::Jsr, jsr_ref));
-                } else {
-                  dependencies.insert((DependencyKind::Npm, req.into_inner()));
-                }
+            } else if req.req().name.starts_with("@jsr/") {
+              if let Some(jsr_ref) = convert_npm_jsr_to_jsr_ref(&req) {
+                dependencies.insert((DependencyKind::Jsr, jsr_ref));
               } else {
                 dependencies.insert((DependencyKind::Npm, req.into_inner()));
               }
+            } else {
+              dependencies.insert((DependencyKind::Npm, req.into_inner()));
             }
           }
           Err(err) => {
