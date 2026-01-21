@@ -41,7 +41,11 @@ export async function proxyToCloudRun(
         cacheEverything: true,
       },
     });
-    return response;
+
+    return new Response(response.body, {
+      headers: response.headers,
+      status: response.status,
+    });
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
     return new Response("Bad Gateway", {
@@ -55,6 +59,7 @@ export async function proxyToCloudRun(
 
 export async function proxyToGCS(
   request: Request,
+  bucketEndpoint: string | undefined,
   bucketName: string,
   pathRewrite?: (path: string) => string,
 ): Promise<Response> {
@@ -65,7 +70,7 @@ export async function proxyToGCS(
   }
   path = path.slice(1);
 
-  const gcsUrl = `https://storage.googleapis.com/${bucketName}/${path}`;
+  const gcsUrl = `${bucketEndpoint ?? "https://storage.googleapis.com"}/${bucketName}/${path}`;
 
   const headers = new Headers();
 
@@ -96,7 +101,10 @@ export async function proxyToGCS(
       },
     });
 
-    return response;
+    return new Response(response.body, {
+      headers: response.headers,
+      status: response.status,
+    });
   } catch (error) {
     console.error("GCS proxy error:", error);
     return new Response("Bad Gateway", {
