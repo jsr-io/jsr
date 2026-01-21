@@ -769,7 +769,9 @@ impl deno_graph::analysis::ModuleAnalyzer for ModuleAnalyzer {
   }
 }
 
-fn convert_npm_jsr_to_jsr_ref(npm_req: &NpmPackageReqReference) -> Option<PackageReqReference> {
+fn convert_npm_jsr_to_jsr_ref(
+  npm_req: &NpmPackageReqReference,
+) -> Option<PackageReqReference> {
   let name = &npm_req.req().name;
   if let Some(stripped) = name.strip_prefix("@jsr/") {
     let parts: Vec<&str> = stripped.split("__").collect();

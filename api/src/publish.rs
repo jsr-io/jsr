@@ -1180,7 +1180,8 @@ pub mod tests {
     let package_name = PackageName::try_from("bar").unwrap();
     let version = Version::try_from("1.2.3").unwrap();
     let bytes = create_mock_tarball("npm_jsr_import");
-    let task = process_tarball_setup2(&t, bytes, &package_name, &version, false).await;
+    let task =
+      process_tarball_setup2(&t, bytes, &package_name, &version, false).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
     assert!(!uses_npm(&t, &task).await);
   }
