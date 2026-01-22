@@ -60,27 +60,15 @@ export async function proxyToCloudRun(
 
     const response = await fetch(backendRequest, { cf: cfOptions });
 
-    // Create new headers, handling Set-Cookie specially via getSetCookie()
-    const newHeaders = new Headers();
-    for (const [key, value] of response.headers.entries()) {
-      if (key.toLowerCase() !== "set-cookie") {
-        newHeaders.append(key, value);
-      }
-    }
-    // Set-Cookie headers need getSetCookie() to get all values properly
-    const setCookies = response.headers.getSetCookie?.() ?? [];
-    for (const cookie of setCookies) {
-      newHeaders.append("Set-Cookie", cookie);
-    }
+    // In Cloudflare Workers, we need to handle headers carefully.
+    // The simplest approach is to clone the response with mutable headers.
+    const newResponse = new Response(response.body, response);
 
-    newHeaders.set("X-JSR-Backend-Cache-req-path", x);
-    newHeaders.set("X-JSR-Backend-Cache-req-headers", JSON.stringify([...request.headers.keys()]) ?? "");
-    newHeaders.set("X-JSR-Set-Cookie-Count", String(setCookies.length));
+    newResponse.headers.set("X-JSR-Backend-Cache-req-path", x);
+    newResponse.headers.set("X-JSR-Backend-Cache-req-headers", JSON.stringify([...request.headers.keys()]) ?? "");
+    newResponse.headers.set("X-JSR-Has-Set-Cookie", response.headers.has("set-cookie") ? "yes" : "no");
 
-    return new Response(response.body, {
-      headers: newHeaders,
-      status: response.status,
-    });
+    return newResponse;
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
     return new Response("Bad Gateway", {
