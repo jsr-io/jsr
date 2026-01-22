@@ -36,30 +36,36 @@ export async function proxyToCloudRun(
   });
 
   try {
+    let x;
     let cfOptions: RequestInit["cf"];
     if (
       url.pathname === "/login" || url.pathname.startsWith("/login/") ||
       url.pathname === "/logout"
     ) {
+      x = "path";
       cfOptions = undefined;
     } else if (
       request.headers.has("Authorization") ||
       request.headers.get("Cookie")?.includes("token=")
     ) {
+      x = "auth";
       cfOptions = {
         //cacheEverything: false,
         //cacheKey: `${backendRequestUrl.toString()}:authed`,
       };
     } else {
+      x = "none";
       cfOptions = { cacheEverything: true };
     }
 
     const response = await fetch(backendRequest, { cf: cfOptions });
 
-    return new Response(response.body, {
+    const res = new Response(response.body, {
       headers: response.headers,
       status: response.status,
     });
+    res.headers.set("X-JSR-Backend-Cache-X", x);
+    return res;
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
     return new Response("Bad Gateway", {
