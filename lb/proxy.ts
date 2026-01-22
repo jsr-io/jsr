@@ -54,7 +54,7 @@ export async function proxyToCloudRun(
       cfOptions = { cacheEverything: true };
     }
 
-    const response = await fetch(backendRequest, { cf: cfOptions });
+    const response = await fetch(backendRequest);
 
     return new Response(response.body, {
       headers: response.headers,
