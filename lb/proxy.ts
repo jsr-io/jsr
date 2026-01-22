@@ -35,8 +35,19 @@ export async function proxyToCloudRun(
     redirect: "manual",
   });
 
+  // Determine caching strategy
+  const isAuthRoute = path === "/login" || path.startsWith("/login/") ||
+    path === "/logout";
+  const isAuthenticated = request.headers.has("Authorization") ||
+    request.headers.get("Cookie")?.includes("token=");
+
+  // Only cache unauthenticated, non-auth-route requests
+  const cfOptions: RequestInit["cf"] = (!isAuthRoute && !isAuthenticated)
+    ? { cacheEverything: true }
+    : undefined;
+
   try {
-    const response = await fetch(backendRequest);
+    const response = await fetch(backendRequest, { cf: cfOptions });
 
     return new Response(response.body, {
       status: response.status,
