@@ -18,6 +18,7 @@ declare global {
   interface RequestInit {
     cf?: {
       cacheEverything?: boolean;
+      cacheKey?: string;
     };
   }
 }

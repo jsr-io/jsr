@@ -35,18 +35,26 @@ export async function proxyToCloudRun(
     redirect: "manual",
   });
 
-  const shouldBypassCache = request.headers.has("Authorization") ||
-    request.headers.get("Cookie")?.includes("token=") ||
-    url.pathname === "/login" ||
-    url.pathname.startsWith("/login/") ||
-    url.pathname === "/logout";
-
   try {
-    const response = await fetch(backendRequest, {
-      cf: shouldBypassCache ? undefined : {
+    let cfOptions: RequestInit["cf"];
+    if (
+      url.pathname === "/login" || url.pathname.startsWith("/login/") ||
+      url.pathname === "/logout"
+    ) {
+      cfOptions = undefined;
+    } else if (
+      request.headers.has("Authorization") ||
+      request.headers.get("Cookie")?.includes("token=")
+    ) {
+      cfOptions = {
         cacheEverything: true,
-      },
-    });
+        cacheKey: `${backendRequestUrl.toString()}:authed`,
+      };
+    } else {
+      cfOptions = { cacheEverything: true };
+    }
+
+    const response = await fetch(backendRequest, { cf: cfOptions });
 
     return new Response(response.body, {
       headers: response.headers,
