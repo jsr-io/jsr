@@ -65,7 +65,7 @@ export async function proxyToCloudRun(
       status: response.status,
     });
     res.headers.set("X-JSR-Backend-Cache-X", x);
-    res.headers.set("X-JSR-Backend-Cache-X2", request.headers.get("Cookie") ?? "");
+    res.headers.set("X-JSR-Backend-Cache-X2", JSON.stringify([...request.headers.keys()]) ?? "");
     return res;
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
