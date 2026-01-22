@@ -36,72 +36,12 @@ export async function proxyToCloudRun(
   });
 
   try {
-    let x;
-    let cfOptions: RequestInit["cf"];
-    if (
-      url.pathname === "/login" || url.pathname.startsWith("/login/") ||
-      url.pathname === "/logout"
-    ) {
-      x = "path";
-      cfOptions = undefined;
-    } else if (
-      request.headers.has("Authorization") ||
-      request.headers.get("Cookie")?.includes("token=")
-    ) {
-      x = "auth";
-      cfOptions = {
-        //cacheEverything: false,
-        //cacheKey: `${backendRequestUrl.toString()}:authed`,
-      };
-    } else {
-      x = "none";
-      cfOptions = { cacheEverything: true };
-    }
-
-    const response = await fetch(backendRequest, { cf: cfOptions });
-
-    // For auth redirects with Set-Cookie, use an HTML redirect instead of 302.
-    // This fixes a browser quirk where SameSite=Lax cookies aren't sent on
-    // redirects that are part of a cross-site redirect chain (OAuth flow).
-    const isRedirect = response.status >= 300 && response.status < 400;
-    const hasSetCookie = response.headers.has("set-cookie");
-    const location = response.headers.get("location");
-
-    if (isRedirect && hasSetCookie && location) {
-      const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta http-equiv="refresh" content="0;url=${location}">
-  <script>window.location.href = ${JSON.stringify(location)};</script>
-</head>
-<body>Redirecting...</body>
-</html>`;
-
-      const newHeaders = new Headers();
-      newHeaders.set("Content-Type", "text/html;charset=UTF-8");
-      // Preserve the Set-Cookie header
-      response.headers.forEach((value, key) => {
-        if (key.toLowerCase() === "set-cookie") {
-          newHeaders.append(key, value);
-        }
-      });
-
-      return new Response(html, {
-        status: 200,
-        headers: newHeaders,
-      });
-    }
-
-    // Cloudflare Workers: explicitly build headers to ensure Set-Cookie passes through
-    const newHeaders = new Headers();
-    response.headers.forEach((value, key) => {
-      newHeaders.append(key, value);
-    });
+    const response = await fetch(backendRequest);
 
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
-      headers: newHeaders,
+      headers: response.headers,
     });
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
