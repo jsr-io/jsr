@@ -60,19 +60,43 @@ export async function proxyToCloudRun(
 
     const response = await fetch(backendRequest, { cf: cfOptions });
 
+    // For auth redirects with Set-Cookie, use an HTML redirect instead of 302.
+    // This fixes a browser quirk where SameSite=Lax cookies aren't sent on
+    // redirects that are part of a cross-site redirect chain (OAuth flow).
+    const isRedirect = response.status >= 300 && response.status < 400;
+    const hasSetCookie = response.headers.has("set-cookie");
+    const location = response.headers.get("location");
+
+    if (isRedirect && hasSetCookie && location) {
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="0;url=${location}">
+  <script>window.location.href = ${JSON.stringify(location)};</script>
+</head>
+<body>Redirecting...</body>
+</html>`;
+
+      const newHeaders = new Headers();
+      newHeaders.set("Content-Type", "text/html;charset=UTF-8");
+      // Preserve the Set-Cookie header
+      response.headers.forEach((value, key) => {
+        if (key.toLowerCase() === "set-cookie") {
+          newHeaders.append(key, value);
+        }
+      });
+
+      return new Response(html, {
+        status: 200,
+        headers: newHeaders,
+      });
+    }
+
     // Cloudflare Workers: explicitly build headers to ensure Set-Cookie passes through
     const newHeaders = new Headers();
-
-    // Copy all headers using raw iteration
     response.headers.forEach((value, key) => {
       newHeaders.append(key, value);
     });
-
-    // Debug headers
-    newHeaders.set("X-JSR-Backend-Cache-req-path", x);
-    newHeaders.set("X-JSR-Backend-Cache-req-headers", JSON.stringify([...request.headers.keys()]) ?? "");
-    newHeaders.set("X-JSR-Has-Set-Cookie", response.headers.has("set-cookie") ? "yes" : "no");
-    newHeaders.set("X-JSR-Set-Cookie-Raw", response.headers.get("set-cookie") ?? "null");
 
     return new Response(response.body, {
       status: response.status,
