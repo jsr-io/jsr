@@ -36,6 +36,7 @@ export async function proxyToCloudRun(
   });
 
   try {
+    // deno-lint-ignore no-unused-vars
     let cfOptions: RequestInit["cf"];
     if (
       url.pathname === "/login" || url.pathname.startsWith("/login/") ||
