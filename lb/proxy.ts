@@ -36,7 +36,6 @@ export async function proxyToCloudRun(
   });
 
   try {
-    // deno-lint-ignore no-unused-vars
     let cfOptions: RequestInit["cf"];
     if (
       url.pathname === "/login" || url.pathname.startsWith("/login/") ||
@@ -48,14 +47,14 @@ export async function proxyToCloudRun(
       request.headers.get("Cookie")?.includes("token=")
     ) {
       cfOptions = {
-        cacheEverything: true,
-        cacheKey: `${backendRequestUrl.toString()}:authed`,
+        //cacheEverything: false,
+        //cacheKey: `${backendRequestUrl.toString()}:authed`,
       };
     } else {
       cfOptions = { cacheEverything: true };
     }
 
-    const response = await fetch(backendRequest);
+    const response = await fetch(backendRequest, { cf: cfOptions });
 
     return new Response(response.body, {
       headers: response.headers,
