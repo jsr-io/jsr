@@ -65,7 +65,7 @@ and consumers of your package. So, if you have a slow type that is not exported,
 you can keep it as is:
 
 ```ts
-export add(a: number, b: number): number {
+export function add(a: number, b: number): number {
   return addInternal(a, b);
 }
 
