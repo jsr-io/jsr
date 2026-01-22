@@ -60,13 +60,27 @@ export async function proxyToCloudRun(
 
     const response = await fetch(backendRequest, { cf: cfOptions });
 
-    const res = new Response(response.body, {
-      headers: response.headers,
+    // Create new headers, handling Set-Cookie specially via getSetCookie()
+    const newHeaders = new Headers();
+    for (const [key, value] of response.headers.entries()) {
+      if (key.toLowerCase() !== "set-cookie") {
+        newHeaders.append(key, value);
+      }
+    }
+    // Set-Cookie headers need getSetCookie() to get all values properly
+    const setCookies = response.headers.getSetCookie?.() ?? [];
+    for (const cookie of setCookies) {
+      newHeaders.append("Set-Cookie", cookie);
+    }
+
+    newHeaders.set("X-JSR-Backend-Cache-req-path", x);
+    newHeaders.set("X-JSR-Backend-Cache-req-headers", JSON.stringify([...request.headers.keys()]) ?? "");
+    newHeaders.set("X-JSR-Set-Cookie-Count", String(setCookies.length));
+
+    return new Response(response.body, {
+      headers: newHeaders,
       status: response.status,
     });
-    res.headers.set("X-JSR-Backend-Cache-X", x);
-    res.headers.set("X-JSR-Backend-Cache-X2", JSON.stringify([...request.headers.keys()]) ?? "");
-    return res;
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
     return new Response("Bad Gateway", {
