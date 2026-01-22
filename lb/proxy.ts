@@ -35,13 +35,15 @@ export async function proxyToCloudRun(
     redirect: "manual",
   });
 
-  // Bypass cache for authenticated requests to prevent leaking user data
-  const hasAuth = request.headers.has("Authorization") ||
-    request.headers.get("Cookie")?.includes("token=");
+  const shouldBypassCache = request.headers.has("Authorization") ||
+    request.headers.get("Cookie")?.includes("token=") ||
+    url.pathname === "/login" ||
+    url.pathname.startsWith("/login/") ||
+    url.pathname === "/logout";
 
   try {
     const response = await fetch(backendRequest, {
-      cf: hasAuth ? undefined : {
+      cf: shouldBypassCache ? undefined : {
         cacheEverything: true,
       },
     });
