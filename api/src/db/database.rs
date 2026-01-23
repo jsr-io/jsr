@@ -5538,7 +5538,7 @@ async fn audit_log(
   Ok(())
 }
 
-pub async fn insert_webhook_event(
+async fn insert_webhook_event(
   tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
   scope: &ScopeName,
   package: Option<&PackageName>,
