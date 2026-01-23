@@ -35,7 +35,7 @@ export async function proxyToCloudRun(
 
   const cfOptions: RequestInit["cf"] = (isAuthRoute || isAuthenticated)
     ? undefined
-    : undefined;
+    : { cacheEverything: true };
 
   try {
     const response = await fetch(backendRequestUrl, {
@@ -43,7 +43,7 @@ export async function proxyToCloudRun(
       headers,
       body: request.body,
       redirect: "manual",
-      cf: cfOptions
+      cf: cfOptions,
     });
 
     const res = new Response(response.body, {
