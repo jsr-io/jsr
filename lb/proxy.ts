@@ -55,6 +55,9 @@ export async function proxyToCloudRun(
       headers: response.headers,
     });
 
+    // Ensure edge caches separately based on cookie presence
+    res.headers.set("Vary", "Cookie");
+
     if (isAuthenticated || isAuthRoute) {
       res.headers.set("Cache-Control", "private, no-store");
     }
