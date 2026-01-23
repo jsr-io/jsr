@@ -33,9 +33,6 @@ export async function proxyToCloudRun(
   const isAuthenticated = request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
-  headers.set("X-Authenticated", isAuthenticated ? "true" : "false");
-  headers.set("X-Auth-Route", isAuthRoute ? "true" : "false");
-
   const cfOptions: RequestInit["cf"] = (isAuthRoute || isAuthenticated)
     ? undefined
     : { cacheEverything: true };
@@ -49,11 +46,16 @@ export async function proxyToCloudRun(
       cf: cfOptions
     });
 
-    return new Response(response.body, {
+    const res = new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
     });
+
+    res.headers.set("X-Authenticated", isAuthenticated ? "true" : "false");
+    res.headers.set("X-Auth-Route", isAuthRoute ? "true" : "false");
+
+    return res;
   } catch (error) {
     console.error("Cloud Run proxy error:", error);
     return new Response("Bad Gateway", {
