@@ -33,6 +33,9 @@ export async function proxyToCloudRun(
   const isAuthenticated = request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
+  console.log("Cookie header:", request.headers.get("Cookie"));
+  console.log("isAuthenticated:", isAuthenticated);
+
   const cfOptions: RequestInit["cf"] = (isAuthRoute || isAuthenticated)
     ? undefined
     : { cacheEverything: true };
@@ -51,6 +54,10 @@ export async function proxyToCloudRun(
       statusText: response.statusText,
       headers: response.headers,
     });
+
+    if (isAuthenticated || isAuthRoute) {
+      res.headers.set("Cache-Control", "private, no-store");
+    }
 
     res.headers.set("X-Authenticated", isAuthenticated ? "true" : "false");
     res.headers.set("X-Auth-Route", isAuthRoute ? "true" : "false");
