@@ -28,24 +28,26 @@ export async function proxyToCloudRun(
   headers.set("X-Forwarded-Proto", url.protocol.slice(0, -1));
   headers.set("X-Forwarded-Host", url.host);
 
-  const backendRequest = new Request(backendRequestUrl, {
-    method: request.method,
-    headers,
-    body: request.body,
-    redirect: "manual",
-  });
-
   const isAuthRoute = path === "/login" || path.startsWith("/login/") ||
     path === "/logout";
   const isAuthenticated = request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
-  const cfOptions: RequestInit["cf"] = (!isAuthRoute && !isAuthenticated)
-    ? { cacheEverything: true }
-    : { cacheTtl: 0 };
+  headers.set("X-Authenticated", isAuthenticated ? "true" : "false");
+  headers.set("X-Auth-Route", isAuthRoute ? "true" : "false");
+
+  const cfOptions: RequestInit["cf"] = (isAuthRoute || isAuthenticated)
+    ? undefined
+    : { cacheEverything: true };
 
   try {
-    const response = await fetch(backendRequest, { cf: cfOptions });
+    const response = await fetch(backendRequestUrl, {
+      method: request.method,
+      headers,
+      body: request.body,
+      redirect: "manual",
+      cf: cfOptions
+    });
 
     return new Response(response.body, {
       status: response.status,
