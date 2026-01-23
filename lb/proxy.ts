@@ -28,15 +28,13 @@ export async function proxyToCloudRun(
   headers.set("X-Forwarded-Proto", url.protocol.slice(0, -1));
   headers.set("X-Forwarded-Host", url.host);
 
-  const isAuthRoute = path === "/login" || path.startsWith("/login/") ||
-    path === "/logout";
-  const isAuthenticated = request.headers.has("Authorization") ||
+  const ignoreCache = path === "/login" ||
+    path.startsWith("/login/") ||
+    path === "/logout" ||
+    request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
-  console.log("Cookie header:", request.headers.get("Cookie"));
-  console.log("isAuthenticated:", isAuthenticated);
-
-  const cfOptions: RequestInit["cf"] = (isAuthRoute || isAuthenticated)
+  const cfOptions: RequestInit["cf"] = ignoreCache
     ? undefined
     : { cacheEverything: true };
 
@@ -55,15 +53,11 @@ export async function proxyToCloudRun(
       headers: response.headers,
     });
 
-    // Ensure edge caches separately based on cookie presence
-    res.headers.set("Vary", "Cookie");
+    res.headers.set("Vary", "Cookie,Authorization");
 
-    if (isAuthenticated || isAuthRoute) {
+    if (ignoreCache) {
       res.headers.set("Cache-Control", "private, no-store");
     }
-
-    res.headers.set("X-Authenticated", isAuthenticated ? "true" : "false");
-    res.headers.set("X-Auth-Route", isAuthRoute ? "true" : "false");
 
     return res;
   } catch (error) {
