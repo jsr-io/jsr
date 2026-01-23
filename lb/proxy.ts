@@ -35,17 +35,14 @@ export async function proxyToCloudRun(
     redirect: "manual",
   });
 
-  // Determine caching strategy
   const isAuthRoute = path === "/login" || path.startsWith("/login/") ||
     path === "/logout";
   const isAuthenticated = request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
-  // Only cache unauthenticated, non-auth-route requests
-  // Explicitly set cacheTtl: 0 to bypass cache, not just undefined
   const cfOptions: RequestInit["cf"] = (!isAuthRoute && !isAuthenticated)
     ? { cacheEverything: true }
-    : { cacheEverything: false, cacheTtl: 0 };
+    : { cacheTtl: 0 };
 
   try {
     const response = await fetch(backendRequest, { cf: cfOptions });
