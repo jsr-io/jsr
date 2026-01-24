@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::buckets::Buckets;
@@ -305,6 +306,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let buckets = req.data::<Buckets>().unwrap().clone();
     let registry = req.data::<RegistryUrl>().unwrap().0.clone();
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+    let fallback_registry_url =
+      req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
     let span = Span::current();
     let fut = publish_task(
@@ -312,6 +315,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       buckets,
       registry,
       npm_url,
+      fallback_registry_url,
       db,
       orama_client,
     )

@@ -59,3 +59,15 @@ resource "google_secret_manager_secret_version" "orama_symbols_index_id" {
   secret_data = var.orama_symbols_index_id
 }
 
+resource "google_secret_manager_secret" "cloudflare_api_token" {
+  secret_id = "cloudflare-api-token"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "cloudflare_api_token" {
+  secret      = google_secret_manager_secret.cloudflare_api_token.id
+  secret_data = var.cloudflare_api_token
+}
+

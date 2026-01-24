@@ -98,6 +98,12 @@ pub struct Config {
   /// be accessible from.
   pub npm_url: Url,
 
+  #[clap(long = "fallback_registry_url", env = "FALLBACK_REGISTRY_URL")]
+  /// The base URL of a fallback registry to use when resolving JSR dependencies
+  /// that are not available locally. This allows self-hosted instances to
+  /// depend on packages from jsr.io or other instances.
+  pub fallback_registry_url: Option<Url>,
+
   #[clap(
     long = "api",
     default_missing_value("true"),
@@ -141,6 +147,21 @@ pub struct Config {
   #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
   /// The ID of the project.
   pub gcp_project_id: Option<String>,
+
+  #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
+  /// The Cloudflare account ID for Analytics Engine.
+  pub cloudflare_account_id: Option<String>,
+
+  #[clap(long = "cloudflare_api_token", env = "CLOUDFLARE_API_TOKEN")]
+  /// The Cloudflare API token.
+  pub cloudflare_api_token: Option<String>,
+
+  #[clap(
+    long = "cloudflare_analytics_dataset",
+    env = "CLOUDFLARE_ANALYTICS_DATASET"
+  )]
+  /// The Cloudflare Analytics Engine dataset name for download tracking.
+  pub cloudflare_analytics_dataset: Option<String>,
 
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.
