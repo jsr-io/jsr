@@ -854,11 +854,13 @@ impl From<DependencyKind> for ApiDependencyKind {
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[serde(rename_all = "camelCase")]
 pub struct ApiDependency {
   pub kind: ApiDependencyKind,
   pub name: String,
   pub constraint: String,
   pub path: String,
+  pub fallback_url: Option<String>,
 }
 
 impl From<PackageVersionDependency> for ApiDependency {
@@ -868,6 +870,7 @@ impl From<PackageVersionDependency> for ApiDependency {
       name: dep.dependency_name,
       constraint: dep.dependency_constraint,
       path: dep.dependency_path,
+      fallback_url: dep.dependency_fallback_url,
     }
   }
 }

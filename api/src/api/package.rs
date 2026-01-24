@@ -34,6 +34,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -47,6 +48,7 @@ use tracing::instrument;
 use url::Url;
 use uuid::Uuid;
 
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
@@ -794,6 +796,8 @@ pub async fn version_publish_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
@@ -901,6 +905,7 @@ pub async fn version_publish_handler(
       buckets.clone(),
       registry_url,
       npm_url,
+      fallback_registry_url,
       db,
       orama_client,
     )
@@ -1753,6 +1758,9 @@ struct DepTreeLoader {
   version: crate::ids::Version,
   bucket: crate::buckets::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
+  registry_url: Url,
+  fallback_registry_url: Option<Url>,
+  fallback_packages: Arc<tokio::sync::Mutex<HashSet<String>>>,
 }
 
 impl DepTreeLoader {
@@ -1798,6 +1806,9 @@ impl DepTreeLoader {
       "http" | "https" => {
         let bucket = self.bucket.clone();
         let exports = self.exports.clone();
+        let registry_url = self.registry_url.clone();
+        let fallback_registry_url = self.fallback_registry_url.clone();
+        let fallback_packages = self.fallback_packages.clone();
 
         async move {
           let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
@@ -1823,11 +1834,43 @@ impl DepTreeLoader {
           )
           .into();
 
-          let Some(bytes) = bucket
+          let mut bytes = bucket
             .download(full_path.clone())
             .await
-            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
-          else {
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?;
+
+          let mut from_fallback = false;
+
+          if bytes.is_none()
+            && let Some(fallback_url) = &fallback_registry_url
+          {
+            let fallback_specifier =
+              if specifier.as_str().starts_with(registry_url.as_str()) {
+                specifier.as_str().replacen(
+                  registry_url.as_str(),
+                  fallback_url.as_str(),
+                  1,
+                )
+              } else {
+                specifier.to_string()
+              };
+
+            let response = reqwest::get(&fallback_specifier).await.ok();
+            if let Some(response) = response
+              && response.status().is_success()
+            {
+              bytes = response.bytes().await.ok();
+              from_fallback = true;
+            }
+          }
+
+          if from_fallback {
+            let package_id =
+              format!("@{}/{}", scope.as_str(), package.as_str());
+            fallback_packages.lock().await.insert(package_id);
+          }
+
+          let Some(bytes) = bytes else {
             return Ok(None);
           };
 
@@ -1955,6 +1998,7 @@ lazy_static::lazy_static! {
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
@@ -1984,6 +2028,9 @@ async fn analyze_deps_tree(
     version,
     bucket,
     exports: Default::default(),
+    registry_url: registry_url.clone(),
+    fallback_registry_url: fallback_registry_url.clone(),
+    fallback_packages: Default::default(),
   };
   graph
     .build(
@@ -1995,7 +2042,7 @@ async fn analyze_deps_tree(
         module_analyzer: &module_analyzer,
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
-        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url.clone()),
         jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: false,
         resolver: Some(&JsrResolver { member }),
@@ -2037,6 +2084,8 @@ async fn analyze_deps_tree(
     })
     .collect();
 
+  let fallback_packages_set = loader.fallback_packages.lock().await.clone();
+
   for root in roots {
     GraphDependencyCollector::collect(
       &graph,
@@ -2044,6 +2093,8 @@ async fn analyze_deps_tree(
       &exports_by_identifier,
       &mut index,
       &mut dependencies,
+      fallback_registry_url.as_ref(),
+      &fallback_packages_set,
     );
   }
 
@@ -2056,6 +2107,8 @@ struct GraphDependencyCollector<'a> {
   exports: &'a IndexMap<String, IndexMap<String, String>>,
   id_index: &'a mut usize,
   visited: IndexSet<DependencyKind>,
+  fallback_registry_url: Option<&'a Url>,
+  fallback_packages: &'a HashSet<String>,
 }
 
 impl<'a> GraphDependencyCollector<'a> {
@@ -2065,6 +2118,8 @@ impl<'a> GraphDependencyCollector<'a> {
     exports: &'a IndexMap<String, IndexMap<String, String>>,
     id_index: &'a mut usize,
     dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+    fallback_registry_url: Option<&'a Url>,
+    fallback_packages: &'a HashSet<String>,
   ) {
     let root_module = graph.try_get(root).unwrap().unwrap();
 
@@ -2074,6 +2129,8 @@ impl<'a> GraphDependencyCollector<'a> {
       exports,
       id_index,
       visited: Default::default(),
+      fallback_registry_url,
+      fallback_packages,
     }
     .build_module_info(root_module)
     .unwrap();
@@ -2108,11 +2165,20 @@ impl<'a> GraphDependencyCollector<'a> {
             JsrEntrypoint::Path(path.as_str().to_string())
           };
 
+          // Check if this package was loaded from the fallback registry
+          let package_id = format!("@{}/{}", scope.as_str(), package.as_str());
+          let fallback_url = if self.fallback_packages.contains(&package_id) {
+            self.fallback_registry_url.map(|url| url.to_string())
+          } else {
+            None
+          };
+
           DependencyKind::Jsr {
             scope: scope.as_str().to_string(),
             package: package.as_str().to_string(),
             version: version.as_str().to_string(),
             entrypoint,
+            fallback_url,
           }
         } else {
           DependencyKind::Root {
@@ -2244,11 +2310,13 @@ pub enum JsrEntrypoint {
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum DependencyKind {
+  #[serde(rename_all = "camelCase")]
   Jsr {
     scope: String,
     package: String,
     version: String,
     entrypoint: JsrEntrypoint,
+    fallback_url: Option<String>,
   },
   Npm {
     package: String,
@@ -2296,10 +2364,13 @@ pub async fn get_dependencies_graph_handler(
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
       registry_url,
+      fallback_registry_url,
       scope,
       package,
       version,
@@ -3757,13 +3828,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           kind: ApiDependencyKind::Jsr,
           name: "@scope/foo".to_string(),
           constraint: "1".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
         ApiDependency {
           kind: ApiDependencyKind::Npm,
           name: "express".to_string(),
           constraint: "4".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
       ],
     );
@@ -3972,7 +4045,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
             scope: "scope".to_string(),
             package: "foo".to_string(),
             version: "1.2.3".to_string(),
-            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
+            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string()),
+            fallback_url: None,
           },
           children: IndexSet::new(),
           size: Some(155),

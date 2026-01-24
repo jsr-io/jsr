@@ -68,6 +68,7 @@ pub struct MainRouterOptions {
   email_sender: Option<EmailSender>,
   registry_url: Url,
   npm_url: Url,
+  fallback_registry_url: Option<Url>,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
   logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
@@ -81,6 +82,7 @@ pub struct MainRouterOptions {
 
 pub struct RegistryUrl(pub Url);
 pub struct NpmUrl(pub Url);
+pub struct FallbackRegistryUrl(pub Option<Url>);
 
 pub(crate) fn main_router(
   MainRouterOptions {
@@ -91,6 +93,7 @@ pub(crate) fn main_router(
     email_sender,
     registry_url,
     npm_url,
+    fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
     logs_bigquery_table,
@@ -107,6 +110,7 @@ pub(crate) fn main_router(
     .data(email_sender)
     .data(RegistryUrl(registry_url))
     .data(NpmUrl(npm_url))
+    .data(FallbackRegistryUrl(fallback_registry_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(LogsBigQueryTable(logs_bigquery_table))
@@ -274,6 +278,7 @@ async fn main() {
     email_sender,
     registry_url: config.registry_url,
     npm_url: config.npm_url,
+    fallback_registry_url: config.fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
     logs_bigquery_table,

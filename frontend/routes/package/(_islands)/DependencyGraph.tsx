@@ -31,6 +31,7 @@ interface DependencyGraphKindGroupedJsr {
   package: string;
   version: string;
   entrypoints: string[];
+  fallbackUrl: string | null;
 }
 
 type GroupedDependencyGraphKind =
@@ -76,6 +77,7 @@ function groupDependencies(
     size: number | undefined;
     mediaType: string | undefined;
     oldIds: number[];
+    fallbackUrl: string | null;
   }>();
 
   for (const item of items) {
@@ -93,6 +95,7 @@ function groupDependencies(
         size: undefined,
         mediaType: undefined,
         oldIds: [],
+        fallbackUrl: item.dependency.fallbackUrl,
       };
       group.entrypoints.push({
         entrypoint: item.dependency.entrypoint.value,
@@ -148,6 +151,7 @@ function groupDependencies(
             package: group.key.package,
             version: group.key.version,
             entrypoints: Array.from(new Set(filteredEntrypoints)),
+            fallbackUrl: group.fallbackUrl,
           },
           children: uniqueChildren,
           size: group.size,
@@ -229,7 +233,12 @@ function renderDependency(
     case "jsr": {
       tooltip =
         `@${dependency.scope}/${dependency.package}@${dependency.version}`;
-      href = `/${tooltip}`;
+      if (dependency.fallbackUrl) {
+        href =
+          `${dependency.fallbackUrl}@${dependency.scope}/${dependency.package}`;
+      } else {
+        href = `/${tooltip}`;
+      }
       content = `${tooltip}\n${
         dependency.entrypoints.map((entrypoint) => {
           if (entrypoint == ".") {
@@ -239,7 +248,7 @@ function renderDependency(
           }
         }).join("\n")
       }\n${formatBytes(size ?? 0, { maximumFractionDigits: 0 }).toUpperCase()}`;
-      color = "#faee4a";
+      color = dependency.fallbackUrl ? "#a855f7" : "#faee4a";
       break;
     }
     case "npm": {

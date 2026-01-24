@@ -99,6 +99,7 @@ export async function handleNPMRequest(
     request,
     env.GCS_ENDPOINT,
     env.NPM_BUCKET,
+    env.FALLBACK_NPM_URL,
     (path) => {
       if (path === "/" || path === "/-/ping") {
         return "/root.json";
@@ -234,6 +235,7 @@ async function handleModuleFileRoute(
     request,
     env.GCS_ENDPOINT,
     env.MODULES_BUCKET,
+    env.FALLBACK_ROOT_URL,
   );
 
   setSecurityHeaders(response, MODULES);
