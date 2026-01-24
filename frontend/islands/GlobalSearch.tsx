@@ -302,25 +302,22 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${
-                jumbo ? "!px-3.5" : "!px-1.5"
-              }`}
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
             >
               <div
-                class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+                ref={inputOverlayContentRef}
+                class={`whitespace-pre`}
               >
-                <div ref={inputOverlayContentRef}>
-                  {tokenizeFilter(search.value).map((token, i, arr) => (
-                    <span>
-                      <span
-                        class={token.kind === "text" ? "" : "search-input-tag"}
-                      >
-                        {token.raw}
-                      </span>
-                      {((arr.length - 1) !== i) && " "}
+                {tokenizeFilter(search.value).map((token, i, arr) => (
+                  <span>
+                    <span
+                      class={token.kind === "text" ? "" : "search-input-tag"}
+                    >
+                      {token.raw}
                     </span>
-                  ))}
-                </div>
+                    {((arr.length - 1) !== i) && " "}
+                  </span>
+                ))}
               </div>
             </div>
           )}
