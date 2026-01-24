@@ -583,12 +583,13 @@ pub mod test {
         email_sender: None,
         registry_url: "http://jsr-tests.test".parse().unwrap(),
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
-        publish_queue: None,           // no queue locally
+        fallback_registry_url: None, // no fallback registry for tests
+        publish_queue: None,         // no queue locally
         npm_tarball_build_queue: None, // no queue locally
-        logs_bigquery_table: None,     // no bigquery locally
+        logs_bigquery_table: None,   // no bigquery locally
         analytics_engine_config: None, // no analytics engine locally
-        expose_api: true,              // api enabled
-        expose_tasks: true,            // task endpoints enabled
+        expose_api: true,            // api enabled
+        expose_tasks: true,          // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)

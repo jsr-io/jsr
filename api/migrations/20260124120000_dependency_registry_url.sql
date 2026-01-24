@@ -1,0 +1,1 @@
+ALTER TABLE package_version_dependencies ADD COLUMN dependency_fallback_url TEXT;

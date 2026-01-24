@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
@@ -30,10 +31,10 @@ use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
+use crate::tarball::ResolvedDependency;
 use crate::tarball::process_tarball;
 use crate::util::ApiResult;
 use crate::util::decode_json;
-use deno_semver::package::PackageReqReference;
 use hyper::Body;
 use hyper::Request;
 use indexmap::IndexMap;
@@ -57,12 +58,15 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   publish_task(
     publishing_task_id,
     buckets,
     registry_url,
     npm_url,
+    fallback_registry_url,
     db,
     orama_client,
   )
@@ -73,7 +77,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, registry_url, orama_client),
+  skip(buckets, db, registry_url, fallback_registry_url, orama_client),
   err
 )]
 pub async fn publish_task(
@@ -81,6 +85,7 @@ pub async fn publish_task(
   buckets: Buckets,
   registry_url: Url,
   npm_url: Url,
+  fallback_registry_url: Option<Url>,
   db: Database,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
@@ -101,6 +106,7 @@ pub async fn publish_task(
           &buckets,
           &orama_client,
           registry_url.clone(),
+          fallback_registry_url.clone(),
           &mut publishing_task,
         )
         .await;
@@ -164,6 +170,7 @@ async fn process_publishing_task(
   buckets: &Buckets,
   orama_client: &Option<OramaClient>,
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
@@ -176,33 +183,40 @@ async fn process_publishing_task(
     )
     .await?;
 
-  let output =
-    match process_tarball(db, buckets, registry_url, publishing_task).await {
-      Ok(output) => output,
-      Err(err) => match err.user_error_code() {
-        Some(code) => {
-          // non retryable, fatal error
-          error!("Error processing tarball, fatal: {}", err);
-          *publishing_task = db
-            .update_publishing_task_status(
-              None,
-              publishing_task.id,
-              PublishingTaskStatus::Processing,
-              PublishingTaskStatus::Failure,
-              Some(PublishingTaskError {
-                code: code.to_owned(),
-                message: err.to_string(),
-              }),
-            )
-            .await?;
-          return Ok(());
-        }
-        None => {
-          // retryable errors
-          return Err(anyhow::Error::from(err));
-        }
-      },
-    };
+  let output = match process_tarball(
+    db,
+    buckets,
+    registry_url,
+    fallback_registry_url,
+    publishing_task,
+  )
+  .await
+  {
+    Ok(output) => output,
+    Err(err) => match err.user_error_code() {
+      Some(code) => {
+        // non retryable, fatal error
+        error!("Error processing tarball, fatal: {}", err);
+        *publishing_task = db
+          .update_publishing_task_status(
+            None,
+            publishing_task.id,
+            PublishingTaskStatus::Processing,
+            PublishingTaskStatus::Failure,
+            Some(PublishingTaskError {
+              code: code.to_owned(),
+              message: err.to_string(),
+            }),
+          )
+          .await?;
+        return Ok(());
+      }
+      None => {
+        // retryable errors
+        return Err(anyhow::Error::from(err));
+      }
+    },
+  };
 
   let ProcessTarballOutput {
     file_infos,
@@ -299,14 +313,14 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
   publishing_task: &mut PublishingTask,
   file_infos: &[crate::tarball::FileInfo],
   exports: ExportsMap,
-  dependencies: HashSet<(DependencyKind, PackageReqReference)>,
+  dependencies: HashSet<ResolvedDependency>,
   npm_tarball_info: &NpmTarballInfo,
   readme_path: Option<PackagePath>,
   meta: PackageVersionMeta,
 ) -> Result<(), anyhow::Error> {
   let uses_npm = dependencies
     .iter()
-    .any(|(kind, _)| kind == &DependencyKind::Npm);
+    .any(|dep| dep.kind == DependencyKind::Npm);
 
   let new_package_version = NewPackageVersion {
     scope: &publishing_task.package_scope,
@@ -333,14 +347,15 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
 
   let new_package_version_dependencies = dependencies
     .iter()
-    .map(|(kind, req)| NewPackageVersionDependency {
+    .map(|dep| NewPackageVersionDependency {
       package_scope: &publishing_task.package_scope,
       package_name: &publishing_task.package_name,
       package_version: &publishing_task.package_version,
-      dependency_kind: *kind,
-      dependency_name: &req.req.name,
-      dependency_constraint: req.req.version_req.version_text(),
-      dependency_path: req.sub_path.as_deref().unwrap_or(""),
+      dependency_kind: dep.kind,
+      dependency_name: &dep.req.req.name,
+      dependency_constraint: dep.req.req.version_req.version_text(),
+      dependency_path: dep.req.sub_path.as_deref().unwrap_or(""),
+      dependency_fallback_url: dep.registry_url.as_deref(),
     })
     .collect::<Vec<_>>();
 
@@ -526,6 +541,7 @@ pub mod tests {
       t.buckets(),
       t.registry_url(),
       t.npm_url(),
+      None, // no fallback registry for tests
       t.db(),
       None,
     )

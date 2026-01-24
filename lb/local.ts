@@ -13,6 +13,9 @@ const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
 const ROOT_DOMAIN = Deno.env.get("ROOT_DOMAIN") ?? "jsr.test";
 const API_DOMAIN = Deno.env.get("API_DOMAIN") ?? "api.jsr.test";
 const NPM_DOMAIN = Deno.env.get("NPM_DOMAIN") ?? "npm.jsr.test";
+const FALLBACK_ROOT_URL = Deno.env.get("FALLBACK_ROOT_URL") ?? "https://jsr.io";
+const FALLBACK_NPM_URL = Deno.env.get("FALLBACK_NPM_URL") ??
+  "https://npm.jsr.io";
 
 const PORT = 80;
 
@@ -51,6 +54,8 @@ function handler(req: Request): Promise<Response> {
     ROOT_DOMAIN,
     API_DOMAIN,
     NPM_DOMAIN,
+    FALLBACK_ROOT_URL,
+    FALLBACK_NPM_URL,
   });
 }
 
