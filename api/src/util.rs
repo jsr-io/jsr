@@ -463,6 +463,7 @@ pub mod test {
     #[allow(dead_code)]
     pub github_oauth2_client: GithubOauth2Client,
     pub service: RequestService<Body, ApiError>,
+    pub fallback_registry_url: Option<Url>,
   }
 
   impl TestSetup {
@@ -607,6 +608,7 @@ pub mod test {
         scope,
         github_oauth2_client,
         service,
+        fallback_registry_url: None,
       }
     }
 
@@ -659,6 +661,34 @@ pub mod test {
 
     pub fn npm_url(&self) -> Url {
       Url::parse("http://npm.jsr-tests.test").unwrap()
+    }
+
+    pub fn fallback_registry_url(&self) -> Option<Url> {
+      self.fallback_registry_url.clone()
+    }
+
+    pub fn set_fallback_registry_url(&mut self, url: Option<Url>) {
+      self.fallback_registry_url = url.clone();
+      // Rebuild the service with the new fallback URL
+      let router = crate::main_router(MainRouterOptions {
+        database: self.ephemeral_database.database.clone().unwrap(),
+        buckets: self.buckets.clone(),
+        github_client: self.github_oauth2_client.clone(),
+        orama_client: None,
+        email_sender: None,
+        registry_url: "http://jsr-tests.test".parse().unwrap(),
+        npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
+        fallback_registry_url: url,
+        publish_queue: None,
+        npm_tarball_build_queue: None,
+        logs_bigquery_table: None,
+        analytics_engine_config: None,
+        expose_api: true,
+        expose_tasks: true,
+      });
+      self.service = routerify::RequestServiceBuilder::new(router)
+        .unwrap()
+        .build(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080)));
     }
 
     pub fn http(&'_ mut self) -> TestHttpClient<'_, '_> {

@@ -4519,4 +4519,90 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{:?}", task);
   }
+
+  #[tokio::test]
+  async fn test_package_dependencies_with_fallback() {
+    let mut t = TestSetup::new().await;
+    t.set_fallback_registry_url(Some(
+      url::Url::parse("https://jsr.io/").unwrap(),
+    ));
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(deps.len(), 1);
+    assert_eq!(deps[0].kind, ApiDependencyKind::Jsr);
+    assert_eq!(deps[0].name, "@std/assert");
+    assert_eq!(deps[0].fallback_url, Some("https://jsr.io/".to_string()));
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_graph_with_fallback() {
+    let mut t = TestSetup::new().await;
+    t.set_fallback_registry_url(Some(
+      url::Url::parse("https://jsr.io/").unwrap(),
+    ));
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+
+    // Find the JSR dependency in the graph
+    let jsr_dep = deps
+      .iter()
+      .find(|d| matches!(&d.dependency, super::DependencyKind::Jsr { .. }))
+      .expect("should have a JSR dependency");
+
+    match &jsr_dep.dependency {
+      super::DependencyKind::Jsr {
+        scope,
+        package,
+        fallback_url,
+        ..
+      } => {
+        assert_eq!(scope, "std");
+        assert_eq!(package, "assert");
+        assert_eq!(fallback_url, &Some("https://jsr.io/".to_string()));
+      }
+      _ => panic!("expected JSR dependency"),
+    }
+  }
 }

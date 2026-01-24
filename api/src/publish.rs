@@ -541,7 +541,7 @@ pub mod tests {
       t.buckets(),
       t.registry_url(),
       t.npm_url(),
-      None, // no fallback registry for tests
+      t.fallback_registry_url(),
       t.db(),
       None,
     )
@@ -1275,6 +1275,63 @@ pub mod tests {
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     assert_eq!(task.error.unwrap().code, "missingConstraint");
+  }
+
+  #[tokio::test]
+  async fn jsr_import_from_fallback_registry() {
+    let mut t = TestSetup::new().await;
+    t.set_fallback_registry_url(Some(Url::parse("https://jsr.io/").unwrap()));
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Jsr);
+    assert_eq!(dependencies[0].dependency_name, "@std/assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some("https://jsr.io/".to_string())
+    );
+  }
+
+  #[tokio::test]
+  async fn jsr_import_fails_without_fallback_when_missing() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "unresolvableJsrDependency");
   }
 
   #[tokio::test]
