@@ -134,7 +134,7 @@ export function GlobalSearch(
               where,
               limit: 5,
               mode: "fulltext",
-              // @ts-ignore boost does exist
+              // @ts-expect-error boost does exist
               boost: kind === "packages"
                 ? {
                   id: 3,
@@ -283,7 +283,9 @@ export function GlobalSearch(
             type="search"
             name="search"
             class={`w-full h-full search-input bg-white/90 dark:bg-jsr-gray-950/90 truncate ${
-              kind === "packages" ? "!text-transparent" : ""
+              kind === "packages"
+                ? "!text-transparent selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
+                : ""
             } !caret-black dark:!caret-white input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
@@ -300,25 +302,22 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${
-                jumbo ? "!px-3.5" : "!px-1.5"
-              }`}
+              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
             >
               <div
-                class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+                ref={inputOverlayContentRef}
+                class={`whitespace-pre`}
               >
-                <div ref={inputOverlayContentRef}>
-                  {tokenizeFilter(search.value).map((token, i, arr) => (
-                    <span>
-                      <span
-                        class={token.kind === "text" ? "" : "search-input-tag"}
-                      >
-                        {token.raw}
-                      </span>
-                      {((arr.length - 1) !== i) && " "}
+                {tokenizeFilter(search.value).map((token, i, arr) => (
+                  <span>
+                    <span
+                      class={token.kind === "text" ? "" : "search-input-tag"}
+                    >
+                      {token.raw}
                     </span>
-                  ))}
-                </div>
+                    {((arr.length - 1) !== i) && " "}
+                  </span>
+                ))}
               </div>
             </div>
           )}
