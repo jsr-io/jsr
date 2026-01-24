@@ -134,7 +134,7 @@ export function GlobalSearch(
               where,
               limit: 5,
               mode: "fulltext",
-              // @ts-ignore boost does exist
+              // @ts-expect-error boost does exist
               boost: kind === "packages"
                 ? {
                   id: 3,
@@ -283,7 +283,9 @@ export function GlobalSearch(
             type="search"
             name="search"
             class={`w-full h-full search-input bg-white/90 dark:bg-jsr-gray-950/90 truncate ${
-              kind === "packages" ? "!text-transparent" : ""
+              kind === "packages"
+                ? "!text-transparent selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
+                : ""
             } !caret-black dark:!caret-white input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
