@@ -175,7 +175,7 @@ jobs:
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  contents: read</span>
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  id-token: write</span>
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  - name: Publish package</span>
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>    run: npx jsr publish</span>
 `;
