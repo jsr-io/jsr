@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::api::ApiError;
 use crate::db::Database;
 use crate::db::PackagePublishPermission;
+use crate::db::PackageReadPermission;
 use crate::db::Permission;
 use crate::db::Permissions;
 use crate::db::Token;
@@ -248,6 +249,72 @@ impl<'s> IamHandler<'s> {
       Principal::User(user) if user.is_staff => Ok(user),
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
+      Principal::Anonymous => Err(ApiError::MissingAuthentication),
+    }
+  }
+
+  pub async fn check_package_read_access(
+    &self,
+    scope: &ScopeName,
+    package: &PackageName,
+  ) -> Result<Option<&User>, ApiError> {
+    // Get the package to check if it's private
+    let (pkg, _, _) = self
+      .db
+      .get_package(scope, package)
+      .await?
+      .ok_or(ApiError::PackageNotFound)?;
+
+    // Public packages are accessible to everyone
+    if !pkg.is_private {
+      return Ok(match &self.principal {
+        Principal::User(user) => Some(user),
+        _ => None,
+      });
+    }
+
+    // Private packages require authentication and authorization
+    // Check if token has explicit PackageRead permission
+    if let Some(permissions) = &self.permissions {
+      let has_read_permission =
+        permissions.0.iter().any(|permission| match permission {
+          Permission::PackageRead(PackageReadPermission::Scope {
+            scope: s,
+          }) if s == scope => true,
+          Permission::PackageRead(PackageReadPermission::Package {
+            scope: s,
+            package: p,
+          }) if s == scope && p == package => true,
+          _ => false,
+        });
+      if !has_read_permission {
+        return Err(ApiError::MissingPermission);
+      }
+    }
+
+    match &self.principal {
+      Principal::User(user) => {
+        // Check if user is a scope member
+        if self.db.get_scope_member(scope, user.id).await?.is_some() {
+          Ok(Some(user))
+        } else if user.is_staff && self.sudo {
+          Ok(Some(user))
+        } else {
+          Err(ApiError::ActorNotScopeMember)
+        }
+      }
+      Principal::GitHubActions { user, .. } => {
+        // GitHub Actions can access if the user is a scope member
+        if let Some(user) = user {
+          if self.db.get_scope_member(scope, user.id).await?.is_some() {
+            Ok(Some(user))
+          } else {
+            Err(ApiError::ActorNotScopeMember)
+          }
+        } else {
+          Err(ApiError::ActorNotScopeMember)
+        }
+      }
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }

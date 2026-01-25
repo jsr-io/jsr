@@ -9,6 +9,8 @@ const REGISTRY_API_URL = Deno.env.get("REGISTRY_API_URL") ??
 const GCS_ENDPOINT = Deno.env.get("GCS_ENDPOINT") ?? "http://localhost:4080";
 const MODULES_BUCKET = Deno.env.get("MODULES_BUCKET") ?? "modules";
 const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
+const MODULES_PRIVATE_BUCKET = Deno.env.get("MODULES_PRIVATE_BUCKET") ?? "modules_private";
+const NPM_PRIVATE_BUCKET = Deno.env.get("NPM_PRIVATE_BUCKET") ?? "npm_private";
 
 const ROOT_DOMAIN = Deno.env.get("ROOT_DOMAIN") ?? "jsr.test";
 const API_DOMAIN = Deno.env.get("API_DOMAIN") ?? "api.jsr.test";
@@ -47,7 +49,9 @@ function handler(req: Request): Promise<Response> {
     REGISTRY_FRONTEND_URL,
     GCS_ENDPOINT,
     MODULES_BUCKET,
+    MODULES_PRIVATE_BUCKET,
     NPM_BUCKET,
+    NPM_PRIVATE_BUCKET,
     ROOT_DOMAIN,
     API_DOMAIN,
     NPM_DOMAIN,

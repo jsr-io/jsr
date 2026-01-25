@@ -12,11 +12,11 @@ use tracing::instrument;
 use std::borrow::Cow;
 
 use crate::RegistryUrl;
-use crate::db::Database;
 use crate::db::PackagePublishPermission;
 use crate::db::Permission;
 use crate::db::TokenType;
 use crate::db::UserPublic;
+use crate::db::{Database, PackageReadPermission};
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
@@ -263,6 +263,19 @@ async fn create_token(
             "Publish the {} version of the @{}/{} package",
             version, scope, package
           )),
+          Permission::PackageRead(PackageReadPermission::Package {
+            scope,
+            package,
+          }) => Cow::Owned(format!(
+            "Read the private @{}/{} package",
+            scope, package
+          )),
+          Permission::PackageRead(PackageReadPermission::Scope { scope }) => {
+            Cow::Owned(format!(
+              "Read any private package of the @{} scope",
+              scope
+            ))
+          }
         }
       } else {
         Cow::Borrowed("Full account access")

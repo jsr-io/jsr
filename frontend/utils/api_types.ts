@@ -123,6 +123,7 @@ export interface Package {
   latestVersion: string | null;
   whenFeatured: string | null;
   isArchived: boolean;
+  isPrivate: boolean;
   readmeSource: ReadmeSource;
 }
 

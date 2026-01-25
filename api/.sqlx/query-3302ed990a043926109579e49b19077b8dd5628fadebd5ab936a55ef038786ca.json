@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE packages\n      SET github_repository_id = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, is_private, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"latest_version\",\n        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"package_version_meta: PackageVersionMeta\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "github_repository_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "runtime_compat: RuntimeCompat",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "readme_source: ReadmeSource",
+        "type_info": {
+          "Custom": {
+            "name": "package_readme_source",
+            "kind": {
+              "Enum": [
+                "readme",
+                "jsdoc"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "when_featured",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_archived",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_private",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "version_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "latest_version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "package_version_meta: PackageVersionMeta",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3302ed990a043926109579e49b19077b8dd5628fadebd5ab936a55ef038786ca"
+}

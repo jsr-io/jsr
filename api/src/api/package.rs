@@ -191,6 +191,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::json(list_publishing_tasks_handler),
     )
     .get("/:package/score", util::json(get_score_handler))
+    .get("/:package/check-access", util::auth(check_access_handler))
     .build()
     .unwrap()
 }
@@ -500,6 +501,27 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
           source.into(),
         )
         .await?;
+
+      Ok(ApiPackage::from((package, repo, meta)))
+    }
+    ApiUpdatePackageRequest::IsPrivate(is_private) => {
+      let package = db
+        .update_package_is_private(
+          &user.id,
+          sudo,
+          &scope,
+          &package_name,
+          is_private,
+        )
+        .await?;
+
+      if let Some(orama_client) = orama_client {
+        if package.is_private {
+          orama_client.delete_package(&scope, &package.name);
+        } else {
+          orama_client.upsert_package(&package, &meta);
+        }
+      }
 
       Ok(ApiPackage::from((package, repo, meta)))
     }
@@ -2371,6 +2393,32 @@ pub async fn get_score_handler(
     .ok_or(ApiError::PackageNotFound)?;
 
   Ok(ApiPackageScore::from((&meta, &pkg)))
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/check-access",
+  skip(req),
+  err,
+  fields(scope, package)
+)]
+pub async fn check_access_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+
+  let iam = req.iam();
+
+  iam.check_package_read_access(&scope, &package).await?;
+
+  let res = Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(res)
 }
 
 #[cfg(test)]

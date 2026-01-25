@@ -86,6 +86,13 @@ export async function handleAPIRequest(
   return response;
 }
 
+function NpmPathRewrite(path: string): string {
+  if (path === "/" || path === "/-/ping") {
+    return "/root.json";
+  }
+  return path;
+}
+
 export async function handleNPMRequest(
   request: Request,
   env: WorkerEnv,
@@ -95,17 +102,32 @@ export async function handleNPMRequest(
   }
 
   const url = new URL(request.url);
-  const response = await proxyToGCS(
+  let response = await proxyToGCS(
     request,
     env.GCS_ENDPOINT,
     env.NPM_BUCKET,
-    (path) => {
-      if (path === "/" || path === "/-/ping") {
-        return "/root.json";
-      }
-      return path;
-    },
+    NpmPathRewrite,
   );
+
+  if (response.status === 404) {
+    const match = url.pathname.match(/^\/@jsr\/([^_]+)__([^/]+)/);
+    if (match) {
+      const hasAccess = await validatePackageAccess(
+        request,
+        match[1],
+        match[2],
+        env,
+      );
+      if (hasAccess) {
+        response = await proxyToGCS(
+          request,
+          env.GCS_ENDPOINT,
+          env.NPM_PRIVATE_BUCKET,
+          NpmPathRewrite,
+        );
+      }
+    }
+  }
 
   setSecurityHeaders(response, NPM);
   setCORSHeaders(response, NPM);
@@ -118,6 +140,25 @@ export async function handleNPMRequest(
   }
 
   return response;
+}
+
+async function validatePackageAccess(
+  request: Request,
+  scope: string,
+  pkg: string,
+  env: WorkerEnv,
+): Promise<boolean> {
+  const authHeader = request.headers.get("Authorization");
+  const resp = await fetch(
+    `${env.REGISTRY_API_URL}/api/scopes/${scope}/packages/${pkg}/check-access`,
+    {
+      headers: {
+        Authorization: authHeader ?? "",
+      },
+    },
+  );
+
+  return resp.ok;
 }
 
 /**
@@ -151,6 +192,10 @@ export async function handleNPMRequest(
  * WARNING: Exercise extreme caution when modifying this. Untrusted files are
  * stored under the /@ prefix. It's crucial that the browser never loads these
  * untrusted files.
+ *
+ * PRIVATE PACKAGES: For performance, we try public bucket first.
+ * On 404, we check if the package is private and validate auth.
+ * This keeps public package requests fast with zero overhead.
  */
 export async function handleRootRequest(
   request: Request,
@@ -230,11 +275,30 @@ async function handleModuleFileRoute(
   env: WorkerEnv,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const response = await proxyToGCS(
+  let response = await proxyToGCS(
     request,
     env.GCS_ENDPOINT,
     env.MODULES_BUCKET,
   );
+
+  if (response.status === 404) {
+    const match = url.pathname.match(/^\/@([^/]+)\/([^/]+)/);
+    if (match) {
+      const hasAccess = await validatePackageAccess(
+        request,
+        match[1],
+        match[2],
+        env,
+      );
+      if (hasAccess) {
+        response = await proxyToGCS(
+          request,
+          env.GCS_ENDPOINT,
+          env.MODULES_PRIVATE_BUCKET,
+        );
+      }
+    }
+  }
 
   setSecurityHeaders(response, MODULES);
   setCORSHeaders(response, MODULES);

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET description = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\",\n        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"package_version_meta: PackageVersionMeta\"",
+  "query": "UPDATE packages\n      SET when_featured = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, is_private, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
   "describe": {
     "columns": [
       {
@@ -55,35 +55,35 @@
       },
       {
         "ordinal": 8,
+        "name": "is_private",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "version_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "latest_version",
         "type_info": "Text"
-      },
-      {
-        "ordinal": 12,
-        "name": "package_version_meta: PackageVersionMeta",
-        "type_info": "Jsonb"
       }
     ],
     "parameters": {
       "Left": [
         "Text",
         "Text",
-        "Text"
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -97,10 +97,10 @@
       false,
       false,
       false,
-      null,
+      false,
       null,
       null
     ]
   },
-  "hash": "785dbd6f774c40c14f8a8b748e7a5287e7f555ee1d1feae9dabab8642daffa9b"
+  "hash": "b3a4a3c8d04a6a26c21054b9e104f19538e11c45b33414c29609729ed417bdb6"
 }

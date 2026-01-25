@@ -178,13 +178,25 @@ async fn main() {
   let npm_bucket = BucketWithQueue::new(gcp::Bucket::new(
     gcp_client.clone(),
     config.npm_bucket,
+    config.gcs_endpoint.clone(),
+  ));
+  let modules_private_bucket = BucketWithQueue::new(gcp::Bucket::new(
+    gcp_client.clone(),
+    config.modules_private_bucket,
+    config.gcs_endpoint.clone(),
+  ));
+  let npm_private_bucket = BucketWithQueue::new(gcp::Bucket::new(
+    gcp_client.clone(),
+    config.npm_private_bucket,
     config.gcs_endpoint,
   ));
   let buckets = Buckets {
     publishing_bucket,
     modules_bucket: modules_bucket.clone(),
+    modules_private_bucket,
     docs_bucket,
     npm_bucket,
+    npm_private_bucket,
   };
 
   let publish_queue = config

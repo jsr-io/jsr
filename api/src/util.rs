@@ -472,13 +472,17 @@ pub mod test {
       let gcs = FakeGcsTester::new().await;
       let publishing_bucket = gcs.create_bucket("publishing").await;
       let modules_bucket = gcs.create_bucket("modules").await;
+      let modules_private_bucket = gcs.create_bucket("modules-private").await;
       let docs_bucket = gcs.create_bucket("docs").await;
       let npm_bucket = gcs.create_bucket("npm").await;
+      let npm_private_bucket = gcs.create_bucket("npm-private").await;
       let buckets = Buckets {
         publishing_bucket: BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
+        modules_private_bucket: BucketWithQueue::new(modules_private_bucket),
         docs_bucket: BucketWithQueue::new(docs_bucket),
         npm_bucket: BucketWithQueue::new(npm_bucket),
+        npm_private_bucket: BucketWithQueue::new(npm_private_bucket),
       };
       let github_oauth2_client = GithubOauth2Client::new(
         oauth2::ClientId::new("".to_string()),
