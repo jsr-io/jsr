@@ -350,6 +350,10 @@ fn all_entrypoints_have_module_doc(
   has_readme: bool,
 ) -> bool {
   'modules: for (specifier, nodes) in doc_nodes_by_url {
+    // Skip WASM modules as their docs are auto-generated from binary
+    if specifier.path().ends_with(".wasm") {
+      continue;
+    }
     for node in nodes {
       if matches!(node.def, DocNodeDef::ModuleDoc) {
         continue 'modules;
