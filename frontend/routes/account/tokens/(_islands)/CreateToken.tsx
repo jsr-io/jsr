@@ -30,7 +30,6 @@ function PublishTokenFlow() {
     "development" | "github_actions" | "other_ci_service" | null
   >(null);
   const localMachineAnyway = useSignal(false);
-  const willStoreSafely = useSignal(false);
   const willBeSafe = useSignal(false);
 
   if (env.value === null) {
@@ -45,62 +44,71 @@ function PublishTokenFlow() {
     return <GitHubActionsHelp />;
   }
 
-  if (!willStoreSafely.value && env.value !== "other_ci_service") {
+  if (!willBeSafe.value) {
     return (
-      <LocalDangerWarning willStoreSafely={willStoreSafely}>
-        Personal access tokens enable a malicious user to impersonate you and
-        perform any action you can on JSR,{" "}
+      <DangerWarning
+        willBeSafe={willBeSafe}
+        skipStorage={env.value !== "other_ci_service"}
+      >
         <b>
-          including publishing new versions of your packages
-        </b>.
-      </LocalDangerWarning>
+          Personal access tokens enable a malicious user to impersonate you and
+          publish new versions of your packages
+        </b>
+      </DangerWarning>
     );
   }
 
-  if (!willBeSafe.value) {
-    return <FinalDangerWarning willBeSafe={willBeSafe} />;
-  }
-
-  return <CreateTokenForm usage="publish" />;
+  return (
+    <CreateTokenForm
+      usage="publish"
+      descriptions={{
+        package: "Publish new versions of this package",
+        scope: "Publish new versions of any packages in this scope",
+        full: "Publish new versions of any package in any scope",
+      }}
+    />
+  );
 }
 
 function ReadTokenFlow() {
-  const willStoreSafely = useSignal(false);
   const willBeSafe = useSignal(false);
 
-  if (!willStoreSafely.value) {
+  if (!willBeSafe.value) {
     return (
-      <LocalDangerWarning willStoreSafely={willStoreSafely}>
-        foo
-      </LocalDangerWarning>
+      <DangerWarning willBeSafe={willBeSafe}>
+        <b>
+          Personal access tokens enable a malicious user to read private
+          packages you have access to.
+        </b>
+      </DangerWarning>
     );
   }
 
-  if (!willBeSafe.value) {
-    return <FinalDangerWarning willBeSafe={willBeSafe} />;
-  }
-
-  return <CreateTokenForm usage="read" />;
+  return (
+    <CreateTokenForm
+      usage="read"
+      descriptions={{
+        package: "Read this (private) package",
+        scope: "Read any private package in this scope",
+        full: "Read any private package in any scope",
+      }}
+    />
+  );
 }
 
 function ApiTokenFlow() {
-  const willStoreSafely = useSignal(false);
   const willBeSafe = useSignal(false);
 
-  if (!willStoreSafely.value) {
+  if (!willBeSafe.value) {
     return (
-      <LocalDangerWarning willStoreSafely={willStoreSafely}>
+      <DangerWarning willBeSafe={willBeSafe}>
         Personal access tokens enable a malicious user to impersonate you and
         perform any action you can on JSR,{" "}
         <b>
           including publishing new versions of your packages
         </b>.
-      </LocalDangerWarning>
+      </DangerWarning>
     );
-  }
-
-  if (!willBeSafe.value) {
-    return <FinalDangerWarning willBeSafe={willBeSafe} />;
   }
 
   return <CreateTokenForm usage="api" />;
@@ -263,63 +271,66 @@ function GitHubActionsHelp() {
   );
 }
 
-function LocalDangerWarning(
-  { children, willStoreSafely }: {
+function DangerWarning(
+  { children, willBeSafe, skipStorage }: {
     children: ComponentChildren;
-    willStoreSafely: Signal<boolean>;
+    willBeSafe: Signal<boolean>;
+    skipStorage?: boolean;
   },
 ) {
+  const willStoreSafely = useSignal(skipStorage ?? false);
+
   return (
     <Card variant="red" filled class="mt-8 max-w-xl">
-      <p class="text-secondary">
+      <p class="text-secondary mb-3">
         {children}
       </p>
-      <p class="text-secondary mt-3">
-        Do not store tokens in your code, in unencrypted local files, or in a
-        .bashrc or a similar file. A malicious program could steal your token
-        and use it to perform actions on your behalf.
-      </p>
-      <button
-        type="button"
-        class="button-danger mt-4"
-        onClick={() => willStoreSafely.value = true}
-        disabled={!IS_BROWSER}
-      >
-        I will store the token safely
-      </button>
+      {willStoreSafely.value
+        ? (
+          <>
+            <p class="text-secondary">
+              The JSR team will never ask you for you to create or share a
+              personal access token. If you are being asked to do so, email{" "}
+              <a href="mailto:help@jsr.io" class="link">help@jsr.io</a>{" "}
+              immediately and do not proceed.
+            </p>
+            <button
+              type="button"
+              class="button-danger mt-4"
+              onClick={() => willBeSafe.value = true}
+              disabled={!IS_BROWSER}
+            >
+              I understand the risks, proceed anyway
+            </button>
+          </>
+        )
+        : (
+          <>
+            <p class="text-secondary">
+              Do not store tokens in your code, in unencrypted local files, or
+              in a .bashrc or a similar file. A malicious program could steal
+              your token and use it to perform actions on your behalf.
+            </p>
+            <button
+              type="button"
+              class="button-danger mt-4"
+              onClick={() => willStoreSafely.value = true}
+              disabled={!IS_BROWSER}
+            >
+              I will store the token safely
+            </button>
+          </>
+        )}
     </Card>
   );
 }
 
-function FinalDangerWarning({ willBeSafe }: { willBeSafe: Signal<boolean> }) {
-  return (
-    <Card variant="red" filled class="mt-8 max-w-xl">
-      <p class="text-secondary">
-        Personal access tokens are powerful and can be used to perform any
-        action you can on JSR,{" "}
-        <b>
-          including publishing new versions of your packages
-        </b>.
-      </p>
-      <p class="text-secondary mt-3">
-        The JSR team will never ask you for you to create or share a personal
-        access token. If you are being asked to do so, email{" "}
-        <a href="mailto:help@jsr.io" class="link">help@jsr.io</a>{" "}
-        immediately and do not proceed.
-      </p>
-      <button
-        type="button"
-        class="button-danger mt-4"
-        onClick={() => willBeSafe.value = true}
-        disabled={!IS_BROWSER}
-      >
-        I understand the risks, proceed anyway
-      </button>
-    </Card>
-  );
-}
-
-function CreateTokenForm({ usage }: { usage: "publish" | "read" | "api" }) {
+function CreateTokenForm(
+  { usage, descriptions }: {
+    usage: "publish" | "read" | "api";
+    descriptions?: PermissionDescriptions;
+  },
+) {
   const description = useSignal<string>("");
   const expiry = useSignal<number>(-1);
   const permission = useSignal<"package" | "scope" | "full" | null>(null);
@@ -362,7 +373,10 @@ function CreateTokenForm({ usage }: { usage: "publish" | "read" | "api" }) {
             }];
             break;
           case "scope":
-            permissions = [{ permission: "package/publish", scope: scope.value }];
+            permissions = [{
+              permission: "package/publish",
+              scope: scope.value,
+            }];
             break;
           case "full":
             permissions = [{ permission: "package/publish" }];
@@ -416,7 +430,14 @@ function CreateTokenForm({ usage }: { usage: "publish" | "read" | "api" }) {
     <form class="max-w-xl mt-8" onSubmit={onSubmit}>
       <DescriptionInput description={description} />
       <ExpiryInput expiry={expiry} />
-      {usage !== "api" && <PermissionsInput selected={permission} scope={scope} name={name} />}
+      {usage !== "api" && (
+        <PermissionsInput
+          selected={permission}
+          scope={scope}
+          name={name}
+          descriptions={descriptions!}
+        />
+      )}
       <button type="submit" class="button-primary mt-8" disabled={disabled}>
         Create token
       </button>
@@ -475,11 +496,18 @@ function ExpiryInput({ expiry }: { expiry: Signal<number> }) {
   );
 }
 
+interface PermissionDescriptions {
+  package: string;
+  scope: string;
+  full: string;
+}
+
 function PermissionsInput(
-  { selected, scope, name }: {
+  { selected, scope, name, descriptions }: {
     selected: Signal<"package" | "scope" | "full" | null>;
     scope: Signal<string>;
     name: Signal<string>;
+    descriptions: PermissionDescriptions;
   },
 ) {
   const onInput = useCallback((e: Event) => {
@@ -521,7 +549,7 @@ function PermissionsInput(
                 name="permission"
                 value="package"
               />
-              <span>Publish new versions of this package:</span>
+              <span>{descriptions.package}:</span>
             </label>
             <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-88 rounded-md text-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 input-container">
               <span class="block">
@@ -573,7 +601,7 @@ function PermissionsInput(
         <div class="border border-t-0 bg-jsr-gray-50 dark:bg-jsr-gray-800/50 border-jsr-gray-200 dark:border-jsr-gray-700 px-3 py-1">
           <label class="flex items-baseline">
             <input type="radio" class="mr-2" name="permission" value="scope" />
-            <span>Publish new versions of any packages in this scope:</span>
+            <span>{descriptions.scope}:</span>
           </label>
           <div class="flex items-center w-[100%-1.25rem] ml-5 mt-1 mb-2 md:w-64 rounded-md text-primary shadow-sm pl-3 py-[2px] pr-[2px] sm:text-sm sm:leading-6 input-container">
             <span class="block">
@@ -595,7 +623,7 @@ function PermissionsInput(
         <div class="border border-t-0 bg-jsr-gray-50 dark:bg-jsr-gray-800/50 border-jsr-gray-200 dark:border-jsr-gray-700 px-3 py-1 rounded-b-lg flex flex-col sm:flex-row justify-between">
           <label class="flex items-baseline">
             <input type="radio" class="mr-2" name="permission" value="full" />
-            <span>Full access</span>
+            <span>{descriptions.full}</span>
           </label>
           <span class="text-sm ml-5 sm:ml-0 text-red-500 sm:mt-0.5">
             Least secure

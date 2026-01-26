@@ -105,7 +105,13 @@ impl<'s> IamHandler<'s> {
         if user.is_staff && self.sudo {
           return true;
         }
-        self.db.get_scope_member(scope, user.id).await.ok().flatten().is_some()
+        self
+          .db
+          .get_scope_member(scope, user.id)
+          .await
+          .ok()
+          .flatten()
+          .is_some()
       }
       Principal::GitHubActions { .. } | Principal::Anonymous => false,
     }
@@ -272,14 +278,12 @@ impl<'s> IamHandler<'s> {
     scope: &ScopeName,
     package: &PackageName,
   ) -> Result<Option<&User>, ApiError> {
-    // Get the package to check if it's private
     let (pkg, _, _) = self
       .db
       .get_package(scope, package)
       .await?
       .ok_or(ApiError::PackageNotFound)?;
 
-    // Public packages are accessible to everyone
     if !pkg.is_private {
       return Ok(match &self.principal {
         Principal::User(user) => Some(user),
@@ -287,20 +291,23 @@ impl<'s> IamHandler<'s> {
       });
     }
 
-    // Private packages require authentication and authorization
-    // Check if token has explicit PackageRead permission
     if let Some(permissions) = &self.permissions {
-      let has_read_permission =
-        permissions.0.iter().any(|permission| match permission {
-          Permission::PackageRead(PackageReadPermission::Scope {
-            scope: s,
-          }) if s == scope => true,
-          Permission::PackageRead(PackageReadPermission::Package {
-            scope: s,
-            package: p,
-          }) if s == scope && p == package => true,
-          _ => false,
-        });
+      let has_read_permission = permissions.0.iter().any(|permission| {
+        if let Permission::PackageRead(read) = permission {
+          match read {
+            PackageReadPermission::Package {
+              scope: perm_scope,
+              package: perm_package,
+            } => perm_scope == scope && perm_package == package,
+            PackageReadPermission::Scope { scope: perm_scope } => {
+              perm_scope == scope
+            }
+            PackageReadPermission::Full {} => true,
+          }
+        } else {
+          false
+        }
+      });
       if !has_read_permission {
         return Err(ApiError::MissingPermission);
       }

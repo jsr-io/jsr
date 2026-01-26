@@ -647,8 +647,9 @@ pub enum PackagePublishPermission {
   },
   #[serde(rename_all = "camelCase")]
   Scope { scope: ScopeName },
+  // needs to be an empty struct variant for serde to work correctly
   #[serde(rename_all = "camelCase")]
-  Account,
+  Full {},
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -661,6 +662,9 @@ pub enum PackageReadPermission {
   },
   #[serde(rename_all = "camelCase")]
   Scope { scope: ScopeName },
+  // needs to be an empty struct variant for serde to work correctly
+  #[serde(rename_all = "camelCase")]
+  Full {},
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {

@@ -158,6 +158,8 @@ async function validatePackageAccess(
     },
   );
 
+  console.log(resp, authHeader);
+
   return resp.ok;
 }
 
