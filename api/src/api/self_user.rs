@@ -241,6 +241,9 @@ async fn create_token(
     if let Some(email_sender) = email_sender {
       let permissions = if let Some(permissions) = &token.permissions {
         match &permissions.0[0] {
+          Permission::PackagePublish(PackagePublishPermission::Account) => {
+            Cow::Borrowed("Publish new versions to any package in any scope")
+          }
           Permission::PackagePublish(PackagePublishPermission::Scope {
             scope,
           }) => Cow::Owned(format!(

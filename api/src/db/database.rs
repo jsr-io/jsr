@@ -1529,6 +1529,7 @@ impl Database {
     &self,
     scope: &ScopeName,
     show_archived: bool,
+    show_private: bool,
     start: i64,
     limit: i64,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
@@ -1542,13 +1543,14 @@ impl Database {
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
+      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false) AND ($5 = true OR packages.is_private = false)
       ORDER BY packages.is_archived ASC, packages.name
       OFFSET $3 LIMIT $4"#,
       scope as _,
       show_archived,
       start,
-      limit
+      limit,
+      show_private,
     )
       .map(|r| {
         let package = Package {
@@ -1586,9 +1588,10 @@ impl Database {
       .await?;
 
     let total_packages = sqlx::query!(
-      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false);"#,
+      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false) AND ($3 = true OR packages.is_private = false);"#,
       scope as _,
       show_archived,
+      show_private,
     )
       .map(|r| r.count.unwrap())
       .fetch_one(&mut *tx)
@@ -1787,7 +1790,7 @@ impl Database {
         AND dl.version = package_versions.version) as "lifetime_download_count!"
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
-      WHERE NOT packages.is_archived
+      WHERE NOT packages.is_archived AND NOT packages.is_private
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )

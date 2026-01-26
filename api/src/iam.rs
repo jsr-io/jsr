@@ -97,6 +97,20 @@ impl<'s> IamHandler<'s> {
     }
   }
 
+  /// Returns true if the current user is a scope member (or staff using sudo).
+  /// Returns false for anonymous users or non-members.
+  pub async fn is_scope_member(&self, scope: &ScopeName) -> bool {
+    match &self.principal {
+      Principal::User(user) => {
+        if user.is_staff && self.sudo {
+          return true;
+        }
+        self.db.get_scope_member(scope, user.id).await.ok().flatten().is_some()
+      }
+      Principal::GitHubActions { .. } | Principal::Anonymous => false,
+    }
+  }
+
   pub async fn check_scope_member_delete_access(
     &self,
     scope: &ScopeName,

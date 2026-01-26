@@ -269,8 +269,15 @@ pub async fn list_handler(
 
   let iam = req.iam();
   let can_see_archived = iam.check_scope_admin_access(&scope).await.is_ok();
+  let can_see_private = iam.is_scope_member(&scope).await;
   let (total, packages) = db
-    .list_packages_by_scope(&scope, can_see_archived, start, limit)
+    .list_packages_by_scope(
+      &scope,
+      can_see_archived,
+      can_see_private,
+      start,
+      limit,
+    )
     .await?;
 
   Ok(ApiList {
@@ -343,6 +350,13 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if res_package.0.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let mut api_package = ApiPackage::from(res_package);
 
@@ -678,9 +692,17 @@ pub async fn list_versions_handler(
 
   let db = req.data::<Database>().unwrap();
 
-  db.get_package(&scope, &package)
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let versions = db
     .list_package_versions(&scope, &package)
@@ -746,10 +768,17 @@ pub async fn get_version_handler(
   Span::current().record("version", field::display(&version));
 
   let db = req.data::<Database>().unwrap();
-  let _ = db
+  let (pkg, _, _) = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let maybe_version = match version {
     VersionOrLatest::Version(version) => {
@@ -1199,6 +1228,13 @@ pub async fn get_docs_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  if package.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
+
   let maybe_version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
       db.get_package_version(&scope, &package_name, version)
@@ -1330,6 +1366,13 @@ pub async fn get_docs_search_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  if package.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
+
   let maybe_version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
       db.get_package_version(&scope, &package_name, version)
@@ -1400,6 +1443,13 @@ pub async fn get_docs_search_html_handler(
     .get_package(&scope, &package_name)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if package.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let maybe_version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
@@ -1480,10 +1530,17 @@ pub async fn get_source_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
-  let _ = db
+  let (pkg, _, _) = db
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let maybe_version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
@@ -1641,9 +1698,17 @@ pub async fn list_dependents_handler(
     .clamp(1, 10);
 
   let db = req.data::<Database>().unwrap();
-  db.get_package(&scope, &package)
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let (total, deps) = db
     .list_package_dependents(
@@ -1677,9 +1742,17 @@ pub async fn get_downloads_handler(
   Span::current().record("package", field::display(&package));
 
   let db = req.data::<Database>().unwrap();
-  db.get_package(&scope, &package)
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   let current = Utc::now();
   let start = current - chrono::Duration::days(90);
@@ -1753,6 +1826,17 @@ pub async fn list_dependencies_handler(
   Span::current().record("version", field::display(&version));
 
   let db = req.data::<Database>().unwrap();
+
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   db.get_package_version(&scope, &package, &version)
     .await?
@@ -2307,6 +2391,19 @@ pub async fn get_dependencies_graph_handler(
   Span::current().record("package", field::display(&package));
   Span::current().record("version", field::display(&version));
 
+  let db = req.data::<Database>().unwrap();
+
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
+
   let buckets = req.data::<Buckets>().unwrap().clone();
   let gcs_path =
     crate::gcs_paths::version_metadata(&scope, &package, &version).into();
@@ -2391,6 +2488,13 @@ pub async fn get_score_handler(
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private {
+    let iam = req.iam();
+    if !iam.is_scope_member(&scope).await {
+      return Err(ApiError::PackageNotFound);
+    }
+  }
 
   Ok(ApiPackageScore::from((&meta, &pkg)))
 }

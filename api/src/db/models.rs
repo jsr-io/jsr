@@ -647,6 +647,8 @@ pub enum PackagePublishPermission {
   },
   #[serde(rename_all = "camelCase")]
   Scope { scope: ScopeName },
+  #[serde(rename_all = "camelCase")]
+  Account,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

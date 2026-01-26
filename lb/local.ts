@@ -9,7 +9,8 @@ const REGISTRY_API_URL = Deno.env.get("REGISTRY_API_URL") ??
 const GCS_ENDPOINT = Deno.env.get("GCS_ENDPOINT") ?? "http://localhost:4080";
 const MODULES_BUCKET = Deno.env.get("MODULES_BUCKET") ?? "modules";
 const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
-const MODULES_PRIVATE_BUCKET = Deno.env.get("MODULES_PRIVATE_BUCKET") ?? "modules_private";
+const MODULES_PRIVATE_BUCKET = Deno.env.get("MODULES_PRIVATE_BUCKET") ??
+  "modules_private";
 const NPM_PRIVATE_BUCKET = Deno.env.get("NPM_PRIVATE_BUCKET") ?? "npm_private";
 
 const ROOT_DOMAIN = Deno.env.get("ROOT_DOMAIN") ?? "jsr.test";
@@ -34,7 +35,16 @@ async function createBucket(name: string) {
 
 const bucketCreationInterval = setInterval(async () => {
   let allBucketsCreated = true;
-  for (const bucket of [MODULES_BUCKET, "docs", "publishing", NPM_BUCKET]) {
+  for (
+    const bucket of [
+      MODULES_BUCKET,
+      MODULES_PRIVATE_BUCKET,
+      "docs",
+      "publishing",
+      NPM_BUCKET,
+      NPM_PRIVATE_BUCKET,
+    ]
+  ) {
     allBucketsCreated &&= await createBucket(bucket);
   }
   if (allBucketsCreated) {
