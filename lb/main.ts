@@ -242,7 +242,7 @@ async function handleModuleFileRoute(
     backend: MODULES,
   });
 
-  console.log(response.status, request.method, url.pathname);
+  console.log(response.status, response.headers.get("Location"), request.method, url.pathname);
   if (response.ok && request.method === "GET") {
     trackJSRDownload(url.pathname, env);
   }
