@@ -4,6 +4,7 @@ import type { WorkerEnv } from "./types.ts";
 
 export function trackJSRDownload(pathname: string, env: WorkerEnv): void {
   const match = pathname.match(/^\/@([^/]+)\/([^/]+)\/([^/]+)_meta\.json$/);
+  console.log(match);
   if (match) {
     const [, scope, packageName, version] = match;
     console.log("tracked download:", [
