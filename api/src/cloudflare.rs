@@ -25,7 +25,8 @@ pub struct DownloadRecord {
   pub time_bucket: String,
   pub scope: String,
   pub package: String,
-  pub version: String,
+  // because 'version' is reserved in cloudflare analytics engine
+  pub ver: String,
   pub count: i64,
 }
 
