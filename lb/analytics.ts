@@ -30,12 +30,6 @@ export function trackNPMDownload(pathname: string, env: WorkerEnv): void {
   );
   if (match) {
     const [, scope, packageName, version] = match;
-    console.log("tracked download:", [
-      "npm",
-      scope,
-      packageName,
-      version,
-    ]);
     env.DOWNLOADS?.writeDataPoint({
       blobs: [
         "npm",
