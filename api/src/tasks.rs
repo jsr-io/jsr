@@ -1,6 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::collections::HashSet;
-
 use bytes::Bytes;
 use chrono::DateTime;
 use chrono::Utc;
@@ -19,6 +17,8 @@ use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+use std::collections::HashSet;
+use std::str::FromStr;
 use tracing::Span;
 use tracing::error;
 use tracing::field;
@@ -510,7 +510,7 @@ fn deserialize_version_download_count_from_analytics(
     package,
     version,
     kind,
-    count: record.count,
+    count: i64::from_str(&record.count).unwrap(),
   })
 }
 

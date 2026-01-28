@@ -27,7 +27,7 @@ pub struct DownloadRecord {
   pub package: String,
   // because 'version' is reserved in cloudflare analytics engine
   pub ver: String,
-  pub count: i64,
+  pub count: String,
 }
 
 impl AnalyticsEngineClient {
