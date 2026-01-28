@@ -27,8 +27,7 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 - Management API is implemented in Rust and runs on Google Cloud Run
 - Frontend uses Fresh and is running on Google Cloud Run in 6 regions
 - https://jsr.io, https://api.jsr.io, and https://npm.jsr.io are served by a
-  Google Cloud Load Balancer
-  - Google Cloud CDN is used for caching
+  Cloudflare Workers worker
   - Module, package metadata, and npm tarballs is served directly from GCS
   - /api requests are proxied to the management API
   - All other requests are proxied to the frontend
