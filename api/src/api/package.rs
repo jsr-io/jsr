@@ -1996,6 +1996,7 @@ async fn analyze_deps_tree(
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: false,
         resolver: Some(&JsrResolver { member }),
         npm_resolver: None,
