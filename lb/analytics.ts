@@ -6,6 +6,12 @@ export function trackJSRDownload(pathname: string, env: WorkerEnv): void {
   const match = pathname.match(/^\/@([^/]+)\/([^/]+)\/([^/]+)_meta\.json$/);
   if (match) {
     const [, scope, packageName, version] = match;
+    console.log("tracked download:", [
+      "jsr",
+      scope,
+      packageName,
+      version,
+    ]);
     env.DOWNLOADS?.writeDataPoint({
       blobs: [
         "jsr",
@@ -24,6 +30,12 @@ export function trackNPMDownload(pathname: string, env: WorkerEnv): void {
   );
   if (match) {
     const [, scope, packageName, version] = match;
+    console.log("tracked download:", [
+      "npm",
+      scope,
+      packageName,
+      version,
+    ]);
     env.DOWNLOADS?.writeDataPoint({
       blobs: [
         "npm",
