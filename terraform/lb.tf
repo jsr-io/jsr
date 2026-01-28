@@ -10,6 +10,15 @@ resource "cloudflare_workers_script" "jsr_lb" {
   content     = file("${path.module}/../lb/dist/main.js")
   main_module = "worker.js"
 
+  observability = {
+    enabled = true
+    head_sampling_rate = 1
+    logs = {
+      enabled = true
+      head_sampling_rate = 1
+    }
+  }
+
   bindings = [
     {
       type    = "analytics_engine"
