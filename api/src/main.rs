@@ -133,6 +133,15 @@ pub(crate) fn main_router(
     builder
   };
 
+  let builder =
+    builder.middleware(routerify::Middleware::post(|mut res| async move {
+      res
+        .headers_mut()
+        .entry("cache-control")
+        .or_insert("no-store".try_into().unwrap());
+      Ok(res)
+    }));
+
   builder.build().unwrap()
 }
 
