@@ -138,7 +138,7 @@ pub(crate) fn main_router(
       res
         .headers_mut()
         .entry("cache-control")
-        .or_insert("no-store".try_into().unwrap());
+        .or_insert("no-store, max-age=0".try_into().unwrap());
       Ok(res)
     }));
 
