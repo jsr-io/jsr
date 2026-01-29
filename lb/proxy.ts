@@ -124,8 +124,11 @@ export async function proxyToGCS(
   }
 }
 
-
-async function cachedFetch(shouldCache: boolean, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+async function cachedFetch(
+  shouldCache: boolean,
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
   const req = new Request(input, init);
 
   if (shouldCache) {

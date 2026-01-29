@@ -11,14 +11,6 @@ export const API_ROOT = Deno.env.get("API_ROOT") ?? "http://api.jsr.test";
 
 export const tracer = new Tracer();
 
-const cacheControl = define.middleware(async (ctx) => {
-  const resp = await ctx.next();
-  if (!resp.headers.get("cache-control")) {
-    resp.headers.set("cache-control", "no-cache, max-age=0");
-  }
-  return resp;
-});
-
 const tracing = define.middleware(async (ctx) => {
   ctx.state.span = tracer.spanForRequest(ctx.req);
   const attributes: Record<string, string | bigint> = {
@@ -92,4 +84,4 @@ const auth = define.middleware(async (ctx) => {
   return await ctx.next();
 });
 
-export const handler: Middleware<State> = [tracing, cacheControl, auth];
+export const handler: Middleware<State> = [tracing, auth];
