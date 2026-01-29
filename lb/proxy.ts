@@ -34,17 +34,12 @@ export async function proxyToCloudRun(
     request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
-  const cfOptions: RequestInit["cf"] = ignoreCache
-    ? undefined
-    : { cacheEverything: true };
-
   try {
-    const response = await fetch(backendRequestUrl, {
+    const response = await cachedFetch(!ignoreCache, backendRequestUrl, {
       method: request.method,
       headers,
       body: request.body,
       redirect: "manual",
-      cf: cfOptions,
     });
 
     const res = new Response(response.body, {
@@ -108,13 +103,10 @@ export async function proxyToGCS(
   const method = request.method === "HEAD" ? "HEAD" : "GET";
 
   try {
-    const response = await fetch(gcsUrl, {
+    const response = await cachedFetch(true, gcsUrl, {
       method,
       headers,
       redirect: "follow",
-      cf: {
-        cacheEverything: true,
-      },
     });
 
     return new Response(response.body, {
@@ -130,4 +122,23 @@ export async function proxyToGCS(
       },
     });
   }
+}
+
+
+async function cachedFetch(shouldCache: boolean, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const req = new Request(input, init);
+
+  if (shouldCache) {
+    const cache = await caches.default.match(req);
+    if (cache) {
+      return cache;
+    }
+  }
+  const res = await fetch(req);
+
+  if (shouldCache) {
+    caches.default.put(req, res.clone());
+  }
+
+  return res;
 }
