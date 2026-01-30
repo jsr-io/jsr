@@ -1,0 +1,21 @@
+{
+  "tasks": {
+    "dev": "wrangler dev",
+    "build": "mkdir -p dist && deno bundle --output=dist/main.js --sourcemap main.ts"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "compilerOptions": {
+    "lib": ["deno.worker", "esnext"]
+  },
+  "dependencies": {
+    "workers-types": "npm:@cloudflare/workers-types@4.20260118.0"
+  },
+  "exclude": [
+    "dist/",
+    ".wrangler/"
+  ]
+}
