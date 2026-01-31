@@ -3,6 +3,7 @@ mod analysis;
 mod api;
 mod auth;
 mod buckets;
+mod cloudflare;
 mod config;
 mod db;
 mod docs;
@@ -55,6 +56,7 @@ use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
 use std::time::Duration;
+use tasks::AnalyticsEngineConfig;
 use tasks::LogsBigQueryTable;
 use url::Url;
 
@@ -70,6 +72,10 @@ pub struct MainRouterOptions {
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
   logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
+  analytics_engine_config: Option<(
+    cloudflare::AnalyticsEngineClient,
+    /* dataset_name */ String,
+  )>,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -90,6 +96,7 @@ pub(crate) fn main_router(
     publish_queue,
     npm_tarball_build_queue,
     logs_bigquery_table,
+    analytics_engine_config,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -106,6 +113,7 @@ pub(crate) fn main_router(
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(LogsBigQueryTable(logs_bigquery_table))
+    .data(AnalyticsEngineConfig(analytics_engine_config))
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
 
@@ -204,6 +212,18 @@ async fn main() {
       )
     });
 
+  let analytics_engine_config = match (
+    config.cloudflare_account_id,
+    config.cloudflare_api_token,
+    config.cloudflare_analytics_dataset,
+  ) {
+    (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
+      cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      dataset_name,
+    )),
+    _ => None,
+  };
+
   let github_client = GithubOauth2Client::new(
     oauth2::ClientId::new(config.github_client_id),
     Some(oauth2::ClientSecret::new(config.github_client_secret)),
@@ -263,6 +283,7 @@ async fn main() {
     publish_queue,
     npm_tarball_build_queue,
     logs_bigquery_table,
+    analytics_engine_config,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

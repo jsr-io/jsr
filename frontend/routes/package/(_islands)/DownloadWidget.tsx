@@ -85,9 +85,19 @@ export function DownloadWidget(props: Props) {
         dataLabels: {
           enabled: false,
         },
+        colors: ["#0d7590"],
         stroke: {
           curve: "straight",
           width: 2,
+        },
+        fill: {
+          type: "gradient",
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.5,
+            opacityTo: 0.3,
+            stops: [0, 100],
+          },
         },
         series: [{ data }],
         xaxis: {
@@ -130,16 +140,13 @@ export function DownloadWidget(props: Props) {
 
   return (
     <a
-      className="flex flex-row gap-2"
+      className="flex flex-col items-end"
       href={`/@${props.scope}/${props.pkg}/versions`}
     >
-      <div
-        class="font-mono text-xs space-y-2 z-10 text-nowrap"
-        style={{ width: `${max.toString().length + 1}ch` }}
-      >
+      <div class="text-sm text-secondary z-10 text-nowrap text-right">
         {graphRendered.value && (
           <>
-            <div>
+            <div class="font-semibold">
               {hoveredDataPoint.value
                 ? `${
                   new Date(hoveredDataPoint.value.date).toISOString()
@@ -160,7 +167,7 @@ export function DownloadWidget(props: Props) {
           </>
         )}
       </div>
-      <div className="w-[150px] h-[50px]">
+      <div className="w-[200px] h-[40px] -mt-1">
         <div ref={chartRef} class="minimal-chart" />
       </div>
     </a>

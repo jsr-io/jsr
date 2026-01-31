@@ -153,6 +153,7 @@ async fn analyze_package_inner(
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: true,
         resolver: Some(&JsrResolver {
           member: workspace_member,
@@ -586,6 +587,7 @@ async fn rebuild_npm_tarball_inner(
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: true,
         resolver: Some(&JsrResolver {
           member: workspace_member,

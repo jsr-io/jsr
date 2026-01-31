@@ -67,6 +67,7 @@ impl GitHubUserClient {
     }
   }
 
+  #[cfg(not(test))]
   #[instrument(name = "GitHubUserClient::get_user", skip(self), err)]
   pub async fn get_user(
     &self,

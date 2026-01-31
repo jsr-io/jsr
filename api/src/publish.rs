@@ -866,7 +866,8 @@ pub mod tests {
             self_types_specifier: None,
             jsx_import_source: None,
             jsx_import_source_types: None,
-            jsdoc_imports: vec![]
+            jsdoc_imports: vec![],
+            source_map_url: None,
           }
         )])
       );
