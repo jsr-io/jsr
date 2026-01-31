@@ -51,8 +51,16 @@ resource "cloudflare_workers_script" "jsr_lb" {
       text = google_storage_bucket.modules.name
       }, {
       type = "secret_text"
+      name = "MODULES_PRIVATE_BUCKET"
+      text = google_storage_bucket.modules_private.name
+      }, {
+      type = "secret_text"
       name = "NPM_BUCKET"
       text = google_storage_bucket.npm.name
+      }, {
+      type = "secret_text"
+      name = "NPM_PRIVATE_BUCKET"
+      text = google_storage_bucket.npm_private.name
     }
   ]
 

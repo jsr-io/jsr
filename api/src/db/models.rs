@@ -349,6 +349,7 @@ pub struct Package {
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub is_private: bool,
   pub readme_source: ReadmeSource,
 }
 
@@ -394,6 +395,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Package {
         "package_when_featured",
       )?,
       is_archived: try_get_row_or(row, "is_archived", "package_is_archived")?,
+      is_private: try_get_row_or(row, "is_private", "package_is_private")?,
       readme_source: try_get_row_or(
         row,
         "readme_source",
@@ -624,6 +626,8 @@ pub struct Permissions(pub Vec<Permission>);
 pub enum Permission {
   #[serde(rename = "package/publish")]
   PackagePublish(PackagePublishPermission),
+  #[serde(rename = "package/read")]
+  PackageRead(PackageReadPermission),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -643,6 +647,24 @@ pub enum PackagePublishPermission {
   },
   #[serde(rename_all = "camelCase")]
   Scope { scope: ScopeName },
+  // needs to be an empty struct variant for serde to work correctly
+  #[serde(rename_all = "camelCase")]
+  Full {},
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum PackageReadPermission {
+  #[serde(rename_all = "camelCase")]
+  Package {
+    scope: ScopeName,
+    package: PackageName,
+  },
+  #[serde(rename_all = "camelCase")]
+  Scope { scope: ScopeName },
+  // needs to be an empty struct variant for serde to work correctly
+  #[serde(rename_all = "camelCase")]
+  Full {},
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {

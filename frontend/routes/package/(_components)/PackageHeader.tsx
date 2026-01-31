@@ -138,6 +138,12 @@ export function PackageHeader({
             </h1>
 
             <div class="flex items-center gap-2">
+              {pkg.isPrivate && (
+                <div class="chip bg-purple-500 text-white select-none">
+                  private
+                </div>
+              )}
+
               {selectedVersion &&
                 pkg.latestVersion === selectedVersion?.version && (
                 <div class="chip bg-jsr-yellow-400 dark:text-jsr-gray-800 select-none">

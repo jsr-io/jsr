@@ -29,6 +29,18 @@ resource "google_storage_bucket" "docs" {
   force_destroy = true
 }
 
+resource "google_storage_bucket" "modules_private" {
+  name          = "${var.gcp_project}-modules-private"
+  location      = "US"
+  force_destroy = true
+}
+
+resource "google_storage_bucket" "npm_private" {
+  name          = "${var.gcp_project}-npm-private"
+  location      = "US"
+  force_destroy = true
+}
+
 resource "google_storage_bucket" "npm" {
   name          = "${var.gcp_project}-npm"
   location      = "US"

@@ -42,6 +42,22 @@ pub struct Config {
   pub npm_bucket: String,
 
   #[clap(
+    long = "modules_private_bucket",
+    env = "MODULES_PRIVATE_BUCKET",
+    default_value = "modules-private"
+  )]
+  /// The name of the GCS bucket where private module files and metadata is stored.
+  pub modules_private_bucket: String,
+
+  #[clap(
+    long = "npm_private_bucket",
+    env = "NPM_PRIVATE_BUCKET",
+    default_value = "npm-private"
+  )]
+  /// The name of the GCS bucket where private npm tarballs and metadata are stored.
+  pub npm_private_bucket: String,
+
+  #[clap(
     long = "metadata_strategy",
     env = "METADATA_STRATEGY",
     default_value = "testing"

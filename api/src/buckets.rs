@@ -117,8 +117,10 @@ impl BucketWithQueue {
 pub struct Buckets {
   pub publishing_bucket: BucketWithQueue,
   pub modules_bucket: BucketWithQueue,
+  pub modules_private_bucket: BucketWithQueue,
   pub docs_bucket: BucketWithQueue,
   pub npm_bucket: BucketWithQueue,
+  pub npm_private_bucket: BucketWithQueue,
 }
 
 struct UploadTask {

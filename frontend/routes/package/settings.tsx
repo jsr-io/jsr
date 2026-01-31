@@ -39,6 +39,8 @@ export default define.page<typeof handler>(
 
           <SelectReadmeSourceEditor source={data.package.readmeSource} />
 
+          <PrivatePackage isPrivate={data.package.isPrivate} />
+
           <ArchivePackage isArchived={data.package.isArchived} />
 
           <DeletePackage hasVersions={data.package.versionCount > 0} />
@@ -209,6 +211,54 @@ function RuntimeCompatEditorItem({ name, id, value }: {
       </select>
     </label>
   );
+}
+
+function PrivatePackage(props: { isPrivate: boolean }) {
+  if (!props.isPrivate) {
+    return (
+      <form class="flex flex-col items-start gap-4" method="POST">
+        <div>
+          <h2 class="text-xl font-sans font-bold">Make package private</h2>
+          <p class="text-secondary max-w-3xl">
+            Making a package private restricts access to scope members only.
+            Private packages are not visible in search results or on the scope
+            page. Users will need a valid bearer token to access the package
+            files.
+          </p>
+        </div>
+
+        <button
+          class="button-danger"
+          type="submit"
+          name="action"
+          value="makePrivate"
+        >
+          Make private
+        </button>
+      </form>
+    );
+  } else {
+    return (
+      <form class="flex flex-col items-start gap-4" method="POST">
+        <div>
+          <h2 class="text-xl font-sans font-bold">Make package public</h2>
+          <p class="text-secondary max-w-3xl">
+            Making a package public allows anyone to view and use the package.
+            The package will appear in search results and on the scope page.
+          </p>
+        </div>
+
+        <button
+          class="button-danger"
+          type="submit"
+          name="action"
+          value="makePublic"
+        >
+          Make public
+        </button>
+      </form>
+    );
+  }
 }
 
 function ArchivePackage(props: { isArchived: boolean }) {
@@ -470,6 +520,28 @@ export const handler = define.handlers({
         const repoRes = await api.patch(
           path`/scopes/${scope}/packages/${packageName}`,
           { isFeatured: false },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
+      case "makePrivate": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isPrivate: true },
+        );
+        if (!repoRes.ok) throw repoRes;
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/settings` },
+        });
+      }
+      case "makePublic": {
+        const repoRes = await api.patch(
+          path`/scopes/${scope}/packages/${packageName}`,
+          { isPrivate: false },
         );
         if (!repoRes.ok) throw repoRes;
         return new Response(null, {
