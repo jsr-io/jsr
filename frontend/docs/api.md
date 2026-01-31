@@ -248,9 +248,6 @@ specific package and version specified.
 An OpenAPI 3.0 specification for the management API is available at
 https://api.jsr.io/.well-known/openapi.
 
-A rendered version of the OpenAPI specification is available at
-[/docs/api-reference](/docs/api-reference).
-
 ### Usage restrictions
 
 The management API should not be used during registry operations. You should not
