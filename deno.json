@@ -23,7 +23,7 @@
 
     "sqlx:prepare": "cd api && cargo sqlx prepare -- --all-targets",
     "sqlx:migrate": "cd api && cargo sqlx migrate run",
-    
+
     "tf:infra:init": "gcloud config set project deno-registry3-infra && cd terraform_infra && terraform init -backend-config bucket=deno-registry3-infra-terraform",
     "tf:infra:plan": "cd terraform_infra && terraform plan -var-file=infra.tfvars -out=infra.tfplan -input=false",
     "tf:infra:apply": "cd terraform_infra && terraform apply -input=false infra.tfplan",

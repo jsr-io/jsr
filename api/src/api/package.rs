@@ -4544,7 +4544,9 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let mut resp = t
       .http()
-      .get("/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies")
+      .get(
+        "/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies",
+      )
       .call()
       .await
       .unwrap();
