@@ -20,7 +20,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -71,7 +71,7 @@ jobs:
     if: github.event_name != 'push'
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dsherret/rust-toolchain-file@v1
@@ -125,7 +125,7 @@ jobs:
       frontend_image_id: ${{ steps.frontend_image_id.outputs.image_id }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Authenticate with GCP
         id: gcp_auth
@@ -188,7 +188,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -250,7 +250,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
