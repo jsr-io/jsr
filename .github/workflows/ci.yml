@@ -20,7 +20,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -43,12 +43,35 @@ jobs:
         run: deno task build
         working-directory: frontend
 
+  worker:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Check formatting
+        run: deno fmt --check
+        working-directory: lb
+
+      - name: Lint
+        run: deno task lint:lb
+
+      - name: Build worker
+        run: deno task build
+        working-directory: lb
+
   test:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dsherret/rust-toolchain-file@v1
@@ -102,7 +125,7 @@ jobs:
       frontend_image_id: ${{ steps.frontend_image_id.outputs.image_id }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Authenticate with GCP
         id: gcp_auth
@@ -165,7 +188,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -183,6 +206,10 @@ jobs:
           workload_identity_provider: projects/1067420915575/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-staging.iam.gserviceaccount.com
 
+      - name: Build Cloudflare Worker
+        run: deno task build
+        working-directory: lb
+
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
@@ -197,6 +224,7 @@ jobs:
           TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
           TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
         run: deno task tf:staging:apply
@@ -222,7 +250,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -240,6 +268,10 @@ jobs:
           workload_identity_provider: projects/614736529383/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-prod.iam.gserviceaccount.com
 
+      - name: Build Cloudflare Worker
+        run: deno task build
+        working-directory: lb
+
       - name: terraform plan
         run: |
           touch terraform/prod.secret.tfvars
@@ -254,6 +286,7 @@ jobs:
           TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
           TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
           TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
         run: deno task tf:prod:apply
