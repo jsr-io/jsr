@@ -1,0 +1,107 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)\n      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", user_id, readme_path as \"readme_path: PackagePath\", exports as \"exports: ExportsMap\", is_yanked, uses_npm, meta as \"meta: PackageVersionMeta\", updated_at, created_at, rekor_log_id,\n      (SELECT COUNT(*)\n        FROM package_versions AS pv\n        WHERE pv.scope = package_versions.scope\n        AND pv.name = package_versions.name\n        AND pv.version > package_versions.version\n        AND pv.version NOT LIKE '%-%'\n        AND pv.is_yanked = false) as \"newer_versions_count!\",\n      (SELECT COALESCE(SUM(dl.count), 0)\n        FROM version_download_counts_24h as dl\n        WHERE dl.scope = package_versions.scope\n        AND dl.package = package_versions.name\n        AND dl.version = package_versions.version) as \"lifetime_download_count!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "readme_path: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "exports: ExportsMap",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "is_yanked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "uses_npm",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "meta: PackageVersionMeta",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "rekor_log_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "newer_versions_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "lifetime_download_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "30441825bf3627e9fd7b99368f0b185da1afcd31f3e2762329dd2cbf0fd3c610"
+}
