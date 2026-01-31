@@ -203,6 +203,8 @@ This file contains package metadata like the name, version, and entrypoint(s).
 This file should be named `jsr.json`. Deno users can also include the required
 JSR properties in their `deno.json(c)` to avoid having to create another file.
 
+For packages with a single entrypoint, you can use the shorthand string syntax:
+
 ```json
 // jsr.json / deno.json(c)
 {
@@ -211,6 +213,28 @@ JSR properties in their `deno.json(c)` to avoid having to create another file.
   "exports": "./mod.ts"
 }
 ```
+
+For packages with multiple entrypoints, use the object syntax:
+
+```json
+// jsr.json / deno.json(c)
+{
+  "name": "@luca/greet",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./greet": "./greet.ts",
+    "./farewell": "./farewell.ts"
+  }
+}
+```
+
+With the object syntax:
+
+- The `.` key defines the default entrypoint, imported as
+  `import { greet } from "@luca/greet";`
+- Named entrypoints like `./greet` are imported as
+  `import { greet } from "@luca/greet/greet";`
 
 Read more about the [configuring JSR packages.](/docs/package-configuration)
 
