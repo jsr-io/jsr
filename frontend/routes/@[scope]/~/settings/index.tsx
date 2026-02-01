@@ -17,6 +17,7 @@ import { QuotaCard } from "../../../../components/QuotaCard.tsx";
 import { scopeIAM } from "../../../../utils/iam.ts";
 import { TicketModal } from "../../../../islands/TicketModal.tsx";
 import { ListDisplay } from "../../../../components/List.tsx";
+import { Help } from "../../../../components/Help.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, state },
@@ -233,7 +234,9 @@ function Webhooks(
 ) {
   return (
     <div class="mb-12 mt-12" id="webhooks">
-      <h2 class="text-lg sm:text-xl font-semibold">Webhooks</h2>
+      <h2 class="text-lg sm:text-xl font-semibold">
+        Webhooks <Help href="/docs/webhooks" />
+      </h2>
       <p class="mt-2 text-secondary max-w-2xl">
         Webhooks let you receive notifications when packages are published or
         other events happen in the scope.

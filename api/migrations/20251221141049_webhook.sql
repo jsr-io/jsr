@@ -1,4 +1,5 @@
 CREATE TYPE webhook_event_kind AS ENUM (
+    'package_version_npm_tarball_ready',
     'package_version_published',
     'package_version_yanked',
     'package_version_deleted',

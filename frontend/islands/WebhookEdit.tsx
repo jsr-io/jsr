@@ -2,6 +2,7 @@
 import { WebhookEndpoint, WebhookEventKind } from "../utils/api_types.ts";
 import { useSignal } from "@preact/signals";
 import { api, path } from "../utils/api.ts";
+import { Help } from "../components/Help.tsx";
 
 export const WEBHOOK_EVENTS: Array<{
   id: WebhookEventKind;
@@ -9,6 +10,12 @@ export const WEBHOOK_EVENTS: Array<{
   description: string;
   packageLevel: boolean;
 }> = [
+  {
+    id: "package_version_npm_tarball_ready",
+    name: "Package version NPM tarball ready",
+    description: "A NPM tarball for a published version is available.",
+    packageLevel: true,
+  },
   {
     id: "package_version_published",
     name: "Package version published",
@@ -169,6 +176,9 @@ export function WebhookEdit(
               className="input-container input select w-full max-w-lg block px-3 py-2 text-sm mt-3"
               required
               disabled={processing}
+              onChange={(e) =>
+                payloadFormat.value = e.currentTarget
+                  .value as WebhookEndpoint["payloadFormat"]}
             >
               <option value="json" selected={payloadFormat.value === "json"}>
                 JSON
@@ -188,7 +198,10 @@ export function WebhookEdit(
             </select>
           </label>
           <label class="block">
-            <h2 class="text-lg sm:text-xl font-semibold">Secret</h2>
+            <h2 class="text-lg sm:text-xl font-semibold">
+              Secret{" "}
+              <Help href="/docs/webhooks#secrets-and-signature-verification" />
+            </h2>
             {webhook?.hasSecret && (
               secret.value === null
                 ? (

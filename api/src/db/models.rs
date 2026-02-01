@@ -1046,6 +1046,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for AuditLog {
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "webhook_event_kind", rename_all = "snake_case")]
 pub enum WebhookEventKind {
+  PackageVersionNpmTarballReady,
   PackageVersionPublished,
   PackageVersionYanked,
   PackageVersionDeleted,
@@ -1110,10 +1111,15 @@ pub struct UpdateWebhookEndpoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum WebhookPayload {
-  PackageVersionPublished {
+  PackageVersionNpmTarballReady {
     scope: ScopeName,
     package: PackageName,
     version: Version,
+  },
+  PackageVersionPublished {
+    version: Version,
+    scope: ScopeName,
+    package: PackageName,
     user_id: Option<Uuid>,
   },
   PackageVersionYanked {

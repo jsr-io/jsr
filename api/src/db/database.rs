@@ -2464,6 +2464,36 @@ impl Database {
       .fetch_one(&self.pool)
       .await
   }
+  #[instrument(
+    name = "Database::process_webhooks_for_npm_tarball",
+    skip(self),
+    err
+  )]
+  pub async fn process_webhooks_for_npm_tarball(
+    &self,
+    package_scope: &ScopeName,
+    package_name: &PackageName,
+    package_version: &Version,
+  ) -> Result<Vec<Uuid>> {
+    let mut tx = self.pool.begin().await?;
+
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      package_scope,
+      Some(package_name),
+      WebhookEventKind::PackageVersionNpmTarballReady,
+      WebhookPayload::PackageVersionNpmTarballReady {
+        scope: package_scope.clone(),
+        package: package_name.clone(),
+        version: package_version.clone(),
+      },
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(webhook_deliveries)
+  }
 
   #[instrument(name = "Database::get_scope_member", skip(self), err)]
   pub async fn get_scope_member(

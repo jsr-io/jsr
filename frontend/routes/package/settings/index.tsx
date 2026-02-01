@@ -15,6 +15,7 @@ import { PackageDescriptionEditor } from "../(_islands)/PackageDescriptionEditor
 import { RUNTIME_COMPAT_KEYS } from "../../../components/RuntimeCompatIndicator.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ListDisplay } from "../../../components/List.tsx";
+import { Help } from "../../../components/Help.tsx";
 
 export default define.page<typeof handler>(
   function Settings({ data, params }) {
@@ -326,7 +327,9 @@ function FeaturePackage(props: { package: Package }) {
 function Webhooks({ webhooks }: { webhooks: WebhookEndpoint[] }) {
   return (
     <div id="webhooks">
-      <h2 class="text-lg sm:text-xl font-semibold">Webhooks</h2>
+      <h2 class="text-lg sm:text-xl font-semibold">
+        Webhooks <Help href="/docs/webhooks" />
+      </h2>
       <p class="mt-2 text-secondary max-w-2xl">
         Webhooks let you receive notifications when packages are published or
         other events happen in the scope.

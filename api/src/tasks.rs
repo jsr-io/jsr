@@ -214,6 +214,9 @@ pub async fn npm_tarball_build_handler(
     )
     .await?;
 
+  db.process_webhooks_for_npm_tarball(&job.scope, &job.name, &job.version)
+    .await?;
+
   Ok(())
 }
 
@@ -548,6 +551,18 @@ async fn dispatch_webhook(
     let url = &registry_url.0;
 
     match payload {
+      WebhookPayload::PackageVersionNpmTarballReady {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: GREEN,
+        title: "Package version NPM tarball ready",
+        url: format!("{url}@{scope}/{package}/{version}"),
+        description: format!(
+          "NPM tarball for @{scope}/{package}/{version} is ready"
+        ),
+      },
       WebhookPayload::PackageVersionPublished {
         scope,
         package,
@@ -740,8 +755,9 @@ async fn dispatch_webhook(
     }
   };
 
-  let success = response.status().is_success();
-  let response_http_status = response.status().as_u16() as i32;
+  let status = response.status();
+  let success = status.is_success();
+  let response_http_status = status.as_u16() as i32;
   let response_headers =
     serde_json::to_value(headers_to_map(response.headers()))?;
   let response_body = response.text().await.map_err(anyhow::Error::from)?;
@@ -764,8 +780,7 @@ async fn dispatch_webhook(
   .await?;
 
   if !success {
-    todo!("error");
-    Ok(())
+    Err(ApiError::WebhookResponseFailure { status })
   } else {
     Ok(())
   }

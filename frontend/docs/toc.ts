@@ -104,6 +104,11 @@ export default [
     group: "Reference",
   },
   {
+    title: "Webhooks",
+    id: "webhooks",
+    group: "Reference",
+  },
+  {
     title: "Badges",
     id: "badges",
     group: "Reference",
