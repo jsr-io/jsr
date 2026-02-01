@@ -218,6 +218,7 @@ impl Database {
     Ok((total_users as usize, users))
   }
 
+  #[cfg(test)]
   #[instrument(
     name = "Database::insert_user",
     skip(self, new_user),
@@ -450,6 +451,7 @@ impl Database {
     Ok(user)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::delete_user", skip(self), err)]
   pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
     sqlx::query_as!(
@@ -1261,6 +1263,7 @@ impl Database {
     Ok((total_scopes as usize, scopes))
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::list_scopes_created_by_user", skip(self), err)]
   pub async fn list_scopes_created_by_user(
     &self,
@@ -2186,6 +2189,7 @@ impl Database {
     Ok(task)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::create_package_version_for_test", skip(
     self,
     new_package_version
@@ -2346,28 +2350,6 @@ impl Database {
     Ok(webhook_deliveries)
   }
 
-  #[instrument(name = "Database::get_package_file", skip(self), err)]
-  pub async fn get_package_file(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-    path: &PackagePath,
-  ) -> Result<Option<PackageFile>> {
-    sqlx::query_as!(
-      PackageFile,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at
-      FROM package_files
-      WHERE scope = $1 AND name = $2 AND version = $3 AND path = $4"#,
-      scope as _,
-      name as _,
-      version as _,
-      path as _
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
   #[instrument(name = "Database::list_package_files", skip(self), err)]
   pub async fn list_package_files(
     &self,
@@ -2388,6 +2370,7 @@ impl Database {
       .await
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::create_package_file_for_test", skip(
     self,
     new_package_file
@@ -2408,32 +2391,6 @@ impl Database {
       new_package_file.path as _,
       new_package_file.size,
       new_package_file.checksum
-    )
-      .fetch_one(&self.pool)
-      .await
-  }
-
-  #[instrument(
-    name = "Database::create_package_version_dependency",
-    skip(self, new_package_version_dependency),
-    err
-  )]
-  pub async fn create_package_version_dependency_for_test(
-    &self,
-    new_package_version_dependency: NewPackageVersionDependency<'_>,
-  ) -> Result<PackageVersionDependency> {
-    sqlx::query_as!(
-      PackageVersionDependency,
-      r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at"#,
-      new_package_version_dependency.package_scope as _,
-      new_package_version_dependency.package_name as _,
-      new_package_version_dependency.package_version as _,
-      new_package_version_dependency.dependency_kind as _,
-      new_package_version_dependency.dependency_name as _,
-      new_package_version_dependency.dependency_constraint as _,
-      new_package_version_dependency.dependency_path as _
     )
       .fetch_one(&self.pool)
       .await
@@ -3962,6 +3919,7 @@ impl Database {
     Ok(res.is_some())
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_bad_word_for_test", skip(self), err)]
   pub async fn add_bad_word_for_test(&self, word: &str) -> Result<()> {
     sqlx::query!("INSERT INTO bad_words (word) VALUES ($1)", word)
@@ -3971,37 +3929,7 @@ impl Database {
     Ok(())
   }
 
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
-  pub async fn get_latest_npm_tarball_for_version(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-  ) -> Result<Option<NpmTarball>> {
-    sqlx::query_as!(
-      NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
-      FROM npm_tarballs
-      WHERE scope = $1 AND name = $2 AND version = $3
-      ORDER BY revision DESC
-      LIMIT 1"#,
-      scope as _,
-      name as _,
-      version as _
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
+  #[instrument(name = "Database::get_npm_tarball", skip(self), err)]
   pub async fn get_npm_tarball(
     &self,
     scope: &ScopeName,
@@ -4182,6 +4110,7 @@ impl Database {
     Ok(())
   }
 
+  #[cfg(test)]
   #[instrument(
     name = "Database::get_package_version_downloads_4h",
     skip(self),

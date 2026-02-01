@@ -135,7 +135,7 @@ export default [
   },
   {
     title: "Overview",
-    id: "governance/overview",
+    id: "governance",
     group: "Governance",
   },
   {

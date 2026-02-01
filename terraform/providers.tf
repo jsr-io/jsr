@@ -10,9 +10,17 @@ terraform {
       source  = "hashicorp/google"
       version = ">= 6.0.0, < 7.0.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = ">= 5.0.0, < 6.0.0"
+    }
   }
 }
 
 provider "google" {
   project = var.gcp_project
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
