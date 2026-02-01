@@ -169,7 +169,8 @@ export function WebhookEdit(
           </label>
           <label class="block">
             <h2 class="text-lg sm:text-xl font-semibold">
-              Payload format <Required />
+              Payload format <Required />{" "}
+              <Help href="/docs/webhooks#payload-format" />
             </h2>
             <select
               name="payload_format"

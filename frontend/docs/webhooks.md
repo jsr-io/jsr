@@ -190,11 +190,10 @@ originate from JSR and have not been tampered with in transit.
 
 ### How secrets work
 
-When you configure a secret for your webhook:
-
-1. JSR computes an HMAC-SHA256 signature of the request body using your secret
-2. The signature is included in the `X-JSR-Signature` header
-3. Your server can verify the signature to authenticate the request
+When you configure a secret for your webhook, JSR computes an HMAC-SHA256
+signature of the request body using your secret which in the `X-JSR-Signature`
+header. Your server can verify this signature to validate that the request is
+genuine.
 
 The signature format is: `sha256=<hex-encoded-signature>`
 
