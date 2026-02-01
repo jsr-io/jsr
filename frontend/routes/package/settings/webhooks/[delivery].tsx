@@ -85,5 +85,6 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package/settings/webhooks/:webhook/deliveries/:delivery",
+  routeOverride:
+    "/@:scope/:package/settings/webhooks/:webhook/deliveries/:delivery",
 };
