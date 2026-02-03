@@ -131,16 +131,18 @@ async function cachedFetch(
 ): Promise<Response> {
   const req = new Request(input, init);
 
+  const cache = caches.default ?? await caches.open("jsr");
+
   if (shouldCache) {
-    const cache = await caches.default.match(req);
-    if (cache) {
-      return cache;
+    const cachedResponse = await cache.match(req);
+    if (cachedResponse) {
+      return cachedResponse;
     }
   }
   const res = await fetch(req);
 
   if (shouldCache) {
-    caches.default.put(req, res.clone());
+    cache.put(req, res.clone());
   }
 
   return res;

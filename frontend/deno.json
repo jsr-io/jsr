@@ -14,6 +14,7 @@
     }
   },
   "imports": {
+    "@deno/doc": "jsr:@deno/doc@^0.189.1",
     "apexcharts": "npm:apexcharts@^4.5.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.12",
     "@std/fmt": "jsr:@std/fmt@^1.0.6",

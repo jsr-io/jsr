@@ -15,13 +15,13 @@ use deno_doc::DocNodeDef;
 use deno_doc::Location;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
-use deno_doc::html::HANDLEBARS;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
 use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::util::BreadcrumbsCtx;
 use deno_doc::html::util::Id;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
@@ -307,9 +307,17 @@ pub enum GeneratedDocsOutput {
 
 #[derive(Debug)]
 pub struct GeneratedDocs {
-  pub breadcrumbs: Option<String>,
-  pub toc: Option<String>,
-  pub main: String,
+  pub breadcrumbs: Option<BreadcrumbsCtx>,
+  pub toc: Option<deno_doc::html::ToCCtx>,
+  pub main: GeneratedDocsContent,
+}
+
+#[derive(Debug)]
+pub enum GeneratedDocsContent {
+  AllSymbols(deno_doc::html::SymbolContentCtx),
+  File(deno_doc::html::jsdoc::ModuleDocCtx),
+  Index(deno_doc::html::jsdoc::ModuleDocCtx),
+  Symbol(deno_doc::html::SymbolGroupCtx),
 }
 
 pub struct DocsInfo {
@@ -583,24 +591,18 @@ pub fn generate_docs_html(
         }),
       );
 
-      let breadcrumbs = HANDLEBARS
-        .render("breadcrumbs", &render_ctx.get_breadcrumbs())
-        .context("failed to render breadcrumbs")?;
-      let main = HANDLEBARS
-        .render(
-          "symbol_content",
-          &deno_doc::html::SymbolContentCtx {
-            id: Id::empty(),
-            sections,
-            docs: None,
-          },
-        )
-        .context("failed to all symbols list")?;
+      let breadcrumbs = render_ctx.get_breadcrumbs();
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
         toc: None,
-        main,
+        main: GeneratedDocsContent::AllSymbols(
+          deno_doc::html::SymbolContentCtx {
+            id: Id::empty(),
+            sections,
+            docs: None,
+          },
+        ),
       })))
     }
     DocsRequest::Index => {
@@ -644,20 +646,12 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let main = HANDLEBARS
-        .render("module_doc", &index_module_doc)
-        .context("failed to render index module doc")?;
-
       let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
-
-      let toc = HANDLEBARS
-        .render("toc", &toc_ctx)
-        .context("failed to render toc")?;
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
-        toc: Some(toc),
-        main,
+        toc: Some(toc_ctx),
+        main: GeneratedDocsContent::Index(index_module_doc),
       })))
     }
     DocsRequest::File(specifier) => {
@@ -676,24 +670,14 @@ pub fn generate_docs_html(
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
 
-      let breadcrumbs = HANDLEBARS
-        .render("breadcrumbs", &render_ctx.get_breadcrumbs())
-        .context("failed to render breadcrumbs")?;
-
-      let main = HANDLEBARS
-        .render("module_doc", &module_doc)
-        .context("failed to render module doc")?;
+      let breadcrumbs = render_ctx.get_breadcrumbs();
 
       let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
-      let toc = HANDLEBARS
-        .render("toc", &toc_ctx)
-        .context("failed to render toc")?;
-
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: Some(toc),
-        main,
+        toc: Some(toc_ctx),
+        main: GeneratedDocsContent::File(module_doc),
       })))
     }
     DocsRequest::Symbol(specifier, symbol) => {
@@ -715,25 +699,11 @@ pub fn generate_docs_html(
           symbol_group_ctx,
           toc_ctx,
           categories_panel: _categories_panel,
-        } => {
-          let breadcrumbs = HANDLEBARS
-            .render("breadcrumbs", &breadcrumbs_ctx)
-            .context("failed to render breadcrumbs")?;
-
-          let main = HANDLEBARS
-            .render("symbol_group", &symbol_group_ctx)
-            .context("failed to render symbol group")?;
-
-          let toc = HANDLEBARS
-            .render("toc", &toc_ctx)
-            .context("failed to render toc")?;
-
-          Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
-            breadcrumbs: Some(breadcrumbs),
-            toc: Some(toc),
-            main,
-          })))
-        }
+        } => Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
+          breadcrumbs: Some(breadcrumbs_ctx),
+          toc: Some(*toc_ctx),
+          main: GeneratedDocsContent::Symbol(symbol_group_ctx),
+        }))),
         SymbolPage::Redirect { href, .. } => {
           Ok(Some(GeneratedDocsOutput::Redirect(href)))
         }

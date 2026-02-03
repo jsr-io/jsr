@@ -4,6 +4,7 @@ import type { FullUser, RuntimeCompat } from "./utils/api_types.ts";
 import type { TraceSpan } from "./utils/tracing.ts";
 import type { SourceDir, SourceFile } from "./utils/api_types.ts";
 import { createDefine } from "fresh";
+import type { BreadcrumbsCtx, ToCCtx, SymbolContentCtx, ModuleDocCtx, SymbolGroupCtx } from "@deno/doc/html-types";
 
 export const define = createDefine<State>();
 
@@ -30,11 +31,13 @@ export interface Docs {
   comrakCss: string;
   script: string;
   // null only on index page
-  breadcrumbs: string | null;
+  breadcrumbs: BreadcrumbsCtx | null;
   // null only on all symbols page
-  toc: string | null;
-  main: string;
+  toc: ToCCtx | null;
+  main: DocsMainContent;
 }
+
+export type DocsMainContent = { kind: "allSymbols", value: SymbolContentCtx } | { kind: "index", value: ModuleDocCtx } | { kind: "symbol", value: SymbolGroupCtx };
 
 export interface Source {
   css: string;
