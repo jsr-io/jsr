@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import { asset } from "fresh/runtime";
 import type { UsagesCtx } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
 
@@ -8,10 +9,12 @@ export function Usages({ usages: { usages } }: { usages: UsagesCtx }) {
       {usages.map((usage, index) => (
         <>
           {usage.additional_css && (
-            <style scoped
+            <style
+              scoped
               // css
               // deno-lint-ignore react-no-danger
-              dangerouslySetInnerHTML={{ __html: usage.additional_css }} />
+              dangerouslySetInnerHTML={{ __html: usage.additional_css }}
+            />
           )}
           <input
             type="radio"
@@ -35,7 +38,11 @@ export function Usages({ usages: { usages } }: { usages: UsagesCtx }) {
               >
                 {usage.icon && (
                   <div class="h-4 *:h-4 *:w-auto flex-none">
-                    <img src={usage.icon} alt={`${usage.name} logo`} draggable={false} />
+                    <img
+                      src={asset(usage.icon)}
+                      alt={`${usage.name} logo`}
+                      draggable={false}
+                    />
                   </div>
                 )}
                 <div class="leading-none">{usage.name}</div>
@@ -53,7 +60,11 @@ export function Usages({ usages: { usages } }: { usages: UsagesCtx }) {
                 <label for={usage.name}>
                   {usage.icon && (
                     <div class="h-5 *:h-5 *:w-auto flex-none">
-                      <img src={usage.icon} alt={`${usage.name} logo`} draggable={false} />
+                      <img
+                        src={asset(usage.icon)}
+                        alt={`${usage.name} logo`}
+                        draggable={false}
+                      />
                     </div>
                   )}
                   <div>{usage.name}</div>

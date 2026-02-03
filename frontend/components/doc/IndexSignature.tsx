@@ -10,15 +10,17 @@ export function IndexSignature(
   return (
     <div class="anchorable text-sm" id={id}>
       <Anchor anchor={anchor} />
-      {readonly && <span>readonly </span>}
+      {readonly && <span>{"readonly "}</span>}
       [<span
-      // jsdoc rendering
-      // deno-lint-ignore react-no-danger
-      dangerouslySetInnerHTML={{ __html: params }} />]
+        // jsdoc rendering
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: params }}
+      />]
       <span
         // jsdoc rendering
         // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: ts_type }} />
+        dangerouslySetInnerHTML={{ __html: ts_type }}
+      />
     </div>
   );
 }

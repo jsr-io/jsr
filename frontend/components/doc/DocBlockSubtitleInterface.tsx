@@ -10,14 +10,15 @@ export function DocBlockSubtitleInterface(
 
   return (
     <div>
-      <span class="type"> extends </span>
+      <span class="type">{" extends "}</span>
       {value.extends.map((ext, index) => (
         <>
           <span
             // includes type defs which are generated with spans
             // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: ext }} />
-          {index < value.extends!.length - 1 && <span>, </span>}
+            dangerouslySetInnerHTML={{ __html: ext }}
+          />
+          {index < value.extends!.length - 1 && <span>{", "}</span>}
         </>
       ))}
     </div>

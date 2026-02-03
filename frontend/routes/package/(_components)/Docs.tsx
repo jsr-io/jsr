@@ -13,7 +13,8 @@ import { TbFlag } from "tb-icons";
 import {
   ModuleDoc,
   SymbolContent,
-  SymbolGroup, Toc,
+  SymbolGroup,
+  Toc,
 } from "../../../components/doc/mod.ts";
 
 interface DocsProps {
@@ -121,7 +122,9 @@ export function DocsView({
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
-          searchContent={docs.main.kind === "allSymbols" ? docs.main.value : undefined}
+          searchContent={docs.main.kind === "allSymbols"
+            ? docs.main.value
+            : undefined}
           content={docs.breadcrumbs}
           scope={params.scope}
           package={params.package}

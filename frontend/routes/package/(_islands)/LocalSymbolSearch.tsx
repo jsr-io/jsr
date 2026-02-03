@@ -100,7 +100,9 @@ export function LocalSymbolSearch(
       }
 
       const searchResults = document.getElementById("docSearchResults")!;
-      searchResults.innerHTML = renderToString(<SymbolContent content={searchContent} />);
+      searchResults.innerHTML = renderToString(
+        <SymbolContent content={searchContent} />,
+      );
 
       const searchItems: SearchItem[] = Array.from(
         searchResults

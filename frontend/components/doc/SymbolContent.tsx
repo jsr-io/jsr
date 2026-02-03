@@ -7,10 +7,13 @@ export function SymbolContent(
 ) {
   return (
     <div class="space-y-7" id={id}>
-      {docs && <div
-        // jsdoc rendering
-        // deno-lint-ignore react-no-danger
-	      dangerouslySetInnerHTML={{ __html: docs }} />}
+      {docs && (
+        <div
+          // jsdoc rendering
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: docs }}
+        />
+      )}
       {sections.map((section, i) => <Section key={i} section={section} />)}
     </div>
   );

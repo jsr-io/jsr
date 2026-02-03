@@ -29,7 +29,9 @@ export function Toc(
                     <a href={symbol.href} title={symbol.name}>
                       <DocNodeKindIcon kinds={symbol.kind} />
                       <span
-                        class={`hover:bg-${symbol.kind[0]?.kind}/15 hover:bg-${symbol.kind[0]?.kind}Dark/15`}
+                        class={`hover:bg-${symbol.kind[0]?.kind}/15 hover:bg-${
+                          symbol.kind[0]?.kind
+                        }Dark/15`}
                       >
                         {symbol.name}
                       </span>
@@ -55,13 +57,11 @@ export function Toc(
             <nav class="documentNavigation">
               <h3>Document Navigation</h3>
               <ul>
-                {
-                  renderToC(
-                    document_navigation,
-                    Math.min(...document_navigation.map((entry) => entry.level)),
-                    0,
-                  )[0]
-                }
+                {renderToC(
+                  document_navigation,
+                  Math.min(...document_navigation.map((entry) => entry.level)),
+                  0,
+                )[0]}
               </ul>
             </nav>
           )}

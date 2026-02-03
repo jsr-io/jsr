@@ -5,7 +5,7 @@ function titleCase(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export function Tag({ tag, large }: { tag: TagType, large?: boolean }) {
+export function Tag({ tag, large }: { tag: TagType; large?: boolean }) {
   const sizeClasses = large ? "font-bold py-2 px-3" : "text-sm py-1 px-2";
 
   const renderContent = () => {

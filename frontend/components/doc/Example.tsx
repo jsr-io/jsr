@@ -3,7 +3,9 @@ import type { ExampleCtx } from "@deno/doc/html-types";
 import { Anchor } from "./Anchor.tsx";
 
 export function Example(
-  { example: { anchor, markdown_title, markdown_body } }: { example: ExampleCtx },
+  { example: { anchor, markdown_title, markdown_body } }: {
+    example: ExampleCtx;
+  },
 ) {
   return (
     <div class="anchorable">

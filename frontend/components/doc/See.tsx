@@ -11,7 +11,8 @@ export function See({ items }: SeeProps) {
         <li
           // jsdoc rendering
           // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{ __html: item }} />
+          dangerouslySetInnerHTML={{ __html: item }}
+        />
       ))}
     </ul>
   );

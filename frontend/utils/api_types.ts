@@ -1,4 +1,10 @@
-import { BreadcrumbsCtx, ModuleDocCtx, SymbolContentCtx, SymbolGroupCtx, ToCCtx } from "@deno/doc/html-types";
+import {
+  BreadcrumbsCtx,
+  ModuleDocCtx,
+  SymbolContentCtx,
+  SymbolGroupCtx,
+  ToCCtx,
+} from "@deno/doc/html-types";
 
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export interface User {
@@ -158,8 +164,10 @@ export interface PackageVersionDocsContent {
   main: DocsMainContent;
 }
 
-export type DocsMainContent = { kind: "allSymbols", value: SymbolContentCtx } | { kind: "index", value: ModuleDocCtx } | { kind: "symbol", value: SymbolGroupCtx };
-
+export type DocsMainContent =
+  | { kind: "allSymbols"; value: SymbolContentCtx }
+  | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {
   kind: "redirect";

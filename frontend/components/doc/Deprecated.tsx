@@ -16,7 +16,8 @@ export function Deprecated(
         <div
           // jsdoc rendering
           // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{ __html: message }} />
+          dangerouslySetInnerHTML={{ __html: message }}
+        />
       )}
     </div>
   );

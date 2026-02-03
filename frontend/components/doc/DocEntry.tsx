@@ -5,8 +5,9 @@ import { Tag } from "./Tag.tsx";
 import { SourceButton } from "./SourceButton.tsx";
 
 export function DocEntry(
-  { entry: { id, name, name_href, anchor, tags, content, source_href, js_doc } }:
-    { entry: DocEntryCtx },
+  {
+    entry: { id, name, name_href, anchor, tags, content, source_href, js_doc },
+  }: { entry: DocEntryCtx },
 ) {
   return (
     <div class={name ? "anchorable docEntry" : "docEntry"} id={id}>

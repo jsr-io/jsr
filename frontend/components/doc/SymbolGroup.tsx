@@ -20,8 +20,7 @@ export function SymbolGroup(
               <div class="text-2xl leading-none break-all">
                 <span class={`text-${symbol.kind.kind}`}>
                   {symbol.kind.title_lowercase}
-                </span>
-                {" "}
+                </span>{" "}
                 <span class="font-bold">{name}</span>
               </div>
               {symbol.subtitle && (
@@ -33,16 +32,12 @@ export function SymbolGroup(
               )}
               {symbol.tags && symbol.tags.length > 0 && (
                 <div class="space-x-2 !mt-2">
-                  {symbol.tags.map((tag, i) => (
-                    <Tag key={i} tag={tag} large />
-                  ))}
+                  {symbol.tags.map((tag, i) => <Tag key={i} tag={tag} large />)}
                 </div>
               )}
             </div>
 
-            {symbol.source_href && (
-              <SourceButton href={symbol.source_href} />
-            )}
+            {symbol.source_href && <SourceButton href={symbol.source_href} />}
           </div>
 
           <Deprecated message={symbol.deprecated} />

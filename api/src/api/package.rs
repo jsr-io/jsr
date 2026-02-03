@@ -165,10 +165,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
-      "/:package/versions/:version/docs/search_html",
+      "/:package/versions/:version/docs/search_structured",
       util::cache(
         CacheDuration::ONE_MINUTE,
-        util::json(get_docs_search_html_handler),
+        util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
@@ -1362,7 +1362,7 @@ pub async fn get_docs_search_handler(
   err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_search_html_handler(
+pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
 ) -> ApiResult<deno_doc::html::SymbolContentCtx> {
   let scope = req.param_scope()?;

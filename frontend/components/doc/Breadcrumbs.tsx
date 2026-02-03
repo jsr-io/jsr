@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { BreadcrumbsCtx, BreadcrumbCtx } from "@deno/doc/html-types";
+import type { BreadcrumbCtx, BreadcrumbsCtx } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
 
 function BreadcrumbItem(
@@ -8,13 +8,11 @@ function BreadcrumbItem(
   return (
     <>
       <li>
-        {isLast
-          ? part.name
-          : (
-            <a href={part.href} class="contextLink">
-              {part.name}
-            </a>
-          )}
+        {isLast ? part.name : (
+          <a href={part.href} class="contextLink">
+            {part.name}
+          </a>
+        )}
       </li>
 
       {!isLast && (
@@ -30,7 +28,9 @@ function BreadcrumbItem(
   );
 }
 
-export function Breadcrumbs({ breadcrumbs: { parts } }: { breadcrumbs: BreadcrumbsCtx }) {
+export function Breadcrumbs(
+  { breadcrumbs: { parts } }: { breadcrumbs: BreadcrumbsCtx },
+) {
   const symbolStartIndex = parts.findIndex((part) => part.is_first_symbol);
   const hasSymbols = symbolStartIndex !== -1;
 

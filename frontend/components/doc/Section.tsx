@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { SectionCtx, SectionContentCtx } from "@deno/doc/html-types";
+import type { SectionContentCtx, SectionCtx } from "@deno/doc/html-types";
 import { Anchor } from "./Anchor.tsx";
 import { DocEntry } from "./DocEntry.tsx";
 import { Example } from "./Example.tsx";
@@ -31,13 +31,20 @@ function SectionContent({ content }: { content: SectionContentCtx }) {
     case "index_signature":
       return (
         <div class="space-y-8">
-          {content.content.map((sig, i) => <IndexSignature key={i} signature={sig} />)}
+          {content.content.map((sig, i) => (
+            <IndexSignature key={i} signature={sig} />
+          ))}
         </div>
       );
     case "doc_entry":
       return (
         <div class="space-y-8">
-          {content.content.map((entry, i) => <DocEntry key={i} entry={entry} />)}
+          {content.content.map((entry, i) => (
+            <DocEntry
+              key={i}
+              entry={entry}
+            />
+          ))}
         </div>
       );
     default:
@@ -66,7 +73,8 @@ export function Section(
             <div
               // jsdoc rendering
               // deno-lint-ignore react-no-danger
-              dangerouslySetInnerHTML={{ __html: header.doc }} />
+              dangerouslySetInnerHTML={{ __html: header.doc }}
+            />
           )}
         </div>
       )}

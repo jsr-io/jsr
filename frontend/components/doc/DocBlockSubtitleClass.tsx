@@ -8,7 +8,7 @@ export function DocBlockSubtitleClass(
     <>
       {value.implements && value.implements.length > 0 && (
         <div>
-          <span class="type"> implements </span>
+          <span class="type">{" implements "}</span>
           {value.implements.map((impl, index) => (
             <>
               <span
@@ -16,14 +16,14 @@ export function DocBlockSubtitleClass(
                 // deno-lint-ignore react-no-danger
                 dangerouslySetInnerHTML={{ __html: impl }}
               />
-              {index < value.implements!.length - 1 && <span>, </span>}
+              {index < value.implements!.length - 1 && <span>{", "}</span>}
             </>
           ))}
         </div>
       )}
       {value.extends && (
         <div>
-          <span class="type"> extends </span>
+          <span class="type">{" extends "}</span>
           {value.extends.href
             ? (
               <a class="link" href={value.extends.href}>
