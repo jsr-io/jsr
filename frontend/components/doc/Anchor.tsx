@@ -2,7 +2,7 @@
 import type { AnchorCtx } from "@deno/doc/html-types";
 import TbLink from "tb-icons/TbLink";
 
-export function Anchor({ id }: AnchorCtx) {
+export function Anchor({ anchor: { id } }: { anchor: AnchorCtx }) {
   return (
     <a href={`#${id}`} class="anchor" aria-label="Anchor" tabIndex={-1}>
       <TbLink class="size-4" />

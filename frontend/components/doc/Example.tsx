@@ -2,15 +2,23 @@
 import type { ExampleCtx } from "@deno/doc/html-types";
 import { Anchor } from "./Anchor.tsx";
 
-export function Example({ anchor, markdown_title, markdown_body }: ExampleCtx) {
+export function Example(
+  { example: { anchor, markdown_title, markdown_body } }: { example: ExampleCtx },
+) {
   return (
     <div class="anchorable">
-      <Anchor {...anchor} />
+      <Anchor anchor={anchor} />
       <h3
         class="example-header"
+        // jsdoc rendering
+        // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{ __html: markdown_title }}
       />
-      <div dangerouslySetInnerHTML={{ __html: markdown_body }} />
+      <div
+        // jsdoc rendering
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: markdown_body }}
+      />
     </div>
   );
 }

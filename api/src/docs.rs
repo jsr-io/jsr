@@ -1192,9 +1192,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       map.insert(
         UsageComposerEntry {
           name: "Deno".to_string(),
-          icon: Some(
-            r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/deno.svg".into()),
         },
         format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
       );
@@ -1204,37 +1202,28 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       map.insert(
         UsageComposerEntry {
           name: "pnpm".to_string(),
-          icon: Some(
-            r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/pnpm_textless.svg".into()),
         },
         format!("Add Package\n```\npnpm i jsr:{scoped_name}\n```\n<div class='or-bar'>or (using pnpm 10.8 or older)</div>\n\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {
           name: "Yarn".to_string(),
-          icon: Some(
-            r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/yarn_textless.svg".into()),
         },
         format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {
           name: "vlt".to_string(),
-          icon: Some(
-            r#"<img src="/logos/vlt.svg" alt="vlt logo" draggable="false" />"#
-              .into(),
-          ),
+          icon: Some("/logos/vlt.svg".into()),
         },
         format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {
           name: "npm".to_string(),
-          icon: Some(
-            r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/npm_textless.svg".into()),
         },
         format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
       );
@@ -1244,10 +1233,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       map.insert(
         UsageComposerEntry {
           name: "Bun".to_string(),
-          icon: Some(
-            r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#
-              .into(),
-          ),
+          icon: Some("/logos/bun.svg".into()),
         },
         format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
       );

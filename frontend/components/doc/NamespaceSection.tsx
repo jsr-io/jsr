@@ -20,7 +20,10 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
 
             <div class="namespaceItemContentDoc">
               {item.docs
-                ? <span dangerouslySetInnerHTML={{ __html: item.docs }} />
+                ? <span
+                  // jsdoc rendering
+                  // deno-lint-ignore react-no-danger
+                  dangerouslySetInnerHTML={{ __html: item.docs }} />
                 : <span class="italic">No documentation available</span>}
             </div>
 

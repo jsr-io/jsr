@@ -20,7 +20,7 @@ function SectionContent({ content }: { content: SectionContentCtx }) {
         <div class="space-y-8">
           {content.content.map((example, index, arr) => (
             <>
-              <Example {...example} />
+              <Example example={example} />
               {index < arr.length - 1 && (
                 <div class="border-b border-gray-300 dark:border-gray-700" />
               )}
@@ -31,13 +31,13 @@ function SectionContent({ content }: { content: SectionContentCtx }) {
     case "index_signature":
       return (
         <div class="space-y-8">
-          {content.content.map((sig) => <IndexSignature {...sig} />)}
+          {content.content.map((sig, i) => <IndexSignature key={i} signature={sig} />)}
         </div>
       );
     case "doc_entry":
       return (
         <div class="space-y-8">
-          {content.content.map((entry) => <DocEntry {...entry} />)}
+          {content.content.map((entry, i) => <DocEntry key={i} entry={entry} />)}
         </div>
       );
     default:
@@ -45,13 +45,15 @@ function SectionContent({ content }: { content: SectionContentCtx }) {
   }
 }
 
-export function Section({ header, content }: SectionCtx) {
+export function Section(
+  { section: { header, content } }: { section: SectionCtx },
+) {
   return (
     <section class="section" id={header?.anchor.id}>
       {header && (
         <div>
           <h2 class="anchorable mb-1">
-            <Anchor {...header.anchor} />
+            <Anchor anchor={header.anchor} />
             {header.href
               ? (
                 <a href={header.href} class="contextLink">
@@ -61,7 +63,10 @@ export function Section({ header, content }: SectionCtx) {
               : header.title}
           </h2>
           {header.doc && (
-            <div dangerouslySetInnerHTML={{ __html: header.doc }} />
+            <div
+              // jsdoc rendering
+              // deno-lint-ignore react-no-danger
+              dangerouslySetInnerHTML={{ __html: header.doc }} />
           )}
         </div>
       )}

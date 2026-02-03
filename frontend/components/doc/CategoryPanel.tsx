@@ -3,7 +3,9 @@ import type { CategoriesPanelCtx } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
 
 export function CategoryPanel(
-  { categories, all_symbols_href, total_symbols }: CategoriesPanelCtx,
+  { panel: { categories, all_symbols_href, total_symbols } }: {
+    panel: CategoriesPanelCtx;
+  },
 ) {
   if (!categories?.length) {
     return null;
@@ -12,8 +14,8 @@ export function CategoryPanel(
   return (
     <div id="categoryPanel">
       <ul>
-        {categories.map((category) => (
-          <li class={category.active ? "active" : undefined}>
+        {categories.map((category, i) => (
+          <li key={i} class={category.active ? "active" : undefined}>
             <a href={category.href} title={category.name}>
               {category.name}
             </a>

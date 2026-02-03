@@ -31,7 +31,6 @@ function BreadcrumbItem(
 }
 
 export function Breadcrumbs({ breadcrumbs: { parts } }: { breadcrumbs: BreadcrumbsCtx }) {
-  // Group parts into pre-symbol and symbol sections
   const symbolStartIndex = parts.findIndex((part) => part.is_first_symbol);
   const hasSymbols = symbolStartIndex !== -1;
 

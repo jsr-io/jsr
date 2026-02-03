@@ -4,17 +4,19 @@ import { Anchor } from "./Anchor.tsx";
 import { Deprecated } from "./Deprecated.tsx";
 import { SymbolContent } from "./SymbolContent.tsx";
 
-export function Function({ functions }: FunctionCtx) {
+export function Function({ func: { functions } }: { func: FunctionCtx }) {
   return (
     <div class="mt-3 space-y-8">
       {functions.map((func, index) => (
         <>
           <div class="scroll-mt-16" id={func.id}>
             <code class="anchorable text-base break-words">
-              <Anchor {...func.anchor} />
+              <Anchor anchor={func.anchor} />
               <span class="font-bold">{func.name}</span>
               <span
                 class="font-medium"
+                // jsdoc rendering
+                // deno-lint-ignore react-no-danger
                 dangerouslySetInnerHTML={{ __html: func.summary }}
               />
             </code>

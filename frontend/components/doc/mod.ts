@@ -20,4 +20,3 @@ export { SymbolGroup } from "./SymbolGroup.tsx";
 export { Tag } from "./Tag.tsx";
 export { Toc } from "./Toc.tsx";
 export { Usages } from "./Usages.tsx";
-export { UsagesLarge } from "./UsagesLarge.tsx";

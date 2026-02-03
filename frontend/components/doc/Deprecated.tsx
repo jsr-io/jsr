@@ -1,11 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-export interface DeprecatedProps {
-  /** HTML string or null/undefined if not deprecated */
-  message?: string | null;
-}
-
-export function Deprecated({ message }: DeprecatedProps) {
+export function Deprecated(
+  { message }: { message?: string | null },
+) {
   if (message === undefined || message === null) {
     return null;
   }
@@ -16,7 +13,10 @@ export function Deprecated({ message }: DeprecatedProps) {
         <span>Deprecated</span>
       </div>
       {message !== "" && (
-        <div dangerouslySetInnerHTML={{ __html: message }} />
+        <div
+          // jsdoc rendering
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: message }} />
       )}
     </div>
   );

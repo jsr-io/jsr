@@ -1,7 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { PackageVersionWithUser, User } from "../../../utils/api_types.ts";
+import type {
+  DocsMainContent,
+  PackageVersionWithUser,
+  User,
+} from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
-import { Docs, DocsMainContent } from "../../../util.ts";
+import { Docs } from "../../../util.ts";
 import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
@@ -117,7 +121,7 @@ export function DocsView({
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
-          searchContent={docs.main.kind === "all_symbols" ? docs.main.value : undefined}
+          searchContent={docs.main.kind === "allSymbols" ? docs.main.value : undefined}
           content={docs.breadcrumbs}
           scope={params.scope}
           package={params.package}

@@ -1,7 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { DocBlockSubtitleClassCtx } from "@deno/doc/html-types";
 
-export function DocBlockSubtitleClass({ value }: DocBlockSubtitleClassCtx) {
+export function DocBlockSubtitleClass(
+  { subtitle: { value } }: { subtitle: DocBlockSubtitleClassCtx },
+) {
   return (
     <>
       {value.implements && value.implements.length > 0 && (
@@ -9,7 +11,11 @@ export function DocBlockSubtitleClass({ value }: DocBlockSubtitleClassCtx) {
           <span class="type"> implements </span>
           {value.implements.map((impl, index) => (
             <>
-              <span dangerouslySetInnerHTML={{ __html: impl }} />
+              <span
+                // includes type defs which are generated with spans
+                // deno-lint-ignore react-no-danger
+                dangerouslySetInnerHTML={{ __html: impl }}
+              />
               {index < value.implements!.length - 1 && <span>, </span>}
             </>
           ))}
@@ -26,7 +32,11 @@ export function DocBlockSubtitleClass({ value }: DocBlockSubtitleClassCtx) {
             )
             : <span>{value.extends.symbol}</span>}
           {value.extends.type_args && (
-            <span dangerouslySetInnerHTML={{ __html: value.extends.type_args }} />
+            <span
+              // includes type defs which are generated with spans
+              // deno-lint-ignore react-no-danger
+              dangerouslySetInnerHTML={{ __html: value.extends.type_args }}
+            />
           )}
         </div>
       )}

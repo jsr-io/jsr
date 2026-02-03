@@ -1,11 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import type { VNode } from "preact";
 import type { ToCCtx, ToCEntry } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
 import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
 import { Usages } from "./Usages.tsx";
 
 export function Toc(
-  { content: { usages, top_symbols, document_navigation } }: { content: ToCCtx },
+  { content: { usages, top_symbols, document_navigation } }: {
+    content: ToCCtx;
+  },
 ) {
   if (!usages && !top_symbols && document_navigation.length === 0) {
     return null;
@@ -15,9 +18,7 @@ export function Toc(
     <div class="ddoc w-full lg:overflow-y-auto pb-4">
       <div class="toc">
         <div>
-          {usages && (
-            <Usages usages={usages.usages} composed={usages.composed} />
-          )}
+          {usages && <Usages usages={usages} />}
 
           {top_symbols && (
             <nav class="topSymbols">
@@ -54,7 +55,13 @@ export function Toc(
             <nav class="documentNavigation">
               <h3>Document Navigation</h3>
               <ul>
-                {renderToC(document_navigation, Math.min(...document_navigation.map((entry) => entry.level)), 0)[0]}
+                {
+                  renderToC(
+                    document_navigation,
+                    Math.min(...document_navigation.map((entry) => entry.level)),
+                    0,
+                  )[0]
+                }
               </ul>
             </nav>
           )}
@@ -64,17 +71,22 @@ export function Toc(
   );
 }
 
-function renderToC(items: ToCEntry[], currentLevel: number, startIdx: number): [any[], number] {
-  const result: any[] = [];
+function renderToC(
+  items: ToCEntry[],
+  currentLevel: number,
+  startIdx: number,
+): [VNode[], number] {
+  const result: VNode[] = [];
   let i = startIdx;
 
   while (i < items.length && items[i].level >= currentLevel) {
     const entry = items[i];
 
     if (entry.level === currentLevel) {
-      const [children, nextIdx] = i + 1 < items.length && items[i + 1].level > currentLevel
-        ? renderToC(items, items[i + 1].level, i + 1)
-        : [[], i + 1];
+      const [children, nextIdx] =
+        i + 1 < items.length && items[i + 1].level > currentLevel
+          ? renderToC(items, items[i + 1].level, i + 1)
+          : [[], i + 1];
 
       result.push(
         <li key={entry.anchor}>
@@ -82,7 +94,7 @@ function renderToC(items: ToCEntry[], currentLevel: number, startIdx: number): [
             {entry.content}
           </a>
           {children.length > 0 && <ul>{children}</ul>}
-        </li>
+        </li>,
       );
       i = nextIdx;
     } else {

@@ -8,7 +8,10 @@ export function See({ items }: SeeProps) {
   return (
     <ul class="see">
       {items.map((item) => (
-        <li dangerouslySetInnerHTML={{ __html: item }} />
+        <li
+          // jsdoc rendering
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: item }} />
       ))}
     </ul>
   );
