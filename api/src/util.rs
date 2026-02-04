@@ -430,9 +430,17 @@ pub fn license_store() -> LicenseStore {
       false,
     )
     .context(format!(
-      "{} {:?}",
+      "{} {:?} {:?} {:?}",
       env!("CARGO_MANIFEST_DIR"),
+      concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/license-list-data/json/details"
+      ),
       std::fs::read_dir("/")
+        .unwrap()
+        .map(|e| e.unwrap().path().display().to_string())
+        .collect::<Vec<_>>(),
+      std::fs::read_dir(".")
         .unwrap()
         .map(|e| e.unwrap().path().display().to_string())
         .collect::<Vec<_>>()
