@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use anyhow::Context;
 use futures::FutureExt;
 use hyper::Body;
 use hyper::Request;
@@ -428,6 +429,7 @@ pub fn license_store() -> LicenseStore {
       )),
       false,
     )
+    .context(env!("CARGO_MANIFEST_DIR"))
     .unwrap();
   LicenseStore(Arc::new(license_store))
 }
