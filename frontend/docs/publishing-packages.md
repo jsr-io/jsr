@@ -340,7 +340,7 @@ jobs:
       contents: read
       id-token: write # The OIDC ID token is used for authentication with JSR.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: npx jsr publish
 ```
 
