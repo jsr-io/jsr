@@ -429,7 +429,14 @@ pub fn license_store() -> LicenseStore {
       )),
       false,
     )
-    .context(env!("CARGO_MANIFEST_DIR"))
+    .context(format!(
+      "{} {:?}",
+      env!("CARGO_MANIFEST_DIR"),
+      std::fs::read_dir(env!("CARGO_MANIFEST_DIR"))
+        .unwrap()
+        .map(|e| e.unwrap().path().display())
+        .collect::<Vec<_>>()
+    ))
     .unwrap();
   LicenseStore(Arc::new(license_store))
 }
