@@ -1530,7 +1530,12 @@ pub async fn get_source_handler(
         path_buf
           .extension()
           .map(|ext| ext.to_string_lossy())
-          .as_deref(),
+          .as_deref()
+          .map(|ext| match ext {
+            "mts" | "cts" => "ts",
+            "mjs" | "cjs" => "js",
+            ext => ext,
+          }),
         &file,
       )?;
       out.extend(b"</code></pre>");
