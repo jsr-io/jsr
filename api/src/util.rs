@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use anyhow::Context;
 use futures::FutureExt;
 use hyper::Body;
 use hyper::Request;
