@@ -16,6 +16,7 @@ RUN rm src/*.rs
 # copy your source tree
 COPY ./src ./src
 COPY ./migrations ./migrations
+COPY ./license-list-data ./license-list-data
 COPY ./.sqlx ./.sqlx
 
 # build for release
