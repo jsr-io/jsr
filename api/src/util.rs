@@ -434,7 +434,7 @@ pub fn license_store() -> LicenseStore {
       env!("CARGO_MANIFEST_DIR"),
       std::fs::read_dir(env!("CARGO_MANIFEST_DIR"))
         .unwrap()
-        .map(|e| e.unwrap().path().display())
+        .map(|e| e.unwrap().path().display().to_string())
         .collect::<Vec<_>>()
     ))
     .unwrap();
