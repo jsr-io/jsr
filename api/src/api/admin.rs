@@ -19,6 +19,7 @@ use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
@@ -303,6 +304,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     queue.task_buffer(None, Some(body.into())).await?;
   } else {
     let buckets = req.data::<Buckets>().unwrap().clone();
+    let license_store = req.data::<LicenseStore>().unwrap().clone();
     let registry = req.data::<RegistryUrl>().unwrap().0.clone();
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
 
@@ -310,6 +312,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let fut = publish_task(
       publishing_task_id,
       buckets,
+      license_store,
       registry,
       npm_url,
       db,

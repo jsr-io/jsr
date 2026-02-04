@@ -18,3 +18,5 @@ frontend/node_modules
 lb/dist
 
 .gcs
+
+.idea
