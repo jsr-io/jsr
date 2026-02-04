@@ -1,4 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+// deno-lint-ignore-file jsx-curly-braces
 import type { IndexSignatureCtx } from "@deno/doc/html-types";
 import { Anchor } from "./Anchor.tsx";
 
