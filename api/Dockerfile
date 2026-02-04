@@ -29,9 +29,9 @@ FROM debian:bookworm-20250428-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # copy the build artifact from the build stage
-COPY --from=build /registry_api/target/release/registry_api .
+COPY --from=build /registry_api/target/release/registry_api ./registry_api_bin
 
 ENV RUST_BACKTRACE=1
 
 # set the startup command to run your binary
-ENTRYPOINT ["./registry_api"]
+ENTRYPOINT ["./registry_api_bin"]
