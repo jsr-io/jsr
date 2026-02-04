@@ -421,12 +421,13 @@ pub struct LicenseStore(pub Arc<askalono::Store>);
 
 pub fn license_store() -> LicenseStore {
   let mut license_store = askalono::Store::new();
+  let license_path =
+    std::env::var("LICENSE_LIST_DATA_PATH").unwrap_or_else(|_| {
+      concat!(env!("CARGO_MANIFEST_DIR"), "/license-list-data").to_string()
+    });
   license_store
     .load_spdx(
-      std::path::Path::new(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/license-list-data/json/details"
-      )),
+      &std::path::Path::new(&license_path).join("json/details"),
       false,
     )
     .unwrap();
