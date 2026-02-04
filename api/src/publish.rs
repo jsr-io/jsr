@@ -32,6 +32,7 @@ use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
 use crate::tarball::process_tarball;
 use crate::util::ApiResult;
+use crate::util::LicenseStore;
 use crate::util::decode_json;
 use deno_semver::package::PackageReqReference;
 use hyper::Body;
@@ -54,6 +55,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
@@ -61,6 +63,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   publish_task(
     publishing_task_id,
     buckets,
+    license_store,
     registry_url,
     npm_url,
     db,
@@ -73,12 +76,13 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, registry_url, orama_client),
+  skip(buckets, db, license_store, registry_url, orama_client),
   err
 )]
 pub async fn publish_task(
   publish_id: Uuid,
   buckets: Buckets,
+  license_store: LicenseStore,
   registry_url: Url,
   npm_url: Url,
   db: Database,
@@ -99,6 +103,7 @@ pub async fn publish_task(
         let res = process_publishing_task(
           &db,
           &buckets,
+          &license_store,
           &orama_client,
           registry_url.clone(),
           &mut publishing_task,
@@ -162,6 +167,7 @@ pub async fn publish_task(
 async fn process_publishing_task(
   db: &Database,
   buckets: &Buckets,
+  license_store: &LicenseStore,
   orama_client: &Option<OramaClient>,
   registry_url: Url,
   publishing_task: &mut PublishingTask,
@@ -176,33 +182,40 @@ async fn process_publishing_task(
     )
     .await?;
 
-  let output =
-    match process_tarball(db, buckets, registry_url, publishing_task).await {
-      Ok(output) => output,
-      Err(err) => match err.user_error_code() {
-        Some(code) => {
-          // non retryable, fatal error
-          error!("Error processing tarball, fatal: {}", err);
-          *publishing_task = db
-            .update_publishing_task_status(
-              None,
-              publishing_task.id,
-              PublishingTaskStatus::Processing,
-              PublishingTaskStatus::Failure,
-              Some(PublishingTaskError {
-                code: code.to_owned(),
-                message: err.to_string(),
-              }),
-            )
-            .await?;
-          return Ok(());
-        }
-        None => {
-          // retryable errors
-          return Err(anyhow::Error::from(err));
-        }
-      },
-    };
+  let output = match process_tarball(
+    db,
+    buckets,
+    license_store,
+    registry_url,
+    publishing_task,
+  )
+  .await
+  {
+    Ok(output) => output,
+    Err(err) => match err.user_error_code() {
+      Some(code) => {
+        // non retryable, fatal error
+        error!("Error processing tarball, fatal: {}", err);
+        *publishing_task = db
+          .update_publishing_task_status(
+            None,
+            publishing_task.id,
+            PublishingTaskStatus::Processing,
+            PublishingTaskStatus::Failure,
+            Some(PublishingTaskError {
+              code: code.to_owned(),
+              message: err.to_string(),
+            }),
+          )
+          .await?;
+        return Ok(());
+      }
+      None => {
+        // retryable errors
+        return Err(anyhow::Error::from(err));
+      }
+    },
+  };
 
   let ProcessTarballOutput {
     file_infos,
@@ -213,6 +226,7 @@ async fn process_publishing_task(
     readme_path,
     meta,
     doc_search_json,
+    license,
   } = output;
 
   upload_version_manifest(
@@ -233,6 +247,7 @@ async fn process_publishing_task(
     &npm_tarball_info,
     readme_path,
     meta,
+    license,
   )
   .await?;
 
@@ -303,6 +318,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
   npm_tarball_info: &NpmTarballInfo,
   readme_path: Option<PackagePath>,
   meta: PackageVersionMeta,
+  license: String,
 ) -> Result<(), anyhow::Error> {
   let uses_npm = dependencies
     .iter()
@@ -317,6 +333,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
     uses_npm,
     exports: &exports,
     meta,
+    license,
   };
 
   let new_package_files = file_infos
@@ -524,6 +541,7 @@ pub mod tests {
     publish_task(
       task.0.id,
       t.buckets(),
+      t.license_store(),
       t.registry_url(),
       t.npm_url(),
       t.db(),
@@ -828,8 +846,8 @@ pub mod tests {
         serde_json::to_value(metadata_json.manifest).unwrap(),
         serde_json::json!({
             "/jsr.json": {
-                "checksum": "sha256-404be7a6cf542ac6ee2c4ba0c9d6a2101e0c0aeee42fe24739a94432646541ac",
-                "size": 74
+                "checksum": "sha256-1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5",
+                "size": 93
             },
             "/mod.ts": {
                 "checksum": "sha256-fcc96c29c74f914ed8f38c0357d07f495d79091d2baea146a1525f140736951b",
@@ -1132,6 +1150,28 @@ pub mod tests {
     let task =
       process_tarball_setup2(&t, bytes, &package_name, &version, true).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn license_file() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_file");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn no_license() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_license");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "missingLicense");
+    assert_eq!(
+      error.message,
+      "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
+    );
   }
 
   #[tokio::test]
