@@ -3,5 +3,6 @@
   "version": "1.2.3",
   "exports": {
     "": "./a.js"
-  }
+  },
+  "license": "MIT"
 }

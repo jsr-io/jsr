@@ -1,0 +1,73 @@
+name: Sync SPDX License Data
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+jobs:
+  sync-license-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Shallow clone SPDX license-list-data
+        run: |
+          git clone --depth 1 --filter=blob:none --no-checkout https://github.com/spdx/license-list-data.git spdx-temp
+
+      - name: Initialize SPDX license-list-data
+        working-directory: spdx-temp
+        run: |
+          git sparse-checkout init --cone
+          git sparse-checkout set json/details
+          git checkout main
+
+      - name: Copy license data
+        run: |
+          # Remove existing license data
+          rm -rf api/license-list-data/json/details
+
+          # Copy the new license data
+          mkdir -p api/license-list-data/json
+          cp -r spdx-temp/json/details api/license-list-data/json/
+
+          # Clean up temp directory
+          rm -rf spdx-temp
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          git add api/license-list-data/json/details
+          if git diff --cached --quiet; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.check-changes.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: |
+            feat: update SPDX license data
+
+            Automated update of SPDX license data from upstream repository.
+          title: "feat: update SPDX license data"
+          body: |
+            ## Summary
+
+            This PR updates the SPDX license data with the latest version from the upstream repository.
+
+            ### Changes
+            - Updated license data in `api/license-list-data/json/details/`
+            - Synced with latest SPDX license-list-data repository
+
+            ### Automation
+            This PR was created automatically by the monthly sync workflow.
+          branch: update-spdx-license-data
+          delete-branch: true
