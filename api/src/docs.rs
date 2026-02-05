@@ -299,6 +299,7 @@ pub enum DocsRequest {
   Symbol(ModuleSpecifier, String),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum GeneratedDocsOutput {
   Docs(GeneratedDocs),
