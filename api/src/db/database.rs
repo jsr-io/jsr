@@ -218,6 +218,7 @@ impl Database {
     Ok((total_users as usize, users))
   }
 
+  #[cfg(test)]
   #[instrument(
     name = "Database::insert_user",
     skip(self, new_user),
@@ -450,6 +451,7 @@ impl Database {
     Ok(user)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::delete_user", skip(self), err)]
   pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
     sqlx::query_as!(
@@ -1252,6 +1254,7 @@ impl Database {
     Ok((total_scopes as usize, scopes))
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::list_scopes_created_by_user", skip(self), err)]
   pub async fn list_scopes_created_by_user(
     &self,
@@ -1720,7 +1723,7 @@ impl Database {
 
     let updated = sqlx::query_as!(
       PackageVersion,
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id,
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id, package_versions.license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -1872,7 +1875,7 @@ impl Database {
     name: &PackageName,
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
     sqlx::query!(
-      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id",
+      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id", package_versions.license as "package_version_license",
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -1909,6 +1912,7 @@ impl Database {
           updated_at: r.package_version_updated_at,
           created_at: r.package_version_created_at,
           rekor_log_id: r.package_version_rekor_log_id,
+          license: r.package_version_license,
         };
 
         let user = if r.package_version_user_id.is_some() {
@@ -2000,7 +2004,7 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2061,7 +2065,7 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2102,8 +2106,8 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     sqlx::query!(
-      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta, license)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -2112,6 +2116,7 @@ impl Database {
       new_package_version.exports as _,
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
+      new_package_version.license as _,
     )
       .execute(&mut *tx)
       .await?;
@@ -2177,6 +2182,7 @@ impl Database {
     Ok(task)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::create_package_version_for_test", skip(
     self,
     new_package_version
@@ -2190,7 +2196,7 @@ impl Database {
       PackageVersion,
       r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2247,7 +2253,7 @@ impl Database {
       r#"UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2311,28 +2317,6 @@ impl Database {
     Ok(())
   }
 
-  #[instrument(name = "Database::get_package_file", skip(self), err)]
-  pub async fn get_package_file(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-    path: &PackagePath,
-  ) -> Result<Option<PackageFile>> {
-    sqlx::query_as!(
-      PackageFile,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at
-      FROM package_files
-      WHERE scope = $1 AND name = $2 AND version = $3 AND path = $4"#,
-      scope as _,
-      name as _,
-      version as _,
-      path as _
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
   #[instrument(name = "Database::list_package_files", skip(self), err)]
   pub async fn list_package_files(
     &self,
@@ -2353,6 +2337,7 @@ impl Database {
       .await
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::create_package_file_for_test", skip(
     self,
     new_package_file
@@ -2373,32 +2358,6 @@ impl Database {
       new_package_file.path as _,
       new_package_file.size,
       new_package_file.checksum
-    )
-      .fetch_one(&self.pool)
-      .await
-  }
-
-  #[instrument(
-    name = "Database::create_package_version_dependency",
-    skip(self, new_package_version_dependency),
-    err
-  )]
-  pub async fn create_package_version_dependency_for_test(
-    &self,
-    new_package_version_dependency: NewPackageVersionDependency<'_>,
-  ) -> Result<PackageVersionDependency> {
-    sqlx::query_as!(
-      PackageVersionDependency,
-      r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at"#,
-      new_package_version_dependency.package_scope as _,
-      new_package_version_dependency.package_name as _,
-      new_package_version_dependency.package_version as _,
-      new_package_version_dependency.dependency_kind as _,
-      new_package_version_dependency.dependency_name as _,
-      new_package_version_dependency.dependency_constraint as _,
-      new_package_version_dependency.dependency_path as _
     )
       .fetch_one(&self.pool)
       .await
@@ -2548,6 +2507,7 @@ impl Database {
     Ok(scope_invite)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_user_to_scope", skip(
     self,
     new_scope_member
@@ -3819,6 +3779,7 @@ impl Database {
     Ok(res.is_some())
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_bad_word_for_test", skip(self), err)]
   pub async fn add_bad_word_for_test(&self, word: &str) -> Result<()> {
     sqlx::query!("INSERT INTO bad_words (word) VALUES ($1)", word)
@@ -3828,37 +3789,7 @@ impl Database {
     Ok(())
   }
 
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
-  pub async fn get_latest_npm_tarball_for_version(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-  ) -> Result<Option<NpmTarball>> {
-    sqlx::query_as!(
-      NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
-      FROM npm_tarballs
-      WHERE scope = $1 AND name = $2 AND version = $3
-      ORDER BY revision DESC
-      LIMIT 1"#,
-      scope as _,
-      name as _,
-      version as _
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
+  #[instrument(name = "Database::get_npm_tarball", skip(self), err)]
   pub async fn get_npm_tarball(
     &self,
     scope: &ScopeName,
@@ -4039,6 +3970,7 @@ impl Database {
     Ok(())
   }
 
+  #[cfg(test)]
   #[instrument(
     name = "Database::get_package_version_downloads_4h",
     skip(self),
@@ -4664,7 +4596,7 @@ impl Database {
           audit_logs
         LEFT JOIN
           users ON audit_logs.actor_id = users.id
-        WHERE 
+        WHERE
           audit_logs.meta::text LIKE $1
         ORDER BY audit_logs.created_at DESC;
         "#,

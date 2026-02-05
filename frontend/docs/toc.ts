@@ -104,6 +104,11 @@ export default [
     group: "Reference",
   },
   {
+    title: "Licenses",
+    id: "licenses",
+    group: "Reference",
+  },
+  {
     title: "Badges",
     id: "badges",
     group: "Reference",
@@ -130,7 +135,7 @@ export default [
   },
   {
     title: "Overview",
-    id: "governance/overview",
+    id: "governance",
     group: "Governance",
   },
   {

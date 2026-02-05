@@ -196,6 +196,17 @@ export function PackageHeader({
                 </a>
               </>
             )}
+            {selectedVersion?.license && (
+              <>
+                <span class="text-gray-300 dark:text-gray-600">•</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-semibold">License</span>
+                  <div>
+                    {selectedVersion.license}
+                  </div>
+                </div>
+              </>
+            )}
             {weeklyDownloads !== null && (
               <>
                 <span class="text-gray-300 dark:text-gray-600 md:hidden">

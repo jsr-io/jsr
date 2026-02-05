@@ -297,6 +297,15 @@ your package and must be named one of the following:
 Some common open source licenses can be found at
 [choosealicense.com](https://choosealicense.com/).
 
+### `invalidLicense`
+
+This error occurs when the license cannot be recognized:
+
+- If using a configuration file, ensure your `license` field contains a valid
+  [SPDX license identifier](https://spdx.org/licenses/)
+- If using a license file, ensure it contains recognizable license text with
+  standard formatting
+
 ## Excluded module error
 
 After filtering files, you may encounter an `excluded-module` error saying that
