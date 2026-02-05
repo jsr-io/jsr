@@ -2721,7 +2721,7 @@ impl Database {
       WebhookEventKind::ScopeMemberAdded,
       WebhookPayload::ScopeMemberAdded {
         scope: scope.clone(),
-        user_id: target_user_id.clone(),
+        user_id: *target_user_id,
       },
     )
     .await?;
@@ -3053,7 +3053,7 @@ impl Database {
 
     let webhook_deliveries = insert_webhook_event(
       &mut tx,
-      &scope,
+      scope,
       None,
       WebhookEventKind::ScopeMemberRemoved,
       WebhookPayload::ScopeMemberRemoved {
@@ -3528,7 +3528,7 @@ impl Database {
         scope: task.package_scope.clone(),
         package: task.package_name.clone(),
         version: task.package_version.clone(),
-        user_id: task.user_id.clone(),
+        user_id: task.user_id,
       },
     )
     .await?;

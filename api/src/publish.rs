@@ -78,9 +78,17 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, license_store, registry_url, webhook_dispatch_queue, orama_client),
+  skip(
+    buckets,
+    db,
+    license_store,
+    registry_url,
+    webhook_dispatch_queue,
+    orama_client
+  ),
   err
 )]
 pub async fn publish_task(
