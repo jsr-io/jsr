@@ -2,7 +2,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { Builder } from "fresh/dev";
-import { tailwind } from "@fresh/plugin-tailwind";
+import { tailwind } from "@fresh/plugin-tailwind-v3";
 import { CSS } from "@deno/gfm";
 
 const builder = new Builder();
