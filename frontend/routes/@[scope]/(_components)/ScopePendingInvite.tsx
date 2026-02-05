@@ -13,7 +13,7 @@ export function ScopePendingInvite(props: ScopePendingInviteProps) {
 
   return (
     <form
-      class="mt-8 flex items-center justify-between p-4 bg-jsr-yellow-300 border-jsr-yellow-500 dark:bg-jsr-yellow-900 dark:border-jsr-yellow-700 border rounded flex-row gap-4"
+      class="mt-8 flex items-center justify-between p-4 bg-jsr-yellow-300 border-jsr-yellow-500 dark:bg-jsr-yellow-900 dark:border-jsr-yellow-700 border rounded-sm flex-row gap-4"
       action={`/@${props.scope}`}
       method="POST"
     >

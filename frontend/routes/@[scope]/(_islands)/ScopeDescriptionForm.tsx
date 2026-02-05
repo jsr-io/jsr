@@ -57,7 +57,7 @@ export function ScopeDescriptionForm(
     return (
       <div class="mt-2 space-y-2">
         <textarea
-          class="w-full p-2 border rounded input"
+          class="w-full p-2 border rounded-sm input"
           value={editedDescription}
           onInput={(e) => editedDescription.value = e.currentTarget.value}
           placeholder="Enter a description for the scope"
@@ -91,12 +91,12 @@ export function ScopeDescriptionForm(
 
   return (
     <div class="mt-2 flex items-start gap-2">
-      <p class="text-secondary max-w-2xl flex-grow">
+      <p class="text-secondary max-w-2xl grow">
         {scope.value.description || <i>No description provided.</i>}
       </p>
       <button
         type="button"
-        class="button-primary flex-shrink-0"
+        class="button-primary shrink-0"
         onClick={() => isEditing.value = true}
         aria-label="Edit description"
       >
