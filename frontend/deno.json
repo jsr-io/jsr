@@ -23,7 +23,7 @@
 
     "preact": "npm:preact@^10",
     "preact-render-to-string": "npm:preact-render-to-string@6.3.1",
-    "@preact/signals": "npm:@preact/signals@1.2.1",
+    "@preact/signals": "npm:@preact/signals@2.7.0",
 
     "@std/path": "jsr:@std/path@1",
     "@std/http": "jsr:@std/http@1",
