@@ -415,6 +415,24 @@ impl RequestIdExt for Request<Body> {
   }
 }
 
+#[derive(Clone)]
+pub struct LicenseStore(pub Arc<askalono::Store>);
+
+pub fn license_store() -> LicenseStore {
+  let mut license_store = askalono::Store::new();
+  let license_path =
+    std::env::var("LICENSE_LIST_DATA_PATH").unwrap_or_else(|_| {
+      concat!(env!("CARGO_MANIFEST_DIR"), "/license-list-data").to_string()
+    });
+  license_store
+    .load_spdx(
+      &std::path::Path::new(&license_path).join("json/details"),
+      false,
+    )
+    .unwrap();
+  LicenseStore(Arc::new(license_store))
+}
+
 #[cfg(test)]
 pub mod test {
   use crate::ApiError;
@@ -428,7 +446,7 @@ pub mod test {
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
   use crate::ids::ScopeDescription;
-  use crate::util::sanitize_redirect_url;
+  use crate::util::{LicenseStore, sanitize_redirect_url};
   use hyper::Body;
   use hyper::HeaderMap;
   use hyper::Response;
@@ -454,6 +472,7 @@ pub mod test {
     #[allow(dead_code)]
     pub gcs: FakeGcsTester,
     pub buckets: Buckets,
+    pub license_store: LicenseStore,
     pub user1: TestUser,
     pub user2: TestUser,
     pub user3: TestUser,
@@ -575,12 +594,15 @@ pub mod test {
 
       db.add_bad_word_for_test("somebadword").await.unwrap();
 
+      let license_store = super::license_store();
+
       let router = crate::main_router(MainRouterOptions {
         database: db,
         buckets: buckets.clone(),
         github_client: github_oauth2_client.clone(),
         orama_client: None,
         email_sender: None,
+        license_store: license_store.clone(),
         registry_url: "http://jsr-tests.test".parse().unwrap(),
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
@@ -600,6 +622,7 @@ pub mod test {
         ephemeral_database,
         gcs,
         buckets,
+        license_store,
         user1,
         user2,
         user3,
@@ -651,6 +674,10 @@ pub mod test {
 
     pub fn buckets(&self) -> Buckets {
       self.buckets.clone()
+    }
+
+    pub fn license_store(&self) -> LicenseStore {
+      self.license_store.clone()
     }
 
     pub fn registry_url(&self) -> Url {
