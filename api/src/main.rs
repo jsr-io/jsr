@@ -66,6 +66,7 @@ pub struct MainRouterOptions {
   github_client: GithubOauth2Client,
   orama_client: Option<OramaClient>,
   email_sender: Option<EmailSender>,
+  license_store: util::LicenseStore,
   registry_url: Url,
   npm_url: Url,
   publish_queue: Option<Queue>,
@@ -88,6 +89,7 @@ pub(crate) fn main_router(
     buckets,
     github_client,
     orama_client,
+    license_store,
     email_sender,
     registry_url,
     npm_url,
@@ -105,6 +107,7 @@ pub(crate) fn main_router(
     .data(github_client)
     .data(orama_client)
     .data(email_sender)
+    .data(license_store)
     .data(RegistryUrl(registry_url))
     .data(NpmUrl(npm_url))
     .data(PublishQueue(publish_queue))
@@ -266,12 +269,15 @@ async fn main() {
     )
   });
 
+  let license_store = util::license_store();
+
   let router = main_router(MainRouterOptions {
     database,
     buckets,
     github_client,
     orama_client,
     email_sender,
+    license_store,
     registry_url: config.registry_url,
     npm_url: config.npm_url,
     publish_queue,
