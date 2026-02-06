@@ -1226,6 +1226,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /scopes/{scope}/packages/{package}/versions/{version}/source:
+    get:
+      summary: Get package version source
+      description: Returns the rendered source code of a file or a directory listing for a package version
+      operationId: getPackageVersionSource
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package (or "latest")
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          description: The file path to retrieve. Defaults to "/" (root directory listing).
+          required: false
+          schema:
+            type: string
+            default: /
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageVersionSource"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version or path not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /scopes/{scope}/packages/{package}/versions/{version}/docs:
     get:
       summary: Get package version documentation
@@ -1328,6 +1379,91 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/docs/search_structured:
+    get:
+      summary: Get structured documentation search index
+      description: Returns the structured search index (all symbols) for a package version's documentation. This is a SymbolContentCtx from deno_doc.
+      operationId: getPackageVersionDocsSearchStructured
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package (or "latest")
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Structured symbol content for all symbols in the package version
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/publishing_tasks:
+    get:
+      summary: List package publishing tasks
+      description: Returns a list of publishing tasks for a package. Requires write access to the scope.
+      operationId: listPackagePublishingTasks
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublishingTask"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User does not have write access to the scope
           content:
             application/json:
               schema:
@@ -2335,6 +2471,9 @@ components:
     GitHubRepository:
       type: object
       properties:
+        id:
+          type: integer
+          description: The GitHub repository ID.
         owner:
           type: string
           description: The GitHub user / organization of the repository.
@@ -2343,6 +2482,20 @@ components:
           type: string
           description: The GitHub repository name.
           example: deno
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the GitHub repository link was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the GitHub repository link was last updated.
+      required:
+        - id
+        - owner
+        - name
+        - createdAt
+        - updatedAt
 
     PackageName:
       type: string
@@ -2723,6 +2876,7 @@ components:
           description: The authorization code.
         permissions:
           type: array
+          nullable: true
           description: The permissions that the token will have.
           items:
             $ref: "#/components/schemas/Permission"
@@ -2732,7 +2886,6 @@ components:
           description: The date and time until which the authorization can be approved / exchanged.
       required:
         - code
-        - permissions
         - expiresAt
 
     Permission:
@@ -2908,6 +3061,7 @@ components:
         - hasDescription
         - atLeastOneRuntimeCompatible
         - multipleRuntimesCompatible
+        - total
 
     TokenType:
       type: string
@@ -3263,16 +3417,19 @@ components:
               type: string
               description: JavaScript for the documentation.
             breadcrumbs:
-              type: string
+              type: object
               nullable: true
-              description: HTML for breadcrumb navigation.
+              description: Breadcrumb navigation context. Structure defined by deno_doc's BreadcrumbsCtx.
             toc:
-              type: string
+              type: object
               nullable: true
-              description: HTML for table of contents.
+              description: Table of contents context. Structure defined by deno_doc's ToCCtx.
             main:
-              type: string
-              description: HTML for the main documentation content.
+              type: object
+              description: >-
+                The main documentation content. A tagged union with "kind" and "value" fields.
+                Kind is one of "allSymbols", "file", "index", or "symbol".
+                Structure defined by deno_doc types.
           required:
             - kind
             - version
@@ -3291,6 +3448,77 @@ components:
           required:
             - kind
             - symbol
+
+    PackageVersionSource:
+      type: object
+      properties:
+        version:
+          $ref: "#/components/schemas/PackageVersion"
+        css:
+          type: string
+          description: CSS for styling the source view.
+        comrakCss:
+          type: string
+          description: CSS for comrak markdown rendering.
+        script:
+          type: string
+          description: JavaScript for the source view.
+        source:
+          $ref: "#/components/schemas/Source"
+      required:
+        - version
+        - css
+        - comrakCss
+        - script
+        - source
+
+    Source:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["dir"]
+            entries:
+              type: array
+              items:
+                $ref: "#/components/schemas/SourceDirEntry"
+          required:
+            - kind
+            - entries
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["file"]
+            size:
+              type: integer
+              description: Size of the file in bytes.
+            view:
+              type: string
+              nullable: true
+              description: HTML-rendered source code view. Null for binary files.
+          required:
+            - kind
+            - size
+
+    SourceDirEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the file or directory.
+        size:
+          type: integer
+          description: Size in bytes.
+        kind:
+          type: string
+          enum: ["dir", "file"]
+          description: Whether this entry is a directory or file.
+      required:
+        - name
+        - size
+        - kind
 
     ProvenanceStatementRequest:
       type: object
