@@ -10,4 +10,4 @@ RUN deno install --allow-import -e main.ts
 
 RUN timeout 2s deno run -A --cached-only main.ts || true
 
-CMD ["run", "-A", "--cached-only", "main.ts"]
+CMD ["task", "start"]

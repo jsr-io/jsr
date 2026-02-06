@@ -5,7 +5,7 @@
     "dev": "deno run --env-file -A --watch=static/,routes/ dev.ts",
     "test": "deno test",
     "build": "deno run -A dev.ts build",
-    "start": "deno run -A main.ts",
+    "start": "deno serve -A _fresh/server.js",
     "update": "deno run -A -r jsr:@fresh/update ."
   },
   "lint": {

@@ -6,7 +6,3 @@ export const app = new App<State>()
   .use(trailingSlashes("never"))
   .use(staticFiles())
   .fsRoutes();
-
-if (import.meta.main) {
-  await app.listen({ port: Number(Deno.env.get("PORT") ?? 8080) });
-}
