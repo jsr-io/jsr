@@ -350,6 +350,10 @@ fn all_entrypoints_have_module_doc(
   has_readme: bool,
 ) -> bool {
   'modules: for (specifier, nodes) in doc_nodes_by_url {
+    // Skip WASM modules as their docs are auto-generated from binary
+    if specifier.path().ends_with(".wasm") {
+      continue;
+    }
     for node in nodes {
       if matches!(node.def, DocNodeDef::ModuleDoc) {
         continue 'modules;
@@ -374,7 +378,12 @@ fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
   let mut total_symbols = 0;
   let mut documented_symbols = 0;
 
-  for (_specifier, nodes) in doc_nodes_by_url {
+  for (specifier, nodes) in doc_nodes_by_url {
+    // Skip WASM modules as their docs are auto-generated from binary
+    if specifier.path().ends_with(".wasm") {
+      continue;
+    }
+
     for node in nodes {
       if matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
         || node.declaration_kind == deno_doc::node::DeclarationKind::Private
