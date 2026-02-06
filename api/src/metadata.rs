@@ -173,7 +173,10 @@ fn is_false(b: &bool) -> bool {
 mod tests {
   use super::*;
 
-  fn base_json(module_graph_key: &str, graph_value: serde_json::Value) -> serde_json::Value {
+  fn base_json(
+    module_graph_key: &str,
+    graph_value: serde_json::Value,
+  ) -> serde_json::Value {
     serde_json::json!({
       "manifest": {
         "/mod.ts": { "size": 100, "checksum": "sha256-abc" }
