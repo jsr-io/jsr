@@ -2988,7 +2988,11 @@ components:
 
     TicketKind:
       type: string
-      enum: ["user_scope_quota_increase", "scope_package_quota_increase", "other"]
+      enum: [
+        "user_scope_quota_increase",
+        "scope_package_quota_increase",
+        "other",
+      ]
       description: The kind of support ticket.
 
     Ticket:
