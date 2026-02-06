@@ -80,6 +80,7 @@ thiserror = "2"
 async-tar = "0.4.2"
 deno_graph = "=0.107.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
+# sync with frontend/deno.json
 deno_doc = { version = "=0.191.0", features = ["comrak"] }
 deno_error = "0.7.0"
 comrak = { version = "0.29.0", default-features = false }

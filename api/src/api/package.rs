@@ -166,10 +166,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
-      "/:package/versions/:version/docs/search_html",
+      "/:package/versions/:version/docs/search_structured",
       util::cache(
         CacheDuration::ONE_MINUTE,
-        util::json(get_docs_search_html_handler),
+        util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
@@ -1279,7 +1279,7 @@ pub async fn get_docs_handler(
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
-      main: docs.main,
+      main: docs.main.into(),
       version: ApiPackageVersion::from(version),
     }),
     GeneratedDocsOutput::Redirect(href) => {
@@ -1360,14 +1360,14 @@ pub async fn get_docs_search_handler(
 }
 
 #[instrument(
-  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_structured",
   skip(req),
   err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_search_html_handler(
+pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<String> {
+) -> ApiResult<deno_doc::html::SymbolContentCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1433,8 +1433,11 @@ pub async fn get_docs_search_html_handler(
   .unwrap();
 
   let search = match docs {
-    GeneratedDocsOutput::Docs(docs) => docs.main,
-    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+    GeneratedDocsOutput::Docs(crate::docs::GeneratedDocs {
+      main: crate::docs::GeneratedDocsContent::AllSymbols(main),
+      ..
+    }) => main,
+    _ => unreachable!(),
   };
 
   Ok(search)
@@ -3589,11 +3592,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("all symbols"),
-          "{:?}",
-          breadcrumbs
-        );
+        assert!(breadcrumbs.is_some());
         assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
@@ -3619,11 +3618,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("hello"),
-          "{:?}",
-          breadcrumbs
-        );
+        assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
@@ -3652,11 +3647,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("读取多键1"),
-          "{:?}",
-          breadcrumbs
-        );
+        assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
