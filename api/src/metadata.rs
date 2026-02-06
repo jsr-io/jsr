@@ -133,7 +133,11 @@ impl<'de> Deserialize<'de> for VersionMetadata {
     if !obj.contains_key("moduleGraph2")
       && let Some(mut module_graph_1) = obj.remove("moduleGraph1")
     {
-      deno_graph::analysis::module_graph_1_to_2(&mut module_graph_1);
+      if let Some(graph_obj) = module_graph_1.as_object_mut() {
+        for module_info in graph_obj.values_mut() {
+          deno_graph::analysis::module_graph_1_to_2(module_info);
+        }
+      }
       obj.insert("moduleGraph2".to_string(), module_graph_1);
     }
 
@@ -163,4 +167,88 @@ pub struct ManifestEntry {
 
 fn is_false(b: &bool) -> bool {
   !b
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn base_json(module_graph_key: &str, graph_value: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+      "manifest": {
+        "/mod.ts": { "size": 100, "checksum": "sha256-abc" }
+      },
+      module_graph_key: graph_value,
+      "exports": { ".": "./mod.ts" }
+    })
+  }
+
+  fn simple_graph() -> serde_json::Value {
+    serde_json::json!({
+      "/mod.ts": {
+        "dependencies": [{
+          "type": "static",
+          "kind": "import",
+          "specifier": "./dep.ts",
+          "specifierRange": [[1, 0], [1, 10]]
+        }]
+      }
+    })
+  }
+
+  #[test]
+  fn deserialize_module_graph_2() {
+    let json = base_json("moduleGraph2", simple_graph());
+    let meta: VersionMetadata = serde_json::from_value(json).unwrap();
+    assert!(meta.module_graph_2.contains_key("/mod.ts"));
+    assert_eq!(meta.module_graph_2["/mod.ts"].dependencies.len(), 1);
+  }
+
+  #[test]
+  fn deserialize_module_graph_1_converts_to_2() {
+    let graph = serde_json::json!({
+      "/mod.ts": {
+        "dependencies": [{
+          "type": "static",
+          "kind": "import",
+          "specifier": "./a.js",
+          "specifierRange": [[1, 0], [1, 10]],
+          "leadingComments": [{
+            "text": " @deno-types=\"./a.d.ts\"",
+            "range": [[0, 0], [0, 25]]
+          }]
+        }]
+      }
+    });
+    let json = base_json("moduleGraph1", graph);
+    let meta: VersionMetadata = serde_json::from_value(json).unwrap();
+    assert!(meta.module_graph_2.contains_key("/mod.ts"));
+    let dep = &meta.module_graph_2["/mod.ts"].dependencies[0];
+    // After conversion, leadingComments should be gone and
+    // typesSpecifier should be populated instead.
+    let static_dep = dep.as_static().expect("expected static dependency");
+    assert!(static_dep.types_specifier.is_some());
+  }
+
+  #[test]
+  fn deserialize_module_graph_2_takes_precedence_over_1() {
+    let mut json = base_json("moduleGraph2", simple_graph());
+    // Also inject a moduleGraph1 key — it should be ignored.
+    json.as_object_mut().unwrap().insert(
+      "moduleGraph1".to_string(),
+      serde_json::json!({ "/ignored.ts": {} }),
+    );
+    let meta: VersionMetadata = serde_json::from_value(json).unwrap();
+    assert!(meta.module_graph_2.contains_key("/mod.ts"));
+    assert!(!meta.module_graph_2.contains_key("/ignored.ts"));
+  }
+
+  #[test]
+  fn serialize_always_uses_module_graph_2() {
+    let json = base_json("moduleGraph2", simple_graph());
+    let meta: VersionMetadata = serde_json::from_value(json).unwrap();
+    let serialized = serde_json::to_value(&meta).unwrap();
+    assert!(serialized.get("moduleGraph2").is_some());
+    assert!(serialized.get("moduleGraph1").is_none());
+  }
 }
