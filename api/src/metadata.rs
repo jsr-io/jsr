@@ -111,12 +111,48 @@ pub struct PackageMetadataVersion {
 /// }
 /// ```
 /// See also [`gcs_paths::version_metadata`]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionMetadata {
   pub manifest: HashMap<PackagePath, ManifestEntry>,
   pub module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
   pub exports: IndexMap<String, String>,
+}
+
+impl<'de> Deserialize<'de> for VersionMetadata {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: serde::Deserializer<'de>,
+  {
+    let mut value = serde_json::Value::deserialize(deserializer)
+      .map_err(serde::de::Error::custom)?;
+    let obj = value
+      .as_object_mut()
+      .ok_or_else(|| serde::de::Error::custom("expected object"))?;
+
+    if !obj.contains_key("moduleGraph2")
+      && let Some(mut module_graph_1) = obj.remove("moduleGraph1")
+    {
+      deno_graph::analysis::module_graph_1_to_2(&mut module_graph_1);
+      obj.insert("moduleGraph2".to_string(), module_graph_1);
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Inner {
+      manifest: HashMap<PackagePath, ManifestEntry>,
+      module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
+      exports: IndexMap<String, String>,
+    }
+
+    let inner: Inner =
+      serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+    Ok(VersionMetadata {
+      manifest: inner.manifest,
+      module_graph_2: inner.module_graph_2,
+      exports: inner.exports,
+    })
+  }
 }
 
 #[derive(Serialize, Deserialize)]
