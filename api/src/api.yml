@@ -45,7 +45,7 @@ paths:
   /scopes/{scope}:
     get:
       summary: Get scope details
-      description: Returns details of a scope
+      description: Returns details of a scope. Returns full scope information (including quotas and settings) if the user is a scope member.
       operationId: getScope
       parameters:
         - name: scope
@@ -60,15 +60,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Scope"
+                oneOf:
+                  - $ref: "#/components/schemas/Scope"
+                  - $ref: "#/components/schemas/FullScope"
         "400":
           description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Unauthorized
           content:
             application/json:
               schema:
@@ -868,7 +864,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/PackageVersion"
+                  $ref: "#/components/schemas/PackageVersionWithUser"
         "400":
           description: Invalid request
           content:
@@ -993,7 +989,7 @@ paths:
 
     patch:
       summary: Update package version
-      description: Updates the details of a package version
+      description: Updates the details of a package version (e.g., yank/unyank)
       operationId: updatePackageVersion
       parameters:
         - name: scope
@@ -1022,32 +1018,79 @@ paths:
             schema:
               $ref: "#/components/schemas/UpdatePackageVersionRequest"
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PackageVersion"
+        "204":
+          description: OK, no content
         "400":
-          description: Invalid request / Package version already exists
+          description: Invalid request
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "401":
-          description: Unauthorized / User is not a scope member
+          description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: User is not a scope member
+          description: User is not a scope admin
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: Package not found
+          description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete package version
+      description: Deletes a package version. Only allowed for versions published in the last 24 hours with no dependents.
+      operationId: deletePackageVersion
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+      responses:
+        "204":
+          description: OK, no content
+        "400":
+          description: Invalid request / Version has dependents / Version too old
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a scope admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version not found
           content:
             application/json:
               schema:
@@ -1099,6 +1142,386 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /scopes/{scope}/packages/{package}/versions/{version}/dependencies/graph:
+    get:
+      summary: Get the dependency graph of a package version
+      description: Returns the full dependency graph of a package version
+      operationId: getDependencyGraph
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DependencyGraphItem"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/downloads:
+    get:
+      summary: Get package downloads
+      description: Returns download statistics for a package over the last 90 days
+      operationId: getPackageDownloads
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageDownloads"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/source:
+    get:
+      summary: Get package version source
+      description: Returns the rendered source code of a file or a directory listing for a package version
+      operationId: getPackageVersionSource
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package (or "latest")
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          description: The file path to retrieve. Defaults to "/" (root directory listing).
+          required: false
+          schema:
+            type: string
+            default: /
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageVersionSource"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version or path not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/docs:
+    get:
+      summary: Get package version documentation
+      description: Returns the generated documentation for a package version
+      operationId: getPackageVersionDocs
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package (or "latest")
+          required: true
+          schema:
+            type: string
+        - name: all_symbols
+          in: query
+          description: If present, returns documentation for all symbols
+          required: false
+          schema:
+            type: boolean
+        - name: entrypoint
+          in: query
+          description: The entrypoint to get documentation for
+          required: false
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          description: The symbol to get documentation for
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageVersionDocs"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version or symbol not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/docs/search:
+    get:
+      summary: Get package version documentation search index
+      description: Returns the search index for a package version's documentation
+      operationId: getPackageVersionDocsSearch
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package (or "latest")
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Search index for documentation
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/docs/search_structured:
+    get:
+      summary: Get structured documentation search index
+      description: Returns the structured search index (all symbols) for a package version's documentation. This is a SymbolContentCtx from deno_doc.
+      operationId: getPackageVersionDocsSearchStructured
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package (or "latest")
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Structured symbol content for all symbols in the package version
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Package version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/publishing_tasks:
+    get:
+      summary: List package publishing tasks
+      description: Returns a list of publishing tasks for a package. Requires write access to the scope.
+      operationId: listPackagePublishingTasks
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublishingTask"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User does not have write access to the scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /scopes/{scope}/packages/{package}/versions/{version}/provenance:
+    post:
+      summary: Upload provenance statement
+      description: Uploads a provenance statement for a package version
+      operationId: uploadProvenance
+      parameters:
+        - name: scope
+          in: path
+          description: The name of the scope
+          required: true
+          schema:
+            $ref: "#/components/schemas/ScopeName"
+        - name: package
+          in: path
+          description: The name of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/PackageName"
+        - name: version
+          in: path
+          description: The version of the package
+          required: true
+          schema:
+            $ref: "#/components/schemas/Version"
+      requestBody:
+        description: Provenance bundle
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvenanceStatementRequest"
+      responses:
+        "204":
+          description: OK, no content
+        "400":
+          description: Invalid request / Invalid provenance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not authorized to publish
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /user:
     get:
       summary: Get authenticated user's details
@@ -1110,7 +1533,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/FullUser"
         "401":
           description: Unauthorized
           content:
@@ -1299,6 +1722,228 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /user/tokens:
+    get:
+      summary: List personal access tokens
+      description: Returns a list of tokens for the authenticated user
+      operationId: listTokens
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Token"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Create personal access token
+      description: Creates a new personal access token for the authenticated user
+      operationId: createToken
+      requestBody:
+        description: Token properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedToken"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Token type does not allow creating tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/tokens/{id}:
+    delete:
+      summary: Delete personal access token
+      description: Deletes a personal access token
+      operationId: deleteToken
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the token
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: OK, no content
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Token type does not allow deleting tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Token not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/tickets:
+    get:
+      summary: List authenticated user's tickets
+      description: Returns a list of support tickets created by the authenticated user
+      operationId: listSelfUserTickets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /tickets:
+    post:
+      summary: Create support ticket
+      description: Creates a new support ticket
+      operationId: createTicket
+      requestBody:
+        description: Ticket properties
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /tickets/{id}:
+    get:
+      summary: Get ticket details
+      description: Returns details of a support ticket
+      operationId: getTicket
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the ticket
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketOverview"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Add message to ticket
+      description: Adds a message to a support ticket
+      operationId: addTicketMessage
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the ticket
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Message content
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketMessageRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketMessage"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /authorizations:
     post:
       summary: Create authorization
@@ -1471,6 +2116,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/Stats"
 
+  /metrics:
+    get:
+      summary: Get metrics
+      description: Returns metrics about the registry (package counts, user counts, etc.)
+      operationId: getMetrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metrics"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1498,15 +2156,42 @@ components:
 
     ScopeName:
       type: string
-      pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
       description: The name of a scope. This must not be @ prefixed.
       example: denoland
 
     Scope:
       type: object
+      description: Partial scope information.
       properties:
         scope:
           $ref: "#/components/schemas/ScopeName"
+        description:
+          type: string
+          description: The description of the scope.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the scope was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the scope was last updated.
+      required:
+        - scope
+        - description
+        - createdAt
+        - updatedAt
+
+    FullScope:
+      type: object
+      description: Full scope information (includes quotas and settings).
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        description:
+          type: string
+          description: The description of the scope.
         creator:
           $ref: "#/components/schemas/User"
         quotas:
@@ -1552,6 +2237,11 @@ components:
           description: The date and time when the scope was last updated.
       required:
         - scope
+        - description
+        - creator
+        - quotas
+        - ghActionsVerifyActor
+        - requirePublishingFromCI
         - createdAt
         - updatedAt
 
@@ -1563,9 +2253,9 @@ components:
         description:
           type: string
           description: The description of the scope.
-
       required:
-        - name
+        - scope
+        - description
 
     UpdateScopeRequest:
       oneOf:
@@ -1583,6 +2273,14 @@ components:
               description: Whether to require publishing from a CI environment. This disables publishing from a local environment.
           required:
             - requirePublishingFromCI
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+              description: The description of the scope.
+          required:
+            - description
 
     ScopeMember:
       type: object
@@ -1618,7 +2316,7 @@ components:
           allOf:
             - $ref: "#/components/schemas/User"
             - description: The user that the invite is for.
-        inviter:
+        requestingUser:
           allOf:
             - $ref: "#/components/schemas/User"
             - description: The user that sent the invite.
@@ -1633,7 +2331,7 @@ components:
       required:
         - scope
         - targetUser
-        - inviter
+        - requestingUser
         - createdAt
         - updatedAt
 
@@ -1644,6 +2342,41 @@ components:
 
     User:
       type: object
+      description: Public user information.
+      properties:
+        id:
+          $ref: "#/components/schemas/UserId"
+        name:
+          type: string
+          description: The user's display name.
+          example: Ryan Dahl
+        avatarUrl:
+          type: string
+          description: The URL to the user's avatar.
+          example: https://avatars.githubusercontent.com/u/80?v=4
+        githubId:
+          type: integer
+          nullable: true
+          description: The user's GitHub ID.
+          example: 80
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the user profile was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the user profile was last updated.
+      required:
+        - id
+        - name
+        - avatarUrl
+        - createdAt
+        - updatedAt
+
+    FullUser:
+      type: object
+      description: Full user information (only available to the authenticated user).
       properties:
         id:
           $ref: "#/components/schemas/UserId"
@@ -1653,6 +2386,7 @@ components:
           example: Ryan Dahl
         email:
           type: string
+          nullable: true
           description: The user's email address.
           example: ry@example.com
         avatarUrl:
@@ -1661,6 +2395,7 @@ components:
           example: https://avatars.githubusercontent.com/u/80?v=4
         githubId:
           type: integer
+          nullable: true
           description: The user's GitHub ID.
           example: 80
         isBlocked:
@@ -1681,6 +2416,9 @@ components:
           type: integer
           description: The number of invites pending for the user.
           example: 3
+        newerTicketMessagesCount:
+          type: integer
+          description: The number of unread ticket messages.
         createdAt:
           type: string
           format: date-time
@@ -1693,18 +2431,33 @@ components:
         - id
         - name
         - avatarUrl
+        - isBlocked
+        - isStaff
+        - scopeUsage
+        - scopeLimit
+        - inviteCount
+        - newerTicketMessagesCount
         - createdAt
         - updatedAt
 
     AddScopeMemberRequest:
-      type: object
-      properties:
-        githubLogin:
-          type: string
-          description: The GitHub login of the user to add to the scope.
-          example: ry
-      required:
-        - githubLogin
+      oneOf:
+        - type: object
+          properties:
+            githubLogin:
+              type: string
+              description: The GitHub login of the user to add to the scope.
+              example: ry
+          required:
+            - githubLogin
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: The ID of the user to add to the scope.
+          required:
+            - id
 
     UpdateScopeMemberRequest:
       type: object
@@ -1718,6 +2471,9 @@ components:
     GitHubRepository:
       type: object
       properties:
+        id:
+          type: integer
+          description: The GitHub repository ID.
         owner:
           type: string
           description: The GitHub user / organization of the repository.
@@ -1726,10 +2482,24 @@ components:
           type: string
           description: The GitHub repository name.
           example: deno
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the GitHub repository link was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the GitHub repository link was last updated.
+      required:
+        - id
+        - owner
+        - name
+        - createdAt
+        - updatedAt
 
     PackageName:
       type: string
-      pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
       description: The name of a package.
       example: fmt
 
@@ -1757,13 +2527,45 @@ components:
         githubRepository:
           $ref: "#/components/schemas/GitHubRepository"
         score:
-          type: number
+          type: integer
+          nullable: true
+          description: The package score percentage (0-100).
+        versionCount:
+          type: integer
+          description: The number of versions of the package.
+        dependencyCount:
+          type: integer
+          description: The number of dependencies of the package.
+        dependentCount:
+          type: integer
+          description: The number of packages that depend on this package.
+        latestVersion:
+          type: string
+          nullable: true
+          description: The latest version of the package.
+        whenFeatured:
+          type: string
+          format: date-time
+          nullable: true
+          description: The date and time when the package was featured.
+        isArchived:
+          type: boolean
+          description: Whether the package is archived.
+        readmeSource:
+          type: string
+          enum: ["readme", "jsdoc"]
+          description: The source of the package readme.
       required:
         - scope
         - name
         - description
         - createdAt
         - updatedAt
+        - versionCount
+        - dependencyCount
+        - dependentCount
+        - isArchived
+        - readmeSource
 
     CreatePackageRequest:
       type: object
@@ -1793,13 +2595,13 @@ components:
                   type: string
                   description: The GitHub user / organization of the repository.
                   example: denoland
-                repo:
+                name:
                   type: string
                   description: The GitHub repository name.
                   example: deno
               required:
                 - owner
-                - repo
+                - name
           required:
             - githubRepository
         - type: object
@@ -1815,6 +2617,21 @@ components:
               description: Whether this package should be archived or not.
           required:
             - isArchived
+        - type: object
+          properties:
+            isFeatured:
+              type: boolean
+              description: Whether this package should be featured or not (staff only).
+          required:
+            - isFeatured
+        - type: object
+          properties:
+            readmeSource:
+              type: string
+              enum: ["readme", "jsdoc"]
+              description: The source of the package readme.
+          required:
+            - readmeSource
 
     RuntimeCompat:
       type: object
@@ -1850,7 +2667,7 @@ components:
       properties:
         scope:
           $ref: "#/components/schemas/ScopeName"
-        name:
+        package:
           $ref: "#/components/schemas/PackageName"
         versions:
           type: array
@@ -1861,8 +2678,8 @@ components:
           description: The total number of versions of the package.
       required:
         - scope
-        - name
-        - version
+        - package
+        - versions
         - totalVersions
 
     PackageVersion:
@@ -1877,6 +2694,27 @@ components:
         yanked:
           type: boolean
           description: Whether the version has been yanked.
+        usesNpm:
+          type: boolean
+          description: Whether the version uses npm dependencies.
+        newerVersionsCount:
+          type: integer
+          description: The number of newer versions.
+        lifetimeDownloadCount:
+          type: integer
+          description: The total number of downloads for this version.
+        rekorLogId:
+          type: string
+          nullable: true
+          description: Rekor log ID for the published package version.
+        license:
+          type: string
+          nullable: true
+          description: The license of the package version.
+        readmePath:
+          type: string
+          nullable: true
+          description: The path to the readme file in the package.
         createdAt:
           type: string
           format: date-time
@@ -1885,15 +2723,14 @@ components:
           type: string
           format: date-time
           description: The date and time when the package version was last updated.
-        rekorLogId:
-          type: string
-          nullable: true
-          description: Rekor log ID for the published package version.
       required:
         - scope
-        - name
+        - package
         - version
         - yanked
+        - usesNpm
+        - newerVersionsCount
+        - lifetimeDownloadCount
         - createdAt
         - updatedAt
 
@@ -1905,6 +2742,58 @@ components:
           description: Whether the version is yanked or not.
       required:
         - yanked
+
+    PackageVersionWithUser:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ScopeName"
+        package:
+          $ref: "#/components/schemas/PackageName"
+        version:
+          $ref: "#/components/schemas/Version"
+        user:
+          allOf:
+            - $ref: "#/components/schemas/User"
+          description: The user who published this version. May be null if the user has been deleted.
+        yanked:
+          type: boolean
+          description: Whether the version has been yanked.
+        usesNpm:
+          type: boolean
+          description: Whether the version uses npm dependencies.
+        newerVersionsCount:
+          type: integer
+          description: The number of newer versions.
+        lifetimeDownloadCount:
+          type: integer
+          description: The total number of downloads for this version.
+        rekorLogId:
+          type: string
+          nullable: true
+          description: Rekor log ID for the published package version.
+        readmePath:
+          type: string
+          nullable: true
+          description: The path to the readme file in the package.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the package version was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the package version was last updated.
+      required:
+        - scope
+        - package
+        - version
+        - yanked
+        - usesNpm
+        - newerVersionsCount
+        - lifetimeDownloadCount
+        - createdAt
+        - updatedAt
 
     PublishingTask:
       type: object
@@ -1927,10 +2816,10 @@ components:
             message:
               type: string
               description: The error message.
-        userId:
+        user:
           allOf:
-            - $ref: "#/components/schemas/UserId"
-            - type: "null"
+            - $ref: "#/components/schemas/User"
+          description: The user who initiated the publishing task. May be null if the user has been deleted.
         packageScope:
           $ref: "#/components/schemas/ScopeName"
         packageName:
@@ -1948,8 +2837,6 @@ components:
       required:
         - id
         - status
-        - error
-        - userId
         - packageScope
         - packageName
         - packageVersion
@@ -1989,6 +2876,7 @@ components:
           description: The authorization code.
         permissions:
           type: array
+          nullable: true
           description: The permissions that the token will have.
           items:
             $ref: "#/components/schemas/Permission"
@@ -1998,7 +2886,6 @@ components:
           description: The date and time until which the authorization can be approved / exchanged.
       required:
         - code
-        - permissions
         - expiresAt
 
     Permission:
@@ -2085,7 +2972,7 @@ components:
           format: date-time
           description: The date and time until which the authorization can be approved / exchanged.
       required:
-        - verification_url
+        - verificationUrl
         - code
         - exchangeToken
         - pollInterval
@@ -2174,3 +3061,523 @@ components:
         - hasDescription
         - atLeastOneRuntimeCompatible
         - multipleRuntimesCompatible
+        - total
+
+    TokenType:
+      type: string
+      enum: ["web", "device", "personal"]
+      description: The type of token.
+
+    Token:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The ID of the token.
+        description:
+          type: string
+          nullable: true
+          description: The description of the token.
+        userId:
+          $ref: "#/components/schemas/UserId"
+        type:
+          $ref: "#/components/schemas/TokenType"
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: The date and time when the token expires.
+        permissions:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/Permission"
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the token was last updated.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the token was created.
+      required:
+        - id
+        - userId
+        - type
+        - updatedAt
+        - createdAt
+
+    CreateTokenRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          description: The description of the token.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: The date and time when the token expires.
+        permissions:
+          type: array
+          nullable: true
+          description: The permissions that the token will have. Must contain exactly one element if provided.
+          items:
+            $ref: "#/components/schemas/Permission"
+      required:
+        - description
+
+    CreatedToken:
+      type: object
+      properties:
+        secret:
+          type: string
+          description: The secret value of the token. This is only returned once when the token is created.
+        token:
+          $ref: "#/components/schemas/Token"
+      required:
+        - secret
+        - token
+
+    TicketKind:
+      type: string
+      enum: [
+        "user_scope_quota_increase",
+        "scope_package_quota_increase",
+        "other",
+      ]
+      description: The kind of support ticket.
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The ID of the ticket.
+        kind:
+          $ref: "#/components/schemas/TicketKind"
+        creator:
+          $ref: "#/components/schemas/User"
+        meta:
+          type: object
+          description: Additional metadata for the ticket.
+        closed:
+          type: boolean
+          description: Whether the ticket is closed.
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketMessage"
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the ticket was last updated.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the ticket was created.
+      required:
+        - id
+        - kind
+        - creator
+        - meta
+        - closed
+        - messages
+        - updatedAt
+        - createdAt
+
+    TicketOverview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The ID of the ticket.
+        kind:
+          $ref: "#/components/schemas/TicketKind"
+        creator:
+          $ref: "#/components/schemas/User"
+        meta:
+          type: object
+          description: Additional metadata for the ticket.
+        closed:
+          type: boolean
+          description: Whether the ticket is closed.
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketEvent"
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the ticket was last updated.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the ticket was created.
+      required:
+        - id
+        - kind
+        - creator
+        - meta
+        - closed
+        - events
+        - updatedAt
+        - createdAt
+
+    TicketEvent:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["message"]
+            message:
+              type: object
+              properties:
+                message:
+                  type: string
+                createdAt:
+                  type: string
+                  format: date-time
+                updatedAt:
+                  type: string
+                  format: date-time
+            user:
+              $ref: "#/components/schemas/User"
+          required:
+            - kind
+            - message
+            - user
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["auditLog"]
+            auditLog:
+              type: object
+              properties:
+                action:
+                  type: string
+                isSudo:
+                  type: boolean
+                meta:
+                  type: object
+                createdAt:
+                  type: string
+                  format: date-time
+            user:
+              $ref: "#/components/schemas/User"
+          required:
+            - kind
+            - auditLog
+            - user
+
+    TicketMessage:
+      type: object
+      properties:
+        author:
+          $ref: "#/components/schemas/User"
+        message:
+          type: string
+          description: The message content.
+        updatedAt:
+          type: string
+          format: date-time
+          description: The date and time when the message was last updated.
+        createdAt:
+          type: string
+          format: date-time
+          description: The date and time when the message was created.
+      required:
+        - author
+        - message
+        - updatedAt
+        - createdAt
+
+    CreateTicketRequest:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/TicketKind"
+        meta:
+          type: object
+          description: Additional metadata for the ticket.
+        message:
+          type: string
+          description: The initial message for the ticket.
+      required:
+        - kind
+        - meta
+        - message
+
+    CreateTicketMessageRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The message content.
+      required:
+        - message
+
+    DependencyGraphItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The unique identifier for this item in the graph.
+        dependency:
+          type: object
+          description: The dependency information.
+        children:
+          type: array
+          items:
+            type: integer
+          description: IDs of child dependencies.
+        size:
+          type: integer
+          nullable: true
+          description: Size in bytes of the dependency.
+        mediaType:
+          type: string
+          nullable: true
+          description: The media type of the file.
+      required:
+        - id
+        - dependency
+        - children
+
+    DownloadKind:
+      type: string
+      enum: ["jsr_meta", "npm_tarball"]
+      description: The type of download.
+
+    DownloadDataPoint:
+      type: object
+      properties:
+        timeBucket:
+          type: string
+          format: date-time
+          description: The time bucket for this data point.
+        kind:
+          $ref: "#/components/schemas/DownloadKind"
+        count:
+          type: integer
+          description: The number of downloads in this time bucket.
+      required:
+        - timeBucket
+        - kind
+        - count
+
+    PackageDownloads:
+      type: object
+      properties:
+        total:
+          type: array
+          items:
+            $ref: "#/components/schemas/DownloadDataPoint"
+          description: Total download data points for the package.
+        recentVersions:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                $ref: "#/components/schemas/Version"
+              downloads:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DownloadDataPoint"
+            required:
+              - version
+              - downloads
+          description: Download data points for recent versions.
+      required:
+        - total
+        - recentVersions
+
+    PackageVersionDocs:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["content"]
+            version:
+              $ref: "#/components/schemas/PackageVersion"
+            css:
+              type: string
+              description: CSS for styling the documentation.
+            comrakCss:
+              type: string
+              description: CSS for comrak markdown rendering.
+            script:
+              type: string
+              description: JavaScript for the documentation.
+            breadcrumbs:
+              type: object
+              nullable: true
+              description: Breadcrumb navigation context. Structure defined by deno_doc's BreadcrumbsCtx.
+            toc:
+              type: object
+              nullable: true
+              description: Table of contents context. Structure defined by deno_doc's ToCCtx.
+            main:
+              type: object
+              description: >-
+                The main documentation content. A tagged union with "kind" and "value" fields.
+                Kind is one of "allSymbols", "file", "index", or "symbol".
+                Structure defined by deno_doc types.
+          required:
+            - kind
+            - version
+            - css
+            - comrakCss
+            - script
+            - main
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["redirect"]
+            symbol:
+              type: string
+              description: The symbol to redirect to.
+          required:
+            - kind
+            - symbol
+
+    PackageVersionSource:
+      type: object
+      properties:
+        version:
+          $ref: "#/components/schemas/PackageVersion"
+        css:
+          type: string
+          description: CSS for styling the source view.
+        comrakCss:
+          type: string
+          description: CSS for comrak markdown rendering.
+        script:
+          type: string
+          description: JavaScript for the source view.
+        source:
+          $ref: "#/components/schemas/Source"
+      required:
+        - version
+        - css
+        - comrakCss
+        - script
+        - source
+
+    Source:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["dir"]
+            entries:
+              type: array
+              items:
+                $ref: "#/components/schemas/SourceDirEntry"
+          required:
+            - kind
+            - entries
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: ["file"]
+            size:
+              type: integer
+              description: Size of the file in bytes.
+            view:
+              type: string
+              nullable: true
+              description: HTML-rendered source code view. Null for binary files.
+          required:
+            - kind
+            - size
+
+    SourceDirEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the file or directory.
+        size:
+          type: integer
+          description: Size in bytes.
+        kind:
+          type: string
+          enum: ["dir", "file"]
+          description: Whether this entry is a directory or file.
+      required:
+        - name
+        - size
+        - kind
+
+    ProvenanceStatementRequest:
+      type: object
+      properties:
+        bundle:
+          type: object
+          description: The SLSA provenance bundle.
+      required:
+        - bundle
+
+    Metrics:
+      type: object
+      properties:
+        packages:
+          type: integer
+          description: Total number of packages.
+        packages1d:
+          type: integer
+          description: Number of packages created in the last day.
+        packages7d:
+          type: integer
+          description: Number of packages created in the last 7 days.
+        packages30d:
+          type: integer
+          description: Number of packages created in the last 30 days.
+        users:
+          type: integer
+          description: Total number of users.
+        users1d:
+          type: integer
+          description: Number of users created in the last day.
+        users7d:
+          type: integer
+          description: Number of users created in the last 7 days.
+        users30d:
+          type: integer
+          description: Number of users created in the last 30 days.
+        packageVersions:
+          type: integer
+          description: Total number of package versions.
+        packageVersions1d:
+          type: integer
+          description: Number of package versions created in the last day.
+        packageVersions7d:
+          type: integer
+          description: Number of package versions created in the last 7 days.
+        packageVersions30d:
+          type: integer
+          description: Number of package versions created in the last 30 days.
+      required:
+        - packages
+        - packages1d
+        - packages7d
+        - packages30d
+        - users
+        - users1d
+        - users7d
+        - users30d
+        - packageVersions
+        - packageVersions1d
+        - packageVersions7d
+        - packageVersions30d

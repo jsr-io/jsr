@@ -2,10 +2,12 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { LocalSymbolSearch } from "./LocalSymbolSearch.tsx";
+import { Breadcrumbs } from "../../../components/doc/Breadcrumbs.tsx";
+import type { BreadcrumbsCtx, SymbolContentCtx } from "@deno/doc/html-types";
 
 export interface BreadcrumbsStickyProps {
-  content: string;
-  searchContent?: string;
+  content: BreadcrumbsCtx;
+  searchContent?: SymbolContentCtx;
   scope: string;
   package: string;
   version: string;
@@ -46,11 +48,9 @@ export function BreadcrumbsSticky(
       }`}
     >
       <div class="section-x-inset-xl flex md:items-center justify-between gap-4 max-md:flex-col-reverse lg:grid lg:grid-cols-10 lg:gap-12">
-        <div
-          class="ddoc lg:col-span-7"
-          // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{ __html: props.content }}
-        />
+        <div class="ddoc lg:col-span-7">
+          <Breadcrumbs breadcrumbs={props.content} />
+        </div>
 
         <div class="lg:col-[span_3/_-1]">
           <LocalSymbolSearch

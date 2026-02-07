@@ -2,12 +2,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { Builder } from "fresh/dev";
-import { tailwind } from "@fresh/plugin-tailwind";
-import { app } from "./main.ts";
+import { tailwind } from "@fresh/plugin-tailwind-v3";
 import { CSS } from "@deno/gfm";
 
 const builder = new Builder();
-tailwind(builder, app, {});
+tailwind(builder, {});
 builder.onTransformStaticFile(
   { pluginName: "gfm-css", filter: /gfm\.css/ },
   (args) => {
@@ -22,7 +21,7 @@ builder.onTransformStaticFile(
 );
 
 if (Deno.args.includes("build")) {
-  await builder.build(app);
+  await builder.build();
 } else {
-  await builder.listen(app);
+  await builder.listen(() => import("./main.ts"));
 }

@@ -165,10 +165,10 @@ export async function handleRootRequest(
   } else if (isBot(request)) {
     return await handleFrontendRoute(request, env, true);
   } else if (path.startsWith("/@")) {
-    if (!canAccessModuleFile(request)) {
-      return await handleFrontendRoute(request, env, false);
-    } else {
+    if (canAccessModuleFile(request) && isModuleFilePath(path)) {
       return await handleModuleFileRoute(request, env);
+    } else {
+      return await handleFrontendRoute(request, env, false);
     }
   } else {
     return await handleFrontendRoute(request, env, false);
@@ -208,6 +208,13 @@ function isAPIRoute(path: string): boolean {
     path.startsWith("/login/") ||
     path === "/logout"
   );
+}
+
+function isModuleFilePath(path: string): boolean {
+  return /^\/@[^/]+\/[^/]+\/(?:meta\.json|\d[^/]*_meta\.json|\d[^/]*\/.*)$/
+    .test(
+      path,
+    );
 }
 
 async function handleFrontendRoute(

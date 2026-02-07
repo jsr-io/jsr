@@ -1723,7 +1723,7 @@ impl Database {
 
     let updated = sqlx::query_as!(
       PackageVersion,
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id,
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id, package_versions.license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -1875,7 +1875,7 @@ impl Database {
     name: &PackageName,
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
     sqlx::query!(
-      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id",
+      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id", package_versions.license as "package_version_license",
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -1912,6 +1912,7 @@ impl Database {
           updated_at: r.package_version_updated_at,
           created_at: r.package_version_created_at,
           rekor_log_id: r.package_version_rekor_log_id,
+          license: r.package_version_license,
         };
 
         let user = if r.package_version_user_id.is_some() {
@@ -2003,7 +2004,7 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2064,7 +2065,7 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2105,8 +2106,8 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     sqlx::query!(
-      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta, license)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -2115,6 +2116,7 @@ impl Database {
       new_package_version.exports as _,
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
+      new_package_version.license as _,
     )
       .execute(&mut *tx)
       .await?;
@@ -2195,7 +2197,7 @@ impl Database {
       PackageVersion,
       r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
@@ -2252,7 +2254,7 @@ impl Database {
       r#"UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
