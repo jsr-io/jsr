@@ -2,7 +2,7 @@
 import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
 import { Package } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { define } from "../../util.ts";
 import { primaryColor, secondaryColor } from "../../utils/colors.ts";
 
@@ -22,7 +22,7 @@ export const handler = define.handlers({
         if (packageResp.code === "packageNotFound") {
           return new Response(null, { status: 404 });
         } else {
-          throw packageResp;
+          assertOk(packageResp);
         }
       } else {
         if (packageResp.data.score === null) {

@@ -2,7 +2,7 @@
 import { define } from "../util.ts";
 import { OramaClient } from "@oramacloud/client";
 import type { List, Package } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { processFilter } from "../islands/GlobalSearch.tsx";
@@ -94,7 +94,7 @@ export const handler = define.handlers({
           limit,
         },
       );
-      if (!packagesResp.ok) throw packagesResp; // gracefully handle this
+      assertOk(packagesResp);
 
       packages = packagesResp.data.items;
       total = packagesResp.data.total;
