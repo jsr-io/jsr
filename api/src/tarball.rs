@@ -8,6 +8,7 @@ use async_tar::EntryType;
 use bytes::Bytes;
 use deno_ast::MediaType;
 use deno_graph::ModuleGraphError;
+use deno_semver::VersionReq;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageReq;
@@ -18,6 +19,7 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use indexmap::IndexMap;
 use jsonc_parser::ParseOptions;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
@@ -39,15 +41,16 @@ use crate::db::{DependencyKind, PackageVersionMeta};
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcp::GcsError;
 use crate::gcp::GcsUploadOptions;
-use crate::gcs_paths::docs_v1_path;
-use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
-use crate::ids::CaseInsensitivePackagePath;
+use crate::gcs_paths::{docs_v1_path, package_metadata};
+use crate::gcs_paths::{file_path, version_metadata};
 use crate::ids::PackagePath;
 use crate::ids::PackagePathValidationError;
 use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
+use crate::ids::{CaseInsensitivePackagePath, PackageName, ScopeName};
+use crate::metadata::{PackageMetadata, VersionMetadata};
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::util::LicenseStore;
 
@@ -59,11 +62,21 @@ const MAX_CONCURRENT_UPLOADS: usize = 1024;
 
 static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
+/// Represents a resolved dependency with information about where it was resolved from.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ResolvedDependency {
+  pub kind: DependencyKind,
+  pub req: PackageReqReference,
+  /// If Some, the dependency was resolved from a fallback/external registry at this URL.
+  /// If None, the dependency was resolved from the local registry.
+  pub registry_url: Option<String>,
+}
+
 pub struct ProcessTarballOutput {
   pub file_infos: Vec<FileInfo>,
   pub module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
   pub exports: ExportsMap,
-  pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
+  pub dependencies: HashSet<ResolvedDependency>,
   pub npm_tarball_info: NpmTarballInfo,
   pub readme_path: Option<PackagePath>,
   pub meta: PackageVersionMeta,
@@ -80,6 +93,108 @@ pub struct NpmTarballInfo {
   pub size: u64,
 }
 
+async fn resolve_from_fallback(
+  fallback_url: &Url,
+  scope: &ScopeName,
+  package: &PackageName,
+  version_req: &VersionReq,
+  sub_path: Option<&str>,
+) -> Result<Option<Version>, PublishError> {
+  let client = reqwest::Client::new();
+
+  let meta_url = fallback_url
+    .join(&package_metadata(scope, package))
+    .map_err(|e| {
+      PublishError::UnexpectedError(format!("Invalid fallback URL: {}", e))
+    })?;
+
+  let response = client.get(meta_url.clone()).send().await.map_err(|e| {
+    PublishError::FallbackRegistryError {
+      url: meta_url.to_string(),
+      error: FallbackRegistryError::FetchPackageMetadata(e),
+    }
+  })?;
+
+  if !response.status().is_success() {
+    if response.status() == StatusCode::NOT_FOUND {
+      return Ok(None);
+    } else {
+      return Err(PublishError::FallbackRegistryError {
+        url: meta_url.to_string(),
+        error: FallbackRegistryError::PackageMetadataStatus(response.status()),
+      });
+    }
+  }
+
+  let package_meta: PackageMetadata =
+    response
+      .json()
+      .await
+      .map_err(|e| PublishError::FallbackRegistryError {
+        url: meta_url.to_string(),
+        error: FallbackRegistryError::ParsePackageMetadata(e),
+      })?;
+
+  let mut matching_versions: Vec<Version> = package_meta
+    .versions
+    .iter()
+    .filter(|(_, v)| !v.yanked)
+    .filter(|(v, _)| version_req.matches(&v.0))
+    .map(|(v, _)| v.clone())
+    .collect();
+
+  matching_versions.sort_by(|a, b| b.0.cmp(&a.0));
+
+  let exports_key = match sub_path {
+    Some(path) if !path.is_empty() => format!("./{}", path),
+    _ => ".".to_owned(),
+  };
+
+  for version in matching_versions {
+    let version_meta_url = fallback_url
+      .join(&version_metadata(scope, package, &version))
+      .map_err(|e| {
+        PublishError::UnexpectedError(format!("Invalid fallback URL: {}", e))
+      })?;
+
+    let response =
+      client
+        .get(version_meta_url.clone())
+        .send()
+        .await
+        .map_err(|e| PublishError::FallbackRegistryError {
+          url: version_meta_url.to_string(),
+          error: FallbackRegistryError::FetchVersionMetadata(e),
+        })?;
+
+    if !response.status().is_success() {
+      if response.status() == StatusCode::NOT_FOUND {
+        continue;
+      } else {
+        return Err(PublishError::FallbackRegistryError {
+          url: version_meta_url.to_string(),
+          error: FallbackRegistryError::VersionMetadataStatus(
+            response.status(),
+          ),
+        });
+      }
+    }
+
+    let version_meta: VersionMetadata = response.json().await.map_err(|e| {
+      PublishError::FallbackRegistryError {
+        url: version_meta_url.to_string(),
+        error: FallbackRegistryError::ParseVersionMetadata(e),
+      }
+    })?;
+
+    if version_meta.exports.contains_key(&exports_key) {
+      return Ok(Some(version));
+    }
+  }
+
+  Ok(None)
+}
+
 static SUPPORTED_LICENSE_FILE_NAMES: [&str; 6] = [
   "/LICENSE",
   "/LICENSE.md",
@@ -91,7 +206,13 @@ static SUPPORTED_LICENSE_FILE_NAMES: [&str; 6] = [
 
 #[instrument(
   name = "process_tarball",
-  skip(buckets, license_store, registry_url, publishing_task),
+  skip(
+    buckets,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    publishing_task
+  ),
   err
 )]
 pub async fn process_tarball(
@@ -99,6 +220,7 @@ pub async fn process_tarball(
   buckets: &Buckets,
   license_store: &LicenseStore,
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
   let tarball_path = gcs_tarball_path(publishing_task.id);
@@ -343,7 +465,8 @@ pub async fn process_tarball(
   .await
   .map_err(|e| PublishError::UnexpectedError(format!("{:?}", e)))??;
 
-  // ensure all of the JSR dependencies are resolvable
+  let mut resolved_dependencies: HashSet<ResolvedDependency> = HashSet::new();
+
   for (kind, req) in dependencies.iter() {
     if kind == &DependencyKind::Jsr {
       let package_scope = ScopedPackageName::new(req.req.name.to_string())
@@ -359,7 +482,9 @@ pub async fn process_tarball(
         .await?;
       versions.sort_by(|a, b| b.version.cmp(&a.version));
 
-      let mut found = false;
+      let mut found_local = false;
+      let mut invalid_subpath_error = None;
+
       for version in versions.iter().rev() {
         if req.req.version_req.matches(&version.version.0) {
           let exports_key = if let Some(sub_path) = &req.sub_path {
@@ -373,24 +498,55 @@ pub async fn process_tarball(
           };
 
           if !version.exports.contains_key(&exports_key) {
-            return Err(PublishError::InvalidJsrDependencySubPath {
-              req: Box::new(req.clone()),
-              resolved_version: version.version.clone(),
-              exports_key,
-            });
+            invalid_subpath_error =
+              Some(PublishError::InvalidJsrDependencySubPath {
+                req: Box::new(req.clone()),
+                resolved_version: version.version.clone(),
+                exports_key,
+              });
+            continue;
           }
 
-          found = true;
+          found_local = true;
           break;
         }
       }
 
-      if !found {
+      if found_local {
+        resolved_dependencies.insert(ResolvedDependency {
+          kind: *kind,
+          req: req.clone(),
+          registry_url: None,
+        });
+      } else if let Some(fallback_url) = &fallback_registry_url
+        && let Ok(Some(_resolved_version)) = resolve_from_fallback(
+          fallback_url,
+          &package_scope.scope,
+          &package_scope.package,
+          &req.req.version_req,
+          req.sub_path.as_deref(),
+        )
+        .await
+      {
+        resolved_dependencies.insert(ResolvedDependency {
+          kind: *kind,
+          req: req.clone(),
+          registry_url: Some(fallback_url.to_string()),
+        });
+      } else {
+        if let Some(err) = invalid_subpath_error {
+          return Err(err);
+        }
         return Err(PublishError::UnresolvableJsrDependency(req.req.clone()));
       }
+    } else {
+      resolved_dependencies.insert(ResolvedDependency {
+        kind: *kind,
+        req: req.clone(),
+        registry_url: None,
+      });
     }
   }
-
   // TO ENSURE CONSISTENCY OF FILES IN GCS, ALL ERRORS RETURNED AFTER THIS POINT MUST BE RETRYABLE
 
   buckets
@@ -497,7 +653,7 @@ pub async fn process_tarball(
     file_infos,
     module_graph_2,
     exports,
-    dependencies,
+    dependencies: resolved_dependencies,
     npm_tarball_info,
     readme_path,
     meta,
@@ -508,6 +664,22 @@ pub async fn process_tarball(
 
 pub fn gcs_tarball_path(id: Uuid) -> String {
   format!("publishing_tasks/{}.tar.gz", id)
+}
+
+#[derive(Debug, Error)]
+pub enum FallbackRegistryError {
+  #[error("failed to fetch package metadata: {0}")]
+  FetchPackageMetadata(reqwest::Error),
+  #[error("unexpected status code fetching package metadata: {0}")]
+  PackageMetadataStatus(StatusCode),
+  #[error("failed to parse package metadata: {0}")]
+  ParsePackageMetadata(reqwest::Error),
+  #[error("failed to fetch version metadata: {0}")]
+  FetchVersionMetadata(reqwest::Error),
+  #[error("unexpected status code fetching version metadata: {0}")]
+  VersionMetadataStatus(StatusCode),
+  #[error("failed to parse version metadata: {0}")]
+  ParseVersionMetadata(reqwest::Error),
 }
 
 #[derive(Debug, Error)]
@@ -663,6 +835,12 @@ pub enum PublishError {
   #[error("unexpected error: {0}")]
   UnexpectedError(String),
 
+  #[error("failed to resolve from fallback registry '{url}': {error}")]
+  FallbackRegistryError {
+    url: String,
+    error: FallbackRegistryError,
+  },
+
   #[error(
     "unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint"
   )]
@@ -750,6 +928,9 @@ impl PublishError {
       }
       PublishError::MissingLicense => Some("missingLicense"),
       PublishError::InvalidLicense => Some("invalidLicense"),
+      PublishError::FallbackRegistryError { .. } => {
+        Some("fallbackRegistryError")
+      }
     }
   }
 }

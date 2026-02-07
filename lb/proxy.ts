@@ -70,6 +70,7 @@ export async function proxyToGCS(
   request: Request,
   bucketEndpoint: string | undefined,
   bucketName: string,
+  fallbackUrl: string | undefined,
   pathRewrite?: (path: string) => string,
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -103,11 +104,18 @@ export async function proxyToGCS(
   const method = request.method === "HEAD" ? "HEAD" : "GET";
 
   try {
-    const response = await cachedFetch(true, gcsUrl, {
+    let response = await cachedFetch(true, gcsUrl, {
       method,
       headers,
       redirect: "follow",
     });
+
+    if (response.status === 404 && fallbackUrl) {
+      response = await fetch(
+        new URL(url.pathname + url.search, fallbackUrl),
+        request,
+      );
+    }
 
     return new Response(response.body, {
       headers: response.headers,
