@@ -80,7 +80,14 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, license_store, registry_url, fallback_registry_url, orama_client),
+  skip(
+    buckets,
+    db,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    orama_client
+  ),
   err
 )]
 pub async fn publish_task(

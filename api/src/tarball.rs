@@ -206,7 +206,13 @@ static SUPPORTED_LICENSE_FILE_NAMES: [&str; 6] = [
 
 #[instrument(
   name = "process_tarball",
-  skip(buckets, license_store, registry_url, fallback_registry_url, publishing_task),
+  skip(
+    buckets,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    publishing_task
+  ),
   err
 )]
 pub async fn process_tarball(
