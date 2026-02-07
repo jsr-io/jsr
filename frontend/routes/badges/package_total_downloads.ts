@@ -19,26 +19,21 @@ export const handler = define.handlers({
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/downloads`,
       );
 
-      if (!packageResp.ok) {
-        if (packageResp.code === "packageNotFound") {
-          return new Response(null, { status: 404 });
-        } else {
-          assertOk(packageResp);
-        }
-      } else {
-        const totalCount = packageResp.data.total.reduce(
-          (acc, curr) => acc + curr.count,
-          0,
-        );
-
-        return Response.json({
-          schemaVersion: 1,
-          label: "downloads",
-          message: numberFormat(totalCount),
-          labelColor: secondaryColor,
-          color: primaryColor,
-        });
+      if (!packageResp.ok && packageResp.code === "packageNotFound") {
+        return new Response(null, { status: 404 });
       }
+      assertOk(packageResp);
+      const totalCount = packageResp.data.total.reduce(
+        (acc, curr) => acc + curr.count,
+        0,
+      );
+      return Response.json({
+        schemaVersion: 1,
+        label: "downloads",
+        message: numberFormat(totalCount),
+        labelColor: secondaryColor,
+        color: primaryColor,
+      });
     } else {
       const url = new URL(
         "https://jsr.io" + ctx.url.pathname + ctx.url.search,

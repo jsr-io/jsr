@@ -18,21 +18,17 @@ export const handler = define.handlers({
         path`/scopes/${ctx.params.scope}`,
       );
 
-      if (!scopeResp.ok) {
-        if (scopeResp.code === "scopeNotFound") {
-          return new Response(null, { status: 404 });
-        } else {
-          assertOk(scopeResp);
-        }
-      } else {
-        return Response.json({
-          schemaVersion: 1,
-          label: "",
-          message: `@${scopeResp.data.scope}`,
-          labelColor: secondaryColor,
-          color: primaryColor,
-        });
+      if (!scopeResp.ok && scopeResp.code === "scopeNotFound") {
+        return new Response(null, { status: 404 });
       }
+      assertOk(scopeResp);
+      return Response.json({
+        schemaVersion: 1,
+        label: "",
+        message: `@${scopeResp.data.scope}`,
+        labelColor: secondaryColor,
+        color: primaryColor,
+      });
     } else {
       const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
 
