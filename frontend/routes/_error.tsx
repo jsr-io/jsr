@@ -1,7 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, PageProps } from "fresh";
 import { APIError } from "../utils/api.ts";
-import { ErrorDisplay } from "../components/ErrorDisplay.tsx";
+import {
+  ErrorDisplay,
+  UnknownErrorDisplay,
+} from "../components/ErrorDisplay.tsx";
 
 const HIDE_ERROR_OVERLAY_STYLE =
   `#fresh-error-overlay { display: none !important; }`;
@@ -39,55 +42,31 @@ export default function Error({ url, error }: PageProps) {
   }
 
   if (error instanceof APIError) {
-    const ghUrl = new URL("https://github.com/jsr-io/jsr/issues/new");
-    ghUrl.searchParams.append(
-      "body",
-      `## url:
-${url.toString()}
-
-## Error:
-\`\`\`json
-${JSON.stringify(error.response, null, 2)}
-\`\`\`
-
-## Additional context:
-    `,
-    );
     return (
       <>
         <style
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
         />
-        <ErrorDisplay error={error.response} />
-        <a class="button-primary mt-4" href={ghUrl.toString()} target="_blank">
-          Open an issue on GitHub
-        </a>
+        <ErrorDisplay error={error.response} url={url} />
       </>
     );
   }
 
-  const ghUrl = new URL("https://github.com/jsr-io/jsr/issues/new");
-  ghUrl.searchParams.append(
-    "body",
-    `## url:
-${url.toString()}
-
-## Error:
-\`\`\`
-${Deno.inspect(error)}
-\`\`\`
-
-## Additional context:
-    `,
-  );
+  const formatted = Deno.inspect(error);
   return (
-    <div>
-      <h1>Error</h1>
-      <pre>{Deno.inspect(error)}</pre>
-      <a class="button-primary mt-4" href={ghUrl.toString()} target="_blank">
-        Open an issue on GitHub
-      </a>
-    </div>
+    <>
+      <style
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
+      />
+
+      <UnknownErrorDisplay
+        title="An unexpected error occurred"
+        message={formatted}
+        url={url}
+        formatted={formatted}
+      />
+    </>
   );
 }
