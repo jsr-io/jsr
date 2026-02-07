@@ -3229,7 +3229,7 @@ dependencies = [
  "askalono",
  "async-tar",
  "async-trait",
- "base64 0.22.1",
+ "base64 0.21.7",
  "bytes",
  "chrono",
  "clap",
