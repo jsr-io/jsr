@@ -7,9 +7,12 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
+use sqlx::Database;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::ValueRef;
+use sqlx::encode::IsNull;
+use sqlx::error::BoxDynError;
 use sqlx::types::Json;
 use uuid::Uuid;
 
@@ -184,8 +187,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for PublishingTaskError {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PublishingTaskError {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&PublishingTaskError> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -479,8 +482,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for PackageVersionMeta {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PackageVersionMeta {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&PackageVersionMeta> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -660,8 +663,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Permissions {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&Permissions> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -781,8 +784,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for ExportsMap {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for ExportsMap {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&IndexMap<String, String>> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -903,8 +906,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for RuntimeCompat {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for RuntimeCompat {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&RuntimeCompat> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -955,12 +958,6 @@ pub enum DownloadKind {
   JsrMeta,
   /// A download of the NPM tarball.
   NpmTgz,
-}
-
-impl sqlx::postgres::PgHasArrayType for DownloadKind {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    sqlx::postgres::PgTypeInfo::with_name("_download_kind")
-  }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
