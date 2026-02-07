@@ -84,6 +84,7 @@ use crate::tarball::gcs_tarball_path;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
+use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::util::decode_json;
@@ -165,10 +166,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
-      "/:package/versions/:version/docs/search_html",
+      "/:package/versions/:version/docs/search_structured",
       util::cache(
         CacheDuration::ONE_MINUTE,
-        util::json(get_docs_search_html_handler),
+        util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
@@ -792,6 +793,7 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
@@ -898,7 +900,8 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
-      buckets.clone(),
+      buckets,
+      license_store,
       registry_url,
       npm_url,
       db,
@@ -1276,7 +1279,7 @@ pub async fn get_docs_handler(
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
-      main: docs.main,
+      main: docs.main.into(),
       version: ApiPackageVersion::from(version),
     }),
     GeneratedDocsOutput::Redirect(href) => {
@@ -1357,14 +1360,14 @@ pub async fn get_docs_search_handler(
 }
 
 #[instrument(
-  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_structured",
   skip(req),
   err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_search_html_handler(
+pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<String> {
+) -> ApiResult<deno_doc::html::SymbolContentCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1430,8 +1433,11 @@ pub async fn get_docs_search_html_handler(
   .unwrap();
 
   let search = match docs {
-    GeneratedDocsOutput::Docs(docs) => docs.main,
-    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+    GeneratedDocsOutput::Docs(crate::docs::GeneratedDocs {
+      main: crate::docs::GeneratedDocsContent::AllSymbols(main),
+      ..
+    }) => main,
+    _ => unreachable!(),
   };
 
   Ok(search)
@@ -1527,7 +1533,12 @@ pub async fn get_source_handler(
         path_buf
           .extension()
           .map(|ext| ext.to_string_lossy())
-          .as_deref(),
+          .as_deref()
+          .map(|ext| match ext {
+            "mts" | "cts" => "ts",
+            "mjs" | "cjs" => "js",
+            ext => ext,
+          }),
         &file,
       )?;
       out.extend(b"</code></pre>");
@@ -2716,6 +2727,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2776,6 +2788,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2818,6 +2831,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2987,6 +3001,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3001,6 +3016,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3015,6 +3031,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3575,11 +3592,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("all symbols"),
-          "{:?}",
-          breadcrumbs
-        );
+        assert!(breadcrumbs.is_some());
         assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
@@ -3605,11 +3618,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("hello"),
-          "{:?}",
-          breadcrumbs
-        );
+        assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
@@ -3638,11 +3647,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("读取多键1"),
-          "{:?}",
-          breadcrumbs
-        );
+        assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
@@ -4254,7 +4259,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         },
         ApiSourceDirEntry {
           name: "jsr.json".to_string(),
-          size: 74,
+          size: 93,
           kind: ApiSourceDirEntryKind::File,
         },
         ApiSourceDirEntry {

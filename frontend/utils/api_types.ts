@@ -1,3 +1,11 @@
+import {
+  BreadcrumbsCtx,
+  ModuleDocCtx,
+  SymbolContentCtx,
+  SymbolGroupCtx,
+  ToCCtx,
+} from "@deno/doc/html-types";
+
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export interface User {
   id: string;
@@ -136,6 +144,7 @@ export interface PackageVersion {
   usesNpm: boolean;
   newerVersionsCount: number;
   rekorLogId: string | null;
+  license: string | null;
   readmePath: string;
   updatedAt: string;
   createdAt: string;
@@ -151,10 +160,15 @@ export interface PackageVersionDocsContent {
   css: string;
   comrakCss: string;
   script: string;
-  breadcrumbs: string | null;
-  toc: string | null;
-  main: string;
+  breadcrumbs: BreadcrumbsCtx | null;
+  toc: ToCCtx | null;
+  main: DocsMainContent;
 }
+
+export type DocsMainContent =
+  | { kind: "allSymbols"; value: SymbolContentCtx }
+  | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {
   kind: "redirect";

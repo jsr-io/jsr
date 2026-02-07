@@ -2,6 +2,7 @@
 use std::borrow::Cow;
 
 use crate::db::*;
+use crate::docs::GeneratedDocsContent;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeDescription;
@@ -619,6 +620,7 @@ pub struct ApiPackageVersion {
   pub newer_versions_count: u64,
   pub lifetime_download_count: u64,
   pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -634,13 +636,34 @@ pub enum ApiPackageVersionDocs {
     css: Cow<'static, str>,
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
-    breadcrumbs: Option<String>,
-    toc: Option<String>,
-    main: String,
+    breadcrumbs: Option<deno_doc::html::util::BreadcrumbsCtx>,
+    toc: Option<deno_doc::html::util::ToCCtx>,
+    main: ApiGeneratedDocsContent,
   },
   Redirect {
     symbol: String,
   },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "value")]
+#[allow(clippy::large_enum_variant)]
+pub enum ApiGeneratedDocsContent {
+  AllSymbols(deno_doc::html::SymbolContentCtx),
+  File(deno_doc::html::jsdoc::ModuleDocCtx),
+  Index(deno_doc::html::jsdoc::ModuleDocCtx),
+  Symbol(deno_doc::html::SymbolGroupCtx),
+}
+
+impl From<GeneratedDocsContent> for ApiGeneratedDocsContent {
+  fn from(value: GeneratedDocsContent) -> Self {
+    match value {
+      GeneratedDocsContent::AllSymbols(val) => Self::AllSymbols(val),
+      GeneratedDocsContent::File(val) => Self::File(val),
+      GeneratedDocsContent::Index(val) => Self::Index(val),
+      GeneratedDocsContent::Symbol(val) => Self::Symbol(val),
+    }
+  }
 }
 
 impl From<PackageVersion> for ApiPackageVersion {
@@ -654,6 +677,7 @@ impl From<PackageVersion> for ApiPackageVersion {
       newer_versions_count: value.newer_versions_count as u64,
       lifetime_download_count: value.lifetime_download_count as u64,
       rekor_log_id: value.rekor_log_id,
+      license: value.license,
       readme_path: value.readme_path,
       updated_at: value.updated_at,
       created_at: value.created_at,

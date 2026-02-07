@@ -39,10 +39,11 @@
     "api/testdata/",
     ".gcs/",
     "frontend/_fresh",
-    "e2e/vendor"
+    "e2e/vendor",
+    "api/license-list-data"
   ],
   "imports": {
-    "@deno/doc": "jsr:@deno/doc@^0.183.0",
+    "@deno/doc": "jsr:@deno/doc@^0.191.0",
     "@deno/gfm": "jsr:@deno/gfm@^0.10.0",
     "@mdn/browser-compat-data": "npm:@mdn/browser-compat-data@^7.1.6",
     "@std/async": "jsr:@std/async@^1.0.8",
