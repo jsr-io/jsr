@@ -294,7 +294,10 @@ impl Bucket {
     offset: Option<usize>,
     accept_encoding: &str,
   ) -> Result<
-    Option<(HeaderMap, impl Stream<Item = Result<Bytes, reqwest::Error>>)>,
+    Option<(
+      HeaderMap,
+      impl Stream<Item = Result<Bytes, reqwest::Error>> + use<>,
+    )>,
     GcsError,
   > {
     let path = percent_encoding::utf8_percent_encode(path, NON_ALPHANUMERIC);

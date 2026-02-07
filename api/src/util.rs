@@ -115,6 +115,7 @@ pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
+  pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
 
 pub fn cache<H, HF>(
