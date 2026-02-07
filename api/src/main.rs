@@ -45,6 +45,7 @@ use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
 use crate::tasks::NpmTarballBuildQueue;
+use crate::tasks::WebhookDispatchQueue;
 use crate::tasks::tasks_router;
 use crate::traced_router::TracedRouterService;
 use crate::tracing::TracingExportTarget;
@@ -71,6 +72,7 @@ pub struct MainRouterOptions {
   npm_url: Url,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
+  webhook_dispatch_queue: Option<Queue>,
   logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
   analytics_engine_config: Option<(
     cloudflare::AnalyticsEngineClient,
@@ -95,6 +97,7 @@ pub(crate) fn main_router(
     npm_url,
     publish_queue,
     npm_tarball_build_queue,
+    webhook_dispatch_queue,
     logs_bigquery_table,
     analytics_engine_config,
     expose_api,
@@ -112,6 +115,7 @@ pub(crate) fn main_router(
     .data(NpmUrl(npm_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
+    .data(WebhookDispatchQueue(webhook_dispatch_queue))
     .data(LogsBigQueryTable(logs_bigquery_table))
     .data(AnalyticsEngineConfig(analytics_engine_config))
     .middleware(routerify_query::query_parser())
@@ -198,6 +202,10 @@ async fn main() {
     .npm_tarball_build_queue_id
     .map(|id: String| Queue::new(gcp_client.clone(), id, None));
 
+  let webhook_dispatch_queue = config
+    .webhook_dispatch_queue_id
+    .map(|id: String| Queue::new(gcp_client.clone(), id, None));
+
   let logs_bigquery_table =
     config.logs_bigquery_table_id.map(|logs_table_id| {
       (
@@ -282,6 +290,7 @@ async fn main() {
     npm_url: config.npm_url,
     publish_queue,
     npm_tarball_build_queue,
+    webhook_dispatch_queue,
     logs_bigquery_table,
     analytics_engine_config,
     expose_api: config.api,

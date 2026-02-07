@@ -253,6 +253,11 @@ errors!(
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
   },
+  WebhookResponseFailure {
+    status: BAD_REQUEST,
+    fields: { status: reqwest::StatusCode },
+    ({ status }) => "The webhook target responded with status {status}.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {

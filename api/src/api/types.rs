@@ -1173,3 +1173,93 @@ impl From<(AuditLog, UserPublic)> for ApiAuditLog {
     }
   }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiCreateWebhookEndpointRequest {
+  pub url: String,
+  pub description: String,
+  pub secret: Option<String>,
+  pub events: Vec<WebhookEventKind>,
+  pub payload_format: WebhookPayloadFormat,
+  pub is_active: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiUpdateWebhookEndpointRequest {
+  pub url: Option<String>,
+  pub description: Option<String>,
+  pub secret: Option<String>, // TODO: it already is an option, how to distinguish between clearing and not changing it?
+  pub events: Option<Vec<WebhookEventKind>>,
+  pub payload_format: Option<WebhookPayloadFormat>,
+  pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiWebhookEndpoint {
+  pub id: Uuid,
+  pub scope: ScopeName,
+  pub package: Option<PackageName>,
+  pub url: String,
+  pub description: String,
+  pub has_secret: bool,
+  pub events: Vec<WebhookEventKind>,
+  pub payload_format: WebhookPayloadFormat,
+  pub is_active: bool,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<WebhookEndpoint> for ApiWebhookEndpoint {
+  fn from(value: WebhookEndpoint) -> Self {
+    Self {
+      id: value.id,
+      scope: value.scope,
+      package: value.package,
+      url: value.url,
+      description: value.description,
+      has_secret: value.secret.is_some(),
+      events: value.events,
+      payload_format: value.payload_format,
+      is_active: value.is_active,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiWebhookDelivery {
+  pub id: Uuid,
+  pub status: WebhookDeliveryStatus,
+  pub event: WebhookEventKind,
+  pub request_headers: Option<serde_json::Value>,
+  pub request_body: Option<serde_json::Value>,
+  pub response_http_code: Option<i32>,
+  pub response_headers: Option<serde_json::Value>,
+  pub response_body: Option<String>,
+  pub error: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(WebhookDelivery, WebhookEvent)> for ApiWebhookDelivery {
+  fn from((delivery, event): (WebhookDelivery, WebhookEvent)) -> Self {
+    Self {
+      id: delivery.id,
+      status: delivery.status,
+      event: event.event,
+      request_headers: delivery.request_headers,
+      request_body: delivery.request_body,
+      response_http_code: delivery.response_http_code,
+      response_headers: delivery.response_headers,
+      response_body: delivery.response_body,
+      error: delivery.error,
+      updated_at: delivery.updated_at,
+      created_at: delivery.created_at,
+    }
+  }
+}
