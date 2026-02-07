@@ -8,7 +8,7 @@ import { ScopeNav } from "../(_components)/ScopeNav.tsx";
 import { ScopeDescriptionForm } from "../(_islands)/ScopeDescriptionForm.tsx";
 import { FullScope, User } from "../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../utils/data.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { QuotaCard } from "../../../components/QuotaCard.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
@@ -327,12 +327,10 @@ export const handler = define.handlers({
           path`/scopes/${scope}`,
           { ghActionsVerifyActor: enableGhActionsVerifyActor },
         );
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
+        if (!res.ok && res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
         }
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/~/settings` },
@@ -344,12 +342,10 @@ export const handler = define.handlers({
           path`/scopes/${scope}`,
           { requirePublishingFromCI: value },
         );
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
+        if (!res.ok && res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
         }
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/~/settings` },
@@ -357,12 +353,10 @@ export const handler = define.handlers({
       }
       case "deleteScope": {
         const res = await ctx.state.api.delete(path`/scopes/${scope}`);
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
+        if (!res.ok && res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
         }
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/` },

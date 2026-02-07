@@ -2,7 +2,7 @@
 import { HttpError, RouteConfig } from "fresh";
 import { define } from "../../util.ts";
 import type { Dependent, List } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
@@ -111,8 +111,7 @@ export const handler = define.handlers({
     ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
 
-    // TODO: handle errors gracefully
-    if (!dependentsResp.ok) throw dependentsResp;
+    assertOk(dependentsResp);
 
     ctx.state.meta = {
       title: `Dependents - @${res.pkg.scope}/${res.pkg.name} - JSR`,

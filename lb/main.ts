@@ -209,7 +209,7 @@ function isAPIRoute(path: string): boolean {
   );
 }
 
-function isModuleFilePath(path: string): boolean {
+export function isModuleFilePath(path: string): boolean {
   return /^\/@[^/]+\/[^/]+\/(?:meta\.json|\d[^/]*_meta\.json|\d[^/]*\/.*)$/
     .test(
       path,

@@ -4,7 +4,7 @@ import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { define } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { ApiTicket } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import twas from "twas";
 import { TbCheck, TbClock } from "tb-icons";
 import { TicketTitle } from "../../components/TicketTitle.tsx";
@@ -81,7 +81,7 @@ export const handler = define.handlers({
     ]);
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
-    if (!ticketsRes.ok) throw ticketsRes; // gracefully handle errors
+    assertOk(ticketsRes);
 
     ctx.state.meta = { title: "Your tickets - JSR" };
     return {

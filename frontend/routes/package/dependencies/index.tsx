@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, type RouteConfig } from "fresh";
 import type { Dependency } from "../../../utils/api_types.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { define } from "../../../util.ts";
 import { packageDataWithVersion } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
@@ -199,7 +199,7 @@ export const handler = define.handlers({
     const depsResp = await ctx.state.api.get<Dependency[]>(
       path`/scopes/${pkg.scope}/packages/${pkg.name}/versions/${selectedVersion.version}/dependencies`,
     );
-    if (!depsResp.ok) throw depsResp;
+    assertOk(depsResp);
 
     ctx.state.meta = {
       title: `Dependencies - @${pkg.scope}/${pkg.name} - JSR`,

@@ -2,7 +2,7 @@
 
 import { HttpError } from "fresh";
 import { define } from "../../../util.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
 import { Card } from "../../../components/Card.tsx";
@@ -194,7 +194,7 @@ export const handler = define.handlers({
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
-    if (!tokensRes.ok) throw tokensRes; // gracefully handle errors
+    assertOk(tokensRes);
 
     ctx.state.meta = { title: "Your tokens - JSR" };
     return {

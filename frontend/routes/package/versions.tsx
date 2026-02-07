@@ -11,7 +11,7 @@ import twas from "twas";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
@@ -330,12 +330,12 @@ export const handler = define.handlers({
     ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
 
-    if (!versionsResp.ok) throw versionsResp; // TODO: handle errors gracefully
+    assertOk(versionsResp);
     let publishingTasks;
     if (tasksResp) {
       if (!tasksResp.ok) {
         if (tasksResp.code !== "actorNotScopeMember") {
-          throw tasksResp; // TODO: handle errors gracefully
+          assertOk(tasksResp);
         }
       } else {
         publishingTasks = tasksResp.data;
@@ -377,7 +377,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: true },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -389,7 +389,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: false },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -400,7 +400,7 @@ export const handler = define.handlers({
         const res = await api.delete(
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },

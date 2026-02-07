@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
@@ -262,7 +262,7 @@ export const handler = define.handlers({
       // ignore
     }
 
-    if (!statsResp.ok) throw statsResp; // gracefully handle this
+    assertOk(statsResp);
 
     ctx.state.meta = {
       title: "JSR: the JavaScript Registry",

@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, type RouteConfig } from "fresh";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { define } from "../../../util.ts";
 import { DependencyGraph } from "../(_islands)/DependencyGraph.tsx";
@@ -73,7 +73,7 @@ export const handler = define.handlers({
     const depsResp = await ctx.state.api.get<DependencyGraphItem[]>(
       path`/scopes/${pkg.scope}/packages/${pkg.name}/versions/${selectedVersion.version}/dependencies/graph`,
     );
-    if (!depsResp.ok) throw depsResp;
+    assertOk(depsResp);
 
     ctx.state.meta = {
       title: `Dependencies Graph - @${pkg.scope}/${pkg.name} - JSR`,
