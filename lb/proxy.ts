@@ -132,7 +132,7 @@ async function cachedFetch(
   const req = new Request(input, init);
 
   if (shouldCache) {
-    const cache = await caches.default.match(req);
+    const cache = await caches.default?.match(req);
     if (cache) {
       return cache;
     }
@@ -140,7 +140,7 @@ async function cachedFetch(
   const res = await fetch(req);
 
   if (shouldCache) {
-    caches.default.put(req, res.clone());
+    caches.default?.put(req, res.clone());
   }
 
   return res;

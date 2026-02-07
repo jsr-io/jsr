@@ -1,11 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { PackageVersionWithUser, User } from "../../../utils/api_types.ts";
+import type {
+  DocsMainContent,
+  PackageVersionWithUser,
+  User,
+} from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
 import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 import { TbFlag } from "tb-icons";
+import {
+  ModuleDoc,
+  SymbolContent,
+  SymbolGroup,
+  Toc,
+} from "../../../components/doc/mod.ts";
 
 interface DocsProps {
   docs: Docs;
@@ -112,7 +122,9 @@ export function DocsView({
 
       {docs.breadcrumbs && (
         <BreadcrumbsSticky
-          searchContent={!docs.toc ? docs.main : undefined}
+          searchContent={docs.main.kind === "allSymbols"
+            ? docs.main.value
+            : undefined}
           content={docs.breadcrumbs}
           scope={params.scope}
           package={params.package}
@@ -126,12 +138,9 @@ export function DocsView({
             docs.toc ? "lg:col-span-7 lg:row-start-1" : "col-span-full"
           }`}
         >
-          <div
-            class="ddoc mb-20"
-            id="docMain"
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: docs.main }}
-          />
+          <div class="ddoc mb-20" id="docMain">
+            <MainDocs content={docs.main} />
+          </div>
           <div class="ddoc hidden mb-20" id="docSearchResults" />
 
           <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
@@ -193,11 +202,7 @@ export function DocsView({
               />
             )}
 
-            <div
-              class="ddoc w-full lg:overflow-y-auto pb-4"
-              // deno-lint-ignore react-no-danger
-              dangerouslySetInnerHTML={{ __html: docs.toc }}
-            />
+            <Toc content={docs.toc} />
             <script
               // deno-lint-ignore react-no-danger
               dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
@@ -207,4 +212,15 @@ export function DocsView({
       </div>
     </div>
   );
+}
+
+function MainDocs({ content }: { content: DocsMainContent }) {
+  switch (content.kind) {
+    case "allSymbols":
+      return <SymbolContent content={content.value} />;
+    case "index":
+      return <ModuleDoc content={content.value} />;
+    case "symbol":
+      return <SymbolGroup content={content.value} />;
+  }
 }

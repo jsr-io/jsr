@@ -14,12 +14,15 @@ import {
 import { Highlight } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
+import type { SymbolContentCtx } from "@deno/doc/html-types";
+import { renderToString } from "preact-render-to-string";
+import { SymbolContent } from "../../../components/doc/SymbolContent.tsx";
 
 export interface LocalSymbolSearchProps {
   scope: string;
   pkg: string;
   version: string;
-  content?: string;
+  content?: SymbolContentCtx;
 }
 
 interface SearchItem {
@@ -80,15 +83,15 @@ export function LocalSymbolSearch(
       const [oramaDb, searchResp] = await Promise.all([
         createOrama(),
         !props.content
-          ? api.get<string>(
+          ? api.get<SymbolContentCtx>(
             path`/scopes/${props.scope}/packages/${props.pkg}/versions/${
               props.version || "latest"
-            }/docs/search_html`,
+            }/docs/search_structured`,
           )
           : Promise.resolve({ ok: true, data: props.content }),
       ]);
 
-      let searchContent: string;
+      let searchContent: SymbolContentCtx;
       if (searchResp.ok) {
         searchContent = searchResp.data;
       } else {
@@ -97,7 +100,9 @@ export function LocalSymbolSearch(
       }
 
       const searchResults = document.getElementById("docSearchResults")!;
-      searchResults.innerHTML = searchContent;
+      searchResults.innerHTML = renderToString(
+        <SymbolContent content={searchContent} />,
+      );
 
       const searchItems: SearchItem[] = Array.from(
         searchResults
