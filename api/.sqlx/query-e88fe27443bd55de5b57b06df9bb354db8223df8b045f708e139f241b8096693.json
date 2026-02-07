@@ -11,7 +11,7 @@
         "TimestamptzArray",
         {
           "Custom": {
-            "name": "_download_kind",
+            "name": "download_kind[]",
             "kind": {
               "Array": {
                 "Custom": {
