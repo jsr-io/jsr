@@ -1,28 +1,5 @@
 #!/usr/bin/env -S deno run --allow-net --allow-env
-
-/**
- * Clone a package and its dependencies from jsr.io to a local JSR instance.
- *
- * Usage:
- *   deno run --allow-net --allow-env tools/clone_dependency.ts @scope/package@version
- *   deno run --allow-net --allow-env tools/clone_dependency.ts @scope/package
- *   deno run --allow-net --allow-env tools/clone_dependency.ts @scope
- *
- * Examples:
- *   Clone a single package version with dependencies:
- *     tools/clone_dependency.ts @std/assert@0.215.0
- *
- *   Clone the latest version of a package with dependencies:
- *     tools/clone_dependency.ts @std/assert
- *
- *   Clone an entire scope (all packages and versions):
- *     tools/clone_dependency.ts @std
- *
- * Environment variables:
- *   LOCAL_REGISTRY_URL - URL of the local registry (default: http://jsr.test)
- *   LOCAL_REGISTRY_TOKEN - Auth token for the local registry
- *   SOURCE_REGISTRY_URL - URL of the source registry (default: https://jsr.io)
- */
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { parse } from "jsr:@std/semver";
 import type {
@@ -428,9 +405,6 @@ async function cloneScope(scope: string): Promise<void> {
 
 const args = Deno.args;
 if (args.length !== 1) {
-  console.error("Usage: clone_dependency.ts @scope/package@version");
-  console.error("       clone_dependency.ts @scope/package");
-  console.error("       clone_dependency.ts @scope");
   console.error("Example: clone_dependency.ts @std/assert@0.215.0");
   console.error("         clone_dependency.ts @std/assert");
   console.error("         clone_dependency.ts @std");
