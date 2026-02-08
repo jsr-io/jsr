@@ -64,32 +64,112 @@ async function fetchJson<T>(url: string): Promise<T> {
   return resp.json();
 }
 
-async function getDependencies(
+interface DependencyInfo {
+  deps: Map<string, PackageVersionReference>;
+  depGraph: Map<string, string[]>;
+}
+
+function pvKey(pv: PackageVersionReference): string {
+  return `@${pv.scope}/${pv.package}@${pv.version}`;
+}
+
+async function getDependencyInfo(
   scope: string,
   pkg: string,
   version: string,
-): Promise<PackageVersionReference[]> {
-  const graph = await fetchJson<DependencyGraphItem[]>(`${SOURCE_REGISTRY_URL}/api/scopes/${scope}/packages/${pkg}/versions/${version}/dependencies/graph`);
+): Promise<DependencyInfo> {
+  const graph = await fetchJson<DependencyGraphItem[]>(
+    `${SOURCE_REGISTRY_URL}/api/scopes/${scope}/packages/${pkg}/versions/${version}/dependencies/graph`,
+  );
 
-  const seen = new Set<string>();
-  const deps: PackageVersionReference[] = [];
+  const idToKey = new Map<number, string>();
+  const deps = new Map<string, PackageVersionReference>();
 
   for (const item of graph) {
     if (item.dependency.type === "jsr") {
-      const key =
-        `@${item.dependency.scope}/${item.dependency.package}@${item.dependency.version}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deps.push({
-          scope: item.dependency.scope,
-          package: item.dependency.package,
-          version: item.dependency.version,
-        });
+      const pv: PackageVersionReference = {
+        scope: item.dependency.scope,
+        package: item.dependency.package,
+        version: item.dependency.version,
+      };
+      const key = pvKey(pv);
+      idToKey.set(item.id, key);
+      deps.set(key, pv);
+    }
+  }
+
+  const rootKey = `@${scope}/${pkg}@${version}`;
+  const depGraph = new Map<string, string[]>();
+  for (const item of graph) {
+    const parentKey = item.dependency.type === "root"
+      ? rootKey
+      : idToKey.get(item.id);
+    if (!parentKey) continue;
+
+    if (!depGraph.has(parentKey)) {
+      depGraph.set(parentKey, []);
+    }
+
+    for (const childId of item.children) {
+      const childKey = idToKey.get(childId);
+      if (childKey && childKey !== parentKey) {
+        depGraph.get(parentKey)!.push(childKey);
       }
     }
   }
 
-  return deps;
+  for (const [key, children] of depGraph) {
+    depGraph.set(key, [...new Set(children)]);
+  }
+
+  return { deps, depGraph };
+}
+
+async function cloneInParallel(
+  allDeps: Map<string, PackageVersionReference>,
+  depGraph: Map<string, string[]>,
+): Promise<void> {
+  const inDegree = new Map<string, number>();
+  const reverseDeps = new Map<string, string[]>();
+
+  for (const key of allDeps.keys()) {
+    const deps = (depGraph.get(key) ?? []).filter((d) => allDeps.has(d));
+    inDegree.set(key, deps.length);
+    reverseDeps.set(key, []);
+  }
+
+  for (const [key, deps] of depGraph) {
+    for (const dep of deps) {
+      if (allDeps.has(dep)) {
+        reverseDeps.get(dep)!.push(key);
+      }
+    }
+  }
+
+  console.log(`\nTotal versions to clone: ${allDeps.size}`);
+
+  const cloned = new Set<string>();
+  while (cloned.size < allDeps.size) {
+    const ready: string[] = [];
+    for (const [key, deg] of inDegree) {
+      if (deg === 0 && !cloned.has(key)) {
+        ready.push(key);
+      }
+    }
+
+    console.log(`\nCloning ${ready.length} packages in parallel...`);
+    await Promise.all(ready.map(async (key) => {
+      await clonePackage(allDeps.get(key)!);
+      cloned.add(key);
+    }));
+
+    for (const key of ready) {
+      for (const dependent of reverseDeps.get(key) ?? []) {
+        inDegree.set(dependent, (inDegree.get(dependent) ?? 1) - 1);
+      }
+      inDegree.delete(key);
+    }
+  }
 }
 
 async function getScopePackages(scope: string): Promise<Package[]> {
@@ -302,11 +382,10 @@ async function cloneScope(scope: string): Promise<void> {
 
   console.log(`\nFetching dependency graphs...`);
   const allDeps = new Map<string, PackageVersionReference>();
-  const depGraph = new Map<string, string[]>(); // key -> dependencies
+  const depGraph = new Map<string, string[]>();
 
   for (const pv of latestVersions) {
-    const key = `@${pv.scope}/${pv.package}@${pv.version}`;
-    allDeps.set(key, pv);
+    allDeps.set(pvKey(pv), pv);
   }
 
   const processed = new Set<string>();
@@ -314,25 +393,28 @@ async function cloneScope(scope: string): Promise<void> {
 
   while (toProcess.length > 0) {
     const pv = toProcess.shift()!;
-    const key = `@${pv.scope}/${pv.package}@${pv.version}`;
+    const key = pvKey(pv);
 
     if (processed.has(key)) continue;
     processed.add(key);
 
     try {
-      const deps = await getDependencies(pv.scope, pv.package, pv.version);
-      const depKeys: string[] = [];
+      const info = await getDependencyInfo(pv.scope, pv.package, pv.version);
 
-      for (const dep of deps) {
-        const depKey = `@${dep.scope}/${dep.package}@${dep.version}`;
+      const depKeys: string[] = [];
+      for (const [depKey, depPv] of info.deps) {
         depKeys.push(depKey);
         if (!allDeps.has(depKey)) {
-          allDeps.set(depKey, dep);
-          toProcess.push(dep);
+          allDeps.set(depKey, depPv);
+          toProcess.push(depPv);
         }
       }
-
       depGraph.set(key, depKeys);
+
+      for (const [src, children] of info.depGraph) {
+        const existing = depGraph.get(src) ?? [];
+        depGraph.set(src, [...new Set([...existing, ...children])]);
+      }
     } catch (e) {
       console.log(
         `  Warning: Could not fetch dependency graph for ${key}: ${e}`,
@@ -341,33 +423,7 @@ async function cloneScope(scope: string): Promise<void> {
     }
   }
 
-  const sorted: string[] = [];
-  const visited = new Set<string>();
-  const visiting = new Set<string>();
-
-  function visit(key: string) {
-    if (visited.has(key) || visiting.has(key)) return;
-
-    visiting.add(key);
-    const deps = depGraph.get(key) ?? [];
-    for (const dep of deps) {
-      visit(dep);
-    }
-    visiting.delete(key);
-    visited.add(key);
-    sorted.push(key);
-  }
-
-  for (const key of allDeps.keys()) {
-    visit(key);
-  }
-
-  console.log(`\nTotal versions to clone: ${sorted.length}`);
-
-  for (const key of sorted) {
-    const pv = allDeps.get(key)!;
-    await clonePackage(pv);
-  }
+  await cloneInParallel(allDeps, depGraph);
 }
 
 const args = Deno.args;
@@ -414,14 +470,13 @@ if (pkg) {
   }
 
   console.log(`Fetching dependency graph for @${scope}/${pkg}@${version}...`);
-  const deps = await getDependencies(scope, pkg, version);
-  console.log(`Found ${deps.length} JSR dependencies`);
+  const info = await getDependencyInfo(scope, pkg, version);
+  console.log(`Found ${info.deps.size} JSR dependencies`);
 
-  deps.push({ scope, package: pkg, version });
+  const root: PackageVersionReference = { scope, package: pkg, version };
+  info.deps.set(pvKey(root), root);
 
-  for (const dep of deps) {
-    await clonePackage(dep);
-  }
+  await cloneInParallel(info.deps, info.depGraph);
 } else {
   await cloneScope(scope);
 }
