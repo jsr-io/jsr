@@ -167,6 +167,7 @@ export interface PackageVersionDocsContent {
 export type DocsMainContent =
   | { kind: "allSymbols"; value: SymbolContentCtx }
   | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "file"; value: ModuleDocCtx }
   | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {

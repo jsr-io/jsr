@@ -192,6 +192,7 @@ function MainDocs({ content }: { content: DocsMainContent }) {
   switch (content.kind) {
     case "allSymbols":
       return <SymbolContent content={content.value} />;
+    case "file":
     case "index":
       return <ModuleDoc content={content.value} />;
     case "symbol":
