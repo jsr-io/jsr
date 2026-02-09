@@ -62,6 +62,7 @@ export function Breadcrumbs(
           {symbolParts.map((part, index) => (
             <BreadcrumbItem
               part={part}
+              isFirst={false}
               isLast={index === symbolParts.length - 1}
             />
           ))}
