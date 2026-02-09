@@ -2,6 +2,7 @@
 locals {
   api_envs = {
     "DATABASE_URL" = local.postgres_url
+    "NO_COLOR"     = "true"
 
     "PUBLISHING_BUCKET" = google_storage_bucket.publishing.name
     "MODULES_BUCKET"    = google_storage_bucket.modules.name

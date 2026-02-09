@@ -4,6 +4,7 @@ locals {
     "FRONTEND_ROOT"                 = "https://${var.domain_name}"
     "API_ROOT"                      = "https://${local.api_domain}"
     "CLOUD_TRACE"                   = "true"
+    "NO_COLOR"                      = "true"
     "ORAMA_PACKAGE_PUBLIC_API_KEY"  = var.orama_package_public_api_key
     "ORAMA_PACKAGE_PUBLIC_INDEX_ID" = var.orama_package_public_index_id
     "ORAMA_DOCS_PUBLIC_API_KEY"     = var.orama_docs_public_api_key
