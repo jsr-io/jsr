@@ -560,7 +560,7 @@ pub mod tests {
       t.license_store(),
       t.registry_url(),
       t.npm_url(),
-      t.fallback_registry_url(),
+      t.fallback_registry_url,
       t.db(),
       None,
     )
@@ -1321,7 +1321,7 @@ pub mod tests {
   #[tokio::test]
   async fn jsr_import_from_fallback_registry() {
     let mut t = TestSetup::new().await;
-    t.set_fallback_registry_url(Some(Url::parse("https://jsr.io/").unwrap()));
+    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
 
     let bytes = create_mock_tarball("fallback_import");
     let task = process_tarball_setup2(

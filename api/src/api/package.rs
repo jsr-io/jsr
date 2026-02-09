@@ -2457,11 +2457,6 @@ pub async fn get_score_handler(
 
 #[cfg(test)]
 mod test {
-  use hyper::Body;
-  use hyper::StatusCode;
-  use indexmap::IndexSet;
-  use serde_json::json;
-
   use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
@@ -2497,6 +2492,11 @@ mod test {
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
+  use hyper::Body;
+  use hyper::StatusCode;
+  use indexmap::IndexSet;
+  use serde_json::json;
+  use url::Url;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -4528,9 +4528,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   #[tokio::test]
   async fn test_package_dependencies_with_fallback() {
     let mut t = TestSetup::new().await;
-    t.set_fallback_registry_url(Some(
-      url::Url::parse("https://jsr.io/").unwrap(),
-    ));
+    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
 
     let bytes = create_mock_tarball("fallback_import");
     let task = process_tarball_setup2(
@@ -4565,9 +4563,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   #[tokio::test]
   async fn test_package_dependencies_graph_with_fallback() {
     let mut t = TestSetup::new().await;
-    t.set_fallback_registry_url(Some(
-      url::Url::parse("https://jsr.io/").unwrap(),
-    ));
+    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
 
     let bytes = create_mock_tarball("fallback_import");
     let task = process_tarball_setup2(
