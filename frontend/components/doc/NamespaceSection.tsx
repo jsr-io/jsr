@@ -50,9 +50,9 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               <ul class="namespaceItemContentSubItems flex flex-wrap gap-y-1 text-sm">
                 {item.subitems.map((subitem, i) => (
                   <li
-                    class={i < item.subitems.length - 1
-                      ? ""
-                      : "after:content-['|'] after:mx-2 after:text-gray-300 after:select-none after:dark:text-gray-500"}
+                    class={i !== item.subitems.length - 1
+                      ? "after:content-['|'] after:mx-2 after:text-gray-300 after:select-none after:dark:text-gray-500"
+                      : ""}
                   >
                     <a href={subitem.href} class={ATagClasses}>
                       {subitem.title}
