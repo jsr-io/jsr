@@ -560,7 +560,7 @@ pub mod tests {
       t.license_store(),
       t.registry_url(),
       t.npm_url(),
-      t.fallback_registry_url,
+      t.fallback_registry_url.clone(),
       t.db(),
       None,
     )
