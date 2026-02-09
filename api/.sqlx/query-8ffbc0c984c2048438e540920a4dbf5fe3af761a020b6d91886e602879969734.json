@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT package_scope as \"package_scope: ScopeName\", package_name as \"package_name: PackageName\", package_version as \"package_version: Version\", dependency_kind as \"dependency_kind: DependencyKind\", dependency_name, dependency_constraint, dependency_path, updated_at, created_at\n      FROM package_version_dependencies\n      WHERE package_scope = $1 AND package_name = $2\n      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC",
+  "query": "SELECT package_scope as \"package_scope: ScopeName\", package_name as \"package_name: PackageName\", package_version as \"package_version: Version\", dependency_kind as \"dependency_kind: DependencyKind\", dependency_name, dependency_constraint, dependency_path, dependency_fallback_url, updated_at, created_at\n      FROM package_version_dependencies\n      WHERE package_scope = $1 AND package_name = $2 AND package_version = $3\n      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC",
   "describe": {
     "columns": [
       {
@@ -50,17 +50,23 @@
       },
       {
         "ordinal": 7,
+        "name": "dependency_fallback_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
         "Text",
         "Text"
       ]
@@ -73,9 +79,10 @@
       false,
       false,
       false,
+      true,
       false,
       false
     ]
   },
-  "hash": "276570ea07fe47366b023282a8fb481dbdd5c28a06fee6fbab31f85c35a86d4b"
+  "hash": "8ffbc0c984c2048438e540920a4dbf5fe3af761a020b6d91886e602879969734"
 }

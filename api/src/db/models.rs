@@ -815,6 +815,7 @@ pub struct PackageVersionDependency {
   pub dependency_name: String,
   pub dependency_constraint: String,
   pub dependency_path: String,
+  pub dependency_fallback_url: Option<String>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -844,6 +845,7 @@ pub struct NewPackageVersionDependency<'s> {
   pub dependency_name: &'s str,
   pub dependency_constraint: &'s str,
   pub dependency_path: &'s str,
+  pub dependency_fallback_url: Option<&'s str>,
 }
 
 pub type PackageWithGitHubRepoAndMeta =

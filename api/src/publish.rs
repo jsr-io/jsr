@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
@@ -30,11 +31,11 @@ use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
+use crate::tarball::ResolvedDependency;
 use crate::tarball::process_tarball;
 use crate::util::ApiResult;
 use crate::util::LicenseStore;
 use crate::util::decode_json;
-use deno_semver::package::PackageReqReference;
 use hyper::Body;
 use hyper::Request;
 use indexmap::IndexMap;
@@ -59,6 +60,8 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   publish_task(
     publishing_task_id,
@@ -66,6 +69,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     license_store,
     registry_url,
     npm_url,
+    fallback_registry_url,
     db,
     orama_client,
   )
@@ -76,7 +80,14 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, license_store, registry_url, orama_client),
+  skip(
+    buckets,
+    db,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    orama_client
+  ),
   err
 )]
 pub async fn publish_task(
@@ -85,6 +96,7 @@ pub async fn publish_task(
   license_store: LicenseStore,
   registry_url: Url,
   npm_url: Url,
+  fallback_registry_url: Option<Url>,
   db: Database,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
@@ -106,6 +118,7 @@ pub async fn publish_task(
           &license_store,
           &orama_client,
           registry_url.clone(),
+          fallback_registry_url.clone(),
           &mut publishing_task,
         )
         .await;
@@ -170,6 +183,7 @@ async fn process_publishing_task(
   license_store: &LicenseStore,
   orama_client: &Option<OramaClient>,
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
@@ -187,6 +201,7 @@ async fn process_publishing_task(
     buckets,
     license_store,
     registry_url,
+    fallback_registry_url,
     publishing_task,
   )
   .await
@@ -314,7 +329,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
   publishing_task: &mut PublishingTask,
   file_infos: &[crate::tarball::FileInfo],
   exports: ExportsMap,
-  dependencies: HashSet<(DependencyKind, PackageReqReference)>,
+  dependencies: HashSet<ResolvedDependency>,
   npm_tarball_info: &NpmTarballInfo,
   readme_path: Option<PackagePath>,
   meta: PackageVersionMeta,
@@ -322,7 +337,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
 ) -> Result<(), anyhow::Error> {
   let uses_npm = dependencies
     .iter()
-    .any(|(kind, _)| kind == &DependencyKind::Npm);
+    .any(|dep| dep.kind == DependencyKind::Npm);
 
   let new_package_version = NewPackageVersion {
     scope: &publishing_task.package_scope,
@@ -350,14 +365,15 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
 
   let new_package_version_dependencies = dependencies
     .iter()
-    .map(|(kind, req)| NewPackageVersionDependency {
+    .map(|dep| NewPackageVersionDependency {
       package_scope: &publishing_task.package_scope,
       package_name: &publishing_task.package_name,
       package_version: &publishing_task.package_version,
-      dependency_kind: *kind,
-      dependency_name: &req.req.name,
-      dependency_constraint: req.req.version_req.version_text(),
-      dependency_path: req.sub_path.as_deref().unwrap_or(""),
+      dependency_kind: dep.kind,
+      dependency_name: &dep.req.req.name,
+      dependency_constraint: dep.req.req.version_req.version_text(),
+      dependency_path: dep.req.sub_path.as_deref().unwrap_or(""),
+      dependency_fallback_url: dep.registry_url.as_deref(),
     })
     .collect::<Vec<_>>();
 
@@ -544,6 +560,7 @@ pub mod tests {
       t.license_store(),
       t.registry_url(),
       t.npm_url(),
+      t.fallback_registry_url.clone(),
       t.db(),
       None,
     )
@@ -1299,6 +1316,63 @@ pub mod tests {
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     assert_eq!(task.error.unwrap().code, "missingConstraint");
+  }
+
+  #[tokio::test]
+  async fn jsr_import_from_fallback_registry() {
+    let mut t = TestSetup::new().await;
+    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Jsr);
+    assert_eq!(dependencies[0].dependency_name, "@std/assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some("https://jsr.io/".to_string())
+    );
+  }
+
+  #[tokio::test]
+  async fn jsr_import_fails_without_fallback_when_missing() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "unresolvableJsrDependency");
   }
 
   #[tokio::test]

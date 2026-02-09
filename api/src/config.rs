@@ -98,6 +98,12 @@ pub struct Config {
   /// be accessible from.
   pub npm_url: Url,
 
+  #[clap(long = "fallback_registry_url", env = "FALLBACK_REGISTRY_URL")]
+  /// The base URL of a fallback registry to use when resolving JSR dependencies
+  /// that are not available locally. This allows self-hosted instances to
+  /// depend on packages from jsr.io or other instances.
+  pub fallback_registry_url: Option<Url>,
+
   #[clap(
     long = "api",
     default_missing_value("true"),
