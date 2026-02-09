@@ -12,7 +12,7 @@ builder.onTransformStaticFile(
     const css = CSS.replaceAll("font-size:16px;", "");
     return {
       content: args.text.replace(
-        "/* During the build process, the @deno/gfm CSS file is injected here. */",
+        "/*! During the build process, the @deno/gfm CSS file is injected here. */",
         css,
       ),
     };

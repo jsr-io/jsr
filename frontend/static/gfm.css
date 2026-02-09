@@ -1,4 +1,4 @@
-/* During the build process, the @deno/gfm CSS file is injected here. */
+/*! During the build process, the @deno/gfm CSS file is injected here. */
 
 .markdown-body {
   line-height: 1.6;
