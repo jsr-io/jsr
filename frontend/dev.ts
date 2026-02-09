@@ -6,7 +6,6 @@ import { tailwind } from "@fresh/plugin-tailwind-v3";
 import { CSS } from "@deno/gfm";
 
 const builder = new Builder();
-tailwind(builder, {});
 builder.onTransformStaticFile(
   { pluginName: "gfm-css", filter: /gfm\.css/ },
   (args) => {
@@ -19,6 +18,7 @@ builder.onTransformStaticFile(
     };
   },
 );
+tailwind(builder, {});
 
 if (Deno.args.includes("build")) {
   await builder.build();
