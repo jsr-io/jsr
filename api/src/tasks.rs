@@ -1,29 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use bytes::Bytes;
-use chrono::DateTime;
-use chrono::Utc;
-use deno_semver::StackString;
-use deno_semver::VersionReq;
-use deno_semver::package::PackageReq;
-use deno_semver::package::PackageReqReference;
-use deno_semver::package::PackageSubPath;
-use futures::StreamExt;
-use futures::stream;
-use hyper::Body;
-use hyper::Request;
-use routerify::Router;
-use routerify::ext::RequestExt;
-use routerify_query::RequestQueryExt;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::json;
-use std::collections::HashSet;
-use std::str::FromStr;
-use tracing::Span;
-use tracing::error;
-use tracing::field;
-use tracing::instrument;
-
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
@@ -36,6 +11,8 @@ use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
+use crate::db::WebhookPayload;
+use crate::db::WebhookPayloadFormat;
 use crate::gcp;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
@@ -49,9 +26,44 @@ use crate::npm::generate_npm_version_manifest;
 use crate::publish;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::USER_AGENT;
 use crate::util::decode_json;
+use bytes::Bytes;
+use chrono::DateTime;
+use chrono::Utc;
+use deno_semver::StackString;
+use deno_semver::VersionReq;
+use deno_semver::package::PackageReq;
+use deno_semver::package::PackageReqReference;
+use deno_semver::package::PackageSubPath;
+use futures::StreamExt;
+use futures::TryFutureExt;
+use futures::future::FutureExt;
+use futures::stream;
+use hmac::Mac;
+use hyper::Body;
+use hyper::Request;
+use opentelemetry::trace::TraceContextExt;
+use reqwest::header::HeaderValue;
+use routerify::Router;
+use routerify::ext::RequestExt;
+use routerify_query::RequestQueryExt;
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use std::collections::HashSet;
+use std::str::FromStr;
+use tracing::Span;
+use tracing::error;
+use tracing::field;
+use tracing::instrument;
+use tracing_futures::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+use uuid::Uuid;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
+#[derive(Clone)]
+pub struct WebhookDispatchQueue(pub Option<gcp::Queue>);
 pub struct AnalyticsEngineConfig(
   pub  Option<(
     cloudflare::AnalyticsEngineClient,
@@ -74,6 +86,7 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/scrape_download_counts",
       util::json(scrape_download_counts_handler),
     )
+    .post("/webhook_dispatch", util::json(webhook_dispatch_handler))
     .build()
     .unwrap()
 }
@@ -208,6 +221,9 @@ pub async fn npm_tarball_build_handler(
         gzip_encoded: false,
       },
     )
+    .await?;
+
+  db.process_webhooks_for_npm_tarball(&job.scope, &job.name, &job.version)
     .await?;
 
   Ok(())
@@ -566,6 +582,337 @@ fn deserialize_version_download_count_from_bigquery(
     kind,
     count,
   }))
+}
+
+#[instrument(name = "POST /tasks/webhook_dispatch", skip(req), err)]
+pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
+  let webhook_dispatch_id: Uuid = decode_json(&mut req).await?;
+  let db = req.data::<Database>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
+
+  let retry_count = req
+    .headers()
+    .get("x-cloudtasks-taskretrycount")
+    .unwrap()
+    .to_str()
+    .unwrap()
+    .parse::<usize>()
+    .unwrap()
+    + 1;
+
+  // sync retry count value with terraform
+  dispatch_webhook(db, registry_url, webhook_dispatch_id, 3 - retry_count)
+    .await?;
+
+  Ok(())
+}
+
+const WEBHOOK_DISPATCH_ENQUEUE_PARALLELISM: usize = 32;
+
+#[instrument(
+  name = "enqueue_webhook_dispatches",
+  skip(queue, db, registry_url),
+  err
+)]
+pub async fn enqueue_webhook_dispatches(
+  queue: &WebhookDispatchQueue,
+  db: &Database,
+  registry_url: &RegistryUrl,
+  webhook_dispatch_ids: Vec<Uuid>,
+) -> ApiResult<()> {
+  let mut futs = stream::iter(webhook_dispatch_ids)
+    .map(|webhook_dispatch_id| {
+      if let Some(queue) = &queue.0 {
+        let body = serde_json::to_vec(&webhook_dispatch_id).unwrap();
+        queue.task_buffer(None, Some(body.into())).boxed()
+      } else {
+        let span = Span::current();
+        let fut = dispatch_webhook(db, registry_url, webhook_dispatch_id, 0)
+          .instrument(span)
+          .map_err(anyhow::Error::from);
+        fut.boxed()
+      }
+    })
+    .buffer_unordered(WEBHOOK_DISPATCH_ENQUEUE_PARALLELISM);
+
+  while let Some(result) = futs.next().await {
+    result?;
+  }
+
+  Ok(())
+}
+
+#[instrument(name = "dispatch_webhook", skip(db, registry_url), err)]
+async fn dispatch_webhook(
+  db: &Database,
+  registry_url: &RegistryUrl,
+  webhook_dispatch_id: Uuid,
+  retries_left: usize,
+) -> ApiResult<()> {
+  #[derive(Serialize)]
+  struct ProviderEmbed {
+    color: u32,
+    title: &'static str,
+    url: String,
+    description: String,
+  }
+
+  fn payload_to_embed_data(
+    payload: WebhookPayload,
+    registry_url: &RegistryUrl,
+  ) -> ProviderEmbed {
+    const GREEN: u32 = 0x22c55e;
+    const YELLOW: u32 = 0xf7df1e;
+    const RED: u32 = 0xef4444;
+
+    let url = &registry_url.0;
+
+    match payload {
+      WebhookPayload::PackageVersionNpmTarballReady {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: GREEN,
+        title: "Package version NPM tarball ready",
+        url: format!("{url}@{scope}/{package}/{version}"),
+        description: format!(
+          "NPM tarball for @{scope}/{package}/{version} is ready"
+        ),
+      },
+      WebhookPayload::PackageVersionPublished {
+        scope,
+        package,
+        version,
+        user_id: _,
+      } => ProviderEmbed {
+        color: GREEN,
+        title: "Package version published",
+        url: format!("{url}@{scope}/{package}/{version}"),
+        description: format!("@{scope}/{package}/{version} has been published"),
+      },
+      WebhookPayload::PackageVersionYanked {
+        scope,
+        package,
+        version,
+        yanked,
+      } => ProviderEmbed {
+        color: if yanked { RED } else { GREEN },
+        title: if yanked {
+          "Package version yanked"
+        } else {
+          "Package version unyanked"
+        },
+        url: format!("{url}@{scope}/{package}/{version}"),
+        description: format!(
+          "@{scope}/{package}/{version} has been {}",
+          if yanked { "yanked" } else { "unyanked" }
+        ),
+      },
+      WebhookPayload::PackageVersionDeleted {
+        scope,
+        package,
+        version,
+      } => ProviderEmbed {
+        color: RED,
+        title: "Package version deleted",
+        url: format!("{url}@{scope}/{package}/{version}"),
+        description: format!("@{scope}/{package}/{version} has been deleted"),
+      },
+      WebhookPayload::ScopePackageCreated { scope, package } => ProviderEmbed {
+        color: GREEN,
+        title: "Package created",
+        url: format!("{url}@{scope}/{package}"),
+        description: format!("@{scope}/{package} has been created"),
+      },
+      WebhookPayload::ScopePackageDeleted { scope, package } => ProviderEmbed {
+        color: RED,
+        title: "Package deleted",
+        url: format!("{url}@{scope}"),
+        description: format!("@{scope}/{package} has been deleted"),
+      },
+      WebhookPayload::ScopePackageArchived {
+        scope,
+        package,
+        archived,
+      } => ProviderEmbed {
+        color: YELLOW,
+        title: if archived {
+          "Package archived"
+        } else {
+          "Package unarchived"
+        },
+        url: format!("{url}@{scope}"),
+        description: format!(
+          "@{scope}/{package} has been {}",
+          if archived { "archived" } else { "unarchived" }
+        ),
+      },
+      WebhookPayload::ScopeMemberAdded { scope, user_id } => ProviderEmbed {
+        color: GREEN,
+        title: "Scope member added",
+        url: format!("{url}@{scope}"),
+        description: format!("{user_id} has been added to @{scope}"),
+      },
+      WebhookPayload::ScopeMemberRemoved { scope, user_id } => ProviderEmbed {
+        color: RED,
+        title: "Scope member removed",
+        url: format!("{url}@{scope}"),
+        description: format!("{user_id} has been removed from @{scope}"),
+      },
+    }
+  }
+
+  let webhook = db.get_webhook_for_dispatch(webhook_dispatch_id).await?;
+
+  let (json, signature) = match webhook.payload_format {
+    WebhookPayloadFormat::Json => {
+      let json = serde_json::to_value(webhook.payload)?;
+      let signature = if let Some(secret) = webhook.secret {
+        let mut hmac =
+          hmac::Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes())
+            .unwrap();
+        hmac.update(&serde_json::to_vec(&json)?);
+        let hash = hmac.finalize().into_bytes();
+        Some(format!("sha256={:02x}", hash))
+      } else {
+        None
+      };
+
+      (json, signature)
+    }
+    WebhookPayloadFormat::Discord => (
+      json!({
+        "username": "JSR",
+        "avatar_url": format!("{}logo-square.png", registry_url.0),
+        "embeds": [payload_to_embed_data(webhook.payload, registry_url)],
+      }),
+      None,
+    ),
+    WebhookPayloadFormat::Slack => {
+      let embed = payload_to_embed_data(webhook.payload, registry_url);
+
+      (
+        json!({
+          "attachments": [
+            {
+              "fallback": embed.description,
+              "color": format!("#{:x}", embed.color),
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": format!("*<{}|{}>*\n{}", embed.url, embed.title, embed.description),
+                  }
+                }
+              ]
+            }
+          ]
+        }),
+        None,
+      )
+    }
+  };
+
+  let mut headers = reqwest::header::HeaderMap::new();
+
+  headers.insert(
+    "X-JSR-Event",
+    serde_json::to_string(&webhook.event)?.parse().unwrap(),
+  );
+  headers.insert(
+    "X-JSR-Event-Id",
+    webhook.event_id.to_string().parse().unwrap(),
+  );
+  headers.insert(
+    reqwest::header::USER_AGENT,
+    HeaderValue::from_static(USER_AGENT),
+  );
+  headers.insert(
+    reqwest::header::CONTENT_TYPE,
+    HeaderValue::from_static("application/json"),
+  );
+
+  let span = Span::current();
+  let ctx = span.context();
+  let span_ref = ctx.span();
+  let span_ctx = span_ref.span_context();
+  let trace_id = span_ctx.trace_id().to_string();
+  headers.insert("x-deno-ray", trace_id.parse().unwrap());
+
+  if let Some(signature) = signature {
+    headers.insert("X-JSR-Signature", signature.parse().unwrap());
+  }
+
+  let request_headers = serde_json::to_value(headers_to_map(&headers))?;
+
+  let response = match reqwest::Client::new()
+    .post(webhook.url)
+    .headers(headers)
+    .json(&json)
+    .send()
+    .await
+  {
+    Ok(response) => response,
+    Err(err) => {
+      db.update_webhook_delivery_for_error(
+        webhook_dispatch_id,
+        if retries_left != 0 {
+          crate::db::models::WebhookDeliveryStatus::Retrying
+        } else {
+          crate::db::models::WebhookDeliveryStatus::Failure
+        },
+        err.to_string(),
+        request_headers,
+        json,
+      )
+      .await?;
+      return Err(anyhow::Error::from(err).into());
+    }
+  };
+
+  let status = response.status();
+  let success = status.is_success();
+  let response_http_status = status.as_u16() as i32;
+  let response_headers =
+    serde_json::to_value(headers_to_map(response.headers()))?;
+  let response_body = response.text().await.map_err(anyhow::Error::from)?;
+
+  db.update_webhook_delivery(
+    webhook_dispatch_id,
+    if success {
+      crate::db::models::WebhookDeliveryStatus::Success
+    } else if retries_left != 0 {
+      crate::db::models::WebhookDeliveryStatus::Retrying
+    } else {
+      crate::db::models::WebhookDeliveryStatus::Failure
+    },
+    request_headers,
+    json,
+    response_http_status,
+    response_headers,
+    response_body,
+  )
+  .await?;
+
+  if !success {
+    Err(ApiError::WebhookResponseFailure { status })
+  } else {
+    Ok(())
+  }
+}
+
+fn headers_to_map(
+  headers: &reqwest::header::HeaderMap,
+) -> std::collections::HashMap<String, Vec<String>> {
+  let mut header_hashmap = std::collections::HashMap::new();
+  for (k, v) in headers {
+    let k = k.as_str().to_owned();
+    let v = String::from_utf8_lossy(v.as_bytes()).into_owned();
+    header_hashmap.entry(k).or_insert_with(Vec::new).push(v)
+  }
+  header_hashmap
 }
 
 #[cfg(test)]

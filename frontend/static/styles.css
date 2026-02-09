@@ -275,15 +275,15 @@
 
   .select {
     @apply appearance-none outline-none opacity-100 pl-1;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>')
-      no-repeat;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>');
+    background-repeat: no-repeat;
     /* 0.25 = pl-1 */
     background-position: center right 0.25rem;
   }
 
   .dark .select {
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="white" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>')
-      no-repeat;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 14 14"><path fill="white" fill-rule="evenodd" d="M.47 3.97a.75.75 0 0 1 1.06 0L6 8.44l4.47-4.47a.75.75 0 0 1 1.06 1.06l-5 5a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>');
+    background-repeat: no-repeat;
     /* 0.25 = pl-1 */
     background-position: center right 0.25rem;
   }

@@ -55,14 +55,15 @@ use crate::auth::GithubOauth2Client;
 use crate::auth::access_token;
 use crate::buckets::Buckets;
 use crate::buckets::UploadTaskBody;
-use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
 use crate::db::NewGithubRepository;
 use crate::db::NewPublishingTask;
+use crate::db::NewWebhookEndpoint;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
+use crate::db::{CreatePackageResult, UpdateWebhookEndpoint};
 use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
@@ -81,6 +82,7 @@ use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
 use crate::tarball::gcs_tarball_path;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
@@ -91,7 +93,6 @@ use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 
-use super::ApiCreatePackageRequest;
 use super::ApiDependency;
 use super::ApiDependencyGraphItem;
 use super::ApiDependent;
@@ -116,6 +117,9 @@ use super::ApiStats;
 use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
+use super::ApiWebhookEndpoint;
+use super::{ApiCreatePackageRequest, ApiUpdateWebhookEndpointRequest};
+use super::{ApiCreateWebhookEndpointRequest, ApiWebhookDelivery};
 
 const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
@@ -192,6 +196,34 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::json(list_publishing_tasks_handler),
     )
     .get("/:package/score", util::json(get_score_handler))
+    .post(
+      "/:package/webhooks",
+      util::auth(util::json(create_webhook_handler)),
+    )
+    .get(
+      " /:package/webhooks/:webhook",
+      util::auth(util::json(get_webhook_handler)),
+    )
+    .get(
+      "/:package/webhooks",
+      util::auth(util::json(list_webhooks_handler)),
+    )
+    .patch(
+      "/:package/webhooks/:webhook",
+      util::auth(util::json(update_webhook_handler)),
+    )
+    .delete(
+      "/:package/webhooks/:webhook",
+      util::auth(delete_webhook_handler),
+    )
+    .get(
+      "/:package/webhooks/:webhook/deliveries",
+      util::auth(util::json(list_webhook_deliveries_handler)),
+    )
+    .get(
+      "/:package/webhooks/:webhook/deliveries/:delivery",
+      util::auth(util::json(get_webhook_delivery_handler)),
+    )
     .build()
     .unwrap()
 }
@@ -298,14 +330,19 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   iam.check_scope_write_access(&scope).await?;
 
   let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   if db.check_is_bad_word(&package_name.to_string()).await? {
     return Err(ApiError::PackageNameNotAllowed);
   }
 
   let res = db.create_package(&scope, &package_name).await?;
-  let package = match res {
-    CreatePackageResult::Ok(package) => package,
+  let (package, webhook_deliveries) = match res {
+    CreatePackageResult::Ok {
+      package,
+      webhook_deliveries,
+    } => (package, webhook_deliveries),
     CreatePackageResult::AlreadyExists => {
       return Err(ApiError::PackageAlreadyExists);
     }
@@ -316,6 +353,14 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       return Err(ApiError::WeeklyPackageLimitExceeded { limit });
     }
   };
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    webhook_deliveries,
+  )
+  .await?;
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
@@ -471,7 +516,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::IsArchived(is_archived) => {
-      let package = db
+      let (package, webhook_deliveries) = db
         .update_package_is_archived(
           &user.id,
           sudo,
@@ -480,6 +525,17 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
           is_archived,
         )
         .await?;
+
+      let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+      let registry_url = req.data::<RegistryUrl>().unwrap();
+
+      crate::tasks::enqueue_webhook_dispatches(
+        webhook_dispatch_queue,
+        db,
+        registry_url,
+        webhook_deliveries,
+      )
+      .await?;
 
       if let Some(orama_client) = orama_client {
         if package.is_archived {
@@ -682,6 +738,8 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let package = req.param_package()?;
 
   let db: &Database = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   let _ = db
     .get_package(&scope, &package)
@@ -691,10 +749,19 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  let deleted = db.delete_package(&user.id, sudo, &scope, &package).await?;
+  let (deleted, webhook_deliveries) =
+    db.delete_package(&user.id, sudo, &scope, &package).await?;
   if !deleted {
     return Err(ApiError::PackageNotEmpty);
   }
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    webhook_deliveries,
+  )
+  .await?;
 
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
@@ -797,6 +864,8 @@ pub async fn version_publish_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let webhook_dispatch_queue =
+    req.data::<WebhookDispatchQueue>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
@@ -905,6 +974,7 @@ pub async fn version_publish_handler(
       registry_url,
       npm_url,
       db,
+      webhook_dispatch_queue,
       orama_client,
     )
     .instrument(span);
@@ -984,17 +1054,28 @@ pub async fn version_update_handler(
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  db.yank_package_version(
-    &user.id,
-    sudo,
-    &scope,
-    &package,
-    &version,
-    body.yanked,
+  let (_, webhook_deliveries) = db
+    .yank_package_version(
+      &user.id,
+      sudo,
+      &scope,
+      &package,
+      &version,
+      body.yanked,
+    )
+    .await?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    webhook_deliveries,
   )
   .await?;
 
@@ -1076,8 +1157,19 @@ pub async fn version_delete_handler(
     return Err(ApiError::DeleteVersionHasDependents);
   }
 
-  db.delete_package_version(&staff.id, &scope, &package, &version)
+  let webhook_deliveries = db
+    .delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
+
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    webhook_deliveries,
+  )
+  .await?;
 
   let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
   buckets.docs_bucket.delete_file(path.into()).await?;
@@ -2384,6 +2476,240 @@ pub async fn get_score_handler(
   Ok(ApiPackageScore::from((&meta, &pkg)))
 }
 
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn create_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiCreateWebhookEndpointRequest {
+    url,
+    description,
+    secret,
+    events,
+    payload_format,
+    is_active,
+  } = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .create_webhook_endpoint(
+      NewWebhookEndpoint {
+        scope: &scope,
+        package: Some(&package),
+        url: &url,
+        description: &description,
+        secret: secret.as_deref(),
+        events,
+        payload_format,
+        is_active,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .get_webhook_endpoint(&scope, Some(&package), webhook_id)
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "PATCH /api/scopes/:scope/packages/:package/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn update_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiUpdateWebhookEndpointRequest {
+    url,
+    description,
+    secret,
+    events,
+    payload_format,
+    is_active,
+  } = decode_json(&mut req).await?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .update_webhook_endpoint(
+      &scope,
+      Some(&package),
+      webhook_id,
+      UpdateWebhookEndpoint {
+        url,
+        description,
+        secret,
+        events,
+        payload_format,
+        is_active,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhooks_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookEndpoint>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints =
+    db.list_webhook_endpoints(&scope, Some(&package)).await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "DELETE /api/scopes/:scope/packages/:package/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn delete_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  db.delete_webhook_endpoint(
+    &user.id,
+    sudo,
+    &scope,
+    Some(&package),
+    webhook_id,
+  )
+  .await?;
+
+  let res = Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(res)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks/:webhook/deliveries",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhook_deliveries_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookDelivery>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints = db
+    .list_webhook_deliveries(&scope, Some(&package), webhook_id)
+    .await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/webhooks/:webhook/deliveries/:delivery",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_delivery_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  let delivery_id = req.param_uuid("delivery")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .get_webhook_delivery(&scope, Some(&package), webhook_id, delivery_id)
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
 #[cfg(test)]
 mod test {
   use hyper::Body;
@@ -2455,7 +2781,7 @@ mod test {
         )
         .await
         .unwrap();
-      assert!(matches!(res, CreatePackageResult::Ok(_)));
+      assert!(matches!(res, CreatePackageResult::Ok { .. }));
     }
 
     let mut resp = t.http().get("/api/packages").call().await.unwrap();
@@ -2652,7 +2978,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -2706,7 +3032,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -2764,7 +3090,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -2819,7 +3145,7 @@ mod test {
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -2989,7 +3315,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -3058,7 +3384,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3154,7 +3480,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3246,7 +3572,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3312,7 +3638,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()
@@ -3382,7 +3708,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       let res = t.ephemeral_database.create_package(&scope, &name).await;
 
       if i < 11 {
-        assert!(matches!(res.unwrap(), CreatePackageResult::Ok(_)));
+        assert!(matches!(res.unwrap(), CreatePackageResult::Ok { .. }));
       } else {
         assert!(matches!(
           res.unwrap(),
@@ -3413,7 +3739,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       let res = t.ephemeral_database.create_package(&scope, &name).await;
 
       if i < 11 {
-        assert!(matches!(res.unwrap(), CreatePackageResult::Ok(_)));
+        assert!(matches!(res.unwrap(), CreatePackageResult::Ok { .. }));
       } else {
         assert!(matches!(
           res.unwrap(),
@@ -3442,7 +3768,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let name = PackageName::new("foo".to_owned()).unwrap();
     let config_file = PackagePath::try_from("/jsr.json").unwrap();
 
-    let CreatePackageResult::Ok(package) =
+    let CreatePackageResult::Ok { package, .. } =
       t.db().create_package(&scope, &name).await.unwrap()
     else {
       unreachable!();
@@ -3507,7 +3833,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
     let name = PackageName::new("foo".to_owned()).unwrap();
 
-    let CreatePackageResult::Ok(_) =
+    let CreatePackageResult::Ok { .. } =
       t.db().create_package(&scope, &name).await.unwrap()
     else {
       unreachable!();
@@ -4008,7 +4334,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let url = format!("/api/scopes/{}/packages/{}", scope, name);
     let mut resp = t.http().delete(url).call().await.unwrap();
@@ -4044,7 +4370,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let url = format!("/api/scopes/{}/packages/{}", scope, name);
     let token = t.user2.token.clone();
@@ -4072,7 +4398,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let url = format!("/api/scopes/{}/packages/{}", scope, name);
     let token = t.user3.token.clone();
@@ -4125,7 +4451,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let version = Version::try_from("1.2.3").unwrap();
     let config_file = PackagePath::try_from("/jsr.json").unwrap();
@@ -4159,7 +4485,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .create_package(&scope, &name)
       .await
       .unwrap();
-    assert!(matches!(res, CreatePackageResult::Ok(_)));
+    assert!(matches!(res, CreatePackageResult::Ok { .. }));
 
     let mut resp = t
       .http()

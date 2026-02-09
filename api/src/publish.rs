@@ -31,6 +31,7 @@ use crate::orama::OramaClient;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
 use crate::tarball::process_tarball;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util::ApiResult;
 use crate::util::LicenseStore;
 use crate::util::decode_json;
@@ -59,6 +60,8 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let webhook_dispatch_queue =
+    req.data::<WebhookDispatchQueue>().unwrap().clone();
 
   publish_task(
     publishing_task_id,
@@ -67,6 +70,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     registry_url,
     npm_url,
     db,
+    webhook_dispatch_queue,
     orama_client,
   )
   .await?;
@@ -74,9 +78,17 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, license_store, registry_url, orama_client),
+  skip(
+    buckets,
+    db,
+    license_store,
+    registry_url,
+    webhook_dispatch_queue,
+    orama_client
+  ),
   err
 )]
 pub async fn publish_task(
@@ -86,6 +98,7 @@ pub async fn publish_task(
   registry_url: Url,
   npm_url: Url,
   db: Database,
+  webhook_dispatch_queue: WebhookDispatchQueue,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
   let (mut publishing_task, _) = db
@@ -142,6 +155,17 @@ pub async fn publish_task(
       }
       PublishingTaskStatus::Failure => return Ok(()),
       PublishingTaskStatus::Success => {
+        let webhook_deliveries =
+          db.process_webhooks_for_publish(&publishing_task).await?;
+
+        crate::tasks::enqueue_webhook_dispatches(
+          &webhook_dispatch_queue,
+          &db,
+          &RegistryUrl(registry_url.clone()),
+          webhook_deliveries,
+        )
+        .await?;
+
         if let Some(orama_client) = orama_client {
           let (package, _, meta) = db
             .get_package(
@@ -500,7 +524,7 @@ pub mod tests {
       .await
       .unwrap();
     assert!(
-      matches!(res, CreatePackageResult::Ok(_))
+      matches!(res, CreatePackageResult::Ok { .. })
         || matches!(res, CreatePackageResult::AlreadyExists)
     );
 
@@ -545,6 +569,7 @@ pub mod tests {
       t.registry_url(),
       t.npm_url(),
       t.db(),
+      WebhookDispatchQueue(None),
       None,
     )
     .await

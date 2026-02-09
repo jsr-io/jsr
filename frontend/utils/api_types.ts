@@ -416,3 +416,50 @@ export interface PackageDownloadsRecentVersion {
   version: string;
   downloads: DownloadDataPoint[];
 }
+
+export type WebhookEventKind =
+  | "package_version_npm_tarball_ready"
+  | "package_version_published"
+  | "package_version_yanked"
+  | "package_version_deleted"
+  | "scope_package_created"
+  | "scope_package_deleted"
+  | "scope_package_archived"
+  | "scope_member_added"
+  | "scope_member_removed";
+
+export type WebhookPayloadFormat = "json" | "discord" | "slack";
+
+export interface WebhookEndpoint {
+  id: string;
+  scope: string;
+  package: string | null;
+  url: string;
+  description: string | null;
+  hasSecret: boolean;
+  events: WebhookEventKind[];
+  payloadFormat: WebhookPayloadFormat;
+  isActive: boolean;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export type WebhookDeliveryStatus =
+  | "pending"
+  | "success"
+  | "failure"
+  | "retrying";
+
+export interface WebhookDelivery {
+  id: string;
+  status: WebhookDeliveryStatus;
+  requestHeaders: Record<string, string[]> | null;
+  requestBody: unknown | null;
+  responseHttpCode: number | null;
+  responseHeaders: Record<string, string[]> | null;
+  responseBody: string | null;
+  error: string | null;
+  event: WebhookEventKind;
+  updatedAt: string;
+  createdAt: string;
+}

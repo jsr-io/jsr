@@ -1,15 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
-import type { Package, RuntimeCompat } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
-import { define } from "../../util.ts";
-import { PackageGitHubSettings } from "./(_islands)/PackageGitHubSettings.tsx";
-import { packageData } from "../../utils/data.ts";
-import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { PackageDescriptionEditor } from "./(_islands)/PackageDescriptionEditor.tsx";
-import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
-import { scopeIAM } from "../../utils/iam.ts";
+import {
+  Package,
+  RuntimeCompat,
+  WebhookEndpoint,
+} from "../../../utils/api_types.ts";
+import { path } from "../../../utils/api.ts";
+import { define } from "../../../util.ts";
+import { PackageGitHubSettings } from "../(_islands)/PackageGitHubSettings.tsx";
+import { packageData } from "../../../utils/data.ts";
+import { PackageHeader } from "../(_components)/PackageHeader.tsx";
+import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
+import { PackageDescriptionEditor } from "../(_islands)/PackageDescriptionEditor.tsx";
+import { RUNTIME_COMPAT_KEYS } from "../../../components/RuntimeCompatIndicator.tsx";
+import { scopeIAM } from "../../../utils/iam.ts";
+import { ListDisplay } from "../../../components/List.tsx";
+import { Help } from "../../../components/Help.tsx";
 
 export default define.page<typeof handler>(
   function Settings({ data, params }) {
@@ -38,6 +44,8 @@ export default define.page<typeof handler>(
           <GitHubRepository package={data.package} />
 
           <SelectReadmeSourceEditor source={data.package.readmeSource} />
+
+          <Webhooks webhooks={data.webhooks} />
 
           <ArchivePackage isArchived={data.package.isArchived} />
 
@@ -316,11 +324,50 @@ function FeaturePackage(props: { package: Package }) {
   );
 }
 
+function Webhooks({ webhooks }: { webhooks: WebhookEndpoint[] }) {
+  return (
+    <div id="webhooks">
+      <h2 class="text-lg sm:text-xl font-semibold">
+        Webhooks <Help href="/docs/webhooks" />
+      </h2>
+      <p class="mt-2 text-secondary max-w-2xl">
+        Webhooks let you receive notifications when packages are published or
+        other events happen in the scope.
+      </p>
+      {webhooks.length > 0 && (
+        <ListDisplay>
+          {webhooks.map((entry) => ({
+            href: `./settings/webhooks/${entry.id}`,
+            content: (
+              <div class="grow-1 min-w-0 w-full flex flex-col md:flex-row gap-2 md:gap-4 justify-between">
+                <div class="flex-1 min-w-0 mb-2 md:mb-0 text-jsr-cyan-700 dark:text-cyan-400 font-semibold truncate">
+                  {entry.description || entry.url}
+                </div>
+
+                <div class="flex-none whitespace-nowrap">
+                  {entry.events.length} event{entry.events.length > 1 && "s"}
+                </div>
+              </div>
+            ),
+          }))}
+        </ListDisplay>
+      )}
+
+      <a href="./settings/webhooks/new" class="button-primary mt-4">
+        Create
+      </a>
+    </div>
+  );
+}
+
 export const handler = define.handlers({
   async GET(ctx) {
-    const [user, data] = await Promise.all([
+    const [user, data, webhooksResp] = await Promise.all([
       ctx.state.userPromise,
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
+      ctx.state.api.get<WebhookEndpoint[]>(
+        path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/webhooks`,
+      ),
     ]);
     if (user instanceof Response) return user;
     if (!data) throw new HttpError(404, "This package was not found.");
@@ -331,13 +378,19 @@ export const handler = define.handlers({
 
     if (!iam.canAdmin) throw new HttpError(404, "This package was not found.");
 
+    if (!webhooksResp.ok) {
+      throw webhooksResp; // graceful handle errors
+    }
+
     ctx.state.meta = {
       title: `Settings - @${pkg.scope}/${pkg.name} - JSR`,
       description: `@${pkg.scope}/${pkg.name} on JSR${
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
-    return { data: { package: pkg, downloads, iam } };
+    return {
+      data: { package: pkg, downloads, iam, webhooks: webhooksResp.data },
+    };
   },
   async POST(ctx) {
     const req = ctx.req;
