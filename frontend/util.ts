@@ -31,7 +31,6 @@ export interface Meta {
 export type SearchKind = "packages" | "docs";
 
 export interface Docs {
-  css: string;
   comrakCss: string;
   script: string;
   // null only on index page
@@ -42,7 +41,6 @@ export interface Docs {
 }
 
 export interface Source {
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;

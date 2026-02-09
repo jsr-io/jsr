@@ -10,9 +10,12 @@ export function DocEntry(
   }: { entry: DocEntryCtx },
 ) {
   return (
-    <div class={name ? "anchorable docEntry" : "docEntry"} id={id}>
-      <div class="docEntryHeader">
-        <div>
+    <div
+      class={`mb-4 space-y-2 ${name ? "anchorable" : ""} group/sourceable`}
+      id={id}
+    >
+      <div class="flex justify-between items-start md:text-base">
+        <div class="break-words">
           {tags && tags.length > 0 && (
             <div class="space-x-1 mb-1">
               {tags.map((tag, i) => <Tag key={i} tag={tag} />)}

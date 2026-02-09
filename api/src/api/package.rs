@@ -1274,7 +1274,6 @@ pub async fn get_docs_handler(
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
@@ -1601,7 +1600,6 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
     comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
@@ -3557,7 +3555,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3565,7 +3562,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
         assert!(toc.is_some(), "{:?}", toc)
       }
@@ -3583,7 +3579,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3591,7 +3586,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
         assert!(toc.is_none(), "{:?}", toc);
       }
@@ -3609,7 +3603,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3617,7 +3610,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
@@ -3638,7 +3630,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3646,7 +3637,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
