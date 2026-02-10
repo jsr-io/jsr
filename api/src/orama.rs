@@ -176,8 +176,6 @@ impl OramaClient {
       unreachable!()
     };
 
-    let symbols_datasource = self.symbols_datasource.clone();
-
     let chunks = {
       let str_data = serde_json::to_string(&new_symbols).unwrap();
       ((str_data.len() as f64 / MAX_ORAMA_INSERT_SIZE).ceil() as usize).max(1)
@@ -187,12 +185,12 @@ impl OramaClient {
     if chunks_size != 0 {
       for chunk in new_symbols.chunks(chunks_size) {
         let span = Span::current();
+        let chunk = chunk.to_vec();
+        let symbols_datasource = self.symbols_datasource.clone();
 
         tokio::spawn(
           async move {
-            if let Err(err) =
-              symbols_datasource.insert_documents(chunk.to_vec()).await
-            {
+            if let Err(err) = symbols_datasource.insert_documents(chunk).await {
               error!("failed to OramaClient::upsert_symbols: {err}");
             }
           }
