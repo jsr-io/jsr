@@ -17,6 +17,8 @@ use tracing::Span;
 use tracing::error;
 use tracing::instrument;
 
+const MAX_ORAMA_INSERT_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
+
 #[derive(Clone)]
 pub struct OramaClient {
   symbols_client: Arc<OramaCloud>,
@@ -174,16 +176,29 @@ impl OramaClient {
       unreachable!()
     };
 
-    let span = Span::current();
     let symbols_datasource = self.symbols_datasource.clone();
-    tokio::spawn(
-      async move {
-        if let Err(err) = symbols_datasource.insert_documents(new_symbols).await
-        {
-          error!("failed to OramaClient::upsert_symbols: {err}");
-        }
+
+    let chunks = {
+      let str_data = serde_json::to_string(&new_symbols).unwrap();
+      ((str_data.len() as f64 / MAX_ORAMA_INSERT_SIZE).ceil() as usize).max(1)
+    };
+
+    let chunks_size = new_symbols.len() / chunks;
+    if chunks_size != 0 {
+      for chunk in new_symbols.chunks(chunks_size) {
+        let span = Span::current();
+
+        tokio::spawn(
+          async move {
+            if let Err(err) =
+              symbols_datasource.insert_documents(chunk.to_vec()).await
+            {
+              error!("failed to OramaClient::upsert_symbols: {err}");
+            }
+          }
+          .instrument(span),
+        );
       }
-      .instrument(span),
-    );
+    }
   }
 }
