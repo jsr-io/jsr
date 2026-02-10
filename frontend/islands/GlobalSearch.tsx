@@ -142,7 +142,6 @@ export function GlobalSearch(
                   description: 0.5,
                 }
                 : {},
-              // TODO: abortController: abort.current!
             });
             if (
               abort.current?.signal.aborted ||

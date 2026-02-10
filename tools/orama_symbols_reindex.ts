@@ -13,7 +13,7 @@ const datasource = orama.dataSource(Deno.env.get("ORAMA_SYMBOLS_DATA_SOURCE")!);
 
 const MAX_ORAMA_INSERT_SIZE = 3 * 1024 * 1024;
 
-// TODO: clear
+const temp = await datasource.createTemporaryIndex();
 
 let page = 1;
 while (true) {
@@ -48,7 +48,7 @@ while (true) {
       )
     ) {
       // deno-lint-ignore no-explicit-any
-      await datasource.insertDocuments(chunkItem as any);
+      await temp.insertDocuments(chunkItem as any);
     }
   }
 
@@ -56,3 +56,5 @@ while (true) {
     break;
   }
 }
+
+await datasource.swap();

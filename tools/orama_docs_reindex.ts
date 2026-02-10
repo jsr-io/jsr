@@ -21,7 +21,7 @@ export interface OramaDocsHit {
   content: string;
 }
 
-// TODO: clear
+const temp = await datasource.createTemporaryIndex();
 
 // fill the index
 const path = "frontend/docs/";
@@ -72,4 +72,5 @@ const results = pooledMap(
 );
 
 const entries = (await Array.fromAsync(results)).flat();
-await datasource.insertDocuments(entries);
+await temp.insertDocuments(entries);
+await datasource.swap();

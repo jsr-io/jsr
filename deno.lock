@@ -23,7 +23,7 @@
     "jsr:@std/toml@^1.0.1": "1.0.2",
     "jsr:@std/yaml@^1.0.5": "1.0.5",
     "npm:@mdn/browser-compat-data@^7.1.6": "7.1.6",
-    "npm:@orama/core@^1.2.0": "1.2.15_zod@3.24.3",
+    "npm:@orama/core@^1.2.17": "1.2.17",
     "npm:github-slugger@2": "2.0.0",
     "npm:he@^1.2.0": "1.2.0",
     "npm:katex@0.16": "0.16.11",
@@ -133,13 +133,11 @@
     "@noble/hashes@1.8.0": {
       "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
     },
-    "@orama/core@1.2.15_zod@3.24.3": {
-      "integrity": "sha512-/z8Z8LPnxxXf5DxhmYD9Ui9pmJ2f4E1j5z5nE+zBUuHbYFEeQ12F6YqajgtZX/l34WTK2N43CvpEVqgvSUGYaA==",
+    "@orama/core@1.2.17": {
+      "integrity": "sha512-gOjV1CQlD2h9XunbatH1u27g82hk+CL52puZI6158DKD9QVOKUUJ2mwQG1XRzVj7o2FKZqyZIxD1TUS6MClAfg==",
       "dependencies": [
         "@orama/cuid2",
-        "@orama/oramacore-events-parser",
-        "zod",
-        "zod-to-json-schema"
+        "@orama/oramacore-events-parser"
       ]
     },
     "@orama/cuid2@2.2.3": {
@@ -271,15 +269,6 @@
     },
     "source-map-js@1.2.1": {
       "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="
-    },
-    "zod-to-json-schema@3.24.5_zod@3.24.3": {
-      "integrity": "sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==",
-      "dependencies": [
-        "zod"
-      ]
-    },
-    "zod@3.24.3": {
-      "integrity": "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="
     }
   },
   "remote": {
@@ -319,7 +308,7 @@
       "jsr:@std/front-matter@^1.0.5",
       "jsr:@std/path@^1.0.8",
       "npm:@mdn/browser-compat-data@^7.1.6",
-      "npm:@orama/core@^1.2.0",
+      "npm:@orama/core@^1.2.17",
       "npm:github-slugger@2"
     ]
   }

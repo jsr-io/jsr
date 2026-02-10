@@ -25,7 +25,7 @@ export interface OramaPackageHit {
   score: number | null;
 }
 
-// TODO: clear
+const temp = await datasource.createTemporaryIndex();
 
 // fill the index
 let packages: Package[] = [];
@@ -60,5 +60,7 @@ const entries = packages
   } satisfies OramaPackageHit));
 
 for (const entriesChunk of chunk(entries, 1000)) {
-  await datasource.insertDocuments(entriesChunk);
+  await temp.insertDocuments(entriesChunk);
 }
+
+await datasource.swap();
