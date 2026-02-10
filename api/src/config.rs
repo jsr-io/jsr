@@ -86,17 +86,23 @@ pub struct Config {
   /// The Orama package data source
   pub orama_packages_data_source: Option<String>,
 
-  #[clap(long = "orama_symbol_project_id", env = "ORAMA_SYMBOL_PROJECT_ID")]
+  #[clap(long = "orama_symbols_project_id", env = "ORAMA_SYMBOLS_PROJECT_ID")]
   /// The Orama symbol project id
-  pub orama_symbol_project_id: Option<String>,
+  pub orama_symbols_project_id: Option<String>,
 
-  #[clap(long = "orama_symbol_project_key", env = "ORAMA_SYMBOL_PROJECT_KEY")]
+  #[clap(
+    long = "orama_symbols_project_key",
+    env = "ORAMA_SYMBOLS_PROJECT_KEY"
+  )]
   /// The Orama symbol project key
-  pub orama_symbol_project_key: Option<String>,
+  pub orama_symbols_project_key: Option<String>,
 
-  #[clap(long = "orama_symbol_data_source", env = "ORAMA_SYMBOL_DATA_SOURCE")]
+  #[clap(
+    long = "orama_symbols_data_source",
+    env = "ORAMA_SYMBOLS_DATA_SOURCE"
+  )]
   /// The Orama symbol data source
-  pub orama_symbol_data_source: Option<String>,
+  pub orama_symbols_data_source: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
   /// OTLP endpoint to send traces to.

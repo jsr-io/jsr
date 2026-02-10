@@ -239,32 +239,33 @@ async fn main() {
     ),
   );
 
-  let orama_client =
-    if let Some(orama_packages_project_id) = config.orama_packages_project_id {
-      Some(
+  let orama_client = if let Some(orama_packages_project_id) =
+    config.orama_packages_project_id
+  {
+    Some(
         OramaClient::new(
           orama_packages_project_id,
           config.orama_packages_project_key.expect(
-            "package_project_id was provided but no orama_packages_project_key",
+            "orama_packages_project_id was provided but no orama_packages_project_key",
           ),
           config.orama_packages_data_source.expect(
-            "package_project_id was provided but no orama_packages_data_source",
+            "orama_packages_project_id was provided but no orama_packages_data_source",
           ),
-          config.orama_symbol_project_id.expect(
-            "package_project_id was provided but no orama_symbol_project_id",
+          config.orama_symbols_project_id.expect(
+            "orama_packages_project_id was provided but no orama_symbols_project_id",
           ),
-          config.orama_symbol_project_key.expect(
-            "package_project_id was provided but no orama_symbol_project_key",
+          config.orama_symbols_project_key.expect(
+            "orama_packages_project_id was provided but no orama_symbols_project_key",
           ),
-          config.orama_symbol_data_source.expect(
-            "package_project_id was provided but no orama_symbol_data_source",
+          config.orama_symbols_data_source.expect(
+            "orama_packages_project_id was provided but no orama_symbols_data_source",
           ),
         )
         .await,
       )
-    } else {
-      None
-    };
+  } else {
+    None
+  };
 
   let email_sender = config.postmark_token.map(|token| {
     EmailSender::new(
