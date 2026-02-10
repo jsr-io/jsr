@@ -73,4 +73,4 @@ const results = pooledMap(
 
 const entries = (await Array.fromAsync(results)).flat();
 await temp.insertDocuments(entries);
-await datasource.swap();
+await temp.swap();

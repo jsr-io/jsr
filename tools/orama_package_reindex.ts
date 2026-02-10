@@ -65,4 +65,4 @@ for (const entriesChunk of chunk(entries, 1000)) {
   await temp.insertDocuments(entriesChunk);
 }
 
-await datasource.swap();
+await temp.swap();
