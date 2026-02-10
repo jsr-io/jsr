@@ -7,11 +7,11 @@ const ATagClasses =
 
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
-    <div class="space-y-4 !mt-6 max-w-prose">
-      {items.map((item) => (
+    <div class="!mt-6 max-w-prose">
+      {items.map((item, i) => (
         <div
           id={item.id}
-          class={`namespaceItem flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 min-h-12 ${
+          class={`namespaceItem flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 p-2 ${i === 0 ? "" : "mt-2"} -m-2 min-h-12 rounded transition duration-125 hover:bg-jsr-gray-900/50 ${
             item.deprecated ? "opacity-60" : ""
           }`}
           aria-label={item.deprecated ? "deprecated" : undefined}
@@ -26,7 +26,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               <a
                 href={item.href}
                 title={item.name}
-                class={`${ATagClasses} font-mono ${
+                class={`font-mono ${
                   item.deprecated
                     ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
                     : ""
