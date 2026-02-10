@@ -23,16 +23,16 @@ resource "google_secret_manager_secret_version" "postmark_token" {
   secret_data = var.postmark_token
 }
 
-resource "google_secret_manager_secret" "orama_package_project_key" {
-  secret_id = "orama-package-project-key"
+resource "google_secret_manager_secret" "orama_packages_project_key" {
+  secret_id = "orama-packages-project-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_package_project_key" {
-  secret      = google_secret_manager_secret.orama_package_project_key.id
-  secret_data = var.orama_package_project_key
+resource "google_secret_manager_secret_version" "orama_packages_project_key" {
+  secret      = google_secret_manager_secret.orama_packages_project_key.id
+  secret_data = var.orama_packages_project_key
 }
 
 resource "google_secret_manager_secret" "orama_symbols_project_key" {

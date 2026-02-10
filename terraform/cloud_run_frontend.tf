@@ -5,8 +5,8 @@ locals {
     "API_ROOT"      = "https://${local.api_domain}"
     "CLOUD_TRACE"   = "true"
 
-    "ORAMA_PACKAGE_PUBLIC_API_KEY" = var.orama_package_public_api_key
-    "ORAMA_PACKAGE_PROJECT_ID"     = var.orama_package_project_id
+    "ORAMA_PACKAGES_PUBLIC_API_KEY" = var.orama_packages_public_api_key
+    "ORAMA_PACKAGES_PROJECT_ID"     = var.orama_packages_project_id
 
     "ORAMA_SYMBOLS_PUBLIC_API_KEY" = var.orama_symbols_public_api_key
     "ORAMA_SYMBOLS_PROJECT_ID"     = var.orama_symbols_project_id

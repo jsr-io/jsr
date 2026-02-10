@@ -15,9 +15,9 @@ locals {
 
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
-    # ORAMA_PACKAGE_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_PACKAGE_PROJECT_ID"  = var.orama_package_project_id
-    "ORAMA_PACKAGE_DATA_SOURCE" = var.orama_package_data_source
+    # ORAMA_PACKAGES_PROJECT_KEY is defined inline, because it comes from Secrets Manager
+    "ORAMA_PACKAGES_PROJECT_ID"  = var.orama_packages_project_id
+    "ORAMA_PACKAGES_DATA_SOURCE" = var.orama_packages_data_source
     # ORAMA_SYMBOLS_PROJECT_KEY is defined inline, because it comes from Secrets Manager
     "ORAMA_SYMBOLS_PROJECT_ID"  = var.orama_symbols_project_id
     "ORAMA_SYMBOLS_DATA_SOURCE" = var.orama_symbols_data_source
@@ -98,10 +98,10 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
-        name = "ORAMA_PACKAGE_PROJECT_KEY"
+        name = "ORAMA_PACKAGES_PROJECT_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_package_project_key.id
+            secret  = google_secret_manager_secret.orama_packages_project_key.id
             version = "latest"
           }
         }
@@ -236,10 +236,10 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
       }
 
       env {
-        name = "ORAMA_PACKAGE_PROJECT_KEY"
+        name = "ORAMA_PACKAGES_PROJECT_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_package_project_key.id
+            secret  = google_secret_manager_secret.orama_packages_project_key.id
             version = "latest"
           }
         }
@@ -323,8 +323,8 @@ resource "google_secret_manager_secret_iam_member" "postmark_token" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_package_project_key" {
-  secret_id = google_secret_manager_secret.orama_package_project_key.id
+resource "google_secret_manager_secret_iam_member" "orama_packages_project_key" {
+  secret_id = google_secret_manager_secret.orama_packages_project_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

@@ -10,10 +10,10 @@ import { chunk } from "@std/collections";
 const jsr_url = Deno.env.get("JSR_ENDPOINT_URL");
 
 const orama = new OramaCloud({
-  projectId: Deno.env.get("ORAMA_PACKAGE_PROJECT_ID")!,
-  apiKey: Deno.env.get("ORAMA_PACKAGE_PROJECT_KEY")!,
+  projectId: Deno.env.get("ORAMA_PACKAGES_PROJECT_ID")!,
+  apiKey: Deno.env.get("ORAMA_PACKAGES_PROJECT_KEY")!,
 });
-const datasource = orama.dataSource(Deno.env.get("ORAMA_PACKAGE_DATA_SOURCE")!);
+const datasource = orama.dataSource(Deno.env.get("ORAMA_PACKAGES_DATA_SOURCE")!);
 
 export interface OramaPackageHit {
   id: string;

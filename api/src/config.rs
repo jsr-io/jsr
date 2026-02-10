@@ -65,23 +65,26 @@ pub struct Config {
   /// The GitHub Client Secret
   pub github_client_secret: String,
 
-  #[clap(long = "orama_package_project_id", env = "ORAMA_PACKAGE_PROJECT_ID")]
+  #[clap(
+    long = "orama_packages_project_id",
+    env = "ORAMA_PACKAGES_PROJECT_ID"
+  )]
   /// The Orama package project id
-  pub orama_package_project_id: Option<String>,
+  pub orama_packages_project_id: Option<String>,
 
   #[clap(
-    long = "orama_package_project_key",
-    env = "ORAMA_PACKAGE_PROJECT_KEY"
+    long = "orama_packages_project_key",
+    env = "ORAMA_PACKAGES_PROJECT_KEY"
   )]
   /// The Orama package project key
-  pub orama_package_project_key: Option<String>,
+  pub orama_packages_project_key: Option<String>,
 
   #[clap(
-    long = "orama_package_data_source",
-    env = "ORAMA_PACKAGE_DATA_SOURCE"
+    long = "orama_packages_data_source",
+    env = "ORAMA_PACKAGES_DATA_SOURCE"
   )]
   /// The Orama package data source
-  pub orama_package_data_source: Option<String>,
+  pub orama_packages_data_source: Option<String>,
 
   #[clap(long = "orama_symbol_project_id", env = "ORAMA_SYMBOL_PROJECT_ID")]
   /// The Orama symbol project id

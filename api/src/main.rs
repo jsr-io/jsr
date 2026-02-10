@@ -240,15 +240,15 @@ async fn main() {
   );
 
   let orama_client =
-    if let Some(orama_package_project_id) = config.orama_package_project_id {
+    if let Some(orama_packages_project_id) = config.orama_packages_project_id {
       Some(
         OramaClient::new(
-          orama_package_project_id,
-          config.orama_package_project_key.expect(
-            "package_project_id was provided but no orama_package_project_key",
+          orama_packages_project_id,
+          config.orama_packages_project_key.expect(
+            "package_project_id was provided but no orama_packages_project_key",
           ),
-          config.orama_package_data_source.expect(
-            "package_project_id was provided but no orama_package_data_source",
+          config.orama_packages_data_source.expect(
+            "package_project_id was provided but no orama_packages_data_source",
           ),
           config.orama_symbol_project_id.expect(
             "package_project_id was provided but no orama_symbol_project_id",

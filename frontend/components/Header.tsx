@@ -23,8 +23,8 @@ export function Header({
   const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
   const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-  const oramaPackageProjectId = Deno.env.get("ORAMA_PACKAGE_PROJECT_ID");
+  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
+  const oramaPackageProjectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
 
   const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
   const oramaDocsProjectId = Deno.env.get("ORAMA_DOCS_PROJECT_ID");
