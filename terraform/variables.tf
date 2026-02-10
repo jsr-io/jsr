@@ -77,10 +77,6 @@ variable "orama_docs_project_id" {
   type = string
 }
 
-variable "orama_docs_data_source" {
-  type = string
-}
-
 variable "production" {
   type    = bool
   default = false
