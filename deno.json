@@ -15,7 +15,7 @@
     "lint:license": "deno run --allow-read jsr:@kt3k/license-checker@3.2.11/main -q",
     "lint:license:fix": "deno run --allow-read --allow-write jsr:@kt3k/license-checker@3.2.11/main -q --inject",
 
-    "tools:orama:package_reindex": "deno run --allow-env --allow-net tools/orama_package_reindex.ts",
+    "tools:orama:packages_reindex": "deno run --allow-env --allow-net tools/orama_packages_reindex.ts",
     "tools:orama:symbols_reindex": "deno run --allow-env --allow-net tools/orama_symbols_reindex.ts",
     "tools:orama:docs_reindex": "deno run --allow-env --allow-net --allow-read tools/orama_docs_reindex.ts",
     "tools:deno_symbols": "deno run --allow-run --allow-read --allow-env --allow-net --allow-write tools/generate_global_symbols.ts",

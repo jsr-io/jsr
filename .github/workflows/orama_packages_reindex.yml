@@ -25,4 +25,4 @@ jobs:
           ORAMA_PACKAGES_PROJECT_ID: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
           ORAMA_PACKAGES_DATA_SOURCE: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
           JSR_ENDPOINT_URL: ${{ vars.ENVIRONMENT_URL }}
-        run: deno task tools:orama:package_reindex
+        run: deno task tools:orama:packages_reindex
