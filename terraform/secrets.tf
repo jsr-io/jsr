@@ -47,18 +47,6 @@ resource "google_secret_manager_secret_version" "orama_symbols_project_key" {
   secret_data = var.orama_symbols_project_key
 }
 
-resource "google_secret_manager_secret" "orama_docs_project_key" {
-  secret_id = "orama-docs-project-key"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "orama_docs_project_key" {
-  secret      = google_secret_manager_secret.orama_docs_project_key.id
-  secret_data = var.orama_docs_project_key
-}
-
 resource "google_secret_manager_secret" "cloudflare_api_token" {
   secret_id = "cloudflare-api-token"
   replication {
