@@ -157,7 +157,6 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocsContent {
   kind: "content";
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   breadcrumbs: BreadcrumbsCtx | null;
@@ -199,7 +198,6 @@ export interface SourceFile {
 
 export interface PackageVersionSource {
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;

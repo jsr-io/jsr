@@ -56,14 +56,17 @@ export function Section(
   { section: { header, content } }: { section: SectionCtx },
 ) {
   return (
-    <section class="section" id={header?.anchor.id}>
+    <section
+      class="space-y-2 mb-2 scroll-mt-16 max-w-prose"
+      id={header?.anchor.id}
+    >
       {header && (
-        <div>
-          <h2 class="anchorable mb-1">
+        <div class="space-y-2">
+          <h2 class="anchorable text-xl leading-6 font-semibold py-1 mb-1">
             <Anchor anchor={header.anchor} />
             {header.href
               ? (
-                <a href={header.href} class="contextLink">
+                <a href={header.href} class="link">
                   {header.title}
                 </a>
               )
@@ -71,6 +74,7 @@ export function Section(
           </h2>
           {header.doc && (
             <div
+              class="text-base max-w-[75ch]"
               // jsdoc rendering
               // deno-lint-ignore react-no-danger
               dangerouslySetInnerHTML={{ __html: header.doc }}
