@@ -33,6 +33,8 @@ while (true) {
     );
     // deno-lint-ignore no-explicit-any
     const searchJson: any = await searchRes.json();
+    if (searchJson.nodes.length === 0) continue;
+
     for (const node of searchJson.nodes) {
       node.scope = pkg.scope;
       node.package = pkg.name;
