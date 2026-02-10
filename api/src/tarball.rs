@@ -49,6 +49,7 @@ use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
@@ -67,6 +68,7 @@ pub struct ProcessTarballOutput {
   pub readme_path: Option<PackagePath>,
   pub meta: PackageVersionMeta,
   pub doc_search_json: serde_json::Value,
+  pub license: String,
 }
 
 pub struct NpmTarballInfo {
@@ -78,14 +80,30 @@ pub struct NpmTarballInfo {
   pub size: u64,
 }
 
+static SUPPORTED_LICENSE_FILE_NAMES: [&str; 12] = [
+  "/LICENSE",
+  "/LICENSE.md",
+  "/LICENSE.txt",
+  "/LICENCE",
+  "/LICENCE.md",
+  "/LICENCE.txt",
+  "/COPYING",
+  "/COPYING.md",
+  "/COPYING.txt",
+  "/COPYING.LESSER",
+  "/COPYING.LESSER.md",
+  "/COPYING.LESSER.txt",
+];
+
 #[instrument(
   name = "process_tarball",
-  skip(buckets, registry_url, publishing_task),
+  skip(buckets, license_store, registry_url, publishing_task),
   err
 )]
 pub async fn process_tarball(
   db: &Database,
   buckets: &Buckets,
+  license_store: &LicenseStore,
   registry_url: Url,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
@@ -272,6 +290,35 @@ pub async fn process_tarball(
         .to_string(),
     });
   }
+
+  let license = if let Some(license) = config_file.license {
+    if license_store.0.get_original(&license).is_none() {
+      return Err(PublishError::InvalidLicense);
+    } else {
+      license
+    }
+  } else {
+    let mut license = None;
+    for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
+      if let Some(license_file) =
+        files.get(&PackagePath::new(license_file_name.to_string()).unwrap())
+      {
+        let license_content = String::from_utf8_lossy(license_file);
+        let analyzed = license_store
+          .0
+          .analyze(&askalono::TextData::new(license_content.as_ref()));
+        if analyzed.score > 0.8 {
+          license = Some(analyzed.name.to_string());
+        } else {
+          return Err(PublishError::InvalidLicense);
+        }
+
+        break;
+      }
+    }
+
+    license.ok_or_else(|| PublishError::MissingLicense)?
+  };
 
   let span = Span::current();
   let scope = publishing_task.package_scope.clone();
@@ -461,6 +508,7 @@ pub async fn process_tarball(
     readme_path,
     meta,
     doc_search_json,
+    license,
   })
 }
 
@@ -634,6 +682,16 @@ pub enum PublishError {
     resolved_version: Version,
     exports_key: String,
   },
+
+  #[error(
+    "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
+  )]
+  MissingLicense,
+
+  #[error(
+    "The license specified in the \"license\" field of your configuration file, or in the LICENSE file was not recognized."
+  )]
+  InvalidLicense,
 }
 
 impl PublishError {
@@ -696,6 +754,8 @@ impl PublishError {
       PublishError::InvalidJsrDependencySubPath { .. } => {
         Some("invalidJsrDependencySubPath")
       }
+      PublishError::MissingLicense => Some("missingLicense"),
+      PublishError::InvalidLicense => Some("invalidLicense"),
     }
   }
 }
@@ -717,6 +777,7 @@ pub struct FileInfo {
 pub struct ConfigFile {
   pub name: ScopedPackageName,
   pub version: Option<Version>,
+  pub license: Option<String>,
   pub exports: Option<serde_json::Value>,
 }
 

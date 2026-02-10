@@ -32,7 +32,7 @@ resource "google_cloud_run_v2_service" "registry_frontend" {
 
   name     = "registry-frontend-${each.key}"
   location = each.key
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     service_account = google_service_account.registry_frontend.email

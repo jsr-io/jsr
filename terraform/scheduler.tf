@@ -16,7 +16,7 @@ resource "google_cloud_scheduler_job" "npm_tarball_rebuild_missing" {
 
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
-  description = "Scrape download counts from BigQuery and insert them into Postgres."
+  description = "Scrape download counts from BigQuery & Analytics Engine and insert them into Postgres."
   schedule    = "15 * * * *"
   region      = "us-central1"
 

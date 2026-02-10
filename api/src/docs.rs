@@ -15,13 +15,13 @@ use deno_doc::DocNodeDef;
 use deno_doc::Location;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
-use deno_doc::html::HANDLEBARS;
 use deno_doc::html::HrefResolver;
 use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
 use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::util::BreadcrumbsCtx;
 use deno_doc::html::util::Id;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
@@ -299,6 +299,7 @@ pub enum DocsRequest {
   Symbol(ModuleSpecifier, String),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum GeneratedDocsOutput {
   Docs(GeneratedDocs),
@@ -307,9 +308,17 @@ pub enum GeneratedDocsOutput {
 
 #[derive(Debug)]
 pub struct GeneratedDocs {
-  pub breadcrumbs: Option<String>,
-  pub toc: Option<String>,
-  pub main: String,
+  pub breadcrumbs: Option<BreadcrumbsCtx>,
+  pub toc: Option<deno_doc::html::ToCCtx>,
+  pub main: GeneratedDocsContent,
+}
+
+#[derive(Debug)]
+pub enum GeneratedDocsContent {
+  AllSymbols(deno_doc::html::SymbolContentCtx),
+  File(deno_doc::html::jsdoc::ModuleDocCtx),
+  Index(deno_doc::html::jsdoc::ModuleDocCtx),
+  Symbol(deno_doc::html::SymbolGroupCtx),
 }
 
 pub struct DocsInfo {
@@ -425,7 +434,7 @@ fn get_url_rewriter(
     registry_url
   )
 )]
-pub fn get_generate_ctx<'a>(
+pub fn get_generate_ctx(
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -583,24 +592,18 @@ pub fn generate_docs_html(
         }),
       );
 
-      let breadcrumbs = HANDLEBARS
-        .render("breadcrumbs", &render_ctx.get_breadcrumbs())
-        .context("failed to render breadcrumbs")?;
-      let main = HANDLEBARS
-        .render(
-          "symbol_content",
-          &deno_doc::html::SymbolContentCtx {
-            id: Id::empty(),
-            sections,
-            docs: None,
-          },
-        )
-        .context("failed to all symbols list")?;
+      let breadcrumbs = render_ctx.get_breadcrumbs();
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
         toc: None,
-        main,
+        main: GeneratedDocsContent::AllSymbols(
+          deno_doc::html::SymbolContentCtx {
+            id: Id::empty(),
+            sections,
+            docs: None,
+          },
+        ),
       })))
     }
     DocsRequest::Index => {
@@ -644,20 +647,12 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let main = HANDLEBARS
-        .render("module_doc", &index_module_doc)
-        .context("failed to render index module doc")?;
-
       let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
-
-      let toc = HANDLEBARS
-        .render("toc", &toc_ctx)
-        .context("failed to render toc")?;
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
-        toc: Some(toc),
-        main,
+        toc: Some(toc_ctx),
+        main: GeneratedDocsContent::Index(index_module_doc),
       })))
     }
     DocsRequest::File(specifier) => {
@@ -676,24 +671,14 @@ pub fn generate_docs_html(
       let module_doc =
         deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
 
-      let breadcrumbs = HANDLEBARS
-        .render("breadcrumbs", &render_ctx.get_breadcrumbs())
-        .context("failed to render breadcrumbs")?;
-
-      let main = HANDLEBARS
-        .render("module_doc", &module_doc)
-        .context("failed to render module doc")?;
+      let breadcrumbs = render_ctx.get_breadcrumbs();
 
       let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
-      let toc = HANDLEBARS
-        .render("toc", &toc_ctx)
-        .context("failed to render toc")?;
-
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: Some(toc),
-        main,
+        toc: Some(toc_ctx),
+        main: GeneratedDocsContent::File(module_doc),
       })))
     }
     DocsRequest::Symbol(specifier, symbol) => {
@@ -715,25 +700,11 @@ pub fn generate_docs_html(
           symbol_group_ctx,
           toc_ctx,
           categories_panel: _categories_panel,
-        } => {
-          let breadcrumbs = HANDLEBARS
-            .render("breadcrumbs", &breadcrumbs_ctx)
-            .context("failed to render breadcrumbs")?;
-
-          let main = HANDLEBARS
-            .render("symbol_group", &symbol_group_ctx)
-            .context("failed to render symbol group")?;
-
-          let toc = HANDLEBARS
-            .render("toc", &toc_ctx)
-            .context("failed to render toc")?;
-
-          Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
-            breadcrumbs: Some(breadcrumbs),
-            toc: Some(toc),
-            main,
-          })))
-        }
+        } => Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
+          breadcrumbs: Some(breadcrumbs_ctx),
+          toc: Some(*toc_ctx),
+          main: GeneratedDocsContent::Symbol(symbol_group_ctx),
+        }))),
         SymbolPage::Redirect { href, .. } => {
           Ok(Some(GeneratedDocsOutput::Redirect(href)))
         }
@@ -1222,9 +1193,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       map.insert(
         UsageComposerEntry {
           name: "Deno".to_string(),
-          icon: Some(
-            r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/deno.svg".into()),
         },
         format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
       );
@@ -1234,37 +1203,28 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       map.insert(
         UsageComposerEntry {
           name: "pnpm".to_string(),
-          icon: Some(
-            r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/pnpm_textless.svg".into()),
         },
         format!("Add Package\n```\npnpm i jsr:{scoped_name}\n```\n<div class='or-bar'>or (using pnpm 10.8 or older)</div>\n\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {
           name: "Yarn".to_string(),
-          icon: Some(
-            r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/yarn_textless.svg".into()),
         },
         format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {
           name: "vlt".to_string(),
-          icon: Some(
-            r#"<img src="/logos/vlt.svg" alt="vlt logo" draggable="false" />"#
-              .into(),
-          ),
+          icon: Some("/logos/vlt.svg".into()),
         },
         format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
       );
       map.insert(
         UsageComposerEntry {
           name: "npm".to_string(),
-          icon: Some(
-            r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
-          ),
+          icon: Some("/logos/npm_textless.svg".into()),
         },
         format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
       );
@@ -1274,10 +1234,7 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
       map.insert(
         UsageComposerEntry {
           name: "Bun".to_string(),
-          icon: Some(
-            r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#
-              .into(),
-          ),
+          icon: Some("/logos/bun.svg".into()),
         },
         format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
       );

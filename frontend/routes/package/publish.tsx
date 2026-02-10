@@ -32,7 +32,7 @@ export default define.page<typeof handler>(function PackagePage({
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
-      <div class="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-y-8 lg:gap-x-16">
+      <div class="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-y-8 lg:gap-x-16">
         <div>
           <h2 class="font-bold text-2xl lg:text-3xl mb-8 text-balance">
             How to publish:
@@ -175,7 +175,7 @@ jobs:
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  contents: read</span>
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  id-token: write</span>
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  - name: Publish package</span>
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>    run: npx jsr publish</span>
 `;

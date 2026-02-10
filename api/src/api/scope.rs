@@ -321,32 +321,6 @@ async fn invite_member_handler(
 }
 
 #[instrument(
-  name = "GET /api/scopes/:scope/members/:member",
-  skip(req),
-  err,
-  fields(scope, member)
-)]
-async fn get_member_handler(req: Request<Body>) -> ApiResult<ApiScopeMember> {
-  let scope = req.param_scope()?;
-  let member_id = req.param_uuid("member")?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("member", field::display(&member_id));
-
-  let db = req.data::<Database>().unwrap();
-
-  let user = db
-    .get_user_public(member_id)
-    .await?
-    .ok_or(ApiError::UserNotFound)?;
-  let scope_member = db
-    .get_scope_member(&scope, member_id)
-    .await?
-    .ok_or(ApiError::ScopeMemberNotFound)?;
-
-  Ok((scope_member, user).into())
-}
-
-#[instrument(
   name = "PATCH /api/scopes/:scope/members/:member",
   skip(req),
   err,

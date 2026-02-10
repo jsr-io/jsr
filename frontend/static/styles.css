@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Nav item text - reserves space for bold text to prevent layout shift */
+.nav-item-text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nav-item-text::after {
+  content: attr(data-text);
+  font-weight: 600;
+  height: 0;
+  visibility: hidden;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none;
+}
+
 @font-face {
   font-family: "DM Sans";
   font-style: normal;
@@ -53,17 +70,12 @@
 
     color: theme("colors.jsr-gray.800");
     --color-text-primary: theme("colors.jsr-gray.800");
-    --color-text-secondary: theme("colors.jsr-gray.600");
+    --color-text-secondary: theme("colors.jsr-gray.500");
     --color-text-tertiary: theme("colors.jsr-gray.500");
 
     --pct: 0;
 
     @apply opsize-normal transition-colors duration-200;
-  }
-
-  body {
-    font-size: 1.125rem;
-    font-weight: 400;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -195,7 +207,7 @@
   .-section-x-inset-xl {
     @apply -mx-4 md:-mx-8 lg:-mx-10;
 
-    @media screen(xl) {
+    @screen xl {
       @container page (width > 0) {
         margin: 0 calc((112px + max(0px, 100cqw - 1280px)) / 2 * -1);
       }
@@ -210,9 +222,21 @@
       dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
 
+  .jsr-link {
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
+  }
+
   .link-header {
-    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25
-      hover:decoration-jsr-cyan-700 underline-offset-2
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950 opsize-sm font-medium
+      decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700
       dark:decoration-jsr-cyan-400/25 dark:hover:decoration-jsr-cyan-400;
   }
 
@@ -299,6 +323,12 @@ body .ddoc {
     --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
   }
 
+  a.link {
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 decoration-jsr-cyan-700/50
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      !important;
+  }
+
   .markdown {
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
@@ -330,11 +360,15 @@ body .ddoc {
     }
 
     a:not(.no_color) {
-      @apply link;
+      @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+        decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+        focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+        dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+        dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
     }
 
     .highlight {
-      @apply dark:bg-jsr-gray-900 !important;
+      @apply bg-white dark:bg-jsr-gray-900 !important;
 
       .lineNumbers {
         @apply border-r-2 border-jsr-gray-100 text-secondary pr-3 text-right
@@ -350,10 +384,6 @@ body .ddoc {
         > span {
           @apply block target:bg-yellow-200 dark:target:bg-yellow-900/70;
         }
-      }
-
-      .copyButton {
-        @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
       }
 
       /*!
@@ -478,7 +508,11 @@ body .ddoc {
 
   .markdown_summary {
     a:not(.no_color) {
-      @apply link;
+      @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+        decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+        focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+        dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+        dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
     }
 
     :not(pre) > code {
@@ -486,51 +520,88 @@ body .ddoc {
     }
   }
 
-  .sourceButton {
-    @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
+  .sourceButton,
+  .copyButton {
+    @apply z-10 rounded no-underline p-1.5 cursor-pointer bg-inherit leading-[0]
+      hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900 transition duration-75;
   }
 
-  .docEntryHeader a {
-    @apply link;
-  }
+  .anchorable {
+    @apply relative scroll-mt-16;
 
-  .contextLink {
-    /* cyan 700 at 25%; */
-    text-decoration-color: #0e659040;
-    color: theme("colors.jsr-cyan.700");
+    &:hover .anchor {
+      @apply block;
+    }
   }
 
   .usages {
-    nav details {
-      > summary {
-        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50 dark:border-jsr-cyan-800
-          dark:bg-jsr-cyan-950;
-      }
+    pre.highlight {
+      @apply border-jsr-cyan-300/50 dark:border-jsr-cyan-800;
+    }
+  }
 
-      > div > div {
-        @apply border-jsr-cyan-200 dark:border-jsr-cyan-800
-          dark:bg-jsr-gray-950;
+  pre.highlight {
+    .copyButton {
+      @apply absolute opacity-0 top-3 right-4;
+    }
+
+    &:hover .copyButton {
+      @apply opacity-60 hover:opacity-100;
+    }
+  }
+
+  .usageContent {
+    > h3 {
+      @apply font-bold text-lg mb-3;
+    }
+
+    /* markdown */
+
+    > div {
+      @apply text-xs text-gray-400 dark:text-gray-500;
+
+      p {
+        @apply m-0;
       }
     }
 
     pre.highlight {
-      @apply border-jsr-cyan-300/50 dark:border-jsr-cyan-800;
+      @apply border border-gray-300 max-md:border-x-0 bg-white
+        dark:border-gray-600 dark:bg-gray-800;
+
+      > code:first-child {
+        @apply pt-2 pr-10 pb-2 pl-2;
+        scrollbar-width: thin;
+      }
+
+      .copyButton {
+        @apply top-1 right-2 opacity-0;
+      }
+
+      &:hover .copyButton {
+        @apply opacity-100;
+      }
     }
+  }
+
+  .usageContent > div {
+    @apply text-jsr-gray-600 dark:text-jsr-gray-200;
   }
 
   .usageContent .markdown {
     @apply max-w-full;
   }
 
-  #module_doc, main {
+  .usageContent pre.highlight {
+    @apply mt-1 !important;
+  }
+
+  #module_doc,
+  main {
     @apply pb-8;
   }
 
   /* Table of contents adjustments */
-
-  .toc .topSymbols {
-    @apply max-lg:hidden;
-  }
 
   @media (min-width: 768px) {
     .usages nav details > div {
@@ -678,17 +749,16 @@ body .ddoc {
       color: #79b8ff;
     }
   }
-
-  .contextLink {
-    /* cyan 300 at 25%; */
-    text-decoration-color: #67bef940;
-    color: theme("colors.jsr-cyan.300");
-  }
 }
 
 /* This is a utility class to make the ddoc content full width inside its container */
 .ddoc-full {
   @apply max-w-full !important;
+}
+
+/* Remove borders and top rounded corners from code blocks in the file browser since the wrapper already has these */
+.ddoc-full pre.highlight {
+  @apply border-0 rounded-t-none !important;
 }
 
 /** We hide the footer on ddoc pages so that there is no content underneath the doc pages that make scrolling experience weird */
@@ -734,7 +804,7 @@ body .ddoc .or-bar {
     @apply h-[1px] w-full bg-jsr-gray-200 content-[""];
   }
 
-  @apply flex items-center justify-between gap-2 !mt-[2px] text-nowrap;
+  @apply flex items-center justify-between gap-2 !mt-2 text-nowrap;
 }
 
 @layer base {
@@ -770,7 +840,8 @@ body .ddoc .or-bar {
 }
 
 .minimal-chart {
-  .apexcharts-series-markers-wrap, .apexcharts-tooltip {
+  .apexcharts-series-markers-wrap,
+  .apexcharts-tooltip {
     display: none;
   }
 }
