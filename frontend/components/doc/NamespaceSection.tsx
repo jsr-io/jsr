@@ -7,7 +7,7 @@ const ATagClasses =
 
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
-    <div class="space-y-2 !mt-6 max-w-prose">
+    <div class="space-y-4 !mt-6 max-w-prose">
       {items.map((item) => (
         <div
           id={item.id}
@@ -22,17 +22,29 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
           />
 
           <div class="namespaceItemContent w-0 flex-1">
-            <a
-              href={item.href}
-              title={item.name}
-              class={`${ATagClasses} leading-none block break-all font-medium ${
-                item.deprecated
-                  ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
-                  : ""
-              }`}
-            >
-              {item.name}
-            </a>
+            <div>
+              <a
+                href={item.href}
+                title={item.name}
+                class={`${ATagClasses} font-mono ${
+                  item.deprecated
+                    ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
+                    : ""
+                }`}
+              >
+                <span class="leading-none break-all font-medium">
+                  {item.name}
+                </span>
+                {item.ty && (
+                  <span
+                    class="font-light opacity-85"
+                    // jsdoc rendering
+                    // deno-lint-ignore react-no-danger
+                    dangerouslySetInnerHTML={{ __html: item.ty }}
+                  />
+                )}
+              </a>
+            </div>
 
             <div class="mt-2 text-sm leading-5 text-stone-600 dark:text-stone-400">
               {item.docs

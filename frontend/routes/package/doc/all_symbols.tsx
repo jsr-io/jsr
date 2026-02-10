@@ -1,11 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
-import { define } from "../../util.ts";
-import { DocsData, packageDataWithDocs } from "../../utils/data.ts";
-import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { DocsView } from "./(_components)/Docs.tsx";
-import { scopeIAM } from "../../utils/iam.ts";
+import { define } from "../../../util.ts";
+import { DocsData, packageDataWithDocs } from "../../../utils/data.ts";
+import { PackageHeader } from "../(_components)/PackageHeader.tsx";
+import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
+import { DocsView } from "../(_components)/Docs.tsx";
+import { scopeIAM } from "../../../utils/iam.ts";
 
 export default define.page<typeof handler>(function AllSymbols(
   { data, params, state },
@@ -97,5 +97,5 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package{@:version}?/doc",
+  routeOverride: "/@:scope/:package{@:version}?/doc/all_symbols",
 };

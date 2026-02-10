@@ -988,8 +988,6 @@ dependencies = [
 [[package]]
 name = "deno_doc"
 version = "0.191.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "065fa318eac43ebdd6b253bd9dabed58e61c4d408192e9580d0c9f5cecabb762"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -5609,7 +5607,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

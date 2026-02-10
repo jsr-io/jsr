@@ -1151,7 +1151,7 @@ pub async fn get_docs_handler(
   let all_symbols = req.query("all_symbols").is_some();
   Span::current().record("all_symbols", field::display(&all_symbols));
   let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
-    "" => None,
+    "" => Some("."),
     s => Some(s),
   });
   Span::current()

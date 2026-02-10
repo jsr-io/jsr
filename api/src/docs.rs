@@ -621,7 +621,11 @@ pub fn generate_docs_html(
           .main_entrypoint
           .as_ref()
           .map(|entrypoint| {
-            deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, entrypoint)
+            deno_doc::html::jsdoc::ModuleDocCtx::new(
+              &render_ctx,
+              entrypoint,
+              false,
+            )
           })
           .unwrap_or_default(),
         ReadmeSource::Readme => Default::default(),
@@ -668,8 +672,11 @@ pub fn generate_docs_html(
         UrlResolveKind::File { file: short_path },
       );
 
-      let module_doc =
-        deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
+      let mut module_doc =
+        deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path, true);
+      if short_path.is_main {
+        module_doc.sections.docs = None;
+      }
 
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
@@ -1030,7 +1037,7 @@ impl HrefResolver for DocResolver {
 
     match target {
       UrlResolveKind::Root => package_base,
-      UrlResolveKind::AllSymbols => doc_base,
+      UrlResolveKind::AllSymbols => format!("{doc_base}/all_symbols"),
       UrlResolveKind::Symbol { file, symbol } => {
         format!(
           "{doc_base}{}/~/{symbol}",
@@ -1276,7 +1283,7 @@ mod tests {
       );
       assert_eq!(
         resolver.resolve_path(UrlResolveKind::Root, UrlResolveKind::AllSymbols),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1305,7 +1312,7 @@ mod tests {
       assert_eq!(
         resolver
           .resolve_path(UrlResolveKind::AllSymbols, UrlResolveKind::AllSymbols),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1339,7 +1346,7 @@ mod tests {
           UrlResolveKind::File { file: &short_path },
           UrlResolveKind::AllSymbols
         ),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1379,7 +1386,7 @@ mod tests {
           },
           UrlResolveKind::AllSymbols
         ),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(

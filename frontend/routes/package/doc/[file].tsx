@@ -115,5 +115,5 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package{@:version}?/doc/:entrypoint([^~]*){/~}?",
+  routeOverride: "/@:scope/:package{@:version}?/doc{/:entrypoint([^~]*)}?{/~}?",
 };

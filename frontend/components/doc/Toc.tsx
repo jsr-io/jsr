@@ -15,7 +15,7 @@ export function Toc(
   }
 
   return (
-    <div class="ddoc w-full lg:overflow-y-auto pb-4">
+    <div class="ddoc w-full lg:overflow-y-auto pb-4 pt-4">
       <div class="toc">
         <div class="space-y-5">
           {usages && <Usages usages={usages} />}

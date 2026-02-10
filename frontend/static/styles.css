@@ -519,6 +519,25 @@ body .ddoc {
       @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50 !important;
     }
   }
+  
+  .td-kw {
+    @apply text-cyan-500;
+  }
+  .td-lit {
+    @apply text-orange-500;
+  }
+  .td-str {
+    @apply text-green-500;
+  }
+  .td-ref {
+    @apply text-blue-500;
+  }
+  .td-tp {
+    @apply text-yellow-500;
+  }
+  .td-op {
+    @apply text-pink-500;
+  }
 
   .sourceButton,
   .copyButton {
