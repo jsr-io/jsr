@@ -7,7 +7,7 @@ const ATagClasses =
 
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
-    <div class="space-y-3 mt-4 max-w-prose">
+    <div class="space-y-2 !mt-6 max-w-prose">
       {items.map((item) => (
         <div
           id={item.id}

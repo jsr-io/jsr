@@ -223,12 +223,20 @@
   }
 
   .jsr-link {
-    @apply link;
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
 
   .link-header {
-    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25
-      hover:decoration-jsr-cyan-700 underline-offset-2
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950 opsize-sm font-medium
+      decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700
       dark:decoration-jsr-cyan-400/25 dark:hover:decoration-jsr-cyan-400;
   }
 
@@ -315,6 +323,12 @@ body .ddoc {
     --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
   }
 
+  a.link {
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 decoration-jsr-cyan-700/50
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      !important;
+  }
+
   .markdown {
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
@@ -346,7 +360,11 @@ body .ddoc {
     }
 
     a:not(.no_color) {
-      @apply link;
+      @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+        decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+        focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+        dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+        dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
     }
 
     .highlight {
@@ -490,7 +508,11 @@ body .ddoc {
 
   .markdown_summary {
     a:not(.no_color) {
-      @apply link;
+      @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+        decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+        focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+        dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+        dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
     }
 
     :not(pre) > code {
@@ -498,7 +520,8 @@ body .ddoc {
     }
   }
 
-  .sourceButton, .copyButton {
+  .sourceButton,
+  .copyButton {
     @apply z-10 rounded no-underline p-1.5 cursor-pointer bg-inherit leading-[0]
       hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900 transition duration-75;
   }
@@ -573,7 +596,8 @@ body .ddoc {
     @apply mt-1 !important;
   }
 
-  #module_doc, main {
+  #module_doc,
+  main {
     @apply pb-8;
   }
 
@@ -816,7 +840,8 @@ body .ddoc .or-bar {
 }
 
 .minimal-chart {
-  .apexcharts-series-markers-wrap, .apexcharts-tooltip {
+  .apexcharts-series-markers-wrap,
+  .apexcharts-tooltip {
     display: none;
   }
 }
