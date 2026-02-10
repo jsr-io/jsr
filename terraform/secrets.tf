@@ -23,40 +23,28 @@ resource "google_secret_manager_secret_version" "postmark_token" {
   secret_data = var.postmark_token
 }
 
-resource "google_secret_manager_secret" "orama_package_private_api_key" {
-  secret_id = "orama-package-private-api-key"
+resource "google_secret_manager_secret" "orama_packages_project_key" {
+  secret_id = "orama-packages-project-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_package_private_api_key" {
-  secret      = google_secret_manager_secret.orama_package_private_api_key.id
-  secret_data = var.orama_package_private_api_key
+resource "google_secret_manager_secret_version" "orama_packages_project_key" {
+  secret      = google_secret_manager_secret.orama_packages_project_key.id
+  secret_data = var.orama_packages_project_key
 }
 
-resource "google_secret_manager_secret" "orama_package_index_id" {
-  secret_id = "orama-package-index-id"
+resource "google_secret_manager_secret" "orama_symbols_project_key" {
+  secret_id = "orama-symbols-project-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret" "orama_symbols_index_id" {
-  secret_id = "orama-symbols-index-id"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "orama_package_index_id" {
-  secret      = google_secret_manager_secret.orama_package_index_id.id
-  secret_data = var.orama_package_index_id
-}
-
-resource "google_secret_manager_secret_version" "orama_symbols_index_id" {
-  secret      = google_secret_manager_secret.orama_symbols_index_id.id
-  secret_data = var.orama_symbols_index_id
+resource "google_secret_manager_secret_version" "orama_symbols_project_key" {
+  secret      = google_secret_manager_secret.orama_symbols_project_key.id
+  secret_data = var.orama_symbols_project_key
 }
 
 resource "google_secret_manager_secret" "cloudflare_api_token" {

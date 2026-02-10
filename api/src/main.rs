@@ -239,18 +239,30 @@ async fn main() {
     ),
   );
 
-  let orama_client = if let Some(orama_package_private_api_key) =
-    config.orama_package_private_api_key
+  let orama_client = if let Some(orama_packages_project_id) =
+    config.orama_packages_project_id
   {
-    Some(OramaClient::new(
-      orama_package_private_api_key,
-      config
-        .orama_package_index_id
-        .expect("orama_package_private_api_key was provided but no orama_package_index_id"),
-      config
-        .orama_symbols_index_id
-        .expect("orama_package_private_api_key was provided but no orama_symbols_index_id"),
-    ))
+    Some(
+        OramaClient::new(
+          orama_packages_project_id,
+          config.orama_packages_project_key.expect(
+            "orama_packages_project_id was provided but no orama_packages_project_key",
+          ),
+          config.orama_packages_data_source.expect(
+            "orama_packages_project_id was provided but no orama_packages_data_source",
+          ),
+          config.orama_symbols_project_id.expect(
+            "orama_packages_project_id was provided but no orama_symbols_project_id",
+          ),
+          config.orama_symbols_project_key.expect(
+            "orama_packages_project_id was provided but no orama_symbols_project_key",
+          ),
+          config.orama_symbols_data_source.expect(
+            "orama_packages_project_id was provided but no orama_symbols_data_source",
+          ),
+        )
+        .await,
+      )
   } else {
     None
   };

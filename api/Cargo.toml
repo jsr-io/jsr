@@ -99,6 +99,7 @@ infer = "0.15.0"
 x509-parser = { version = "0.15.1", features = ["verify"] }
 sitemap-rs = "0.2.1"
 askalono = "0.5.0"
+oramacore-client = "1.2.0"
 
 tree-sitter-highlight = "0.22.6"
 tree-sitter-javascript = "0.21.4"

@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
-import { OramaClient } from "@oramacloud/client";
+import { OramaCloud } from "@orama/core";
 import type { List, Package } from "../utils/api_types.ts";
 import { path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
@@ -47,8 +47,8 @@ export default define.page<typeof handler>(function PackageListPage({
   );
 });
 
-const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+const projectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
+const apiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -59,9 +59,9 @@ export const handler = define.handlers({
     let packages: Package[];
     let total;
     if (apiKey) {
-      const orama = new OramaClient({
-        endpoint: `https://cloud.orama.run/v1/indexes/${indexId!}`,
-        api_key: apiKey,
+      const orama = new OramaCloud({
+        projectId: projectId!,
+        apiKey: apiKey!,
       });
 
       const { query, where } = processFilter(search);
@@ -72,7 +72,6 @@ export const handler = define.handlers({
         limit,
         offset: (page - 1) * limit,
         mode: "fulltext",
-        // @ts-ignore boost does exist
         boost: {
           id: 3,
           scope: 2,
