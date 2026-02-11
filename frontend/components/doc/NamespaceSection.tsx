@@ -2,9 +2,6 @@
 import type { NamespaceNodeCtx } from "@deno/doc/html-types";
 import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
 
-const ATagClasses =
-  "underline decoration-stone-300 dark:decoration-stone-500 hover:no-underline";
-
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
     <div class="!mt-6 max-w-prose">
@@ -59,16 +56,32 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
             </div>
 
             {item.subitems && item.subitems.length > 0 && (
-              <ul class="namespaceItemContentSubItems flex flex-wrap gap-y-1 text-sm">
-                {item.subitems.map((subitem, i) => (
-                  <li
-                    class={i !== item.subitems.length - 1
-                      ? "after:content-['|'] after:mx-2 after:text-gray-300 after:select-none after:dark:text-gray-500"
-                      : ""}
-                  >
-                    <a href={subitem.href} class={ATagClasses}>
-                      {subitem.title}
+              <ul class="namespaceItemContentSubItems gap-y-2 text-sm mt-3 ml-2">
+                {item.subitems.map((subitem) => (
+                  <li>
+                    <a href={subitem.href} class="font-mono">
+                      <span>{subitem.title}</span>
+                      {subitem.ty && (
+                        <span
+                          class="font-light opacity-85"
+                          // jsdoc rendering
+                          // deno-lint-ignore react-no-danger
+                          dangerouslySetInnerHTML={{ __html: subitem.ty }}
+                        />
+                      )}
                     </a>
+
+                    <div class="mt-2 leading-5 text-stone-600 dark:text-stone-400">
+                      {subitem.docs
+                        ? (
+                          <span
+                            // jsdoc rendering
+                            // deno-lint-ignore react-no-danger
+                            dangerouslySetInnerHTML={{ __html: subitem.docs }}
+                          />
+                        )
+                        : <span class="italic">No documentation available</span>}
+                    </div>
                   </li>
                 ))}
               </ul>
