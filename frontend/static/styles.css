@@ -508,7 +508,7 @@ body .ddoc {
 
   .markdown_summary {
     @apply text-stone-600 dark:text-stone-400 !important;
-    
+
     a:not(.no_color) {
       @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
         decoration-jsr-cyan-700/50 underline-offset-2 outline-none
@@ -521,7 +521,7 @@ body .ddoc {
       @apply bg-jsr-cyan-100/50 dark:bg-jsr-cyan-900/50 !important;
     }
   }
-  
+
   .td-kw {
     @apply text-cyan-500;
   }

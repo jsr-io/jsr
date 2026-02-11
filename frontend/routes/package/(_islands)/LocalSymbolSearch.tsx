@@ -15,9 +15,9 @@ import { Highlight } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
 import type {
+  AllSymbolsCtx,
   NamespaceNodeCtx,
   SectionCtx,
-  AllSymbolsCtx,
 } from "@deno/doc/html-types";
 import { Section } from "../../../components/doc/Section.tsx";
 
