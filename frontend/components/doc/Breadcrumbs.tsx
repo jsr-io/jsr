@@ -3,13 +3,23 @@ import type { BreadcrumbCtx, BreadcrumbsCtx } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
 
 function BreadcrumbItem(
-  { part, isLast }: { part: BreadcrumbCtx; isLast: boolean },
+  { part, isFirst, isLast }: {
+    part: BreadcrumbCtx;
+    isFirst: boolean;
+    isLast: boolean;
+  },
 ) {
   return (
     <>
-      <li>
+      <li
+        class={`inline ${
+          isFirst
+            ? "text-2xl leading-none font-bold"
+            : "text-lg lg:text-xl leading-[0.9em]"
+        }`}
+      >
         {isLast ? part.name : (
-          <a href={part.href} class="contextLink">
+          <a href={part.href} class="link">
             {part.name}
           </a>
         )}
@@ -38,10 +48,11 @@ export function Breadcrumbs(
   const symbolParts = hasSymbols ? parts.slice(symbolStartIndex) : [];
 
   return (
-    <ul class="breadcrumbs">
+    <ul class="break-all inline-flex flex-wrap gap-1 items-center">
       {preParts.map((part, index) => (
         <BreadcrumbItem
           part={part}
+          isFirst={index === 0}
           isLast={!hasSymbols && index === preParts.length - 1}
         />
       ))}
@@ -51,6 +62,7 @@ export function Breadcrumbs(
           {symbolParts.map((part, index) => (
             <BreadcrumbItem
               part={part}
+              isFirst={false}
               isLast={index === symbolParts.length - 1}
             />
           ))}

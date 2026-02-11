@@ -6,19 +6,19 @@ import { tailwind } from "@fresh/plugin-tailwind-v3";
 import { CSS } from "@deno/gfm";
 
 const builder = new Builder();
-tailwind(builder, {});
 builder.onTransformStaticFile(
   { pluginName: "gfm-css", filter: /gfm\.css/ },
   (args) => {
     const css = CSS.replaceAll("font-size:16px;", "");
     return {
       content: args.text.replace(
-        "/* During the build process, the @deno/gfm CSS file is injected here. */",
+        "/*! During the build process, the @deno/gfm CSS file is injected here. */",
         css,
       ),
     };
   },
 );
+tailwind(builder, {});
 
 if (Deno.args.includes("build")) {
   await builder.build();

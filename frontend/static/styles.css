@@ -223,12 +223,20 @@
   }
 
   .jsr-link {
-    @apply link;
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
   }
 
   .link-header {
-    @apply link opsize-sm font-medium decoration-jsr-cyan-700/25
-      hover:decoration-jsr-cyan-700 underline-offset-2
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+      decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+      focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      dark:ring-cyan-400 dark:ring-offset-jsr-gray-950 opsize-sm font-medium
+      decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700
       dark:decoration-jsr-cyan-400/25 dark:hover:decoration-jsr-cyan-400;
   }
 
@@ -315,6 +323,12 @@ body .ddoc {
     --ddoc-usage-active-bg: theme("colors.jsr-cyan.950");
   }
 
+  a.link {
+    @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 decoration-jsr-cyan-700/50
+      dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+      !important;
+  }
+
   .markdown {
     h1 {
       @apply mt-8 -mx-4 px-4 md:mx-0 md:px-0 text-3xl md:text-4xl font-semibold
@@ -346,7 +360,11 @@ body .ddoc {
     }
 
     a:not(.no_color) {
-      @apply link;
+      @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+        decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+        focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+        dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+        dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
     }
 
     .highlight {
@@ -366,10 +384,6 @@ body .ddoc {
         > span {
           @apply block target:bg-yellow-200 dark:target:bg-yellow-900/70;
         }
-      }
-
-      .copyButton {
-        @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
       }
 
       /*!
@@ -494,7 +508,11 @@ body .ddoc {
 
   .markdown_summary {
     a:not(.no_color) {
-      @apply link;
+      @apply text-jsr-cyan-700 hover:text-jsr-cyan-900 underline
+        decoration-jsr-cyan-700/50 underline-offset-2 outline-none
+        focus-visible:ring-2 ring-jsr-cyan-700 ring-offset-2 rounded-sm
+        dark:text-cyan-400 dark:hover:text-cyan-300 dark:decoration-cyan-400/50
+        dark:ring-cyan-400 dark:ring-offset-jsr-gray-950;
     }
 
     :not(pre) > code {
@@ -502,54 +520,67 @@ body .ddoc {
     }
   }
 
-  .sourceButton {
-    @apply hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900;
+  .sourceButton,
+  .copyButton {
+    @apply z-10 rounded no-underline p-1.5 cursor-pointer bg-inherit leading-[0]
+      hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-900 transition duration-75;
   }
 
-  .docEntryHeader a {
-    @apply link;
-  }
+  .anchorable {
+    @apply relative scroll-mt-16;
 
-  .namespaceSection .namespaceItem {
-    min-height: 3rem;
-  }
-
-  .namespaceSection .namespaceItem .namespaceItemContent > a {
-    line-height: 1;
-  }
-
-  .namespaceSection
-    .namespaceItem
-    .namespaceItemContent
-    .namespaceItemContentSubItems {
-    margin-top: 0;
-  }
-
-  .section > div:first-child > h2 {
-    margin-bottom: 0.25rem;
-  }
-
-  .contextLink {
-    /* cyan 700 at 25%; */
-    text-decoration-color: #0e659040;
-    color: theme("colors.jsr-cyan.700");
+    &:hover .anchor {
+      @apply block;
+    }
   }
 
   .usages {
-    nav details {
-      > summary {
-        @apply border-jsr-cyan-300/50 bg-jsr-cyan-50 dark:border-jsr-cyan-800
-          dark:bg-jsr-cyan-950;
-      }
+    pre.highlight {
+      @apply border-jsr-cyan-300/50 dark:border-jsr-cyan-800;
+    }
+  }
 
-      > div > div {
-        @apply border-jsr-cyan-200 dark:border-jsr-cyan-800
-          dark:bg-jsr-gray-950;
+  pre.highlight {
+    .copyButton {
+      @apply absolute opacity-0 top-3 right-4;
+    }
+
+    &:hover .copyButton {
+      @apply opacity-60 hover:opacity-100;
+    }
+  }
+
+  .usageContent {
+    > h3 {
+      @apply font-bold text-lg mb-3;
+    }
+
+    /* markdown */
+
+    > div {
+      @apply text-xs text-gray-400 dark:text-gray-500;
+
+      p {
+        @apply m-0;
       }
     }
 
     pre.highlight {
-      @apply border-jsr-cyan-300/50 dark:border-jsr-cyan-800;
+      @apply border border-gray-300 max-md:border-x-0 bg-white
+        dark:border-gray-600 dark:bg-gray-800;
+
+      > code:first-child {
+        @apply pt-2 pr-10 pb-2 pl-2;
+        scrollbar-width: thin;
+      }
+
+      .copyButton {
+        @apply top-1 right-2 opacity-0;
+      }
+
+      &:hover .copyButton {
+        @apply opacity-100;
+      }
     }
   }
 
@@ -565,19 +596,12 @@ body .ddoc {
     @apply mt-1 !important;
   }
 
-  #module_doc, main {
+  #module_doc,
+  main {
     @apply pb-8;
   }
 
   /* Table of contents adjustments */
-
-  .toc .topSymbols {
-    @apply max-lg:hidden;
-  }
-
-  .toc .documentNavigation > ul ul {
-    @apply text-jsr-gray-600 dark:text-jsr-gray-200;
-  }
 
   @media (min-width: 768px) {
     .usages nav details > div {
@@ -725,12 +749,6 @@ body .ddoc {
       color: #79b8ff;
     }
   }
-
-  .contextLink {
-    /* cyan 300 at 25%; */
-    text-decoration-color: #67bef940;
-    color: theme("colors.jsr-cyan.300");
-  }
 }
 
 /* This is a utility class to make the ddoc content full width inside its container */
@@ -822,7 +840,8 @@ body .ddoc .or-bar {
 }
 
 .minimal-chart {
-  .apexcharts-series-markers-wrap, .apexcharts-tooltip {
+  .apexcharts-series-markers-wrap,
+  .apexcharts-tooltip {
     display: none;
   }
 }

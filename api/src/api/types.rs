@@ -633,7 +633,6 @@ pub enum ApiPackageVersionDocs {
   #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
-    css: Cow<'static, str>,
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<deno_doc::html::util::BreadcrumbsCtx>,
@@ -711,7 +710,6 @@ pub enum ApiSource {
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageVersionSource {
   pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
   pub comrak_css: Cow<'static, str>,
   pub script: Cow<'static, str>,
   pub source: ApiSource,

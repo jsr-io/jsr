@@ -9,7 +9,9 @@ export function DocBlockSubtitleClass(
     <>
       {value.implements && value.implements.length > 0 && (
         <div>
-          <span class="type">{" implements "}</span>
+          <span class="text-stone-400 italic dark:text-stone-500">
+            {" implements "}
+          </span>
           {value.implements.map((impl, index) => (
             <>
               <span
@@ -24,7 +26,9 @@ export function DocBlockSubtitleClass(
       )}
       {value.extends && (
         <div>
-          <span class="type">{" extends "}</span>
+          <span class="text-stone-400 italic dark:text-stone-500">
+            {" extends "}
+          </span>
           {value.extends.href
             ? (
               <a class="link" href={value.extends.href}>

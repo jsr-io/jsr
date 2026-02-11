@@ -5,6 +5,42 @@ import plugin from "tailwindcss/plugin.js";
 import tailwindPkgJson from "tailwindcss/package.json" with { type: "json" };
 import postcss from "postcss";
 
+const TAG_PURPLE = "#7B61FF";
+const TAG_CYAN = "#0CAFC6";
+
+const docColors = {
+  "Function": "#056CF0",
+  "FunctionDark": "#4cc3ff",
+  "Method": "#056CF0",
+  "MethodDark": "#4cc3ff",
+  "Variable": "#7E57C0",
+  "VariableDark": "#b37feb",
+  "Property": "#7E57C0",
+  "PropertyDark": "#b37feb",
+  "Class": "#20B44B",
+  "ClassDark": "#87eea4",
+  "Enum": "#22ABB0",
+  "EnumDark": "#3fced1",
+  "Interface": "#D2A064",
+  "InterfaceDark": "#bb733b",
+  "TypeAlias": "#A4478C",
+  "TypeAliasDark": "#dd95cc",
+  "Namespace": "#D25646",
+  "NamespaceDark": "#e57e6b",
+
+  "new": TAG_PURPLE,
+  "abstract": TAG_CYAN,
+  "deprecated": "#DC2626", // red 600
+  "unstable": TAG_PURPLE,
+  "writeonly": TAG_PURPLE,
+  "readonly": TAG_PURPLE,
+  "protected": TAG_PURPLE,
+  "private": TAG_CYAN,
+  "optional": TAG_CYAN,
+  "permissions": TAG_CYAN,
+  "other": "#57534E", // stone 600
+};
+
 export default {
   content: [
     "{routes,islands,components}/**/*.{ts,tsx}",
@@ -49,6 +85,7 @@ export default {
     },
     extend: {
       colors: {
+        ...docColors,
         transparent: "transparent",
         gray: colors.neutral,
         "jsr-yellow": {
@@ -118,6 +155,12 @@ export default {
         72: "18rem",
         88: "22rem",
       },
+      margin: {
+        "indent": "2ch",
+      },
+      maxWidth: {
+        "prose": "75ch",
+      },
       borderWidth: {
         "0": "0",
         "1": "1px",
@@ -166,6 +209,24 @@ export default {
       },
     },
   },
+  safelist: [
+    "ml-indent",
+    {
+      pattern: new RegExp(`^text-(${Object.keys(docColors).join("|")})$`),
+      variants: ["dark"],
+    },
+    {
+      pattern: new RegExp(
+        `^border-(${Object.keys(docColors).join("|")})\/50$`,
+      ),
+    },
+    {
+      pattern: new RegExp(
+        `^bg-(${Object.keys(docColors).join("|")})\/(?:5|15)$`,
+      ),
+      variants: ["hover", "dark"],
+    },
+  ],
 } satisfies Config;
 
 function rewritePreflight() {

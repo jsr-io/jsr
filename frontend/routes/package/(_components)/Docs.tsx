@@ -27,23 +27,6 @@ interface DocsProps {
   pkg: string;
 }
 
-const USAGE_SELECTOR_SCRIPT = `(() => {
-const preferredUsage = localStorage.getItem('preferredUsage');
-
-if (preferredUsage) {
-  document.querySelectorAll('input[name="usage"]').forEach((el) => {
-    if (el.id === preferredUsage) el.checked = true;
-  });
-}
-
-document.querySelector('.usages').addEventListener('change', (e) => {
-  const target = e.target;
-  if (target instanceof HTMLInputElement && target.name === 'usage') {
-    localStorage.setItem('preferredUsage', target.id);
-  } 
-});
-})()`;
-
 interface ProvenanceBadgeProps {
   rekorLogId: string;
 }
@@ -103,11 +86,6 @@ export function DocsView({
 }: DocsProps) {
   return (
     <div class="pt-6 pb-8 space-y-8">
-      <style
-        hidden
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: docs.css }}
-      />
       <style
         hidden
         // deno-lint-ignore react-no-danger
@@ -203,10 +181,6 @@ export function DocsView({
             )}
 
             <Toc content={docs.toc} />
-            <script
-              // deno-lint-ignore react-no-danger
-              dangerouslySetInnerHTML={{ __html: USAGE_SELECTOR_SCRIPT }}
-            />
           </div>
         )}
       </div>
@@ -218,6 +192,7 @@ function MainDocs({ content }: { content: DocsMainContent }) {
   switch (content.kind) {
     case "allSymbols":
       return <SymbolContent content={content.value} />;
+    case "file":
     case "index":
       return <ModuleDoc content={content.value} />;
     case "symbol":

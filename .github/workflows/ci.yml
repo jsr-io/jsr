@@ -221,9 +221,13 @@ jobs:
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
-          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
-          TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
@@ -234,8 +238,9 @@ jobs:
 
       - name: Reindex orama docs search
         env:
-          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
-          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
+          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
         run: deno task tools:orama:docs_reindex
 
   prod:
@@ -283,9 +288,13 @@ jobs:
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
-          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
-          TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
@@ -296,6 +305,7 @@ jobs:
 
       - name: Reindex orama docs search
         env:
-          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
-          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
+          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
         run: deno task tools:orama:docs_reindex
