@@ -2,7 +2,7 @@
 import { ComponentChildren } from "preact";
 import { HttpError, RouteConfig } from "fresh";
 import type { PackageScore } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
@@ -291,8 +291,7 @@ export const handler = define.handlers({
       });
     }
 
-    // TODO: handle errors gracefully
-    if (!scoreResp.ok) throw scoreResp;
+    assertOk(scoreResp);
 
     ctx.state.meta = {
       title: `Score - @${res.pkg.scope}/${res.pkg.name} - JSR`,

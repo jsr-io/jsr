@@ -2,7 +2,7 @@
 import { define } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { List, PublishingTask } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import twas from "twas";
@@ -154,7 +154,7 @@ export const handler = define.handlers({
         limit,
       },
     );
-    if (!resp.ok) throw resp; // gracefully handle this
+    assertOk(resp);
 
     return {
       data: {
