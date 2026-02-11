@@ -2,7 +2,7 @@
 import type { Middleware } from "fresh";
 import { deleteCookie, getCookies } from "@std/http/cookie";
 import { State } from "../util.ts";
-import { API, path } from "../utils/api.ts";
+import { API, APIError, path } from "../utils/api.ts";
 import { FullUser } from "../utils/api_types.ts";
 import { Tracer } from "../utils/tracing.ts";
 import { define } from "../util.ts";
@@ -65,7 +65,7 @@ const auth = define.middleware(async (ctx) => {
           deleteCookie(resp.headers, "token", { path: "/" });
           return resp;
         } else {
-          throw userResp;
+          throw new APIError(userResp);
         }
       })();
       ctx.state.userPromise.catch(() => {}); // don't trigger unhandled rejection

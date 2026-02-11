@@ -5,7 +5,7 @@ import type {
   PublishingTask,
   PublishingTaskStatus,
 } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { packageData } from "../utils/data.ts";
 import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
@@ -121,7 +121,7 @@ export const handler = define.handlers({
     const publishingTaskResp = await ctx.state.api.get<PublishingTask>(
       path`/publishing_tasks/${ctx.params.publishingTask}`,
     );
-    if (!publishingTaskResp.ok) throw publishingTaskResp; // gracefully handle this
+    assertOk(publishingTaskResp);
 
     const res = await packageData(
       ctx.state,
