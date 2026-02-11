@@ -1,7 +1,7 @@
 import {
+  AllSymbolsCtx,
   BreadcrumbsCtx,
   ModuleDocCtx,
-  SymbolContentCtx,
   SymbolGroupCtx,
   ToCCtx,
 } from "@deno/doc/html-types";
@@ -165,7 +165,7 @@ export interface PackageVersionDocsContent {
 }
 
 export type DocsMainContent =
-  | { kind: "allSymbols"; value: SymbolContentCtx }
+  | { kind: "allSymbols"; value: AllSymbolsCtx }
   | { kind: "index"; value: ModuleDocCtx }
   | { kind: "file"; value: ModuleDocCtx }
   | { kind: "symbol"; value: SymbolGroupCtx };

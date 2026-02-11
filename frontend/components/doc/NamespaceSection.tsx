@@ -33,12 +33,19 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                   {item.name}
                 </span>
                 {item.ty && (
-                  <span
-                    class="font-light opacity-85"
-                    // jsdoc rendering
-                    // deno-lint-ignore react-no-danger
-                    dangerouslySetInnerHTML={{ __html: item.ty }}
-                  />
+                  <>
+                    <span
+                      class="font-light opacity-85"
+                      // jsdoc rendering
+                      // deno-lint-ignore react-no-danger
+                      dangerouslySetInnerHTML={{ __html: item.ty.ty }}
+                    />
+                    {item.ty.info && (
+                      <div class="italic text-xs ml-2 text-stone-600 dark:text-stone-400">
+                        {item.ty.info}
+                      </div>
+                    )}
+                  </>
                 )}
               </a>
             </div>
@@ -66,12 +73,19 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                     <a href={subitem.href} class="block font-mono">
                       <span>{subitem.title}</span>
                       {subitem.ty && (
-                        <span
-                          class="font-light opacity-85"
-                          // jsdoc rendering
-                          // deno-lint-ignore react-no-danger
-                          dangerouslySetInnerHTML={{ __html: subitem.ty }}
-                        />
+                        <>
+                          <span
+                            class="font-light opacity-85"
+                            // jsdoc rendering
+                            // deno-lint-ignore react-no-danger
+                            dangerouslySetInnerHTML={{ __html: subitem.ty.ty }}
+                          />
+                          {subitem.ty.info && (
+                            <div class="italic text-xs ml-2 text-stone-600 dark:text-stone-400">
+                              {subitem.ty.info}
+                            </div>
+                          )}
+                        </>
                       )}
                     </a>
 

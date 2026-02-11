@@ -1,9 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { asset } from "fresh/runtime";
 import type { BreadcrumbCtx } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
-import { useComputed, useSignal, useSignalEffect } from "@preact/signals";
-import { useEffect } from "preact/hooks";
 
 export default function DocBreadcrumbsSwitcher(
   { current, entrypoints, hasSymbol }: {

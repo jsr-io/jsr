@@ -10,12 +10,7 @@ import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 import { TbFlag } from "tb-icons";
-import {
-  ModuleDoc,
-  SymbolContent,
-  SymbolGroup,
-  Toc,
-} from "../../../components/doc/mod.ts";
+import { ModuleDoc, SymbolGroup, Toc } from "../../../components/doc/mod.ts";
 import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
 interface DocsProps {
