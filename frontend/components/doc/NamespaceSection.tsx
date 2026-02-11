@@ -24,7 +24,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               : ""
           }`}>
             <div>
-              <a href={item.href} title={item.name} class="font-mono">
+              <a href={item.href} title={item.name} class="block font-mono">
                 <span class="leading-none break-all font-medium">
                   {item.name}
                 </span>
@@ -55,7 +55,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               <ul class="namespaceItemContentSubItems gap-y-2 text-sm mt-3 ml-2">
                 {item.subitems.map((subitem) => (
                   <li>
-                    <a href={subitem.href} class="font-mono">
+                    <a href={subitem.href} class="block font-mono">
                       <span>{subitem.title}</span>
                       {subitem.ty && (
                         <span
