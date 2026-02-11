@@ -1366,7 +1366,7 @@ pub async fn get_docs_search_handler(
 )]
 pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<deno_doc::html::SymbolContentCtx> {
+) -> ApiResult<deno_doc::html::AllSymbolsCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;

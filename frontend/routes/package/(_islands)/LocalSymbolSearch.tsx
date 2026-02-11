@@ -17,7 +17,7 @@ import { useMacLike } from "../../../utils/os.ts";
 import type {
   NamespaceNodeCtx,
   SectionCtx,
-  SymbolContentCtx,
+  AllSymbolsCtx,
 } from "@deno/doc/html-types";
 import { Section } from "../../../components/doc/Section.tsx";
 
@@ -25,7 +25,7 @@ export interface LocalSymbolSearchProps {
   scope: string;
   pkg: string;
   version: string;
-  content?: SymbolContentCtx;
+  content?: AllSymbolsCtx;
 }
 
 interface SearchItem {
@@ -209,7 +209,7 @@ export function LocalSymbolSearch(
       const [oramaDb, searchResp] = await Promise.all([
         createOrama(),
         !props.content
-          ? api.get<SymbolContentCtx>(
+          ? api.get<AllSymbolsCtx>(
             path`/scopes/${props.scope}/packages/${props.pkg}/versions/${
               props.version || "latest"
             }/docs/search_structured`,
@@ -217,7 +217,7 @@ export function LocalSymbolSearch(
           : Promise.resolve({ ok: true, data: props.content }),
       ]);
 
-      let searchContent: SymbolContentCtx;
+      let searchContent: AllSymbolsCtx;
       if (searchResp.ok) {
         searchContent = searchResp.data;
       } else {
@@ -226,7 +226,7 @@ export function LocalSymbolSearch(
       }
 
       const nsSections: NamespaceSectionData[] = [];
-      searchContent.sections.forEach((section, sectionIndex) => {
+      /* TODO searchContent.sections.forEach((section, sectionIndex) => {
         if (section.content.kind === "namespace_section") {
           nsSections.push({
             sectionIndex,
@@ -234,7 +234,7 @@ export function LocalSymbolSearch(
             items: section.content.content,
           });
         }
-      });
+      });*/
       namespaceSections.current = nsSections;
 
       const searchItems: SearchItem[] = nsSections.flatMap(

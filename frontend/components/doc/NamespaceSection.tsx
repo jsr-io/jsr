@@ -18,17 +18,13 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
             class="w-auto flex-col !justify-start gap-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
           />
 
-          <div class="namespaceItemContent w-0 flex-1">
+          <div class={`namespaceItemContent w-0 flex-1 ${
+            item.deprecated
+              ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
+              : ""
+          }`}>
             <div>
-              <a
-                href={item.href}
-                title={item.name}
-                class={`font-mono ${
-                  item.deprecated
-                    ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
-                    : ""
-                }`}
-              >
+              <a href={item.href} title={item.name} class="font-mono">
                 <span class="leading-none break-all font-medium">
                   {item.name}
                 </span>
@@ -43,7 +39,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               </a>
             </div>
 
-            <div class="mt-2 text-sm leading-5 text-stone-600 dark:text-stone-400">
+            <div class="mt-2 text-sm leading-5">
               {item.docs
                 ? (
                   <span
@@ -52,7 +48,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                     dangerouslySetInnerHTML={{ __html: item.docs }}
                   />
                 )
-                : <span class="italic">No documentation available</span>}
+                : <span class="italic text-stone-600 dark:text-stone-400">No documentation available</span>}
             </div>
 
             {item.subitems && item.subitems.length > 0 && (
@@ -71,7 +67,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                       )}
                     </a>
 
-                    <div class="mt-2 leading-5 text-stone-600 dark:text-stone-400">
+                    <div class="mt-2 leading-5">
                       {subitem.docs
                         ? (
                           <span
@@ -80,7 +76,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                             dangerouslySetInnerHTML={{ __html: subitem.docs }}
                           />
                         )
-                        : <span class="italic">No documentation available</span>}
+                        : <span class="italic text-stone-600 dark:text-stone-400">No documentation available</span>}
                     </div>
                   </li>
                 ))}

@@ -16,6 +16,7 @@ import {
   SymbolGroup,
   Toc,
 } from "../../../components/doc/mod.ts";
+import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
 interface DocsProps {
   docs: Docs;
@@ -191,7 +192,7 @@ export function DocsView({
 function MainDocs({ content }: { content: DocsMainContent }) {
   switch (content.kind) {
     case "allSymbols":
-      return <SymbolContent content={content.value} />;
+      return <AllSymbols items={content.value.entrypoints} />;
     case "file":
     case "index":
       return <ModuleDoc content={content.value} />;

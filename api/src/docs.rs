@@ -22,7 +22,6 @@ use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
 use deno_doc::html::pages::SymbolPage;
 use deno_doc::html::util::BreadcrumbsCtx;
-use deno_doc::html::util::Id;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -315,7 +314,7 @@ pub struct GeneratedDocs {
 
 #[derive(Debug)]
 pub enum GeneratedDocsContent {
-  AllSymbols(deno_doc::html::SymbolContentCtx),
+  AllSymbols(deno_doc::html::AllSymbolsCtx),
   File(deno_doc::html::jsdoc::ModuleDocCtx),
   Index(deno_doc::html::jsdoc::ModuleDocCtx),
   Symbol(deno_doc::html::SymbolGroupCtx),
@@ -570,40 +569,13 @@ pub fn generate_docs_html(
       let render_ctx =
         RenderContext::new(&ctx, &[], UrlResolveKind::AllSymbols);
 
-      let all_doc_nodes = ctx.doc_nodes.values().flatten().map(Cow::Borrowed);
-
-      let partitions_by_kind =
-        deno_doc::html::partition::partition_nodes_by_entrypoint(
-          &ctx,
-          all_doc_nodes,
-          true,
-        );
-
-      let sections = deno_doc::html::namespace::render_namespace(
-        partitions_by_kind.into_iter().map(|(path, nodes)| {
-          (
-            render_ctx.clone(),
-            deno_doc::html::SectionHeaderCtx::new_for_all_symbols(
-              &render_ctx,
-              &path,
-            ),
-            nodes,
-          )
-        }),
-      );
-
+      let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
         toc: None,
-        main: GeneratedDocsContent::AllSymbols(
-          deno_doc::html::SymbolContentCtx {
-            id: Id::empty(),
-            sections,
-            docs: None,
-          },
-        ),
+        main: GeneratedDocsContent::AllSymbols(all_symbols),
       })))
     }
     DocsRequest::Index => {
