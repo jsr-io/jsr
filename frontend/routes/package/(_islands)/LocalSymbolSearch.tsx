@@ -11,10 +11,14 @@ import {
   type Orama,
   search,
 } from "@orama/orama";
-import { Highlight } from "@orama/highlight";
+import { Highlight, type Position } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
-import type { AllSymbolsCtx, AllSymbolsItemCtx } from "@deno/doc/html-types";
+import type {
+  AllSymbolsCtx,
+  AllSymbolsItemCtx,
+  SectionContentNamespaceSectionCtx,
+} from "@deno/doc/html-types";
 import { renderToString } from "preact-render-to-string";
 import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
@@ -69,8 +73,7 @@ const highlighter = new Highlight();
 
 function getDocsText(docs: string | null) {
   if (!docs) return "";
-
-  const el = document.createElement('template');
+  const el = document.createElement("template");
   el.innerHTML = docs;
   return el.content.textContent.replaceAll("\n", " ");
 }
@@ -110,23 +113,23 @@ export function LocalSymbolSearch(
 
       for (const entrypoint of searchContent.value!.entrypoints) {
         for (const kindGroup of entrypoint.module_doc.sections.sections) {
-          if (kindGroup.content.kind === "namespace_section") {
-            for (const symbol of kindGroup.content.content) {
+          for (
+            const symbol
+              of (kindGroup.content as SectionContentNamespaceSectionCtx)
+                .content
+          ) {
+            searchItems.push({
+              name: symbol.name,
+              symbolName: symbol.name,
+              description: getDocsText(symbol.docs),
+            });
+
+            for (const subitem of symbol.subitems) {
               searchItems.push({
-                name: symbol.name,
+                name: subitem.title,
                 symbolName: symbol.name,
-                description: getDocsText(symbol.docs),
+                description: getDocsText(subitem.docs),
               });
-
-              for (const subitem of symbol.subitems) {
-
-
-                searchItems.push({
-                  name: subitem.title,
-                  symbolName: symbol.name,
-                  description: getDocsText(subitem.docs),
-                });
-              }
             }
           }
         }
@@ -191,29 +194,34 @@ export function LocalSymbolSearch(
       }
       previousSections.current.clear();
 
-      const hitNames = new Set(searchResult.hits.map((hit) => hit.document.name));
+      const hitNames = new Set(
+        searchResult.hits.map((hit) => hit.document.name),
+      );
 
       const out: AllSymbolsItemCtx[] = searchContent.value!.entrypoints
         .map((entrypoint) => {
           const filteredSections = entrypoint.module_doc.sections.sections
             .map((kindGroup) => {
-              if (kindGroup.content.kind !== "namespace_section") return null;
+              const filteredContent =
+                (kindGroup.content as SectionContentNamespaceSectionCtx).content
+                  .map((symbol) => {
+                    const symbolMatches = hitNames.has(symbol.name);
+                    const matchingSubitems = symbol.subitems.filter((subitem) =>
+                      hitNames.has(subitem.title)
+                    );
 
-              const filteredContent = kindGroup.content.content
-                .map((symbol) => {
-                  const symbolMatches = hitNames.has(symbol.name);
-                  const matchingSubitems = symbol.subitems.filter((subitem) =>
-                    hitNames.has(subitem.title)
-                  );
+                    if (!symbolMatches && matchingSubitems.length === 0) {
+                      return null;
+                    }
 
-                  if (!symbolMatches && matchingSubitems.length === 0) return null;
-
-                  return {
-                    ...symbol,
-                    subitems: symbolMatches ? symbol.subitems : matchingSubitems,
-                  };
-                })
-                .filter(Boolean);
+                    return {
+                      ...symbol,
+                      subitems: symbolMatches
+                        ? symbol.subitems
+                        : matchingSubitems,
+                    };
+                  })
+                  .filter(Boolean);
 
               if (filteredContent.length === 0) return null;
 
@@ -230,15 +238,21 @@ export function LocalSymbolSearch(
             ...entrypoint,
             module_doc: {
               ...entrypoint.module_doc,
-              sections: { ...entrypoint.module_doc.sections, sections: filteredSections },
+              sections: {
+                ...entrypoint.module_doc.sections,
+                sections: filteredSections,
+              },
             },
           };
         })
         .filter(Boolean) as AllSymbolsItemCtx[];
 
       const searchResults = document.getElementById("docSearchResults")!;
-      searchResults.innerHTML = renderToString(
-        <AllSymbols items={out} />,
+      searchResults.innerHTML = highlight(
+        renderToString(
+          <AllSymbols items={out} />,
+        ),
+        term,
       );
 
       hasResults.value = searchResult.hits.length > 0;
@@ -288,4 +302,102 @@ export function LocalSymbolSearch(
         )}
     </>
   );
+}
+
+function highlight(html: string, term: string): string {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const fragment = template.content;
+
+  for (const el of fragment.querySelectorAll(".highlightable")) {
+    const positions = highlighter.highlight(el.textContent!, term).positions;
+    if (positions.length === 0) continue;
+    applyHighlights(el, [...positions]);
+  }
+
+  const div = document.createElement("div");
+  div.appendChild(fragment.cloneNode(true));
+  return div.innerHTML;
+}
+
+function applyHighlights(fragment: Element, positions: Position[]) {
+  if (positions.length > 0) {
+    const walker = document.createTreeWalker(
+      fragment,
+      NodeFilter.SHOW_TEXT,
+    );
+
+    let currentPosition = 0;
+    let node = walker.nextNode();
+    while (node && positions.length) {
+      const currentNode = walker.currentNode as Text;
+      const textContent = currentNode.textContent!;
+      const length = textContent.length;
+
+      const fragments = [];
+      let start = 0;
+
+      positionsLoop: for (let i = 0; i < positions.length; i++) {
+        const position = positions[i];
+        const localStart = position.start - currentPosition;
+        const localEnd = position.end - currentPosition;
+
+        if (localStart >= length) {
+          // if the start is after the current node, there cannot be more highlights for this node
+          break positionsLoop;
+        }
+
+        if ((localStart >= 0) && (localEnd < length)) {
+          fragments.push(
+            textContent.slice(start, localStart),
+            textContent.slice(localStart, localEnd + 1),
+          );
+          start = localEnd + 1;
+          positions.shift();
+          i--; // we need to recheck the current position
+        } else if (localStart >= 0) {
+          fragments.push(
+            textContent.slice(start, localStart),
+            textContent.slice(localStart),
+          );
+          start = length;
+          // if the end is not in this node, there cannot be more highlights for this node
+          break positionsLoop;
+        } else if (localEnd < length) {
+          fragments.push(
+            "",
+            textContent.slice(start, localEnd + 1),
+          );
+          start = localEnd + 1;
+          positions.shift();
+          i--; // we need to recheck the current position
+        } else {
+          break positionsLoop;
+        }
+      }
+
+      if (start !== length) {
+        fragments.push(textContent.slice(start));
+      }
+
+      currentPosition += length;
+
+      node = walker.nextNode();
+      if (fragments.length > 1) {
+        currentNode.replaceWith(
+          document.createRange().createContextualFragment(
+            fragments
+              .map((fragment, i) =>
+                i % 2 === 0
+                  ? fragment
+                  : fragment !== ""
+                  ? `<mark class="orama-highlight">${fragment}</mark>`
+                  : ""
+              )
+              .join(""),
+          ),
+        );
+      }
+    }
+  }
 }

@@ -8,7 +8,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
       {items.map((item, i) => (
         <div
           id={item.id}
-          class={`namespaceItem flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 p-2 ${
+          class={`flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 p-2 ${
             i === 0 ? "" : "mt-2"
           } -m-2 min-h-12 rounded transition duration-125 hover:bg-jsr-gray-900/50 ${
             item.deprecated ? "opacity-60" : ""
@@ -21,7 +21,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
           />
 
           <div
-            class={`namespaceItemContent w-0 flex-1 ${
+            class={`w-0 flex-1 ${
               item.deprecated
                 ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
                 : ""
@@ -29,7 +29,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
           >
             <div>
               <a href={item.href} title={item.name} class="block font-mono">
-                <span class="leading-none break-all font-medium">
+                <span class="highlightable leading-none break-all font-medium">
                   {item.name}
                 </span>
                 {item.ty && (
@@ -54,6 +54,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               {item.docs
                 ? (
                   <span
+                    class="highlightable"
                     // jsdoc rendering
                     // deno-lint-ignore react-no-danger
                     dangerouslySetInnerHTML={{ __html: item.docs }}
@@ -67,11 +68,11 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
             </div>
 
             {item.subitems && item.subitems.length > 0 && (
-              <ul class="namespaceItemContentSubItems gap-y-3 text-sm mt-3 ml-2">
+              <ul class="gap-y-3 text-sm mt-3 ml-2">
                 {item.subitems.map((subitem) => (
                   <li>
                     <a href={subitem.href} class="block font-mono">
-                      <span>{subitem.title}</span>
+                      <span class="highlightable">{subitem.title}</span>
                       {subitem.ty && (
                         <>
                           <span
@@ -93,6 +94,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                       {subitem.docs
                         ? (
                           <span
+                            class="highlightable"
                             // jsdoc rendering
                             // deno-lint-ignore react-no-danger
                             dangerouslySetInnerHTML={{ __html: subitem.docs }}
