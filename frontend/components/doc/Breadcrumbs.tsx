@@ -40,7 +40,7 @@ export function Breadcrumbs(
 
       <li class="inline text-lg lg:text-xl leading-[0.9em]">
         <DocBreadcrumbsSwitcher
-          current={breadcrumbs.current_entrypoint}
+          current={breadcrumbs.current_entrypoint!} // we know it's present, since we never render the breadcrumbs on the index page
           entrypoints={breadcrumbs.entrypoints}
           hasSymbol={breadcrumbs.symbol.length > 0}
         />
