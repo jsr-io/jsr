@@ -32,7 +32,9 @@ export default function DocBreadcrumbsSwitcher(
                 : ""
             }`}
           >
-            <a href={entrypoint.href} class="block w-full truncate">{entrypoint.name}</a>
+            <a href={entrypoint.href} class="block w-full truncate">
+              {entrypoint.name}
+            </a>
           </li>
         ))}
       </ul>
