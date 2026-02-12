@@ -523,7 +523,7 @@ body .ddoc {
   }
 
   .td-kw {
-    @apply text-cyan-700 dark:text-cyan-400;
+    @apply text-teal-700 dark:text-teal-400;
   }
   .td-lit {
     @apply text-orange-700 dark:text-orange-400;

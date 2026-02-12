@@ -17,7 +17,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
         >
           <DocNodeKindIcon
             kinds={item.doc_node_kind_ctx}
-            class="w-auto flex-col !justify-start gap-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
+            class="w-auto flex-col !justify-start gap-1 mt-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
           />
 
           <div
