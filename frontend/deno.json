@@ -14,7 +14,7 @@
     }
   },
   "imports": {
-    "@deno/doc": "jsr:@deno/doc@^0.192.0",
+    "@deno/doc": "jsr:@deno/doc@^0.193.0",
     "@fresh/plugin-tailwind-v3": "jsr:@fresh/plugin-tailwind-v3@^1.0.1",
     "apexcharts": "npm:apexcharts@^4.5.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.14",
