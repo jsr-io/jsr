@@ -60,6 +60,9 @@ export const handler = define.handlers({
         "This package, package version, entrypoint, or symbol was not found.",
       );
     }
+    if (res instanceof Response) {
+      return res;
+    }
 
     if (res.kind === "redirect") {
       return new Response(null, {
