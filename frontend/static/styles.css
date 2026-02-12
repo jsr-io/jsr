@@ -523,22 +523,22 @@ body .ddoc {
   }
 
   .td-kw {
-    @apply text-cyan-500;
+    @apply text-cyan-700 dark:text-cyan-400;
   }
   .td-lit {
-    @apply text-orange-500;
+    @apply text-orange-700 dark:text-orange-400;
   }
   .td-str {
-    @apply text-green-500;
+    @apply text-green-700 dark:text-green-400;
   }
   .td-ref {
-    @apply text-blue-500;
+    @apply text-blue-700 dark:text-blue-400;
   }
   .td-tp {
-    @apply text-yellow-500;
+    @apply text-yellow-700 dark:text-yellow-400;
   }
   .td-op {
-    @apply text-pink-500;
+    @apply text-pink-700 dark:text-pink-400;
   }
 
   .sourceButton,

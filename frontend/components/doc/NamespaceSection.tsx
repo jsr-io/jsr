@@ -10,7 +10,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
           id={item.id}
           class={`flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 p-2 ${
             i === 0 ? "" : "mt-2"
-          } -m-2 min-h-12 rounded transition duration-125 hover:bg-jsr-gray-900/50 ${
+          } -m-2 min-h-12 rounded transition duration-125 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900/50 ${
             item.deprecated ? "opacity-60" : ""
           }`}
           aria-label={item.deprecated ? "deprecated" : undefined}
@@ -35,7 +35,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                 {item.ty && (
                   <>
                     <span
-                      class="font-light opacity-85"
+                      class="font-light opacity-85 dark:opacity-75"
                       // jsdoc rendering
                       // deno-lint-ignore react-no-danger
                       dangerouslySetInnerHTML={{ __html: item.ty.ty }}
@@ -76,7 +76,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                       {subitem.ty && (
                         <>
                           <span
-                            class="font-light opacity-85"
+                            class="font-light opacity-85 dark:opacity-75"
                             // jsdoc rendering
                             // deno-lint-ignore react-no-danger
                             dangerouslySetInnerHTML={{ __html: subitem.ty.ty }}
