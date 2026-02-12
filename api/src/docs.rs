@@ -597,6 +597,7 @@ pub fn generate_docs_html(
               &render_ctx,
               entrypoint,
               false,
+              false,
             )
           })
           .unwrap_or_default(),
@@ -644,8 +645,12 @@ pub fn generate_docs_html(
         UrlResolveKind::File { file: short_path },
       );
 
-      let mut module_doc =
-        deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path, true);
+      let mut module_doc = deno_doc::html::jsdoc::ModuleDocCtx::new(
+        &render_ctx,
+        short_path,
+        true,
+        false,
+      );
       if short_path.is_main {
         module_doc.sections.docs = None;
       }

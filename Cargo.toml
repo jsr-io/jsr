@@ -1,3 +1,6 @@
 [workspace]
 members = ["api"]
 resolver = "2"
+
+[patch.crates-io]
+deno_doc = {path = "../deno_doc"}

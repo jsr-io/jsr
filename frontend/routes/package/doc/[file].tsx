@@ -68,6 +68,9 @@ export const handler = define.handlers({
         "This package, package version, entrypoint, or symbol was not found.",
       );
     }
+    if (res instanceof Response) {
+      return res;
+    }
 
     const {
       pkg,

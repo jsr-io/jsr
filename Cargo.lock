@@ -1039,8 +1039,6 @@ dependencies = [
 [[package]]
 name = "deno_doc"
 version = "0.192.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01aaeb1e3c7f8b69868e6ef1eb5f24d721346971e12e3d276396f87917be68cd"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1051,7 +1049,7 @@ dependencies = [
  "deno_terminal",
  "handlebars 6.1.0",
  "html-escape",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "itoa",
  "js-sys",
  "lazy_static",
@@ -1107,7 +1105,7 @@ dependencies = [
  "deno_semver",
  "deno_unsync",
  "futures",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "log",
  "monch",
  "once_cell",
@@ -1718,7 +1716,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -1769,6 +1767,12 @@ dependencies = [
  "ahash",
  "allocator-api2",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 
 [[package]]
 name = "hashlink"
@@ -2170,13 +2174,14 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.5.0"
+version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68b900aa2f7301e21c36462b170ee99994de34dff39a4a6a528e80e7376d07e5"
+checksum = "7714e70437a7dc3ac8eb7e6f8df75fd8eb422675fc7678aff7364301092b1017"
 dependencies = [
  "equivalent",
- "hashbrown 0.14.5",
+ "hashbrown 0.16.1",
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -3437,7 +3442,7 @@ dependencies = [
  "futures",
  "handlebars 5.1.2",
  "hyper",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "infer",
  "jsonc-parser",
  "jsonwebkey",
@@ -3904,7 +3909,7 @@ version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "402a6f66d8c709116cf22f558eab210f5a50187f702eb4d7e5ef38d9a7f1c79c"
 dependencies = [
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "itoa",
  "memchr",
  "ryu",
@@ -4134,7 +4139,7 @@ dependencies = [
  "futures-util",
  "hashlink",
  "hex",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "ipnetwork",
  "log",
  "memchr",
@@ -4449,7 +4454,7 @@ checksum = "72e90b52ee734ded867104612218101722ad87ff4cf74fe30383bd244a533f97"
 dependencies = [
  "anyhow",
  "bytes-str",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "serde",
  "serde_json",
  "swc_config_macro",
@@ -4587,7 +4592,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "250f6f165578ca4fee47bd57585c1b9597c94bf4ea6591df47f2b5fa5b1883fe"
 dependencies = [
  "better_scoped_tls",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "once_cell",
  "par-core",
  "phf",
@@ -4653,7 +4658,7 @@ checksum = "03de12e38e47ac1c96ac576f793ad37a9d7b16fbf4f2203881f89152f2498682"
 dependencies = [
  "base64 0.22.1",
  "bytes-str",
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "once_cell",
  "rustc-hash",
  "serde",
@@ -4693,7 +4698,7 @@ version = "24.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fb99e179988cabd473779a4452ab942bcb777176983ca3cbaf22a8f056a65b0"
 dependencies = [
- "indexmap 2.5.0",
+ "indexmap 2.13.0",
  "num_cpus",
  "once_cell",
  "par-core",

@@ -97,7 +97,7 @@ export async function packageDataWithDocs(
   pkg: string,
   version: string | undefined,
   docs: { all_symbols: "true" } | { entrypoint?: string; symbol?: string },
-): Promise<PackageVersionDocsRedirect | DocsData | null> {
+): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
     state.api.get<PackageVersionDocs>(
@@ -119,7 +119,21 @@ export async function packageDataWithDocs(
     } else {
       if (pkgDocsResp.code === "scopeNotFound") return null;
       if (pkgDocsResp.code === "packageNotFound") return null;
-      if (pkgDocsResp.code === "entrypointOrSymbolNotFound") return null;
+      if (pkgDocsResp.code === "entrypointOrSymbolNotFound") {
+        // redirect to all symbols page if there is no default entrypoint
+        if ("entrypoint" in docs && !docs.symbol && docs.entrypoint === "") {
+          return new Response(null, {
+            headers: {
+              Location: `/@${scope}/${pkg}${
+                version ? `@${version}` : ""
+              }/doc/all_symbols`,
+            },
+            status: 302,
+          });
+        }
+
+        return null;
+      }
       assertOk(pkgDocsResp);
     }
   }
