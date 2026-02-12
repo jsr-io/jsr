@@ -14,22 +14,21 @@ import {
 import { Highlight } from "@orama/highlight";
 import { api, path } from "../../../utils/api.ts";
 import { useMacLike } from "../../../utils/os.ts";
-import type { SymbolContentCtx } from "@deno/doc/html-types";
+import type { AllSymbolsCtx, AllSymbolsItemCtx } from "@deno/doc/html-types";
 import { renderToString } from "preact-render-to-string";
-import { SymbolContent } from "../../../components/doc/SymbolContent.tsx";
+import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
 export interface LocalSymbolSearchProps {
   scope: string;
   pkg: string;
   version: string;
-  content?: SymbolContentCtx;
+  content?: AllSymbolsCtx;
 }
 
 interface SearchItem {
   name: string;
+  symbolName: string;
   description: string;
-  node: HTMLElement;
-  section: HTMLElement;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -68,6 +67,14 @@ async function createOrama(): Promise<Orama<any>> {
 
 const highlighter = new Highlight();
 
+function getDocsText(docs: string | null) {
+  if (!docs) return "";
+
+  const el = document.createElement('template');
+  el.innerHTML = docs;
+  return el.content.textContent.replaceAll("\n", " ");
+}
+
 export function LocalSymbolSearch(
   props: LocalSymbolSearchProps,
 ) {
@@ -77,13 +84,14 @@ export function LocalSymbolSearch(
   const hasResults = useSignal(true);
   const macLike = useMacLike();
   const searchCounter = useSignal(0);
+  const searchContent = useSignal<AllSymbolsCtx | null>(null);
 
   useEffect(() => {
     (async () => {
       const [oramaDb, searchResp] = await Promise.all([
         createOrama(),
         !props.content
-          ? api.get<SymbolContentCtx>(
+          ? api.get<AllSymbolsCtx>(
             path`/scopes/${props.scope}/packages/${props.pkg}/versions/${
               props.version || "latest"
             }/docs/search_structured`,
@@ -91,59 +99,43 @@ export function LocalSymbolSearch(
           : Promise.resolve({ ok: true, data: props.content }),
       ]);
 
-      let searchContent: SymbolContentCtx;
       if (searchResp.ok) {
-        searchContent = searchResp.data;
+        searchContent.value = searchResp.data;
       } else {
         console.error(searchResp);
         return;
       }
 
+      const searchItems: SearchItem[] = [];
+
+      for (const entrypoint of searchContent.value!.entrypoints) {
+        for (const kindGroup of entrypoint.module_doc.sections.sections) {
+          if (kindGroup.content.kind === "namespace_section") {
+            for (const symbol of kindGroup.content.content) {
+              searchItems.push({
+                name: symbol.name,
+                symbolName: symbol.name,
+                description: getDocsText(symbol.docs),
+              });
+
+              for (const subitem of symbol.subitems) {
+
+
+                searchItems.push({
+                  name: subitem.title,
+                  symbolName: symbol.name,
+                  description: getDocsText(subitem.docs),
+                });
+              }
+            }
+          }
+        }
+      }
+
       const searchResults = document.getElementById("docSearchResults")!;
       searchResults.innerHTML = renderToString(
-        <SymbolContent content={searchContent} />,
+        <AllSymbols items={searchContent.value!.entrypoints} />,
       );
-
-      const searchItems: SearchItem[] = Array.from(
-        searchResults
-          .getElementsByClassName("namespaceItem") as HTMLCollectionOf<
-          HTMLElement
-        >,
-      )
-        .map((searchItem) => {
-          const name =
-            (searchItem.getElementsByClassName("namespaceItemContent")[0]
-              .children[0] as HTMLAnchorElement).title;
-          const description = searchItem.getElementsByClassName(
-            "markdown_summary",
-          )[0] as HTMLElement | undefined;
-          searchItem.style.setProperty("display", "none");
-          const section = searchItem.parentElement!.parentElement!;
-          section.hidden = true;
-
-          const nodes = [{
-            name,
-            description: description?.innerText.replaceAll("\n", " ") ?? "",
-            node: searchItem,
-            section: section,
-          }];
-
-          for (
-            const property of searchItem.querySelectorAll(
-            ".namespaceItemContentSubItems > li > a",
-          )
-            ) {
-            nodes.push({
-              name: property.textContent,
-              description: "",
-              node: searchItem,
-              section: section,
-            });
-          }
-
-          return nodes;
-        })
-        .flat();
 
       await insertMultiple(oramaDb, searchItems);
       db.value = oramaDb;
@@ -199,120 +191,55 @@ export function LocalSymbolSearch(
       }
       previousSections.current.clear();
 
-      for (const hit of searchResult.hits) {
-        const doc = hit.document as unknown as SearchItem;
+      const hitNames = new Set(searchResult.hits.map((hit) => hit.document.name));
 
-        doc.section.hidden = false;
-        previousSections.current.add(doc.section);
+      const out: AllSymbolsItemCtx[] = searchContent.value!.entrypoints
+        .map((entrypoint) => {
+          const filteredSections = entrypoint.module_doc.sections.sections
+            .map((kindGroup) => {
+              if (kindGroup.content.kind !== "namespace_section") return null;
 
-        doc.node.style.removeProperty("display");
-        previousResultNodes.current.push(doc.node);
-
-        const titleElement = doc.node.getElementsByClassName(
-          "namespaceItemContent",
-        )[0]
-          .children[0] as HTMLAnchorElement;
-        titleElement.innerHTML =
-          highlighter.highlight(titleElement.title, term).HTML;
-
-        for (
-          const property of doc.node.querySelectorAll(
-          ".namespaceItemContentSubItems > li > a",
-        )
-          ) {
-          property.innerHTML =
-            highlighter.highlight(property.textContent, term).HTML;
-        }
-
-        const description = doc.node.getElementsByClassName(
-          "markdown_summary",
-        )[0] as HTMLElement;
-
-        if (description) {
-          const positions =
-            highlighter.highlight(doc.description, term).positions;
-
-          if (positions.length > 0) {
-            const walker = document.createTreeWalker(
-              description,
-              NodeFilter.SHOW_TEXT,
-            );
-
-            let currentPosition = 0;
-            let node = walker.nextNode();
-            while (node && positions.length) {
-              const currentNode = walker.currentNode as Text;
-              const textContent = currentNode.textContent!;
-              const length = textContent.length;
-
-              const fragments = [];
-              let start = 0;
-
-              positionsLoop: for (let i = 0; i < positions.length; i++) {
-                const position = positions[i];
-                const localStart = position.start - currentPosition;
-                const localEnd = position.end - currentPosition;
-
-                if (localStart >= length) {
-                  // if the start is after the current node, there cannot be more highlights for this node
-                  break positionsLoop;
-                }
-
-                if ((localStart >= 0) && (localEnd < length)) {
-                  fragments.push(
-                    textContent.slice(start, localStart),
-                    textContent.slice(localStart, localEnd + 1),
+              const filteredContent = kindGroup.content.content
+                .map((symbol) => {
+                  const symbolMatches = hitNames.has(symbol.name);
+                  const matchingSubitems = symbol.subitems.filter((subitem) =>
+                    hitNames.has(subitem.title)
                   );
-                  start = localEnd + 1;
-                  positions.shift();
-                  i--; // we need to recheck the current position
-                } else if (localStart >= 0) {
-                  fragments.push(
-                    textContent.slice(start, localStart),
-                    textContent.slice(localStart),
-                  );
-                  start = length;
-                  // if the end is not in this node, there cannot be more highlights for this node
-                  break positionsLoop;
-                } else if (localEnd < length) {
-                  fragments.push(
-                    "",
-                    textContent.slice(start, localEnd + 1),
-                  );
-                  start = localEnd + 1;
-                  positions.shift();
-                  i--; // we need to recheck the current position
-                } else {
-                  break positionsLoop;
-                }
-              }
 
-              if (start !== length) {
-                fragments.push(textContent.slice(start));
-              }
+                  if (!symbolMatches && matchingSubitems.length === 0) return null;
 
-              currentPosition += length;
+                  return {
+                    ...symbol,
+                    subitems: symbolMatches ? symbol.subitems : matchingSubitems,
+                  };
+                })
+                .filter(Boolean);
 
-              node = walker.nextNode();
-              if (fragments.length > 1) {
-                currentNode.replaceWith(
-                  document.createRange().createContextualFragment(
-                    fragments
-                      .map((fragment, i) =>
-                        i % 2 === 0
-                          ? fragment
-                          : fragment !== ""
-                            ? `<mark class="orama-highlight">${fragment}</mark>`
-                            : ""
-                      )
-                      .join(""),
-                  ),
-                );
-              }
-            }
-          }
-        }
-      }
+              if (filteredContent.length === 0) return null;
+
+              return {
+                ...kindGroup,
+                content: { ...kindGroup.content, content: filteredContent },
+              };
+            })
+            .filter(Boolean);
+
+          if (filteredSections.length === 0) return null;
+
+          return {
+            ...entrypoint,
+            module_doc: {
+              ...entrypoint.module_doc,
+              sections: { ...entrypoint.module_doc.sections, sections: filteredSections },
+            },
+          };
+        })
+        .filter(Boolean) as AllSymbolsItemCtx[];
+
+      const searchResults = document.getElementById("docSearchResults")!;
+      searchResults.innerHTML = renderToString(
+        <AllSymbols items={out} />,
+      );
 
       hasResults.value = searchResult.hits.length > 0;
       searchCounter.value++;
