@@ -270,6 +270,7 @@ async fn analyze_package_inner(
       bun: None,
     },
     registry_url.to_string(),
+    None,
   );
   let search_index = deno_doc::html::generate_search_index(&ctx);
   let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index

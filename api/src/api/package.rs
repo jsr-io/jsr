@@ -1156,6 +1156,24 @@ pub async fn get_docs_handler(
   });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
+  let old_version = req
+    .query("oldVersion")
+    .map(|s| {
+      Version::try_from(s.as_str()).map_err(|err| {
+        let msg = format!("failed to parse query 'oldVersion': {err}").into();
+        ApiError::MalformedRequest { msg }
+      })
+    })
+    .transpose()?;
+  Span::current().record(
+    "oldVersion",
+    field::display(
+      &old_version
+        .as_ref()
+        .map(|old_version| old_version.to_string())
+        .unwrap_or(String::new()),
+    ),
+  );
 
   let symbol = req
     .query("symbol")
@@ -1192,9 +1210,30 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
+  let old_version = if let Some(old_version) = &old_version {
+    Some(
+      db.get_package_version(&scope, &package_name, old_version)
+        .await?
+        .ok_or(ApiError::PackageVersionNotFound)?,
+    )
+  } else {
+    None
+  };
+
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
   let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
+  let old_doc_nodes_fut = if let Some(old_version) = &old_version {
+    let old_docs_path = crate::gcs_paths::docs_v1_path(
+      &scope,
+      &package_name,
+      &old_version.version,
+    );
+    Some(buckets.docs_bucket.download(old_docs_path.into()))
+  } else {
+    None
+  };
+
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
       let gcs_path = crate::gcs_paths::file_path(
@@ -1212,8 +1251,16 @@ pub async fn get_docs_handler(
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) =
-    futures::future::try_join(doc_nodes_fut, readme_fut).await?;
+  let (docs, old_docs, readme) =
+    if let Some(old_doc_nodes_fut) = old_doc_nodes_fut {
+      futures::future::try_join3(doc_nodes_fut, old_doc_nodes_fut, readme_fut)
+        .await?
+    } else {
+      let (docs, readme) =
+        futures::future::try_join(doc_nodes_fut, readme_fut).await?;
+      (docs, None, readme)
+    };
+
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1223,6 +1270,23 @@ pub async fn get_docs_handler(
   })?;
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
+  let old_doc_nodes = if old_version.is_some() {
+    let old_docs = old_docs.ok_or_else(|| {
+      error!(
+        "docs not found for {}/{}/{}",
+        scope, package_name, version.version
+      );
+      ApiError::InternalServerError
+    })?;
+
+    let doc_nodes: DocNodesByUrl =
+      serde_json::from_slice(&old_docs).context("failed to parse doc nodes")?;
+    Some(doc_nodes)
+  } else {
+    None
+  };
+
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
@@ -1265,6 +1329,7 @@ pub async fn get_docs_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    old_doc_nodes,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1351,6 +1416,7 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
+    None,
   );
 
   let search_index = deno_doc::html::generate_search_index(&ctx);
@@ -1424,6 +1490,7 @@ pub async fn get_docs_search_structured_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);

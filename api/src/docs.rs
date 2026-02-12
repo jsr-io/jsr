@@ -430,7 +430,8 @@ fn get_url_rewriter(
     version_is_latest,
     has_readme,
     runtime_compat,
-    registry_url
+    registry_url,
+    diff
   )
 )]
 pub fn get_generate_ctx(
@@ -445,6 +446,7 @@ pub fn get_generate_ctx(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
+  diff: Option<deno_doc::diff::DocDiff>,
 ) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
@@ -525,6 +527,7 @@ pub fn get_generate_ctx(
     None,
     deno_doc::html::FileMode::Normal,
     doc_nodes_by_url,
+    diff,
   )
   .unwrap()
 }
@@ -549,7 +552,17 @@ pub fn generate_docs_html(
   runtime_compat: RuntimeCompat,
   registry_url: String,
   readme_source: ReadmeSource,
+  old_doc_nodes_by_url: Option<DocNodesByUrl>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
+  let diff = if let Some(old_doc_nodes_by_url) = old_doc_nodes_by_url {
+    Some(deno_doc::diff::DocDiff::diff(
+      &old_doc_nodes_by_url,
+      &doc_nodes_by_url,
+    ))
+  } else {
+    None
+  };
+
   let ctx = get_generate_ctx(
     doc_nodes_by_url,
     main_entrypoint,
@@ -562,6 +575,7 @@ pub fn generate_docs_html(
     readme.is_some(),
     runtime_compat,
     registry_url,
+    diff,
   );
 
   match req {
