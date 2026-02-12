@@ -1150,9 +1150,9 @@ pub async fn get_docs_handler(
   Span::current().record("version", field::display(&version_or_latest));
   let all_symbols = req.query("all_symbols").is_some();
   Span::current().record("all_symbols", field::display(&all_symbols));
-  let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
+  let entrypoint = req.query("entrypoint").map(|s| match s.as_str() {
+    "" => ".",
+    s => s,
   });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
@@ -1366,7 +1366,7 @@ pub async fn get_docs_search_handler(
 )]
 pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<deno_doc::html::SymbolContentCtx> {
+) -> ApiResult<deno_doc::html::AllSymbolsCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;

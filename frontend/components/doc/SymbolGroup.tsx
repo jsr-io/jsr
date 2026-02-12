@@ -15,7 +15,7 @@ export function SymbolGroup(
     <main class="space-y-12" id={`symbol_${name}`}>
       {symbols.map((symbol) => (
         <article class="space-y-5">
-          <div class="flex justify-between items-start group/sourceable">
+          <div class="flex justify-between items-start group/sourceable relative">
             <div class="font-medium space-y-1">
               <div class="text-2xl leading-none break-all">
                 <span class={`text-${symbol.kind.kind}`}>

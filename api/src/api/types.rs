@@ -648,7 +648,7 @@ pub enum ApiPackageVersionDocs {
 #[serde(rename_all = "camelCase", tag = "kind", content = "value")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiGeneratedDocsContent {
-  AllSymbols(deno_doc::html::SymbolContentCtx),
+  AllSymbols(deno_doc::html::AllSymbolsCtx),
   File(deno_doc::html::jsdoc::ModuleDocCtx),
   Index(deno_doc::html::jsdoc::ModuleDocCtx),
   Symbol(deno_doc::html::SymbolGroupCtx),

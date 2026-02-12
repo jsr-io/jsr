@@ -68,6 +68,9 @@ export const handler = define.handlers({
         "This package, package version, entrypoint, or symbol was not found.",
       );
     }
+    if (res instanceof Response) {
+      return res;
+    }
 
     const {
       pkg,
@@ -115,5 +118,5 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package{@:version}?/doc/:entrypoint([^~]*){/~}?",
+  routeOverride: "/@:scope/:package{@:version}?/doc{/:entrypoint([^~]*)}?{/~}?",
 };

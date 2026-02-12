@@ -45,9 +45,7 @@ export default function DocUsages(
               <div class="leading-none">{activeUsage.value.name}</div>
             </div>
 
-            <div class="rotate-90">
-              <TbChevronRight class="size-4" />
-            </div>
+            <TbChevronRight class="rotate-90 size-4" />
           </summary>
 
           <div class="md:relative">

@@ -4,10 +4,13 @@ import TbSourceCode from "tb-icons/TbSourceCode";
 export function SourceButton({ href }: { href: string }) {
   return (
     <a
-      class="sourceButton group-hover/sourceable:flex flex-row gap-2 items-center relative mr-2 hidden before:content-['View_code'] before:hidden before:md:block before:text-xs before:leading-none"
+      class="sourceButton hidden group-hover/sourceable:flex flex-row flex-0 gap-2 items-center absolute top-0 right-2"
       href={href}
     >
-      <TbSourceCode class="size-4" />
+      <span class="hidden md:block text-xs leading-none flex-none">
+        View code
+      </span>
+      <TbSourceCode class="size-4 flex-none" />
     </a>
   );
 }

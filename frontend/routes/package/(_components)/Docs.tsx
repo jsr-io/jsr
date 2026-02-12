@@ -10,12 +10,8 @@ import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 import { TbFlag } from "tb-icons";
-import {
-  ModuleDoc,
-  SymbolContent,
-  SymbolGroup,
-  Toc,
-} from "../../../components/doc/mod.ts";
+import { ModuleDoc, SymbolGroup, Toc } from "../../../components/doc/mod.ts";
+import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 
 interface DocsProps {
   docs: Docs;
@@ -169,7 +165,7 @@ export function DocsView({
         {docs.toc && (
           <div
             class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
-              docs.breadcrumbs ? "lg:-mt-20 lg:pt-20" : ""
+              docs.breadcrumbs ? "lg:-mt-16 lg:pt-16" : ""
             }`}
           >
             {!docs.breadcrumbs && (
@@ -191,7 +187,7 @@ export function DocsView({
 function MainDocs({ content }: { content: DocsMainContent }) {
   switch (content.kind) {
     case "allSymbols":
-      return <SymbolContent content={content.value} />;
+      return <AllSymbols items={content.value.entrypoints} />;
     case "file":
     case "index":
       return <ModuleDoc content={content.value} />;

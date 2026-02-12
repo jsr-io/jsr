@@ -2,61 +2,116 @@
 import type { NamespaceNodeCtx } from "@deno/doc/html-types";
 import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
 
-const ATagClasses =
-  "underline decoration-stone-300 dark:decoration-stone-500 hover:no-underline";
-
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
     <div class="space-y-2 !mt-6 max-w-prose">
       {items.map((item) => (
         <div
           id={item.id}
-          class={`namespaceItem flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 min-h-12 ${
+          class={`flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 rounded transition duration-125 ${
             item.deprecated ? "opacity-60" : ""
           }`}
           aria-label={item.deprecated ? "deprecated" : undefined}
         >
           <DocNodeKindIcon
             kinds={item.doc_node_kind_ctx}
-            class="w-auto flex-col !justify-start gap-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
+            class="w-auto flex-col !justify-start gap-1 mt-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
           />
 
-          <div class="namespaceItemContent w-0 flex-1">
-            <a
-              href={item.href}
-              title={item.name}
-              class={`${ATagClasses} leading-none block break-all font-medium ${
-                item.deprecated
-                  ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
-                  : ""
-              }`}
-            >
-              {item.name}
-            </a>
+          <div
+            class={`w-0 flex-1 ${
+              item.deprecated
+                ? "line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
+                : ""
+            }`}
+          >
+            <div class="block font-mono">
+              <a
+                href={item.href}
+                title={item.name}
+                class="highlightable leading-none break-all font-medium underline underline-offset-2"
+              >
+                {item.name}
+              </a>
+              {item.ty && (
+                <>
+                  <span
+                    class="font-light opacity-85 dark:opacity-75"
+                    // jsdoc rendering
+                    // deno-lint-ignore react-no-danger
+                    dangerouslySetInnerHTML={{ __html: item.ty.ty }}
+                  />
+                  {item.ty.info && (
+                    <div class="italic text-xs ml-2 text-stone-600 dark:text-stone-400">
+                      {item.ty.info}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
-            <div class="mt-2 text-sm leading-5 text-stone-600 dark:text-stone-400">
+            <div class="mt-2 text-sm leading-5">
               {item.docs
                 ? (
                   <span
+                    class="highlightable"
                     // jsdoc rendering
                     // deno-lint-ignore react-no-danger
                     dangerouslySetInnerHTML={{ __html: item.docs }}
                   />
                 )
-                : <span class="italic">No documentation available</span>}
+                : (
+                  <span class="italic text-stone-600 dark:text-stone-400">
+                    No documentation available
+                  </span>
+                )}
             </div>
 
             {item.subitems && item.subitems.length > 0 && (
-              <ul class="namespaceItemContentSubItems flex flex-wrap gap-y-1 text-sm">
-                {item.subitems.map((subitem, i) => (
-                  <li
-                    class={i !== item.subitems.length - 1
-                      ? "after:content-['|'] after:mx-2 after:text-gray-300 after:select-none after:dark:text-gray-500"
-                      : ""}
-                  >
-                    <a href={subitem.href} class={ATagClasses}>
-                      {subitem.title}
-                    </a>
+              <ul class="gap-y-3 text-sm mt-3 ml-2">
+                {item.subitems.map((subitem) => (
+                  <li>
+                    <div class="block font-mono">
+                      <a
+                        href={subitem.href}
+                        title={subitem.title}
+                        class="highlightable underline underline-offset-2"
+                      >
+                        {subitem.title}
+                      </a>
+                      {subitem.ty && (
+                        <>
+                          <span
+                            class="font-light opacity-85 dark:opacity-75"
+                            // jsdoc rendering
+                            // deno-lint-ignore react-no-danger
+                            dangerouslySetInnerHTML={{ __html: subitem.ty.ty }}
+                          />
+                          {subitem.ty.info && (
+                            <div class="italic text-xs ml-2 text-stone-600 dark:text-stone-400">
+                              {subitem.ty.info}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div class="mt-2 leading-5">
+                      {subitem.docs
+                        ? (
+                          <span
+                            class="highlightable"
+                            // jsdoc rendering
+                            // deno-lint-ignore react-no-danger
+                            dangerouslySetInnerHTML={{ __html: subitem.docs }}
+                          />
+                        )
+                        : (
+                          <span class="italic text-stone-600 dark:text-stone-400">
+                            No documentation available
+                          </span>
+                        )}
+                    </div>
                   </li>
                 ))}
               </ul>

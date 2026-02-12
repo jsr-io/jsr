@@ -3,11 +3,11 @@ import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { LocalSymbolSearch } from "./LocalSymbolSearch.tsx";
 import { Breadcrumbs } from "../../../components/doc/Breadcrumbs.tsx";
-import type { BreadcrumbsCtx, SymbolContentCtx } from "@deno/doc/html-types";
+import type { AllSymbolsCtx, BreadcrumbsCtx } from "@deno/doc/html-types";
 
 export interface BreadcrumbsStickyProps {
   content: BreadcrumbsCtx;
-  searchContent?: SymbolContentCtx;
+  searchContent?: AllSymbolsCtx;
   scope: string;
   package: string;
   version: string;

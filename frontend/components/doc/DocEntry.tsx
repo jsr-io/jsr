@@ -11,7 +11,9 @@ export function DocEntry(
 ) {
   return (
     <div
-      class={`mb-4 space-y-2 ${name ? "anchorable" : ""} group/sourceable`}
+      class={`mb-4 space-y-2 ${
+        name ? "anchorable" : ""
+      } group/sourceable relative`}
       id={id}
     >
       <div class="flex justify-between items-start md:text-base">
