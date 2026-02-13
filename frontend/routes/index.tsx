@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
@@ -20,8 +20,8 @@ export default define.page<typeof handler>(function Home({ data }) {
   return (
     <div class="flex flex-col">
       <HomepageHero
-        apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
-        indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
+        projectId={Deno.env.get("ORAMA_PACKAGES_PROJECT_ID")}
+        apiKey={Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY")}
       />
       {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">
@@ -262,7 +262,7 @@ export const handler = define.handlers({
       // ignore
     }
 
-    if (!statsResp.ok) throw statsResp; // gracefully handle this
+    assertOk(statsResp);
 
     ctx.state.meta = {
       title: "JSR: the JavaScript Registry",

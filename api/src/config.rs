@@ -65,20 +65,44 @@ pub struct Config {
   /// The GitHub Client Secret
   pub github_client_secret: String,
 
-  #[clap(long = "orama_package_index_id", env = "ORAMA_PACKAGE_INDEX_ID")]
-  /// The Orama index for package search
-  pub orama_package_index_id: Option<String>,
-
-  #[clap(long = "orama_symbols_index_id", env = "ORAMA_SYMBOLS_INDEX_ID")]
-  /// The Orama index for symbol search
-  pub orama_symbols_index_id: Option<String>,
+  #[clap(
+    long = "orama_packages_project_id",
+    env = "ORAMA_PACKAGES_PROJECT_ID"
+  )]
+  /// The Orama package project id
+  pub orama_packages_project_id: Option<String>,
 
   #[clap(
-    long = "orama_package_private_api_key",
-    env = "ORAMA_PACKAGE_PRIVATE_API_KEY"
+    long = "orama_packages_project_key",
+    env = "ORAMA_PACKAGES_PROJECT_KEY"
   )]
-  /// The private API key for Orama
-  pub orama_package_private_api_key: Option<String>,
+  /// The Orama package project key
+  pub orama_packages_project_key: Option<String>,
+
+  #[clap(
+    long = "orama_packages_data_source",
+    env = "ORAMA_PACKAGES_DATA_SOURCE"
+  )]
+  /// The Orama package data source
+  pub orama_packages_data_source: Option<String>,
+
+  #[clap(long = "orama_symbols_project_id", env = "ORAMA_SYMBOLS_PROJECT_ID")]
+  /// The Orama symbol project id
+  pub orama_symbols_project_id: Option<String>,
+
+  #[clap(
+    long = "orama_symbols_project_key",
+    env = "ORAMA_SYMBOLS_PROJECT_KEY"
+  )]
+  /// The Orama symbol project key
+  pub orama_symbols_project_key: Option<String>,
+
+  #[clap(
+    long = "orama_symbols_data_source",
+    env = "ORAMA_SYMBOLS_DATA_SOURCE"
+  )]
+  /// The Orama symbol data source
+  pub orama_symbols_data_source: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
   /// OTLP endpoint to send traces to.

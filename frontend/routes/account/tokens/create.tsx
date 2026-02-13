@@ -4,29 +4,31 @@ import { define } from "../../../util.ts";
 import TbChevronLeft from "tb-icons/TbChevronLeft";
 import { CreateToken } from "./(_islands)/CreateToken.tsx";
 
-export default define.page<typeof handler>(function AccountCreateTokenPage() {
-  return (
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <div>
-        <a href="/account/tokens" class="link flex items-center gap-2">
-          <TbChevronLeft class="size-8" />
-          <span class="ml-2">Back to tokens</span>
-        </a>
+export default define.page<typeof handler>(
+  function AccountCreateTokenPage({ url }) {
+    return (
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <a href="/account/tokens" class="link flex items-center gap-2">
+            <TbChevronLeft class="size-8" />
+            <span class="ml-2">Back to tokens</span>
+          </a>
+        </div>
+        <div class="col-span-1 md:col-span-4">
+          <h2 class="text-xl mb-2 font-bold">
+            Create a personal access token
+          </h2>
+          <p class="text-secondary max-w-xl">
+            Personal access tokens can be used to authenticate with JSR from the
+            command line or from other applications. Actions performed by
+            personal access tokens are attributed to your account.
+          </p>
+          <CreateToken url={url} />
+        </div>
       </div>
-      <div class="col-span-1 md:col-span-4">
-        <h2 class="text-xl mb-2 font-bold">
-          Create a personal access token
-        </h2>
-        <p class="text-secondary max-w-xl">
-          Personal access tokens can be used to authenticate with JSR from the
-          command line or from other applications. Actions performed by personal
-          access tokens are attributed to your account.
-        </p>
-        <CreateToken />
-      </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 export const handler = define.handlers({
   async GET(ctx) {

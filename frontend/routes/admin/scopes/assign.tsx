@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { AdminNav } from "../(_components)/AdminNav.tsx";
 import { define } from "../../../util.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 
 export default define.page<typeof handler>(function Scopes() {
   return (
@@ -46,7 +46,7 @@ export const handler = define.handlers({
       scope,
       userId,
     });
-    if (!res.ok) throw res;
+    assertOk(res);
 
     return new Response(null, {
       status: 303,

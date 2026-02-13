@@ -1,7 +1,7 @@
 import {
+  AllSymbolsCtx,
   BreadcrumbsCtx,
   ModuleDocCtx,
-  SymbolContentCtx,
   SymbolGroupCtx,
   ToCCtx,
 } from "@deno/doc/html-types";
@@ -157,7 +157,6 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocsContent {
   kind: "content";
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   breadcrumbs: BreadcrumbsCtx | null;
@@ -166,8 +165,9 @@ export interface PackageVersionDocsContent {
 }
 
 export type DocsMainContent =
-  | { kind: "allSymbols"; value: SymbolContentCtx }
+  | { kind: "allSymbols"; value: AllSymbolsCtx }
   | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "file"; value: ModuleDocCtx }
   | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {
@@ -198,7 +198,6 @@ export interface SourceFile {
 
 export interface PackageVersionSource {
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;

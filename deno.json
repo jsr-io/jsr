@@ -15,7 +15,7 @@
     "lint:license": "deno run --allow-read jsr:@kt3k/license-checker@3.2.11/main -q",
     "lint:license:fix": "deno run --allow-read --allow-write jsr:@kt3k/license-checker@3.2.11/main -q --inject",
 
-    "tools:orama:package_reindex": "deno run --allow-env --allow-net tools/orama_package_reindex.ts",
+    "tools:orama:packages_reindex": "deno run --allow-env --allow-net tools/orama_packages_reindex.ts",
     "tools:orama:symbols_reindex": "deno run --allow-env --allow-net tools/orama_symbols_reindex.ts",
     "tools:orama:docs_reindex": "deno run --allow-env --allow-net --allow-read tools/orama_docs_reindex.ts",
     "tools:deno_symbols": "deno run --allow-run --allow-read --allow-env --allow-net --allow-write tools/generate_global_symbols.ts",
@@ -43,7 +43,7 @@
     "api/license-list-data"
   ],
   "imports": {
-    "@deno/doc": "jsr:@deno/doc@^0.191.0",
+    "@deno/doc": "jsr:@deno/doc@^0.193.0",
     "@deno/gfm": "jsr:@deno/gfm@^0.10.0",
     "@mdn/browser-compat-data": "npm:@mdn/browser-compat-data@^7.1.6",
     "@std/async": "jsr:@std/async@^1.0.8",
@@ -54,6 +54,7 @@
     "@std/fmt": "jsr:@std/fmt@^1.0.8",
     "@std/front-matter": "jsr:@std/front-matter@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8",
+    "@orama/core": "npm:@orama/core@^1.2.17",
     "github-slugger": "npm:github-slugger@^2.0.0",
     "postgres": "https://deno.land/x/postgres@v0.19.5/mod.ts"
   }

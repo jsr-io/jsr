@@ -26,10 +26,6 @@ export default define.page<typeof handler>(function PackagePage(
             // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
           />
-          <style
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: data.source.css }}
-          />
           <script
             hidden
             // deno-lint-ignore react-no-danger

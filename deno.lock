@@ -2,7 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@deno/cache-dir@0.25": "0.25.0",
-    "jsr:@deno/doc@0.191": "0.191.0",
+    "jsr:@deno/doc@0.193": "0.193.0",
     "jsr:@deno/gfm@0.10": "0.10.0",
     "jsr:@deno/graph@0.100": "0.100.1",
     "jsr:@deno/graph@0.86": "0.86.9",
@@ -27,6 +27,7 @@
     "jsr:@std/toml@^1.0.1": "1.0.2",
     "jsr:@std/yaml@^1.0.5": "1.0.5",
     "npm:@mdn/browser-compat-data@^7.1.6": "7.1.6",
+    "npm:@orama/core@^1.2.17": "1.2.17",
     "npm:github-slugger@2": "2.0.0",
     "npm:he@^1.2.0": "1.2.0",
     "npm:katex@0.16": "0.16.11",
@@ -48,8 +49,8 @@
         "jsr:@std/path"
       ]
     },
-    "@deno/doc@0.191.0": {
-      "integrity": "4db360ac4b9b780f84bfbae91eb3af37de41947dd2f451af2d48cfeb0fb7c84a",
+    "@deno/doc@0.193.0": {
+      "integrity": "53e86ecbbbad01caabadf8e11ec0a089b95a83d30a776c2976c279601e39cf5c",
       "dependencies": [
         "jsr:@deno/cache-dir",
         "jsr:@deno/graph@0.100"
@@ -150,6 +151,25 @@
   "npm": {
     "@mdn/browser-compat-data@7.1.6": {
       "integrity": "sha512-//xJOI7gGx1OAHAMQq1V4by5gWOZNPSoZdYdUZRKtXuxLnBY5DwY0nZVe7tw4PJQeAeeUH9ZZeAlm1wpdod1Uw=="
+    },
+    "@noble/hashes@1.8.0": {
+      "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
+    },
+    "@orama/core@1.2.17": {
+      "integrity": "sha512-gOjV1CQlD2h9XunbatH1u27g82hk+CL52puZI6158DKD9QVOKUUJ2mwQG1XRzVj7o2FKZqyZIxD1TUS6MClAfg==",
+      "dependencies": [
+        "@orama/cuid2",
+        "@orama/oramacore-events-parser"
+      ]
+    },
+    "@orama/cuid2@2.2.3": {
+      "integrity": "sha512-Lcak3chblMejdlSHgYU2lS2cdOhDpU6vkfIJH4m+YKvqQyLqs1bB8+w6NT1MG5bO12NUK2GFc34Mn2xshMIQ1g==",
+      "dependencies": [
+        "@noble/hashes"
+      ]
+    },
+    "@orama/oramacore-events-parser@0.0.5": {
+      "integrity": "sha512-yAuSwog+HQBAXgZ60TNKEwu04y81/09mpbYBCmz1RCxnr4ObNY2JnPZI7HmALbjAhLJ8t5p+wc2JHRK93ubO4w=="
     },
     "commander@8.3.0": {
       "integrity": "sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww=="
@@ -299,7 +319,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@deno/doc@0.191",
+      "jsr:@deno/doc@0.193",
       "jsr:@deno/gfm@0.10",
       "jsr:@std/async@^1.0.8",
       "jsr:@std/bytes@^1.0.6",
@@ -310,6 +330,7 @@
       "jsr:@std/front-matter@^1.0.5",
       "jsr:@std/path@^1.0.8",
       "npm:@mdn/browser-compat-data@^7.1.6",
+      "npm:@orama/core@^1.2.17",
       "npm:github-slugger@2"
     ]
   }

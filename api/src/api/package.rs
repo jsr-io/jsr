@@ -155,6 +155,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::auth(version_provenance_statements_handler),
     )
     .get(
+      "/:package/versions/:version/tarball",
+      util::cache(CacheDuration::FOREVER, version_tarball_handler),
+    )
+    .get(
       "/:package/versions/:version/docs",
       util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
     )
@@ -1134,6 +1138,47 @@ pub async fn version_delete_handler(
 }
 
 #[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/versions/:version/tarball",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn version_tarball_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+
+  let (task, _) = db
+    .get_publishing_task_for_version(&scope, &package, &version)
+    .await?;
+
+  let path = gcs_tarball_path(task.id);
+  let (headers, body) = buckets
+    .publishing_bucket
+    .bucket
+    .download_stream_with_encoding(&path, None, "")
+    .await?
+    .unwrap();
+
+  let mut res = Response::builder();
+  res.headers_mut().unwrap().extend(headers);
+  let body = Body::wrap_stream(body.map(|r| {
+    r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })
+  }));
+
+  Ok(res.status(StatusCode::OK).body(body).unwrap())
+}
+
+#[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs",
   skip(req),
   err,
@@ -1150,9 +1195,9 @@ pub async fn get_docs_handler(
   Span::current().record("version", field::display(&version_or_latest));
   let all_symbols = req.query("all_symbols").is_some();
   Span::current().record("all_symbols", field::display(&all_symbols));
-  let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
+  let entrypoint = req.query("entrypoint").map(|s| match s.as_str() {
+    "" => ".",
+    s => s,
   });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
@@ -1274,7 +1319,6 @@ pub async fn get_docs_handler(
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
@@ -1367,7 +1411,7 @@ pub async fn get_docs_search_handler(
 )]
 pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<deno_doc::html::SymbolContentCtx> {
+) -> ApiResult<deno_doc::html::AllSymbolsCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1601,7 +1645,6 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
     comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
@@ -3557,7 +3600,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3565,7 +3607,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
         assert!(toc.is_some(), "{:?}", toc)
       }
@@ -3583,7 +3624,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3591,7 +3631,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
         assert!(toc.is_none(), "{:?}", toc);
       }
@@ -3609,7 +3648,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3617,7 +3655,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }
@@ -3638,7 +3675,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
@@ -3646,7 +3682,6 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
         assert!(toc.is_some(), "{:?}", toc);
       }

@@ -46,7 +46,7 @@ export function PackageHeader({
   }
 
   return (
-    <div class="space-y-6 mt-0 md:mt-4">
+    <div class="space-y-6">
       {pkg.isArchived && (
         <div class="rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/50 flex items-center justify-center p-4 dark:text-white">
           This package has been archived, and as such it is read-only.

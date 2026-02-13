@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Docs, Source, State } from "../util.ts";
-import { APIResponse, path } from "./api.ts";
+import { APIResponse, assertOk, path } from "./api.ts";
 import {
   FullScope,
   Package,
@@ -31,17 +31,15 @@ export async function packageData(
   if (!pkgResp.ok) {
     if (pkgResp.code === "scopeNotFound") return null;
     if (pkgResp.code === "packageNotFound") return null;
-    throw pkgResp;
+    assertOk(pkgResp);
   }
-  if (!downloadsResp.ok) {
-    throw downloadsResp;
-  }
+  assertOk(downloadsResp);
   if (scopeMemberResp && !scopeMemberResp.ok) {
     if (scopeMemberResp.code === "scopeMemberNotFound") {
       scopeMemberResp = null;
     } else {
       if (scopeMemberResp.code === "scopeNotFound") return null;
-      throw scopeMemberResp;
+      assertOk(scopeMemberResp);
     }
   }
 
@@ -82,7 +80,7 @@ export async function packageDataWithVersion(
     } else {
       if (pkgVersionResp.code === "scopeNotFound") return null;
       if (pkgVersionResp.code === "packageNotFound") return null;
-      throw pkgVersionResp;
+      assertOk(pkgVersionResp);
     }
   }
 
@@ -99,7 +97,7 @@ export async function packageDataWithDocs(
   pkg: string,
   version: string | undefined,
   docs: { all_symbols: "true" } | { entrypoint?: string; symbol?: string },
-): Promise<PackageVersionDocsRedirect | DocsData | null> {
+): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
     state.api.get<PackageVersionDocs>(
@@ -121,8 +119,22 @@ export async function packageDataWithDocs(
     } else {
       if (pkgDocsResp.code === "scopeNotFound") return null;
       if (pkgDocsResp.code === "packageNotFound") return null;
-      if (pkgDocsResp.code === "entrypointOrSymbolNotFound") return null;
-      throw pkgDocsResp;
+      if (pkgDocsResp.code === "entrypointOrSymbolNotFound") {
+        // redirect to all symbols page if there is no default entrypoint
+        if ("entrypoint" in docs && !docs.symbol && docs.entrypoint === "") {
+          return new Response(null, {
+            headers: {
+              Location: `/@${scope}/${pkg}${
+                version ? `@${version}` : ""
+              }/doc/all_symbols`,
+            },
+            status: 302,
+          });
+        }
+
+        return null;
+      }
+      assertOk(pkgDocsResp);
     }
   }
 
@@ -143,7 +155,6 @@ export async function packageDataWithDocs(
       selectedVersion: pkgDocsResp!.data.version,
       selectedVersionIsLatestUnyanked: !version,
       docs: {
-        css: pkgDocsResp.data.css,
         comrakCss: pkgDocsResp.data.comrakCss,
         script: pkgDocsResp.data.script,
         breadcrumbs: pkgDocsResp.data.breadcrumbs,
@@ -188,7 +199,7 @@ export async function packageDataWithSource(
       if (pkgSourceResp.code === "scopeNotFound") return null;
       if (pkgSourceResp.code === "packageNotFound") return null;
       if (pkgSourceResp.code === "packagePathNotFound") return null;
-      throw pkgSourceResp;
+      assertOk(pkgSourceResp);
     }
   }
 
@@ -198,7 +209,6 @@ export async function packageDataWithSource(
     selectedVersionIsLatestUnyanked: !version && pkgSourceResp !== null,
     source: pkgSourceResp
       ? ({
-        css: pkgSourceResp.data.css,
         comrakCss: pkgSourceResp.data.comrakCss,
         script: pkgSourceResp.data.script,
         source: pkgSourceResp.data.source,
@@ -216,7 +226,7 @@ export async function scopeData(
   );
   if (!scopeResp.ok) {
     if (scopeResp.code === "scopeNotFound") return null;
-    throw scopeResp;
+    assertOk(scopeResp);
   }
   return {
     scope: scopeResp.data,
@@ -239,7 +249,7 @@ export async function scopeDataWithMember(
       scopeMemberResp = null;
     } else {
       if (scopeMemberResp.code === "scopeNotFound") return null;
-      throw scopeMemberResp;
+      assertOk(scopeMemberResp);
     }
   }
   return {

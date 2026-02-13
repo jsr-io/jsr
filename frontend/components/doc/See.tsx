@@ -6,9 +6,10 @@ export interface SeeProps {
 
 export function See({ items }: SeeProps) {
   return (
-    <ul class="see">
+    <ul class="list-disc list-inside">
       {items.map((item) => (
         <li
+          class="*:inline-block"
           // jsdoc rendering
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{ __html: item }}

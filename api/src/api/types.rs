@@ -633,7 +633,6 @@ pub enum ApiPackageVersionDocs {
   #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
-    css: Cow<'static, str>,
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<deno_doc::html::util::BreadcrumbsCtx>,
@@ -649,7 +648,7 @@ pub enum ApiPackageVersionDocs {
 #[serde(rename_all = "camelCase", tag = "kind", content = "value")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiGeneratedDocsContent {
-  AllSymbols(deno_doc::html::SymbolContentCtx),
+  AllSymbols(deno_doc::html::AllSymbolsCtx),
   File(deno_doc::html::jsdoc::ModuleDocCtx),
   Index(deno_doc::html::jsdoc::ModuleDocCtx),
   Symbol(deno_doc::html::SymbolGroupCtx),
@@ -711,7 +710,6 @@ pub enum ApiSource {
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageVersionSource {
   pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
   pub comrak_css: Cow<'static, str>,
   pub script: Cow<'static, str>,
   pub source: ApiSource,

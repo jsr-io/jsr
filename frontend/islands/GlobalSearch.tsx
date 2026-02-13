@@ -2,7 +2,7 @@
 import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
-import { OramaClient } from "@oramacloud/client";
+import { OramaCloud } from "@orama/core";
 import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "fresh/runtime";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
@@ -15,7 +15,7 @@ import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
 
 interface GlobalSearchProps {
   query?: string;
-  indexId?: string;
+  projectId?: string;
   apiKey?: string;
   jumbo?: boolean;
   kind?: SearchKind;
@@ -37,7 +37,7 @@ const MAX_STALE_RESULT_MS = 200;
 export function GlobalSearch(
   {
     query,
-    indexId,
+    projectId,
     apiKey,
     jumbo,
     kind = "packages",
@@ -66,13 +66,13 @@ export function GlobalSearch(
   const macLike = useMacLike();
 
   const orama = useMemo(() => {
-    if (IS_BROWSER && indexId) {
-      return new OramaClient({
-        endpoint: `https://cloud.orama.run/v1/indexes/${indexId}`,
-        api_key: apiKey!,
+    if (IS_BROWSER && projectId) {
+      return new OramaCloud({
+        projectId,
+        apiKey: apiKey!,
       });
     }
-  }, [indexId, apiKey]);
+  }, [projectId, apiKey]);
 
   const randomHint = useSignal<JSX.Element | null>(null);
 
@@ -134,7 +134,6 @@ export function GlobalSearch(
               where,
               limit: 5,
               mode: "fulltext",
-              // @ts-expect-error boost does exist
               boost: kind === "packages"
                 ? {
                   id: 3,
@@ -143,7 +142,7 @@ export function GlobalSearch(
                   description: 0.5,
                 }
                 : {},
-            }, { abortController: abort.current! });
+            });
             if (
               abort.current?.signal.aborted ||
               searchNRef.current.displayed > searchN

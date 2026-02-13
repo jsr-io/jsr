@@ -14,7 +14,7 @@
     }
   },
   "imports": {
-    "@deno/doc": "jsr:@deno/doc@^0.191.0",
+    "@deno/doc": "jsr:@deno/doc@^0.193.0",
     "@fresh/plugin-tailwind-v3": "jsr:@fresh/plugin-tailwind-v3@^1.0.1",
     "apexcharts": "npm:apexcharts@^4.5.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.14",
@@ -37,9 +37,9 @@
     "marked-smartypants": "npm:marked-smartypants@1.1.6",
     "prismjs": "npm:prismjs@^1.29.0",
 
+    "@orama/core": "npm:@orama/core@^1.2.17",
     "@orama/orama": "npm:@orama/orama@^2",
     "@orama/highlight": "npm:@orama/highlight@^0.1.8",
-    "@oramacloud/client": "npm:@oramacloud/client@^1",
 
     "tailwindcss": "npm:tailwindcss@3.4",
     "postcss": "npm:postcss@8.4",

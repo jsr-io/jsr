@@ -4,7 +4,7 @@ import { HttpError, RouteConfig } from "fresh";
 import { ComponentChild } from "preact";
 import { define } from "../util.ts";
 import Authorize from "../islands/Authorize.tsx";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import type {
   Authorization,
   Permission,
@@ -152,7 +152,7 @@ export const handler = define.handlers({
       if (authorizationResp.code === "authorizationNotFound") {
         throw new HttpError(404, "Authorization not found");
       }
-      throw authorizationResp; // gracefully handle this
+      assertOk(authorizationResp);
     }
 
     const authorization = authorizationResp?.data ?? null;

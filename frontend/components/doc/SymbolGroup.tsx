@@ -12,11 +12,11 @@ export function SymbolGroup(
   { content: { name, symbols } }: { content: SymbolGroupCtx },
 ) {
   return (
-    <main class="symbolGroup" id={`symbol_${name}`}>
+    <main class="space-y-12" id={`symbol_${name}`}>
       {symbols.map((symbol) => (
-        <article>
-          <div class="symbolTitle">
-            <div>
+        <article class="space-y-5">
+          <div class="flex justify-between items-start group/sourceable relative">
+            <div class="font-medium space-y-1">
               <div class="text-2xl leading-none break-all">
                 <span class={`text-${symbol.kind.kind}`}>
                   {symbol.kind.title_lowercase}
@@ -24,7 +24,7 @@ export function SymbolGroup(
                 <span class="font-bold">{name}</span>
               </div>
               {symbol.subtitle && (
-                <div class="symbolSubtitle">
+                <div class="space-y-0.5 text-sm leading-4">
                   {symbol.subtitle.kind === "class"
                     ? <DocBlockSubtitleClass subtitle={symbol.subtitle} />
                     : <DocBlockSubtitleInterface subtitle={symbol.subtitle} />}
