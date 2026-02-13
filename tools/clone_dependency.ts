@@ -285,11 +285,10 @@ async function clonePackage(pv: PackageVersionReference): Promise<void> {
   const resp = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/gzip",
       "Content-Encoding": "gzip",
       Authorization: `Bearer ${LOCAL_REGISTRY_TOKEN}`,
     },
-    body: res.body!,
+    body: res.body!.pipeThrough(new CompressionStream("gzip")),
   });
 
   if (!resp.ok) {

@@ -96,7 +96,9 @@ export async function packageDataWithDocs(
   scope: string,
   pkg: string,
   version: string | undefined,
-  docs: { all_symbols: "true" } | { entrypoint?: string; symbol?: string },
+  docs: ({ all_symbols: "true" } | { entrypoint?: string; symbol?: string }) & {
+    oldVersion?: string;
+  },
 ): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),

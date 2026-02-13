@@ -16,7 +16,7 @@ import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 interface DocsProps {
   docs: Docs;
   params: Params;
-  selectedVersion: PackageVersionWithUser;
+  selectedVersion: PackageVersionWithUser | null;
   showProvenanceBadge?: boolean;
   user: User | null;
   scope: string;
@@ -94,7 +94,7 @@ export function DocsView({
         defer
       />
 
-      {docs.breadcrumbs && (
+      {docs.breadcrumbs && selectedVersion && (
         <BreadcrumbsSticky
           searchContent={docs.main.kind === "allSymbols"
             ? docs.main.value
@@ -118,7 +118,8 @@ export function DocsView({
           <div class="ddoc hidden mb-20" id="docSearchResults" />
 
           <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
-            {showProvenanceBadge && selectedVersion.rekorLogId && (
+            {showProvenanceBadge && selectedVersion &&
+              selectedVersion.rekorLogId && (
               <ProvenanceBadge rekorLogId={selectedVersion.rekorLogId} />
             )}
 
@@ -168,7 +169,7 @@ export function DocsView({
               docs.breadcrumbs ? "lg:-mt-16 lg:pt-16" : ""
             }`}
           >
-            {!docs.breadcrumbs && (
+            {!docs.breadcrumbs && selectedVersion && (
               <LocalSymbolSearch
                 scope={params.scope}
                 pkg={params.package}
