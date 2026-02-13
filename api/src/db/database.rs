@@ -3344,6 +3344,76 @@ impl Database {
   }
 
   #[instrument(
+    name = "Database::get_publishing_task_for_version",
+    skip(self),
+    err
+  )]
+  pub async fn get_publishing_task_for_version(
+    &self,
+    scope_name: &ScopeName,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> Result<(PublishingTask, Option<UserPublic>)> {
+    sqlx::query!(
+      r#"SELECT
+        publishing_tasks.id as "task_id",
+        publishing_tasks.status as "task_status: PublishingTaskStatus",
+        publishing_tasks.error as "task_error: PublishingTaskError",
+        publishing_tasks.user_id as "task_user_id",
+        publishing_tasks.package_scope as "task_package_scope: ScopeName",
+        publishing_tasks.package_name as "task_package_name: PackageName",
+        publishing_tasks.package_version as "task_package_version: Version",
+        publishing_tasks.config_file as "task_config_file: PackagePath",
+        publishing_tasks.created_at as "task_created_at",
+        publishing_tasks.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
+      WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.package_version = $3 AND publishing_tasks.created_at >= packages.created_at
+      ORDER BY publishing_tasks.created_at DESC
+      LIMIT 1"#,
+      scope_name as _,
+      package_name as _,
+      version as _,
+    )
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(
     name = "Database::update_publishing_task_status",
     skip(self),
     err
