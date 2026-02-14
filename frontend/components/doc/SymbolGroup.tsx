@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { SymbolGroupCtx } from "@deno/doc/html-types";
+import type { SymbolGroupCtx } from "../../../new_html_types.d.ts";
 import { Deprecated } from "./Deprecated.tsx";
 import { DocBlockSubtitleClass } from "./DocBlockSubtitleClass.tsx";
 import { DocBlockSubtitleInterface } from "./DocBlockSubtitleInterface.tsx";
@@ -9,10 +9,26 @@ import { SymbolContent } from "./SymbolContent.tsx";
 import { Tag } from "./Tag.tsx";
 
 export function SymbolGroup(
-  { content: { name, symbols } }: { content: SymbolGroupCtx },
+  { content: { name, symbols, diff_status } }: { content: SymbolGroupCtx },
 ) {
+  const isAdded = diff_status?.kind === "added";
+  const isRemoved = diff_status?.kind === "removed";
+  const isRenamed = diff_status?.kind === "renamed";
+
+  const isModified = diff_status?.kind === "modified";
+
+  let diffBg = "";
+  if (isAdded) diffBg = ` diff-added rounded-lg p-4`;
+  else if (isRemoved) {
+    diffBg = ` diff-removed rounded-lg p-4`;
+  }
+
+  const renamedOldName = isRenamed
+    ? (diff_status as { kind: "renamed"; old_name: string }).old_name
+    : undefined;
+
   return (
-    <main class="space-y-12" id={`symbol_${name}`}>
+    <main class={`space-y-12${diffBg}`} id={`symbol_${name}`}>
       {symbols.map((symbol) => (
         <article class="space-y-5">
           <div class="flex justify-between items-start group/sourceable relative">
@@ -21,7 +37,25 @@ export function SymbolGroup(
                 <span class={`text-${symbol.kind.kind}`}>
                   {symbol.kind.title_lowercase}
                 </span>{" "}
-                <span class="font-bold">{name}</span>
+                {renamedOldName && (
+                  <>
+                    <span
+                      class={`font-bold diff-removed rounded px-1`}
+                    >
+                      {renamedOldName}
+                    </span>
+                    <span class="mx-1 text-stone-400">{"\u2192"}</span>
+                  </>
+                )}
+                <span
+                  class={`font-bold${
+                    renamedOldName
+                      ? ` diff-added rounded px-1`
+                      : ""
+                  }`}
+                >
+                  {name}
+                </span>
               </div>
               {symbol.subtitle && (
                 <div class="space-y-0.5 text-sm leading-4">

@@ -38,7 +38,7 @@ export default function DiffVersionSelector(
         ))}
       </select>
 
-      <TbArrowRight class="size-6" />
+      <a href={`/@${props.scope}/${props.pkg}/diff/${props.newVersion || ""}...${props.oldVersion || ""}`}><TbArrowRight class="size-6" /></a>
 
       <select
         class={SELECT_CLASSES}

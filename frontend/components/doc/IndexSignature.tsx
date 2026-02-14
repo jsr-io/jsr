@@ -1,27 +1,67 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // deno-lint-ignore-file jsx-curly-braces
-import type { IndexSignatureCtx } from "@deno/doc/html-types";
+import type { IndexSignatureCtx } from "../../../new_html_types.d.ts";
 import { Anchor } from "./Anchor.tsx";
 
 export function IndexSignature(
-  { signature: { id, anchor, readonly, params, ts_type } }: {
+  { signature }: {
     signature: IndexSignatureCtx;
   },
 ) {
+  const {
+    id,
+    anchor,
+    readonly: isReadonly,
+    params,
+    ts_type,
+    diff_status,
+    old_readonly,
+    old_ts_type,
+  } = signature;
+
+  const isAdded = diff_status?.kind === "added";
+  const isRemoved = diff_status?.kind === "removed";
+  const typeChanged = old_ts_type !== undefined;
+  const readonlyChanged = old_readonly !== undefined;
+  const hasChanges = typeChanged || readonlyChanged;
+
+  let diffBg = "";
+  if (isAdded) diffBg = ` diff-added`;
+  else if (isRemoved) diffBg = ` diff-removed`;
+
   return (
-    <div class="anchorable text-sm" id={id}>
+    <div class={`anchorable text-sm${diffBg}`} id={id}>
       <Anchor anchor={anchor} />
-      {readonly && <span>{"readonly "}</span>}
-      [<span
-        // jsdoc rendering
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: params }}
-      />]
-      <span
-        // jsdoc rendering
-        // deno-lint-ignore react-no-danger
-        dangerouslySetInnerHTML={{ __html: ts_type }}
-      />
+
+      {hasChanges && (
+        <div class={`diff-removed rounded px-1 py-0.5 mb-0.5`}>
+          {(old_readonly ?? isReadonly) && <span>{"readonly "}</span>}
+          [<span
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: params }}
+          />]
+          <span
+            // deno-lint-ignore react-no-danger
+            dangerouslySetInnerHTML={{ __html: old_ts_type ?? ts_type }}
+          />
+        </div>
+      )}
+
+      <div
+        class={hasChanges
+          ? `diff-added rounded px-1 py-0.5`
+          : ""}
+      >
+        {isReadonly && <span>{"readonly "}</span>}
+        [<span
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: params }}
+        />]
+        <span
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: ts_type }}
+        />
+      </div>
     </div>
   );
 }

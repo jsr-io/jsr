@@ -540,6 +540,16 @@ body .ddoc {
   .td-op {
     @apply text-pink-700 dark:text-pink-400;
   }
+  
+  .diff-added {
+    @apply bg-green-300/50 dark:bg-green-800/30;
+  }
+  .diff-modified {
+    @apply bg-yellow-200/50 dark:bg-yellow-800/30;
+  }
+  .diff-removed {
+    @apply bg-red-300/40 dark:bg-red-800/30;
+  }
 
   .sourceButton,
   .copyButton {

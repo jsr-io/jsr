@@ -1719,7 +1719,7 @@ pub async fn get_diff_handler(
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
   let old_doc_nodes_fut = buckets.docs_bucket.download(old_docs_path.into());
   let new_docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
   let new_doc_nodes_fut = buckets.docs_bucket.download(new_docs_path.into());
 
   let (old_docs, new_docs) =
