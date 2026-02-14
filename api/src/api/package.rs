@@ -1202,16 +1202,16 @@ pub async fn get_docs_handler(
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
   let old_version = req
-    .query("oldVersion")
+    .query("old_version")
     .map(|s| {
       Version::try_from(s.as_str()).map_err(|err| {
-        let msg = format!("failed to parse query 'oldVersion': {err}").into();
+        let msg = format!("failed to parse query 'old_version': {err}").into();
         ApiError::MalformedRequest { msg }
       })
     })
     .transpose()?;
   Span::current().record(
-    "oldVersion",
+    "old_version",
     field::display(
       &old_version
         .as_ref()
@@ -1219,6 +1219,8 @@ pub async fn get_docs_handler(
         .unwrap_or(String::new()),
     ),
   );
+  let compact_diff = req.query("compact_diff").is_some();
+  Span::current().record("compact_diff", field::display(compact_diff));
 
   let symbol = req
     .query("symbol")
@@ -1374,7 +1376,7 @@ pub async fn get_docs_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
-    old_doc_nodes,
+    old_doc_nodes.map(|nodes| (nodes, compact_diff)),
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);

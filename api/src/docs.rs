@@ -446,7 +446,7 @@ pub fn get_generate_ctx(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
-  diff: Option<deno_doc::diff::DocDiff>,
+  diff: Option<(deno_doc::diff::DocDiff, bool)>,
 ) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
@@ -523,11 +523,12 @@ pub fn get_generate_ctx(
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
       id_prefix: None,
+      diff_only: diff.as_ref().map(|diff| diff.1).unwrap_or_default(),
     },
     None,
     deno_doc::html::FileMode::Normal,
     doc_nodes_by_url,
-    diff,
+    diff.map(|diff| diff.0),
   )
   .unwrap()
 }
@@ -535,7 +536,7 @@ pub fn get_generate_ctx(
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "generate_docs_html",
-  skip(doc_nodes_by_url, rewrite_map, readme),
+  skip(doc_nodes_by_url, rewrite_map, readme, diff_data),
   err
 )]
 pub fn generate_docs_html(
@@ -552,12 +553,12 @@ pub fn generate_docs_html(
   runtime_compat: RuntimeCompat,
   registry_url: String,
   readme_source: ReadmeSource,
-  old_doc_nodes_by_url: Option<DocNodesByUrl>,
+  diff_data: Option<(DocNodesByUrl, bool)>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
-  let diff = if let Some(old_doc_nodes_by_url) = old_doc_nodes_by_url {
-    Some(deno_doc::diff::DocDiff::diff(
-      &old_doc_nodes_by_url,
-      &doc_nodes_by_url,
+  let diff = if let Some((old_doc_nodes_by_url, compact)) = diff_data {
+    Some((
+      deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &doc_nodes_by_url),
+      compact,
     ))
   } else {
     None
