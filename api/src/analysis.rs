@@ -253,6 +253,7 @@ async fn analyze_package_inner(
   let info = crate::docs::get_docs_info(&exports, None);
 
   let ctx = crate::docs::get_generate_ctx(
+    "/doc".to_string(),
     doc_nodes,
     main_entrypoint,
     info.rewrite_map,

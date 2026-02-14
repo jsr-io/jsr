@@ -435,6 +435,7 @@ fn get_url_rewriter(
   )
 )]
 pub fn get_generate_ctx(
+  doc_base: String,
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -508,6 +509,8 @@ pub fn get_generate_ctx(
             .collect()
           })
           .clone(),
+        doc_base,
+        full: diff.as_ref().map(|diff| diff.1),
       }),
       usage_composer: (Rc::new(DocUsageComposer {
         runtime_compat,
@@ -523,7 +526,7 @@ pub fn get_generate_ctx(
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
       id_prefix: None,
-      diff_only: diff.as_ref().map(|diff| diff.1).unwrap_or_default(),
+      diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
     },
     None,
     deno_doc::html::FileMode::Normal,
@@ -540,6 +543,7 @@ pub fn get_generate_ctx(
   err
 )]
 pub fn generate_docs_html(
+  doc_base: String,
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -555,16 +559,17 @@ pub fn generate_docs_html(
   readme_source: ReadmeSource,
   diff_data: Option<(DocNodesByUrl, bool)>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
-  let diff = if let Some((old_doc_nodes_by_url, compact)) = diff_data {
+  let diff = if let Some((old_doc_nodes_by_url, full)) = diff_data {
     Some((
       deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &doc_nodes_by_url),
-      compact,
+      full,
     ))
   } else {
     None
   };
 
   let ctx = get_generate_ctx(
+    doc_base,
     doc_nodes_by_url,
     main_entrypoint,
     rewrite_map,
@@ -1007,6 +1012,8 @@ struct DocResolver {
   registry_url: String,
   deno_types: std::collections::HashSet<Vec<String>>,
   web_types: std::collections::HashMap<Vec<String>, String>,
+  doc_base: String,
+  full: Option<bool>,
 }
 
 impl HrefResolver for DocResolver {
@@ -1025,9 +1032,9 @@ impl HrefResolver for DocResolver {
         String::new()
       }
     );
-    let doc_base = format!("{package_base}/doc");
+    let doc_base = format!("{package_base}{}", self.doc_base);
 
-    match target {
+    let path = match target {
       UrlResolveKind::Root => package_base,
       UrlResolveKind::AllSymbols => format!("{doc_base}/all_symbols"),
       UrlResolveKind::Symbol { file, symbol } => {
@@ -1049,6 +1056,12 @@ impl HrefResolver for DocResolver {
         }
       ),
       UrlResolveKind::Category { .. } => unreachable!(),
+    };
+
+    if self.full.is_some_and(std::convert::identity) {
+      path + "?full"
+    } else {
+      path
     }
   }
 
@@ -1258,6 +1271,8 @@ mod tests {
       registry_url: "".to_string(),
       deno_types: Default::default(),
       web_types: Default::default(),
+      doc_base: "/doc".to_string(),
+      full: None,
     };
 
     let specifier = ModuleSpecifier::parse("file:///mod.ts").unwrap();

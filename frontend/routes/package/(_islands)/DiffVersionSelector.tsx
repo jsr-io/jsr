@@ -1,9 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { useSignal, useSignalEffect } from "@preact/signals";
 import TbArrowRight from "tb-icons/TbArrowRight";
+import TbLayoutBottombarCollapseFilled from "tb-icons/TbLayoutBottombarCollapseFilled";
+import TbLayoutBottombarExpandFilled from "tb-icons/TbLayoutBottombarExpandFilled";
 
 const SELECT_CLASSES =
-  "block w-64 py-1.5 px-2 input-container select text-sm font-normal mt-1";
+  "block w-64 py-1.5 px-2 input-container select text-sm font-normal";
 
 export default function DiffVersionSelector(
   props: {
@@ -12,8 +13,13 @@ export default function DiffVersionSelector(
     versions: string[];
     oldVersion?: string;
     newVersion?: string;
+    url: URL;
   },
 ) {
+  const full = props.url.searchParams.has("full");
+  const strippedUrl = new URL(props.url);
+  strippedUrl.searchParams.delete("full");
+
   return (
     <div class="flex justify-center items-center gap-4">
       <select
@@ -49,6 +55,12 @@ export default function DiffVersionSelector(
           </option>
         ))}
       </select>
+
+      <a href={strippedUrl.pathname + (full ? "" : "?full")} title={full ? "Only show changed items" : "Show all items"}>
+        {full
+          ? <TbLayoutBottombarExpandFilled class="size-6" />
+          : <TbLayoutBottombarCollapseFilled class="size-6" />}
+      </a>
     </div>
   );
 }

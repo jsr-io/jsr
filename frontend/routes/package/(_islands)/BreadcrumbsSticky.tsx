@@ -1,16 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { LocalSymbolSearch } from "./LocalSymbolSearch.tsx";
 import { Breadcrumbs } from "../../../components/doc/Breadcrumbs.tsx";
-import type { AllSymbolsCtx, BreadcrumbsCtx } from "@deno/doc/html-types";
+import type { BreadcrumbsCtx } from "@deno/doc/html-types";
+import { ComponentChildren } from "preact";
 
 export interface BreadcrumbsStickyProps {
   content: BreadcrumbsCtx;
-  searchContent?: AllSymbolsCtx;
-  scope: string;
-  package: string;
-  version: string;
+  class?: string;
+  children: ComponentChildren;
 }
 
 export function BreadcrumbsSticky(
@@ -48,18 +46,11 @@ export function BreadcrumbsSticky(
       }`}
     >
       <div class="section-x-inset-xl flex md:items-center justify-between gap-4 max-md:flex-col-reverse lg:grid lg:grid-cols-10 lg:gap-12">
-        <div class="ddoc lg:col-span-7">
+        <div class={`ddoc ${props.class ?? ""}`}>
           <Breadcrumbs breadcrumbs={props.content} />
         </div>
 
-        <div class="lg:col-[span_3/_-1]">
-          <LocalSymbolSearch
-            scope={props.scope}
-            pkg={props.package}
-            version={props.version}
-            content={props.searchContent}
-          />
-        </div>
+        {props.children}
       </div>
     </div>
   );
