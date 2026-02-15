@@ -115,6 +115,7 @@ pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
+  pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
 
 pub fn cache<H, HF>(
@@ -494,7 +495,7 @@ pub mod test {
       let docs_bucket = gcs.create_bucket("docs").await;
       let npm_bucket = gcs.create_bucket("npm").await;
       let buckets = Buckets {
-        publishing_bucket: BucketWithQueue::new(publishing_bucket),
+        gcs_publishing_bucket: BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
         docs_bucket: BucketWithQueue::new(docs_bucket),
         npm_bucket: BucketWithQueue::new(npm_bucket),

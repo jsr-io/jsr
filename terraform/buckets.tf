@@ -23,6 +23,66 @@ resource "google_storage_bucket" "publishing" {
   force_destroy = true
 }
 
+resource "cloudflare_r2_bucket" "publishing" {
+  account_id  = var.cloudflare_account_id
+  name        = "${var.gcp_project}-publishing"
+  location    = "enam"
+}
+
+data "cloudflare_api_token_permission_groups_list" "this" {}
+
+locals {
+  r2_api_permissions = {
+    for x in data.cloudflare_api_token_permission_groups_list.this.result :
+    x.name => x.id
+    if contains([
+      "Workers R2 Storage Bucket Item Read",
+      "Workers R2 Storage Bucket Item Write",
+    ], x.name)
+  }
+}
+
+resource "cloudflare_api_token" "r2_publishing" {
+  name = "r2-publishing"
+  policies = [{
+    effect = "allow"
+    resources = {
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*"
+    }
+    permission_groups = [
+      { id = local.r2_api_permissions["Workers R2 Storage Bucket Item Read"] },
+      { id = local.r2_api_permissions["Workers R2 Storage Bucket Item Write"] },
+    ]
+  }]
+}
+resource "google_service_account" "r2_sippy" {
+  account_id   = "r2-sippy"
+  display_name = "R2 Sippy"
+  description  = "Service account for Cloudflare R2 Sippy to read from GCS buckets"
+}
+
+resource "google_storage_bucket_iam_member" "r2_sippy_publishing_reader" {
+  bucket = google_storage_bucket.publishing.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.r2_sippy.email}"
+}
+
+resource "google_storage_hmac_key" "r2_sippy" {
+  service_account_email = google_service_account.r2_sippy.email
+}
+
+resource "cloudflare_r2_bucket_sippy" "r2_publishing_sippy" {
+  account_id  = var.cloudflare_account_id
+  bucket_name = cloudflare_r2_bucket.publishing.name
+  source = {
+    access_key_id     = google_storage_hmac_key.r2_sippy.access_id
+    bucket            = google_storage_bucket.publishing.name
+    cloud_provider    = "gcs"
+    region            = google_storage_bucket.publishing.location
+    secret_access_key = google_storage_hmac_key.r2_sippy.secret
+  }
+}
+
 resource "google_storage_bucket" "docs" {
   name          = "${var.gcp_project}-docs"
   location      = "US"

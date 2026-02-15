@@ -80,7 +80,7 @@ use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
-use crate::tarball::gcs_tarball_path;
+use crate::tarball::bucket_tarball_path;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
@@ -153,6 +153,10 @@ pub fn package_router() -> Router<Body, ApiError> {
     .post(
       "/:package/versions/:version/provenance",
       util::auth(version_provenance_statements_handler),
+    )
+    .get(
+      "/:package/versions/:version/tarball",
+      util::cache(CacheDuration::FOREVER, version_tarball_handler),
     )
     .get(
       "/:package/versions/:version/docs",
@@ -834,7 +838,7 @@ pub async fn version_publish_handler(
     }
   };
 
-  let gcs_path = gcs_tarball_path(publishing_task.id);
+  let gcs_path = bucket_tarball_path(publishing_task.id);
 
   let body = req.into_body();
   let total_size = Arc::new(AtomicU64::new(0));
@@ -860,7 +864,7 @@ pub async fn version_publish_handler(
     .publishing_bucket
     .upload(
       gcs_path.into(),
-      UploadTaskBody::Stream(Box::new(stream)),
+      crate::s3::UploadTaskBody::Stream(Box::new(stream)),
       GcsUploadOptions {
         content_type: Some("application/x-tar".into()),
         cache_control: None,
@@ -1129,6 +1133,50 @@ pub async fn version_delete_handler(
     Response::builder()
       .status(StatusCode::NO_CONTENT)
       .body(Body::empty())
+      .unwrap(),
+  )
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/versions/:version/tarball",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn version_tarball_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+
+  let (task, _) = db
+    .get_publishing_task_for_version(&scope, &package, &version)
+    .await?;
+
+  let path = bucket_tarball_path(task.id);
+  let body = buckets
+    .publishing_bucket
+    .bucket
+    .download_stream(&path, None)
+    .await?
+    .unwrap();
+
+  Ok(
+    Response::builder()
+      .status(StatusCode::OK)
+      .body(Body::wrap_stream(body.map(|r| {
+        r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+          Box::new(e)
+        })
+      })))
       .unwrap(),
   )
 }
