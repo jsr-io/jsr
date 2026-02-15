@@ -29,16 +29,6 @@ resource "cloudflare_r2_bucket" "publishing" {
   location   = "enam"
 }
 
-data "cloudflare_account_api_token_permission_groups" "r2_read" {
-  account_id = var.cloudflare_account_id
-  name       = urlencode("Workers R2 Storage Read")
-}
-
-data "cloudflare_account_api_token_permission_groups" "r2_write" {
-  account_id = var.cloudflare_account_id
-  name       = urlencode("Workers R2 Storage Write")
-}
-
 resource "cloudflare_account_token" "r2_publishing" {
   account_id = var.cloudflare_account_id
   name       = "r2-${cloudflare_r2_bucket.publishing.name}-rw"
@@ -46,8 +36,8 @@ resource "cloudflare_account_token" "r2_publishing" {
   policies = [{
     effect = "allow"
     permission_groups = [
-      { id = data.cloudflare_account_api_token_permission_groups.r2_read.permission_groups[0].id },
-      { id = data.cloudflare_account_api_token_permission_groups.r2_write.permission_groups[0].id },
+      { id = "b4992e1108244f5d8bfbd5744320c2e1" },
+      { id = "bf7481a1826f439697cb59a20b22293e" },
     ]
     resources = jsonencode({
       "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*"
