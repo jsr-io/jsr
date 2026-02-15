@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A --watch
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import main from "./main.ts";
-import { S3Client, CreateBucketCommand } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 
 const REGISTRY_FRONTEND_URL = Deno.env.get("REGISTRY_FRONTEND_URL") ??
   "http://localhost:8000";
@@ -36,16 +36,18 @@ async function createMinioBucket(name: string) {
   try {
     const s3 = new S3Client({
       endpoint: S3_ENDPOINT,
-      region: 'us-east-1',
-      credentials: { accessKeyId: 'minioadmin', secretAccessKey: 'minioadmin' },
+      region: "us-east-1",
+      credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
       forcePathStyle: true,
     });
 
     await s3.send(new CreateBucketCommand({ Bucket: name }));
     return true;
-
   } catch (err) {
-    if (err.name === 'BucketAlreadyOwnedByYou' || err.name === 'BucketAlreadyExists') {
+    if (
+      err.name === "BucketAlreadyOwnedByYou" ||
+      err.name === "BucketAlreadyExists"
+    ) {
       return true;
     }
 

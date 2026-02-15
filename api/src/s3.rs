@@ -502,7 +502,7 @@ impl FakeS3Tester {
   pub async fn new() -> Self {
     use rand::Rng;
     let mut rng = rand::thread_rng();
-    let port = rng.gen_range(10000..20001);
+    let port = rng.gen_range(20001..30001);
     //let port = PORT_PICKER.pick().await;
     let mut t = Self { port, proc: None };
     t.start();
@@ -564,9 +564,9 @@ impl FakeS3Tester {
     println!("starting fake s3 server: {}", p);
     let mut proc = std::process::Command::new(p)
       .arg("server")
-      .arg(dir)
       .arg(format!("--address=:{}", self.port))
       .arg("--quiet")
+      .arg(dir)
       .process_group(0)
       .stderr(Stdio::piped())
       .spawn()
