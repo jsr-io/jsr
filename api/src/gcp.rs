@@ -82,6 +82,7 @@ impl std::ops::Deref for Client {
   }
 }
 
+#[allow(dead_code)]
 pub struct ClientInner {
   http: reqwest::Client,
   http_without_compression: reqwest::Client,
@@ -89,6 +90,7 @@ pub struct ClientInner {
   access_token: Mutex<Option<(String, Instant)>>,
 }
 
+#[allow(dead_code)]
 impl ClientInner {
   pub fn http(&self) -> &reqwest::Client {
     &self.http
@@ -183,6 +185,7 @@ pub struct GcsUploadOptions<'a> {
   pub gzip_encoded: bool,
 }
 
+#[allow(dead_code)]
 impl Bucket {
   pub fn new(client: Client, name: String, endpoint: Option<String>) -> Self {
     Self {

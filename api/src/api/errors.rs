@@ -3,10 +3,10 @@ use hyper::Body;
 use hyper::Response;
 use std::borrow::Cow;
 
+use super::ApiPublishingTask;
 use crate::errors;
 use crate::gcp::GcsError;
-
-use super::ApiPublishingTask;
+use crate::s3::S3Error;
 
 errors!(
   TarballSizeLimitExceeded {
@@ -368,6 +368,12 @@ impl From<oauth2::ConfigurationError> for ApiError {
 
 impl From<GcsError> for ApiError {
   fn from(error: GcsError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<S3Error> for ApiError {
+  fn from(error: S3Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

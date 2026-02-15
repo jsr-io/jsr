@@ -74,6 +74,7 @@ opentelemetry = { version = "0.19", features = [
 ] }
 opentelemetry-otlp = "0.12"
 opentelemetry-gcloud-trace = "0.5.0"
+rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 deno_semver = "0.9.1"
 flate2 = "1"
 thiserror = "2"
