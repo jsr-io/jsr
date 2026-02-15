@@ -29,32 +29,32 @@ resource "cloudflare_r2_bucket" "publishing" {
   location   = "enam"
 }
 
-data "cloudflare_api_token_permission_groups_list" "this" {}
-
-locals {
-  r2_api_permissions = {
-    for x in data.cloudflare_api_token_permission_groups_list.this.result :
-    x.name => x.id
-    if contains([
-      "Workers R2 Storage Bucket Item Read",
-      "Workers R2 Storage Bucket Item Write",
-    ], x.name)
-  }
+data "cloudflare_account_api_token_permission_groups" "r2_read" {
+  account_id = var.cloudflare_account_id
+  name       = urlencode("Workers R2 Storage Read")
 }
 
-resource "cloudflare_api_token" "r2_publishing" {
-  name = "r2-publishing"
+data "cloudflare_account_api_token_permission_groups" "r2_write" {
+  account_id = var.cloudflare_account_id
+  name       = urlencode("Workers R2 Storage Write")
+}
+
+resource "cloudflare_account_token" "r2_publishing" {
+  account_id = var.cloudflare_account_id
+  name       = "r2-${cloudflare_r2_bucket.publishing.name}-rw"
+
   policies = [{
     effect = "allow"
-    resources = {
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*"
-    }
     permission_groups = [
-      { id = local.r2_api_permissions["Workers R2 Storage Bucket Item Read"] },
-      { id = local.r2_api_permissions["Workers R2 Storage Bucket Item Write"] },
+      { id = data.cloudflare_account_api_token_permission_groups.r2_read.id },
+      { id = data.cloudflare_account_api_token_permission_groups.r2_write.id },
     ]
+    resources = jsonencode({
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*"
+    })
   }]
 }
+
 resource "google_service_account" "r2_sippy" {
   account_id   = "r2-sippy"
   display_name = "R2 Sippy"
