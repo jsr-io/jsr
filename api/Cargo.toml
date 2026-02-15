@@ -79,6 +79,7 @@ deno_semver = "0.9.1"
 flate2 = "1"
 thiserror = "2"
 async-tar = "0.4.2"
+async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
 deno_graph = "=0.107.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
 # sync with frontend/deno.json

@@ -119,7 +119,9 @@ pub async fn process_tarball(
     .map_err(io::Error::other);
 
   let async_read = stream.into_async_read();
-  let mut tar = async_tar::Archive::new(async_read)
+  let decompressed =
+    async_compression::futures::bufread::GzipDecoder::new(async_read);
+  let mut tar = async_tar::Archive::new(decompressed)
     .entries()
     .map_err(from_tarball_io_error)?;
 
