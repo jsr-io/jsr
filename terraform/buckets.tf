@@ -24,9 +24,9 @@ resource "google_storage_bucket" "publishing" {
 }
 
 resource "cloudflare_r2_bucket" "publishing" {
-  account_id  = var.cloudflare_account_id
-  name        = "${var.gcp_project}-publishing"
-  location    = "enam"
+  account_id = var.cloudflare_account_id
+  name       = "${var.gcp_project}-publishing"
+  location   = "enam"
 }
 
 data "cloudflare_api_token_permission_groups_list" "this" {}

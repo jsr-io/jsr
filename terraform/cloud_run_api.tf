@@ -9,10 +9,10 @@ locals {
     "DOCS_BUCKET"       = google_storage_bucket.docs.name
     "NPM_BUCKET"        = google_storage_bucket.npm.name
 
-    "S3_REGION"      = "auto"
-    "S3_ENDPOINT"    = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
-    "S3_ACCESS_KEY"  = cloudflare_api_token.r2_publishing.id
-    "S3_SECRET_KEY"  = sha256(cloudflare_api_token.r2_publishing.value)
+    "S3_REGION"     = "auto"
+    "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
+    "S3_ACCESS_KEY" = cloudflare_api_token.r2_publishing.id
+    "S3_SECRET_KEY" = sha256(cloudflare_api_token.r2_publishing.value)
 
     "METADATA_STRATEGY" = "instance_metadata"
 
