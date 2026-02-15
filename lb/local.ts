@@ -43,7 +43,8 @@ async function createMinioBucket(name: string) {
 
     await s3.send(new CreateBucketCommand({ Bucket: name }));
     return true;
-  } catch (err) {
+    // deno-lint-ignore no-explicit-any
+  } catch (err: any) {
     if (
       err.name === "BucketAlreadyOwnedByYou" ||
       err.name === "BucketAlreadyExists"
