@@ -57,19 +57,18 @@ resource "google_storage_bucket_iam_member" "r2_sippy_publishing_reader" {
   member = "serviceAccount:${google_service_account.r2_sippy.email}"
 }
 
-resource "google_storage_hmac_key" "r2_sippy" {
-  service_account_email = google_service_account.r2_sippy.email
+resource "google_service_account_key" "r2_sippy" {
+  service_account_id = google_service_account.r2_sippy.name
 }
 
 resource "cloudflare_r2_bucket_sippy" "r2_publishing_sippy" {
   account_id  = var.cloudflare_account_id
   bucket_name = cloudflare_r2_bucket.publishing.name
   source = {
-    access_key_id     = google_storage_hmac_key.r2_sippy.access_id
-    bucket            = google_storage_bucket.publishing.name
-    cloud_provider    = "gcs"
-    region            = google_storage_bucket.publishing.location
-    secret_access_key = google_storage_hmac_key.r2_sippy.secret
+    client_email   = google_service_account.r2_sippy.email
+    private_key    = jsondecode(base64decode(google_service_account_key.r2_sippy.private_key)).private_key
+    bucket         = google_storage_bucket.publishing.name
+    cloud_provider = "gcs"
   }
 }
 
