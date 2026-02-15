@@ -1,12 +1,14 @@
 #!/usr/bin/env -S deno run -A --watch
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import main from "./main.ts";
+import { S3Client, CreateBucketCommand } from '@aws-sdk/client-s3';
 
 const REGISTRY_FRONTEND_URL = Deno.env.get("REGISTRY_FRONTEND_URL") ??
   "http://localhost:8000";
 const REGISTRY_API_URL = Deno.env.get("REGISTRY_API_URL") ??
   "http://localhost:8001";
 const GCS_ENDPOINT = Deno.env.get("GCS_ENDPOINT") ?? "http://localhost:4080";
+const S3_ENDPOINT = Deno.env.get("S3_ENDPOINT") ?? "http://localhost:9000";
 const MODULES_BUCKET = Deno.env.get("MODULES_BUCKET") ?? "modules";
 const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
 
@@ -30,11 +32,34 @@ async function createBucket(name: string) {
   }
 }
 
+async function createMinioBucket(name: string) {
+  try {
+    const s3 = new S3Client({
+      endpoint: S3_ENDPOINT,
+      region: 'us-east-1',
+      credentials: { accessKeyId: 'minioadmin', secretAccessKey: 'minioadmin' },
+      forcePathStyle: true,
+    });
+
+    await s3.send(new CreateBucketCommand({ Bucket: name }));
+    return true;
+
+  } catch (err) {
+    if (err.name === 'BucketAlreadyOwnedByYou' || err.name === 'BucketAlreadyExists') {
+      return true;
+    }
+
+    return false;
+  }
+}
+
 const bucketCreationInterval = setInterval(async () => {
   let allBucketsCreated = true;
-  for (const bucket of [MODULES_BUCKET, "docs", "publishing", NPM_BUCKET]) {
+  for (const bucket of [MODULES_BUCKET, "docs", NPM_BUCKET]) {
     allBucketsCreated &&= await createBucket(bucket);
   }
+  allBucketsCreated &&= await createMinioBucket("publishing");
+
   if (allBucketsCreated) {
     console.log("All buckets ready.");
     clearInterval(bucketCreationInterval);

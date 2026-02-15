@@ -1,9 +1,9 @@
 {
   "tasks": {
-    "services:macos": "./tools/bin/darwin-arm64/jaeger-all-in-one & ./tools/bin/darwin-arm64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/darwin-arm64/minio server .minio & ./lb/local.ts",
-    "services:macos:amd": "./tools/bin/darwin-amd64/jaeger-all-in-one & ./tools/bin/darwin-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/darwin-amd64/minio server .minio & ./lb/local.ts",
-    "services:linux": "docker compose up & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/linux-amd64/minio server .minio & ./lb/local.ts",
-    "services:linux-no-postgres": "docker compose up jaeger & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/linux-amd64/minio server .minio & ./lb/local.ts",
+    "services:macos": "./tools/bin/darwin-arm64/jaeger-all-in-one & ./tools/bin/darwin-arm64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/darwin-arm64/minio server --quiet .minio & ./lb/local.ts",
+    "services:macos:amd": "./tools/bin/darwin-amd64/jaeger-all-in-one & ./tools/bin/darwin-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/darwin-amd64/minio server --quiet .minio & ./lb/local.ts",
+    "services:linux": "docker compose up & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/linux-amd64/minio server --quiet .minio & ./lb/local.ts",
+    "services:linux-no-postgres": "docker compose up jaeger & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs -public-host=localhost:4080 & ./tools/bin/linux-amd64/minio server --quiet .minio & ./lb/local.ts",
     "dev:api": "cd api && cargo run",
     "dev:frontend": "cd frontend && OLTP_ENDPOINT=http://localhost:4318 deno task dev",
     "prod:frontend": "deno run -A --watch ./tools/prod_proxy.ts & cd frontend && API_ROOT=https://api.jsr.io deno task dev",
