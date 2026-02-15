@@ -164,7 +164,7 @@ async fn main() {
   .unwrap();
 
   let gcp_client = gcp::Client::new(config.metadata_strategy);
-  let s3_publishing_bucket = s3::BucketWithQueue::new(
+  let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.publishing_bucket,
       ::s3::Region::Custom {
@@ -197,7 +197,7 @@ async fn main() {
     config.gcs_endpoint,
   ));
   let buckets = Buckets {
-    publishing_bucket: s3_publishing_bucket,
+    publishing_bucket,
     modules_bucket: modules_bucket.clone(),
     docs_bucket,
     npm_bucket,
