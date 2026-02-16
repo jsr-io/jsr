@@ -36,8 +36,8 @@ resource "cloudflare_account_token" "r2_publishing" {
   policies = [{
     effect = "allow"
     permission_groups = [
-      { id = "6a018a9f2fc74eb6b293b0c548f38b39" },
-      { id = "2efd5506f9c8494dacb1fa10a3e7d5b6" },
+      { id = "b4992e1108244f5d8bfbd5744320c2e1" },
+      { id = "bf7481a1826f439697cb59a20b22293e" },
     ]
     resources = jsonencode({
       "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*"
