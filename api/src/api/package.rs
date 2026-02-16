@@ -1172,6 +1172,7 @@ pub async fn version_tarball_handler(
   Ok(
     Response::builder()
       .status(StatusCode::OK)
+      .header(hyper::header::CONTENT_TYPE, "application/gzip")
       .body(Body::wrap_stream(body.map(|r| {
         r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
           Box::new(e)
