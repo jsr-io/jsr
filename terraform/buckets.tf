@@ -64,6 +64,11 @@ resource "google_service_account_key" "r2_sippy" {
 resource "cloudflare_r2_bucket_sippy" "r2_publishing_sippy" {
   account_id  = var.cloudflare_account_id
   bucket_name = cloudflare_r2_bucket.publishing.name
+  destination = {
+    access_key_id = cloudflare_account_token.r2_publishing.id
+    cloud_provider = "r2"
+    secret_access_key = cloudflare_account_token.r2_publishing.value
+  }
   source = {
     client_email   = google_service_account.r2_sippy.email
     private_key    = jsondecode(base64decode(google_service_account_key.r2_sippy.private_key)).private_key
