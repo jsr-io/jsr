@@ -31,7 +31,7 @@ resource "cloudflare_r2_bucket" "publishing" {
 
 resource "cloudflare_account_token" "r2_publishing" {
   account_id = var.cloudflare_account_id
-  name       = "r2-${cloudflare_r2_bucket.publishing.name}-rw"
+  name       = "${cloudflare_r2_bucket.publishing.name}-rw"
 
   policies = [{
     effect = "allow"
