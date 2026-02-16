@@ -12,7 +12,7 @@ locals {
     "S3_REGION"     = "auto"
     "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
     "S3_ACCESS_KEY" = cloudflare_account_token.r2_publishing.id
-    "S3_SECRET_KEY" = sha256(cloudflare_account_token.r2_publishing.value)
+    "S3_SECRET_KEY" = r2_publishing_secret_access_key
 
     "METADATA_STRATEGY" = "instance_metadata"
 

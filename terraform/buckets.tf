@@ -45,6 +45,10 @@ resource "cloudflare_account_token" "r2_publishing" {
   }]
 }
 
+locals {
+  r2_publishing_secret_access_key = sha256(cloudflare_account_token.r2_publishing.value)
+}
+
 resource "google_service_account" "r2_sippy" {
   account_id   = "r2-sippy"
   display_name = "R2 Sippy"
@@ -67,7 +71,7 @@ resource "cloudflare_r2_bucket_sippy" "r2_publishing_sippy" {
   destination = {
     access_key_id = cloudflare_account_token.r2_publishing.id
     cloud_provider = "r2"
-    secret_access_key = cloudflare_account_token.r2_publishing.value
+    secret_access_key = r2_publishing_secret_access_key
   }
   source = {
     client_email   = google_service_account.r2_sippy.email
