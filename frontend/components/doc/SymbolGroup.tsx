@@ -31,7 +31,7 @@ export function SymbolGroup(
                 </div>
               )}
               {symbol.tags && symbol.tags.length > 0 && (
-                <div class="space-x-2 !mt-2">
+                <div class="space-x-2 mt-2!">
                   {symbol.tags.map((tag, i) => <Tag key={i} tag={tag} large />)}
                 </div>
               )}
