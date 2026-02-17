@@ -11,7 +11,9 @@
 @source inline("dark:bg-{FunctionDark,MethodDark,VariableDark,PropertyDark,ClassDark,EnumDark,InterfaceDark,TypeAliasDark,NamespaceDark}/15");
 
 @layer base {
-  img:where(:not(.markdown img)), video:where(:not(.markdown video)) { height: auto; }
+  img:where(:not(.markdown img)), video:where(:not(.markdown video)) {
+    height: auto;
+  }
 }
 
 /* Nav item text - reserves space for bold text to prevent layout shift */
@@ -161,9 +163,9 @@
 
 @utility button {
   @apply text-jsr-gray-700 dark:text-gray-200 inline-flex items-center gap-2
-  py-2.5 px-4.5 rounded-md leading-tight font-medium whitespace-nowrap
-  hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4
-  focus:outline-offset-2 select-none;
+    py-2.5 px-4.5 rounded-md leading-tight font-medium whitespace-nowrap
+    hover:cursor-pointer disabled:cursor-not-allowed focus:outline-4
+    focus:outline-offset-2 select-none;
 }
 
 @layer components {
@@ -254,19 +256,19 @@
       dark:decoration-jsr-cyan-400/25 dark:hover:decoration-jsr-cyan-400;
   }
 
-    .input-container {
-      @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug
-             border-1 border-jsr-cyan-900/30 dark:border-jsr-gray-600
-             focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400
-             appearance-none;
-    }
+  .input-container {
+    @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
+      border-jsr-cyan-900/30 dark:border-jsr-gray-600
+      focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400
+      appearance-none;
+  }
 
-    .input {
-      @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300
-             outline-hidden bg-transparent disabled:cursor-not-allowed
-             dark:placeholder:text-jsr-gray-400
-             dark:disabled:placeholder:text-jsr-gray-500;
-    }
+  .input {
+    @apply placeholder:text-jsr-gray-400 disabled:placeholder:text-jsr-gray-300
+      outline-hidden bg-transparent disabled:cursor-not-allowed
+      dark:placeholder:text-jsr-gray-400
+      dark:disabled:placeholder:text-jsr-gray-500;
+  }
 
   .search-input {
     @apply input-container border-1.5 border-jsr-cyan-900/90
@@ -315,18 +317,18 @@
 }
 
 @utility input-container {
-      &:is(input, select):not([data-locked="true"]):disabled,
-      & :is(input, select):not([data-locked="true"]):disabled {
-        @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed
-               bg-jsr-gray-50 dark:border-jsr-gray-800 dark:text-jsr-gray-400
-               dark:bg-jsr-gray-950;
-      }
+  &:is(input, select):not([data-locked="true"]):disabled,
+  & :is(input, select):not([data-locked="true"]):disabled {
+    @apply border-jsr-gray-300 text-jsr-gray-300 cursor-not-allowed
+      bg-jsr-gray-50 dark:border-jsr-gray-800 dark:text-jsr-gray-400
+      dark:bg-jsr-gray-950;
+  }
 
-      &:is(input, select)[data-locked="true"],
-      & :is(input, select)[data-locked="true"] {
-        @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50
-               dark:text-jsr-gray-300 dark:bg-jsr-gray-950;
-      }
+  &:is(input, select)[data-locked="true"],
+  & :is(input, select)[data-locked="true"] {
+    @apply text-jsr-gray-500 cursor-not-allowed bg-jsr-gray-50
+      dark:text-jsr-gray-300 dark:bg-jsr-gray-950;
+  }
 }
 
 /* !important seems necessary for taking precedent over current ddoc styling */
@@ -336,13 +338,15 @@ body .ddoc {
   }
 
   a.link {
-    @apply text-jsr-cyan-700! hover:text-jsr-cyan-900! decoration-jsr-cyan-700/50!
-      dark:text-cyan-400! dark:hover:text-cyan-300! dark:decoration-cyan-400/50!;
+    @apply text-jsr-cyan-700! hover:text-jsr-cyan-900!
+      decoration-jsr-cyan-700/50! dark:text-cyan-400! dark:hover:text-cyan-300!
+      dark:decoration-cyan-400/50!;
   }
 
   .markdown {
     h1 {
-      @apply mt-8! -mx-4! px-4! md:mx-0! md:px-0! text-3xl! md:text-4xl! font-semibold!;
+      @apply mt-8! -mx-4! px-4! md:mx-0! md:px-0! text-3xl! md:text-4xl!
+        font-semibold!;
     }
 
     /* Styles the first H1 in a readme a little differently */
@@ -351,7 +355,8 @@ body .ddoc {
     }
 
     h2 {
-      @apply mt-8! -mx-4! px-4! md:mx-0! md:px-0! text-xl! md:text-2xl! font-bold! md:font-medium!;
+      @apply mt-8! -mx-4! px-4! md:mx-0! md:px-0! text-xl! md:text-2xl!
+        font-bold! md:font-medium!;
     }
 
     h3 {
