@@ -292,7 +292,7 @@ pub async fn process_tarball(
   }
 
   let license = if let Some(license) = config_file.license {
-    if license_store.0.get_original(&license).is_none() {
+    if !license_store.is_recognized(&license) {
       return Err(PublishError::InvalidLicense);
     } else {
       license
