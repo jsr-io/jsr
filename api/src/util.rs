@@ -431,7 +431,7 @@ impl LicenseStore {
       self
         .0
         .aliases(key)
-        .map_or(false, |aliases| aliases.iter().any(|a| a == name))
+        .is_ok_and(|aliases| aliases.iter().any(|a| a == name))
     })
   }
 }
