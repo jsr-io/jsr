@@ -1,29 +1,22 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { NamespaceNodeCtx } from "../../../new_html_types.d.ts";
 import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
+import { getDiffColor } from "./mod.ts";
 
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
     <div class="space-y-2 !mt-6 max-w-prose">
       {items.map((item) => {
-        const isAdded = item.diff_status?.kind === "added";
-        const isRemoved = item.diff_status?.kind === "removed";
-        const isRenamed = item.diff_status?.kind === "renamed";
-        const isModified = item.diff_status?.kind === "modified";
+        const diffBg = getDiffColor(item.diff_status, false);
 
-        let diffBg = "";
-        if (isAdded) diffBg = ` diff-added`;
-        else if (isRemoved) diffBg = ` diff-removed`;
-        else if (isModified) diffBg = ` diff-modified`;
-
-        const renamedOldName = isRenamed
+        const renamedOldName = item.diff_status?.kind === "renamed"
           ? (item.diff_status as { kind: "renamed"; old_name: string }).old_name
           : undefined;
 
         return (
           <div
             id={item.id}
-            class={`flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 rounded transition duration-125 py-1 px-2 -my-1 -mx-2 ${item.deprecated ? "opacity-60" : ""}${diffBg}`}
+            class={`flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 rounded transition duration-125 py-1 px-2 -my-1 -mx-2 ${item.deprecated ? "opacity-60" : ""} ${diffBg}`}
             aria-label={item.deprecated ? "deprecated" : undefined}
           >
             <DocNodeKindIcon
@@ -96,8 +89,13 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
 
               {item.subitems && item.subitems.length > 0 && (
                 <ul class="gap-y-3 text-sm mt-3 ml-2">
-                  {item.subitems.map((subitem) => (
-                    <li>
+                  {item.subitems.map((subitem) => {
+                    const subDiffBg = getDiffColor(subitem.diff_status, true);
+
+                    return (
+                    <li
+                      class={`rounded px-1 -mx-1 ${subDiffBg}`}
+                    >
                       <div class="block font-mono">
                         <a
                           href={subitem.href}
@@ -144,7 +142,8 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                           )}
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </div>
