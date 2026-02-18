@@ -168,6 +168,13 @@
     focus:outline-offset-2 select-none;
 }
 
+@utility input-container {
+  @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
+    border-jsr-cyan-900/30 dark:border-jsr-gray-600
+    focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400
+    appearance-none;
+}
+
 @layer components {
   .button-sm {
     @apply gap-2 py-2 px-4.5 rounded-md text-sm leading-tight font-medium
@@ -254,13 +261,6 @@
       dark:ring-cyan-400 dark:ring-offset-jsr-gray-950 opsize-sm font-medium
       decoration-jsr-cyan-700/25 hover:decoration-jsr-cyan-700
       dark:decoration-jsr-cyan-400/25 dark:hover:decoration-jsr-cyan-400;
-  }
-
-  .input-container {
-    @apply bg-white dark:bg-jsr-gray-900 rounded-md leading-snug border-1
-      border-jsr-cyan-900/30 dark:border-jsr-gray-600
-      focus-within:border-jsr-cyan-500 dark:focus-within:border-cyan-400
-      appearance-none;
   }
 
   .input {
