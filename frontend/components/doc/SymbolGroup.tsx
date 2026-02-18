@@ -30,20 +30,11 @@ export function SymbolGroup(
                   {symbol.kind.title_lowercase}
                 </span>{" "}
                 {renamedOldName && (
-                  <>
-                    <span
-                      class={`font-bold diff-removed rounded px-1`}
-                    >
-                      {renamedOldName}
-                    </span>
-                    <span class="mx-1 text-stone-400">{"\u2192"}</span>
-                  </>
+                  <span class="font-bold diff-removed diff-inline">
+                    {renamedOldName}
+                  </span>
                 )}
-                <span
-                  class={`font-bold${
-                    renamedOldName ? ` diff-added rounded px-1` : ""
-                  }`}
-                >
+                <span class={`font-bold ${renamedOldName ? "diff-added diff-inline" : ""}`}>
                   {name}
                 </span>
               </div>

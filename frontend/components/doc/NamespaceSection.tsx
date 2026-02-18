@@ -7,10 +7,8 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
     <div class="space-y-2 !mt-6 max-w-prose">
       {items.map((item) => {
-        const diffBg = getDiffColor(item.diff_status, false);
-
         const renamedOldName = item.diff_status?.kind === "renamed"
-          ? (item.diff_status as { kind: "renamed"; old_name: string }).old_name
+          ? item.diff_status.old_name
           : undefined;
 
         return (
@@ -20,7 +18,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
               item.deprecated
                 ? "opacity-60 line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
                 : ""
-            } diff-mobile-skip-round ${diffBg}`}
+            } diff-mobile-skip-round ${getDiffColor(item.diff_status, false)}`}
             aria-label={item.deprecated ? "deprecated" : undefined}
           >
             <div
@@ -35,22 +33,17 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
 
               <div class="space-y-2">
                 <div class="block font-mono">
-                  {renamedOldName && (
-                    <>
-                      <span class="highlightable leading-none break-all font-medium diff-removed px-0.5">
-                        {renamedOldName}
-                      </span>
-                      <span class="mx-1 text-stone-400">{"\u2192"}</span>
-                    </>
-                  )}
                   <a
                     href={item.href}
                     title={item.name}
-                    class={`highlightable leading-none break-all font-medium underline underline-offset-2${
-                      renamedOldName ? ` diff-added px-0.5` : ""
-                    }`}
+                    class={`highlightable leading-none break-all font-medium underline underline-offset-2`}
                   >
-                    {item.name}
+                    {renamedOldName && (
+                      <span class="diff-removed diff-inline">
+                          {renamedOldName}
+                        </span>
+                    )}
+                    <span class={renamedOldName ? "diff-added diff-inline" : ""}>{item.name}</span>
                   </a>
                   {item.ty && (
                     <>

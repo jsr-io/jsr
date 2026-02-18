@@ -17,25 +17,19 @@ export function DocEntry(
     source_href,
     js_doc,
     diff_status,
-    old_name,
     old_content,
     js_doc_changed,
   } = entry;
 
   const renamedOldName = diff_status?.kind === "renamed"
-    ? (diff_status as { kind: "renamed"; old_name: string }).old_name
+    ? diff_status.old_name
     : undefined;
-  const effectiveOldName = old_name ?? renamedOldName;
-  const signatureChanged = effectiveOldName !== undefined ||
-    old_content !== undefined;
-
-  const diffBg = getDiffColor(diff_status, false);
 
   return (
     <div
       class={`space-y-2 max-md:-pl-1 max-md:-ml-1 py-1 -mb-1 px-2 -mx-2 ${
         name ? "anchorable" : ""
-      } group/sourceable relative diff-mobile-skip-round ${diffBg}`}
+      } group/sourceable relative diff-mobile-skip-round ${getDiffColor(diff_status, false)}`}
       id={anchor.id}
     >
       <div class="flex justify-between items-start md:text-base">
@@ -46,59 +40,47 @@ export function DocEntry(
               </div>
             )}
 
-          {signatureChanged && (
-            <div
-              class={`diff-removed px-1 py-0.5 mb-0.5`}
-            >
-              <code>
-                {(effectiveOldName ?? name) && (
-                  <span
-                    class="font-bold font-lg"
+          <code>
+            {name && <Anchor anchor={anchor} />}
+            <span class="font-bold font-lg align-top">
+              {renamedOldName && <span class="diff-removed diff-inline"
+                // may include type defs which are generated with spans (for ie default parameters)
+                // deno-lint-ignore react-no-danger
+	              dangerouslySetInnerHTML={{ __html: renamedOldName }}
+              />}
+              {name_href
+                ? (
+                  <a
+                    class={`link ${renamedOldName ? "diff-added diff-inline" : ""}`}
+                    href={name_href}
+                    // may include type defs which are generated with spans (for ie default parameters)
                     // deno-lint-ignore react-no-danger
-                    dangerouslySetInnerHTML={{
-                      __html: effectiveOldName ?? name!,
-                    }}
+                    dangerouslySetInnerHTML={{ __html: name! }}
                   />
-                )}
+                )
+                : name && (
                 <span
-                  class="font-medium text-stone-500 dark:text-stone-200"
-                  // deno-lint-ignore react-no-danger
-                  dangerouslySetInnerHTML={{ __html: old_content ?? content }}
-                />
-              </code>
-            </div>
-          )}
-
-          <code
-            class={signatureChanged
-              ? `diff-added px-1 py-0.5 block`
-              : ""}
-          >
-            {name && anchor && <Anchor anchor={anchor} />}
-            {name_href
-              ? (
-                <a
-                  class="font-bold font-lg link"
-                  href={name_href}
-                  // may include type defs which are generated with spans (for ie default parameters)
-                  // deno-lint-ignore react-no-danger
-                  dangerouslySetInnerHTML={{ __html: name! }}
-                />
-              )
-              : name && (
-                <span
-                  class="font-bold font-lg"
+                  class={renamedOldName ? "diff-added diff-inline" : ""}
                   // may include type defs which are generated with spans (for ie default parameters)
                   // deno-lint-ignore react-no-danger
                   dangerouslySetInnerHTML={{ __html: name }}
                 />
               )}
-            <span
-              class="font-medium text-stone-500 dark:text-stone-200"
-              // includes type defs which are generated with spans
-              // deno-lint-ignore react-no-danger
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
+            </span>
+            <span class={`font-medium text-stone-500 dark:text-stone-200 ${old_content ? "inline-block ml-5" : ""}`}>
+              {old_content && <span
+                class="block diff-removed diff-flat-bottom"
+                // includes type defs which are generated with spans
+                // deno-lint-ignore react-no-danger
+                dangerouslySetInnerHTML={{__html: old_content}}
+              />}
+              <span
+                class={old_content ? "block diff-added diff-flat-top" : ""}
+                // includes type defs which are generated with spans
+                // deno-lint-ignore react-no-danger
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            </span>
           </code>
         </div>
 

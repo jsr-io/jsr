@@ -575,6 +575,33 @@ body .ddoc {
     &.diff-mobile-skip-round::before {
       @apply max-md:rounded-none;
     }
+
+    &.diff-flat-top {
+      @apply rounded-tr-none;
+      
+      &::before {
+        @apply rounded-tl-none;
+      }
+    }
+
+    &.diff-flat-bottom {
+      @apply rounded-br-none;
+      
+      &::before {
+        @apply rounded-bl-none;
+      }
+    }
+  }
+  
+  .diff-removed.diff-inline {
+    @apply rounded-r-none ml-3;
+  }
+  .diff-added.diff-inline {
+    @apply ml-3;
+    
+    &::before {
+      @apply rounded-l-none;
+    }
   }
   
 
