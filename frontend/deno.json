@@ -19,7 +19,7 @@
     "apexcharts": "npm:apexcharts@^4.5.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.14",
     "@std/fmt": "jsr:@std/fmt@^1.0.6",
-    "fresh": "jsr:@fresh/core@^2.0.0-alpha.25",
+    "fresh": "jsr:@fresh/core@^2.2.0",
 
     "preact": "npm:preact@^10",
     "preact-render-to-string": "npm:preact-render-to-string@6.3.1",
