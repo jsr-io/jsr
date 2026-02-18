@@ -594,7 +594,7 @@ body .ddoc {
   }
 
   .diff-removed.diff-inline {
-    @apply rounded-r-none ml-3;
+    @apply rounded-r-none;
   }
   .diff-added.diff-inline {
     @apply ml-3;

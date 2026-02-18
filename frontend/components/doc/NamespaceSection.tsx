@@ -39,7 +39,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                     class={`highlightable leading-none break-all font-medium underline underline-offset-2`}
                   >
                     {renamedOldName && (
-                      <span class="diff-removed diff-inline">
+                      <span class="diff-removed diff-inline ml-3">
                         {renamedOldName}
                       </span>
                     )}
