@@ -20,9 +20,17 @@ export function SymbolGroup(
     : undefined;
 
   return (
-    <main class={`space-y-12 px-3 -mx-3 py-2 -my-2 ${diffBg}`} id={`symbol_${name}`}>
-      {symbols.map((symbol, i) =>
-        <article key={i} class={`space-y-5 px-2 -mx-2 py-1 -my-1 ${getDiffColor(symbol.diff_status, false)}`}>
+    <main
+      class={`space-y-12 px-3 -mx-3 py-2 -my-2 ${diffBg}`}
+      id={`symbol_${name}`}
+    >
+      {symbols.map((symbol, i) => (
+        <article
+          key={i}
+          class={`space-y-5 px-2 -mx-2 py-1 -my-1 ${
+            getDiffColor(symbol.diff_status, false)
+          }`}
+        >
           <div class="flex justify-between items-start group/sourceable relative">
             <div class="font-medium space-y-1">
               <div class="text-2xl leading-none break-all">
@@ -34,7 +42,11 @@ export function SymbolGroup(
                     {renamedOldName}
                   </span>
                 )}
-                <span class={`font-bold ${renamedOldName ? "diff-added diff-inline" : ""}`}>
+                <span
+                  class={`font-bold ${
+                    renamedOldName ? "diff-added diff-inline" : ""
+                  }`}
+                >
                   {name}
                 </span>
               </div>
@@ -65,7 +77,7 @@ export function SymbolGroup(
             )}
           </div>
         </article>
-      )}
+      ))}
     </main>
   );
 }

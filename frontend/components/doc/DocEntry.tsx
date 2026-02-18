@@ -29,29 +29,36 @@ export function DocEntry(
     <div
       class={`space-y-2 max-md:-pl-1 max-md:-ml-1 py-1 -mb-1 px-2 -mx-2 ${
         name ? "anchorable" : ""
-      } group/sourceable relative diff-mobile-skip-round ${getDiffColor(diff_status, false)}`}
+      } group/sourceable relative diff-mobile-skip-round ${
+        getDiffColor(diff_status, false)
+      }`}
       id={anchor.id}
     >
       <div class="flex justify-between items-start md:text-base">
         <div class="break-words">
           {tags && tags.length > 0 && (
-              <div class="space-x-1 mb-1">
-                {tags.map((tag, i) => <Tag key={i} tag={tag} />)}
-              </div>
-            )}
+            <div class="space-x-1 mb-1">
+              {tags.map((tag, i) => <Tag key={i} tag={tag} />)}
+            </div>
+          )}
 
           <code>
             {name && <Anchor anchor={anchor} />}
             <span class="font-bold font-lg align-top">
-              {renamedOldName && <span class="diff-removed diff-inline"
-                // may include type defs which are generated with spans (for ie default parameters)
-                // deno-lint-ignore react-no-danger
-	              dangerouslySetInnerHTML={{ __html: renamedOldName }}
-              />}
+              {renamedOldName && (
+                <span
+                  class="diff-removed diff-inline"
+                  // may include type defs which are generated with spans (for ie default parameters)
+                  // deno-lint-ignore react-no-danger
+                  dangerouslySetInnerHTML={{ __html: renamedOldName }}
+                />
+              )}
               {name_href
                 ? (
                   <a
-                    class={`link ${renamedOldName ? "diff-added diff-inline" : ""}`}
+                    class={`link ${
+                      renamedOldName ? "diff-added diff-inline" : ""
+                    }`}
                     href={name_href}
                     // may include type defs which are generated with spans (for ie default parameters)
                     // deno-lint-ignore react-no-danger
@@ -59,21 +66,27 @@ export function DocEntry(
                   />
                 )
                 : name && (
+                  <span
+                    class={renamedOldName ? "diff-added diff-inline" : ""}
+                    // may include type defs which are generated with spans (for ie default parameters)
+                    // deno-lint-ignore react-no-danger
+                    dangerouslySetInnerHTML={{ __html: name }}
+                  />
+                )}
+            </span>
+            <span
+              class={`font-medium text-stone-500 dark:text-stone-200 ${
+                old_content ? "inline-block ml-5" : ""
+              }`}
+            >
+              {old_content && (
                 <span
-                  class={renamedOldName ? "diff-added diff-inline" : ""}
-                  // may include type defs which are generated with spans (for ie default parameters)
+                  class="block diff-removed diff-flat-bottom"
+                  // includes type defs which are generated with spans
                   // deno-lint-ignore react-no-danger
-                  dangerouslySetInnerHTML={{ __html: name }}
+                  dangerouslySetInnerHTML={{ __html: old_content }}
                 />
               )}
-            </span>
-            <span class={`font-medium text-stone-500 dark:text-stone-200 ${old_content ? "inline-block ml-5" : ""}`}>
-              {old_content && <span
-                class="block diff-removed diff-flat-bottom"
-                // includes type defs which are generated with spans
-                // deno-lint-ignore react-no-danger
-                dangerouslySetInnerHTML={{__html: old_content}}
-              />}
               <span
                 class={old_content ? "block diff-added diff-flat-top" : ""}
                 // includes type defs which are generated with spans

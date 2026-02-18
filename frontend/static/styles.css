@@ -571,14 +571,14 @@ body .ddoc {
       @apply absolute top-0 -left-3 w-3 h-full flex justify-center items-center
         rounded-l text-xs font-bold font-mono leading-none text-inherit;
     }
-    
+
     &.diff-mobile-skip-round::before {
       @apply max-md:rounded-none;
     }
 
     &.diff-flat-top {
       @apply rounded-tr-none;
-      
+
       &::before {
         @apply rounded-tl-none;
       }
@@ -586,24 +586,23 @@ body .ddoc {
 
     &.diff-flat-bottom {
       @apply rounded-br-none;
-      
+
       &::before {
         @apply rounded-bl-none;
       }
     }
   }
-  
+
   .diff-removed.diff-inline {
     @apply rounded-r-none ml-3;
   }
   .diff-added.diff-inline {
     @apply ml-3;
-    
+
     &::before {
       @apply rounded-l-none;
     }
   }
-  
 
   .sourceButton,
   .copyButton {

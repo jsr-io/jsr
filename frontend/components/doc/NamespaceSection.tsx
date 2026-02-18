@@ -40,10 +40,14 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                   >
                     {renamedOldName && (
                       <span class="diff-removed diff-inline">
-                          {renamedOldName}
-                        </span>
+                        {renamedOldName}
+                      </span>
                     )}
-                    <span class={renamedOldName ? "diff-added diff-inline" : ""}>{item.name}</span>
+                    <span
+                      class={renamedOldName ? "diff-added diff-inline" : ""}
+                    >
+                      {item.name}
+                    </span>
                   </a>
                   {item.ty && (
                     <>
@@ -83,18 +87,30 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
 
             {item.subitems && item.subitems.length > 0 && (
               <ul class="space-y-2 text-sm mt-3 ml-8.5">
-                {item.subitems.map((subitem, i) =>
-                  <li key={i} class={`px-1.5 -mx-1.5 ${getDiffColor(subitem.diff_status, true)}`}>
-                    <div class="block font-mono">
-                      <a
-                        href={subitem.href}
-                        title={subitem.title}
-                        class="highlightable underline underline-offset-2"
-                      >
-                        {subitem.title}
-                      </a>
-                      {subitem.ty && (
-                        <>
+                {item.subitems.map((subitem, i) => {
+                  const renamedOldName = subitem.diff_status?.kind === "renamed"
+                    ? subitem.diff_status.old_name
+                    : undefined;
+
+                  return (
+                    <li
+                      key={i}
+                      class={`px-1.5 -mx-1.5 ${
+                        getDiffColor(subitem.diff_status, true)
+                      }`}
+                    >
+                      <div class="block font-mono">
+                        <a
+                          href={subitem.href}
+                          title={subitem.title}
+                          class="highlightable underline underline-offset-2"
+                        >
+                          {renamedOldName &&
+		                        <span class="diff-removed diff-inline">{renamedOldName}</span>}
+                          <span class={renamedOldName ? "diff-added diff-inline" : ""}>{subitem.title}</span>
+                        </a>
+                        {subitem.ty && (
+                          <>
                             <span
                               class="font-light opacity-85 dark:opacity-75"
                               // jsdoc rendering
@@ -103,35 +119,36 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                                 __html: subitem.ty.ty,
                               }}
                             />
-                          {subitem.ty.info && (
-                            <div class="italic text-xs ml-2 text-stone-600 dark:text-stone-400">
-                              {subitem.ty.info}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                            {subitem.ty.info && (
+                              <div class="italic text-xs ml-2 text-stone-600 dark:text-stone-400">
+                                {subitem.ty.info}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
 
-                    <div class="mt-1.5 leading-5">
-                      {subitem.docs
-                        ? (
-                          <span
-                            class="highlightable"
-                            // jsdoc rendering
-                            // deno-lint-ignore react-no-danger
-                            dangerouslySetInnerHTML={{
-                              __html: subitem.docs,
-                            }}
-                          />
-                        )
-                        : (
-                          <span class="italic text-stone-600 dark:text-stone-400">
+                      <div class="mt-1.5 leading-5">
+                        {subitem.docs
+                          ? (
+                            <span
+                              class="highlightable"
+                              // jsdoc rendering
+                              // deno-lint-ignore react-no-danger
+                              dangerouslySetInnerHTML={{
+                                __html: subitem.docs,
+                              }}
+                            />
+                          )
+                          : (
+                            <span class="italic text-stone-600 dark:text-stone-400">
                               No documentation available
                             </span>
-                        )}
-                    </div>
-                  </li>
-                )}
+                          )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
