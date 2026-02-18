@@ -38,6 +38,7 @@ export default define.page<typeof handler>(function Symbol(
         oldVersion={params.oldVersion}
         newVersion={params.newVersion}
         url={url}
+        request={data.docsReq}
       />
     </div>
   );
@@ -45,6 +46,10 @@ export default define.page<typeof handler>(function Symbol(
 
 export const handler = define.handlers({
   async GET(ctx) {
+    const docsReq = {
+      entrypoint: ctx.params.entrypoint,
+      symbol: ctx.params.symbol,
+    };
     const res = await packageDataWithDiff(
       ctx.state,
       ctx.params.scope,
@@ -52,10 +57,7 @@ export const handler = define.handlers({
       ctx.params.oldVersion,
       ctx.params.newVersion,
       ctx.url.searchParams.get("full"),
-      {
-        entrypoint: ctx.params.entrypoint,
-        symbol: ctx.params.symbol,
-      },
+      docsReq,
     );
     if (!res) {
       throw new HttpError(
@@ -112,6 +114,7 @@ export const handler = define.handlers({
         docs,
         member: scopeMember,
         versions,
+        docsReq,
       },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
     };

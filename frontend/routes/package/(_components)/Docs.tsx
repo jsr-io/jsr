@@ -13,6 +13,7 @@ import { ModuleDoc, SymbolGroup, Toc } from "../../../components/doc/mod.ts";
 import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 import { ComponentChildren } from "preact";
 import DiffVersionSelector from "../(_islands)/DiffVersionSelector.tsx";
+import { compileDocsRequestPath, DocsRequest } from "../../../utils/data.ts";
 
 interface DocsProps {
   docs: Docs;
@@ -31,6 +32,7 @@ interface DiffProps {
   oldVersion?: string;
   newVersion?: string;
   url: URL;
+  request: DocsRequest;
 }
 
 interface ProvenanceBadgeProps {
@@ -86,13 +88,13 @@ function SharedView({
   navRightClass,
   navRight,
   children,
-  preToc,
+  toc,
 }: {
   docs: Docs;
   navRightClass?: string;
   navRight: ComponentChildren;
   children?: ComponentChildren;
-  preToc?: ComponentChildren;
+  toc: ComponentChildren;
 }) {
   return (
     <div class="pt-6 pb-8 space-y-8">
@@ -115,11 +117,7 @@ function SharedView({
       )}
 
       <div class="grid grid-cols-1 lg:grid-cols-10 gap-8 lg:gap-12">
-        <div
-          class={`min-w-0 ${
-            docs.toc ? "lg:col-span-7 lg:row-start-1" : "col-span-full"
-          }`}
-        >
+        <div class="min-w-0 lg:col-span-7 lg:row-start-1">
           <div class="ddoc mb-20" id="docMain">
             <MainDocs content={docs.main} />
           </div>
@@ -127,17 +125,13 @@ function SharedView({
 
           {children}
         </div>
-        {docs.toc && (
-          <div
-            class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
-              docs.breadcrumbs ? "lg:-mt-16 lg:pt-16" : ""
-            }`}
-          >
-            {preToc}
-
-            <Toc content={docs.toc} />
-          </div>
-        )}
+        <div
+          class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
+            docs.breadcrumbs ? "lg:-mt-16 lg:pt-16" : ""
+          }`}
+        >
+          {toc}
+        </div>
       </div>
     </div>
   );
@@ -167,13 +161,18 @@ export function DocsView({
           />
         </div>
       }
-      preToc={!docs.breadcrumbs && selectedVersion && (
-        <LocalSymbolSearch
-          scope={scope}
-          pkg={pkg}
-          version={selectedVersion.version}
-        />
-      )}
+      toc={
+        <>
+          {!docs.breadcrumbs && selectedVersion && (
+            <LocalSymbolSearch
+              scope={scope}
+              pkg={pkg}
+              version={selectedVersion.version}
+            />
+          )}
+          <Toc content={docs.toc} />
+        </>
+      }
     >
       <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
         {showProvenanceBadge && selectedVersion &&
@@ -232,8 +231,11 @@ export function DiffView({
   oldVersion,
   newVersion,
   url,
+  request,
 }: DiffProps) {
-  if (!oldVersion || !newVersion) {
+  const docsRequest = compileDocsRequestPath(request);
+
+  if (!oldVersion || !newVersion || oldVersion == newVersion || !docs) {
     return (
       <div class="mt-7">
         <DiffVersionSelector
@@ -243,6 +245,7 @@ export function DiffView({
           oldVersion={oldVersion}
           newVersion={newVersion}
           url={url}
+          docsRequest={docsRequest}
         />
       </div>
     );
@@ -250,7 +253,7 @@ export function DiffView({
 
   return (
     <SharedView
-      docs={docs!}
+      docs={docs}
       navRightClass="lg:col-span-5"
       navRight={
         <div class="lg:col-[span_5/_-1]">
@@ -261,8 +264,20 @@ export function DiffView({
             oldVersion={oldVersion}
             newVersion={newVersion}
             url={url}
+            docsRequest={docsRequest}
           />
         </div>
+      }
+      toc={
+        <Toc
+          content={docs.toc}
+          diff={{
+            oldVersion,
+            oldVersionUrl: `/@${scope}/${pkg}@${oldVersion}/doc${docsRequest}`,
+            newVersion,
+            newVersionUrl: `/@${scope}/${pkg}@${newVersion}/doc${docsRequest}`,
+          }}
+        />
       }
     />
   );

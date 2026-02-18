@@ -95,7 +95,9 @@ export function DocEntry(
                 />
               )}
               <span
-                class={old_content ? "block diff-added diff-flat-top px-0.5" : ""}
+                class={old_content
+                  ? "block diff-added diff-flat-top px-0.5"
+                  : ""}
                 // includes type defs which are generated with spans
                 // deno-lint-ignore react-no-danger
                 dangerouslySetInnerHTML={{ __html: content }}

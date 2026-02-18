@@ -6,11 +6,17 @@ import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
 import Usages from "../../islands/DocUsages.tsx";
 
 export function Toc(
-  { content: { usages, top_symbols, document_navigation } }: {
+  { content: { usages, top_symbols, document_navigation }, diff }: {
     content: ToCCtx;
+    diff?: {
+      oldVersionUrl: string;
+      oldVersion: string;
+      newVersionUrl: string;
+      newVersion: string;
+    };
   },
 ) {
-  if (!usages && !top_symbols && document_navigation.length === 0) {
+  if (!usages && !top_symbols && document_navigation.length === 0 && !diff) {
     return null;
   }
 
@@ -18,6 +24,23 @@ export function Toc(
     <div class="ddoc w-full lg:overflow-y-auto pb-4 pt-4">
       <div class="toc">
         <div class="space-y-5">
+          {diff && (
+            <div class="flex flex-col gap-4">
+              <a
+                href={diff.oldVersionUrl}
+                class="block button-sm button-primary"
+              >
+                View in {diff.oldVersion}
+              </a>
+              <a
+                href={diff.newVersionUrl}
+                class="block button-sm button-primary"
+              >
+                View in {diff.newVersion}
+              </a>
+            </div>
+          )}
+
           {usages && <Usages usages={usages} />}
 
           {top_symbols && (

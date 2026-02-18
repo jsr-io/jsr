@@ -308,7 +308,7 @@ pub enum GeneratedDocsOutput {
 #[derive(Debug)]
 pub struct GeneratedDocs {
   pub breadcrumbs: Option<BreadcrumbsCtx>,
-  pub toc: Option<deno_doc::html::ToCCtx>,
+  pub toc: deno_doc::html::ToCCtx,
   pub main: GeneratedDocsContent,
 }
 
@@ -512,11 +512,13 @@ pub fn get_generate_ctx(
         doc_base,
         full: diff.as_ref().map(|diff| diff.1),
       }),
-      usage_composer: (Rc::new(DocUsageComposer {
-        runtime_compat,
-        scope,
-        package,
-      })),
+      usage_composer: diff.is_none().then(|| {
+        Rc::new(DocUsageComposer {
+          runtime_compat,
+          scope,
+          package,
+        }) as Rc<dyn deno_doc::html::UsageComposer>
+      }),
       rewrite_map: Some(rewrite_map),
       category_docs: None,
       disable_search: false,
@@ -592,9 +594,11 @@ pub fn generate_docs_html(
       let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
+
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: None,
+        toc,
         main: GeneratedDocsContent::AllSymbols(all_symbols),
       })))
     }
@@ -644,11 +648,11 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
-        toc: Some(toc_ctx),
+        toc,
         main: GeneratedDocsContent::Index(index_module_doc),
       })))
     }
@@ -677,11 +681,11 @@ pub fn generate_docs_html(
 
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: Some(toc_ctx),
+        toc,
         main: GeneratedDocsContent::File(module_doc),
       })))
     }
@@ -706,7 +710,7 @@ pub fn generate_docs_html(
           categories_panel: _categories_panel,
         } => Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
           breadcrumbs: Some(breadcrumbs_ctx),
-          toc: Some(*toc_ctx),
+          toc: *toc_ctx,
           main: GeneratedDocsContent::Symbol(symbol_group_ctx),
         }))),
         SymbolPage::Redirect { href, .. } => {

@@ -41,6 +41,7 @@ export default define.page<typeof handler>(function File({
         oldVersion={params.oldVersion}
         newVersion={params.newVersion}
         url={url}
+        request={data.docsReq}
       />
     </div>
   );
@@ -57,6 +58,7 @@ export const handler = define.handlers({
       });
     }
 
+    const docsReq = { entrypoint: ctx.params.entrypoint };
     const res = await packageDataWithDiff(
       ctx.state,
       ctx.params.scope,
@@ -64,7 +66,7 @@ export const handler = define.handlers({
       ctx.params.oldVersion,
       ctx.params.newVersion,
       ctx.url.searchParams.get("full"),
-      { entrypoint: ctx.params.entrypoint },
+      docsReq,
     );
     if (!res) {
       throw new HttpError(
@@ -112,6 +114,7 @@ export const handler = define.handlers({
         docs,
         member: scopeMember,
         versions,
+        docsReq,
       },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
     };

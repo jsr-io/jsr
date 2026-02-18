@@ -35,8 +35,7 @@ export interface Docs {
   script: string;
   // null only on index page
   breadcrumbs: BreadcrumbsCtx | null;
-  // null only on all symbols page
-  toc: ToCCtx | null;
+  toc: ToCCtx;
   main: DocsMainContent;
 }
 

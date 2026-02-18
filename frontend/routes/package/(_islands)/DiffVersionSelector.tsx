@@ -2,6 +2,7 @@
 import TbArrowRight from "tb-icons/TbArrowRight";
 import TbLayoutBottombarCollapseFilled from "tb-icons/TbLayoutBottombarCollapseFilled";
 import TbLayoutBottombarExpandFilled from "tb-icons/TbLayoutBottombarExpandFilled";
+import { compileDocsRequestPath, DocsRequest } from "../../../utils/data.ts";
 
 const SELECT_CLASSES =
   "block w-64 py-1.5 px-2 input-container select text-sm font-normal";
@@ -14,6 +15,7 @@ export default function DiffVersionSelector(
     oldVersion?: string;
     newVersion?: string;
     url: URL;
+    docsRequest: string;
   },
 ) {
   const full = props.url.searchParams.has("full");
@@ -27,7 +29,7 @@ export default function DiffVersionSelector(
         onChange={(e) => {
           location.href = `/@${props.scope}/${props.pkg}/diff/${
             e.currentTarget.value || ""
-          }...${props.newVersion || ""}`;
+          }...${props.newVersion || ""}${props.docsRequest}`;
         }}
       >
         <option disabled selected={!props.oldVersion}>select a version</option>
@@ -41,7 +43,7 @@ export default function DiffVersionSelector(
       <a
         href={`/@${props.scope}/${props.pkg}/diff/${props.newVersion || ""}...${
           props.oldVersion || ""
-        }`}
+        }${props.docsRequest}`}
       >
         <TbArrowRight class="size-6" />
       </a>
@@ -51,7 +53,7 @@ export default function DiffVersionSelector(
         onChange={(e) => {
           location.href = `/@${props.scope}/${props.pkg}/diff/${
             props.oldVersion || ""
-          }...${e.currentTarget.value || ""}`;
+          }...${e.currentTarget.value || ""}${props.docsRequest}`;
         }}
       >
         <option disabled selected={!props.newVersion}>select a version</option>

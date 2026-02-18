@@ -91,12 +91,17 @@ export async function packageDataWithVersion(
   };
 }
 
+export type DocsRequest = { all_symbols: "true" } | {
+  entrypoint: string;
+  symbol?: string;
+};
+
 export async function packageDataWithDocs(
   state: State,
   scope: string,
   pkg: string,
   version: string | undefined,
-  docs: { all_symbols: "true" } | { entrypoint?: string; symbol?: string },
+  docs: DocsRequest,
 ): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
@@ -179,7 +184,7 @@ export async function packageDataWithDiff(
   oldVersion: string | undefined,
   newVersion: string | undefined,
   full: string | null,
-  docs: { all_symbols: "true" } | { entrypoint: string; symbol?: string },
+  docs: DocsRequest,
 ): Promise<PackageVersionDocsRedirect | DiffData | Response | null> {
   const [data, pkgDiffResp, versionsResp] = await Promise.all([
     packageData(state, scope, pkg),
@@ -342,4 +347,14 @@ export async function scopeDataWithMember(
     ...data,
     scopeMember: scopeMemberResp?.data ?? null,
   };
+}
+
+export function compileDocsRequestPath(request: DocsRequest) {
+  if ("entrypoint" in request) {
+    return `${request.entrypoint ? `/${request.entrypoint}` : ""}${
+      request.symbol ? `/~/${request.symbol}` : ""
+    }`;
+  } else {
+    return "/all_symbols";
+  }
 }
