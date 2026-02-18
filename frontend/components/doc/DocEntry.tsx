@@ -43,7 +43,14 @@ export function DocEntry(
           )}
 
           <code>
-            {name && <Anchor anchor={anchor} />}
+            {name && (
+              <Anchor
+                anchor={anchor}
+                class={(diff_status && diff_status.kind !== "modified")
+                  ? (renamedOldName ? "!-ml-10" : "!-ml-12")
+                  : ""}
+              />
+            )}
             <span class="font-bold font-lg align-top">
               {renamedOldName && (
                 <span
@@ -81,14 +88,14 @@ export function DocEntry(
             >
               {old_content && (
                 <span
-                  class="block diff-removed diff-flat-bottom"
+                  class="block diff-removed diff-flat-bottom px-0.5"
                   // includes type defs which are generated with spans
                   // deno-lint-ignore react-no-danger
                   dangerouslySetInnerHTML={{ __html: old_content }}
                 />
               )}
               <span
-                class={old_content ? "block diff-added diff-flat-top" : ""}
+                class={old_content ? "block diff-added diff-flat-top px-0.5" : ""}
                 // includes type defs which are generated with spans
                 // deno-lint-ignore react-no-danger
                 dangerouslySetInnerHTML={{ __html: content }}

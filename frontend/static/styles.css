@@ -565,11 +565,12 @@ body .ddoc {
   }
 
   .diff-added, .diff-modified, .diff-removed {
-    @apply relative rounded-r;
+    @apply relative rounded-r rounded-l-none;
 
     &::before {
       @apply absolute top-0 -left-3 w-3 h-full flex justify-center items-center
-        rounded-l text-xs font-bold font-mono leading-none text-inherit;
+        rounded-l text-xs font-bold font-mono leading-none text-inherit
+        text-primary;
     }
 
     &.diff-mobile-skip-round::before {
@@ -591,6 +592,10 @@ body .ddoc {
         @apply rounded-bl-none;
       }
     }
+  }
+  
+  .diff-inline {
+    @apply px-0.5;
   }
 
   .diff-removed.diff-inline {

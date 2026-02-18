@@ -106,8 +106,18 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                           class="highlightable underline underline-offset-2"
                         >
                           {renamedOldName &&
-		                        <span class="diff-removed diff-inline">{renamedOldName}</span>}
-                          <span class={renamedOldName ? "diff-added diff-inline" : ""}>{subitem.title}</span>
+                            (
+                              <span class="diff-removed diff-inline">
+                                {renamedOldName}
+                              </span>
+                            )}
+                          <span
+                            class={renamedOldName
+                              ? "diff-added diff-inline"
+                              : ""}
+                          >
+                            {subitem.title}
+                          </span>
                         </a>
                         {subitem.ty && (
                           <>
