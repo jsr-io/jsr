@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { DiffStatus } from "../../../new_html_types.d.ts";
+import type { DiffStatus } from "../../../new_html_types.d.ts";
 
 export { Anchor } from "./Anchor.tsx";
 export { Breadcrumbs } from "./Breadcrumbs.tsx";
@@ -22,12 +22,17 @@ export { SymbolGroup } from "./SymbolGroup.tsx";
 export { Tag } from "./Tag.tsx";
 export { Toc } from "./Toc.tsx";
 
-export function getDiffColor(diffStatus: DiffStatus |undefined, allowModified: boolean) {
+export function getDiffColor(
+  diffStatus: DiffStatus | undefined,
+  allowModified: boolean,
+) {
   if (!diffStatus) return "";
 
   switch (diffStatus.kind) {
-    case "added": return "diff-added";
-    case "removed": return "diff-removed";
+    case "added":
+      return "diff-added";
+    case "removed":
+      return "diff-removed";
     case "modified": {
       if (allowModified) {
         return "diff-modified";
@@ -35,6 +40,7 @@ export function getDiffColor(diffStatus: DiffStatus |undefined, allowModified: b
         return "";
       }
     }
-    case "renamed": return "";
+    case "renamed":
+      return "";
   }
 }

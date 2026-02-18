@@ -3,12 +3,12 @@ import type { DocEntryCtx } from "../../../new_html_types.d.ts";
 import { Anchor } from "./Anchor.tsx";
 import { Tag } from "./Tag.tsx";
 import { SourceButton } from "./SourceButton.tsx";
+import { getDiffColor } from "./mod.ts";
 
 export function DocEntry(
   { entry }: { entry: DocEntryCtx },
 ) {
   const {
-    id,
     name,
     name_href,
     anchor,
@@ -19,55 +19,28 @@ export function DocEntry(
     diff_status,
     old_name,
     old_content,
-    old_tags,
     js_doc_changed,
   } = entry;
 
-  const isAdded = diff_status?.kind === "added";
-  const isRemoved = diff_status?.kind === "removed";
   const renamedOldName = diff_status?.kind === "renamed"
     ? (diff_status as { kind: "renamed"; old_name: string }).old_name
     : undefined;
   const effectiveOldName = old_name ?? renamedOldName;
   const signatureChanged = effectiveOldName !== undefined ||
     old_content !== undefined;
-  const tagsChanged = old_tags !== undefined;
 
-  let diffBg = "";
-  if (isAdded) diffBg = ` diff-added`;
-  else if (isRemoved) diffBg = ` diff-removed`;
+  const diffBg = getDiffColor(diff_status, false);
 
   return (
     <div
-      class={`space-y-2 rounded py-1 -mb-1 px-2 -mx-2 ${
+      class={`space-y-2 max-md:-pl-1 max-md:-ml-1 py-1 -mb-1 px-2 -mx-2 ${
         name ? "anchorable" : ""
-      } group/sourceable relative${diffBg}`}
-      id={id}
+      } group/sourceable relative diff-mobile-skip-round ${diffBg}`}
+      id={anchor.id}
     >
       <div class="flex justify-between items-start md:text-base">
         <div class="break-words">
-          {tagsChanged
-            ? (
-              <>
-                {old_tags!.length > 0 && (
-                  <div
-                    class={`space-x-1 mb-1 diff-removed rounded px-1 py-0.5`}
-                  >
-                    {old_tags!.map((tag, i) => (
-                      <Tag key={`old-${i}`} tag={tag} />
-                    ))}
-                  </div>
-                )}
-                {tags && tags.length > 0 && (
-                  <div
-                    class={`space-x-1 mb-1 diff-added rounded px-1 py-0.5`}
-                  >
-                    {tags.map((tag, i) => <Tag key={i} tag={tag} />)}
-                  </div>
-                )}
-              </>
-            )
-            : tags && tags.length > 0 && (
+          {tags && tags.length > 0 && (
               <div class="space-x-1 mb-1">
                 {tags.map((tag, i) => <Tag key={i} tag={tag} />)}
               </div>
@@ -75,7 +48,7 @@ export function DocEntry(
 
           {signatureChanged && (
             <div
-              class={`diff-removed rounded px-1 py-0.5 mb-0.5`}
+              class={`diff-removed px-1 py-0.5 mb-0.5`}
             >
               <code>
                 {(effectiveOldName ?? name) && (
@@ -98,7 +71,7 @@ export function DocEntry(
 
           <code
             class={signatureChanged
-              ? `diff-added rounded px-1 py-0.5 block`
+              ? `diff-added px-1 py-0.5 block`
               : ""}
           >
             {name && anchor && <Anchor anchor={anchor} />}

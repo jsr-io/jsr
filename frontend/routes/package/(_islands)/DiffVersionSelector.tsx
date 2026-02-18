@@ -38,7 +38,13 @@ export default function DiffVersionSelector(
         ))}
       </select>
 
-      <a href={`/@${props.scope}/${props.pkg}/diff/${props.newVersion || ""}...${props.oldVersion || ""}`}><TbArrowRight class="size-6" /></a>
+      <a
+        href={`/@${props.scope}/${props.pkg}/diff/${props.newVersion || ""}...${
+          props.oldVersion || ""
+        }`}
+      >
+        <TbArrowRight class="size-6" />
+      </a>
 
       <select
         class={SELECT_CLASSES}
@@ -56,7 +62,10 @@ export default function DiffVersionSelector(
         ))}
       </select>
 
-      <a href={strippedUrl.pathname + (full ? "" : "?full")} title={full ? "Only show changed items" : "Show all items"}>
+      <a
+        href={strippedUrl.pathname + (full ? "" : "?full")}
+        title={full ? "Only show changed items" : "Show all items"}
+      >
         {full
           ? <TbLayoutBottombarExpandFilled class="size-6" />
           : <TbLayoutBottombarCollapseFilled class="size-6" />}

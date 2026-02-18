@@ -2,6 +2,7 @@
 // deno-lint-ignore-file jsx-curly-braces
 import type { IndexSignatureCtx } from "../../../new_html_types.d.ts";
 import { Anchor } from "./Anchor.tsx";
+import { getDiffColor } from "./mod.ts";
 
 export function IndexSignature(
   { signature }: {
@@ -19,15 +20,11 @@ export function IndexSignature(
     old_ts_type,
   } = signature;
 
-  const isAdded = diff_status?.kind === "added";
-  const isRemoved = diff_status?.kind === "removed";
   const typeChanged = old_ts_type !== undefined;
   const readonlyChanged = old_readonly !== undefined;
   const hasChanges = typeChanged || readonlyChanged;
 
-  let diffBg = "";
-  if (isAdded) diffBg = ` diff-added`;
-  else if (isRemoved) diffBg = ` diff-removed`;
+  const diffBg = getDiffColor(diff_status, false);
 
   return (
     <div class={`anchorable text-sm${diffBg}`} id={id}>
@@ -48,9 +45,7 @@ export function IndexSignature(
       )}
 
       <div
-        class={hasChanges
-          ? `diff-added rounded px-1 py-0.5`
-          : ""}
+        class={hasChanges ? `diff-added rounded px-1 py-0.5` : ""}
       >
         {isReadonly && <span>{"readonly "}</span>}
         [<span

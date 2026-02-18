@@ -245,7 +245,7 @@ export function DiffView({
           url={url}
         />
       </div>
-    )
+    );
   }
 
   return (

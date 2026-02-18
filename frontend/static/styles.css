@@ -540,16 +540,43 @@ body .ddoc {
   .td-op {
     @apply text-pink-700 dark:text-pink-400;
   }
-  
+
   .diff-added {
-    @apply bg-green-300/50 dark:bg-green-800/30;
+    @apply bg-green-400/50 dark:bg-green-800/30;
   }
   .diff-modified {
-    @apply bg-yellow-200/50 dark:bg-yellow-800/30;
+    @apply bg-yellow-300/50 dark:bg-yellow-800/30;
   }
   .diff-removed {
-    @apply bg-red-300/40 dark:bg-red-800/30;
+    @apply bg-red-400/40 dark:bg-red-800/30;
   }
+
+  .diff-added::before {
+    @apply bg-inherit bg-green-600/50 dark:bg-green-500/30;
+    content: "+";
+  }
+  .diff-modified::before {
+    @apply bg-inherit bg-yellow-500/50 dark:bg-yellow-500/30;
+    content: "±";
+  }
+  .diff-removed::before {
+    @apply bg-inherit bg-red-600/40 dark:bg-red-500/30;
+    content: "-";
+  }
+
+  .diff-added, .diff-modified, .diff-removed {
+    @apply relative rounded-r;
+
+    &::before {
+      @apply absolute top-0 -left-3 w-3 h-full flex justify-center items-center
+        rounded-l text-xs font-bold font-mono leading-none text-inherit;
+    }
+    
+    &.diff-mobile-skip-round::before {
+      @apply max-md:rounded-none;
+    }
+  }
+  
 
   .sourceButton,
   .copyButton {

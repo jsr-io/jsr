@@ -7,30 +7,22 @@ import { Function } from "./Function.tsx";
 import { SourceButton } from "./SourceButton.tsx";
 import { SymbolContent } from "./SymbolContent.tsx";
 import { Tag } from "./Tag.tsx";
+import { getDiffColor } from "./mod.ts";
 
 export function SymbolGroup(
   { content: { name, symbols, diff_status } }: { content: SymbolGroupCtx },
 ) {
-  const isAdded = diff_status?.kind === "added";
-  const isRemoved = diff_status?.kind === "removed";
   const isRenamed = diff_status?.kind === "renamed";
-
-  const isModified = diff_status?.kind === "modified";
-
-  let diffBg = "";
-  if (isAdded) diffBg = ` diff-added rounded-lg p-4`;
-  else if (isRemoved) {
-    diffBg = ` diff-removed rounded-lg p-4`;
-  }
+  const diffBg = getDiffColor(diff_status, false);
 
   const renamedOldName = isRenamed
     ? (diff_status as { kind: "renamed"; old_name: string }).old_name
     : undefined;
 
   return (
-    <main class={`space-y-12${diffBg}`} id={`symbol_${name}`}>
-      {symbols.map((symbol) => (
-        <article class="space-y-5">
+    <main class={`space-y-12 px-3 -mx-3 py-2 -my-2 ${diffBg}`} id={`symbol_${name}`}>
+      {symbols.map((symbol, i) =>
+        <article key={i} class={`space-y-5 px-2 -mx-2 py-1 -my-1 ${getDiffColor(symbol.diff_status, false)}`}>
           <div class="flex justify-between items-start group/sourceable relative">
             <div class="font-medium space-y-1">
               <div class="text-2xl leading-none break-all">
@@ -49,9 +41,7 @@ export function SymbolGroup(
                 )}
                 <span
                   class={`font-bold${
-                    renamedOldName
-                      ? ` diff-added rounded px-1`
-                      : ""
+                    renamedOldName ? ` diff-added rounded px-1` : ""
                   }`}
                 >
                   {name}
@@ -84,7 +74,7 @@ export function SymbolGroup(
             )}
           </div>
         </article>
-      ))}
+      )}
     </main>
   );
 }
