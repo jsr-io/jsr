@@ -11,21 +11,9 @@
   --font-serif:
     "DM Serif", "Georgia", "Cambria", "Times New Roman", "Times", serif;
 
-  /* Spacing & Sizing
-    Replaces: spacing, margin, maxWidth
-  */
-  --spacing-1_75: 0.4375rem; /* 1.75 */
-  --spacing-4_5: 1.125rem; /* 4.5 */
-  --spacing-72: 18rem; /* Explicit override/extend */
-  --spacing-88: 22rem; /* 88 */
-
   --margin-indent: 2ch; /* Scoped specifically to margin utilities (m-indent) */
   --max-width-prose: 75ch; /* Scoped to max-width (max-w-prose) */
 
-  /* Border Width
-    Replaces: borderWidth
-  */
-  --border-width-1: 1px;
   --border-width-1_5: 1.5px;
 
   /* Grid

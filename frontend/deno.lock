@@ -77,7 +77,7 @@
     "npm:preact@^10.27.2": "10.28.3",
     "npm:prismjs@^1.29.0": "1.30.0",
     "npm:sanitize-html@^2.13.0": "2.17.0",
-    "npm:tailwindcss@4.1": "4.1.18",
+    "npm:tailwindcss@4.2": "4.2.0",
     "npm:twas@^2.1.3": "2.1.3"
   },
   "jsr": {
@@ -517,7 +517,7 @@
         "lightningcss",
         "magic-string",
         "source-map-js",
-        "tailwindcss"
+        "tailwindcss@4.1.18"
       ]
     },
     "@tailwindcss/oxide-android-arm64@4.1.18": {
@@ -603,7 +603,7 @@
         "@tailwindcss/node",
         "@tailwindcss/oxide",
         "postcss@8.5.6",
-        "tailwindcss"
+        "tailwindcss@4.1.18"
       ]
     },
     "@viz-js/viz@3.24.0": {
@@ -919,6 +919,9 @@
     "tailwindcss@4.1.18": {
       "integrity": "sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw=="
     },
+    "tailwindcss@4.2.0": {
+      "integrity": "sha512-yYzTZ4++b7fNYxFfpnberEEKu43w44aqDMNM9MHMmcKuCH7lL8jJ4yJ7LGHv7rSwiqM0nkiobF9I6cLlpS2P7Q=="
+    },
     "tapable@2.3.0": {
       "integrity": "sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg=="
     },
@@ -1060,7 +1063,7 @@
       "npm:preact-render-to-string@6.3.1",
       "npm:preact@10",
       "npm:prismjs@^1.29.0",
-      "npm:tailwindcss@4.1",
+      "npm:tailwindcss@4.2",
       "npm:twas@^2.1.3"
     ]
   }

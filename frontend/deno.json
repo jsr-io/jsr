@@ -41,7 +41,7 @@
     "@orama/orama": "npm:@orama/orama@^2",
     "@orama/highlight": "npm:@orama/highlight@^0.1.8",
 
-    "tailwindcss": "npm:tailwindcss@4.1",
+    "tailwindcss": "npm:tailwindcss@4.2",
     "postcss": "npm:postcss@8.4",
 
     "@viz-js/viz": "npm:@viz-js/viz@^3.11.0"

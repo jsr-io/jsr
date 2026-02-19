@@ -25,7 +25,7 @@ export default define.page<typeof handler>(function New(props) {
           <h1 class="mb-8 font-bold text-3xl leading-none">
             Publish a package
           </h1>
-          <p class="max-w-(--breakpoint-md)">
+          <p class="max-w-3xl">
             Publish your package to the JSR to share it with the world!
           </p>
           <p>
