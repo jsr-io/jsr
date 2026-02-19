@@ -87,13 +87,9 @@ jobs:
         run: cargo build --all-targets --tests
         working-directory: api
 
-      - name: Test
-        run: cargo test
+      - name: Format
+        run: cargo fmt --all -- --check
         working-directory: api
-
-      - uses: taiki-e/cache-cargo-install-action@v1
-        with:
-          tool: sqlx-cli@0.7.1
 
       # If it's not up to date, run `cargo sqlx prepare` locally and commit the
       # changes. You may have to run `cargo install sqlx-cli` first.
@@ -109,9 +105,13 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: api
 
-      - name: Format
-        run: cargo fmt --all -- --check
+      - name: Test
+        run: cargo test
         working-directory: api
+
+      - uses: taiki-e/cache-cargo-install-action@v1
+        with:
+          tool: sqlx-cli@0.7.1
 
   docker-images:
     if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
