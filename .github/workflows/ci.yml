@@ -14,7 +14,7 @@ env:
 jobs:
   frontend:
     if: github.event_name != 'push'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04-xl
     permissions:
       contents: read
       id-token: write
