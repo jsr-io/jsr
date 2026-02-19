@@ -721,9 +721,7 @@ fn start_shared_fake_gcs() -> u16 {
     }
     if !first_line.contains("server started at http://") {
       let _ = proc.kill();
-      eprintln!(
-        "attempt {attempt}: unexpected fake gcs output: {first_line}"
-      );
+      eprintln!("attempt {attempt}: unexpected fake gcs output: {first_line}");
       continue;
     }
 

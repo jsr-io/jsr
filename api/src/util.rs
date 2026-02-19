@@ -452,8 +452,7 @@ pub mod test {
   use crate::s3::FakeS3Tester;
   use crate::util::LicenseStore;
 
-  static SERVERS_STARTED: std::sync::OnceLock<()> =
-    std::sync::OnceLock::new();
+  static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
 
   static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
@@ -519,13 +518,12 @@ pub mod test {
       let modules_name = format!("modules-{test_id}");
       let docs_name = format!("docs-{test_id}");
       let npm_name = format!("npm-{test_id}");
-      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) =
-        tokio::join!(
-          s3.create_bucket(&publishing_name),
-          gcs.create_bucket(&modules_name),
-          gcs.create_bucket(&docs_name),
-          gcs.create_bucket(&npm_name),
-        );
+      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
+        s3.create_bucket(&publishing_name),
+        gcs.create_bucket(&modules_name),
+        gcs.create_bucket(&docs_name),
+        gcs.create_bucket(&npm_name),
+      );
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
