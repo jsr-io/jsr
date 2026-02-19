@@ -501,12 +501,12 @@ pub mod test {
       let s3 = FakeS3Tester::new().await;
       let publishing_bucket = s3.create_bucket("publishing").await;
       let modules_bucket = gcs.create_bucket("modules").await;
-      let docs_bucket = gcs.create_bucket("docs").await;
+      let docs_bucket = s3.create_bucket("docs").await;
       let npm_bucket = gcs.create_bucket("npm").await;
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
-        docs_bucket: BucketWithQueue::new(docs_bucket),
+        docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
         npm_bucket: BucketWithQueue::new(npm_bucket),
       };
       let github_oauth2_client = GithubOauth2Client::new(
