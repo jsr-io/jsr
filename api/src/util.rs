@@ -419,6 +419,23 @@ impl RequestIdExt for Request<Body> {
 #[derive(Clone)]
 pub struct LicenseStore(pub Arc<askalono::Store>);
 
+impl LicenseStore {
+  /// Check if a license identifier is recognized, either as a primary key
+  /// or as an alias of another license (e.g. GPL-3.0-or-later is an alias
+  /// of GPL-3.0-only because they share the same license text).
+  pub fn is_recognized(&self, name: &str) -> bool {
+    if self.0.get_original(name).is_some() {
+      return true;
+    }
+    self.0.licenses().any(|key| {
+      self
+        .0
+        .aliases(key)
+        .is_ok_and(|aliases| aliases.iter().any(|a| a == name))
+    })
+  }
+}
+
 pub fn license_store() -> LicenseStore {
   let mut license_store = askalono::Store::new();
   let license_path =
