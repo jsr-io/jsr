@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { DiffStatus } from "../../../new_html_types.d.ts";
+import type { DiffStatus } from "@deno/doc/html-types";
 
 export { Anchor } from "./Anchor.tsx";
 export { Breadcrumbs } from "./Breadcrumbs.tsx";

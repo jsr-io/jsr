@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { SymbolGroupCtx } from "../../../new_html_types.d.ts";
+import type { SymbolGroupCtx } from "@deno/doc/html-types";
 import { Deprecated } from "./Deprecated.tsx";
 import { DocBlockSubtitleClass } from "./DocBlockSubtitleClass.tsx";
 import { DocBlockSubtitleInterface } from "./DocBlockSubtitleInterface.tsx";
@@ -12,16 +12,15 @@ import { getDiffColor } from "./mod.ts";
 export function SymbolGroup(
   { content: { name, symbols, diff_status } }: { content: SymbolGroupCtx },
 ) {
-  const isRenamed = diff_status?.kind === "renamed";
-  const diffBg = getDiffColor(diff_status, false);
-
-  const renamedOldName = isRenamed
-    ? (diff_status as { kind: "renamed"; old_name: string }).old_name
+  const renamedOldName = diff_status?.kind === "renamed"
+    ? diff_status.old_name
     : undefined;
 
   return (
     <main
-      class={`space-y-12 px-3 -mx-3 py-2 -my-2 ${diffBg}`}
+      class={`space-y-12 px-3 -mx-3 py-2 -my-2 ${
+        getDiffColor(diff_status, false)
+      }`}
       id={`symbol_${name}`}
     >
       {symbols.map((symbol, i) => (

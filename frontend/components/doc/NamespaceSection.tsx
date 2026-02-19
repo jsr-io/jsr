@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { NamespaceNodeCtx } from "../../../new_html_types.d.ts";
+import type { NamespaceNodeCtx } from "@deno/doc/html-types";
 import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
 import { getDiffColor } from "./mod.ts";
 

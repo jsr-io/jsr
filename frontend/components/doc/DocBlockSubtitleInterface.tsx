@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // deno-lint-ignore-file jsx-curly-braces
-import type { DocBlockSubtitleInterfaceCtx } from "../../../new_html_types.d.ts";
+import type { DocBlockSubtitleInterfaceCtx } from "@deno/doc/html-types";
 
 export function DocBlockSubtitleInterface(
   { subtitle: { value } }: { subtitle: DocBlockSubtitleInterfaceCtx },

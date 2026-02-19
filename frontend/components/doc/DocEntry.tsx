@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { DocEntryCtx } from "../../../new_html_types.d.ts";
+import type { DocEntryCtx } from "@deno/doc/html-types";
 import { Anchor } from "./Anchor.tsx";
 import { Tag } from "./Tag.tsx";
 import { SourceButton } from "./SourceButton.tsx";

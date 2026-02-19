@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { TagCtx } from "../../../new_html_types.d.ts";
+import type { TagCtx } from "@deno/doc/html-types";
 
 function titleCase(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
