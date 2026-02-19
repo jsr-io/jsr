@@ -411,7 +411,7 @@ pub async fn process_tarball(
         &publishing_task.package_version,
       )
       .into(),
-      UploadTaskBody::Bytes(doc_nodes_json),
+      crate::s3::UploadTaskBody::Bytes(doc_nodes_json),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
@@ -419,7 +419,7 @@ pub async fn process_tarball(
       },
     )
     .await
-    .map_err(PublishError::GcsUploadError)?;
+    .map_err(PublishError::S3UploadError)?;
 
   let npm_tarball_info = NpmTarballInfo {
     sha1: npm_tarball.sha1,
@@ -532,6 +532,9 @@ pub enum PublishError {
 
   #[error("gcs upload error: {0}")]
   GcsUploadError(GcsError),
+
+  #[error("gcs s3 error: {0}")]
+  S3UploadError(S3Error),
 
   #[error("invalid tarball: {0}")]
   InvalidTarball(io::Error),
@@ -708,6 +711,7 @@ impl PublishError {
       PublishError::GcsDownloadError(_) => None,
       PublishError::S3DownloadError(_) => None,
       PublishError::GcsUploadError(_) => None,
+      PublishError::S3UploadError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
       PublishError::UnexpectedError(_) => None,

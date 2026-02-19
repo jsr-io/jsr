@@ -163,21 +163,24 @@ async fn main() {
   .await
   .unwrap();
 
+  let s3_region = ::s3::Region::Custom {
+    region: config.s3_region,
+    endpoint: config.s3_endpoint,
+  };
+  let s3_credentials = ::s3::creds::Credentials {
+    access_key: Some(config.s3_access_key),
+    secret_key: Some(config.s3_secret_key),
+    security_token: None,
+    session_token: None,
+    expiration: None,
+  };
+
   let gcp_client = gcp::Client::new(config.metadata_strategy);
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.publishing_bucket,
-      ::s3::Region::Custom {
-        region: config.s3_region,
-        endpoint: config.s3_endpoint,
-      },
-      ::s3::creds::Credentials {
-        access_key: Some(config.s3_access_key),
-        secret_key: Some(config.s3_secret_key),
-        security_token: None,
-        session_token: None,
-        expiration: None,
-      },
+      s3_region.clone(),
+      s3_credentials.clone(),
     )
     .unwrap(),
   );
@@ -186,11 +189,9 @@ async fn main() {
     config.modules_bucket,
     config.gcs_endpoint.clone(),
   ));
-  let docs_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.docs_bucket,
-    config.gcs_endpoint.clone(),
-  ));
+  let docs_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(config.docs_bucket, s3_region, s3_credentials).unwrap(),
+  );
   let npm_bucket = BucketWithQueue::new(gcp::Bucket::new(
     gcp_client.clone(),
     config.npm_bucket,
