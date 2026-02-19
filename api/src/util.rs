@@ -458,13 +458,17 @@ pub mod test {
   use crate::auth::GithubOauth2Client;
   use crate::buckets::BucketWithQueue;
   use crate::buckets::Buckets;
+  use crate::db::Database;
   use crate::db::EphemeralDatabase;
   use crate::db::NewGithubIdentity;
-  use crate::db::{Database, NewUser, User};
+  use crate::db::NewUser;
+  use crate::db::User;
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
   use crate::ids::ScopeDescription;
-  use crate::util::{LicenseStore, sanitize_redirect_url};
+  use crate::s3::FakeS3Tester;
+  use crate::util::LicenseStore;
+  use crate::util::sanitize_redirect_url;
   use hyper::Body;
   use hyper::HeaderMap;
   use hyper::Response;
@@ -475,7 +479,9 @@ pub mod test {
   use routerify::RequestService;
   use routerify::RouteError;
   use serde::de::DeserializeOwned;
-  use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+  use std::net::Ipv4Addr;
+  use std::net::SocketAddr;
+  use std::net::SocketAddrV4;
   use url::Url;
 
   #[derive(Debug)]
@@ -489,6 +495,8 @@ pub mod test {
     pub ephemeral_database: EphemeralDatabase,
     #[allow(dead_code)]
     pub gcs: FakeGcsTester,
+    #[allow(dead_code)]
+    pub s3: FakeS3Tester,
     pub buckets: Buckets,
     pub license_store: LicenseStore,
     pub user1: TestUser,
@@ -507,12 +515,13 @@ pub mod test {
       let ephemeral_database = EphemeralDatabase::create().await;
       let db = ephemeral_database.database.clone().unwrap();
       let gcs = FakeGcsTester::new().await;
-      let publishing_bucket = gcs.create_bucket("publishing").await;
+      let s3 = FakeS3Tester::new().await;
+      let publishing_bucket = s3.create_bucket("publishing").await;
       let modules_bucket = gcs.create_bucket("modules").await;
       let docs_bucket = gcs.create_bucket("docs").await;
       let npm_bucket = gcs.create_bucket("npm").await;
       let buckets = Buckets {
-        publishing_bucket: BucketWithQueue::new(publishing_bucket),
+        publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
         docs_bucket: BucketWithQueue::new(docs_bucket),
         npm_bucket: BucketWithQueue::new(npm_bucket),
@@ -638,6 +647,7 @@ pub mod test {
       Self {
         ephemeral_database,
         gcs,
+        s3,
         buckets,
         license_store,
         user1,
