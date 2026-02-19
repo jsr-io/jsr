@@ -49,6 +49,7 @@ use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::s3::S3Error;
 use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
@@ -107,18 +108,20 @@ pub async fn process_tarball(
   registry_url: Url,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
-  let tarball_path = gcs_tarball_path(publishing_task.id);
+  let tarball_path = bucket_tarball_path(publishing_task.id);
   let stream = buckets
     .publishing_bucket
     .bucket
     .download_stream(&tarball_path, None)
     .await
-    .map_err(PublishError::GcsDownloadError)?
+    .map_err(PublishError::S3DownloadError)?
     .ok_or(PublishError::MissingTarball)?
     .map_err(io::Error::other);
 
   let async_read = stream.into_async_read();
-  let mut tar = async_tar::Archive::new(async_read)
+  let decompressed =
+    async_compression::futures::bufread::GzipDecoder::new(async_read);
+  let mut tar = async_tar::Archive::new(decompressed)
     .entries()
     .map_err(from_tarball_io_error)?;
 
@@ -512,7 +515,7 @@ pub async fn process_tarball(
   })
 }
 
-pub fn gcs_tarball_path(id: Uuid) -> String {
+pub fn bucket_tarball_path(id: Uuid) -> String {
   format!("publishing_tasks/{}.tar.gz", id)
 }
 
@@ -520,6 +523,9 @@ pub fn gcs_tarball_path(id: Uuid) -> String {
 pub enum PublishError {
   #[error("gcs download error: {0}")]
   GcsDownloadError(GcsError),
+
+  #[error("s3 download error: {0}")]
+  S3DownloadError(S3Error),
 
   #[error("missing tarball")]
   MissingTarball,
@@ -700,6 +706,7 @@ impl PublishError {
   pub fn user_error_code(&self) -> Option<&'static str> {
     match self {
       PublishError::GcsDownloadError(_) => None,
+      PublishError::S3DownloadError(_) => None,
       PublishError::GcsUploadError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
@@ -761,9 +768,12 @@ impl PublishError {
 }
 
 fn from_tarball_io_error(err: io::Error) -> PublishError {
-  match err.downcast::<reqwest::Error>() {
-    Ok(err) => PublishError::GcsDownloadError(GcsError::Reqwest(err)),
-    Err(err) => PublishError::InvalidTarball(err),
+  match err.downcast::<s3::error::S3Error>() {
+    Ok(err) => PublishError::S3DownloadError(S3Error::S3(err)),
+    Err(err) => match err.downcast::<reqwest::Error>() {
+      Ok(err) => PublishError::GcsDownloadError(GcsError::Reqwest(err)),
+      Err(err) => PublishError::InvalidTarball(err),
+    },
   }
 }
 

@@ -72,6 +72,8 @@ jobs:
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Install Rust
         uses: dsherret/rust-toolchain-file@v1
