@@ -9,6 +9,7 @@ export function DocEntry(
   { entry }: { entry: DocEntryCtx },
 ) {
   const {
+    name_prefix,
     name,
     name_href,
     anchor,
@@ -52,6 +53,8 @@ export function DocEntry(
               />
             )}
             <span class="font-bold font-lg align-top">
+              {name_prefix && <span class="text-secondary">{name_prefix + " "}</span>}
+
               {renamedOldName && (
                 <span
                   class="diff-removed diff-inline"
