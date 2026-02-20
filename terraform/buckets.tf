@@ -49,14 +49,6 @@ resource "aws_s3_object" "r2_npm_root_json" {
   cache_control = "public, max-age=0, no-cache"
 }
 
-resource "aws_s3_object" "r2_npm_404_txt" {
-  bucket        = cloudflare_r2_bucket.npm.name
-  key           = "404.txt"
-  content       = "404 - Not Found"
-  content_type  = "text/plain"
-  cache_control = "public, max-age=0, no-cache"
-}
-
 resource "cloudflare_account_token" "buckets_rw" {
   account_id = var.cloudflare_account_id
   name       = "${var.gcp_project}-buckets-rw"
