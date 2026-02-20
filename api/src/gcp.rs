@@ -626,22 +626,121 @@ impl BigQuery {
 
 /// Fake Google Cloud Storage
 /// https://github.com/fsouza/fake-gcs-server
+///
+/// A single shared server is started on first use and reused across all tests.
 #[cfg(test)]
 pub struct FakeGcsTester {
-  proc: Option<std::process::Child>,
   pub port: u16,
 }
 
 #[cfg(test)]
+static SHARED_GCS_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+/// Global list of child processes to kill on exit.
+static TEST_CHILD_PROCS: std::sync::Mutex<Vec<std::process::Child>> =
+  std::sync::Mutex::new(Vec::new());
+
+#[cfg(test)]
+/// Register an atexit handler (once) that kills all tracked child processes.
+static ATEXIT_REGISTERED: std::sync::Once = std::sync::Once::new();
+
+#[cfg(test)]
+pub(crate) fn track_child_proc(proc: std::process::Child) {
+  ATEXIT_REGISTERED.call_once(|| {
+    extern "C" fn kill_children() {
+      if let Ok(mut children) = TEST_CHILD_PROCS.lock() {
+        for child in children.iter_mut() {
+          let _ = child.kill();
+          let _ = child.wait();
+        }
+      }
+    }
+    unsafe extern "C" {
+      fn atexit(cb: extern "C" fn()) -> std::ffi::c_int;
+    }
+    unsafe {
+      atexit(kill_children);
+    }
+  });
+  TEST_CHILD_PROCS.lock().unwrap().push(proc);
+}
+
+#[cfg(test)]
+fn start_shared_fake_gcs() -> u16 {
+  use std::io::BufRead;
+  use std::io::BufReader;
+  use std::process::Stdio;
+
+  #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/darwin-arm64/fake-gcs-server"
+  );
+
+  #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/darwin-amd64/fake-gcs-server"
+  );
+
+  #[cfg(target_os = "linux")]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/linux-amd64/fake-gcs-server"
+  );
+
+  for attempt in 0..5 {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    println!("starting shared fake gcs server on port {port}: {p}");
+    let proc = std::process::Command::new(p)
+      .arg(format!("-port={port}"))
+      .arg("-scheme=http")
+      .arg("-backend=memory")
+      .stderr(Stdio::piped())
+      .spawn();
+
+    let mut proc = match proc {
+      Ok(p) => p,
+      Err(e) => {
+        eprintln!("attempt {attempt}: failed to spawn fake gcs server: {e}");
+        continue;
+      }
+    };
+
+    let stderr = proc.stderr.take().unwrap();
+    let mut stderr = BufReader::new(stderr);
+    let mut first_line = String::new();
+    if stderr.read_line(&mut first_line).is_err() {
+      let _ = proc.kill();
+      eprintln!("attempt {attempt}: failed to read from fake gcs server");
+      continue;
+    }
+    if !first_line.contains("server started at http://") {
+      let _ = proc.kill();
+      eprintln!("attempt {attempt}: unexpected fake gcs output: {first_line}");
+      continue;
+    }
+
+    // Drain stderr to prevent blocking.
+    std::thread::spawn(move || {
+      std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
+    });
+
+    track_child_proc(proc);
+    return port;
+  }
+  panic!("failed to start shared fake gcs server after 5 attempts");
+}
+
+#[cfg(test)]
 impl FakeGcsTester {
-  pub async fn new() -> Self {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let port = rng.gen_range(10000..20001);
-    //let port = PORT_PICKER.pick().await;
-    let mut t = Self { port, proc: None };
-    t.start();
-    t
+  pub fn new() -> Self {
+    let port = *SHARED_GCS_PORT.get_or_init(start_shared_fake_gcs);
+    Self { port }
   }
 
   pub fn endpoint(&self) -> String {
@@ -654,71 +753,6 @@ impl FakeGcsTester {
       .await
       .unwrap()
   }
-
-  fn start(&mut self) {
-    use std::io::BufRead;
-    use std::io::BufReader;
-    use std::os::unix::process::CommandExt;
-    use std::process::Stdio;
-
-    assert!(self.proc.is_none());
-
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    let p = concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/../tools/bin/darwin-arm64/fake-gcs-server"
-    );
-
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    let p = concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/../tools/bin/darwin-amd64/fake-gcs-server"
-    );
-
-    #[cfg(target_os = "linux")]
-    let p = concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/../tools/bin/linux-amd64/fake-gcs-server"
-    );
-
-    println!("starting fake gcs server: {}", p);
-    let mut proc = std::process::Command::new(p)
-      .arg(format!("-port={}", self.port))
-      .arg("-scheme=http")
-      .arg("-backend=memory")
-      .process_group(0)
-      .stderr(Stdio::piped())
-      .spawn()
-      .unwrap();
-
-    // Wait for one line of output from stderr.
-    let stderr = proc.stderr.take().unwrap();
-    let mut stderr = BufReader::new(stderr);
-    let mut first_line = String::new();
-    stderr.read_line(&mut first_line).unwrap();
-    if !first_line.contains("server started at http://") {
-      panic!("failed to start fake gcs server: {first_line}");
-    }
-
-    // Then copy the rest of stderr to a sink to prevent fake-gcs-server from
-    // blocking.
-    std::thread::spawn(move || {
-      std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
-    });
-
-    self.proc = Some(proc);
-  }
-}
-
-#[cfg(test)]
-impl Drop for FakeGcsTester {
-  fn drop(&mut self) {
-    if let Some(proc) = self.proc.as_mut()
-      && let Err(err) = proc.kill()
-    {
-      eprintln!("failed to kill FakeGcsTester on drop: {err}");
-    }
-  }
 }
 
 #[cfg(test)]
@@ -727,7 +761,7 @@ mod tests {
 
   #[tokio::test]
   async fn gcs_upload_download() {
-    let tester = FakeGcsTester::new().await;
+    let tester = FakeGcsTester::new();
     let bucket = tester.create_bucket("testbucket").await;
 
     bucket

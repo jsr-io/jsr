@@ -491,22 +491,98 @@ impl RestartableTask for ListDirectoryTask {
 }
 
 /// https://github.com/minio/minio
+///
+/// A single shared minio server is started on first use and reused across all
+/// tests.
 #[cfg(test)]
 pub struct FakeS3Tester {
-  proc: Option<std::process::Child>,
   pub port: u16,
 }
 
 #[cfg(test)]
+static SHARED_S3_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+fn start_shared_fake_s3() -> u16 {
+  use std::io::BufRead;
+  use std::io::BufReader;
+  use std::process::Stdio;
+
+  #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/darwin-arm64/minio"
+  );
+
+  #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/darwin-amd64/minio"
+  );
+
+  #[cfg(target_os = "linux")]
+  let p = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tools/bin/linux-amd64/minio"
+  );
+
+  let mut dir = std::env::temp_dir();
+  dir.push("fake-s3-server");
+
+  for attempt in 0..5 {
+    dbg!();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    println!("starting shared fake s3 server on port {port}: {p}");
+    let proc = std::process::Command::new(p)
+      .arg("server")
+      .arg(format!("--address=:{port}"))
+      .arg("--quiet")
+      .arg(&dir)
+      .stderr(Stdio::piped())
+      .spawn();
+
+    let mut proc = match proc {
+      Ok(p) => p,
+      Err(e) => {
+        eprintln!("attempt {attempt}: failed to spawn fake s3 server: {e}");
+        continue;
+      }
+    };
+
+    let stderr = proc.stderr.take().unwrap();
+    let mut stderr = BufReader::new(stderr);
+    let mut first_line = String::new();
+    if stderr.read_line(&mut first_line).is_err() {
+      let _ = proc.kill();
+      eprintln!("attempt {attempt}: failed to read from fake s3 server");
+      continue;
+    }
+    if !first_line.contains("minioadmin:minioadmin") {
+      let _ = proc.kill();
+      eprintln!("attempt {attempt}: unexpected fake s3 output: {first_line}");
+      continue;
+    }
+
+    // Then copy the rest of stderr to a sink to prevent fake-gcs-server from
+    // blocking.
+    std::thread::spawn(move || {
+      std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
+    });
+
+    crate::gcp::track_child_proc(proc);
+    return port;
+  }
+  panic!("failed to start shared fake s3 server after 5 attempts");
+}
+
+#[cfg(test)]
 impl FakeS3Tester {
-  pub async fn new() -> Self {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let port = rng.gen_range(20001..30001);
-    //let port = PORT_PICKER.pick().await;
-    let mut t = Self { port, proc: None };
-    t.start();
-    t
+  pub fn new() -> Self {
+    let port = *SHARED_S3_PORT.get_or_init(start_shared_fake_s3);
+    Self { port }
   }
 
   pub fn endpoint(&self) -> String {
@@ -531,75 +607,6 @@ impl FakeS3Tester {
     .await
     .unwrap()
   }
-
-  fn start(&mut self) {
-    use std::io::BufRead;
-    use std::io::BufReader;
-    use std::os::unix::process::CommandExt;
-    use std::process::Stdio;
-
-    assert!(self.proc.is_none());
-
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    let p = concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/../tools/bin/darwin-arm64/minio"
-    );
-
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    let p = concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/../tools/bin/darwin-amd64/minio"
-    );
-
-    #[cfg(target_os = "linux")]
-    let p = concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/../tools/bin/linux-amd64/minio"
-    );
-
-    let mut dir = std::env::temp_dir();
-    dir.push("fake-s3-server");
-
-    println!("starting fake s3 server: {}", p);
-    let mut proc = std::process::Command::new(p)
-      .arg("server")
-      .arg(format!("--address=:{}", self.port))
-      .arg("--quiet")
-      .arg(dir)
-      .process_group(0)
-      .stderr(Stdio::piped())
-      .spawn()
-      .unwrap();
-
-    // Wait for one line of output from stderr.
-    let stderr = proc.stderr.take().unwrap();
-    let mut stderr = BufReader::new(stderr);
-    let mut first_line = String::new();
-    stderr.read_line(&mut first_line).unwrap();
-    if !first_line.contains("minioadmin:minioadmin") {
-      panic!("failed to start fake gcs server: {first_line}");
-    }
-
-    // Then copy the rest of stderr to a sink to prevent fake-gcs-server from
-    // blocking.
-    std::thread::spawn(move || {
-      std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
-    });
-
-    self.proc = Some(proc);
-  }
-}
-
-#[cfg(test)]
-impl Drop for FakeS3Tester {
-  fn drop(&mut self) {
-    if let Some(proc) = self.proc.as_mut()
-      && let Err(err) = proc.kill()
-    {
-      eprintln!("failed to kill FakeS3Tester on drop: {err}");
-    }
-  }
 }
 
 #[cfg(test)]
@@ -607,8 +614,8 @@ mod tests {
   use super::*;
 
   #[tokio::test]
-  async fn gcs_upload_download() {
-    let tester = FakeS3Tester::new().await;
+  async fn s3_upload_download() {
+    let tester = FakeS3Tester::new();
     let bucket = tester.create_bucket("testbucket").await;
 
     bucket
