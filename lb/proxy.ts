@@ -155,7 +155,7 @@ export async function proxyToR2(
 
       const object = await bucket.get(key, {
         onlyIf: {
-          etagMatches: ifNoneMatch ?? undefined,
+          etagDoesNotMatch: ifNoneMatch ?? undefined,
           uploadedAfter: ifModifiedSince
             ? new Date(ifModifiedSince)
             : undefined,

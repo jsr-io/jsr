@@ -41,15 +41,15 @@ async function createBucket(name: string) {
   }
 }
 
+const s3 = new S3Client({
+  endpoint: S3_ENDPOINT,
+  region: "us-east-1",
+  credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
+  forcePathStyle: true,
+});
+
 async function createMinioBucket(name: string) {
   try {
-    const s3 = new S3Client({
-      endpoint: S3_ENDPOINT,
-      region: "us-east-1",
-      credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
-      forcePathStyle: true,
-    });
-
     await s3.send(new CreateBucketCommand({ Bucket: name }));
     return true;
     // deno-lint-ignore no-explicit-any
@@ -79,13 +79,6 @@ const bucketCreationInterval = setInterval(async () => {
     clearInterval(bucketCreationInterval);
   }
 }, 5000);
-
-const s3 = new S3Client({
-  endpoint: S3_ENDPOINT,
-  region: "us-east-1",
-  credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
-  forcePathStyle: true,
-});
 
 class R2BucketShim implements PartialBucket {
   #bucket: string;
@@ -118,16 +111,24 @@ class R2BucketShim implements PartialBucket {
       const params: {
         Bucket: string;
         Key: string;
+        IfMatch?: string;
         IfNoneMatch?: string;
         IfModifiedSince?: Date;
+        IfUnmodifiedSince?: Date;
       } = {
         Bucket: this.#bucket,
         Key: key,
       };
       const onlyIf = options?.onlyIf;
       if (onlyIf && !(onlyIf instanceof Headers)) {
-        if (onlyIf.etagMatches) params.IfNoneMatch = onlyIf.etagMatches;
+        if (onlyIf.etagMatches) params.IfMatch = onlyIf.etagMatches;
+        if (onlyIf.etagDoesNotMatch) {
+          params.IfNoneMatch = onlyIf.etagDoesNotMatch;
+        }
         if (onlyIf.uploadedAfter) params.IfModifiedSince = onlyIf.uploadedAfter;
+        if (onlyIf.uploadedBefore) {
+          params.IfUnmodifiedSince = onlyIf.uploadedBefore;
+        }
       }
       const res = await s3.send(new GetObjectCommand(params));
       const body = res.Body!.transformToWebStream();
@@ -143,13 +144,19 @@ class R2BucketShim implements PartialBucket {
         blob: () => new Response(body).blob(),
       } as R2ObjectBody;
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "NotModified") {
-        return this.#toR2Object({
-          ETag: "",
-          ContentLength: 0,
-          ContentType: undefined,
-          LastModified: undefined,
-        }, key);
+      if (
+        err instanceof Error &&
+        (err.name === "NotModified" || err.name === "PreconditionFailed")
+      ) {
+        // Conditional failed — return R2Object without body (matching R2 behavior).
+        // Fetch real metadata so etag/size are accurate in the response.
+        return await this.head(key) ??
+          this.#toR2Object({
+            ETag: "",
+            ContentLength: 0,
+            ContentType: undefined,
+            LastModified: undefined,
+          }, key);
       }
       return null;
     }
