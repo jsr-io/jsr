@@ -81,7 +81,7 @@ export function DocsView({
   pkg,
 }: DocsProps) {
   return (
-    <div class="pt-6 pb-8 space-y-8">
+    <div class="pt-6 pb-8 flex flex-col gap-8">
       <style
         hidden
         // deno-lint-ignore react-no-danger
