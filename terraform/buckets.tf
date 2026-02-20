@@ -29,9 +29,15 @@ resource "cloudflare_r2_bucket" "publishing" {
   location   = "enam"
 }
 
-resource "cloudflare_account_token" "r2_publishing" {
+resource "cloudflare_r2_bucket" "docs" {
   account_id = var.cloudflare_account_id
-  name       = "${cloudflare_r2_bucket.publishing.name}-rw"
+  name       = "${var.gcp_project}-docs"
+  location   = "enam"
+}
+
+resource "cloudflare_account_token" "buckets_rw" {
+  account_id = var.cloudflare_account_id
+  name       = "${var.gcp_project}-buckets-rw"
 
   policies = [{
     effect = "allow"
@@ -40,13 +46,14 @@ resource "cloudflare_account_token" "r2_publishing" {
       { id = "2efd5506f9c8494dacb1fa10a3e7d5b6" }, // Workers R2 Storage Bucket Item Write
     ]
     resources = jsonencode({
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*"
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}" = "*"
     })
   }]
 }
 
 locals {
-  r2_publishing_secret_access_key = sha256(cloudflare_account_token.r2_publishing.value)
+  r2_secret_access_key = sha256(cloudflare_account_token.buckets_rw.value)
 }
 
 resource "google_service_account" "r2_sippy" {
@@ -55,8 +62,8 @@ resource "google_service_account" "r2_sippy" {
   description  = "Service account for Cloudflare R2 Sippy to read from GCS buckets"
 }
 
-resource "google_storage_bucket_iam_member" "r2_sippy_publishing_reader" {
-  bucket = google_storage_bucket.publishing.name
+resource "google_storage_bucket_iam_member" "r2_sippy_docs_reader" {
+  bucket = google_storage_bucket.docs.name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.r2_sippy.email}"
 }
@@ -65,18 +72,18 @@ resource "google_service_account_key" "r2_sippy" {
   service_account_id = google_service_account.r2_sippy.name
 }
 
-resource "cloudflare_r2_bucket_sippy" "r2_publishing_sippy" {
+resource "cloudflare_r2_bucket_sippy" "r2_docs_sippy" {
   account_id  = var.cloudflare_account_id
-  bucket_name = cloudflare_r2_bucket.publishing.name
+  bucket_name = cloudflare_r2_bucket.docs.name
   destination = {
-    access_key_id = cloudflare_account_token.r2_publishing.id
+    access_key_id = cloudflare_account_token.buckets_rw.id
     cloud_provider = "r2"
-    secret_access_key = local.r2_publishing_secret_access_key
+    secret_access_key = local.r2_secret_access_key
   }
   source = {
     client_email   = google_service_account.r2_sippy.email
     private_key    = jsondecode(base64decode(google_service_account_key.r2_sippy.private_key)).private_key
-    bucket         = google_storage_bucket.publishing.name
+    bucket         = google_storage_bucket.docs.name
     cloud_provider = "gcs"
   }
 }

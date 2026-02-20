@@ -18,6 +18,7 @@ use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_semver::StackString;
 use futures::StreamExt;
+use futures::TryFutureExt;
 use futures::future::Either;
 use hyper::Body;
 use hyper::Request;
@@ -1261,8 +1262,11 @@ pub async fn get_docs_handler(
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) =
-    futures::future::try_join(doc_nodes_fut, readme_fut).await?;
+  let (docs, readme) = futures::future::try_join(
+    doc_nodes_fut.map_err(ApiError::from),
+    readme_fut.map_err(ApiError::from),
+  )
+  .await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",

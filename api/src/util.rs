@@ -538,13 +538,13 @@ pub mod test {
       let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
         s3.create_bucket(&publishing_name),
         gcs.create_bucket(&modules_name),
-        gcs.create_bucket(&docs_name),
+        s3.create_bucket(&docs_name),
         gcs.create_bucket(&npm_name),
       );
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
-        docs_bucket: BucketWithQueue::new(docs_bucket),
+        docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
         npm_bucket: BucketWithQueue::new(npm_bucket),
       };
       let github_oauth2_client = GithubOauth2Client::new(
