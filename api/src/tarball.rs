@@ -533,7 +533,7 @@ pub enum PublishError {
   #[error("gcs upload error: {0}")]
   GcsUploadError(GcsError),
 
-  #[error("gcs s3 error: {0}")]
+  #[error("s3 upload error: {0}")]
   S3UploadError(S3Error),
 
   #[error("invalid tarball: {0}")]
