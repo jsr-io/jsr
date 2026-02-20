@@ -1161,6 +1161,14 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn license_alias() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_alias");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
   async fn no_license() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("no_license");

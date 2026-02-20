@@ -98,8 +98,8 @@ function renderToC(
         <li
           key={entry.anchor}
           class={isRoot
-            ? `mx-3 ${hasChildren ? "mt-0" : "mt-2"} !pb-0`
-            : "!mt-1"}
+            ? `mx-3 ${hasChildren ? "mt-0" : "mt-2"} pb-0!`
+            : "mt-1!"}
         >
           <a
             href={`#${entry.anchor}`}

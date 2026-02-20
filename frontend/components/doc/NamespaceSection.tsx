@@ -4,18 +4,18 @@ import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
 
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
-    <div class="space-y-2 !mt-6 max-w-prose">
+    <div class="space-y-2 mt-6! max-w-prose">
       {items.map((item) => (
         <div
           id={item.id}
-          class={`flex gap-x-2.5 md:min-h-[4rem] lg:pr-4 rounded transition duration-125 ${
+          class={`flex gap-x-2.5 md:min-h-16 lg:pr-4 rounded transition duration-125 ${
             item.deprecated ? "opacity-60" : ""
           }`}
           aria-label={item.deprecated ? "deprecated" : undefined}
         >
           <DocNodeKindIcon
             kinds={item.doc_node_kind_ctx}
-            class="w-auto flex-col !justify-start gap-1 mt-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
+            class="w-auto flex-col justify-start! gap-1 mt-1 [&>*+*]:ml-0 [&>*+*]:-mt-0.5"
           />
 
           <div

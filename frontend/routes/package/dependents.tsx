@@ -78,7 +78,7 @@ function Dependent(
           {name}
         </a>
       </TableData>
-      <TableData class="!whitespace-normal">
+      <TableData class="whitespace-normal!">
         <div class="flex flex-wrap gap-x-4 gap-y-1">
           {versions.map((version, idx) => (
             <a key={idx} href={`/@${scope}/${pkg}@${version}`} class="link">

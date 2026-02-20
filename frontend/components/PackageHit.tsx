@@ -15,8 +15,8 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
     content: (
-      <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
-        <div class="grow-1">
+      <div class="grow w-full flex flex-col md:flex-row gap-2 justify-between">
+        <div class="grow">
           <div class="flex flex-wrap items-baseline gap-x-2 mb-2 md:mb-0">
             <span class="text-jsr-cyan-700 dark:text-cyan-400 font-semibold">
               {`@${pkg.scope}/${pkg.name}`}

@@ -419,6 +419,23 @@ impl RequestIdExt for Request<Body> {
 #[derive(Clone)]
 pub struct LicenseStore(pub Arc<askalono::Store>);
 
+impl LicenseStore {
+  /// Check if a license identifier is recognized, either as a primary key
+  /// or as an alias of another license (e.g. GPL-3.0-or-later is an alias
+  /// of GPL-3.0-only because they share the same license text).
+  pub fn is_recognized(&self, name: &str) -> bool {
+    if self.0.get_original(name).is_some() {
+      return true;
+    }
+    self.0.licenses().any(|key| {
+      self
+        .0
+        .aliases(key)
+        .is_ok_and(|aliases| aliases.iter().any(|a| a == name))
+    })
+  }
+}
+
 pub fn license_store() -> LicenseStore {
   let mut license_store = askalono::Store::new();
   let license_path =
@@ -451,6 +468,22 @@ pub mod test {
   use crate::ids::ScopeDescription;
   use crate::s3::FakeS3Tester;
   use crate::util::LicenseStore;
+
+  static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+
+  static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+  /// Ensure both fake servers are running. The first call starts GCS and S3
+  /// in parallel; subsequent calls return immediately.
+  fn ensure_servers_started() {
+    SERVERS_STARTED.get_or_init(|| {
+      std::thread::scope(|s| {
+        s.spawn(FakeGcsTester::new);
+        s.spawn(FakeS3Tester::new);
+      });
+    });
+  }
   use crate::util::sanitize_redirect_url;
   use hyper::Body;
   use hyper::HeaderMap;
@@ -476,10 +509,6 @@ pub mod test {
 
   pub struct TestSetup {
     pub ephemeral_database: EphemeralDatabase,
-    #[allow(dead_code)]
-    pub gcs: FakeGcsTester,
-    #[allow(dead_code)]
-    pub s3: FakeS3Tester,
     pub buckets: Buckets,
     pub license_store: LicenseStore,
     pub user1: TestUser,
@@ -495,14 +524,23 @@ pub mod test {
 
   impl TestSetup {
     pub async fn new() -> Self {
+      ensure_servers_started();
+      let test_id = TEST_INSTANCE_COUNTER
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
       let ephemeral_database = EphemeralDatabase::create().await;
       let db = ephemeral_database.database.clone().unwrap();
-      let gcs = FakeGcsTester::new().await;
-      let s3 = FakeS3Tester::new().await;
-      let publishing_bucket = s3.create_bucket("publishing").await;
-      let modules_bucket = gcs.create_bucket("modules").await;
-      let docs_bucket = s3.create_bucket("docs").await;
-      let npm_bucket = gcs.create_bucket("npm").await;
+      let gcs = FakeGcsTester::new();
+      let s3 = FakeS3Tester::new();
+      let publishing_name = format!("publishing-{test_id}");
+      let modules_name = format!("modules-{test_id}");
+      let docs_name = format!("docs-{test_id}");
+      let npm_name = format!("npm-{test_id}");
+      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
+        s3.create_bucket(&publishing_name),
+        gcs.create_bucket(&modules_name),
+        s3.create_bucket(&docs_name),
+        gcs.create_bucket(&npm_name),
+      );
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
@@ -629,8 +667,6 @@ pub mod test {
 
       Self {
         ephemeral_database,
-        gcs,
-        s3,
         buckets,
         license_store,
         user1,
