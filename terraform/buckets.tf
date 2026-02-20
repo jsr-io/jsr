@@ -101,6 +101,8 @@ resource "cloudflare_r2_bucket_sippy" "r2_npm_sippy" {
     bucket         = google_storage_bucket.npm.name
     cloud_provider = "gcs"
   }
+
+  depends_on = [google_storage_bucket_iam_member.r2_sippy_npm_reader]
 }
 
 resource "google_storage_bucket" "docs" {
