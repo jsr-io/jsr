@@ -118,7 +118,7 @@ pub struct Buckets {
   pub publishing_bucket: crate::s3::BucketWithQueue,
   pub modules_bucket: BucketWithQueue,
   pub docs_bucket: crate::s3::BucketWithQueue,
-  pub npm_bucket: BucketWithQueue,
+  pub npm_bucket: crate::s3::BucketWithQueue,
 }
 
 struct UploadTask {
