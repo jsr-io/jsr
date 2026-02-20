@@ -138,6 +138,18 @@ export async function proxyToR2(
   }
   const key = path.slice(1);
 
+  const cacheKey = new Request(request.url, { method: "GET" });
+  const cached = await caches.default?.match(cacheKey);
+  if (cached) {
+    if (request.method === "HEAD") {
+      return new Response(null, {
+        headers: cached.headers,
+        status: cached.status,
+      });
+    }
+    return cached;
+  }
+
   try {
     if (request.method === "HEAD") {
       const object = await bucket.head(key);
@@ -175,7 +187,9 @@ export async function proxyToR2(
         return new Response(null, { status: 304, headers });
       }
 
-      return new Response(object.body, { headers });
+      const response = new Response(object.body, { headers });
+      caches.default?.put(cacheKey, response.clone());
+      return response;
     }
   } catch (error) {
     console.error("R2 proxy error:", error);

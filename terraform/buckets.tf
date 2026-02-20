@@ -77,8 +77,8 @@ resource "google_service_account" "r2_sippy" {
   description  = "Service account for Cloudflare R2 Sippy to read from GCS buckets"
 }
 
-resource "google_storage_bucket_iam_member" "r2_sippy_docs_reader" {
-  bucket = google_storage_bucket.docs.name
+resource "google_storage_bucket_iam_member" "r2_sippy_npm_reader" {
+  bucket = google_storage_bucket.npm.name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.r2_sippy.email}"
 }

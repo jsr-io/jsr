@@ -53,7 +53,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type = "secret_text"
       name = "MODULES_BUCKET"
       text = google_storage_bucket.modules.name
-      }
+    }
   ]
 
   lifecycle {
