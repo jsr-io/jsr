@@ -53,7 +53,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <div
         aria-labelledby={`${prefix}-user-menu`}
         role="region"
-        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
+        class={`absolute top-[120%] -right-4 z-80 rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
           open.value
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-5 pointer-events-none"

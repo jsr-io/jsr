@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-net --allow-env
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { parse } from "jsr:@std/semver";
+import { parse } from "@std/semver";
 import type {
   DependencyGraphItem,
   List,

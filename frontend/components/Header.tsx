@@ -62,7 +62,7 @@ export function Header({
               <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
-          <div class="hidden sm:block grow-1 flex-1">
+          <div class="hidden sm:block grow flex-1">
             {!isHomepage && (
               <GlobalSearch
                 query={(url.pathname === "/packages"

@@ -91,12 +91,12 @@ export function ScopeDescriptionForm(
 
   return (
     <div class="mt-2 flex items-start gap-2">
-      <p class="text-secondary max-w-2xl flex-grow">
+      <p class="text-secondary max-w-2xl grow">
         {scope.value.description || <i>No description provided.</i>}
       </p>
       <button
         type="button"
-        class="button-primary flex-shrink-0"
+        class="button-primary shrink-0"
         onClick={() => isEditing.value = true}
         aria-label="Edit description"
       >
