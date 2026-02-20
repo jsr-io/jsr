@@ -11,11 +11,11 @@ resource "cloudflare_workers_script" "jsr_lb" {
   main_module = "worker.js"
 
   observability = {
-    enabled = true
+    enabled            = true
     head_sampling_rate = 1
     logs = {
-      enabled = true
-      invocation_logs = true
+      enabled            = true
+      invocation_logs    = true
       head_sampling_rate = 1
     }
   }

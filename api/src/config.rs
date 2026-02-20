@@ -17,12 +17,21 @@ pub struct Config {
   /// testing against a local GCS emulator.
   pub gcs_endpoint: Option<String>,
 
+  #[clap(long = "s3_region", env = "S3_REGION")]
+  pub s3_region: String,
+  #[clap(long = "s3_endpoint", env = "S3_ENDPOINT")]
+  pub s3_endpoint: String,
+  #[clap(long = "s3_access_key", env = "S3_ACCESS_KEY")]
+  pub s3_access_key: String,
+  #[clap(long = "s3_secret_key", env = "S3_SECRET_KEY")]
+  pub s3_secret_key: String,
+
   #[clap(
     long = "publishing_bucket",
     env = "PUBLISHING_BUCKET",
     default_value = "publishing"
   )]
-  /// The name of the GCS bucket to use to store tarballs during publishing.
+  /// The name of the GCS/S3 bucket to use to store tarballs during publishing.
   pub publishing_bucket: String,
 
   #[clap(
