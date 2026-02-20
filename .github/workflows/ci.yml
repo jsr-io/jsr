@@ -91,6 +91,10 @@ jobs:
         run: cargo fmt --all -- --check
         working-directory: api
 
+      - uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: sqlx-cli@0.7.1
+
       # If it's not up to date, run `cargo sqlx prepare` locally and commit the
       # changes. You may have to run `cargo install sqlx-cli` first.
       - name: Check sqlx metadata is up to date
@@ -108,10 +112,6 @@ jobs:
       - name: Test
         run: cargo test
         working-directory: api
-
-      - uses: taiki-e/cache-cargo-install-action@v1
-        with:
-          tool: sqlx-cli@0.7.1
 
   docker-images:
     if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
