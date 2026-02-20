@@ -26,9 +26,9 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name    = "DOWNLOADS"
       dataset = local.worker_download_analytics_dataset
       }, {
-      type    = "r2_bucket"
-      name    = "NPM_BUCKET"
-      dataset = cloudflare_r2_bucket.npm.name
+      type        = "r2_bucket"
+      name        = "NPM_BUCKET"
+      bucket_name = cloudflare_r2_bucket.npm.name
       }, {
       type = "plain_text"
       name = "ROOT_DOMAIN"

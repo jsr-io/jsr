@@ -61,8 +61,8 @@ resource "cloudflare_account_token" "buckets_rw" {
     ]
     resources = jsonencode({
       "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*",
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}" = "*",
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.npm.name}" = "*"
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}"       = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.npm.name}"        = "*"
     })
   }]
 }
@@ -91,8 +91,8 @@ resource "cloudflare_r2_bucket_sippy" "r2_npm_sippy" {
   account_id  = var.cloudflare_account_id
   bucket_name = cloudflare_r2_bucket.npm.name
   destination = {
-    access_key_id = cloudflare_account_token.buckets_rw.id
-    cloud_provider = "r2"
+    access_key_id     = cloudflare_account_token.buckets_rw.id
+    cloud_provider    = "r2"
     secret_access_key = local.r2_secret_access_key
   }
   source = {
