@@ -1,7 +1,8 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@aws-sdk/client-s3@^3.990.0": "3.990.0"
+    "npm:@aws-sdk/client-s3@^3.990.0": "3.990.0",
+    "npm:@cloudflare/workers-types@*": "4.20260227.0"
   },
   "npm": {
     "@aws-crypto/crc32@5.2.0": {
@@ -551,6 +552,9 @@
     },
     "@aws/lambda-invoke-store@0.2.3": {
       "integrity": "sha512-oLvsaPMTBejkkmHhjf09xTgk71mOqyr/409NKhRIL08If7AhVfUsJhVsx386uJaqNd42v9kWamQ9lFbkoC2dYw=="
+    },
+    "@cloudflare/workers-types@4.20260227.0": {
+      "integrity": "sha512-e/Lfx2LGmmTds9Soorj96ER+xzJZ/dfNcSd+odlRDv0HBYA4Ts7m01A1VwCPGvuy3/kQo7FYZEQdF6vnR0y73A=="
     },
     "@smithy/abort-controller@4.2.8": {
       "integrity": "sha512-peuVfkYHAmS5ybKxWcfraK7WBBP0J+rkfUcbHJJKQ4ir3UAUNQI+Y4Vt/PqSzGqgloJ5O1dk7+WzNL8wcCSXbw==",

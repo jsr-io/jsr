@@ -1,5 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+import type { PartialBucket } from "./types.ts";
+
 export async function proxyToCloudRun(
   request: Request,
   backendUrl: string,
@@ -120,6 +122,66 @@ export async function proxyToGCS(
       headers: {
         "Content-Type": "text/plain",
       },
+    });
+  }
+}
+
+export async function proxyToR2(
+  request: Request,
+  bucket: PartialBucket,
+  pathRewrite?: (path: string) => string,
+): Promise<Response> {
+  const url = new URL(request.url);
+  let path = url.pathname;
+  if (pathRewrite) {
+    path = pathRewrite(path);
+  }
+  const key = path.slice(1);
+
+  try {
+    if (request.method === "HEAD") {
+      const object = await bucket.head(key);
+      if (!object) {
+        return new Response("Not Found", { status: 404 });
+      }
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("etag", object.httpEtag);
+      headers.set("content-length", object.size.toString());
+      return new Response(null, { headers });
+    } else {
+      const ifNoneMatch = request.headers.get("If-None-Match");
+      const ifModifiedSince = request.headers.get("If-Modified-Since");
+
+      const object = await bucket.get(key, {
+        onlyIf: {
+          etagMatches: ifNoneMatch ?? undefined,
+          uploadedAfter: ifModifiedSince
+            ? new Date(ifModifiedSince)
+            : undefined,
+        },
+      });
+
+      if (!object) {
+        return new Response("404 - Not Found", { status: 404 });
+      }
+
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("etag", object.httpEtag);
+      headers.set("content-length", object.size.toString());
+
+      if (!("body" in object)) {
+        return new Response(null, { status: 304, headers });
+      }
+
+      return new Response(object.body, { headers });
+    }
+  } catch (error) {
+    console.error("R2 proxy error:", error);
+    return new Response("Bad Gateway", {
+      status: 502,
+      headers: { "Content-Type": "text/plain" },
     });
   }
 }

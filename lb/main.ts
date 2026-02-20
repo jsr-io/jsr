@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { proxyToCloudRun, proxyToGCS } from "./proxy.ts";
+import { proxyToCloudRun, proxyToGCS, proxyToR2 } from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -95,9 +95,8 @@ export async function handleNPMRequest(
   }
 
   const url = new URL(request.url);
-  const response = await proxyToGCS(
+  const response = await proxyToR2(
     request,
-    env.GCS_ENDPOINT,
     env.NPM_BUCKET,
     (path) => {
       if (path === "/" || path === "/-/ping") {

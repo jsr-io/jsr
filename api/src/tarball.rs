@@ -437,7 +437,7 @@ pub async fn process_tarball(
     .npm_bucket
     .upload(
       npm_tarball_path.into(),
-      UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
+      crate::s3::UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
       GcsUploadOptions {
         content_type: Some("application/octet-stream".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
@@ -445,7 +445,7 @@ pub async fn process_tarball(
       },
     )
     .await
-    .map_err(PublishError::GcsUploadError)?;
+    .map_err(PublishError::S3UploadError)?;
 
   let mut uploads = futures::stream::iter(files)
     .map(|(path, data)| {

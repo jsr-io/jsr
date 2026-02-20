@@ -190,13 +190,16 @@ async fn main() {
     config.gcs_endpoint.clone(),
   ));
   let docs_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(config.docs_bucket, s3_region, s3_credentials).unwrap(),
+    s3::Bucket::new(
+      config.docs_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
   );
-  let npm_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.npm_bucket,
-    config.gcs_endpoint,
-  ));
+  let npm_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(config.npm_bucket, s3_region, s3_credentials).unwrap(),
+  );
   let buckets = Buckets {
     publishing_bucket,
     modules_bucket: modules_bucket.clone(),
