@@ -95,8 +95,6 @@ jobs:
         with:
           tool: sqlx-cli@0.7.1
 
-      # If it's not up to date, run `cargo sqlx prepare` locally and commit the
-      # changes. You may have to run `cargo install sqlx-cli` first.
       - name: Check sqlx metadata is up to date
         run: |
           cargo sqlx migrate run
