@@ -97,7 +97,7 @@ function SharedView({
   toc: ComponentChildren;
 }) {
   return (
-    <div class="pt-6 pb-8 space-y-8">
+    <div class="pt-6 pb-8 space-y-3">
       <style
         hidden
         // deno-lint-ignore react-no-danger
@@ -117,7 +117,7 @@ function SharedView({
       )}
 
       <div class="grid grid-cols-1 lg:grid-cols-10 gap-8 lg:gap-12">
-        <div class="min-w-0 lg:col-span-7 lg:row-start-1">
+        <div class="min-w-0 lg:col-span-7 lg:row-start-1 mt-4">
           <div class="ddoc mb-20" id="docMain">
             <MainDocs content={docs.main} />
           </div>

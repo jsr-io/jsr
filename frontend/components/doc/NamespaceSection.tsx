@@ -66,18 +66,18 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                   )}
                 </div>
 
-                <div class="text-sm leading-5">
+                <div>
                   {item.docs
                     ? (
                       <span
-                        class="highlightable"
+                        class="highlightable text-sm leading-5"
                         // jsdoc rendering
                         // deno-lint-ignore react-no-danger
                         dangerouslySetInnerHTML={{ __html: item.docs }}
                       />
                     )
                     : (
-                      <span class="italic text-stone-600 dark:text-stone-400">
+                      <span class="text-xs leading-none italic text-stone-600 dark:text-stone-400">
                         No documentation available
                       </span>
                     )}
@@ -138,11 +138,11 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                         )}
                       </div>
 
-                      <div class="mt-1.5 leading-5">
+                      <div class="mt-1.5">
                         {subitem.docs
                           ? (
                             <span
-                              class="highlightable"
+                              class="highlightable leading-5"
                               // jsdoc rendering
                               // deno-lint-ignore react-no-danger
                               dangerouslySetInnerHTML={{
@@ -151,7 +151,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
                             />
                           )
                           : (
-                            <span class="italic text-stone-600 dark:text-stone-400">
+                            <span class="text-xs leading-none italic text-stone-600 dark:text-stone-400">
                               No documentation available
                             </span>
                           )}

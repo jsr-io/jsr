@@ -21,7 +21,7 @@ export function Toc(
   }
 
   return (
-    <div class="ddoc w-full lg:overflow-y-auto pb-4 pt-4">
+    <div class="ddoc w-full lg:overflow-y-auto pb-4 pt-4 lg:px-2 lg:-mx-2">
       <div class="toc">
         <div class="space-y-5">
           {diff && (
