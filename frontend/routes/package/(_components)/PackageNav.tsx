@@ -66,7 +66,7 @@ export function PackageNav({
           }...${
             (params.version && params.version === latestVersion)
               ? params.version
-              : ""
+              : latestVersion ?? ""
           }`}
           active={currentTab === "Diff"}
         >

@@ -764,6 +764,7 @@ fn generate_symbol_page(
                 return Some(SymbolPage::Redirect {
                   current_symbol: name.to_string(),
                   href: name.rsplit_once('.').unwrap().0.to_string(),
+                  diff_status: None, // TODO
                 });
               } else {
                 is_static = false;
