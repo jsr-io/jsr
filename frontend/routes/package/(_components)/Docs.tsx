@@ -97,7 +97,7 @@ function SharedView({
   toc: ComponentChildren;
 }) {
   return (
-    <div class="pt-6 pb-8 space-y-3">
+    <div class="pt-6 pb-8 flex flex-col gap-3">
       <style
         hidden
         // deno-lint-ignore react-no-danger

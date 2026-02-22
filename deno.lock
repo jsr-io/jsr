@@ -21,7 +21,7 @@
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/io@0.225": "0.225.2",
     "jsr:@std/path@^1.0.8": "1.1.4",
-    "jsr:@std/semver@*": "1.0.8",
+    "jsr:@std/semver@^1.0.8": "1.0.8",
     "jsr:@std/streams@^1.0.13": "1.0.17",
     "jsr:@std/tar@*": "0.1.9",
     "jsr:@std/toml@^1.0.1": "1.0.2",
@@ -329,6 +329,7 @@
       "jsr:@std/fmt@^1.0.8",
       "jsr:@std/front-matter@^1.0.5",
       "jsr:@std/path@^1.0.8",
+      "jsr:@std/semver@^1.0.8",
       "npm:@mdn/browser-compat-data@^7.1.6",
       "npm:@orama/core@^1.2.17",
       "npm:github-slugger@2"

@@ -56,7 +56,7 @@ export default define.page<typeof handler>(function PackagePage(
             class="flex items-center gap-2.5 px-5 py-3 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900"
           >
             <TbFolderOpen
-              class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 flex-shrink-0"
+              class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 shrink-0"
               aria-hidden="true"
             />
             <div class="flex flex-row flex-wrap gap-1 items-center">
@@ -130,7 +130,7 @@ export default define.page<typeof handler>(function PackagePage(
                     : (
                       <div class="flex items-center gap-2 px-5 py-4 text-secondary">
                         <TbFileOff
-                          class="size-5 flex-shrink-0"
+                          class="size-5 shrink-0"
                           aria-hidden="true"
                         />
                         <span>Source cannot be displayed.</span>
@@ -140,7 +140,7 @@ export default define.page<typeof handler>(function PackagePage(
             )
             : (
               <div class="flex items-center gap-2 px-5 py-4 text-secondary">
-                <TbFileOff class="size-5 flex-shrink-0" aria-hidden="true" />
+                <TbFileOff class="size-5 shrink-0" aria-hidden="true" />
                 <span>Source does not exist.</span>
               </div>
             )}
@@ -152,7 +152,7 @@ export default define.page<typeof handler>(function PackagePage(
 
 function DirEntry({ entry }: { entry: SourceDirEntry }) {
   return (
-    <div class="grow-1 flex justify-between items-center w-full">
+    <div class="grow flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
         <div class="text-tertiary">
           {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}

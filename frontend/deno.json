@@ -15,11 +15,11 @@
   },
   "imports": {
     "@deno/doc": "jsr:@deno/doc@^0.193.0",
-    "@fresh/plugin-tailwind-v3": "jsr:@fresh/plugin-tailwind-v3@^1.0.1",
+    "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^1.0.0",
     "apexcharts": "npm:apexcharts@^4.5.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.14",
     "@std/fmt": "jsr:@std/fmt@^1.0.6",
-    "fresh": "jsr:@fresh/core@^2.0.0-alpha.25",
+    "fresh": "jsr:@fresh/core@^2.2.0",
 
     "preact": "npm:preact@^10",
     "preact-render-to-string": "npm:preact-render-to-string@6.3.1",
@@ -41,7 +41,7 @@
     "@orama/orama": "npm:@orama/orama@^2",
     "@orama/highlight": "npm:@orama/highlight@^0.1.8",
 
-    "tailwindcss": "npm:tailwindcss@3.4",
+    "tailwindcss": "npm:tailwindcss@4.2",
     "postcss": "npm:postcss@8.4",
 
     "@viz-js/viz": "npm:@viz-js/viz@^3.11.0"

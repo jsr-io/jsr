@@ -84,7 +84,7 @@ export default define.page<typeof handler>(function Home({ data }) {
             class="w-full max-w-16 lg:max-w-36 lg:col-span-2 lg:mx-auto select-none"
             draggable={false}
           />
-          <div class="col-span-3 max-w-screen-sm lg:max-w-none">
+          <div class="col-span-3 max-w-(--breakpoint-sm) lg:max-w-none">
             <BenefitHeading>
               Made for <b class="font-bold">TypeScript & ESM</b>
             </BenefitHeading>
@@ -126,7 +126,7 @@ export default define.page<typeof handler>(function Home({ data }) {
               draggable={false}
             />
           </div>
-          <div class="col-span-3 max-w-screen-sm lg:order-1">
+          <div class="col-span-3 max-w-(--breakpoint-sm) lg:order-1">
             <BenefitHeading>
               <b class="font-bold">Builds on</b> npm
             </BenefitHeading>
@@ -174,7 +174,7 @@ export default define.page<typeof handler>(function Home({ data }) {
               draggable={false}
             />
           </div>
-          <div class="col-span-3 max-w-screen-sm lg:max-w-none">
+          <div class="col-span-3 max-w-(--breakpoint-sm) lg:max-w-none">
             <BenefitHeading>
               Works with <b class="font-bold">any runtime</b>
             </BenefitHeading>

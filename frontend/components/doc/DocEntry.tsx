@@ -36,7 +36,7 @@ export function DocEntry(
       id={anchor.id}
     >
       <div class="flex justify-between items-start md:text-base">
-        <div class="break-words">
+        <div class="wrap-break-word">
           {tags && tags.length > 0 && (
             <div class="space-x-1 mb-1">
               {tags.map((tag, i) => <Tag key={i} tag={tag} />)}

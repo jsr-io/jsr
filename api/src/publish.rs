@@ -463,7 +463,7 @@ pub mod tests {
   use crate::ids::{PackageName, PackagePath};
   use crate::metadata::VersionMetadata;
   use crate::tarball::ConfigFile;
-  use crate::tarball::gcs_tarball_path;
+  use crate::tarball::bucket_tarball_path;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use bytes::Bytes;
@@ -523,12 +523,12 @@ pub mod tests {
       unreachable!()
     };
 
-    let tarball_path = gcs_tarball_path(task.0.id);
+    let tarball_path = bucket_tarball_path(task.0.id);
     t.buckets
       .publishing_bucket
       .upload(
         tarball_path.into(),
-        UploadTaskBody::Bytes(tarball_data),
+        crate::s3::UploadTaskBody::Bytes(tarball_data),
         GcsUploadOptions {
           content_type: Some("application/x-tar".into()),
           cache_control: None,
@@ -1156,6 +1156,14 @@ pub mod tests {
   async fn license_file() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("license_file");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn license_alias() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_alias");
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
   }

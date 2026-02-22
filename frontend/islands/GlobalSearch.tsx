@@ -283,9 +283,9 @@ export function GlobalSearch(
             name="search"
             class={`w-full h-full search-input bg-white/90 dark:bg-jsr-gray-950/90 truncate ${
               kind === "packages"
-                ? "!text-transparent selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
+                ? "text-transparent! selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
                 : ""
-            } !caret-black dark:!caret-white input rounded-r-none ${sizeClasses} relative`}
+            } caret-black! dark:caret-white! input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
             onInput={onInput}
@@ -301,7 +301,7 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
+              class={`search-input bg-transparent! border-transparent! select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
             >
               <div
                 ref={inputOverlayContentRef}
@@ -415,7 +415,7 @@ function SuggestionList(
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-[selected=true]:bg-jsr-cyan-100 dark:aria-[selected=true]:bg-jsr-cyan-950"
+                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-selected:bg-jsr-cyan-100 dark:aria-selected:bg-jsr-cyan-950"
                   aria-selected={selected}
                 >
                   <a href={hit.href} class="bg-red-600">
@@ -468,7 +468,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
   return {
     href: `/docs/${hit.path}${hit.slug ? `#${hit.slug}` : ""}`,
     content: (
-      <div class="grow-1 w-full space-y-1">
+      <div class="grow w-full space-y-1">
         {hit.header && (
           <div class="font-semibold space-x-1">
             {hit.headerParts.map((part, i) => (

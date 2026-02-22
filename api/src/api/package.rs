@@ -18,6 +18,7 @@ use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_semver::StackString;
 use futures::StreamExt;
+use futures::TryFutureExt;
 use futures::future::Either;
 use hyper::Body;
 use hyper::Request;
@@ -80,7 +81,7 @@ use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
-use crate::tarball::gcs_tarball_path;
+use crate::tarball::bucket_tarball_path;
 use crate::util;
 use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
@@ -842,7 +843,7 @@ pub async fn version_publish_handler(
     }
   };
 
-  let gcs_path = gcs_tarball_path(publishing_task.id);
+  let gcs_path = bucket_tarball_path(publishing_task.id);
 
   let body = req.into_body();
   let total_size = Arc::new(AtomicU64::new(0));
@@ -868,7 +869,7 @@ pub async fn version_publish_handler(
     .publishing_bucket
     .upload(
       gcs_path.into(),
-      UploadTaskBody::Stream(Box::new(stream)),
+      crate::s3::UploadTaskBody::Stream(Box::new(stream)),
       GcsUploadOptions {
         content_type: Some("application/x-tar".into()),
         cache_control: None,
@@ -1165,21 +1166,25 @@ pub async fn version_tarball_handler(
     .get_publishing_task_for_version(&scope, &package, &version)
     .await?;
 
-  let path = gcs_tarball_path(task.id);
-  let (headers, body) = buckets
+  let path = bucket_tarball_path(task.id);
+  let body = buckets
     .publishing_bucket
     .bucket
-    .download_stream_with_encoding(&path, None, "")
+    .download_stream(&path, None)
     .await?
     .unwrap();
 
-  let mut res = Response::builder();
-  res.headers_mut().unwrap().extend(headers);
-  let body = Body::wrap_stream(body.map(|r| {
-    r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })
-  }));
-
-  Ok(res.status(StatusCode::OK).body(body).unwrap())
+  Ok(
+    Response::builder()
+      .status(StatusCode::OK)
+      .header(hyper::header::CONTENT_TYPE, "application/gzip")
+      .body(Body::wrap_stream(body.map(|r| {
+        r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+          Box::new(e)
+        })
+      })))
+      .unwrap(),
+  )
 }
 
 #[instrument(
@@ -1249,9 +1254,11 @@ pub async fn get_docs_handler(
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) =
-    futures::future::try_join(doc_nodes_fut, readme_fut).await?;
-
+  let (docs, readme) = futures::future::try_join(
+    doc_nodes_fut.map_err(ApiError::from),
+    readme_fut.map_err(ApiError::from),
+  )
+  .await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",

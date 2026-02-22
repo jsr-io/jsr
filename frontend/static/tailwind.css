@@ -1,0 +1,202 @@
+@theme {
+  /* Fonts
+    Replaces: fontFamily: { ... }
+  */
+  --font-mono:
+    "DM Mono", "Menlo", "Monaco", "Lucida Console", "Consolas",
+    "Liberation Mono", "Courier New", monospace;
+  --font-sans:
+    "DM Sans", "Inter", system-ui, -apple-system, "BlinkMacSystemFont",
+    "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", sans-serif;
+  --font-serif:
+    "DM Serif", "Georgia", "Cambria", "Times New Roman", "Times", serif;
+
+  --margin-indent: 2ch; /* Scoped specifically to margin utilities (m-indent) */
+  --max-width-prose: 75ch; /* Scoped to max-width (max-w-prose) */
+
+  --border-width-1_5: 1.5px;
+
+  /* Grid
+    Replaces: gridTemplateColumns
+  */
+  --grid-cols-15: repeat(15, minmax(0, 1fr));
+
+  /* Box Shadows
+    Replaces: boxShadow
+  */
+  --shadow-accent: 8px 14px 0 0 #64748b55;
+  --shadow-accent-sm: 5px 6px 0 0 #64748b55;
+  --shadow-accent-sm-close: 1px 2px 0 0 #64748b55;
+  --shadow-dark-accent: 8px 14px 0 0 #969faf54;
+  --shadow-dark-accent-sm: 5px 6px 0 0 #969faf54;
+  --shadow-dark-accent-sm-close: 1px 2px 0 0 #969faf54;
+
+  /* Colors
+    Replaces: colors & textColor
+  */
+
+  /* Aliasing 'gray' to 'neutral' */
+  --color-gray-50: var(--color-neutral-50);
+  --color-gray-100: var(--color-neutral-100);
+  --color-gray-200: var(--color-neutral-200);
+  --color-gray-300: var(--color-neutral-300);
+  --color-gray-400: var(--color-neutral-400);
+  --color-gray-500: var(--color-neutral-500);
+  --color-gray-600: var(--color-neutral-600);
+  --color-gray-700: var(--color-neutral-700);
+  --color-gray-800: var(--color-neutral-800);
+  --color-gray-900: var(--color-neutral-900);
+  --color-gray-950: var(--color-neutral-950);
+
+  /* JSR Yellow */
+  --color-jsr-yellow: #f7df1e;
+  --color-jsr-yellow-50: #fefee8;
+  --color-jsr-yellow-100: #fdfdc4;
+  --color-jsr-yellow-200: #fcf98c;
+  --color-jsr-yellow-300: #faee4a;
+  --color-jsr-yellow-400: #f7df1e;
+  --color-jsr-yellow-500: #e7c50b;
+  --color-jsr-yellow-600: #c79a07;
+  --color-jsr-yellow-700: #9f7009;
+  --color-jsr-yellow-800: #835710;
+  --color-jsr-yellow-900: #704713;
+  --color-jsr-yellow-950: #412507;
+
+  /* JSR Gray */
+  --color-jsr-gray: #121417;
+  --color-jsr-gray-50: #f6f7f9;
+  --color-jsr-gray-100: #e5e8eb;
+  --color-jsr-gray-200: #ced3da;
+  --color-jsr-gray-300: #a8b2bd;
+  --color-jsr-gray-400: #7a8999;
+  --color-jsr-gray-500: #5f6f81;
+  --color-jsr-gray-600: #515d6c;
+  --color-jsr-gray-700: #47515c;
+  --color-jsr-gray-800: #3a3f45;
+  --color-jsr-gray-900: #26292d;
+  --color-jsr-gray-950: #121417;
+
+  /* JSR Cyan */
+  --color-jsr-cyan: #083344;
+  --color-jsr-cyan-50: #ebf6ff;
+  --color-jsr-cyan-100: #cde9fe;
+  --color-jsr-cyan-200: #a6d8fc;
+  --color-jsr-cyan-300: #67bef9;
+  --color-jsr-cyan-400: #209fee;
+  --color-jsr-cyan-500: #0789d5;
+  --color-jsr-cyan-600: #0875af;
+  --color-jsr-cyan-700: #0e6590;
+  --color-jsr-cyan-800: #155775;
+  --color-jsr-cyan-900: #164d64;
+  --color-jsr-cyan-950: #083344;
+
+  /* Magenta */
+  --color-magenta-50: #fce7f3;
+  --color-magenta-100: #f8c6e7;
+  --color-magenta-200: #f39dce;
+  --color-magenta-300: #f06ba5;
+  --color-magenta-400: #e83a7c;
+  --color-magenta-500: #dc0953;
+  --color-magenta-600: #bf0840;
+  --color-magenta-700: #9e072f;
+  --color-magenta-800: #7b0620;
+  --color-magenta-900: #590510;
+  --color-magenta-950: #3b0306;
+
+  /* Doc Colors (Flat) */
+  --color-Function: #056cf0;
+  --color-FunctionDark: #4cc3ff;
+  --color-Method: #056cf0;
+  --color-MethodDark: #4cc3ff;
+  --color-Variable: #7e57c0;
+  --color-VariableDark: #b37feb;
+  --color-Property: #7e57c0;
+  --color-PropertyDark: #b37feb;
+  --color-Class: #20b44b;
+  --color-ClassDark: #87eea4;
+  --color-Enum: #22abb0;
+  --color-EnumDark: #3fced1;
+  --color-Interface: #d2a064;
+  --color-InterfaceDark: #bb733b;
+  --color-TypeAlias: #a4478c;
+  --color-TypeAliasDark: #dd95cc;
+  --color-Namespace: #d25646;
+  --color-NamespaceDark: #e57e6b;
+
+  /* Tag Colors */
+  --color-new: #7b61ff;
+  --color-abstract: #0cafc6;
+  --color-deprecated: #dc2626;
+  --color-unstable: #7b61ff;
+  --color-writeonly: #7b61ff;
+  --color-readonly: #7b61ff;
+  --color-protected: #7b61ff;
+  --color-private: #0cafc6;
+  --color-optional: #0cafc6;
+  --color-permissions: #0cafc6;
+  --color-other: #57534e;
+
+  /* Text Colors */
+  /* These are now available as text-primary, bg-primary, etc. */
+  --color-primary: var(--color-text-primary);
+  --color-secondary: var(--color-text-secondary);
+  --color-tertiary: var(--color-text-tertiary);
+
+  /* Animations
+    Replaces: animation
+  */
+  --animate-fade-in: fade-in 0.7s cubic-bezier(0, 0.63, 0.5, 1) forwards;
+  --animate-fade-in-late: fade-in-late 1s ease-in;
+  --animate-scroll-x: scroll-x 10s linear infinite;
+  --animate-scroll-y: scroll-y 10s linear infinite;
+  --animate-rotate-180: rotate-180 0.3s ease-in-out;
+
+  /* Keyframes
+    Replaces: keyframes
+  */
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes fade-in-late {
+    0% {
+      opacity: 0;
+    }
+    75% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes scroll-x {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes scroll-y {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-50%);
+    }
+  }
+  @keyframes rotate-180 {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(180deg);
+    }
+  }
+}

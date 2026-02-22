@@ -2,7 +2,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { Builder } from "fresh/dev";
-import { tailwind } from "@fresh/plugin-tailwind-v3";
+import { tailwind } from "@fresh/plugin-tailwind";
 import { CSS } from "@deno/gfm";
 
 const builder = new Builder();
@@ -18,7 +18,7 @@ builder.onTransformStaticFile(
     };
   },
 );
-tailwind(builder, {});
+tailwind(builder);
 
 if (Deno.args.includes("build")) {
   await builder.build();
