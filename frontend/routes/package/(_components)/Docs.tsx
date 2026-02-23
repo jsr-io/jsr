@@ -97,7 +97,7 @@ function SharedView({
   toc: ComponentChildren;
 }) {
   return (
-    <div class="pt-6 pb-8 flex flex-col gap-3">
+    <div class="pt-6 pb-8">
       <style
         hidden
         // deno-lint-ignore react-no-danger
@@ -126,8 +126,10 @@ function SharedView({
           {children}
         </div>
         <div
-          class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
-            docs.breadcrumbs ? "lg:-mt-16 lg:pt-16" : ""
+          class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:sticky flex flex-col box-border gap-y-4 ${
+            docs.breadcrumbs
+              ? "lg:top-[var(--breadcrumbs-height,0px)] lg:max-h-[calc(100vh-var(--breadcrumbs-height,0px))] -mt-4 lg:mt-0"
+              : "lg:top-0 lg:max-h-screen -mt-4 pt-4"
           }`}
         >
           {toc}

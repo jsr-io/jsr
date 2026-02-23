@@ -516,6 +516,18 @@ body .ddoc {
         background-color: #005cc5;
       }
     }
+    
+    .diff-added, .diff-modified, .diff-removed {
+      &:not(.diff-inline) {
+        @apply py-0.5 -mb-1 px-2 -mx-2;
+      }
+      &.diff-inline {
+        @apply py-0.5 px-1;
+      }
+    }
+    .diff-removed.diff-inline {
+      @apply ml-3;
+    }
   }
 
   .markdown_summary {
@@ -564,15 +576,15 @@ body .ddoc {
   }
 
   .diff-added::before {
-    @apply bg-inherit bg-green-600/50 dark:bg-green-500/30;
+    @apply bg-green-600/50 dark:bg-green-500/30;
     content: "+";
   }
   .diff-modified::before {
-    @apply bg-inherit bg-yellow-500/50 dark:bg-yellow-500/30;
+    @apply bg-yellow-500/50 dark:bg-yellow-500/30;
     content: "±";
   }
   .diff-removed::before {
-    @apply bg-inherit bg-red-600/40 dark:bg-red-500/30;
+    @apply bg-red-600/40 dark:bg-red-500/30;
     content: "-";
   }
 
@@ -608,15 +620,16 @@ body .ddoc {
 
   .diff-inline {
     @apply px-0.5;
-  }
-
-  .diff-removed.diff-inline {
-    @apply rounded-r-none;
-  }
-  .diff-added.diff-inline {
-    @apply ml-3;
-
-    &::before {
+    
+    &.diff-added {
+      @apply ml-3;
+    }
+    
+    &.diff-removed:has(+ .diff-added) {
+      @apply rounded-r-none;
+    }
+    
+    &.diff-removed + .diff-added::before {
       @apply rounded-l-none;
     }
   }

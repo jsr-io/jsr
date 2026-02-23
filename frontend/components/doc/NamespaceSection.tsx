@@ -5,7 +5,7 @@ import { getDiffColor } from "./mod.ts";
 
 export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
   return (
-    <div class="space-y-2 mt-6! max-w-prose">
+    <div class="space-y-3 mt-6! max-w-prose">
       {items.map((item) => {
         const renamedOldName = item.diff_status?.kind === "renamed"
           ? item.diff_status.old_name
@@ -14,7 +14,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
         return (
           <div
             id={item.anchor.id}
-            class={`md:min-h-16 lg:pr-4 max-md:-pl-1 max-md:-ml-1 py-1 px-2 -my-1 -mx-2 ${
+            class={`md:min-h-16 lg:pr-4 max-md:-pl-1 max-md:-ml-1 py-1 px-2 -mt-1 -mx-2 ${
               item.deprecated
                 ? "opacity-60 line-through decoration-2 decoration-stone-500/70 text-stone-500 dark:text-stone-400"
                 : ""
@@ -86,7 +86,7 @@ export function NamespaceSection({ items }: { items: NamespaceNodeCtx[] }) {
             </div>
 
             {item.subitems && item.subitems.length > 0 && (
-              <ul class="space-y-2 text-sm mt-3 ml-8.5">
+              <ul class="space-y-2.5 text-sm mt-3 ml-8.5">
                 {item.subitems.map((subitem, i) => {
                   const renamedOldName = subitem.diff_status?.kind === "renamed"
                     ? subitem.diff_status.old_name

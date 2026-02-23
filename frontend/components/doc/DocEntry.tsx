@@ -19,7 +19,6 @@ export function DocEntry(
     js_doc,
     diff_status,
     old_content,
-    js_doc_changed,
   } = entry;
 
   const renamedOldName = diff_status?.kind === "renamed"
@@ -114,11 +113,7 @@ export function DocEntry(
 
       {js_doc && (
         <div
-          class={`max-w-[75ch]${
-            js_doc_changed
-              ? " border-l-2 border-yellow-400 dark:border-yellow-600 pl-2"
-              : ""
-          }`}
+          class="max-w-[75ch]"
           // jsdoc rendering
           // deno-lint-ignore react-no-danger
           dangerouslySetInnerHTML={{ __html: js_doc }}
