@@ -21,20 +21,20 @@ export function Toc(
   }
 
   return (
-    <div class="ddoc w-full lg:overflow-y-auto pb-4 pt-4">
+    <div class="ddoc lg:overflow-y-auto pb-4 pt-4 -mr-2 pr-2">
       <div class="toc">
         <div class="space-y-5">
           {diff && (
             <div class="flex flex-col gap-4">
               <a
                 href={diff.oldVersionUrl}
-                class="block button-sm button-primary"
+                class="block button-sm button-secondary"
               >
                 View in {diff.oldVersion}
               </a>
               <a
                 href={diff.newVersionUrl}
-                class="block button-sm button-primary"
+                class="block button-sm button-secondary"
               >
                 View in {diff.newVersion}
               </a>

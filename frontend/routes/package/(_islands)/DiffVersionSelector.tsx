@@ -1,8 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import TbArrowRight from "tb-icons/TbArrowRight";
-import TbLayoutBottombarCollapseFilled from "tb-icons/TbLayoutBottombarCollapseFilled";
-import TbLayoutBottombarExpandFilled from "tb-icons/TbLayoutBottombarExpandFilled";
-import { compileDocsRequestPath, DocsRequest } from "../../../utils/data.ts";
+import TbEyeFilled from "tb-icons/TbEyeFilled";
+import TbEyeOff from "tb-icons/TbEyeOff";
 
 const SELECT_CLASSES =
   "block w-64 py-1.5 px-2 input-container select text-sm font-normal";
@@ -41,6 +40,7 @@ export default function DiffVersionSelector(
       </select>
 
       <a
+        class="p-1 -ml-1 rounded-md hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-950"
         href={`/@${props.scope}/${props.pkg}/diff/${props.newVersion || ""}...${
           props.oldVersion || ""
         }${props.docsRequest}`}
@@ -65,12 +65,11 @@ export default function DiffVersionSelector(
       </select>
 
       <a
+        class="p-1 -ml-1 rounded-md hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-950"
         href={strippedUrl.pathname + (full ? "" : "?full")}
         title={full ? "Only show changed items" : "Show all items"}
       >
-        {full
-          ? <TbLayoutBottombarExpandFilled class="size-6" />
-          : <TbLayoutBottombarCollapseFilled class="size-6" />}
+        {full ? <TbEyeOff class="size-6" /> : <TbEyeFilled class="size-6" />}
       </a>
     </div>
   );

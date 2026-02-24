@@ -60,14 +60,14 @@ export function PackageHeader({
             <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
               <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
               <span class="font-medium">
-              This release {selectedVersion.yanked
-                ? (
-                  <>
-                    was yanked — the latest version of @{pkg
-                    .scope}/{pkg.name} is {pkg.latestVersion}.
-                  </>
-                )
-                : isNewerPrerelease
+                This release {selectedVersion.yanked
+                  ? (
+                    <>
+                      was yanked — the latest version of @{pkg
+                        .scope}/{pkg.name} is {pkg.latestVersion}.
+                    </>
+                  )
+                  : isNewerPrerelease
                   ? (
                     <>
                       is a pre-release — the latest non-prerelease version of
@@ -76,16 +76,16 @@ export function PackageHeader({
                   )
                   : (
                     <>
-                    <span class="bold">
-                      is {selectedVersion.newerVersionsCount}{" "}
-                      version{selectedVersion.newerVersionsCount !== 1 && "s"}
-                      {" "}
-                      behind {pkg.latestVersion}
-                    </span>{" "}
+                      <span class="bold">
+                        is {selectedVersion.newerVersionsCount}{" "}
+                        version{selectedVersion.newerVersionsCount !== 1 && "s"}
+                        {" "}
+                        behind {pkg.latestVersion}
+                      </span>{" "}
                       — the latest version of @{pkg.scope}/{pkg.name}.
                     </>
                   )}
-            </span>
+              </span>
             </div>
             <div class="flex gap-4 max-md:w-full max-md:text-center">
               <a

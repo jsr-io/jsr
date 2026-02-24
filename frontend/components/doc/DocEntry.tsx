@@ -52,7 +52,9 @@ export function DocEntry(
               />
             )}
             <span class="font-bold font-lg align-top">
-              {name_prefix && <span class="text-secondary">{name_prefix + " "}</span>}
+              {name_prefix && (
+                <span class="text-secondary">{name_prefix + " "}</span>
+              )}
 
               {renamedOldName && (
                 <span
