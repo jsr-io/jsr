@@ -208,13 +208,13 @@
 
   .button-secondary {
     @apply border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50
-      /*border-jsr-cyan-900 dark:border-jsr-cyan-600*/hover:border-jsr-cyan-300
-      dark:hover:border-jsr-cyan-500 bg-jsr-cyan-50 dark:bg-jsr-cyan
-      hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-800 focus:bg-jsr-cyan-300
-      dark:focus:bg-jsr-cyan-400 outline-jsr-cyan-400 dark:outline-jsr-cyan-700
-      disabled:bg-jsr-gray-100 dark:disabled:bg-jsr-gray-900
-      disabled:text-jsr-gray-300 dark:disabled:text-jsr-gray-600
-      disabled:border-jsr-gray-300 dark:disabled:border-jsr-gray-900;
+      hover:border-jsr-cyan-300 dark:hover:border-jsr-cyan-500 bg-jsr-cyan-50
+      dark:bg-jsr-cyan hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-800
+      focus:bg-jsr-cyan-300 dark:focus:bg-jsr-cyan-400 outline-jsr-cyan-400
+      dark:outline-jsr-cyan-700 disabled:bg-jsr-gray-100
+      dark:disabled:bg-jsr-gray-900 disabled:text-jsr-gray-300
+      dark:disabled:text-jsr-gray-600 disabled:border-jsr-gray-300
+      dark:disabled:border-jsr-gray-900;
   }
 
   .button-danger {
