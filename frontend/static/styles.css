@@ -9,6 +9,9 @@
 @source inline("dark:text-{FunctionDark,MethodDark,VariableDark,PropertyDark,ClassDark,EnumDark,InterfaceDark,TypeAliasDark,NamespaceDark}");
 @source inline("bg-{Function,Method,Variable,Property,Class,Enum,Interface,TypeAlias,Namespace}/15");
 @source inline("dark:bg-{FunctionDark,MethodDark,VariableDark,PropertyDark,ClassDark,EnumDark,InterfaceDark,TypeAliasDark,NamespaceDark}/15");
+@source inline("text-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}");
+@source inline("border-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}/50");
+@source inline("bg-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}/5");
 
 @layer base {
   img:where(:not(.markdown img)), video:where(:not(.markdown video)) {
@@ -204,7 +207,7 @@
   }
 
   .button-secondary {
-    @apply border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 
+    @apply border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50
       /*border-jsr-cyan-900 dark:border-jsr-cyan-600*/hover:border-jsr-cyan-300
       dark:hover:border-jsr-cyan-500 bg-jsr-cyan-50 dark:bg-jsr-cyan
       hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-800 focus:bg-jsr-cyan-300
