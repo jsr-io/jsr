@@ -27,7 +27,7 @@ export function DocEntry(
 
   return (
     <div
-      class={`space-y-2 max-md:-pl-1 max-md:-ml-1 py-1 -mb-1 px-2 -mx-2 ${
+      class={`space-y-2 max-md:-pl-1 max-md:-ml-1 py-1 px-2 -mx-2 ${
         name ? "anchorable" : ""
       } group/sourceable relative diff-mobile-skip-round ${
         getDiffColor(diff_status, false)
