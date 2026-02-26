@@ -154,7 +154,7 @@ export async function proxyToR2(
     if (request.method === "HEAD") {
       const object = await bucket.head(key);
       if (!object) {
-        return new Response("Not Found", { status: 404 });
+        return new Response(null, { status: 404 });
       }
       const headers = new Headers();
       object.writeHttpMetadata(headers);
