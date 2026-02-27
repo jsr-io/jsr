@@ -9,11 +9,11 @@ function createFakeBucket(
   objects: Record<string, { body: string; contentType?: string }>,
 ): PartialBucket {
   return {
-    async head(key: string): Promise<R2Object | null> {
+    head(key: string): Promise<R2Object | null> {
       const obj = objects[key];
-      if (!obj) return null;
+      if (!obj) return Promise.resolve(null);
       const size = new TextEncoder().encode(obj.body).byteLength;
-      return {
+      return Promise.resolve({
         key,
         version: "",
         size,
@@ -31,15 +31,15 @@ function createFakeBucket(
         writeHttpMetadata(headers: Headers) {
           if (obj.contentType) headers.set("content-type", obj.contentType);
         },
-      } as R2Object;
+      } as R2Object);
     },
 
-    async get(
+    get(
       key: string,
       _options?: R2GetOptions,
     ): Promise<R2ObjectBody | R2Object | null> {
       const obj = objects[key];
-      if (!obj) return null;
+      if (!obj) return Promise.resolve(null);
       const body = new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode(obj.body));
@@ -47,7 +47,7 @@ function createFakeBucket(
         },
       });
       const size = new TextEncoder().encode(obj.body).byteLength;
-      return {
+      return Promise.resolve({
         key,
         version: "",
         size,
@@ -72,7 +72,7 @@ function createFakeBucket(
         text: () => new Response(body).text(),
         json: <T>() => new Response(body).json() as Promise<T>,
         blob: () => new Response(body).blob(),
-      } as R2ObjectBody;
+      } as R2ObjectBody);
     },
   } as PartialBucket;
 }
