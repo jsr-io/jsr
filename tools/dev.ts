@@ -127,6 +127,9 @@ class DevRunner {
   #inputBuf = "";
   #encoder = new TextEncoder();
   #shuttingDown = false;
+  #history: string[] = [];
+  #historyIndex = -1;
+  #savedInput = "";
 
   constructor(noDockerPostgres: boolean) {
     this.#noDockerPostgres = noDockerPostgres;
@@ -228,8 +231,11 @@ class DevRunner {
           if (byte === 13 || byte === 10) {
             const input = this.#inputBuf.trim();
             this.#inputBuf = "";
+            this.#historyIndex = -1;
+            this.#savedInput = "";
             this.#write(`\r${CLEAR_LINE}`);
             if (input.length > 0) {
+              this.#history.unshift(input);
               await this.#handleCommand(input);
             }
             this.#renderPrompt();
@@ -252,12 +258,45 @@ class DevRunner {
             continue;
           }
 
-          // Skip escape sequences
+          // Escape sequences (arrow keys, etc.)
           if (byte === 27) {
-            // consume remaining escape bytes
-            while (i + 1 < n && buf[i + 1] >= 0x20 && buf[i + 1] <= 0x7e) {
-              i++;
-              if (buf[i] >= 0x40) break;
+            if (i + 2 < n && buf[i + 1] === 0x5b) { // ESC [
+              const code = buf[i + 2];
+              i += 2;
+              // Up arrow
+              if (code === 0x41) {
+                if (this.#historyIndex < this.#history.length - 1) {
+                  if (this.#historyIndex === -1) {
+                    this.#savedInput = this.#inputBuf;
+                  }
+                  this.#historyIndex++;
+                  this.#inputBuf = this.#history[this.#historyIndex];
+                  this.#renderPrompt();
+                }
+                continue;
+              }
+              // Down arrow
+              if (code === 0x42) {
+                if (this.#historyIndex >= 0) {
+                  this.#historyIndex--;
+                  this.#inputBuf = this.#historyIndex >= 0
+                    ? this.#history[this.#historyIndex]
+                    : this.#savedInput;
+                  this.#renderPrompt();
+                }
+                continue;
+              }
+              // Skip other CSI sequences
+              while (i + 1 < n && buf[i + 1] >= 0x20 && buf[i + 1] <= 0x7e) {
+                i++;
+                if (buf[i] >= 0x40) break;
+              }
+            } else {
+              // Skip other escape sequences
+              while (i + 1 < n && buf[i + 1] >= 0x20 && buf[i + 1] <= 0x7e) {
+                i++;
+                if (buf[i] >= 0x40) break;
+              }
             }
             continue;
           }

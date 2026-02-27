@@ -22,7 +22,7 @@ export default function DiffVersionSelector(
   strippedUrl.searchParams.delete("full");
 
   return (
-    <div class="flex justify-center items-center gap-4">
+    <div class="flex justify-center items-center gap-3.5">
       <select
         class={SELECT_CLASSES}
         onChange={(e) => {
