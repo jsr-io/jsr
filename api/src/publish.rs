@@ -6,7 +6,6 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
@@ -28,6 +27,7 @@ use crate::metadata::VersionMetadata;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
+use crate::s3::UploadTaskBody;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
 use crate::tarball::process_tarball;
@@ -693,28 +693,31 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/jsr.json")
+      .bucket
+      .get_object("@scope/foo/1.2.3/jsr.json")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/mod.ts")
+      .bucket
+      .get_object("@scope/foo/1.2.3/mod.ts")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "text/typescript");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/logo.svg")
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "image/svg+xml");
   }
 

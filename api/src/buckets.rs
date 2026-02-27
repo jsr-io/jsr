@@ -20,6 +20,7 @@ use crate::task_queue::DynamicBackgroundTaskQueue;
 use crate::task_queue::RestartableTask;
 use crate::task_queue::RestartableTaskResult;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct BucketWithQueue {
   pub bucket: gcp::Bucket,
@@ -29,6 +30,7 @@ pub struct BucketWithQueue {
   list_queue: DynamicBackgroundTaskQueue<ListDirectoryTask>,
 }
 
+#[allow(dead_code)]
 impl BucketWithQueue {
   pub fn new(bucket: gcp::Bucket) -> Self {
     Self {
@@ -116,7 +118,7 @@ impl BucketWithQueue {
 #[derive(Clone)]
 pub struct Buckets {
   pub publishing_bucket: crate::s3::BucketWithQueue,
-  pub modules_bucket: BucketWithQueue,
+  pub modules_bucket: crate::s3::BucketWithQueue,
   pub docs_bucket: crate::s3::BucketWithQueue,
   pub npm_bucket: crate::s3::BucketWithQueue,
 }

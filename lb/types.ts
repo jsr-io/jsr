@@ -18,7 +18,6 @@ export interface WorkerEnv {
   REGISTRY_FRONTEND_URL: string;
 
   GCS_ENDPOINT?: string;
-  MODULES_BUCKET: string;
 
   ROOT_DOMAIN: string;
   API_DOMAIN: string;
@@ -26,4 +25,5 @@ export interface WorkerEnv {
 
   DOWNLOADS?: AnalyticsEngineDataset;
   NPM_BUCKET: PartialBucket;
+  MODULES_BUCKET: PartialBucket;
 }

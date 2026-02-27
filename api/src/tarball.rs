@@ -31,7 +31,6 @@ use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
 use crate::analysis::analyze_package;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
@@ -50,6 +49,7 @@ use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::s3::S3Error;
+use crate::s3::UploadTaskBody;
 use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
@@ -491,7 +491,7 @@ pub async fn process_tarball(
             },
           )
           .await
-          .map_err(PublishError::GcsUploadError)
+          .map_err(PublishError::S3UploadError)
       }
     })
     .buffer_unordered(MAX_CONCURRENT_UPLOADS);
@@ -530,6 +530,7 @@ pub enum PublishError {
   #[error("missing tarball")]
   MissingTarball,
 
+  #[allow(dead_code)]
   #[error("gcs upload error: {0}")]
   GcsUploadError(GcsError),
 
