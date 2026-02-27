@@ -21,7 +21,9 @@ function createFakeBucket(
         httpEtag: `"${key}"`,
         checksums: { toJSON: () => ({}) } as R2Checksums,
         uploaded: new Date(),
-        httpMetadata: obj.contentType ? { contentType: obj.contentType } : undefined,
+        httpMetadata: obj.contentType
+          ? { contentType: obj.contentType }
+          : undefined,
         customMetadata: undefined,
         range: undefined,
         storageClass: "Standard",
@@ -53,7 +55,9 @@ function createFakeBucket(
         httpEtag: `"${key}"`,
         checksums: { toJSON: () => ({}) } as R2Checksums,
         uploaded: new Date(),
-        httpMetadata: obj.contentType ? { contentType: obj.contentType } : undefined,
+        httpMetadata: obj.contentType
+          ? { contentType: obj.contentType }
+          : undefined,
         customMetadata: undefined,
         range: undefined,
         storageClass: "Standard",
