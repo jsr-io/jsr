@@ -66,6 +66,43 @@ jobs:
         run: deno task build
         working-directory: lb
 
+  check:
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push'
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+        working-directory: api
+
+      - name: Setup postgres for tests
+        run: docker compose up -d
+
+      - uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: sqlx-cli@0.7.1
+
+      - name: Check sqlx metadata is up to date
+        run: |
+          cargo sqlx migrate run
+          cargo sqlx prepare --check
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://user:password@localhost/registry
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: api
+
   test:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
@@ -85,26 +122,6 @@ jobs:
 
       - name: Build
         run: cargo build --all-targets --tests
-        working-directory: api
-
-      - name: Format
-        run: cargo fmt --all -- --check
-        working-directory: api
-
-      - uses: taiki-e/cache-cargo-install-action@v3
-        with:
-          tool: sqlx-cli@0.7.1
-
-      - name: Check sqlx metadata is up to date
-        run: |
-          cargo sqlx migrate run
-          cargo sqlx prepare --check
-        working-directory: api
-        env:
-          DATABASE_URL: postgres://user:password@localhost/registry
-
-      - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: api
 
       - name: Test
