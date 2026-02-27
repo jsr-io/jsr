@@ -3168,9 +3168,9 @@ dependencies = [
 
 [[package]]
 name = "oramacore-client"
-version = "1.2.0"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02ad3c85d28909f2272dd99988c90ee690169ebede0b54b14f3ba5ddd8c77d1d"
+checksum = "84b2f2a0f9f24132e885973a9aaa41e3d3d0f3bcbe491a5269a058b777921f00"
 dependencies = [
  "anyhow",
  "async-trait",
