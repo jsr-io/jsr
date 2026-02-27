@@ -91,7 +91,8 @@ export async function packageDataWithVersion(
   };
 }
 
-export type DocsRequest = { all_symbols: "true" } | {
+// deno-lint-ignore ban-types
+export type DocsRequest = {} | { all_symbols: "true" } | {
   entrypoint: string;
   symbol?: string;
 };
