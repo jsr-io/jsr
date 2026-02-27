@@ -136,7 +136,7 @@ export async function proxyToR2(
   if (pathRewrite) {
     path = pathRewrite(path);
   }
-  const key = path.slice(1);
+  const key = decodeURIComponent(path.slice(1));
 
   const cacheKey = new Request(request.url, { method: "GET" });
   const cached = await caches.default?.match(cacheKey);
