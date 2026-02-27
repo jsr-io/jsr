@@ -56,41 +56,51 @@ export function PackageHeader({
       {selectedVersion && pkg.latestVersion &&
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 dark:border-jsr-yellow-700 bg-jsr-yellow-50 dark:bg-jsr-yellow-900/30 rounded py-3 px-4 md:text-center dark:text-gray-200">
-          <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
-            <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
-            <span class="font-medium">
-              This release {selectedVersion.yanked
-                ? (
-                  <>
-                    was yanked — the latest version of @{pkg
-                      .scope}/{pkg.name} is {pkg.latestVersion}.
-                  </>
-                )
-                : isNewerPrerelease
-                ? (
-                  <>
-                    is a pre-release — the latest non-prerelease version of
-                    @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
-                  </>
-                )
-                : (
-                  <>
-                    <span class="bold">
-                      is {selectedVersion.newerVersionsCount}{" "}
-                      version{selectedVersion.newerVersionsCount !== 1 && "s"}
-                      {" "}
-                      behind {pkg.latestVersion}
-                    </span>{" "}
-                    — the latest version of @{pkg.scope}/{pkg.name}.
-                  </>
-                )}{" "}
+          <div class="flex items-center justify-between max-md:flex-col gap-4 md:gap-2">
+            <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
+              <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
+              <span class="font-medium">
+                This release {selectedVersion.yanked
+                  ? (
+                    <>
+                      was yanked — the latest version of @{pkg
+                        .scope}/{pkg.name} is {pkg.latestVersion}.
+                    </>
+                  )
+                  : isNewerPrerelease
+                  ? (
+                    <>
+                      is a pre-release — the latest non-prerelease version of
+                      @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
+                    </>
+                  )
+                  : (
+                    <>
+                      <span class="bold">
+                        is {selectedVersion.newerVersionsCount}{" "}
+                        version{selectedVersion.newerVersionsCount !== 1 && "s"}
+                        {" "}
+                        behind {pkg.latestVersion}
+                      </span>{" "}
+                      — the latest version of @{pkg.scope}/{pkg.name}.
+                    </>
+                  )}
+              </span>
+            </div>
+            <div class="flex gap-4 max-md:w-full max-md:text-center">
               <a
-                class="link font-medium whitespace-nowrap"
+                class="max-md:flex-1 max-md:block button-sm button-primary whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
                 Jump to {isNewerPrerelease ? "this version " : "latest"}
               </a>
-            </span>
+              <a
+                class="max-md:flex-1 max-md:block button-sm button-primary whitespace-nowrap"
+                href={`/@${pkg.scope}/${pkg.name}/diff/${selectedVersion.version}...${pkg.latestVersion}`}
+              >
+                Jump to diff
+              </a>
+            </div>
           </div>
         </div>
       )}

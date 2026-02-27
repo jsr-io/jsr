@@ -91,12 +91,18 @@ export async function packageDataWithVersion(
   };
 }
 
+// deno-lint-ignore ban-types
+export type DocsRequest = {} | { all_symbols: "true" } | {
+  entrypoint: string;
+  symbol?: string;
+};
+
 export async function packageDataWithDocs(
   state: State,
   scope: string,
   pkg: string,
   version: string | undefined,
-  docs: { all_symbols: "true" } | { entrypoint?: string; symbol?: string },
+  docs: DocsRequest,
 ): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
@@ -169,6 +175,92 @@ export interface DocsData extends PackageData {
   kind: "content";
   selectedVersion: PackageVersionWithUser | null;
   selectedVersionIsLatestUnyanked: boolean;
+  docs: Docs | null;
+}
+
+export async function packageDataWithDiff(
+  state: State,
+  scope: string,
+  pkg: string,
+  oldVersion: string | undefined,
+  newVersion: string | undefined,
+  full: string | null,
+  docs: DocsRequest,
+): Promise<PackageVersionDocsRedirect | DiffData | Response | null> {
+  const [data, pkgDiffResp, versionsResp] = await Promise.all([
+    packageData(state, scope, pkg),
+    (oldVersion && newVersion)
+      ? state.api.get<PackageVersionDocs>(
+        path`/scopes/${scope}/packages/${pkg}/diff/${oldVersion}/${newVersion}`,
+        {
+          ...docs,
+          full,
+        },
+      )
+      : Promise.resolve(null),
+    state.api.get<PackageVersionWithUser[]>(
+      path`/scopes/${scope}/packages/${pkg}/versions`,
+    ),
+  ]);
+  if (data === null) return null;
+
+  if (pkgDiffResp && !pkgDiffResp.ok) {
+    if (pkgDiffResp.code === "packageVersionNotFound") {
+      return null;
+    } else {
+      if (pkgDiffResp.code === "scopeNotFound") return null;
+      if (pkgDiffResp.code === "packageNotFound") return null;
+      if (pkgDiffResp.code === "entrypointOrSymbolNotFound") {
+        // redirect to all symbols page if there is no default entrypoint
+        if ("entrypoint" in docs && !docs.symbol && docs.entrypoint === "") {
+          return new Response(null, {
+            headers: {
+              Location:
+                `/@${scope}/${pkg}/diff/${oldVersion}...${newVersion}/all_symbols`,
+            },
+            status: 302,
+          });
+        }
+
+        return null;
+      }
+      assertOk(pkgDiffResp);
+    }
+  }
+
+  assertOk(versionsResp);
+
+  if (pkgDiffResp === null) {
+    return {
+      ...data,
+      kind: "content",
+      selectedVersion: null,
+      versions: versionsResp.data,
+      docs: null,
+    };
+  } else if (pkgDiffResp.data.kind == "redirect") {
+    return pkgDiffResp.data;
+  } else {
+    return {
+      ...data,
+      kind: "content",
+      selectedVersion: pkgDiffResp.data.version,
+      versions: versionsResp.data,
+      docs: {
+        comrakCss: pkgDiffResp.data.comrakCss,
+        script: pkgDiffResp.data.script,
+        breadcrumbs: pkgDiffResp.data.breadcrumbs,
+        toc: pkgDiffResp.data.toc,
+        main: pkgDiffResp.data.main,
+      },
+    };
+  }
+}
+
+export interface DiffData extends PackageData {
+  kind: "content";
+  selectedVersion: PackageVersionWithUser | null;
+  versions: PackageVersionWithUser[];
   docs: Docs | null;
 }
 
@@ -256,4 +348,14 @@ export async function scopeDataWithMember(
     ...data,
     scopeMember: scopeMemberResp?.data ?? null,
   };
+}
+
+export function compileDocsRequestPath(request: DocsRequest) {
+  if ("entrypoint" in request) {
+    return `${request.entrypoint ? `/${request.entrypoint}` : ""}${
+      request.symbol ? `/~/${request.symbol}` : ""
+    }`;
+  } else {
+    return "/all_symbols";
+  }
 }

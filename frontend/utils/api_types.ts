@@ -160,7 +160,7 @@ export interface PackageVersionDocsContent {
   comrakCss: string;
   script: string;
   breadcrumbs: BreadcrumbsCtx | null;
-  toc: ToCCtx | null;
+  toc: ToCCtx;
   main: DocsMainContent;
 }
 

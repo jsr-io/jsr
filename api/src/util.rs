@@ -299,6 +299,40 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
   (start, limit)
 }
 
+pub struct DocsQueries<'a> {
+  pub all_symbols: bool,
+  pub entrypoint: Option<&'a str>,
+  pub symbol: Option<std::borrow::Cow<'a, str>>,
+}
+
+pub fn docs_queries(req: &Request<Body>) -> Result<DocsQueries<'_>, ApiError> {
+  let all_symbols = req.query("all_symbols").is_some();
+  let entrypoint = req.query("entrypoint").map(|s| match s.as_str() {
+    "" => ".",
+    s => s,
+  });
+
+  let symbol = req
+    .query("symbol")
+    .and_then(|s| match s.as_str() {
+      "" => None,
+      s => Some(urlencoding::decode(s)),
+    })
+    .transpose()?;
+
+  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
+    return Err(ApiError::MalformedRequest {
+      msg: "Cannot specify both all_symbols and entrypoint".into(),
+    });
+  }
+
+  Ok(DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  })
+}
+
 // Sanitize redirect urls
 // - Remove origin from Url: https://evil.com -> /
 // - Replace multiple slashes with one slash to remove prevent
@@ -339,7 +373,7 @@ pub trait RequestIdExt {
   fn param_version_or_latest(&self) -> Result<VersionOrLatest, ApiError>;
 }
 
-fn param<'a>(
+pub fn param<'a>(
   req: &'a Request<Body>,
   name: &str,
 ) -> Result<&'a String, ApiError> {

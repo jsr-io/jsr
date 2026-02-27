@@ -38,7 +38,7 @@ function SectionContent({ content }: { content: SectionContentCtx }) {
       );
     case "doc_entry":
       return (
-        <div class="space-y-8">
+        <div class="space-y-2">
           {content.content.map((entry, i) => (
             <DocEntry
               key={i}

@@ -1,4 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import type { DiffStatus } from "@deno/doc/html-types";
+
 export { Anchor } from "./Anchor.tsx";
 export { Breadcrumbs } from "./Breadcrumbs.tsx";
 export { CategoryPanel } from "./CategoryPanel.tsx";
@@ -19,3 +21,26 @@ export { SymbolContent } from "./SymbolContent.tsx";
 export { SymbolGroup } from "./SymbolGroup.tsx";
 export { Tag } from "./Tag.tsx";
 export { Toc } from "./Toc.tsx";
+
+export function getDiffColor(
+  diffStatus: DiffStatus | undefined,
+  allowModified: boolean,
+) {
+  if (!diffStatus) return "";
+
+  switch (diffStatus.kind) {
+    case "added":
+      return "diff-added";
+    case "removed":
+      return "diff-removed";
+    case "modified": {
+      if (allowModified) {
+        return "diff-modified";
+      } else {
+        return "";
+      }
+    }
+    case "renamed":
+      return "";
+  }
+}

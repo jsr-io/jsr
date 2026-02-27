@@ -44,6 +44,10 @@ errors!(
     status: NOT_FOUND,
     "The requested package version was not found.",
   },
+  DiffNoIndex {
+    status: NOT_FOUND,
+    "Diffs do not have an index.",
+  },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
     "The requested entrypoint or symbol was not found.",

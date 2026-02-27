@@ -2,11 +2,15 @@
 import type { AnchorCtx } from "@deno/doc/html-types";
 import TbLink from "tb-icons/TbLink";
 
-export function Anchor({ anchor: { id } }: { anchor: AnchorCtx }) {
+export function Anchor(
+  { anchor: { id }, class: classes }: { anchor: AnchorCtx; class?: string },
+) {
   return (
     <a
       href={`#${id}`}
-      class="anchor hidden float-left leading-none text-stone-600 ml-[-24px] p-1 pr-1 pt-1 top-0 bottom-0 dark:text-stone-400"
+      class={`anchor hidden float-left leading-none text-stone-600 ml-[-24px] p-1 pr-1 pt-1 top-0 bottom-0 dark:text-stone-400 ${
+        classes ?? ""
+      }`}
       aria-label="Anchor"
       tabIndex={-1}
     >

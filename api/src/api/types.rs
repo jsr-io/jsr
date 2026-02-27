@@ -636,7 +636,7 @@ pub enum ApiPackageVersionDocs {
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<deno_doc::html::util::BreadcrumbsCtx>,
-    toc: Option<deno_doc::html::util::ToCCtx>,
+    toc: deno_doc::html::util::ToCCtx,
     main: ApiGeneratedDocsContent,
   },
   Redirect {

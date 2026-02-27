@@ -34,7 +34,6 @@ export default define.page<typeof handler>(function File({
 
       <DocsView
         docs={data.docs}
-        params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
         user={state.user}
         scope={data.package.scope}

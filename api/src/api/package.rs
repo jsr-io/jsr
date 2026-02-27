@@ -83,14 +83,14 @@ use crate::provenance;
 use crate::publish::publish_task;
 use crate::tarball::bucket_tarball_path;
 use crate::util;
-use crate::util::ApiResult;
-use crate::util::CacheDuration;
 use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
+use crate::util::{ApiResult, docs_queries};
+use crate::util::{CacheDuration, DocsQueries};
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -180,6 +180,10 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/source",
       util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
+    )
+    .get(
+      "/:package/diff/:old_version/:new_version",
+      util::cache(CacheDuration::ONE_MINUTE, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
@@ -1198,30 +1202,17 @@ pub async fn get_docs_handler(
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package_name));
   Span::current().record("version", field::display(&version_or_latest));
-  let all_symbols = req.query("all_symbols").is_some();
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+
   Span::current().record("all_symbols", field::display(&all_symbols));
-  let entrypoint = req.query("entrypoint").map(|s| match s.as_str() {
-    "" => ".",
-    s => s,
-  });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
-
-  let symbol = req
-    .query("symbol")
-    .and_then(|s| match s.as_str() {
-      "" => None,
-      s => Some(urlencoding::decode(s)),
-    })
-    .transpose()?;
   Span::current()
     .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
-
-  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "Cannot specify both all_symbols and entrypoint".into(),
-    });
-  }
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1245,6 +1236,7 @@ pub async fn get_docs_handler(
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
   let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
+
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
       let gcs_path = crate::gcs_paths::file_path(
@@ -1276,6 +1268,7 @@ pub async fn get_docs_handler(
   })?;
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
@@ -1305,6 +1298,7 @@ pub async fn get_docs_handler(
   };
 
   let docs = crate::docs::generate_docs_html(
+    "/doc".to_string(),
     doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
@@ -1318,6 +1312,7 @@ pub async fn get_docs_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1393,6 +1388,7 @@ pub async fn get_docs_search_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let ctx = crate::docs::get_generate_ctx(
+    "/doc".to_string(),
     doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
@@ -1404,6 +1400,7 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
+    None,
   );
 
   let search_index = deno_doc::html::generate_search_index(&ctx);
@@ -1464,6 +1461,7 @@ pub async fn get_docs_search_structured_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let docs = crate::docs::generate_docs_html(
+    "/doc".to_string(),
     doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
@@ -1477,6 +1475,7 @@ pub async fn get_docs_search_structured_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1657,6 +1656,164 @@ pub async fn get_source_handler(
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/diff/:old_version/:new_version",
+  skip(req),
+  err,
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_diff_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageVersionDocs> {
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+
+  let old_version = util::param(&req, "old_version")?;
+  let old_version = Version::try_from(old_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'old_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("old_version", field::display(&old_version));
+
+  let new_version = util::param(&req, "new_version")?;
+  let new_version = Version::try_from(new_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'new_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("new_version", field::display(&new_version));
+
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+  if !all_symbols && entrypoint.is_none() {
+    return Err(ApiError::DiffNoIndex);
+  }
+
+  Span::current().record("all_symbols", field::display(&all_symbols));
+  Span::current()
+    .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
+  Span::current()
+    .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
+
+  let full = req.query("full").is_some();
+  Span::current().record("full", field::display(full));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, repo, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let old_version = db
+    .get_package_version(&scope, &package_name, &old_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+  let new_version = db
+    .get_package_version(&scope, &package_name, &new_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+
+  let old_docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
+  let old_doc_nodes_fut = buckets.docs_bucket.download(old_docs_path.into());
+  let new_docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
+  let new_doc_nodes_fut = buckets.docs_bucket.download(new_docs_path.into());
+
+  let (old_docs, new_docs) =
+    futures::future::try_join(old_doc_nodes_fut, new_doc_nodes_fut).await?;
+
+  let old_docs = old_docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, old_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let new_docs = new_docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, new_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+
+  let old_doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&old_docs).context("failed to parse doc nodes")?;
+  let new_doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&new_docs).context("failed to parse doc nodes")?;
+
+  // diffs are applied on top of the new version
+  let new_docs_info =
+    crate::docs::get_docs_info(&new_version.exports, entrypoint);
+
+  if entrypoint.is_some() && new_docs_info.entrypoint_url.is_none() {
+    return Err(ApiError::EntrypointOrSymbolNotFound);
+  }
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let req = match (new_docs_info.entrypoint_url, symbol) {
+    _ if all_symbols => DocsRequest::AllSymbols,
+    (Some(entrypoint), None) => DocsRequest::File(entrypoint),
+    (Some(entrypoint), Some(symbol)) => {
+      DocsRequest::Symbol(entrypoint, symbol.into())
+    }
+    (None, Some(symbol)) => {
+      if let Some(entrypoint_url) = new_docs_info.main_entrypoint.clone() {
+        DocsRequest::Symbol(entrypoint_url, symbol.into())
+      } else {
+        return Err(ApiError::EntrypointOrSymbolNotFound);
+      }
+    }
+    (None, None) => DocsRequest::Index,
+  };
+
+  let docs = crate::docs::generate_docs_html(
+    format!("/diff/{}...{}", old_version.version, new_version.version),
+    new_doc_nodes,
+    new_docs_info.main_entrypoint,
+    new_docs_info.rewrite_map,
+    req,
+    scope.clone(),
+    package_name.clone(),
+    new_version.version.clone(),
+    true,
+    repo,
+    None,
+    package.runtime_compat,
+    registry_url,
+    package.readme_source,
+    Some((old_doc_nodes, full)),
+  )
+  .map_err(|e| {
+    error!("failed to generate docs: {}", e);
+    ApiError::InternalServerError
+  })?
+  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+
+  match docs {
+    GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
+      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
+      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+      breadcrumbs: docs.breadcrumbs,
+      toc: docs.toc,
+      main: docs.main.into(),
+      version: ApiPackageVersion::from(new_version),
+    }),
+    GeneratedDocsOutput::Redirect(href) => {
+      Ok(ApiPackageVersionDocs::Redirect { symbol: href })
+    }
+  }
 }
 
 #[instrument(
@@ -3611,12 +3768,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3635,12 +3791,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3659,12 +3814,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3686,12 +3840,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }

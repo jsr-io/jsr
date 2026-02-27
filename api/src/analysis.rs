@@ -253,6 +253,7 @@ async fn analyze_package_inner(
   let info = crate::docs::get_docs_info(&exports, None);
 
   let ctx = crate::docs::get_generate_ctx(
+    "/doc".to_string(),
     doc_nodes,
     main_entrypoint,
     info.rewrite_map,
@@ -270,6 +271,7 @@ async fn analyze_package_inner(
       bun: None,
     },
     registry_url.to_string(),
+    None,
   );
   let search_index = deno_doc::html::generate_search_index(&ctx);
   let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index

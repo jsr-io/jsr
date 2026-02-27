@@ -9,6 +9,9 @@
 @source inline("dark:text-{FunctionDark,MethodDark,VariableDark,PropertyDark,ClassDark,EnumDark,InterfaceDark,TypeAliasDark,NamespaceDark}");
 @source inline("bg-{Function,Method,Variable,Property,Class,Enum,Interface,TypeAlias,Namespace}/15");
 @source inline("dark:bg-{FunctionDark,MethodDark,VariableDark,PropertyDark,ClassDark,EnumDark,InterfaceDark,TypeAliasDark,NamespaceDark}/15");
+@source inline("text-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}");
+@source inline("border-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}/50");
+@source inline("bg-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}/5");
 
 @layer base {
   img:where(:not(.markdown img)), video:where(:not(.markdown video)) {
@@ -182,21 +185,36 @@
       focus:outline-4 focus:outline-offset-2;
   }
 
-  .button-primary {
-    @apply button border-1.5 border-jsr-cyan-900 hover:border-jsr-cyan-600
-      bg-jsr-yellow text-jsr-cyan-950 font-bold hover:bg-jsr-yellow-300
-      transition-all duration-75 ease-in-out focus:bg-jsr-yellow-300
-      outline-jsr-cyan-700 outline-offset-2 disabled:bg-jsr-gray-100
-      dark:text-jsr-gray-900 dark:border-jsr-cyan-600
-      dark:hover:border-jsr-cyan-400 disabled:text-jsr-gray-300 shadow-accent-sm
-      dark:shadow-dark-accent-sm disabled:shadow-transparent
-      disabled:border-jsr-gray-300 dark:disabled:bg-jsr-gray-900
-      dark:disabled:text-jsr-gray-600 dark:disabled:border-jsr-gray-900;
+  .button-primary, .button-secondary {
+    @apply button border-1.5 font-bold transition-all duration-75 ease-in-out
+      outline-offset-2 shadow-accent-sm dark:shadow-dark-accent-sm
+      disabled:shadow-transparent;
   }
 
-  .button-primary:not(:disabled) {
+  .button-primary:not(:disabled), .button-secondary:not(:disabled) {
     @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close
       active:translate-x-[3px] active:translate-y-[4px];
+  }
+
+  .button-primary {
+    @apply border-jsr-cyan-900 dark:border-jsr-cyan-600
+      hover:border-jsr-cyan-600 dark:hover:border-jsr-cyan-400 bg-jsr-yellow
+      hover:bg-jsr-yellow-300 focus:bg-jsr-yellow-300 text-jsr-cyan-950
+      dark:text-jsr-gray-900 outline-jsr-cyan-700 disabled:bg-jsr-gray-100
+      dark:disabled:bg-jsr-gray-900 disabled:text-jsr-gray-300
+      dark:disabled:text-jsr-gray-600 disabled:border-jsr-gray-300
+      dark:disabled:border-jsr-gray-900;
+  }
+
+  .button-secondary {
+    @apply border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50
+      hover:border-jsr-cyan-300 dark:hover:border-jsr-cyan-500 bg-jsr-cyan-50
+      dark:bg-jsr-cyan hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-800
+      focus:bg-jsr-cyan-300 dark:focus:bg-jsr-cyan-400 outline-jsr-cyan-400
+      dark:outline-jsr-cyan-700 disabled:bg-jsr-gray-100
+      dark:disabled:bg-jsr-gray-900 disabled:text-jsr-gray-300
+      dark:disabled:text-jsr-gray-600 disabled:border-jsr-gray-300
+      dark:disabled:border-jsr-gray-900;
   }
 
   .button-danger {
@@ -516,6 +534,18 @@ body .ddoc {
         background-color: #005cc5;
       }
     }
+
+    .diff-added, .diff-modified, .diff-removed {
+      &:not(.diff-inline) {
+        @apply py-0.5 -mb-1 px-2 -mx-2;
+      }
+      &.diff-inline {
+        @apply py-0.5 px-1;
+      }
+    }
+    .diff-removed.diff-inline {
+      @apply ml-3;
+    }
   }
 
   .markdown_summary {
@@ -551,6 +581,75 @@ body .ddoc {
   }
   .td-op {
     @apply text-pink-700 dark:text-pink-400;
+  }
+
+  .diff-added {
+    @apply bg-green-400/50 dark:bg-green-800/30;
+  }
+  .diff-modified {
+    @apply bg-yellow-300/50 dark:bg-yellow-800/30;
+  }
+  .diff-removed {
+    @apply bg-red-400/40 dark:bg-red-800/30;
+  }
+
+  .diff-added::before {
+    @apply bg-green-600/50 dark:bg-green-500/30;
+    content: "+";
+  }
+  .diff-modified::before {
+    @apply bg-yellow-500/50 dark:bg-yellow-500/30;
+    content: "±";
+  }
+  .diff-removed::before {
+    @apply bg-red-600/40 dark:bg-red-500/30;
+    content: "-";
+  }
+
+  .diff-added, .diff-modified, .diff-removed {
+    @apply relative rounded-r rounded-l-none;
+
+    &::before {
+      @apply absolute top-0 -left-3 w-3 h-full flex justify-center items-center
+        rounded-l text-xs font-bold font-mono leading-none text-inherit
+        text-primary;
+    }
+
+    &.diff-mobile-skip-round::before {
+      @apply max-md:rounded-none;
+    }
+
+    &.diff-flat-top {
+      @apply rounded-tr-none;
+
+      &::before {
+        @apply rounded-tl-none;
+      }
+    }
+
+    &.diff-flat-bottom {
+      @apply rounded-br-none;
+
+      &::before {
+        @apply rounded-bl-none;
+      }
+    }
+  }
+
+  .diff-inline {
+    @apply px-0.5;
+
+    &.diff-added {
+      @apply ml-3;
+    }
+
+    &.diff-removed:has(+ .diff-added) {
+      @apply rounded-r-none;
+    }
+
+    &.diff-removed + .diff-added::before {
+      @apply rounded-l-none;
+    }
   }
 
   .sourceButton,

@@ -1,27 +1,30 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
 import { define } from "../../../util.ts";
-import { DocsData, packageDataWithDocs } from "../../../utils/data.ts";
+import { DiffData, packageDataWithDiff } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
-import { DocsView } from "../(_components)/Docs.tsx";
+import { DiffView } from "../(_components)/Docs.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 
-export default define.page<typeof handler>(function Symbol(
-  { data, params, state },
-) {
+export default define.page<typeof handler>(function File({
+  data,
+  params,
+  state,
+  url,
+}) {
   const iam = scopeIAM(state, data.member);
 
   return (
     <div>
       <PackageHeader
         package={data.package}
-        selectedVersion={data.selectedVersion}
+        selectedVersion={data.selectedVersion ?? undefined}
         downloads={data.downloads}
       />
 
       <PackageNav
-        currentTab="Docs"
+        currentTab="Diff"
         versionCount={data.package.versionCount}
         dependencyCount={data.package.dependencyCount}
         dependentCount={data.package.dependentCount}
@@ -30,12 +33,15 @@ export default define.page<typeof handler>(function Symbol(
         latestVersion={data.package.latestVersion}
       />
 
-      <DocsView
+      <DiffView
         docs={data.docs}
-        selectedVersion={data.selectedVersion}
-        user={state.user}
         scope={data.package.scope}
         pkg={data.package.name}
+        versions={data.versions}
+        oldVersion={params.oldVersion}
+        newVersion={params.newVersion}
+        url={url}
+        request={data.docsReq}
       />
     </div>
   );
@@ -43,15 +49,24 @@ export default define.page<typeof handler>(function Symbol(
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const res = await packageDataWithDocs(
+    if (ctx.url.pathname.endsWith("/~")) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: ctx.url.pathname.slice(0, -2),
+        },
+      });
+    }
+
+    const docsReq = { entrypoint: ctx.params.entrypoint };
+    const res = await packageDataWithDiff(
       ctx.state,
       ctx.params.scope,
       ctx.params.package,
-      ctx.params.version,
-      {
-        entrypoint: ctx.params.entrypoint,
-        symbol: ctx.params.symbol,
-      },
+      ctx.params.oldVersion,
+      ctx.params.newVersion,
+      ctx.url.searchParams.get("full"),
+      docsReq,
     );
     if (!res) {
       throw new HttpError(
@@ -63,47 +78,34 @@ export const handler = define.handlers({
       return res;
     }
 
-    if (res.kind === "redirect") {
-      return new Response(null, {
-        status: 307,
-        headers: {
-          "location": res.symbol,
-        },
-      });
-    }
-
     const {
       pkg,
       scopeMember,
       selectedVersion,
       docs,
       downloads,
-    } = res as DocsData;
-    if (selectedVersion === null) {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: `/@${ctx.params.scope}/${ctx.params.package}`,
-        },
-      });
-    }
-
-    if (!docs?.main) {
+      versions,
+    } = res as DiffData;
+    if (selectedVersion !== null && docs === null) {
       throw new HttpError(
         404,
-        "This package, package version, entrypoint, or symbol was not found.",
+        "This package, package version, or entrypoint was not found.",
       );
     }
 
     ctx.state.meta = {
-      /* TODO: print symbol kind here (function / class / etc) */
-      title: `${ctx.params.symbol}${
-        ctx.params.entrypoint && ` from ${ctx.params.entrypoint}`
-      } - @${ctx.params.scope}/${ctx.params.package} - JSR`,
+      title: `Diff${
+        ctx.params.oldVersion && ctx.params.newVersion
+          ? ` ${ctx.params.oldVersion} -> ${ctx.params.newVersion}`
+          : ""
+      } - ${
+        ctx.params.entrypoint || "index"
+      } - @${pkg.scope}/${pkg.name} - JSR`,
       description: `@${ctx.params.scope}/${ctx.params.package} on JSR${
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+
     return {
       data: {
         package: pkg,
@@ -111,6 +113,8 @@ export const handler = define.handlers({
         selectedVersion,
         docs,
         member: scopeMember,
+        versions,
+        docsReq,
       },
       headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
     };
@@ -118,5 +122,6 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package{@:version}?/doc/:entrypoint*/~/:symbol+",
+  routeOverride:
+    "/@:scope/:package/diff/{:oldVersion}?...{:newVersion}?{/:entrypoint([^~]*)}?{/~}?",
 };

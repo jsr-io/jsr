@@ -9,7 +9,7 @@ export function Function({ func: { functions } }: { func: FunctionCtx }) {
     <div class="mt-3 space-y-8">
       {functions.map((func, index) => (
         <>
-          <div class="scroll-mt-16" id={func.id}>
+          <div class="scroll-mt-16" id={func.anchor.id}>
             <code class="anchorable text-base wrap-break-word">
               <Anchor anchor={func.anchor} />
               <span class="font-bold">{func.name}</span>

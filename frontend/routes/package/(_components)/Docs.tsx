@@ -6,21 +6,33 @@ import type {
 } from "../../../utils/api_types.ts";
 import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
-import { Params } from "./PackageNav.tsx";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
 import { TbFlag } from "tb-icons";
 import { ModuleDoc, SymbolGroup, Toc } from "../../../components/doc/mod.ts";
 import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
+import { ComponentChildren } from "preact";
+import DiffVersionSelector from "../(_islands)/DiffVersionSelector.tsx";
+import { compileDocsRequestPath, DocsRequest } from "../../../utils/data.ts";
 
 interface DocsProps {
   docs: Docs;
-  params: Params;
   selectedVersion: PackageVersionWithUser;
   showProvenanceBadge?: boolean;
   user: User | null;
   scope: string;
   pkg: string;
+}
+
+interface DiffProps {
+  docs: Docs | null;
+  versions: PackageVersionWithUser[];
+  scope: string;
+  pkg: string;
+  oldVersion?: string;
+  newVersion?: string;
+  url: URL;
+  request: DocsRequest;
 }
 
 interface ProvenanceBadgeProps {
@@ -71,17 +83,21 @@ function ProvenanceBadge({ rekorLogId }: ProvenanceBadgeProps) {
   );
 }
 
-export function DocsView({
+function SharedView({
   docs,
-  params,
-  selectedVersion,
-  showProvenanceBadge,
-  user,
-  scope,
-  pkg,
-}: DocsProps) {
+  navRightClass,
+  navRight,
+  children,
+  toc,
+}: {
+  docs: Docs;
+  navRightClass?: string;
+  navRight: ComponentChildren;
+  children?: ComponentChildren;
+  toc: ComponentChildren;
+}) {
   return (
-    <div class="pt-6 pb-8 flex flex-col gap-8">
+    <div class="pt-6 pb-8">
       <style
         hidden
         // deno-lint-ignore react-no-danger
@@ -95,92 +111,177 @@ export function DocsView({
       />
 
       {docs.breadcrumbs && (
-        <BreadcrumbsSticky
-          searchContent={docs.main.kind === "allSymbols"
-            ? docs.main.value
-            : undefined}
-          content={docs.breadcrumbs}
-          scope={params.scope}
-          package={params.package}
-          version={selectedVersion.version}
-        />
+        <BreadcrumbsSticky content={docs.breadcrumbs} class={navRightClass}>
+          {navRight}
+        </BreadcrumbsSticky>
       )}
 
       <div class="grid grid-cols-1 lg:grid-cols-10 gap-8 lg:gap-12">
-        <div
-          class={`min-w-0 ${
-            docs.toc ? "lg:col-span-7 lg:row-start-1" : "col-span-full"
-          }`}
-        >
+        <div class="min-w-0 lg:col-span-7 lg:row-start-1 mt-4">
           <div class="ddoc mb-20" id="docMain">
             <MainDocs content={docs.main} />
           </div>
           <div class="ddoc hidden mb-20" id="docSearchResults" />
 
-          <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
-            {showProvenanceBadge && selectedVersion.rekorLogId && (
-              <ProvenanceBadge rekorLogId={selectedVersion.rekorLogId} />
-            )}
-
-            <div>
-              <TicketModal
-                user={user}
-                kind="package_report"
-                style="danger"
-                title="Report package"
-                description={
-                  <>
-                    <p className="mt-4 text-secondary">
-                      Please provide a reason for reporting this package. We
-                      will review your report and take appropriate action.
-                    </p>
-                    <p className="mt-4 text-secondary">
-                      Please review the{" "}
-                      <a href="/docs/usage-policy#package-contents-and-metadata">
-                        JSR usage policy
-                      </a>{" "}
-                      before submitting a report.
-                    </p>
-                  </>
-                }
-                fields={[
-                  {
-                    name: "message",
-                    label: "Reason",
-                    type: "textarea",
-                    required: true,
-                  },
-                ]}
-                extraMeta={{
-                  scope,
-                  name: pkg,
-                  version: selectedVersion?.version,
-                }}
-              >
-                <TbFlag class="size-6 md:size-4" /> Report package
-              </TicketModal>
-            </div>
-          </div>
+          {children}
         </div>
-        {docs.toc && (
-          <div
-            class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:top-0 lg:sticky lg:max-h-screen flex flex-col box-border gap-y-4 -mt-4 pt-4 ${
-              docs.breadcrumbs ? "lg:-mt-16 lg:pt-16" : ""
-            }`}
-          >
-            {!docs.breadcrumbs && (
-              <LocalSymbolSearch
-                scope={params.scope}
-                pkg={params.package}
-                version={selectedVersion.version}
-              />
-            )}
-
-            <Toc content={docs.toc} />
-          </div>
-        )}
+        <div
+          class={`max-lg:row-start-1 lg:col-[span_3/_-1] lg:sticky flex flex-col box-border gap-y-4 ${
+            docs.breadcrumbs
+              ? "lg:top-[var(--breadcrumbs-height,0px)] lg:max-h-[calc(100vh-var(--breadcrumbs-height,0px))] -mt-4 lg:mt-0"
+              : "lg:top-0 lg:max-h-screen -mt-4 pt-4"
+          }`}
+        >
+          {toc}
+        </div>
       </div>
     </div>
+  );
+}
+
+export function DocsView({
+  docs,
+  selectedVersion,
+  showProvenanceBadge,
+  user,
+  scope,
+  pkg,
+}: DocsProps) {
+  return (
+    <SharedView
+      docs={docs}
+      navRightClass="lg:col-span-7"
+      navRight={
+        <div class="lg:col-[span_3/_-1]">
+          <LocalSymbolSearch
+            content={docs.main.kind === "allSymbols"
+              ? docs.main.value
+              : undefined}
+            scope={scope}
+            pkg={pkg}
+            version={selectedVersion.version}
+          />
+        </div>
+      }
+      toc={
+        <>
+          {!docs.breadcrumbs && selectedVersion && (
+            <LocalSymbolSearch
+              scope={scope}
+              pkg={pkg}
+              version={selectedVersion.version}
+            />
+          )}
+          <Toc content={docs.toc} />
+        </>
+      }
+    >
+      <div class="flex justify-between lg:flex-nowrap flex-wrap items-center gap-4">
+        {showProvenanceBadge && selectedVersion &&
+          selectedVersion.rekorLogId && (
+          <ProvenanceBadge rekorLogId={selectedVersion.rekorLogId} />
+        )}
+
+        <div>
+          <TicketModal
+            user={user}
+            kind="package_report"
+            style="danger"
+            title="Report package"
+            description={
+              <>
+                <p className="mt-4 text-secondary">
+                  Please provide a reason for reporting this package. We will
+                  review your report and take appropriate action.
+                </p>
+                <p className="mt-4 text-secondary">
+                  Please review the{" "}
+                  <a href="/docs/usage-policy#package-contents-and-metadata">
+                    JSR usage policy
+                  </a>{" "}
+                  before submitting a report.
+                </p>
+              </>
+            }
+            fields={[
+              {
+                name: "message",
+                label: "Reason",
+                type: "textarea",
+                required: true,
+              },
+            ]}
+            extraMeta={{
+              scope,
+              name: pkg,
+              version: selectedVersion?.version,
+            }}
+          >
+            <TbFlag class="size-6 md:size-4" /> Report package
+          </TicketModal>
+        </div>
+      </div>
+    </SharedView>
+  );
+}
+
+export function DiffView({
+  docs,
+  scope,
+  pkg,
+  versions,
+  oldVersion,
+  newVersion,
+  url,
+  request,
+}: DiffProps) {
+  const docsRequest = compileDocsRequestPath(request);
+
+  if (!oldVersion || !newVersion || oldVersion == newVersion || !docs) {
+    return (
+      <div class="mt-7">
+        <DiffVersionSelector
+          scope={scope}
+          pkg={pkg}
+          versions={versions.map((version) => version.version)}
+          oldVersion={oldVersion}
+          newVersion={newVersion}
+          url={url}
+          docsRequest={docsRequest}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <SharedView
+      docs={docs}
+      navRightClass="lg:col-span-5"
+      navRight={
+        <div class="lg:col-[span_5/_-1]">
+          <DiffVersionSelector
+            scope={scope}
+            pkg={pkg}
+            versions={versions.map((version) => version.version)}
+            oldVersion={oldVersion}
+            newVersion={newVersion}
+            url={url}
+            docsRequest={docsRequest}
+          />
+        </div>
+      }
+      toc={
+        <Toc
+          content={docs.toc}
+          diff={{
+            oldVersion,
+            oldVersionUrl: `/@${scope}/${pkg}@${oldVersion}/doc${docsRequest}`,
+            newVersion,
+            newVersionUrl: `/@${scope}/${pkg}@${newVersion}/doc${docsRequest}`,
+          }}
+        />
+      }
+    />
   );
 }
 
