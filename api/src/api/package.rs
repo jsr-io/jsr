@@ -579,7 +579,7 @@ async fn update_description(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
@@ -1034,7 +1034,7 @@ pub async fn version_update_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
@@ -1125,7 +1125,7 @@ pub async fn version_delete_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),

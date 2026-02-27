@@ -26,6 +26,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name    = "DOWNLOADS"
       dataset = local.worker_download_analytics_dataset
       }, {
+      type        = "r2_bucket"
+      name        = "NPM_BUCKET"
+      bucket_name = cloudflare_r2_bucket.npm.name
+      }, {
       type = "plain_text"
       name = "ROOT_DOMAIN"
       text = var.domain_name
@@ -49,10 +53,6 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type = "secret_text"
       name = "MODULES_BUCKET"
       text = google_storage_bucket.modules.name
-      }, {
-      type = "secret_text"
-      name = "NPM_BUCKET"
-      text = google_storage_bucket.npm.name
     }
   ]
 

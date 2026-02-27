@@ -35,6 +35,20 @@ resource "cloudflare_r2_bucket" "docs" {
   location   = "enam"
 }
 
+resource "cloudflare_r2_bucket" "npm" {
+  account_id = var.cloudflare_account_id
+  name       = "${var.gcp_project}-npm"
+  location   = "enam"
+}
+
+resource "aws_s3_object" "r2_npm_root_json" {
+  bucket        = cloudflare_r2_bucket.npm.name
+  key           = "root.json"
+  content       = "{}"
+  content_type  = "application/json"
+  cache_control = "public, max-age=0, no-cache"
+}
+
 resource "cloudflare_account_token" "buckets_rw" {
   account_id = var.cloudflare_account_id
   name       = "${var.gcp_project}-buckets-rw"
@@ -47,7 +61,8 @@ resource "cloudflare_account_token" "buckets_rw" {
     ]
     resources = jsonencode({
       "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*",
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}" = "*"
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}"       = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.npm.name}"        = "*"
     })
   }]
 }
@@ -62,8 +77,8 @@ resource "google_service_account" "r2_sippy" {
   description  = "Service account for Cloudflare R2 Sippy to read from GCS buckets"
 }
 
-resource "google_storage_bucket_iam_member" "r2_sippy_docs_reader" {
-  bucket = google_storage_bucket.docs.name
+resource "google_storage_bucket_iam_member" "r2_sippy_npm_reader" {
+  bucket = google_storage_bucket.npm.name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.r2_sippy.email}"
 }
@@ -72,20 +87,22 @@ resource "google_service_account_key" "r2_sippy" {
   service_account_id = google_service_account.r2_sippy.name
 }
 
-resource "cloudflare_r2_bucket_sippy" "r2_docs_sippy" {
+resource "cloudflare_r2_bucket_sippy" "r2_npm_sippy" {
   account_id  = var.cloudflare_account_id
-  bucket_name = cloudflare_r2_bucket.docs.name
+  bucket_name = cloudflare_r2_bucket.npm.name
   destination = {
-    access_key_id = cloudflare_account_token.buckets_rw.id
-    cloud_provider = "r2"
+    access_key_id     = cloudflare_account_token.buckets_rw.id
+    cloud_provider    = "r2"
     secret_access_key = local.r2_secret_access_key
   }
   source = {
     client_email   = google_service_account.r2_sippy.email
     private_key    = jsondecode(base64decode(google_service_account_key.r2_sippy.private_key)).private_key
-    bucket         = google_storage_bucket.docs.name
+    bucket         = google_storage_bucket.npm.name
     cloud_provider = "gcs"
   }
+
+  depends_on = [google_storage_bucket_iam_member.r2_sippy_npm_reader]
 }
 
 resource "google_storage_bucket" "docs" {

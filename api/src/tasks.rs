@@ -30,7 +30,6 @@ use crate::analysis::RebuildNpmTarballData;
 use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::cloudflare;
 use crate::db::Database;
 use crate::db::DownloadKind;
@@ -47,6 +46,7 @@ use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
 use crate::publish;
+use crate::s3::UploadTaskBody;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::decode_json;
@@ -498,9 +498,15 @@ fn deserialize_version_download_count_from_analytics(
   record: cloudflare::DownloadRecord,
   kind: DownloadKind,
 ) -> Option<VersionDownloadCount> {
-  let time_bucket = DateTime::parse_from_rfc3339(&record.time_bucket)
-    .ok()?
-    .with_timezone(&Utc);
+  // Cloudflare Analytics Engine (ClickHouse) returns datetimes as
+  // "YYYY-MM-DD HH:MM:SS", not RFC3339.
+  let time_bucket = chrono::NaiveDateTime::parse_from_str(
+    &record.time_bucket,
+    "%Y-%m-%d %H:%M:%S",
+  )
+  .ok()
+  .unwrap()
+  .and_utc();
   let scope = ScopeName::new(record.scope).ok()?;
   let package = PackageName::new(record.package).ok()?;
   let version = Version::new(&record.ver).ok()?;
