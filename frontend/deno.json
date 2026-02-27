@@ -72,8 +72,5 @@
       "template"
     ]
   },
-  "exclude": ["_fresh/", "**/_fresh/*"],
-  "links": [
-    "../../deno_doc/js"
-  ]
+  "exclude": ["_fresh/", "**/_fresh/*"]
 }
