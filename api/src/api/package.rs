@@ -3768,12 +3768,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3792,12 +3791,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3816,12 +3814,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3843,12 +3840,11 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }

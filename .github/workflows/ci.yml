@@ -98,7 +98,7 @@ jobs:
       - name: Check sqlx metadata is up to date
         run: |
           cargo sqlx migrate run
-          cargo sqlx prepare --check
+          cargo sqlx prepare --check -- --all-targets
         working-directory: api
         env:
           DATABASE_URL: postgres://user:password@localhost/registry
