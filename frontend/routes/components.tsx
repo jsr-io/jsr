@@ -82,12 +82,20 @@ export default define.page<typeof handler>(function Components({ url }) {
           description="Primary, danger, and small button variants with disabled states."
         >
           <div class="flex flex-wrap items-center gap-4">
-            <button class="button-primary">Primary</button>
-            <button class="button-danger">Danger</button>
-            <button class="button-primary button-sm">Primary Small</button>
-            <button class="button-danger button-sm">Danger Small</button>
-            <button class="button-primary" disabled>Primary Disabled</button>
-            <button class="button-danger" disabled>Danger Disabled</button>
+            <button type="button" class="button-primary">Primary</button>
+            <button type="button" class="button-danger">Danger</button>
+            <button type="button" class="button-primary button-sm">
+              Primary Small
+            </button>
+            <button type="button" class="button-danger button-sm">
+              Danger Small
+            </button>
+            <button type="button" class="button-primary" disabled>
+              Primary Disabled
+            </button>
+            <button type="button" class="button-danger" disabled>
+              Danger Disabled
+            </button>
           </div>
         </Section>
 
