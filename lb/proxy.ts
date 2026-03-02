@@ -162,16 +162,8 @@ export async function proxyToR2(
       headers.set("content-length", object.size.toString());
       return new Response(null, { headers });
     } else {
-      const ifNoneMatch = request.headers.get("If-None-Match");
-      const ifModifiedSince = request.headers.get("If-Modified-Since");
-
       const object = await bucket.get(key, {
-        onlyIf: {
-          etagDoesNotMatch: ifNoneMatch ?? undefined,
-          uploadedAfter: ifModifiedSince
-            ? new Date(ifModifiedSince)
-            : undefined,
-        },
+        onlyIf: request.headers,
       });
 
       if (!object) {
@@ -184,7 +176,7 @@ export async function proxyToR2(
       headers.set("content-length", object.size.toString());
 
       if (!("body" in object)) {
-        return new Response(null, { status: 304, headers });
+        return new Response(null, { status: 412, headers });
       }
 
       const response = new Response(object.body, { headers });
