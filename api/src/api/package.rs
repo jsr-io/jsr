@@ -118,7 +118,7 @@ use super::ApiUpdatePackageGithubRepositoryRequest;
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
-const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
+pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
