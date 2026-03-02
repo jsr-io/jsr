@@ -504,6 +504,8 @@ pub mod test {
   use crate::util::LicenseStore;
 
   static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+  static LICENSE_STORE: std::sync::OnceLock<LicenseStore> =
+    std::sync::OnceLock::new();
 
   static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
@@ -676,7 +678,8 @@ pub mod test {
 
       db.add_bad_word_for_test("somebadword").await.unwrap();
 
-      let license_store = super::license_store();
+      let license_store =
+        LICENSE_STORE.get_or_init(super::license_store).clone();
 
       let router = crate::main_router(MainRouterOptions {
         database: db,
