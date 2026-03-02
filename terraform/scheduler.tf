@@ -17,7 +17,7 @@ resource "google_cloud_scheduler_job" "npm_tarball_rebuild_missing" {
 resource "google_cloud_scheduler_job" "clean_oauth_states" {
   name        = "clean-oauth-states"
   description = "Delete expired OAuth states older than 1 hour."
-  schedule    = "0 * * * *"
+  schedule    = "0 0 * * *"
   region      = "us-central1"
 
   http_target {
