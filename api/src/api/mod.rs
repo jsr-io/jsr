@@ -2,7 +2,7 @@
 mod admin;
 mod authorization;
 mod errors;
-mod package;
+pub mod package;
 mod publishing_task;
 mod scope;
 mod self_user;
