@@ -3480,6 +3480,20 @@ impl Database {
       .await
   }
 
+  #[instrument(name = "Database::delete_expired_oauth_states", skip(self), err)]
+  pub async fn delete_expired_oauth_states(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM oauth_states WHERE created_at < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
   #[instrument(name = "Database::insert_oauth_state", skip(
     self,
     new_oauth_state
