@@ -176,7 +176,7 @@ export async function proxyToR2(
       headers.set("content-length", object.size.toString());
 
       if (!("body" in object)) {
-        return new Response(null, { status: 412, headers });
+        return new Response(null, { status: 304, headers });
       }
 
       const response = new Response(object.body, { headers });
