@@ -416,8 +416,24 @@ pub struct PackageVersion {
   pub is_yanked: bool,
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
+  pub meta: PackageVersionMeta,
+  pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionWithNewerVersionsCount {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub version: Version,
+  pub user_id: Option<Uuid>,
+  pub exports: ExportsMap,
+  pub is_yanked: bool,
+  pub readme_path: Option<PackagePath>,
+  pub uses_npm: bool,
   pub newer_versions_count: i64,
-  pub lifetime_download_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
   pub license: Option<String>,

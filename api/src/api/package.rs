@@ -741,11 +741,16 @@ pub async fn get_version_handler(
 
   let maybe_version = match version {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package, &version).await?
+      db.get_package_version_with_newer_versions_count(
+        &scope, &package, &version,
+      )
+      .await?
     }
     VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package)
-        .await?
+      db.get_latest_unyanked_version_for_package_with_newer_versions_count(
+        &scope, &package,
+      )
+      .await?
     }
   };
 

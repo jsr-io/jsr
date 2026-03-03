@@ -77,8 +77,8 @@ export function PackageHeader({
                   : (
                     <>
                       <span class="bold">
-                        is {selectedVersion.newerVersionsCount}{" "}
-                        version{selectedVersion.newerVersionsCount !== 1 && "s"}
+                        is {selectedVersion.newerVersionsCount!}{" "}
+                        version{selectedVersion.newerVersionsCount! !== 1 && "s"}
                         {" "}
                         behind {pkg.latestVersion}
                       </span>{" "}
