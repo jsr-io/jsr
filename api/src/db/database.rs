@@ -1680,8 +1680,8 @@ impl Database {
     let newest_fut = sqlx::query!(
       r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        latest.version as "package_latest_version",
-        latest.meta as "package_version_meta: PackageVersionMeta",
+        latest.version as "package_latest_version?",
+        latest.meta as "package_version_meta?: PackageVersionMeta",
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
@@ -1707,7 +1707,7 @@ impl Database {
           created_at: r.package_created_at,
           updated_at: r.package_updated_at,
           version_count: r.package_version_count,
-          latest_version: Some(r.package_latest_version),
+          latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
           readme_source: r.package_readme_source,
@@ -1723,7 +1723,8 @@ impl Database {
         } else {
           None
         };
-        (package, github_repository, r.package_version_meta)
+        let meta = r.package_version_meta.unwrap_or_default();
+        (package, github_repository, meta)
       })
       .fetch_all(&self.pool);
 
@@ -1741,8 +1742,8 @@ impl Database {
     let featured_fut = sqlx::query!(
       r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        latest.version as "package_latest_version",
-        latest.meta as "package_version_meta: PackageVersionMeta",
+        latest.version as "package_latest_version?",
+        latest.meta as "package_version_meta?: PackageVersionMeta",
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
@@ -1765,7 +1766,7 @@ impl Database {
           created_at: r.package_created_at,
           updated_at: r.package_updated_at,
           version_count: r.package_version_count,
-          latest_version: Some(r.package_latest_version),
+          latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
           readme_source: r.package_readme_source,
@@ -1781,7 +1782,8 @@ impl Database {
         } else {
           None
         };
-        (package, github_repository, r.package_version_meta)
+        let meta = r.package_version_meta.unwrap_or_default();
+        (package, github_repository, meta)
       })
       .fetch_all(&self.pool);
 
