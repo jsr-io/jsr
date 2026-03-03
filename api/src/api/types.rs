@@ -617,8 +617,7 @@ pub struct ApiPackageVersion {
   pub version: Version,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: u64,
-  pub lifetime_download_count: u64,
+  pub newer_versions_count: Option<u64>,
   pub rekor_log_id: Option<String>,
   pub license: Option<String>,
   pub readme_path: Option<PackagePath>,
@@ -673,8 +672,25 @@ impl From<PackageVersion> for ApiPackageVersion {
       version: value.version,
       yanked: value.is_yanked,
       uses_npm: value.uses_npm,
-      newer_versions_count: value.newer_versions_count as u64,
-      lifetime_download_count: value.lifetime_download_count as u64,
+      newer_versions_count: None,
+      rekor_log_id: value.rekor_log_id,
+      license: value.license,
+      readme_path: value.readme_path,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+impl From<PackageVersionWithNewerVersionsCount> for ApiPackageVersion {
+  fn from(value: PackageVersionWithNewerVersionsCount) -> Self {
+    ApiPackageVersion {
+      scope: value.scope,
+      package: value.name,
+      version: value.version,
+      yanked: value.is_yanked,
+      uses_npm: value.uses_npm,
+      newer_versions_count: Some(value.newer_versions_count as u64),
       rekor_log_id: value.rekor_log_id,
       license: value.license,
       readme_path: value.readme_path,
@@ -724,8 +740,6 @@ pub struct ApiPackageVersionWithUser {
   pub user: Option<ApiUser>,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: i64,
-  pub lifetime_download_count: i64,
   pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
@@ -747,8 +761,6 @@ impl From<(PackageVersion, Option<UserPublic>)> for ApiPackageVersionWithUser {
       user: user.map(|user| user.into()),
       yanked: package_version.is_yanked,
       uses_npm: package_version.uses_npm,
-      newer_versions_count: package_version.newer_versions_count,
-      lifetime_download_count: package_version.lifetime_download_count,
       rekor_log_id: package_version.rekor_log_id,
       readme_path: package_version.readme_path,
       updated_at: package_version.updated_at,
