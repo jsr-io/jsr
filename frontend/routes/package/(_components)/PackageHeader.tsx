@@ -78,9 +78,8 @@ export function PackageHeader({
                     <>
                       <span class="bold">
                         is {selectedVersion.newerVersionsCount!}{" "}
-                        version{selectedVersion.newerVersionsCount! !== 1 && "s"}
-                        {" "}
-                        behind {pkg.latestVersion}
+                        version{selectedVersion.newerVersionsCount! !== 1 &&
+                          "s"} behind {pkg.latestVersion}
                       </span>{" "}
                       — the latest version of @{pkg.scope}/{pkg.name}.
                     </>
