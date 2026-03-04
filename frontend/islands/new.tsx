@@ -37,7 +37,7 @@ interface ScopeSelectProps {
   scope: Signal<string>;
   initialScope: string | undefined;
   scopeUsage: number;
-  scopeLimit: number;
+  scopeLimit: number | null;
   locked: boolean;
   user: User;
 }

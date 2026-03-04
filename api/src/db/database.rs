@@ -3603,6 +3603,35 @@ impl Database {
       .await
   }
 
+  #[instrument(
+    name = "Database::upsert_service_account_token",
+    skip(self, hash),
+    err
+  )]
+  pub async fn upsert_service_account_token(
+    &self,
+    hash: Option<String>,
+  ) -> Result<()> {
+    let user_id = Uuid::nil();
+    let mut tx = self.pool.begin().await?;
+    sqlx::query!("DELETE FROM tokens WHERE user_id = $1", user_id)
+      .execute(&mut *tx)
+      .await?;
+
+    if let Some(hash) = hash {
+      sqlx::query!(
+        r#"INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)
+        VALUES ($1, $2, 'personal', 'service account token', NULL, NULL)"#,
+        hash,
+        user_id,
+      )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(())
+  }
+
   #[instrument(name = "Database::get_token_by_hash", skip(self), err)]
   pub async fn get_token_by_hash(&self, hash: &str) -> Result<Option<Token>> {
     sqlx::query_as!(Token, r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at FROM tokens WHERE hash = $1"#, hash)

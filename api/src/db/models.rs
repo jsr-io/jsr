@@ -34,7 +34,7 @@ pub struct User {
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i64,
-  pub scope_limit: i32,
+  pub scope_limit: Option<i32>,
   pub invite_count: i64,
   pub newer_ticket_messages_count: i64,
 }

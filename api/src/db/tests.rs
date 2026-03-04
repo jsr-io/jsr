@@ -144,7 +144,7 @@ async fn users() {
   assert_eq!(user.name, "Alice");
   assert_eq!(user.avatar_url, "https://example.com/alice.png");
   assert_eq!(user.email, Some("alice@example.com".to_string()));
-  assert_eq!(user.scope_limit, 3);
+  assert_eq!(user.scope_limit, Some(3));
   assert!(user.is_staff);
   assert!(!user.is_blocked);
 

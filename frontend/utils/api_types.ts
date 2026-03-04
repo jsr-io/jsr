@@ -21,7 +21,7 @@ export interface FullUser extends User {
   isStaff: boolean;
   isBlocked: boolean;
   scopeUsage: number;
-  scopeLimit: number;
+  scopeLimit: number | null;
   inviteCount: number;
   newerTicketMessagesCount: number;
 }

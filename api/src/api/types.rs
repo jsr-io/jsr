@@ -165,7 +165,7 @@ pub struct ApiFullUser {
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i32,
-  pub scope_limit: i32,
+  pub scope_limit: Option<i32>,
   pub invite_count: u64,
   pub newer_ticket_messages_count: u64,
 }
