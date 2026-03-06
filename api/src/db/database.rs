@@ -451,34 +451,128 @@ impl Database {
     Ok(user)
   }
 
-  #[cfg(test)]
   #[instrument(name = "Database::delete_user", skip(self), err)]
-  pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
-    sqlx::query_as!(
-      User,
-      r#"DELETE FROM users
-      WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+  pub async fn delete_user(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    id: Uuid,
+  ) -> Result<Option<()>> {
+    let service_account_id = Uuid::nil();
+    let mut tx = self.pool.begin().await?;
+
+    // Check user exists
+    let user_exists = sqlx::query!(
+      r#"SELECT id FROM users WHERE id = $1"#,
       id
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&mut *tx)
+    .await?;
+    if user_exists.is_none() {
+      return Ok(None);
+    }
+
+    // For scopes where the user is the last member, transfer to service account.
+    // For scopes where the user is creator but others exist, transfer creator.
+    // Everything else (scope_members, invites, tokens, etc.) cascades via FK constraints.
+    let memberships = sqlx::query!(
+      r#"SELECT scope as "scope: ScopeName",
+        (SELECT COUNT(*) FROM scope_members sm2 WHERE sm2.scope = scope_members.scope AND sm2.user_id != $1) as "other_member_count!",
+        (SELECT creator FROM scopes WHERE scopes.scope = scope_members.scope) = $1 as "is_creator!"
+      FROM scope_members WHERE user_id = $1"#,
+      id
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+
+    for membership in &memberships {
+      if membership.other_member_count == 0 {
+        // Last member: transfer scope to service account
+        sqlx::query!(
+          r#"UPDATE scopes SET creator = $1 WHERE scope = $2"#,
+          service_account_id,
+          &membership.scope as _,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+          r#"INSERT INTO scope_members (scope, user_id, is_admin)
+          VALUES ($1, $2, true)
+          ON CONFLICT (scope, user_id) DO NOTHING"#,
+          &membership.scope as _,
+          service_account_id,
+        )
+        .execute(&mut *tx)
+        .await?;
+      } else if membership.is_creator {
+        // Creator with other members: transfer to another admin (or any member)
+        let new_creator_id = sqlx::query!(
+          r#"SELECT user_id FROM scope_members
+          WHERE scope = $1 AND user_id != $2
+          ORDER BY is_admin DESC, created_at ASC
+          LIMIT 1"#,
+          &membership.scope as _,
+          id,
+        )
+        .map(|r| r.user_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+          r#"UPDATE scopes SET creator = $1 WHERE scope = $2"#,
+          new_creator_id,
+          &membership.scope as _,
+        )
+        .execute(&mut *tx)
+        .await?;
+      }
+    }
+
+    // Transfer tickets, ticket_messages, and audit_logs to service account
+    // (keeping these NOT NULL to avoid rippling Option changes through the codebase)
+    sqlx::query!(
+      r#"UPDATE ticket_messages SET author = $1 WHERE author = $2"#,
+      service_account_id,
+      id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE tickets SET creator = $1 WHERE creator = $2"#,
+      service_account_id,
+      id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "user_delete",
+      json!({ "user_id": id }),
+    )
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE audit_logs SET actor_id = $1 WHERE actor_id = $2"#,
+      service_account_id,
+      id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // Delete the user — FK cascades handle scope_members, scope_invites,
+    // tokens, authorizations; SET NULL handles publishing_tasks,
+    // package_versions, scopes.creator.
+    sqlx::query!(r#"DELETE FROM users WHERE id = $1"#, id)
+      .execute(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+    Ok(Some(()))
   }
 
   #[instrument(name = "Database::get_package", skip(self), err)]

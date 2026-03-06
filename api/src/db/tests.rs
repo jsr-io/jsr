@@ -191,8 +191,7 @@ async fn users() {
   assert_eq!(users[0].scope_usage, 0);
   assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
-  let user3 = db.delete_user(user.id).await.unwrap().unwrap();
-  assert_eq!(user3.id, user.id);
+  db.delete_user(&user.id, false, user.id).await.unwrap().unwrap();
 
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());
@@ -201,7 +200,7 @@ async fn users() {
   assert_eq!(total_users, 2);
   assert_eq!(users.len(), 2); // just the default user added by migrations
 
-  let no_user = db.delete_user(user.id).await.unwrap();
+  let no_user = db.delete_user(&user.id, false, user.id).await.unwrap();
   assert!(no_user.is_none());
 }
 
