@@ -43,7 +43,6 @@ use tracing::Instrument;
 use tracing::instrument;
 use url::Url;
 
-use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::PackageVersionMeta;
@@ -57,6 +56,7 @@ use crate::npm::NpmTarball;
 use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
 use crate::npm::create_npm_tarball;
+use crate::s3::BucketWithQueue;
 use crate::tarball::PublishError;
 
 pub struct PackageAnalysisData {

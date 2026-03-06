@@ -34,7 +34,6 @@ use crate::api::ApiError;
 use crate::api::PublishQueue;
 use crate::api::api_router;
 use crate::auth::GithubOauth2Client;
-use crate::buckets::BucketWithQueue;
 use crate::buckets::Buckets;
 use crate::config::Config;
 use crate::db::Database;
@@ -184,11 +183,14 @@ async fn main() {
     )
     .unwrap(),
   );
-  let modules_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.modules_bucket,
-    config.gcs_endpoint.clone(),
-  ));
+  let modules_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(
+      config.modules_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
   let docs_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.docs_bucket,
@@ -202,7 +204,7 @@ async fn main() {
   );
   let buckets = Buckets {
     publishing_bucket,
-    modules_bucket: modules_bucket.clone(),
+    modules_bucket,
     docs_bucket,
     npm_bucket,
   };

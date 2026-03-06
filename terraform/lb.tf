@@ -27,6 +27,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
       dataset = local.worker_download_analytics_dataset
       }, {
       type        = "r2_bucket"
+      name        = "MODULES_BUCKET"
+      bucket_name = cloudflare_r2_bucket.modules.name
+    }, {
+      type        = "r2_bucket"
       name        = "NPM_BUCKET"
       bucket_name = cloudflare_r2_bucket.npm.name
       }, {

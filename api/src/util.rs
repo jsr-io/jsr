@@ -491,7 +491,6 @@ pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
   use crate::auth::GithubOauth2Client;
-  use crate::buckets::BucketWithQueue;
   use crate::buckets::Buckets;
   use crate::db::Database;
   use crate::db::EphemeralDatabase;
@@ -501,6 +500,7 @@ pub mod test {
   use crate::errors_internal::ApiErrorStruct;
   use crate::gcp::FakeGcsTester;
   use crate::ids::ScopeDescription;
+  use crate::s3::BucketWithQueue;
   use crate::s3::FakeS3Tester;
   use crate::util::LicenseStore;
 
@@ -566,7 +566,6 @@ pub mod test {
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
       let ephemeral_database = EphemeralDatabase::create().await;
       let db = ephemeral_database.database.clone().unwrap();
-      let gcs = FakeGcsTester::new();
       let s3 = FakeS3Tester::new();
       let publishing_name = format!("publishing-{test_id}");
       let modules_name = format!("modules-{test_id}");
@@ -574,7 +573,7 @@ pub mod test {
       let npm_name = format!("npm-{test_id}");
       let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
         s3.create_bucket(&publishing_name),
-        gcs.create_bucket(&modules_name),
+        s3.create_bucket(&modules_name),
         s3.create_bucket(&docs_name),
         s3.create_bucket(&npm_name),
       );

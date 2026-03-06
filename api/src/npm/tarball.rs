@@ -25,7 +25,6 @@ use tar::Header;
 use tracing::error;
 use url::Url;
 
-use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
@@ -33,6 +32,7 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
+use crate::s3::BucketWithQueue;
 
 use super::NPM_TARBALL_REVISION;
 use super::emit::transpile_to_dts;
