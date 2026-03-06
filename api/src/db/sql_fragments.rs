@@ -1,3 +1,5 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
 // SQL fragments for use with sqlx_query! / sqlx_query_as! macros.
 // These constants are resolved at compile time by the proc macro.
 pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
