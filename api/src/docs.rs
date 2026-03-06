@@ -308,7 +308,7 @@ pub enum GeneratedDocsOutput {
 #[derive(Debug)]
 pub struct GeneratedDocs {
   pub breadcrumbs: Option<BreadcrumbsCtx>,
-  pub toc: Option<deno_doc::html::ToCCtx>,
+  pub toc: deno_doc::html::ToCCtx,
   pub main: GeneratedDocsContent,
 }
 
@@ -430,10 +430,12 @@ fn get_url_rewriter(
     version_is_latest,
     has_readme,
     runtime_compat,
-    registry_url
+    registry_url,
+    diff
   )
 )]
 pub fn get_generate_ctx(
+  doc_base: String,
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -445,6 +447,7 @@ pub fn get_generate_ctx(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
+  diff: Option<(deno_doc::diff::DocDiff, bool)>,
 ) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
@@ -506,12 +509,16 @@ pub fn get_generate_ctx(
             .collect()
           })
           .clone(),
+        doc_base,
+        full: diff.as_ref().map(|diff| diff.1),
       }),
-      usage_composer: (Rc::new(DocUsageComposer {
-        runtime_compat,
-        scope,
-        package,
-      })),
+      usage_composer: diff.is_none().then(|| {
+        Rc::new(DocUsageComposer {
+          runtime_compat,
+          scope,
+          package,
+        }) as Rc<dyn deno_doc::html::UsageComposer>
+      }),
       rewrite_map: Some(rewrite_map),
       category_docs: None,
       disable_search: false,
@@ -521,10 +528,12 @@ pub fn get_generate_ctx(
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
       id_prefix: None,
+      diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
     },
     None,
     deno_doc::html::FileMode::Normal,
     doc_nodes_by_url,
+    diff.map(|diff| diff.0),
   )
   .unwrap()
 }
@@ -532,10 +541,11 @@ pub fn get_generate_ctx(
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "generate_docs_html",
-  skip(doc_nodes_by_url, rewrite_map, readme),
+  skip(doc_nodes_by_url, rewrite_map, readme, diff_data),
   err
 )]
 pub fn generate_docs_html(
+  doc_base: String,
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -549,8 +559,19 @@ pub fn generate_docs_html(
   runtime_compat: RuntimeCompat,
   registry_url: String,
   readme_source: ReadmeSource,
+  diff_data: Option<(DocNodesByUrl, bool)>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
+  let diff = if let Some((old_doc_nodes_by_url, full)) = diff_data {
+    Some((
+      deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &doc_nodes_by_url),
+      full,
+    ))
+  } else {
+    None
+  };
+
   let ctx = get_generate_ctx(
+    doc_base,
     doc_nodes_by_url,
     main_entrypoint,
     rewrite_map,
@@ -562,6 +583,7 @@ pub fn generate_docs_html(
     readme.is_some(),
     runtime_compat,
     registry_url,
+    diff,
   );
 
   match req {
@@ -572,9 +594,11 @@ pub fn generate_docs_html(
       let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
+
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: None,
+        toc,
         main: GeneratedDocsContent::AllSymbols(all_symbols),
       })))
     }
@@ -624,11 +648,11 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
-        toc: Some(toc_ctx),
+        toc,
         main: GeneratedDocsContent::Index(index_module_doc),
       })))
     }
@@ -657,11 +681,11 @@ pub fn generate_docs_html(
 
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: Some(toc_ctx),
+        toc,
         main: GeneratedDocsContent::File(module_doc),
       })))
     }
@@ -686,7 +710,7 @@ pub fn generate_docs_html(
           categories_panel: _categories_panel,
         } => Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
           breadcrumbs: Some(breadcrumbs_ctx),
-          toc: Some(*toc_ctx),
+          toc: *toc_ctx,
           main: GeneratedDocsContent::Symbol(symbol_group_ctx),
         }))),
         SymbolPage::Redirect { href, .. } => {
@@ -740,6 +764,7 @@ fn generate_symbol_page(
                 return Some(SymbolPage::Redirect {
                   current_symbol: name.to_string(),
                   href: name.rsplit_once('.').unwrap().0.to_string(),
+                  diff_status: None, // TODO
                 });
               } else {
                 is_static = false;
@@ -992,6 +1017,8 @@ struct DocResolver {
   registry_url: String,
   deno_types: std::collections::HashSet<Vec<String>>,
   web_types: std::collections::HashMap<Vec<String>, String>,
+  doc_base: String,
+  full: Option<bool>,
 }
 
 impl HrefResolver for DocResolver {
@@ -1010,9 +1037,9 @@ impl HrefResolver for DocResolver {
         String::new()
       }
     );
-    let doc_base = format!("{package_base}/doc");
+    let doc_base = format!("{package_base}{}", self.doc_base);
 
-    match target {
+    let path = match target {
       UrlResolveKind::Root => package_base,
       UrlResolveKind::AllSymbols => format!("{doc_base}/all_symbols"),
       UrlResolveKind::Symbol { file, symbol } => {
@@ -1034,6 +1061,12 @@ impl HrefResolver for DocResolver {
         }
       ),
       UrlResolveKind::Category { .. } => unreachable!(),
+    };
+
+    if self.full.is_some_and(std::convert::identity) {
+      path + "?full"
+    } else {
+      path
     }
   }
 
@@ -1243,6 +1276,8 @@ mod tests {
       registry_url: "".to_string(),
       deno_types: Default::default(),
       web_types: Default::default(),
+      doc_base: "/doc".to_string(),
+      full: None,
     };
 
     let specifier = ModuleSpecifier::parse("file:///mod.ts").unwrap();

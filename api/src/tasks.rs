@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use bytes::Bytes;
 use chrono::DateTime;
+use chrono::Duration;
 use chrono::Utc;
 use deno_semver::StackString;
 use deno_semver::VersionReq;
@@ -73,6 +74,10 @@ pub fn tasks_router() -> Router<Body, ApiError> {
     .post(
       "/scrape_download_counts",
       util::json(scrape_download_counts_handler),
+    )
+    .post(
+      "/clean_oauth_states",
+      util::json(clean_oauth_states_handler),
     )
     .build()
     .unwrap()
@@ -475,6 +480,15 @@ ORDER BY
   Ok(())
 }
 
+#[instrument(name = "POST /tasks/clean_oauth_states", skip(req), err)]
+pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::hours(1);
+  let deleted = db.delete_expired_oauth_states(cutoff).await?;
+  tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
 async fn insert_analytics_download_entries(
   db: &Database,
   records: Vec<cloudflare::DownloadRecord>,
@@ -498,9 +512,15 @@ fn deserialize_version_download_count_from_analytics(
   record: cloudflare::DownloadRecord,
   kind: DownloadKind,
 ) -> Option<VersionDownloadCount> {
-  let time_bucket = DateTime::parse_from_rfc3339(&record.time_bucket)
-    .ok()?
-    .with_timezone(&Utc);
+  // Cloudflare Analytics Engine (ClickHouse) returns datetimes as
+  // "YYYY-MM-DD HH:MM:SS", not RFC3339.
+  let time_bucket = chrono::NaiveDateTime::parse_from_str(
+    &record.time_bucket,
+    "%Y-%m-%d %H:%M:%S",
+  )
+  .ok()
+  .unwrap()
+  .and_utc();
   let scope = ScopeName::new(record.scope).ok()?;
   let package = PackageName::new(record.package).ok()?;
   let version = Version::new(&record.ver).ok()?;

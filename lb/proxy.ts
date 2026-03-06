@@ -136,7 +136,7 @@ export async function proxyToR2(
   if (pathRewrite) {
     path = pathRewrite(path);
   }
-  const key = path.slice(1);
+  const key = decodeURIComponent(path.slice(1));
 
   const cacheKey = new Request(request.url, { method: "GET" });
   const cached = await caches.default?.match(cacheKey);
@@ -162,16 +162,8 @@ export async function proxyToR2(
       headers.set("content-length", object.size.toString());
       return new Response(null, { headers });
     } else {
-      const ifNoneMatch = request.headers.get("If-None-Match");
-      const ifModifiedSince = request.headers.get("If-Modified-Since");
-
       const object = await bucket.get(key, {
-        onlyIf: {
-          etagDoesNotMatch: ifNoneMatch ?? undefined,
-          uploadedAfter: ifModifiedSince
-            ? new Date(ifModifiedSince)
-            : undefined,
-        },
+        onlyIf: request.headers,
       });
 
       if (!object) {

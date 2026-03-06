@@ -14,6 +14,21 @@ resource "google_cloud_scheduler_job" "npm_tarball_rebuild_missing" {
   }
 }
 
+resource "google_cloud_scheduler_job" "clean_oauth_states" {
+  name        = "clean-oauth-states"
+  description = "Delete expired OAuth states older than 1 hour."
+  schedule    = "0 0 * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/clean_oauth_states"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
   description = "Scrape download counts from BigQuery & Analytics Engine and insert them into Postgres."

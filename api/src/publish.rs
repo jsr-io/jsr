@@ -455,6 +455,7 @@ async fn upload_npm_version_manifest(
 pub mod tests {
   use super::*;
   use crate::api::ApiPublishingTask;
+  use crate::api::package::MAX_PUBLISH_TARBALL_SIZE;
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
   use crate::db::NewPublishingTask;
@@ -615,7 +616,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn payload_too_large() {
-    let body = Body::from(vec![0; 999999999]);
+    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
 
     let mut t = TestSetup::new().await;
     let mut resp = t
@@ -638,7 +639,7 @@ pub mod tests {
   async fn payload_too_large_stream() {
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
     let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
-      vec![0; 999999999],
+      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
     )));
 
     let mut t = TestSetup::new().await;

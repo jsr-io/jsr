@@ -1677,15 +1677,23 @@ impl Database {
     Vec<PackageVersion>,
     Vec<PackageWithGitHubRepoAndMeta>,
   )> {
-    let newest = sqlx::query!(
+    let newest_fut = sqlx::query!(
       r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
+        latest.version as "package_latest_version?",
+        latest.meta as "package_version_meta?: PackageVersionMeta",
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false AND version IS NOT NULL ORDER BY version DESC LIMIT 1) IS NOT NULL AND NOT packages.is_archived
+      LEFT JOIN LATERAL (
+        SELECT version, meta FROM package_versions
+        WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false
+        ORDER BY version DESC LIMIT 1
+      ) latest ON true
+      WHERE EXISTS (
+        SELECT 1 FROM package_versions
+        WHERE scope = packages.scope AND name = packages.name AND is_yanked = false
+      ) AND NOT packages.is_archived
       ORDER BY packages.created_at DESC
       LIMIT 10"#,
     )
@@ -1718,41 +1726,32 @@ impl Database {
         let meta = r.package_version_meta.unwrap_or_default();
         (package, github_repository, meta)
       })
-      .fetch_all(&self.pool)
-      .await?;
+      .fetch_all(&self.pool);
 
-    let updated = sqlx::query_as!(
+    let updated_fut = sqlx::query_as!(
       PackageVersion,
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id, package_versions.license,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!"
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id, package_versions.license
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
-      .fetch_all(&self.pool)
-      .await?;
+      .fetch_all(&self.pool);
 
-    let featured = sqlx::query!(
+    let featured_fut = sqlx::query!(
       r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
+        latest.version as "package_latest_version?",
+        latest.meta as "package_version_meta?: PackageVersionMeta",
         github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+      LEFT JOIN LATERAL (
+        SELECT version, meta FROM package_versions
+        WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false
+        ORDER BY version DESC LIMIT 1
+      ) latest ON true
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
       LIMIT 10"#,
@@ -1786,8 +1785,10 @@ impl Database {
         let meta = r.package_version_meta.unwrap_or_default();
         (package, github_repository, meta)
       })
-      .fetch_all(&self.pool)
-      .await?;
+      .fetch_all(&self.pool);
+
+    let (newest, updated, featured) =
+      tokio::try_join!(newest_fut, updated_fut, featured_fut)?;
 
     Ok((newest, updated, featured))
   }
@@ -1876,18 +1877,6 @@ impl Database {
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
     sqlx::query!(
       r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id", package_versions.license as "package_version_license",
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "package_version_newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "package_version_lifetime_download_count!",
       users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
@@ -1906,8 +1895,6 @@ impl Database {
           is_yanked: r.package_version_is_yanked,
           readme_path: r.package_version_readme_path,
           uses_npm: r.package_version_uses_npm,
-          newer_versions_count: r.package_version_newer_versions_count,
-          lifetime_download_count: r.package_version_lifetime_download_count,
           meta: r.package_version_meta,
           updated_at: r.package_version_updated_at,
           created_at: r.package_version_created_at,
@@ -2004,6 +1991,30 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
+      ORDER BY version DESC
+      LIMIT 1"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_with_newer_versions_count",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_with_newer_versions_count(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
+    sqlx::query_as!(
+      PackageVersionWithNewerVersionsCount,
       r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
@@ -2011,12 +2022,7 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
@@ -2065,6 +2071,30 @@ impl Database {
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      scope as _,
+      name as _,
+      version as _
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::get_package_version_with_newer_versions_count",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_version_with_newer_versions_count(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
+    sqlx::query_as!(
+      PackageVersionWithNewerVersionsCount,
       r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
@@ -2072,12 +2102,7 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
@@ -2191,9 +2216,9 @@ impl Database {
   pub async fn create_package_version_for_test(
     &self,
     new_package_version: NewPackageVersion<'_>,
-  ) -> Result<PackageVersion> {
+  ) -> Result<PackageVersionWithNewerVersionsCount> {
     sqlx::query_as!(
-      PackageVersion,
+      PackageVersionWithNewerVersionsCount,
       r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
@@ -2203,12 +2228,7 @@ impl Database {
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!""#,
+        AND pv.is_yanked = false) as "newer_versions_count!""#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -2253,19 +2273,7 @@ impl Database {
       r#"UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!""#,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license"#,
       scope as _,
       name as _,
       version as _,
@@ -3478,6 +3486,20 @@ impl Database {
     )
       .fetch_optional(&self.pool)
       .await
+  }
+
+  #[instrument(name = "Database::delete_expired_oauth_states", skip(self), err)]
+  pub async fn delete_expired_oauth_states(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM oauth_states WHERE created_at < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
   }
 
   #[instrument(name = "Database::insert_oauth_state", skip(

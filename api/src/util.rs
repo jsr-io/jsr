@@ -114,6 +114,7 @@ where
 pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
+  pub const TEN_MINUTES: CacheDuration = CacheDuration(60 * 10);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
   pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
@@ -299,6 +300,40 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
   (start, limit)
 }
 
+pub struct DocsQueries<'a> {
+  pub all_symbols: bool,
+  pub entrypoint: Option<&'a str>,
+  pub symbol: Option<std::borrow::Cow<'a, str>>,
+}
+
+pub fn docs_queries(req: &Request<Body>) -> Result<DocsQueries<'_>, ApiError> {
+  let all_symbols = req.query("all_symbols").is_some();
+  let entrypoint = req.query("entrypoint").map(|s| match s.as_str() {
+    "" => ".",
+    s => s,
+  });
+
+  let symbol = req
+    .query("symbol")
+    .and_then(|s| match s.as_str() {
+      "" => None,
+      s => Some(urlencoding::decode(s)),
+    })
+    .transpose()?;
+
+  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
+    return Err(ApiError::MalformedRequest {
+      msg: "Cannot specify both all_symbols and entrypoint".into(),
+    });
+  }
+
+  Ok(DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  })
+}
+
 // Sanitize redirect urls
 // - Remove origin from Url: https://evil.com -> /
 // - Replace multiple slashes with one slash to remove prevent
@@ -339,7 +374,7 @@ pub trait RequestIdExt {
   fn param_version_or_latest(&self) -> Result<VersionOrLatest, ApiError>;
 }
 
-fn param<'a>(
+pub fn param<'a>(
   req: &'a Request<Body>,
   name: &str,
 ) -> Result<&'a String, ApiError> {
@@ -470,6 +505,8 @@ pub mod test {
   use crate::util::LicenseStore;
 
   static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+  static LICENSE_STORE: std::sync::OnceLock<LicenseStore> =
+    std::sync::OnceLock::new();
 
   static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
@@ -641,7 +678,8 @@ pub mod test {
 
       db.add_bad_word_for_test("somebadword").await.unwrap();
 
-      let license_store = super::license_store();
+      let license_store =
+        LICENSE_STORE.get_or_init(super::license_store).clone();
 
       let router = crate::main_router(MainRouterOptions {
         database: db,

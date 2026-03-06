@@ -142,7 +142,7 @@ export interface PackageVersion {
   version: string;
   yanked: boolean;
   usesNpm: boolean;
-  newerVersionsCount: number;
+  newerVersionsCount: number | null;
   rekorLogId: string | null;
   license: string | null;
   readmePath: string;
@@ -160,7 +160,7 @@ export interface PackageVersionDocsContent {
   comrakCss: string;
   script: string;
   breadcrumbs: BreadcrumbsCtx | null;
-  toc: ToCCtx | null;
+  toc: ToCCtx;
   main: DocsMainContent;
 }
 
