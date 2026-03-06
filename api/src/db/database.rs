@@ -526,6 +526,16 @@ impl Database {
         )
         .execute(&mut *tx)
         .await?;
+
+        // Ensure the new creator is an admin
+        sqlx::query!(
+          r#"UPDATE scope_members SET is_admin = true
+          WHERE scope = $1 AND user_id = $2"#,
+          &membership.scope as _,
+          new_creator_id,
+        )
+        .execute(&mut *tx)
+        .await?;
       }
     }
 
