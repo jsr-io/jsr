@@ -35,6 +35,7 @@ pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/users", util::auth(util::json(list_users)))
     .patch("/users/:user_id", util::auth(util::json(update_user)))
+    .delete("/users/:user_id", util::auth(delete_user_admin))
     .get("/scopes", util::auth(util::json(list_scopes)))
     .post("/scopes", util::auth(util::json(assign_scope)))
     .patch("/scopes/:scope", util::auth(util::json(patch_scopes)))
@@ -114,6 +115,34 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
     Err(ApiError::MalformedRequest {
       msg: "missing 'is_staff', 'is_blocked' or 'scope_limit' parameter".into(),
     })
+  }
+}
+
+#[instrument(name = "DELETE /api/admin/users/:user_id", skip(req), err, fields(user_id))]
+pub async fn delete_user_admin(
+  req: Request<Body>,
+) -> ApiResult<hyper::Response<Body>> {
+  let user_id = req.param_uuid("user_id")?;
+  Span::current().record("user_id", field::display(&user_id));
+
+  let iam = req.iam();
+  let staff = iam.check_admin_access()?;
+
+  if user_id == uuid::Uuid::nil() {
+    return Err(ApiError::CannotDeleteServiceAccount);
+  }
+
+  let db = req.data::<Database>().unwrap();
+
+  match db.delete_user(&staff.id, true, user_id).await? {
+    Some(()) => {
+      let resp = hyper::Response::builder()
+        .status(hyper::StatusCode::NO_CONTENT)
+        .body(Body::empty())
+        .unwrap();
+      Ok(resp)
+    }
+    None => Err(ApiError::UserNotFound),
   }
 }
 
@@ -513,6 +542,86 @@ mod tests {
       .await
       .unwrap()
       .expect_err_code(StatusCode::CONFLICT, "scopeAlreadyExists")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn admin_delete_user() {
+    let mut t = TestSetup::new().await;
+
+    let staff_token = t.staff_user.token.clone();
+    let user2_id = t.user2.user.id;
+    let user2_token = t.user2.token.clone();
+
+    // Create a scope owned solely by user2
+    t.http()
+      .post("/api/scopes")
+      .body_json(json!({ "scope": "user2scope", "description": "" }))
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiScope>()
+      .await;
+
+    // Admin deletes user2
+    let path = format!("/api/admin/users/{user2_id}");
+    t.http()
+      .delete(&path)
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok_no_content()
+      .await;
+
+    // User count decreased
+    let users = t
+      .http()
+      .get("/api/admin/users")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiList<ApiFullUser>>()
+      .await;
+    assert_eq!(users.items.len(), 4);
+
+    // Orphaned scope is now owned by service account
+    let members: Vec<crate::api::ApiScopeMember> = t
+      .http()
+      .get("/api/scopes/user2scope/members")
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].user.id, uuid::Uuid::nil());
+    assert!(members[0].is_admin);
+
+    // Deleting again returns not found
+    t.http()
+      .delete(&path)
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::NOT_FOUND, "userNotFound")
+      .await;
+
+    // Cannot delete service account
+    let service_path = format!(
+      "/api/admin/users/{}",
+      uuid::Uuid::nil()
+    );
+    t.http()
+      .delete(&service_path)
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::BAD_REQUEST, "cannotDeleteServiceAccount")
       .await;
   }
 }

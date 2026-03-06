@@ -427,7 +427,7 @@ mod tests {
     let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
     assert!(!user.is_staff);
     assert!(user.is_blocked);
-    assert_eq!(user.scope_limit, 30);
+    assert_eq!(user.scope_limit, Some(30));
   }
 
   #[tokio::test]
