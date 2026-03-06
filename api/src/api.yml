@@ -3012,21 +3012,51 @@ components:
           type: array
           description: The newest packages.
           items:
-            $ref: "#/components/schemas/Package"
+            $ref: "#/components/schemas/StatsPackage"
         updated:
           type: array
           description: The recently uploaded package versions.
           items:
-            $ref: "#/components/schemas/PackageVersion"
+            $ref: "#/components/schemas/StatsPackageVersion"
         featured:
           type: array
           description: The featured packages
           items:
-            $ref: "#/components/schemas/Package"
+            $ref: "#/components/schemas/StatsPackage"
       required:
         - newest
         - updated
         - featured
+
+    StatsPackage:
+      type: object
+      properties:
+        scope:
+          type: string
+          description: The scope of the package.
+        name:
+          type: string
+          description: The name of the package.
+      required:
+        - scope
+        - name
+
+    StatsPackageVersion:
+      type: object
+      properties:
+        scope:
+          type: string
+          description: The scope of the package.
+        package:
+          type: string
+          description: The name of the package.
+        version:
+          type: string
+          description: The version string.
+      required:
+        - scope
+        - package
+        - version
 
     PackageScore:
       type: object

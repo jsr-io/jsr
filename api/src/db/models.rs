@@ -868,6 +868,19 @@ pub struct NewPackageVersionDependency<'s> {
 pub type PackageWithGitHubRepoAndMeta =
   (Package, Option<GithubRepository>, PackageVersionMeta);
 
+#[derive(Debug)]
+pub struct StatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+}
+
+#[derive(Debug)]
+pub struct StatsPackageVersion {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub version: Version,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct NpmTarball {

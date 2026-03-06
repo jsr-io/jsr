@@ -1,7 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
 import { assertOk, path } from "../utils/api.ts";
-import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
+import type {
+  Stats,
+  StatsPackage,
+  StatsPackageVersion,
+} from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
 import { ComponentChildren } from "preact";
@@ -228,7 +232,7 @@ function BenefitText({ children }: { children: ComponentChildren }) {
 }
 
 function PackageToPanelEntry(
-  entry: Package,
+  entry: StatsPackage,
 ): PanelEntry {
   return {
     value: `@${entry.scope}/${entry.name}`,
@@ -237,7 +241,7 @@ function PackageToPanelEntry(
 }
 
 function PackageVersionToPanelEntry(
-  entry: PackageVersion,
+  entry: StatsPackageVersion,
 ): PanelEntry {
   return {
     value: `@${entry.scope}/${entry.package}`,

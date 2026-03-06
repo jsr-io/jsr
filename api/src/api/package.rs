@@ -114,7 +114,10 @@ use super::ApiSource;
 use super::ApiSourceDirEntry;
 use super::ApiSourceDirEntryKind;
 use super::ApiStats;
+use super::ApiStatsPackage;
+use super::ApiStatsPackageVersion;
 use super::ApiUpdatePackageGithubRepositoryRequest;
+
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
@@ -244,9 +247,9 @@ pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
   let (newest, updated, featured) = db.package_stats().await?;
 
   Ok(ApiStats {
-    newest: newest.into_iter().map(ApiPackage::from).collect(),
-    updated: updated.into_iter().map(ApiPackageVersion::from).collect(),
-    featured: featured.into_iter().map(ApiPackage::from).collect(),
+    newest: newest.into_iter().map(ApiStatsPackage::from).collect(),
+    updated: updated.into_iter().map(ApiStatsPackageVersion::from).collect(),
+    featured: featured.into_iter().map(ApiStatsPackage::from).collect(),
   })
 }
 
