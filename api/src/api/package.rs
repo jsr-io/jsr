@@ -248,7 +248,10 @@ pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
 
   Ok(ApiStats {
     newest: newest.into_iter().map(ApiStatsPackage::from).collect(),
-    updated: updated.into_iter().map(ApiStatsPackageVersion::from).collect(),
+    updated: updated
+      .into_iter()
+      .map(ApiStatsPackageVersion::from)
+      .collect(),
     featured: featured.into_iter().map(ApiStatsPackage::from).collect(),
   })
 }
