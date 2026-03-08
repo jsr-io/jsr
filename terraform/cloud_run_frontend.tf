@@ -46,6 +46,12 @@ resource "google_cloud_run_v2_service" "registry_frontend" {
     containers {
       image = var.frontend_image_id
 
+      resources {
+        limits = {
+          memory = "1Gi"
+        }
+      }
+
       dynamic "env" {
         for_each = local.frontend_envs
         content {
