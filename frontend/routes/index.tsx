@@ -276,7 +276,13 @@ export const handler = define.handlers({
           attributes["error"] = "true";
           attributes["error.message"] = String((e as Error).message);
         } finally {
-          span.record("fetch_dotcom_posts", start, new Date(), attributes, "CLIENT");
+          span.record(
+            "fetch_dotcom_posts",
+            start,
+            new Date(),
+            attributes,
+            "CLIENT",
+          );
         }
         return posts;
       })(),
