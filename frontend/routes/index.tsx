@@ -269,7 +269,7 @@ export const handler = define.handlers({
           // ignore
         }
         return posts;
-      })()
+      })(),
     ]);
 
     assertOk(statsResp);
