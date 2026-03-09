@@ -257,16 +257,32 @@ export const handler = define.handlers({
         anonymous: true,
       }),
       (async () => {
+        const span = ctx.state.span.child();
+        const start = new Date();
+        const attributes: Record<string, string | bigint | boolean> = {
+          "http.url": "https://deno.com/blog/json?tag=JSR",
+          "http.method": "GET",
+        };
         let posts: Post[] = [];
         try {
           const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR", {
             signal: AbortSignal.timeout(1000),
           });
+          attributes["http.status_code"] = BigInt(jsrPosts.status);
           if (jsrPosts.ok) {
             posts = await jsrPosts.json() as Post[];
           }
-        } catch (_e) {
-          // ignore
+        } catch (e) {
+          attributes["error"] = "true";
+          attributes["error.message"] = String((e as Error).message);
+        } finally {
+          span.record(
+            "fetch_dotcom_posts",
+            start,
+            new Date(),
+            attributes,
+            "CLIENT",
+          );
         }
         return posts;
       })(),
