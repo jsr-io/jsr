@@ -252,19 +252,25 @@ function PackageVersionToPanelEntry(
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
-      anonymous: true,
-    });
-
-    let posts: Post[] = [];
-    try {
-      const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
-      if (jsrPosts.ok) {
-        posts = await jsrPosts.json() as Post[];
-      }
-    } catch (_e) {
-      // ignore
-    }
+    const [statsResp, posts] = await Promise.all([
+      await ctx.state.api.get<Stats>(path`/stats`, undefined, {
+        anonymous: true,
+      }),
+      (async () => {
+        let posts: Post[] = [];
+        try {
+          const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR", {
+            signal: AbortSignal.timeout(1000),
+          });
+          if (jsrPosts.ok) {
+            posts = await jsrPosts.json() as Post[];
+          }
+        } catch (_e) {
+          // ignore
+        }
+        return posts;
+      })()
+    ]);
 
     assertOk(statsResp);
 
@@ -275,7 +281,7 @@ export const handler = define.handlers({
     };
 
     return {
-      data: { stats: statsResp.data, posts: posts || [] },
+      data: { stats: statsResp.data, posts },
       headers: ctx.state.api.hasToken()
         ? undefined
         : { "Cache-Control": "public, s-maxage=60" },
