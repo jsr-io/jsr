@@ -26,7 +26,7 @@ const tracing = define.middleware(async (ctx) => {
     return resp;
   } finally {
     const end = new Date();
-    ctx.state.span.record(ctx.url.pathname, start, end, attributes);
+    ctx.state.span.record(ctx.url.pathname, start, end, attributes, "SERVER");
   }
 });
 

@@ -259,6 +259,7 @@ export class API {
               "error.message": result.message,
             }),
         },
+        "CLIENT",
       );
     }
     return result;
