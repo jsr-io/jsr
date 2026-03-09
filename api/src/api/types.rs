@@ -799,9 +799,43 @@ pub enum ApiUpdateScopeRequest {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStats {
-  pub newest: Vec<ApiPackage>,
-  pub updated: Vec<ApiPackageVersion>,
-  pub featured: Vec<ApiPackage>,
+  pub newest: Vec<ApiStatsPackage>,
+  pub updated: Vec<ApiStatsPackageVersion>,
+  pub featured: Vec<ApiStatsPackage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+}
+
+impl From<StatsPackage> for ApiStatsPackage {
+  fn from(p: StatsPackage) -> Self {
+    Self {
+      scope: p.scope,
+      name: p.name,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackageVersion {
+  pub scope: ScopeName,
+  pub package: PackageName,
+  pub version: Version,
+}
+
+impl From<StatsPackageVersion> for ApiStatsPackageVersion {
+  fn from(v: StatsPackageVersion) -> Self {
+    Self {
+      scope: v.scope,
+      package: v.name,
+      version: v.version,
+    }
+  }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

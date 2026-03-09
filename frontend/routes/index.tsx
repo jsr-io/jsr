@@ -1,7 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
 import { assertOk, path } from "../utils/api.ts";
-import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
+import type {
+  Stats,
+  StatsPackage,
+  StatsPackageVersion,
+} from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
 import { ComponentChildren } from "preact";
@@ -228,7 +232,7 @@ function BenefitText({ children }: { children: ComponentChildren }) {
 }
 
 function PackageToPanelEntry(
-  entry: Package,
+  entry: StatsPackage,
 ): PanelEntry {
   return {
     value: `@${entry.scope}/${entry.name}`,
@@ -237,7 +241,7 @@ function PackageToPanelEntry(
 }
 
 function PackageVersionToPanelEntry(
-  entry: PackageVersion,
+  entry: StatsPackageVersion,
 ): PanelEntry {
   return {
     value: `@${entry.scope}/${entry.package}`,
@@ -248,19 +252,41 @@ function PackageVersionToPanelEntry(
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
-      anonymous: true,
-    });
-
-    let posts: Post[] = [];
-    try {
-      const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
-      if (jsrPosts.ok) {
-        posts = await jsrPosts.json() as Post[];
-      }
-    } catch (_e) {
-      // ignore
-    }
+    const [statsResp, posts] = await Promise.all([
+      await ctx.state.api.get<Stats>(path`/stats`, undefined, {
+        anonymous: true,
+      }),
+      (async () => {
+        const span = ctx.state.span.child();
+        const start = new Date();
+        const attributes: Record<string, string | bigint | boolean> = {
+          "http.url": "https://deno.com/blog/json?tag=JSR",
+          "http.method": "GET",
+        };
+        let posts: Post[] = [];
+        try {
+          const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR", {
+            signal: AbortSignal.timeout(1000),
+          });
+          attributes["http.status_code"] = BigInt(jsrPosts.status);
+          if (jsrPosts.ok) {
+            posts = await jsrPosts.json() as Post[];
+          }
+        } catch (e) {
+          attributes["error"] = "true";
+          attributes["error.message"] = String((e as Error).message);
+        } finally {
+          span.record(
+            "fetch_dotcom_posts",
+            start,
+            new Date(),
+            attributes,
+            "CLIENT",
+          );
+        }
+        return posts;
+      })(),
+    ]);
 
     assertOk(statsResp);
 
@@ -271,7 +297,7 @@ export const handler = define.handlers({
     };
 
     return {
-      data: { stats: statsResp.data, posts: posts || [] },
+      data: { stats: statsResp.data, posts },
       headers: ctx.state.api.hasToken()
         ? undefined
         : { "Cache-Control": "public, s-maxage=60" },

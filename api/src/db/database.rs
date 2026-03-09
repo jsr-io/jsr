@@ -1673,23 +1673,13 @@ impl Database {
   pub async fn package_stats(
     &self,
   ) -> Result<(
-    Vec<PackageWithGitHubRepoAndMeta>,
-    Vec<PackageVersion>,
-    Vec<PackageWithGitHubRepoAndMeta>,
+    Vec<StatsPackage>,
+    Vec<StatsPackageVersion>,
+    Vec<StatsPackage>,
   )> {
     let newest_fut = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        latest.version as "package_latest_version?",
-        latest.meta as "package_version_meta?: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
       FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      LEFT JOIN LATERAL (
-        SELECT version, meta FROM package_versions
-        WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false
-        ORDER BY version DESC LIMIT 1
-      ) latest ON true
       WHERE EXISTS (
         SELECT 1 FROM package_versions
         WHERE scope = packages.scope AND name = packages.name AND is_yanked = false
@@ -1697,100 +1687,41 @@ impl Database {
       ORDER BY packages.created_at DESC
       LIMIT 10"#,
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.package_scope,
-          name: r.package_name,
-          description: r.package_description,
-          github_repository_id: r.package_github_repository_id,
-          runtime_compat: r.package_runtime_compat,
-          created_at: r.package_created_at,
-          updated_at: r.package_updated_at,
-          version_count: r.package_version_count,
-          latest_version: r.package_latest_version,
-          when_featured: r.package_when_featured,
-          is_archived: r.package_is_archived,
-          readme_source: r.package_readme_source,
-        };
-        let github_repository = if r.package_github_repository_id.is_some() {
-          Some(GithubRepository {
-            id: r.github_repository_id.unwrap(),
-            owner: r.github_repository_owner.unwrap(),
-            name: r.github_repository_name.unwrap(),
-            created_at: r.github_repository_created_at.unwrap(),
-            updated_at: r.github_repository_updated_at.unwrap(),
-          })
-        } else {
-          None
-        };
-        let meta = r.package_version_meta.unwrap_or_default();
-        (package, github_repository, meta)
+      .map(|r| StatsPackage {
+        scope: r.scope,
+        name: r.name,
       })
       .fetch_all(&self.pool);
 
-    let updated_fut = sqlx::query_as!(
-      PackageVersion,
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id, package_versions.license
+    let updated_fut = sqlx::query!(
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version"
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
+      .map(|r| StatsPackageVersion {
+        scope: r.scope,
+        name: r.name,
+        version: r.version,
+      })
       .fetch_all(&self.pool);
 
     let featured_fut = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        latest.version as "package_latest_version?",
-        latest.meta as "package_version_meta?: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
       FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      LEFT JOIN LATERAL (
-        SELECT version, meta FROM package_versions
-        WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false
-        ORDER BY version DESC LIMIT 1
-      ) latest ON true
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
       LIMIT 10"#,
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.package_scope,
-          name: r.package_name,
-          description: r.package_description,
-          github_repository_id: r.package_github_repository_id,
-          runtime_compat: r.package_runtime_compat,
-          created_at: r.package_created_at,
-          updated_at: r.package_updated_at,
-          version_count: r.package_version_count,
-          latest_version: r.package_latest_version,
-          when_featured: r.package_when_featured,
-          is_archived: r.package_is_archived,
-          readme_source: r.package_readme_source,
-        };
-        let github_repository = if r.package_github_repository_id.is_some() {
-          Some(GithubRepository {
-            id: r.github_repository_id.unwrap(),
-            owner: r.github_repository_owner.unwrap(),
-            name: r.github_repository_name.unwrap(),
-            created_at: r.github_repository_created_at.unwrap(),
-            updated_at: r.github_repository_updated_at.unwrap(),
-          })
-        } else {
-          None
-        };
-        let meta = r.package_version_meta.unwrap_or_default();
-        (package, github_repository, meta)
+      .map(|r| StatsPackage {
+        scope: r.scope,
+        name: r.name,
       })
       .fetch_all(&self.pool);
 
-    let (newest, updated, featured) =
-      tokio::try_join!(newest_fut, updated_fut, featured_fut)?;
-
-    Ok((newest, updated, featured))
+    Ok(tokio::try_join!(newest_fut, updated_fut, featured_fut)?)
   }
 
   #[instrument(name = "Database::metrics", skip(self), err)]
