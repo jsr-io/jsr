@@ -34,9 +34,6 @@ use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
-use crate::gcs_paths::docs_v1_path;
-use crate::gcs_paths::file_path;
-use crate::gcs_paths::npm_tarball_path;
 use crate::ids::CaseInsensitivePackagePath;
 use crate::ids::PackagePath;
 use crate::ids::PackagePathValidationError;
@@ -49,6 +46,9 @@ use crate::s3::CACHE_CONTROL_IMMUTABLE;
 use crate::s3::S3Error;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
+use crate::s3_paths::docs_v1_path;
+use crate::s3_paths::file_path;
+use crate::s3_paths::npm_tarball_path;
 use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
@@ -399,7 +399,7 @@ pub async fn process_tarball(
     }
   }
 
-  // TO ENSURE CONSISTENCY OF FILES IN GCS, ALL ERRORS RETURNED AFTER THIS POINT MUST BE RETRYABLE
+  // TO ENSURE CONSISTENCY OF FILES IN S3, ALL ERRORS RETURNED AFTER THIS POINT MUST BE RETRYABLE
 
   buckets
     .docs_bucket
@@ -470,7 +470,7 @@ pub async fn process_tarball(
       (path, bytes, maybe_content_type)
     })
     .map(|(path, bytes, maybe_content_type)| {
-      let gcs_path = file_path(
+      let s3_path = file_path(
         &publishing_task.package_scope,
         &publishing_task.package_name,
         &publishing_task.package_version,
@@ -481,7 +481,7 @@ pub async fn process_tarball(
         buckets
           .modules_bucket
           .upload(
-            gcs_path.into(),
+            s3_path.into(),
             UploadTaskBody::Bytes(bytes),
             S3UploadOptions {
               content_type: maybe_content_type.map(Into::into),

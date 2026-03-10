@@ -619,8 +619,7 @@ fn start_shared_fake_s3() -> u16 {
       continue;
     }
 
-    // Then copy the rest of stderr to a sink to prevent fake-gcs-server from
-    // blocking.
+    // Then copy the rest of stderr to a sink to prevent minio from blocking.
     std::thread::spawn(move || {
       std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
     });

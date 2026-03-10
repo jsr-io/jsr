@@ -68,64 +68,6 @@ export async function proxyToCloudRun(
   }
 }
 
-export async function proxyToGCS(
-  request: Request,
-  bucketEndpoint: string | undefined,
-  bucketName: string,
-  pathRewrite?: (path: string) => string,
-): Promise<Response> {
-  const url = new URL(request.url);
-  let path = url.pathname;
-  if (pathRewrite) {
-    path = pathRewrite(path);
-  }
-  path = path.slice(1);
-
-  const gcsUrl = `${
-    bucketEndpoint ?? "https://storage.googleapis.com"
-  }/${bucketName}/${path}`;
-
-  const headers = new Headers();
-
-  const ifNoneMatch = request.headers.get("If-None-Match");
-  if (ifNoneMatch) {
-    headers.set("If-None-Match", ifNoneMatch);
-  }
-
-  const ifModifiedSince = request.headers.get("If-Modified-Since");
-  if (ifModifiedSince) {
-    headers.set("If-Modified-Since", ifModifiedSince);
-  }
-
-  const range = request.headers.get("Range");
-  if (range) {
-    headers.set("Range", range);
-  }
-
-  const method = request.method === "HEAD" ? "HEAD" : "GET";
-
-  try {
-    const response = await cachedFetch(true, gcsUrl, {
-      method,
-      headers,
-      redirect: "follow",
-    });
-
-    return new Response(response.body, {
-      headers: response.headers,
-      status: response.status,
-    });
-  } catch (error) {
-    console.error("GCS proxy error:", error);
-    return new Response("Bad Gateway", {
-      status: 502,
-      headers: {
-        "Content-Type": "text/plain",
-      },
-    });
-  }
-}
-
 export async function proxyToR2(
   request: Request,
   bucket: PartialBucket,

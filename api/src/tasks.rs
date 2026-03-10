@@ -34,7 +34,6 @@ use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
 use crate::gcp;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
@@ -46,6 +45,7 @@ use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::s3::CACHE_CONTROL_IMMUTABLE;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
+use crate::s3_paths;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::decode_json;
@@ -170,7 +170,7 @@ pub async fn npm_tarball_build_handler(
       sha512: &npm_tarball.sha512,
     };
 
-    let npm_tarball_path = gcs_paths::npm_tarball_path(
+    let npm_tarball_path = s3_paths::npm_tarball_path(
       &job.scope,
       &job.name,
       &job.version,
@@ -193,7 +193,7 @@ pub async fn npm_tarball_build_handler(
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&job.scope, &job.name);
+    crate::s3_paths::npm_version_manifest_path(&job.scope, &job.name);
   let npm_version_manifest =
     generate_npm_version_manifest(&db, &npm_url, &job.scope, &job.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;

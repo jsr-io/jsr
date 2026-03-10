@@ -577,7 +577,7 @@ async fn update_description(
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(scope, &package.name);
+    crate::s3_paths::npm_version_manifest_path(scope, &package.name);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, scope, &package.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -854,7 +854,7 @@ pub async fn version_publish_handler(
     }
   };
 
-  let gcs_path = bucket_tarball_path(publishing_task.id);
+  let s3_path = bucket_tarball_path(publishing_task.id);
 
   let body = req.into_body();
   let total_size = Arc::new(AtomicU64::new(0));
@@ -879,7 +879,7 @@ pub async fn version_publish_handler(
   let upload_result = buckets
     .publishing_bucket
     .upload(
-      gcs_path.into(),
+      s3_path.into(),
       crate::s3::UploadTaskBody::Stream(Box::new(stream)),
       S3UploadOptions {
         content_type: Some("application/x-tar".into()),
@@ -1019,7 +1019,7 @@ pub async fn version_update_handler(
   .await?;
 
   let package_metadata_path =
-    crate::gcs_paths::package_metadata(&scope, &package);
+    crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
@@ -1037,7 +1037,7 @@ pub async fn version_update_handler(
     .await?;
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -1099,18 +1099,18 @@ pub async fn version_delete_handler(
   db.delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
 
-  let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
+  let path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
   buckets.docs_bucket.delete_file(path.into()).await?;
 
-  let path = crate::gcs_paths::version_metadata(&scope, &package, &version);
+  let path = crate::s3_paths::version_metadata(&scope, &package, &version);
   buckets.modules_bucket.delete_file(path.into()).await?;
 
   let path =
-    crate::gcs_paths::file_path_root_directory(&scope, &package, &version);
+    crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
   let package_metadata_path =
-    crate::gcs_paths::package_metadata(&scope, &package);
+    crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
@@ -1128,7 +1128,7 @@ pub async fn version_delete_handler(
     .await?;
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -1245,19 +1245,19 @@ pub async fn get_docs_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
+    crate::s3_paths::docs_v1_path(&scope, &package_name, &version.version);
   let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
 
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
-      let gcs_path = crate::gcs_paths::file_path(
+      let s3_path = crate::s3_paths::file_path(
         &scope,
         &package_name,
         &version.version,
         readme_path,
       )
       .into();
-      Either::Left(buckets.modules_bucket.download(gcs_path))
+      Either::Left(buckets.modules_bucket.download(s3_path))
     } else {
       Either::Right(futures::future::ready(Ok(None)))
     }
@@ -1382,7 +1382,7 @@ pub async fn get_docs_search_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
+    crate::s3_paths::docs_v1_path(&scope, &package_name, &version.version);
   let docs = buckets.docs_bucket.download(docs_path.into()).await?;
   let docs = docs.ok_or_else(|| {
     error!(
@@ -1455,7 +1455,7 @@ pub async fn get_docs_search_structured_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
+    crate::s3_paths::docs_v1_path(&scope, &package_name, &version.version);
   let docs = buckets.docs_bucket.download(docs_path.into()).await?;
   let docs = docs.ok_or_else(|| {
     error!(
@@ -1543,14 +1543,14 @@ pub async fn get_source_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let file = if path == "meta.json" {
-    let source_file_path = crate::gcs_paths::package_metadata(&scope, &package);
+    let source_file_path = crate::s3_paths::package_metadata(&scope, &package);
     buckets
       .modules_bucket
       .download(source_file_path.into())
       .await?
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
-      crate::gcs_paths::version_metadata(&scope, &package, &version.version);
+      crate::s3_paths::version_metadata(&scope, &package, &version.version);
     buckets
       .modules_bucket
       .download(source_file_path.into())
@@ -1561,7 +1561,7 @@ pub async fn get_source_handler(
       ApiError::MalformedRequest { msg }
     })?;
 
-    let source_file_path = crate::gcs_paths::file_path(
+    let source_file_path = crate::s3_paths::file_path(
       &scope,
       &package,
       &version.version,
@@ -1734,10 +1734,10 @@ pub async fn get_diff_handler(
     .ok_or(ApiError::PackageVersionNotFound)?;
 
   let old_docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
+    crate::s3_paths::docs_v1_path(&scope, &package_name, &old_version.version);
   let old_doc_nodes_fut = buckets.docs_bucket.download(old_docs_path.into());
   let new_docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
+    crate::s3_paths::docs_v1_path(&scope, &package_name, &new_version.version);
   let new_doc_nodes_fut = buckets.docs_bucket.download(new_docs_path.into());
 
   let (old_docs, new_docs) =
@@ -2007,7 +2007,7 @@ impl DepTreeLoader {
         async move {
           let Some(bytes) = bucket
             .download(
-              crate::gcs_paths::file_path(&scope, &package, &version, &path)
+              crate::s3_paths::file_path(&scope, &package, &version, &path)
                 .into(),
             )
             .await
@@ -2516,11 +2516,11 @@ pub async fn get_dependencies_graph_handler(
   Span::current().record("version", field::display(&version));
 
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let gcs_path =
-    crate::gcs_paths::version_metadata(&scope, &package, &version).into();
+  let s3_path =
+    crate::s3_paths::version_metadata(&scope, &package, &version).into();
   let version_meta = buckets
     .modules_bucket
-    .download(gcs_path)
+    .download(s3_path)
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
