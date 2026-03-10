@@ -27,6 +27,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
       dataset = local.worker_download_analytics_dataset
       }, {
       type        = "r2_bucket"
+      name        = "MODULES_BUCKET"
+      bucket_name = cloudflare_r2_bucket.modules.name
+    }, {
+      type        = "r2_bucket"
       name        = "NPM_BUCKET"
       bucket_name = cloudflare_r2_bucket.npm.name
       }, {
@@ -49,10 +53,6 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type = "secret_text"
       name = "REGISTRY_FRONTEND_URL"
       text = google_cloud_run_v2_service.registry_frontend["us-central1"].uri
-      }, {
-      type = "secret_text"
-      name = "MODULES_BUCKET"
-      text = google_storage_bucket.modules.name
     }
   ]
 

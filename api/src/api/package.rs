@@ -55,7 +55,6 @@ use crate::analysis::ModuleParser;
 use crate::auth::GithubOauth2Client;
 use crate::auth::access_token;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
@@ -81,6 +80,7 @@ use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
+use crate::s3::UploadTaskBody;
 use crate::tarball::bucket_tarball_path;
 use crate::util;
 use crate::util::LicenseStore;
@@ -1981,7 +1981,7 @@ struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
 }
 
@@ -2188,7 +2188,7 @@ async fn analyze_deps_tree(
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: IndexMap<String, String>,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,

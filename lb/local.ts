@@ -67,10 +67,12 @@ async function createMinioBucket(name: string) {
 
 const bucketCreationInterval = setInterval(async () => {
   let allBucketsCreated = true;
-  for (const bucket of [MODULES_BUCKET]) {
+  for (const bucket of []) {
     allBucketsCreated &&= await createBucket(bucket);
   }
-  for (const bucket of [DOCS_BUCKET, PUBLISHING_BUCKET, NPM_BUCKET]) {
+  for (
+    const bucket of [MODULES_BUCKET, DOCS_BUCKET, PUBLISHING_BUCKET, NPM_BUCKET]
+  ) {
     allBucketsCreated &&= await createMinioBucket(bucket);
   }
 
@@ -197,7 +199,7 @@ function handler(req: Request): Promise<Response> {
     REGISTRY_API_URL,
     REGISTRY_FRONTEND_URL,
     GCS_ENDPOINT,
-    MODULES_BUCKET,
+    MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
     NPM_BUCKET: new R2BucketShim(NPM_BUCKET),
     ROOT_DOMAIN,
     API_DOMAIN,
