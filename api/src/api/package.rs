@@ -54,7 +54,6 @@ use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
 use crate::auth::GithubOauth2Client;
 use crate::auth::access_token;
-use crate::buckets::Buckets;
 use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
@@ -67,8 +66,6 @@ use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
 use crate::gcp;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::GcsUploadOptions;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -80,6 +77,9 @@ use crate::npm::generate_npm_version_manifest;
 use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::tarball::bucket_tarball_path;
 use crate::util;
@@ -586,7 +586,7 @@ async fn update_description(
     .upload(
       npm_version_manifest_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -881,7 +881,7 @@ pub async fn version_publish_handler(
     .upload(
       gcs_path.into(),
       crate::s3::UploadTaskBody::Stream(Box::new(stream)),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/x-tar".into()),
         cache_control: None,
         gzip_encoded: true,
@@ -1028,7 +1028,7 @@ pub async fn version_update_handler(
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1046,7 +1046,7 @@ pub async fn version_update_handler(
     .upload(
       npm_version_manifest_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1119,7 +1119,7 @@ pub async fn version_delete_handler(
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1137,7 +1137,7 @@ pub async fn version_delete_handler(
     .upload(
       npm_version_manifest_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,

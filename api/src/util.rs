@@ -491,7 +491,6 @@ pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
   use crate::auth::GithubOauth2Client;
-  use crate::buckets::Buckets;
   use crate::db::Database;
   use crate::db::EphemeralDatabase;
   use crate::db::NewGithubIdentity;
@@ -501,6 +500,7 @@ pub mod test {
   use crate::gcp::FakeGcsTester;
   use crate::ids::ScopeDescription;
   use crate::s3::BucketWithQueue;
+  use crate::s3::Buckets;
   use crate::s3::FakeS3Tester;
   use crate::util::LicenseStore;
 

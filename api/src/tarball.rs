@@ -30,14 +30,10 @@ use uuid::Uuid;
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
 use crate::analysis::analyze_package;
-use crate::buckets::Buckets;
 use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcp::GcsError;
-use crate::gcp::GcsUploadOptions;
 use crate::gcs_paths::docs_v1_path;
 use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
@@ -48,7 +44,10 @@ use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
 use crate::s3::S3Error;
+use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::util::LicenseStore;
 
@@ -412,7 +411,7 @@ pub async fn process_tarball(
       )
       .into(),
       crate::s3::UploadTaskBody::Bytes(doc_nodes_json),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: false,
@@ -438,7 +437,7 @@ pub async fn process_tarball(
     .upload(
       npm_tarball_path.into(),
       crate::s3::UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/octet-stream".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: false,
@@ -484,7 +483,7 @@ pub async fn process_tarball(
           .upload(
             gcs_path.into(),
             UploadTaskBody::Bytes(bytes),
-            GcsUploadOptions {
+            S3UploadOptions {
               content_type: maybe_content_type.map(Into::into),
               cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
               gzip_encoded: false,
@@ -521,18 +520,11 @@ pub fn bucket_tarball_path(id: Uuid) -> String {
 
 #[derive(Debug, Error)]
 pub enum PublishError {
-  #[error("gcs download error: {0}")]
-  GcsDownloadError(GcsError),
-
   #[error("s3 download error: {0}")]
   S3DownloadError(S3Error),
 
   #[error("missing tarball")]
   MissingTarball,
-
-  #[allow(dead_code)]
-  #[error("gcs upload error: {0}")]
-  GcsUploadError(GcsError),
 
   #[error("s3 upload error: {0}")]
   S3UploadError(S3Error),
@@ -709,9 +701,7 @@ impl PublishError {
   /// other errors are retryable, and displayed as internal errors to users.
   pub fn user_error_code(&self) -> Option<&'static str> {
     match self {
-      PublishError::GcsDownloadError(_) => None,
       PublishError::S3DownloadError(_) => None,
-      PublishError::GcsUploadError(_) => None,
       PublishError::S3UploadError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
@@ -775,10 +765,7 @@ impl PublishError {
 fn from_tarball_io_error(err: io::Error) -> PublishError {
   match err.downcast::<s3::error::S3Error>() {
     Ok(err) => PublishError::S3DownloadError(S3Error::S3(err)),
-    Err(err) => match err.downcast::<reqwest::Error>() {
-      Ok(err) => PublishError::GcsDownloadError(GcsError::Reqwest(err)),
-      Err(err) => PublishError::InvalidTarball(err),
-    },
+    Err(err) => PublishError::InvalidTarball(err),
   }
 }
 

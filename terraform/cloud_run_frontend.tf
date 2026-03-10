@@ -17,12 +17,6 @@ locals {
   }
   frontend_regions = toset([
     "us-central1",          # Iowa
-    "europe-west1",         # Belgium
-    "asia-northeast1",      # Japan
-    "asia-south1",          # India
-    "asia-southeast1",      # Singapore
-    "southamerica-east1",   # Brazil
-    "australia-southeast1", # Sydney
   ])
 }
 
