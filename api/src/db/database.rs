@@ -3845,9 +3845,7 @@ impl Database {
     } || "tickets.closed ASC, tickets.created_at DESC");
 
     let tickets = sqlx::query(&format!(
-      r#"SELECT
-        {}, {}
-    FROM tickets
+      r#"SELECT {}, {} FROM tickets
     INNER JOIN users ON users.id = tickets.creator
     WHERE users.name ILIKE $1
        OR EXISTS (
@@ -3876,9 +3874,7 @@ impl Database {
     let mut out = Vec::with_capacity(tickets.len());
     for (ticket, user) in tickets {
       let messages = query_concat!(
-      "SELECT
-            ", TICKET_MESSAGE_SELECT_JOINED, ",
-            ", USER_PUBLIC_SELECT_JOINED_RT, "
+      "SELECT ", TICKET_MESSAGE_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM ticket_messages
         LEFT JOIN users ON users.id = ticket_messages.author
         WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
@@ -3939,9 +3935,7 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     let tickets = query_concat!(
-      "SELECT
-        ", TICKET_SELECT_JOINED, ",
-        ", USER_SELECT_FULL_JOINED, "
+      "SELECT ", TICKET_SELECT_JOINED, ", ", USER_SELECT_FULL_JOINED, "
     FROM tickets
     INNER JOIN users ON users.id = tickets.creator
     WHERE tickets.creator = $1

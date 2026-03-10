@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            ticket_messages.ticket_id as \"message_ticket_id\", ticket_messages.author as \"message_author\", ticket_messages.message as \"message_message\", ticket_messages.updated_at as \"message_updated_at\", ticket_messages.created_at as \"message_created_at\",\n            users.id as \"user_id\", users.name as \"user_name\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\"\n        FROM ticket_messages\n        LEFT JOIN users ON users.id = ticket_messages.author\n        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at",
+  "query": "SELECT ticket_messages.ticket_id as \"message_ticket_id\", ticket_messages.author as \"message_author\", ticket_messages.message as \"message_message\", ticket_messages.updated_at as \"message_updated_at\", ticket_messages.created_at as \"message_created_at\", users.id as \"user_id\", users.name as \"user_name\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\"\n        FROM ticket_messages\n        LEFT JOIN users ON users.id = ticket_messages.author\n        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at",
   "describe": {
     "columns": [
       {
@@ -78,5 +78,5 @@
       false
     ]
   },
-  "hash": "04f623e713ae8332329d93884a21aba8e019fc058e1fa64c1e61f51fc627aa61"
+  "hash": "5a344f0f5e924e82983b00946c165301a842bb5107436c87a85410adb9bb9e0a"
 }
