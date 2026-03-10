@@ -19,6 +19,7 @@ export interface State {
   user: FullUser | null;
   sudo: boolean;
   meta: Meta;
+  cacheControl?: string;
   searchKind?: SearchKind;
 }
 

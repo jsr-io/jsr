@@ -114,7 +114,9 @@ where
 pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
+  pub const FIVE_MINUTES: CacheDuration = CacheDuration(60 * 5);
   pub const TEN_MINUTES: CacheDuration = CacheDuration(60 * 10);
+  pub const ONE_HOUR: CacheDuration = CacheDuration(60 * 60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
   pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
@@ -128,21 +130,114 @@ where
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
 {
   let value =
-    header::HeaderValue::from_str(&format!("public, s-maxage={}", duration.0))
-      .unwrap();
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("public, max-age=60, s-maxage={}, immutable", duration.0)
+    } else {
+      let swr = std::cmp::min(duration.0 * 3, CacheDuration::ONE_DAY.0);
+      format!(
+        "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+        duration.0, swr
+      )
+    })
+    .unwrap();
+  let private_value =
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("private, max-age={}, immutable", duration.0)
+    } else {
+      format!("private, max-age={}", duration.0)
+    })
+    .unwrap();
   let handler = Arc::new(handler);
   move |req: Request<Body>| {
     let handler = handler.clone();
     let value = value.clone();
+    let private_value = private_value.clone();
     async move {
       let is_anonymous = req.iam().is_anonymous();
       let mut res = handler(req).await?;
-      if is_anonymous {
-        res
-          .headers_mut()
-          .entry(header::CACHE_CONTROL)
-          .or_insert_with(|| value);
-      }
+      let value = if is_anonymous { value } else { private_value };
+      res
+        .headers_mut()
+        .entry(header::CACHE_CONTROL)
+        .or_insert_with(|| value);
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
+/// Cache middleware that applies different durations based on whether the
+/// `:version` path parameter is a specific version or "latest".
+/// This prevents aggressive caching of "latest"-resolved content while
+/// allowing long caching for immutable versioned content.
+pub fn cache_versioned<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let latest_swr =
+    std::cmp::min(latest_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let latest_value = header::HeaderValue::from_str(&format!(
+    "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+    latest_duration.0, latest_swr
+  ))
+  .unwrap();
+  let versioned_swr =
+    std::cmp::min(versioned_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let versioned_value = header::HeaderValue::from_str(&if versioned_duration.0
+    >= CacheDuration::FOREVER.0
+  {
+    format!(
+      "public, max-age=60, s-maxage={}, immutable",
+      versioned_duration.0
+    )
+  } else {
+    format!(
+      "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+      versioned_duration.0, versioned_swr
+    )
+  })
+  .unwrap();
+  let private_latest_value = header::HeaderValue::from_str(&format!(
+    "private, max-age={}",
+    latest_duration.0
+  ))
+  .unwrap();
+  let private_versioned_value =
+    header::HeaderValue::from_str(&if versioned_duration.0
+      >= CacheDuration::FOREVER.0
+    {
+      format!("private, max-age={}, immutable", versioned_duration.0)
+    } else {
+      format!("private, max-age={}", versioned_duration.0)
+    })
+    .unwrap();
+  let handler = Arc::new(handler);
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+    let latest_value = latest_value.clone();
+    let versioned_value = versioned_value.clone();
+    let private_latest_value = private_latest_value.clone();
+    let private_versioned_value = private_versioned_value.clone();
+    async move {
+      let is_anonymous = req.iam().is_anonymous();
+      let is_latest =
+        req.param("version").map(|v| v == "latest").unwrap_or(true);
+      let mut res = handler(req).await?;
+      let value = match (is_anonymous, is_latest) {
+        (true, true) => latest_value,
+        (true, false) => versioned_value,
+        (false, true) => private_latest_value,
+        (false, false) => private_versioned_value,
+      };
+      res
+        .headers_mut()
+        .entry(header::CACHE_CONTROL)
+        .or_insert(value);
       Ok(res)
     }
     .boxed()
