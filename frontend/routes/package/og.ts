@@ -393,6 +393,8 @@ export const handler = define.handlers({
       HEIGHT - JSR_LOGO_HEIGHT - PADDING,
     );
 
+    ctx.state.cacheControl = "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400";
+
     return new Response((await ogpImage.encode()) as BufferSource, {
       headers: {
         "access-control-allow-origin": "*",

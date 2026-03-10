@@ -129,18 +129,22 @@ pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/", util::json(list_handler))
     .post("/", util::json(create_handler))
-    .get("/:package", util::json(get_handler))
+    .get("/:package", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)))
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
       "/:package/versions",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(list_versions_handler)),
     )
-    .get("/:package/dependents", util::json(list_dependents_handler))
-    .get("/:package/downloads", util::json(get_downloads_handler))
+    .get("/:package/dependents", util::cache(CacheDuration::FIVE_MINUTES, util::json(list_dependents_handler)))
+    .get("/:package/downloads", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_downloads_handler)))
     .get(
       "/:package/versions/:version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_version_handler),
+      ),
     )
     .post(
       "/:package/versions/:version",
@@ -164,33 +168,47 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_docs_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/docs/search",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_handler),
       ),
     )
     .get(
       "/:package/versions/:version/docs/search_structured",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
       "/:package/versions/:version/source",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_source_handler),
+      ),
     )
     .get(
       "/:package/diff/:old_version/:new_version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_diff_handler)),
+      util::cache(CacheDuration::ONE_DAY, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
-      util::json(list_dependencies_handler),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(list_dependencies_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies/graph",
@@ -203,7 +221,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
-    .get("/:package/score", util::json(get_score_handler))
+    .get("/:package/score", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)))
     .build()
     .unwrap()
 }

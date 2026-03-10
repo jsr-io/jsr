@@ -48,7 +48,7 @@ pub fn api_router() -> Router<Body, ApiError> {
     .scope("/users", users_router())
     .scope("/authorizations", authorization_router())
     .scope("/publishing_tasks", publishing_task_router())
-    .get("/packages", util::json(global_list_handler))
+    .get("/packages", util::cache(CacheDuration::FIVE_MINUTES, util::json(global_list_handler)))
     .get(
       "/stats",
       util::cache(CacheDuration::TEN_MINUTES, util::json(global_stats_handler)),

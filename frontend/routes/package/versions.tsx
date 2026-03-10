@@ -348,6 +348,8 @@ export const handler = define.handlers({
         res.pkg.description ? `: ${res.pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: res.pkg,
