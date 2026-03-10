@@ -13,25 +13,18 @@ const FRAGMENTS_FILE: &str = "src/db/sql_fragments.rs";
 fn load_fragments() -> &'static HashMap<String, String> {
   static MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
   MAP.get_or_init(|| {
-    let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") else {
-      return HashMap::new();
-    };
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let path = PathBuf::from(&manifest_dir).join(FRAGMENTS_FILE);
-    let Ok(content) = std::fs::read_to_string(&path) else {
-      return HashMap::new();
-    };
-    let Ok(file) = syn::parse_file(&content) else {
-      panic!("failed to parse {FRAGMENTS_FILE}");
-    };
+    let content = std::fs::read_to_string(&path).unwrap();
+    let file = syn::parse_file(&content).unwrap();
 
     let mut map = HashMap::new();
     for item in file.items {
-      if let syn::Item::Const(item_const) = item {
-        if let syn::Expr::Lit(expr_lit) = &*item_const.expr {
-          if let syn::Lit::Str(lit_str) = &expr_lit.lit {
-            map.insert(item_const.ident.to_string(), lit_str.value());
-          }
-        }
+      if let syn::Item::Const(item_const) = item
+        && let syn::Expr::Lit(expr_lit) = &*item_const.expr
+        && let syn::Lit::Str(lit_str) = &expr_lit.lit
+      {
+        map.insert(item_const.ident.to_string(), lit_str.value());
       }
     }
     map
