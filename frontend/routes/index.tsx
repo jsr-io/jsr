@@ -250,7 +250,6 @@ function PackageVersionToPanelEntry(
   };
 }
 
-// In-memory cache for deno.com blog posts (changes very infrequently)
 let cachedPosts: Post[] = [];
 let cachedPostsAt = 0;
 const POSTS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
