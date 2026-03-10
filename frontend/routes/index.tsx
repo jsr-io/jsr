@@ -26,7 +26,17 @@ let cachedPostsAt = 0;
 const POSTS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 async function fetchBlogPosts(
-  span: { child(): { record(name: string, start: Date, end: Date, attrs: Record<string, string | bigint | boolean>, kind: string): void } },
+  span: {
+    child(): {
+      record(
+        name: string,
+        start: Date,
+        end: Date,
+        attrs: Record<string, string | bigint | boolean>,
+        kind: string,
+      ): void;
+    };
+  },
 ): Promise<Post[]> {
   const now = Date.now();
   if (cachedPosts.length > 0 && now - cachedPostsAt < POSTS_CACHE_TTL) {
@@ -319,7 +329,8 @@ export const handler = define.handlers({
         "JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers.",
     };
 
-    ctx.state.cacheControl = "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
 
     return {
       data: { stats: statsResp.data, posts },

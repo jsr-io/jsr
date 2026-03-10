@@ -129,22 +129,24 @@ where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
 {
-  let value = header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
-    format!("public, max-age=60, s-maxage={}, immutable", duration.0)
-  } else {
-    let swr = std::cmp::min(duration.0 * 3, CacheDuration::ONE_DAY.0);
-    format!(
-      "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
-      duration.0, swr
-    )
-  })
-  .unwrap();
-  let private_value = header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
-    format!("private, max-age={}, immutable", duration.0)
-  } else {
-    format!("private, max-age={}", duration.0)
-  })
-  .unwrap();
+  let value =
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("public, max-age=60, s-maxage={}, immutable", duration.0)
+    } else {
+      let swr = std::cmp::min(duration.0 * 3, CacheDuration::ONE_DAY.0);
+      format!(
+        "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+        duration.0, swr
+      )
+    })
+    .unwrap();
+  let private_value =
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("private, max-age={}, immutable", duration.0)
+    } else {
+      format!("private, max-age={}", duration.0)
+    })
+    .unwrap();
   let handler = Arc::new(handler);
   move |req: Request<Body>| {
     let handler = handler.clone();
@@ -177,37 +179,43 @@ where
   H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
 {
-  let latest_swr = std::cmp::min(latest_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let latest_swr =
+    std::cmp::min(latest_duration.0 * 3, CacheDuration::ONE_DAY.0);
   let latest_value = header::HeaderValue::from_str(&format!(
     "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
     latest_duration.0, latest_swr
   ))
   .unwrap();
-  let versioned_swr = std::cmp::min(versioned_duration.0 * 3, CacheDuration::ONE_DAY.0);
-  let versioned_value = header::HeaderValue::from_str(
-    &if versioned_duration.0 >= CacheDuration::FOREVER.0 {
-      format!("public, max-age=60, s-maxage={}, immutable", versioned_duration.0)
-    } else {
-      format!(
-        "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
-        versioned_duration.0, versioned_swr
-      )
-    },
-  )
+  let versioned_swr =
+    std::cmp::min(versioned_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let versioned_value = header::HeaderValue::from_str(&if versioned_duration.0
+    >= CacheDuration::FOREVER.0
+  {
+    format!(
+      "public, max-age=60, s-maxage={}, immutable",
+      versioned_duration.0
+    )
+  } else {
+    format!(
+      "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+      versioned_duration.0, versioned_swr
+    )
+  })
   .unwrap();
   let private_latest_value = header::HeaderValue::from_str(&format!(
     "private, max-age={}",
     latest_duration.0
   ))
   .unwrap();
-  let private_versioned_value = header::HeaderValue::from_str(
-    &if versioned_duration.0 >= CacheDuration::FOREVER.0 {
+  let private_versioned_value =
+    header::HeaderValue::from_str(&if versioned_duration.0
+      >= CacheDuration::FOREVER.0
+    {
       format!("private, max-age={}, immutable", versioned_duration.0)
     } else {
       format!("private, max-age={}", versioned_duration.0)
-    },
-  )
-  .unwrap();
+    })
+    .unwrap();
   let handler = Arc::new(handler);
   move |req: Request<Body>| {
     let handler = handler.clone();
@@ -217,10 +225,8 @@ where
     let private_versioned_value = private_versioned_value.clone();
     async move {
       let is_anonymous = req.iam().is_anonymous();
-      let is_latest = req
-        .param("version")
-        .map(|v| v == "latest")
-        .unwrap_or(true);
+      let is_latest =
+        req.param("version").map(|v| v == "latest").unwrap_or(true);
       let mut res = handler(req).await?;
       let value = match (is_anonymous, is_latest) {
         (true, true) => latest_value,

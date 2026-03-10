@@ -92,6 +92,4 @@ const cache = define.middleware(async (ctx) => {
   return resp;
 });
 
-
-
 export const handler: Middleware<State>[] = [tracing, auth, cache];

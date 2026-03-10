@@ -35,10 +35,19 @@ pub fn scope_router() -> Router<Body, ApiError> {
   Router::builder()
     .scope("/:scope/packages", package_router())
     .post("/", util::auth(util::json(create_handler)))
-    .get("/:scope", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)))
+    .get(
+      "/:scope",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:scope", util::auth(util::json(update_handler)))
     .delete("/:scope", util::auth(delete_handler))
-    .get("/:scope/members", util::cache(CacheDuration::FIVE_MINUTES, util::json(list_members_handler)))
+    .get(
+      "/:scope/members",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_members_handler),
+      ),
+    )
     .post(
       "/:scope/members",
       util::auth(util::json(invite_member_handler)),

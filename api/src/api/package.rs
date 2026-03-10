@@ -129,15 +129,33 @@ pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/", util::json(list_handler))
     .post("/", util::json(create_handler))
-    .get("/:package", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)))
+    .get(
+      "/:package",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
       "/:package/versions",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(list_versions_handler)),
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_versions_handler),
+      ),
     )
-    .get("/:package/dependents", util::cache(CacheDuration::FIVE_MINUTES, util::json(list_dependents_handler)))
-    .get("/:package/downloads", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_downloads_handler)))
+    .get(
+      "/:package/dependents",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_dependents_handler),
+      ),
+    )
+    .get(
+      "/:package/downloads",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_downloads_handler),
+      ),
+    )
     .get(
       "/:package/versions/:version",
       util::cache_versioned(
@@ -221,7 +239,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
-    .get("/:package/score", util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)))
+    .get(
+      "/:package/score",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)),
+    )
     .build()
     .unwrap()
 }
