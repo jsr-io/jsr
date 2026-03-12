@@ -22,18 +22,18 @@ export function Header({
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-  const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
+  const oramaPackageProjectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
 
   const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
-  const oramaDocsIndexId = Deno.env.get("ORAMA_DOCS_PUBLIC_INDEX_ID");
+  const oramaDocsProjectId = Deno.env.get("ORAMA_DOCS_PROJECT_ID");
 
   const oramaApiKey = searchKind === "packages"
     ? oramaPackageApiKey
     : oramaDocsApiKey;
-  const oramaIndexId = searchKind === "packages"
-    ? oramaPackageIndexId
-    : oramaDocsIndexId;
+  const oramaProjectId = searchKind === "packages"
+    ? oramaPackageProjectId
+    : oramaDocsProjectId;
 
   const prodProxy = !!Deno.env.get("PROD_PROXY");
 
@@ -63,14 +63,14 @@ export function Header({
               <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
-          <div class="hidden sm:block grow-1 flex-1">
+          <div class="hidden sm:block grow flex-1">
             {!isHomepage && (
               <GlobalSearch
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
+                projectId={oramaProjectId}
                 apiKey={oramaApiKey}
-                indexId={oramaIndexId}
                 kind={searchKind}
               />
             )}
@@ -128,8 +128,8 @@ export function Header({
           {!isHomepage && (
             <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
+              projectId={oramaProjectId}
               apiKey={oramaApiKey}
-              indexId={oramaIndexId}
               kind={searchKind}
             />
           )}

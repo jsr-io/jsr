@@ -3,10 +3,10 @@ use hyper::Body;
 use hyper::Response;
 use std::borrow::Cow;
 
+use super::ApiPublishingTask;
 use crate::errors;
 use crate::gcp::GcsError;
-
-use super::ApiPublishingTask;
+use crate::s3::S3Error;
 
 errors!(
   TarballSizeLimitExceeded {
@@ -43,6 +43,10 @@ errors!(
   PackageVersionNotFound {
     status: NOT_FOUND,
     "The requested package version was not found.",
+  },
+  DiffNoIndex {
+    status: NOT_FOUND,
+    "Diffs do not have an index.",
   },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
@@ -268,13 +272,13 @@ errors!(
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
-  if let Some(db_err) = err.as_database_error() {
-    if let Some(code) = db_err.code() {
-      // Code 23505 is unique_violation.
-      // See https://www.postgresql.org/docs/13/errcodes-appendix.html
-      if code == "23505" {
-        return new_err;
-      }
+  if let Some(db_err) = err.as_database_error()
+    && let Some(code) = db_err.code()
+  {
+    // Code 23505 is unique_violation.
+    // See https://www.postgresql.org/docs/13/errcodes-appendix.html
+    if code == "23505" {
+      return new_err;
     }
   }
   err.into()
@@ -398,6 +402,12 @@ impl
 
 impl From<GcsError> for ApiError {
   fn from(error: GcsError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<S3Error> for ApiError {
+  fn from(error: S3Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

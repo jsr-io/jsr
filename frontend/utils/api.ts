@@ -71,6 +71,21 @@ interface RequestOptions {
   anonymous?: boolean;
 }
 
+export class APIError extends Error {
+  response: APIResponseError;
+  constructor(response: APIResponseError) {
+    super(response.message);
+    this.name = "APIError";
+    this.response = response;
+  }
+}
+
+export function assertOk<T>(
+  resp: APIResponse<T>,
+): asserts resp is APIResponseOK<T> {
+  if (!resp.ok) throw new APIError(resp);
+}
+
 export class API {
   #apiRoot: string;
   #token: string | null;
@@ -244,6 +259,7 @@ export class API {
               "error.message": result.message,
             }),
         },
+        "CLIENT",
       );
     }
     return result;

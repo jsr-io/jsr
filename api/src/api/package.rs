@@ -18,6 +18,7 @@ use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_semver::StackString;
 use futures::StreamExt;
+use futures::TryFutureExt;
 use futures::future::Either;
 use hyper::Body;
 use hyper::Request;
@@ -53,7 +54,6 @@ use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
 use crate::auth;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
@@ -79,15 +79,17 @@ use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
 use crate::provenance;
 use crate::publish::publish_task;
-use crate::tarball::gcs_tarball_path;
+use crate::s3::UploadTaskBody;
+use crate::tarball::bucket_tarball_path;
 use crate::util;
-use crate::util::ApiResult;
-use crate::util::CacheDuration;
+use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
+use crate::util::{ApiResult, docs_queries};
+use crate::util::{CacheDuration, DocsQueries};
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -111,11 +113,14 @@ use super::ApiSource;
 use super::ApiSourceDirEntry;
 use super::ApiSourceDirEntryKind;
 use super::ApiStats;
+use super::ApiStatsPackage;
+use super::ApiStatsPackageVersion;
 use super::ApiUpdatePackageGithubRepositoryRequest;
+
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
-const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
+pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
@@ -123,18 +128,40 @@ pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/", util::json(list_handler))
     .post("/", util::json(create_handler))
-    .get("/:package", util::json(get_handler))
+    .get(
+      "/:package",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
       "/:package/versions",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_versions_handler),
+      ),
     )
-    .get("/:package/dependents", util::json(list_dependents_handler))
-    .get("/:package/downloads", util::json(get_downloads_handler))
+    .get(
+      "/:package/dependents",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_dependents_handler),
+      ),
+    )
+    .get(
+      "/:package/downloads",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_downloads_handler),
+      ),
+    )
     .get(
       "/:package/versions/:version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_version_handler),
+      ),
     )
     .post(
       "/:package/versions/:version",
@@ -153,30 +180,52 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::auth(version_provenance_statements_handler),
     )
     .get(
+      "/:package/versions/:version/tarball",
+      util::cache(CacheDuration::FOREVER, version_tarball_handler),
+    )
+    .get(
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_docs_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/docs/search",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_handler),
       ),
     )
     .get(
-      "/:package/versions/:version/docs/search_html",
-      util::cache(
+      "/:package/versions/:version/docs/search_structured",
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        util::json(get_docs_search_html_handler),
+        CacheDuration::ONE_HOUR,
+        util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
       "/:package/versions/:version/source",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_source_handler),
+      ),
+    )
+    .get(
+      "/:package/diff/:old_version/:new_version",
+      util::cache(CacheDuration::ONE_DAY, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
-      util::json(list_dependencies_handler),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(list_dependencies_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies/graph",
@@ -189,7 +238,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
-    .get("/:package/score", util::json(get_score_handler))
+    .get(
+      "/:package/score",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)),
+    )
     .build()
     .unwrap()
 }
@@ -233,9 +285,12 @@ pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
   let (newest, updated, featured) = db.package_stats().await?;
 
   Ok(ApiStats {
-    newest: newest.into_iter().map(ApiPackage::from).collect(),
-    updated: updated.into_iter().map(ApiPackageVersion::from).collect(),
-    featured: featured.into_iter().map(ApiPackage::from).collect(),
+    newest: newest.into_iter().map(ApiStatsPackage::from).collect(),
+    updated: updated
+      .into_iter()
+      .map(ApiStatsPackageVersion::from)
+      .collect(),
+    featured: featured.into_iter().map(ApiStatsPackage::from).collect(),
   })
 }
 
@@ -569,7 +624,7 @@ async fn update_description(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
@@ -732,11 +787,16 @@ pub async fn get_version_handler(
 
   let maybe_version = match version {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package, &version).await?
+      db.get_package_version_with_newer_versions_count(
+        &scope, &package, &version,
+      )
+      .await?
     }
     VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package)
-        .await?
+      db.get_latest_unyanked_version_for_package_with_newer_versions_count(
+        &scope, &package,
+      )
+      .await?
     }
   };
 
@@ -776,13 +836,13 @@ pub async fn version_publish_handler(
 
   // If there is a content-length header, check it isn't too big.
   // We don't rely on this, we will also check MAX_PAYLOAD_SIZE later.
-  if let Some(size) = req.body().size_hint().upper() {
-    if size > MAX_PUBLISH_TARBALL_SIZE {
-      return Err(ApiError::TarballSizeLimitExceeded {
-        size,
-        max_size: MAX_PUBLISH_TARBALL_SIZE,
-      });
-    }
+  if let Some(size) = req.body().size_hint().upper()
+    && size > MAX_PUBLISH_TARBALL_SIZE
+  {
+    return Err(ApiError::TarballSizeLimitExceeded {
+      size,
+      max_size: MAX_PUBLISH_TARBALL_SIZE,
+    });
   }
 
   // Ensure the upload is gzip encoded.
@@ -793,6 +853,7 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
@@ -833,7 +894,7 @@ pub async fn version_publish_handler(
     }
   };
 
-  let gcs_path = gcs_tarball_path(publishing_task.id);
+  let gcs_path = bucket_tarball_path(publishing_task.id);
 
   let body = req.into_body();
   let total_size = Arc::new(AtomicU64::new(0));
@@ -859,7 +920,7 @@ pub async fn version_publish_handler(
     .publishing_bucket
     .upload(
       gcs_path.into(),
-      UploadTaskBody::Stream(Box::new(stream)),
+      crate::s3::UploadTaskBody::Stream(Box::new(stream)),
       GcsUploadOptions {
         content_type: Some("application/x-tar".into()),
         cache_control: None,
@@ -870,14 +931,14 @@ pub async fn version_publish_handler(
 
   let hash = hash.lock().unwrap().take().unwrap().finalize();
   let hash = format!("sha256-{:02x}", hash);
-  if let Some(tarball_hash) = access_restriction.tarball_hash {
-    if tarball_hash != hash {
-      error!(
-        "Tarball hash mismatch: expected {}, got {}",
-        tarball_hash, hash
-      );
-      return Err(ApiError::MissingPermission);
-    }
+  if let Some(tarball_hash) = access_restriction.tarball_hash
+    && tarball_hash != hash
+  {
+    error!(
+      "Tarball hash mismatch: expected {}, got {}",
+      tarball_hash, hash
+    );
+    return Err(ApiError::MissingPermission);
   }
 
   // If the upload failed due to the size limit, we can cancel the task.
@@ -899,7 +960,8 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
-      buckets.clone(),
+      buckets,
+      license_store,
       registry_url,
       npm_url,
       db,
@@ -944,10 +1006,11 @@ pub async fn version_provenance_statements_handler(
     .await?;
 
   if let Some(orama_client) = orama_client {
-    let (package, _, meta) = db
-      .get_package(&scope, &package)
-      .await?
-      .ok_or(ApiError::InternalServerError)?;
+    let (package, _, meta) =
+      db.get_package(&scope, &package).await?.ok_or_else(|| {
+        error!("package not found after inserting provenance statement");
+        ApiError::InternalServerError
+      })?;
     orama_client.upsert_package(&package, &meta);
   }
 
@@ -1022,7 +1085,7 @@ pub async fn version_update_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
@@ -1113,7 +1176,7 @@ pub async fn version_delete_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
@@ -1126,6 +1189,51 @@ pub async fn version_delete_handler(
     Response::builder()
       .status(StatusCode::NO_CONTENT)
       .body(Body::empty())
+      .unwrap(),
+  )
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/versions/:version/tarball",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn version_tarball_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+
+  let (task, _) = db
+    .get_publishing_task_for_version(&scope, &package, &version)
+    .await?;
+
+  let path = bucket_tarball_path(task.id);
+  let body = buckets
+    .publishing_bucket
+    .bucket
+    .download_stream(&path, None)
+    .await?
+    .unwrap();
+
+  Ok(
+    Response::builder()
+      .status(StatusCode::OK)
+      .header(hyper::header::CONTENT_TYPE, "application/gzip")
+      .body(Body::wrap_stream(body.map(|r| {
+        r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+          Box::new(e)
+        })
+      })))
       .unwrap(),
   )
 }
@@ -1145,30 +1253,17 @@ pub async fn get_docs_handler(
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package_name));
   Span::current().record("version", field::display(&version_or_latest));
-  let all_symbols = req.query("all_symbols").is_some();
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+
   Span::current().record("all_symbols", field::display(&all_symbols));
-  let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
-  });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
-
-  let symbol = req
-    .query("symbol")
-    .and_then(|s| match s.as_str() {
-      "" => None,
-      s => Some(urlencoding::decode(s)),
-    })
-    .transpose()?;
   Span::current()
     .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
-
-  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "Cannot specify both all_symbols and entrypoint".into(),
-    });
-  }
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1192,6 +1287,7 @@ pub async fn get_docs_handler(
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
   let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
+
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
       let gcs_path = crate::gcs_paths::file_path(
@@ -1209,8 +1305,11 @@ pub async fn get_docs_handler(
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) =
-    futures::future::try_join(doc_nodes_fut, readme_fut).await?;
+  let (docs, readme) = futures::future::try_join(
+    doc_nodes_fut.map_err(ApiError::from),
+    readme_fut.map_err(ApiError::from),
+  )
+  .await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1220,6 +1319,7 @@ pub async fn get_docs_handler(
   })?;
   let doc_nodes: DocNodesByUrl =
     serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
@@ -1249,6 +1349,7 @@ pub async fn get_docs_handler(
   };
 
   let docs = crate::docs::generate_docs_html(
+    "/doc".to_string(),
     doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
@@ -1262,6 +1363,7 @@ pub async fn get_docs_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1271,12 +1373,11 @@ pub async fn get_docs_handler(
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
-      main: docs.main,
+      main: docs.main.into(),
       version: ApiPackageVersion::from(version),
     }),
     GeneratedDocsOutput::Redirect(href) => {
@@ -1338,6 +1439,7 @@ pub async fn get_docs_search_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let ctx = crate::docs::get_generate_ctx(
+    "/doc".to_string(),
     doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
@@ -1349,6 +1451,7 @@ pub async fn get_docs_search_handler(
     false,
     package.runtime_compat,
     registry_url,
+    None,
   );
 
   let search_index = deno_doc::html::generate_search_index(&ctx);
@@ -1357,14 +1460,14 @@ pub async fn get_docs_search_handler(
 }
 
 #[instrument(
-  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_structured",
   skip(req),
   err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_search_html_handler(
+pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<String> {
+) -> ApiResult<deno_doc::html::AllSymbolsCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1409,6 +1512,7 @@ pub async fn get_docs_search_html_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let docs = crate::docs::generate_docs_html(
+    "/doc".to_string(),
     doc_nodes,
     docs_info.main_entrypoint,
     docs_info.rewrite_map,
@@ -1422,6 +1526,7 @@ pub async fn get_docs_search_html_handler(
     package.runtime_compat,
     registry_url,
     package.readme_source,
+    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1430,8 +1535,11 @@ pub async fn get_docs_search_html_handler(
   .unwrap();
 
   let search = match docs {
-    GeneratedDocsOutput::Docs(docs) => docs.main,
-    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+    GeneratedDocsOutput::Docs(crate::docs::GeneratedDocs {
+      main: crate::docs::GeneratedDocsContent::AllSymbols(main),
+      ..
+    }) => main,
+    _ => unreachable!(),
   };
 
   Ok(search)
@@ -1527,7 +1635,12 @@ pub async fn get_source_handler(
         path_buf
           .extension()
           .map(|ext| ext.to_string_lossy())
-          .as_deref(),
+          .as_deref()
+          .map(|ext| match ext {
+            "mts" | "cts" => "ts",
+            "mjs" | "cjs" => "js",
+            ext => ext,
+          }),
         &file,
       )?;
       out.extend(b"</code></pre>");
@@ -1590,11 +1703,168 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
     comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/diff/:old_version/:new_version",
+  skip(req),
+  err,
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_diff_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageVersionDocs> {
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+
+  let old_version = util::param(&req, "old_version")?;
+  let old_version = Version::try_from(old_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'old_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("old_version", field::display(&old_version));
+
+  let new_version = util::param(&req, "new_version")?;
+  let new_version = Version::try_from(new_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'new_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("new_version", field::display(&new_version));
+
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+  if !all_symbols && entrypoint.is_none() {
+    return Err(ApiError::DiffNoIndex);
+  }
+
+  Span::current().record("all_symbols", field::display(&all_symbols));
+  Span::current()
+    .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
+  Span::current()
+    .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
+
+  let full = req.query("full").is_some();
+  Span::current().record("full", field::display(full));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, repo, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let old_version = db
+    .get_package_version(&scope, &package_name, &old_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+  let new_version = db
+    .get_package_version(&scope, &package_name, &new_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+
+  let old_docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
+  let old_doc_nodes_fut = buckets.docs_bucket.download(old_docs_path.into());
+  let new_docs_path =
+    crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
+  let new_doc_nodes_fut = buckets.docs_bucket.download(new_docs_path.into());
+
+  let (old_docs, new_docs) =
+    futures::future::try_join(old_doc_nodes_fut, new_doc_nodes_fut).await?;
+
+  let old_docs = old_docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, old_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let new_docs = new_docs.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, new_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+
+  let old_doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&old_docs).context("failed to parse doc nodes")?;
+  let new_doc_nodes: DocNodesByUrl =
+    serde_json::from_slice(&new_docs).context("failed to parse doc nodes")?;
+
+  // diffs are applied on top of the new version
+  let new_docs_info =
+    crate::docs::get_docs_info(&new_version.exports, entrypoint);
+
+  if entrypoint.is_some() && new_docs_info.entrypoint_url.is_none() {
+    return Err(ApiError::EntrypointOrSymbolNotFound);
+  }
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let req = match (new_docs_info.entrypoint_url, symbol) {
+    _ if all_symbols => DocsRequest::AllSymbols,
+    (Some(entrypoint), None) => DocsRequest::File(entrypoint),
+    (Some(entrypoint), Some(symbol)) => {
+      DocsRequest::Symbol(entrypoint, symbol.into())
+    }
+    (None, Some(symbol)) => {
+      if let Some(entrypoint_url) = new_docs_info.main_entrypoint.clone() {
+        DocsRequest::Symbol(entrypoint_url, symbol.into())
+      } else {
+        return Err(ApiError::EntrypointOrSymbolNotFound);
+      }
+    }
+    (None, None) => DocsRequest::Index,
+  };
+
+  let docs = crate::docs::generate_docs_html(
+    format!("/diff/{}...{}", old_version.version, new_version.version),
+    new_doc_nodes,
+    new_docs_info.main_entrypoint,
+    new_docs_info.rewrite_map,
+    req,
+    scope.clone(),
+    package_name.clone(),
+    new_version.version.clone(),
+    true,
+    repo,
+    None,
+    package.runtime_compat,
+    registry_url,
+    package.readme_source,
+    Some((old_doc_nodes, full)),
+  )
+  .map_err(|e| {
+    error!("failed to generate docs: {}", e);
+    ApiError::InternalServerError
+  })?
+  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+
+  match docs {
+    GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
+      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
+      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+      breadcrumbs: docs.breadcrumbs,
+      toc: docs.toc,
+      main: docs.main.into(),
+      version: ApiPackageVersion::from(new_version),
+    }),
+    GeneratedDocsOutput::Redirect(href) => {
+      Ok(ApiPackageVersionDocs::Redirect { symbol: href })
+    }
+  }
 }
 
 #[instrument(
@@ -1751,7 +2021,7 @@ struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
 }
 
@@ -1831,23 +2101,23 @@ impl DepTreeLoader {
             return Ok(None);
           };
 
-          if version.is_none() {
-            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
-              let version = captures.name("version").unwrap();
-              let meta =
-                serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+          if version.is_none()
+            && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
+          {
+            let version = captures.name("version").unwrap();
+            let meta =
+              serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
 
-              let mut lock = exports.lock().await;
-              lock.insert(
-                format!(
-                  "@{}/{}@{}",
-                  scope.as_str(),
-                  package.as_str(),
-                  version.as_str()
-                ),
-                meta.exports,
-              );
-            }
+            let mut lock = exports.lock().await;
+            lock.insert(
+              format!(
+                "@{}/{}@{}",
+                scope.as_str(),
+                package.as_str(),
+                version.as_str()
+              ),
+              meta.exports,
+            );
           }
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
@@ -1958,7 +2228,7 @@ async fn analyze_deps_tree(
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: IndexMap<String, String>,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
@@ -1996,6 +2266,7 @@ async fn analyze_deps_tree(
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: false,
         resolver: Some(&JsrResolver { member }),
         npm_resolver: None,
@@ -2004,6 +2275,9 @@ async fn analyze_deps_tree(
         locker: None,
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;
@@ -2157,22 +2431,21 @@ impl<'a> GraphDependencyCollector<'a> {
       let mut children = IndexSet::new();
       match module {
         Module::Js(module) => {
-          if let Some(types_dep) = &module.maybe_types_dependency {
-            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          if let Some(types_dep) = &module.maybe_types_dependency
+            && let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          {
+            children.insert(child);
+          }
+          for dep in module.dependencies.values() {
+            if !dep.maybe_code.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_code)
             {
               children.insert(child);
             }
-          }
-          for dep in module.dependencies.values() {
-            if !dep.maybe_code.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
-                children.insert(child);
-              }
-            }
-            if !dep.maybe_type.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
-                children.insert(child);
-              }
+            if !dep.maybe_type.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_type)
+            {
+              children.insert(child);
             }
           }
         }
@@ -2713,6 +2986,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2773,6 +3047,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2815,6 +3090,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2984,6 +3260,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2998,6 +3275,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3012,6 +3290,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3537,17 +3816,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3563,21 +3839,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("all symbols"),
-          "{:?}",
-          breadcrumbs
-        );
-        assert!(toc.is_none(), "{:?}", toc);
+        assert!(breadcrumbs.is_some());
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3593,21 +3862,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("hello"),
-          "{:?}",
-          breadcrumbs
-        );
-        assert!(toc.is_some(), "{:?}", toc);
+        assert!(breadcrumbs.is_some());
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3626,21 +3888,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("读取多键1"),
-          "{:?}",
-          breadcrumbs
-        );
-        assert!(toc.is_some(), "{:?}", toc);
+        assert!(breadcrumbs.is_some());
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -4251,7 +4506,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         },
         ApiSourceDirEntry {
           name: "jsr.json".to_string(),
-          size: 74,
+          size: 93,
           kind: ApiSourceDirEntryKind::File,
         },
         ApiSourceDirEntry {

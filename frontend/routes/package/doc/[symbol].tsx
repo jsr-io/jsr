@@ -32,7 +32,6 @@ export default define.page<typeof handler>(function Symbol(
 
       <DocsView
         docs={data.docs}
-        params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
         user={state.user}
         scope={data.package.scope}
@@ -59,6 +58,9 @@ export const handler = define.handlers({
         404,
         "This package, package version, entrypoint, or symbol was not found.",
       );
+    }
+    if (res instanceof Response) {
+      return res;
     }
 
     if (res.kind === "redirect") {
@@ -102,6 +104,10 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,

@@ -2,7 +2,7 @@
 import { HttpError } from "fresh";
 import { define } from "../../util.ts";
 import type { List, Package, ScopeInvite } from "../../utils/api_types.ts";
-import { APIResponse, path } from "../../utils/api.ts";
+import { APIResponse, assertOk, path } from "../../utils/api.ts";
 import { ScopeNav } from "./(_components)/ScopeNav.tsx";
 import { ScopeHeader } from "./(_components)/ScopeHeader.tsx";
 import { scopeDataWithMember } from "../../utils/data.ts";
@@ -48,13 +48,11 @@ export const handler = define.handlers({
         : Promise.resolve(null),
     ]);
     if (data === null) throw new HttpError(404, "The scope was not found.");
-    if (!packagesResp.ok) {
-      if (packagesResp.code === "scopeNotFound") {
-        throw new HttpError(404, "The scope was not found.");
-      }
-      throw packagesResp; // graceful handle errors
+    if (!packagesResp.ok && packagesResp.code === "scopeNotFound") {
+      throw new HttpError(404, "The scope was not found.");
     }
-    if (userInvitesResp && !userInvitesResp.ok) throw userInvitesResp;
+    assertOk(packagesResp);
+    if (userInvitesResp) assertOk(userInvitesResp);
 
     return {
       data: {
@@ -81,7 +79,7 @@ export const handler = define.handlers({
     } else {
       throw new Error("invalid action");
     }
-    if (!res.ok) throw res; // graceful handle errors
+    assertOk(res);
     ctx.state.meta = {
       title: `@${scope} - JSR`,
       description: `@${scope} on JSR`,

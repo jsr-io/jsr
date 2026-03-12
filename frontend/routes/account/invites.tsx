@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { define } from "../../util.ts";
-import { APIResponse, path } from "../../utils/api.ts";
+import { APIResponse, assertOk, path } from "../../utils/api.ts";
 import { ScopeInvite } from "../../utils/api_types.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
@@ -111,7 +111,7 @@ export const handler = define.handlers({
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
-    if (!invitesRes.ok) throw invitesRes; // gracefully handle errors
+    assertOk(invitesRes);
     ctx.state.meta = { title: "Your invites - JSR" };
     return {
       data: {
@@ -135,7 +135,7 @@ export const handler = define.handlers({
     } else {
       throw new Error("invalid action");
     }
-    if (!res.ok) throw res; // graceful handle errors
+    assertOk(res);
     return ctx.redirect(location, 303);
   },
 });

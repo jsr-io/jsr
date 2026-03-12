@@ -14,6 +14,7 @@ use hyper::StatusCode;
 use routerify::Router;
 use routerify::ext::RequestExt;
 use tracing::Span;
+use tracing::error;
 use tracing::field;
 use tracing::instrument;
 
@@ -25,6 +26,7 @@ use crate::auth;
 use crate::db::*;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 use crate::util::decode_json;
 
@@ -32,10 +34,19 @@ pub fn scope_router() -> Router<Body, ApiError> {
   Router::builder()
     .scope("/:scope/packages", package_router())
     .post("/", util::auth(util::json(create_handler)))
-    .get("/:scope", util::json(get_handler))
+    .get(
+      "/:scope",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:scope", util::auth(util::json(update_handler)))
     .delete("/:scope", util::auth(delete_handler))
-    .get("/:scope/members", util::json(list_members_handler))
+    .get(
+      "/:scope/members",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_members_handler),
+      ),
+    )
     .post(
       "/:scope/members",
       util::auth(util::json(invite_member_handler)),
@@ -332,32 +343,6 @@ async fn invite_member_handler(
 }
 
 #[instrument(
-  name = "GET /api/scopes/:scope/members/:member",
-  skip(req),
-  err,
-  fields(scope, member)
-)]
-async fn get_member_handler(req: Request<Body>) -> ApiResult<ApiScopeMember> {
-  let scope = req.param_scope()?;
-  let member_id = req.param_uuid("member")?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("member", field::display(&member_id));
-
-  let db = req.data::<Database>().unwrap();
-
-  let user = db
-    .get_user_public(member_id)
-    .await?
-    .ok_or(ApiError::UserNotFound)?;
-  let scope_member = db
-    .get_scope_member(&scope, member_id)
-    .await?
-    .ok_or(ApiError::ScopeMemberNotFound)?;
-
-  Ok((scope_member, user).into())
-}
-
-#[instrument(
   name = "PATCH /api/scopes/:scope/members/:member",
   skip(req),
   err,
@@ -397,10 +382,13 @@ async fn update_member_handler(
     }
   };
 
-  let user = db
-    .get_user_public(scope_member.user_id)
-    .await?
-    .ok_or(ApiError::InternalServerError)?;
+  let user =
+    db.get_user_public(scope_member.user_id)
+      .await?
+      .ok_or_else(|| {
+        error!("user not found for scope member: {}", scope_member.user_id);
+        ApiError::InternalServerError
+      })?;
 
   Ok((scope_member, user).into())
 }

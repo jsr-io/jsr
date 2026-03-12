@@ -11,10 +11,11 @@ import twas from "twas";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
+import { Card } from "../../components/Card.tsx";
 
 export default define.page<typeof handler>(function Versions({
   data,
@@ -101,7 +102,7 @@ export default define.page<typeof handler>(function Versions({
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="mt-4 md:mt-8">
+      <div class="mt-4 md:mt-6">
         <DownloadChart downloads={data.downloads.recentVersions} />
       </div>
 
@@ -175,21 +176,30 @@ function Version({
   const isSuccess = tasks.length > 0 &&
     tasks.some((task) => task.status === "success");
 
+  const isRedState = (!isPublished && (isFailed || isSuccess)) ||
+    version?.yanked;
+  const isBlueState = !isPublished && !isFailed && !isSuccess;
+
+  const variant = isRedState
+    ? "red"
+    : isBlueState
+    ? "blue"
+    : isLatestInReleaseTrack
+    ? "green"
+    : "gray";
+
+  const filled = isRedState || isBlueState || isLatestInReleaseTrack;
+
+  const interactive = isRedState
+    ? (version?.yanked || (!isPublished && isSuccess))
+    : !isBlueState;
+
   return (
-    <div
-      class={`relative py-2 px-2 md:py-3 md:px-6 border rounded-lg ${
-        (!isPublished && (isFailed || isSuccess)) || version?.yanked
-          ? `bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 ${
-            (version?.yanked || (!isPublished && isSuccess))
-              ? "hover:bg-red-100 dark:hover:bg-red-800/40 hover:border-red-300 dark:hover:border-red-700"
-              : ""
-          }`
-          : (!isPublished
-            ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700"
-            : (isLatestInReleaseTrack
-              ? "bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-800/40 border-green-300 dark:border-green-700 hover:border-green-400 dark:hover:border-green-600"
-              : "hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 border-jsr-gray-100 dark:border-jsr-gray-900 hover:border-jsr-gray-300 dark:hover:border-jsr-gray-800"))
-      }`}
+    <Card
+      variant={variant}
+      filled={filled}
+      interactive={interactive}
+      class="relative py-2 px-2 md:py-3 md:px-6 rounded-lg"
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 md:gap-6">
@@ -225,14 +235,14 @@ function Version({
             {isPublished
               ? (
                 <a
-                  class="font-bold z-10 after:absolute after:inset-0 after:content-empty"
+                  class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty"
                   href={`/@${version.scope}/${version.package}@${version.version}`}
                 >
                   {format(semver)}
                 </a>
               )
               : (
-                <span class="font-bold z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
+                <span class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
                   {format(semver)}
                 </span>
               )}
@@ -301,7 +311,7 @@ function Version({
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }
 
@@ -320,12 +330,12 @@ export const handler = define.handlers({
     ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
 
-    if (!versionsResp.ok) throw versionsResp; // TODO: handle errors gracefully
+    assertOk(versionsResp);
     let publishingTasks;
     if (tasksResp) {
       if (!tasksResp.ok) {
         if (tasksResp.code !== "actorNotScopeMember") {
-          throw tasksResp; // TODO: handle errors gracefully
+          assertOk(tasksResp);
         }
       } else {
         publishingTasks = tasksResp.data;
@@ -338,6 +348,9 @@ export const handler = define.handlers({
         res.pkg.description ? `: ${res.pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: res.pkg,
@@ -367,7 +380,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: true },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -379,7 +392,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: false },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -390,7 +403,7 @@ export const handler = define.handlers({
         const res = await api.delete(
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },

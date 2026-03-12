@@ -2,7 +2,10 @@ use std::borrow::Cow;
 
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use deno_semver::VersionParseError;
+use sqlx::Database;
 use sqlx::Postgres;
+use sqlx::encode::IsNull;
+use sqlx::error::BoxDynError;
 use sqlx::postgres::PgValueRef;
 use thiserror::Error;
 
@@ -100,8 +103,8 @@ impl sqlx::Decode<'_, Postgres> for ScopeName {
 impl<'q> sqlx::Encode<'q, Postgres> for ScopeName {
   fn encode_by_ref(
     &self,
-    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <String as sqlx::Encode<'_, Postgres>>::encode_by_ref(&self.0, buf)
   }
 }
@@ -229,8 +232,8 @@ impl sqlx::Decode<'_, Postgres> for ScopeDescription {
 impl<'q> sqlx::Encode<'q, Postgres> for ScopeDescription {
   fn encode_by_ref(
     &self,
-    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
       &self.0, buf,
     )
@@ -361,8 +364,8 @@ impl sqlx::Decode<'_, Postgres> for PackageName {
 impl<'q> sqlx::Encode<'q, Postgres> for PackageName {
   fn encode_by_ref(
     &self,
-    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
       &self.0, buf,
     )
@@ -560,8 +563,8 @@ impl sqlx::Decode<'_, Postgres> for Version {
 impl<'q> sqlx::Encode<'q, Postgres> for Version {
   fn encode_by_ref(
     &self,
-    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     let serialized = self.0.to_string();
     <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
       &serialized,
@@ -785,8 +788,8 @@ impl sqlx::Decode<'_, Postgres> for PackagePath {
 impl<'q> sqlx::Encode<'q, Postgres> for PackagePath {
   fn encode_by_ref(
     &self,
-    buf: &mut <Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <std::string::String as sqlx::Encode<'_, Postgres>>::encode_by_ref(
       &self.0, buf,
     )

@@ -2,24 +2,33 @@
 import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
-import { OramaClient } from "@oramacloud/client";
+import { OramaCloud } from "@orama/core";
 import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "fresh/runtime";
 import type { OramaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
-import { useIsMobileDevice, useMacLike } from "../utils/os.ts";
+import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
 
 interface GlobalSearchProps {
   query?: string;
-  indexId?: string;
+  projectId?: string;
   apiKey?: string;
   jumbo?: boolean;
   kind?: SearchKind;
 }
+
+const searchHints: JSX.Element[] = [
+  <p key="scope:">
+    Hint: use <code>scope:</code> to search for packages by scope
+  </p>,
+  <p key="runtime:">
+    Hint: use <code>runtime:</code> to search for packages by compatible runtime
+  </p>,
+];
 
 // The maximum time between a query and the result for that query being
 // displayed, if there is a more recent pending query.
@@ -28,7 +37,7 @@ const MAX_STALE_RESULT_MS = 200;
 export function GlobalSearch(
   {
     query,
-    indexId,
+    projectId,
     apiKey,
     jumbo,
     kind = "packages",
@@ -52,27 +61,20 @@ export function GlobalSearch(
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
 
   const showSuggestions = computed(() =>
-    isFocused.value && search.value.length > 0
+    isFocused.value && (search.value.length > 0 || kind !== "docs")
   );
   const macLike = useMacLike();
-  const isMobileDevice = useIsMobileDevice();
 
   const orama = useMemo(() => {
-    if (IS_BROWSER && indexId) {
-      return new OramaClient({
-        endpoint: `https://cloud.orama.run/v1/indexes/${indexId}`,
-        api_key: apiKey!,
+    if (IS_BROWSER && projectId) {
+      return new OramaCloud({
+        projectId,
+        apiKey: apiKey!,
       });
     }
-  }, [indexId, apiKey]);
+  }, [projectId, apiKey]);
 
-  // focus the "search for packages" input box when the site loads
-  useEffect(() => {
-    if (location.pathname === "/" && !isMobileDevice) {
-      (document.querySelector("#global-search-input") as HTMLInputElement)
-        ?.focus();
-    }
-  }, []);
+  const randomHint = useSignal<JSX.Element | null>(null);
 
   useEffect(() => {
     const outsideClick = (e: Event) => {
@@ -97,6 +99,12 @@ export function GlobalSearch(
       globalThis.removeEventListener("keydown", keyboardHandler);
     };
   });
+
+  // Initialize random hint once on mount
+  useEffect(() => {
+    randomHint.value =
+      searchHints[Math.floor(Math.random() * searchHints.length)];
+  }, []);
 
   const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = ev.currentTarget!.value as string;
@@ -126,7 +134,6 @@ export function GlobalSearch(
               where,
               limit: 5,
               mode: "fulltext",
-              // @ts-ignore boost does exist
               boost: kind === "packages"
                 ? {
                   id: 3,
@@ -135,7 +142,7 @@ export function GlobalSearch(
                   description: 0.5,
                 }
                 : {},
-            }, { abortController: abort.current! });
+            });
             if (
               abort.current?.signal.aborted ||
               searchNRef.current.displayed > searchN
@@ -275,8 +282,10 @@ export function GlobalSearch(
             type="search"
             name="search"
             class={`w-full h-full search-input bg-white/90 dark:bg-jsr-gray-950/90 truncate ${
-              kind === "packages" ? "!text-transparent" : ""
-            } !caret-black dark:!caret-white input rounded-r-none ${sizeClasses} relative`}
+              kind === "packages"
+                ? "text-transparent! selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
+                : ""
+            } caret-black! dark:caret-white! input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
             onInput={onInput}
@@ -292,25 +301,22 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} ${
-                jumbo ? "!px-3.5" : "!px-1.5"
-              }`}
+              class={`search-input bg-transparent! border-transparent! select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
             >
               <div
-                class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses} `}
+                ref={inputOverlayContentRef}
+                class={`whitespace-pre`}
               >
-                <div ref={inputOverlayContentRef}>
-                  {tokenizeFilter(search.value).map((token, i, arr) => (
-                    <span>
-                      <span
-                        class={token.kind === "text" ? "" : "search-input-tag"}
-                      >
-                        {token.raw}
-                      </span>
-                      {((arr.length - 1) !== i) && " "}
+                {tokenizeFilter(search.value).map((token, i, arr) => (
+                  <span>
+                    <span
+                      class={token.kind === "text" ? "" : "search-input-tag"}
+                    >
+                      {token.raw}
                     </span>
-                  ))}
-                </div>
+                    {((arr.length - 1) !== i) && " "}
+                  </span>
+                ))}
               </div>
             </div>
           )}
@@ -356,6 +362,7 @@ export function GlobalSearch(
           selectionIdx={selectionIdx}
           kind={kind}
           input={search}
+          randomHint={randomHint}
         />
       </div>
     </div>
@@ -369,7 +376,8 @@ function SuggestionList(
     showSuggestions,
     kind,
     input,
-  }: {
+    randomHint,
+  }: Readonly<{
     suggestions: Signal<
       (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
     >;
@@ -377,19 +385,20 @@ function SuggestionList(
     selectionIdx: Signal<number>;
     kind: SearchKind;
     input: Signal<string>;
-  },
+    randomHint: Signal<JSX.Element | null>;
+  }>,
 ) {
   if (!showSuggestions.value) return null;
 
   return (
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
-      {suggestions.value === null
+      {suggestions.value === null && kind === "packages"
         ? (
-          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4">
-            ...
+          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
+            {randomHint.value || "Loading..."}
           </div>
         )
-        : suggestions.value?.length === 0
+        : suggestions.value === null || suggestions.value.length === 0
         ? (
           <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
             No matching results to display
@@ -406,7 +415,7 @@ function SuggestionList(
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-[selected=true]:bg-jsr-cyan-100 dark:aria-[selected=true]:bg-jsr-cyan-950"
+                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-selected:bg-jsr-cyan-100 dark:aria-selected:bg-jsr-cyan-950"
                   aria-selected={selected}
                 >
                   <a href={hit.href} class="bg-red-600">
@@ -459,7 +468,7 @@ function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
   return {
     href: `/docs/${hit.path}${hit.slug ? `#${hit.slug}` : ""}`,
     content: (
-      <div class="grow-1 w-full space-y-1">
+      <div class="grow w-full space-y-1">
         {hit.header && (
           <div class="font-semibold space-x-1">
             {hit.headerParts.map((part, i) => (

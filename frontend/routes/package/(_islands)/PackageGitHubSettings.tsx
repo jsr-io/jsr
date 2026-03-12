@@ -48,7 +48,7 @@ export function PackageGitHubSettings(
   }
 
   return (
-    <div class="space-y-4 mb-8">
+    <div class="space-y-4">
       <form method="POST" onSubmit={onSubmit} class="flex flex-wrap gap-4">
         <GitHubRepoInput
           id="gh-repo-input"

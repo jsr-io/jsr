@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, type RouteConfig } from "fresh";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { define } from "../../../util.ts";
 import { DependencyGraph } from "../(_islands)/DependencyGraph.tsx";
@@ -73,7 +73,7 @@ export const handler = define.handlers({
     const depsResp = await ctx.state.api.get<DependencyGraphItem[]>(
       path`/scopes/${pkg.scope}/packages/${pkg.name}/versions/${selectedVersion.version}/dependencies/graph`,
     );
-    if (!depsResp.ok) throw depsResp;
+    assertOk(depsResp);
 
     ctx.state.meta = {
       title: `Dependencies Graph - @${pkg.scope}/${pkg.name} - JSR`,
@@ -81,6 +81,10 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400"
+      : "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
 
     return {
       data: {

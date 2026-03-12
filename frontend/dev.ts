@@ -3,26 +3,25 @@
 
 import { Builder } from "fresh/dev";
 import { tailwind } from "@fresh/plugin-tailwind";
-import { app } from "./main.ts";
 import { CSS } from "@deno/gfm";
 
 const builder = new Builder();
-tailwind(builder, app, {});
 builder.onTransformStaticFile(
   { pluginName: "gfm-css", filter: /gfm\.css/ },
   (args) => {
     const css = CSS.replaceAll("font-size:16px;", "");
     return {
       content: args.text.replace(
-        "/* During the build process, the @deno/gfm CSS file is injected here. */",
+        "/*! During the build process, the @deno/gfm CSS file is injected here. */",
         css,
       ),
     };
   },
 );
+tailwind(builder);
 
 if (Deno.args.includes("build")) {
-  await builder.build(app);
+  await builder.build();
 } else {
-  await builder.listen(app);
+  await builder.listen(() => import("./main.ts"));
 }

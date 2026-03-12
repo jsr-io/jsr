@@ -33,6 +33,62 @@ In HTML documents, the following can be used:
 </a>
 ```
 
+## Total Downloads Badge
+
+The total downloads badge can be used to showcase the total amount of downloads
+of a package. It is available at the following URL:
+
+```
+https://jsr.io/badges/@<scope>/<package>/total-downloads
+```
+
+Here's how it looks:
+
+[![JSR](https://jsr.io/badges/@luca/flag/total-downloads)](https://jsr.io/@luca/flag)
+
+To include it in a Markdown document, use the following code, replacing
+`<scope>` and `<package>` with the actual scope and name of the package.
+
+```markdown
+[![JSR](https://jsr.io/badges/@<scope>/<package>/total-downloads)](https://jsr.io/@<scope>/<package>)
+```
+
+In HTML documents, the following can be used:
+
+```html
+<a href="https://jsr.io/@<scope>/<package>">
+  <img src="https://jsr.io/badges/@<scope>/<package>/total-downloads" alt="" />
+</a>
+```
+
+## Weekly Downloads Badge
+
+The total downloads badge can be used to showcase the weekly amount of downloads
+of a package. It is available at the following URL:
+
+```
+https://jsr.io/badges/@<scope>/<package>/weekly-downloads
+```
+
+Here's how it looks:
+
+[![JSR](https://jsr.io/badges/@luca/flag/weekly-downloads)](https://jsr.io/@luca/flag)
+
+To include it in a Markdown document, use the following code, replacing
+`<scope>` and `<package>` with the actual scope and name of the package.
+
+```markdown
+[![JSR](https://jsr.io/badges/@<scope>/<package>/weekly-downloads)](https://jsr.io/@<scope>/<package>)
+```
+
+In HTML documents, the following can be used:
+
+```html
+<a href="https://jsr.io/@<scope>/<package>">
+  <img src="https://jsr.io/badges/@<scope>/<package>/weekly-downloads" alt="" />
+</a>
+```
+
 ## JSR Score Badge
 
 The JSR score badge can be used to showcase the JSR score of a package. It is
@@ -93,12 +149,12 @@ These badges can be customized by adding query parameters to the URL, for
 example:
 
 ```
-https://jsr.io/badges/@luca?logoColor=f7fd1e&color=f7fd1e&labelColor=083344
+https://jsr.io/badges/@luca?logoColor=f7df1e&color=f7df1e&labelColor=083344
 ```
 
 Here's how it looks:
 
-[![JSR Scope](https://jsr.io/badges/@luca?logoColor=f7fd1e&color=f7fd1e&labelColor=083344)](https://jsr.io/@luca)
+[![JSR Scope](https://jsr.io/badges/@luca?logoColor=f7df1e&color=f7df1e&labelColor=083344)](https://jsr.io/@luca)
 
 The supported style-related query parameters can be found in the
 [Shields.io documentation](https://shields.io/badges/endpoint-badge#:~:text=Query%20Parameters).

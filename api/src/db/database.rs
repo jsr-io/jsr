@@ -249,6 +249,7 @@ impl Database {
     Ok((total_users as usize, users))
   }
 
+  #[cfg(test)]
   #[instrument(
     name = "Database::insert_user",
     skip(self, new_user),
@@ -592,6 +593,7 @@ impl Database {
     Ok(user)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::delete_user", skip(self), err)]
   pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
     sqlx::query_as!(
@@ -698,10 +700,10 @@ impl Database {
     let package = match res {
       Ok(package) => package,
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_unique_violation() {
-            return Ok(CreatePackageResult::AlreadyExists);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_unique_violation()
+        {
+          return Ok(CreatePackageResult::AlreadyExists);
         }
         return Err(err);
       }
@@ -1396,6 +1398,7 @@ gitlab_id: r.user_gitlab_id,
     Ok((total_scopes as usize, scopes))
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::list_scopes_created_by_user", skip(self), err)]
   pub async fn list_scopes_created_by_user(
     &self,
@@ -1814,123 +1817,55 @@ gitlab_id: r.user_gitlab_id,
   pub async fn package_stats(
     &self,
   ) -> Result<(
-    Vec<PackageWithGitHubRepoAndMeta>,
-    Vec<PackageVersion>,
-    Vec<PackageWithGitHubRepoAndMeta>,
+    Vec<StatsPackage>,
+    Vec<StatsPackageVersion>,
+    Vec<StatsPackage>,
   )> {
-    let newest = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let newest_fut = sqlx::query!(
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
       FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false AND version IS NOT NULL ORDER BY version DESC LIMIT 1) IS NOT NULL AND NOT packages.is_archived
+      WHERE EXISTS (
+        SELECT 1 FROM package_versions
+        WHERE scope = packages.scope AND name = packages.name AND is_yanked = false
+      ) AND NOT packages.is_archived
       ORDER BY packages.created_at DESC
       LIMIT 10"#,
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.package_scope,
-          name: r.package_name,
-          description: r.package_description,
-          github_repository_id: r.package_github_repository_id,
-          runtime_compat: r.package_runtime_compat,
-          created_at: r.package_created_at,
-          updated_at: r.package_updated_at,
-          version_count: r.package_version_count,
-          latest_version: r.package_latest_version,
-          when_featured: r.package_when_featured,
-          is_archived: r.package_is_archived,
-          readme_source: r.package_readme_source,
-        };
-        let github_repository = if r.package_github_repository_id.is_some() {
-          Some(GithubRepository {
-            id: r.github_repository_id.unwrap(),
-            owner: r.github_repository_owner.unwrap(),
-            name: r.github_repository_name.unwrap(),
-            created_at: r.github_repository_created_at.unwrap(),
-            updated_at: r.github_repository_updated_at.unwrap(),
-          })
-        } else {
-          None
-        };
-        let meta = r.package_version_meta.unwrap_or_default();
-        (package, github_repository, meta)
+      .map(|r| StatsPackage {
+        scope: r.scope,
+        name: r.name,
       })
-      .fetch_all(&self.pool)
-      .await?;
+      .fetch_all(&self.pool);
 
-    let updated = sqlx::query_as!(
-      PackageVersion,
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", package_versions.user_id, package_versions.readme_path as "readme_path: PackagePath", package_versions.exports as "exports: ExportsMap", package_versions.is_yanked, package_versions.uses_npm, package_versions.meta as "meta: PackageVersionMeta", package_versions.updated_at, package_versions.created_at, package_versions.rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!"
+    let updated_fut = sqlx::query!(
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version"
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
-      .fetch_all(&self.pool)
-      .await?;
+      .map(|r| StatsPackageVersion {
+        scope: r.scope,
+        name: r.name,
+        version: r.version,
+      })
+      .fetch_all(&self.pool);
 
-    let featured = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let featured_fut = sqlx::query!(
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
       FROM packages
-      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
       LIMIT 10"#,
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.package_scope,
-          name: r.package_name,
-          description: r.package_description,
-          github_repository_id: r.package_github_repository_id,
-          runtime_compat: r.package_runtime_compat,
-          created_at: r.package_created_at,
-          updated_at: r.package_updated_at,
-          version_count: r.package_version_count,
-          latest_version: r.package_latest_version,
-          when_featured: r.package_when_featured,
-          is_archived: r.package_is_archived,
-          readme_source: r.package_readme_source,
-        };
-        let github_repository = if r.package_github_repository_id.is_some() {
-          Some(GithubRepository {
-            id: r.github_repository_id.unwrap(),
-            owner: r.github_repository_owner.unwrap(),
-            name: r.github_repository_name.unwrap(),
-            created_at: r.github_repository_created_at.unwrap(),
-            updated_at: r.github_repository_updated_at.unwrap(),
-          })
-        } else {
-          None
-        };
-        let meta = r.package_version_meta.unwrap_or_default();
-        (package, github_repository, meta)
+      .map(|r| StatsPackage {
+        scope: r.scope,
+        name: r.name,
       })
-      .fetch_all(&self.pool)
-      .await?;
+      .fetch_all(&self.pool);
 
-    Ok((newest, updated, featured))
+    Ok(tokio::try_join!(newest_fut, updated_fut, featured_fut)?)
   }
 
   #[instrument(name = "Database::metrics", skip(self), err)]
@@ -2016,21 +1951,8 @@ gitlab_id: r.user_gitlab_id,
     name: &PackageName,
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
     sqlx::query!(
-      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id",
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "package_version_newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "package_version_lifetime_download_count!",
-      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
+      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id", package_versions.license as "package_version_license",
+      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
       WHERE package_versions.scope = $1 AND package_versions.name = $2
@@ -2048,12 +1970,11 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at?", use
           is_yanked: r.package_version_is_yanked,
           readme_path: r.package_version_readme_path,
           uses_npm: r.package_version_uses_npm,
-          newer_versions_count: r.package_version_newer_versions_count,
-          lifetime_download_count: r.package_version_lifetime_download_count,
           meta: r.package_version_meta,
           updated_at: r.package_version_updated_at,
           created_at: r.package_version_created_at,
           rekor_log_id: r.package_version_rekor_log_id,
+          license: r.package_version_license,
         };
 
         let user = if r.package_version_user_id.is_some() {
@@ -2079,6 +2000,62 @@ gitlab_id: r.user_gitlab_id,
   }
 
   #[instrument(
+    name = "Database::list_package_versions_for_resolution",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_resolution(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForResolution>> {
+    sqlx::query_as!(
+      PackageVersionForResolution,
+      r#"SELECT package_versions.version as "version: Version", package_versions.exports as "exports: ExportsMap"
+      FROM package_versions
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::list_package_versions_for_npm_version_manifest",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_npm_version_manifest(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForNpmVersionManifest>> {
+    sqlx::query_as!(
+      PackageVersionForNpmVersionManifest,
+      r#"SELECT package_versions.version as "version: Version", package_versions.is_yanked as "is_yanked", package_versions.created_at as "created_at",
+      npm_tarballs.revision as "npm_tarball_revision", npm_tarballs.sha1 as "npm_tarball_sha1", npm_tarballs.sha512 as "npm_tarball_sha512"
+      FROM package_versions
+      INNER JOIN LATERAL (
+        SELECT revision, sha1, sha512
+        FROM npm_tarballs
+        WHERE npm_tarballs.scope = package_versions.scope
+        AND npm_tarballs.name = package_versions.name
+        AND npm_tarballs.version = package_versions.version
+        ORDER BY revision DESC
+        LIMIT 1
+      ) npm_tarballs ON true
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(
     name = "Database::get_latest_unyanked_version_for_package",
     skip(self),
     err
@@ -2090,19 +2067,38 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
+      ORDER BY version DESC
+      LIMIT 1"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_with_newer_versions_count",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_with_newer_versions_count(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
+    sqlx::query_as!(
+      PackageVersionWithNewerVersionsCount,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
@@ -2151,19 +2147,38 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Option<PackageVersion>> {
     sqlx::query_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      scope as _,
+      name as _,
+      version as _
+    )
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::get_package_version_with_newer_versions_count",
+    skip(self),
+    err
+  )]
+  pub async fn get_package_version_with_newer_versions_count(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
+    sqlx::query_as!(
+      PackageVersionWithNewerVersionsCount,
+      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!"
+        AND pv.is_yanked = false) as "newer_versions_count!"
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
@@ -2192,8 +2207,8 @@ gitlab_id: r.user_gitlab_id,
     let mut tx = self.pool.begin().await?;
 
     sqlx::query!(
-      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta, license)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -2202,6 +2217,7 @@ gitlab_id: r.user_gitlab_id,
       new_package_version.exports as _,
       new_package_version.uses_npm as _,
       new_package_version.meta as _,
+      new_package_version.license as _,
     )
       .execute(&mut *tx)
       .await?;
@@ -2267,6 +2283,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(task)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::create_package_version_for_test", skip(
     self,
     new_package_version
@@ -2275,24 +2292,19 @@ gitlab_id: r.user_gitlab_id,
   pub async fn create_package_version_for_test(
     &self,
     new_package_version: NewPackageVersion<'_>,
-  ) -> Result<PackageVersion> {
+  ) -> Result<PackageVersionWithNewerVersionsCount> {
     sqlx::query_as!(
-      PackageVersion,
+      PackageVersionWithNewerVersionsCount,
       r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
       (SELECT COUNT(*)
         FROM package_versions AS pv
         WHERE pv.scope = package_versions.scope
         AND pv.name = package_versions.name
         AND pv.version > package_versions.version
         AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!""#,
+        AND pv.is_yanked = false) as "newer_versions_count!""#,
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -2337,19 +2349,7 @@ gitlab_id: r.user_gitlab_id,
       r#"UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!",
-      (SELECT COALESCE(SUM(dl.count), 0)
-        FROM version_download_counts_24h as dl
-        WHERE dl.scope = package_versions.scope
-        AND dl.package = package_versions.name
-        AND dl.version = package_versions.version) as "lifetime_download_count!""#,
+      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license"#,
       scope as _,
       name as _,
       version as _,
@@ -2401,28 +2401,6 @@ gitlab_id: r.user_gitlab_id,
     Ok(())
   }
 
-  #[instrument(name = "Database::get_package_file", skip(self), err)]
-  pub async fn get_package_file(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-    path: &PackagePath,
-  ) -> Result<Option<PackageFile>> {
-    sqlx::query_as!(
-      PackageFile,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at
-      FROM package_files
-      WHERE scope = $1 AND name = $2 AND version = $3 AND path = $4"#,
-      scope as _,
-      name as _,
-      version as _,
-      path as _
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
   #[instrument(name = "Database::list_package_files", skip(self), err)]
   pub async fn list_package_files(
     &self,
@@ -2443,6 +2421,7 @@ gitlab_id: r.user_gitlab_id,
       .await
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::create_package_file_for_test", skip(
     self,
     new_package_file
@@ -2463,32 +2442,6 @@ gitlab_id: r.user_gitlab_id,
       new_package_file.path as _,
       new_package_file.size,
       new_package_file.checksum
-    )
-      .fetch_one(&self.pool)
-      .await
-  }
-
-  #[instrument(
-    name = "Database::create_package_version_dependency",
-    skip(self, new_package_version_dependency),
-    err
-  )]
-  pub async fn create_package_version_dependency_for_test(
-    &self,
-    new_package_version_dependency: NewPackageVersionDependency<'_>,
-  ) -> Result<PackageVersionDependency> {
-    sqlx::query_as!(
-      PackageVersionDependency,
-      r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at"#,
-      new_package_version_dependency.package_scope as _,
-      new_package_version_dependency.package_name as _,
-      new_package_version_dependency.package_version as _,
-      new_package_version_dependency.dependency_kind as _,
-      new_package_version_dependency.dependency_name as _,
-      new_package_version_dependency.dependency_constraint as _,
-      new_package_version_dependency.dependency_path as _
     )
       .fetch_one(&self.pool)
       .await
@@ -2640,6 +2593,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(scope_invite)
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_user_to_scope", skip(
     self,
     new_scope_member
@@ -2874,10 +2828,10 @@ gitlab_id: r.user_gitlab_id,
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -2925,10 +2879,10 @@ gitlab_id: r.user_gitlab_id,
         Ok(success)
       }
       Err(err) => {
-        if let Some(dberr) = err.as_database_error() {
-          if dberr.is_foreign_key_violation() {
-            return Ok(false);
-          }
+        if let Some(dberr) = err.as_database_error()
+          && dberr.is_foreign_key_violation()
+        {
+          return Ok(false);
         }
         Err(err)
       }
@@ -3039,12 +2993,11 @@ gitlab_id: r.user_gitlab_id,
       return Ok(ScopeMemberUpdateResult::TargetNotMember);
     };
 
-    if !scope_member.is_admin {
-      if let Some(result) =
+    if !scope_member.is_admin
+      && let Some(result) =
         self.transfer_scope(scope, is_creator, &mut tx).await?
-      {
-        return Ok(result);
-      }
+    {
+      return Ok(result);
     }
 
     tx.commit().await?;
@@ -3490,6 +3443,78 @@ gitlab_id: r.user_gitlab_id,
   }
 
   #[instrument(
+    name = "Database::get_publishing_task_for_version",
+    skip(self),
+    err
+  )]
+  pub async fn get_publishing_task_for_version(
+    &self,
+    scope_name: &ScopeName,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> Result<(PublishingTask, Option<UserPublic>)> {
+    sqlx::query!(
+      r#"SELECT
+        publishing_tasks.id as "task_id",
+        publishing_tasks.status as "task_status: PublishingTaskStatus",
+        publishing_tasks.error as "task_error: PublishingTaskError",
+        publishing_tasks.user_id as "task_user_id",
+        publishing_tasks.package_scope as "task_package_scope: ScopeName",
+        publishing_tasks.package_name as "task_package_name: PackageName",
+        publishing_tasks.package_version as "task_package_version: Version",
+        publishing_tasks.config_file as "task_config_file: PackagePath",
+        publishing_tasks.created_at as "task_created_at",
+        publishing_tasks.updated_at as "task_updated_at",
+        users.id as "user_id?",
+        users.name as "user_name?",
+        users.avatar_url as "user_avatar_url?",
+        users.github_id as "user_github_id?",
+        users.gitlab_id as "user_gitlab_id?",
+        users.updated_at as "user_updated_at?",
+        users.created_at as "user_created_at?"
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
+      WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.package_version = $3 AND publishing_tasks.created_at >= packages.created_at
+      ORDER BY publishing_tasks.created_at DESC
+      LIMIT 1"#,
+      scope_name as _,
+      package_name as _,
+      version as _,
+    )
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(
     name = "Database::update_publishing_task_status",
     skip(self),
     err
@@ -3554,6 +3579,20 @@ gitlab_id: r.user_gitlab_id,
     )
       .fetch_optional(&self.pool)
       .await
+  }
+
+  #[instrument(name = "Database::delete_expired_oauth_states", skip(self), err)]
+  pub async fn delete_expired_oauth_states(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM oauth_states WHERE created_at < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
   }
 
   #[instrument(name = "Database::insert_oauth_state", skip(
@@ -3822,10 +3861,10 @@ gitlab_id: r.user_gitlab_id,
       .fetch_optional(&mut *tx)
       .await?;
 
-    if let Some(authorization) = &maybe_authorization {
-      if authorization.user_id.is_some() {
-        tx.commit().await?;
-      }
+    if let Some(authorization) = &maybe_authorization
+      && authorization.user_id.is_some()
+    {
+      tx.commit().await?;
     }
 
     Ok(maybe_authorization)
@@ -3849,6 +3888,25 @@ gitlab_id: r.user_gitlab_id,
     .execute(&self.pool)
     .await?;
     Ok(res.rows_affected() > 0)
+  }
+
+  #[instrument(name = "Database::list_package_dependencies", skip(self), err)]
+  pub async fn list_package_dependencies(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionDependency>> {
+    sqlx::query_as!(
+      PackageVersionDependency,
+      r#"SELECT package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at
+      FROM package_version_dependencies
+      WHERE package_scope = $1 AND package_name = $2
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC"#,
+      scope as _,
+      name as _,
+    )
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -3975,6 +4033,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(res.is_some())
   }
 
+  #[cfg(test)]
   #[instrument(name = "Database::add_bad_word_for_test", skip(self), err)]
   pub async fn add_bad_word_for_test(&self, word: &str) -> Result<()> {
     sqlx::query!("INSERT INTO bad_words (word) VALUES ($1)", word)
@@ -3984,37 +4043,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(())
   }
 
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
-  pub async fn get_latest_npm_tarball_for_version(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-  ) -> Result<Option<NpmTarball>> {
-    sqlx::query_as!(
-      NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
-      FROM npm_tarballs
-      WHERE scope = $1 AND name = $2 AND version = $3
-      ORDER BY revision DESC
-      LIMIT 1"#,
-      scope as _,
-      name as _,
-      version as _
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
-  #[instrument(
-    name = "Database::get_latest_npm_tarball_for_version",
-    skip(self),
-    err
-  )]
+  #[instrument(name = "Database::get_npm_tarball", skip(self), err)]
   pub async fn get_npm_tarball(
     &self,
     scope: &ScopeName,
@@ -4195,6 +4224,7 @@ gitlab_id: r.user_gitlab_id,
     Ok(())
   }
 
+  #[cfg(test)]
   #[instrument(
     name = "Database::get_package_version_downloads_4h",
     skip(self),
@@ -4806,6 +4836,67 @@ gitlab_id: r.user_gitlab_id,
     tx.commit().await?;
 
     Ok(Some((ticket, user, messages)))
+  }
+
+  #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
+  pub async fn get_ticket_audit_logs(
+    &self,
+    ticket_id: Uuid,
+  ) -> Result<Vec<(AuditLog, UserPublic)>> {
+    let mut tx = self.pool.begin().await?;
+
+    let audit_logs = sqlx::query!(
+      r#"
+        SELECT
+          audit_logs.actor_id as "audit_actor_id",
+          audit_logs.is_sudo as "audit_is_sudo",
+          audit_logs.action as "audit_action",
+          audit_logs.meta as "audit_meta",
+          audit_logs.created_at as "audit_created_at",
+          users.id as "user_id",
+          users.name as "user_name",
+          users.avatar_url as "user_avatar_url",
+          users.github_id as "user_github_id",
+          users.gitlab_id as "user_gitlab_id",
+          users.updated_at as "user_updated_at",
+          users.created_at as "user_created_at"
+        FROM
+          audit_logs
+        LEFT JOIN
+          users ON audit_logs.actor_id = users.id
+        WHERE
+          audit_logs.meta::text LIKE $1
+        ORDER BY audit_logs.created_at DESC;
+        "#,
+      format!("%\"ticket_id\": \"{}\"%", ticket_id),
+    )
+    .map(|r| {
+      let audit_log = AuditLog {
+        actor_id: r.audit_actor_id,
+        is_sudo: r.audit_is_sudo,
+        action: r.audit_action,
+        meta: r.audit_meta,
+        created_at: r.audit_created_at,
+      };
+
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+
+      (audit_log, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(audit_logs)
   }
 
   #[instrument(name = "Database::ticket_add_message", skip(self), err)]

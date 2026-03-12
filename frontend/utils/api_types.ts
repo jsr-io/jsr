@@ -1,3 +1,11 @@
+import {
+  AllSymbolsCtx,
+  BreadcrumbsCtx,
+  ModuleDocCtx,
+  SymbolGroupCtx,
+  ToCCtx,
+} from "@deno/doc/html-types";
+
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export interface User {
   id: string;
@@ -135,8 +143,9 @@ export interface PackageVersion {
   version: string;
   yanked: boolean;
   usesNpm: boolean;
-  newerVersionsCount: number;
+  newerVersionsCount: number | null;
   rekorLogId: string | null;
+  license: string | null;
   readmePath: string;
   updatedAt: string;
   createdAt: string;
@@ -149,13 +158,18 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocsContent {
   kind: "content";
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
-  breadcrumbs: string | null;
-  toc: string | null;
-  main: string;
+  breadcrumbs: BreadcrumbsCtx | null;
+  toc: ToCCtx;
+  main: DocsMainContent;
 }
+
+export type DocsMainContent =
+  | { kind: "allSymbols"; value: AllSymbolsCtx }
+  | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "file"; value: ModuleDocCtx }
+  | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {
   kind: "redirect";
@@ -185,7 +199,6 @@ export interface SourceFile {
 
 export interface PackageVersionSource {
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;
@@ -234,10 +247,21 @@ export interface PackageVersionReference {
   version: string;
 }
 
+export interface StatsPackage {
+  scope: string;
+  name: string;
+}
+
+export interface StatsPackageVersion {
+  scope: string;
+  package: string;
+  version: string;
+}
+
 export interface Stats {
-  newest: Package[];
-  updated: PackageVersionWithUser[];
-  featured: Package[];
+  newest: StatsPackage[];
+  updated: StatsPackageVersion[];
+  featured: StatsPackage[];
 }
 
 export interface List<T> {
@@ -326,26 +350,57 @@ export interface NewTicketMessage {
   message: string;
 }
 
-export interface Ticket {
-  id: string;
-  kind: TicketKind;
-  creator: User;
-  meta: Record<string, string>;
-  closed: boolean;
-  messages: TicketMessage[];
-  updatedAt: string;
-  createdAt: string;
-}
-
-export interface TicketMessage {
+export interface ApiTicketMessage {
   author: User;
   message: string;
   updatedAt: string;
   createdAt: string;
 }
 
+export interface ApiAuditLog {
+  actor: User;
+  action: string;
+  isSudo: boolean;
+  meta: Record<string, unknown>;
+  createdAt: string;
+}
+
+export type ApiTicketMessageOrAuditLog =
+  | {
+    kind: "message";
+    message: ApiTicketMessage;
+    user: User;
+  }
+  | {
+    kind: "auditLog";
+    auditLog: ApiAuditLog;
+    user: User;
+  };
+
+export interface ApiTicketOverview {
+  id: string;
+  kind: TicketKind;
+  creator: User;
+  meta: Record<string, string>;
+  closed: boolean;
+  events: ApiTicketMessageOrAuditLog[];
+  updatedAt: string;
+  createdAt: string;
+}
+
 export interface AdminUpdateTicketRequest {
   closed?: boolean;
+}
+
+export interface ApiTicket {
+  id: string;
+  kind: TicketKind;
+  creator: User;
+  meta: Record<string, string>;
+  closed: boolean;
+  messages: ApiTicketMessage[];
+  updatedAt: string;
+  createdAt: string;
 }
 
 export interface AuditLog {

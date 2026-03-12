@@ -2,9 +2,10 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "check": "deno fmt --check && deno lint && deno check **/*.ts && deno check **/*.tsx",
-    "dev": "deno run -A --watch=static/,routes/ dev.ts",
+    "dev": "deno run --env-file -A --watch=static/,routes/ dev.ts",
+    "test": "deno test",
     "build": "deno run -A dev.ts build",
-    "start": "deno run -A main.ts",
+    "start": "deno serve -A _fresh/server.js",
     "update": "deno run -A -r jsr:@fresh/update ."
   },
   "lint": {
@@ -13,15 +14,16 @@
     }
   },
   "imports": {
+    "@deno/doc": "jsr:@deno/doc@^0.194.0",
+    "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^1.0.0",
     "apexcharts": "npm:apexcharts@^4.5.0",
-    "tb-icons": "jsr:@preact-icons/tb@^1.0.12",
+    "tb-icons": "jsr:@preact-icons/tb@^1.0.14",
     "@std/fmt": "jsr:@std/fmt@^1.0.6",
-    "fresh": "jsr:@fresh/core@^2.0.0-alpha.25",
-    "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^0.0.1-alpha.7",
+    "fresh": "jsr:@fresh/core@^2.2.0",
 
     "preact": "npm:preact@^10",
     "preact-render-to-string": "npm:preact-render-to-string@6.3.1",
-    "@preact/signals": "npm:@preact/signals@1.2.1",
+    "@preact/signals": "npm:@preact/signals@2.7.0",
 
     "@std/path": "jsr:@std/path@1",
     "@std/http": "jsr:@std/http@1",
@@ -35,11 +37,11 @@
     "marked-smartypants": "npm:marked-smartypants@1.1.6",
     "prismjs": "npm:prismjs@^1.29.0",
 
+    "@orama/core": "npm:@orama/core@^1.2.17",
     "@orama/orama": "npm:@orama/orama@^2",
     "@orama/highlight": "npm:@orama/highlight@^0.1.8",
-    "@oramacloud/client": "npm:@oramacloud/client@^1",
 
-    "tailwindcss": "npm:tailwindcss@3.4",
+    "tailwindcss": "npm:tailwindcss@4.2",
     "postcss": "npm:postcss@8.4",
 
     "@viz-js/viz": "npm:@viz-js/viz@^3.11.0"
@@ -59,7 +61,15 @@
       "source",
       "body",
       "html",
-      "head"
+      "head",
+      "title",
+      "meta",
+      "script",
+      "link",
+      "style",
+      "base",
+      "noscript",
+      "template"
     ]
   },
   "exclude": ["_fresh/", "**/_fresh/*"]

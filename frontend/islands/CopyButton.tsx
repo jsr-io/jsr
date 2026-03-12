@@ -13,7 +13,7 @@ export function CopyButton(props: CopyButtonProps) {
   const timer = useRef<number | null>(null);
   const copied = useSignal(false);
 
-  const { text } = props;
+  const text = props.text;
 
   const copy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {

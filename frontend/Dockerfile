@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-2.3.1
+FROM denoland/deno:alpine-2.6.8
 
 WORKDIR /app
 
@@ -10,4 +10,6 @@ RUN deno install --allow-import -e main.ts
 
 RUN timeout 2s deno run -A --cached-only main.ts || true
 
-CMD ["run", "-A", "--cached-only", "main.ts"]
+ENV PORT=8000
+
+CMD deno serve -A --port=$PORT _fresh/server.js

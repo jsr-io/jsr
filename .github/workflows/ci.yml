@@ -20,7 +20,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -35,16 +35,82 @@ jobs:
       - name: Lint
         run: deno task lint:frontend
 
+      - name: Test
+        run: deno task test
+        working-directory: frontend
+
       - name: Build Fresh
         run: deno task build
         working-directory: frontend
+
+  worker:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Check formatting
+        run: deno fmt --check
+        working-directory: lb
+
+      - name: Lint
+        run: deno task lint:lb
+
+      - name: Build worker
+        run: deno task build
+        working-directory: lb
+
+  check:
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push'
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+        working-directory: api
+
+      - name: Setup postgres for tests
+        run: docker compose up -d
+
+      - uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: sqlx-cli@0.7.1
+
+      - name: Check sqlx metadata is up to date
+        run: |
+          cargo sqlx migrate run
+          cargo sqlx prepare --check -- --all-targets
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://user:password@localhost/registry
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: api
 
   test:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Install Rust
         uses: dsherret/rust-toolchain-file@v1
@@ -62,28 +128,6 @@ jobs:
         run: cargo test
         working-directory: api
 
-      - uses: taiki-e/cache-cargo-install-action@v1
-        with:
-          tool: sqlx-cli@0.7.1
-
-      # If it's not up to date, run `cargo sqlx prepare` locally and commit the
-      # changes. You may have to run `cargo install sqlx-cli` first.
-      - name: Check sqlx metadata is up to date
-        run: |
-          cargo sqlx migrate run
-          cargo sqlx prepare --check
-        working-directory: api
-        env:
-          DATABASE_URL: postgres://user:password@localhost/registry
-
-      - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: api
-
-      - name: Format
-        run: cargo fmt --all -- --check
-        working-directory: api
-
   docker-images:
     if: github.event_name == 'merge_group' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
     runs-on: ubuntu-22.04
@@ -98,7 +142,7 @@ jobs:
       frontend_image_id: ${{ steps.frontend_image_id.outputs.image_id }}
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Authenticate with GCP
         id: gcp_auth
@@ -161,7 +205,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -179,6 +223,10 @@ jobs:
           workload_identity_provider: projects/1067420915575/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-staging.iam.gserviceaccount.com
 
+      - name: Build Cloudflare Worker
+        run: deno task build
+        working-directory: lb
+
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
@@ -191,9 +239,14 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
-          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
-          TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
         run: deno task tf:staging:apply
@@ -203,8 +256,9 @@ jobs:
 
       - name: Reindex orama docs search
         env:
-          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
-          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
+          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
         run: deno task tools:orama:docs_reindex
 
   prod:
@@ -219,7 +273,7 @@ jobs:
       id-token: write
     steps:
       - name: Clone repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -237,6 +291,10 @@ jobs:
           workload_identity_provider: projects/614736529383/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-prod.iam.gserviceaccount.com
 
+      - name: Build Cloudflare Worker
+        run: deno task build
+        working-directory: lb
+
       - name: terraform plan
         run: |
           touch terraform/prod.secret.tfvars
@@ -249,9 +307,14 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
-          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
-          TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
         run: deno task tf:prod:apply
@@ -261,6 +324,7 @@ jobs:
 
       - name: Reindex orama docs search
         env:
-          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
-          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
+          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
         run: deno task tools:orama:docs_reindex

@@ -81,8 +81,9 @@ pub async fn setup_tracing(
     .add_directive("swc_ecma_codegen=off".parse().unwrap());
   let default_filter_directive = base_filter.to_string();
   let (filter, reload_handle) = reload::Layer::new(base_filter);
-  let fmt =
-    tracing_subscriber::fmt::layer().event_format(FullOutputWithTraceId);
+  let fmt = tracing_subscriber::fmt::layer()
+    .with_ansi(false)
+    .event_format(FullOutputWithTraceId);
   let subscriber = Registry::default().with(telemetry).with(filter).with(fmt);
   tracing::subscriber::set_global_default(subscriber).unwrap();
 

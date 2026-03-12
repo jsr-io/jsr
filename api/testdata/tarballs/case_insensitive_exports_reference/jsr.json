@@ -1,5 +1,6 @@
 {
   "name": "@scope/foo",
   "version": "1.2.3",
-  "exports": "./Mod.ts"
+  "exports": "./Mod.ts",
+  "license": "MIT"
 }

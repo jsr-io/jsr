@@ -43,7 +43,6 @@ use tracing::Instrument;
 use tracing::instrument;
 use url::Url;
 
-use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::PackageVersionMeta;
@@ -57,6 +56,7 @@ use crate::npm::NpmTarball;
 use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
 use crate::npm::create_npm_tarball;
+use crate::s3::BucketWithQueue;
 use crate::tarball::PublishError;
 
 pub struct PackageAnalysisData {
@@ -153,6 +153,7 @@ async fn analyze_package_inner(
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: true,
         resolver: Some(&JsrResolver {
           member: workspace_member,
@@ -163,6 +164,9 @@ async fn analyze_package_inner(
         locker: None,
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;
@@ -249,6 +253,7 @@ async fn analyze_package_inner(
   let info = crate::docs::get_docs_info(&exports, None);
 
   let ctx = crate::docs::get_generate_ctx(
+    "/doc".to_string(),
     doc_nodes,
     main_entrypoint,
     info.rewrite_map,
@@ -266,6 +271,7 @@ async fn analyze_package_inner(
       bun: None,
     },
     registry_url.to_string(),
+    None,
   );
   let search_index = deno_doc::html::generate_search_index(&ctx);
   let doc_search_json = if let serde_json::Value::Object(mut obj) = search_index
@@ -346,6 +352,10 @@ fn all_entrypoints_have_module_doc(
   has_readme: bool,
 ) -> bool {
   'modules: for (specifier, nodes) in doc_nodes_by_url {
+    // Skip WASM modules as their docs are auto-generated from binary
+    if specifier.path().ends_with(".wasm") {
+      continue;
+    }
     for node in nodes {
       if matches!(node.def, DocNodeDef::ModuleDoc) {
         continue 'modules;
@@ -370,7 +380,12 @@ fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
   let mut total_symbols = 0;
   let mut documented_symbols = 0;
 
-  for (_specifier, nodes) in doc_nodes_by_url {
+  for (specifier, nodes) in doc_nodes_by_url {
+    // Skip WASM modules as their docs are auto-generated from binary
+    if specifier.path().ends_with(".wasm") {
+      continue;
+    }
+
     for node in nodes {
       if matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
         || node.declaration_kind == deno_doc::node::DeclarationKind::Private
@@ -425,26 +440,25 @@ impl deno_graph::source::Resolver for JsrResolver {
     referrer_range: &deno_graph::Range,
     _kind: deno_graph::source::ResolutionKind,
   ) -> Result<ModuleSpecifier, deno_graph::source::ResolveError> {
-    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text) {
-      if self.member.name == package_ref.req().name
-        && self
-          .member
-          .version
-          .as_ref()
-          .map(|v| package_ref.req().version_req.matches(v))
-          .unwrap_or(true)
-      {
-        let export_name = package_ref.sub_path().unwrap_or(".");
-        let Some(export) = self.member.exports.get(export_name) else {
-          return Err(deno_graph::source::ResolveError::Other(
-            JsErrorBox::generic(format!(
-              "export '{}' not found in jsr:{}",
-              export_name, self.member.name
-            )),
-          ));
-        };
-        return Ok(self.member.base.join(export).unwrap());
-      }
+    if let Ok(package_ref) = JsrPackageReqReference::from_str(specifier_text)
+      && self.member.name == package_ref.req().name
+      && self
+        .member
+        .version
+        .as_ref()
+        .map(|v| package_ref.req().version_req.matches(v))
+        .unwrap_or(true)
+    {
+      let export_name = package_ref.sub_path().unwrap_or(".");
+      let Some(export) = self.member.exports.get(export_name) else {
+        return Err(deno_graph::source::ResolveError::Other(
+          JsErrorBox::generic(format!(
+            "export '{}' not found in jsr:{}",
+            export_name, self.member.name
+          )),
+        ));
+      };
+      return Ok(self.member.base.join(export).unwrap());
     }
 
     Ok(deno_graph::resolve_import(
@@ -584,6 +598,7 @@ async fn rebuild_npm_tarball_inner(
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
         jsr_url_provider: &PassthroughJsrUrlProvider,
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: true,
         resolver: Some(&JsrResolver {
           member: workspace_member,
@@ -594,6 +609,9 @@ async fn rebuild_npm_tarball_inner(
         locker: None,
         skip_dynamic_deps: false,
         module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
       },
     )
     .await;

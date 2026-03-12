@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-use deno_ast::EmittedSourceText;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
@@ -8,6 +7,7 @@ use deno_ast::TranspileOptions;
 use deno_ast::emit;
 use deno_ast::fold_program;
 use deno_ast::swc::ecma_visit::VisitMutWith;
+use deno_ast::{DecoratorsTranspileOption, EmittedSourceText};
 use deno_graph::FastCheckTypeModule;
 use url::Url;
 
@@ -49,8 +49,7 @@ pub fn transpile_to_js(
     program.visit_mut_with(&mut import_rewrite_transformer);
 
     let transpile_options = TranspileOptions {
-      use_decorators_proposal: true,
-      use_ts_decorators: false,
+      decorators: DecoratorsTranspileOption::Ecma,
 
       // TODO: JSX
       ..Default::default()
@@ -69,10 +68,10 @@ pub fn transpile_to_js(
       emit((&program).into(), &comments, &source_map, &emit_options)?;
     let mut source = text.into_bytes();
 
-    if let Some(last) = source.last() {
-      if *last != b'\n' {
-        source.push(b'\n');
-      }
+    if let Some(last) = source.last()
+      && *last != b'\n'
+    {
+      source.push(b'\n');
     }
 
     source
@@ -117,10 +116,10 @@ pub fn transpile_to_dts(
     emit((&program).into(), &comments, &source_map, &emit_options)?;
   let mut source = text.into_bytes();
 
-  if let Some(last) = source.last() {
-    if *last != b'\n' {
-      source.push(b'\n');
-    }
+  if let Some(last) = source.last()
+    && *last != b'\n'
+  {
+    source.push(b'\n');
   }
 
   source.extend(format!("//# sourceMappingURL={}.map", basename).into_bytes());

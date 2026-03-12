@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef } from "preact/hooks";
-import { NewTicket, Ticket, TicketKind, User } from "../utils/api_types.ts";
+import { ApiTicket, NewTicket, TicketKind, User } from "../utils/api_types.ts";
 import type { ComponentChildren } from "preact";
 import { TbLoader2 } from "tb-icons";
 import { api, path } from "../utils/api.ts";
@@ -30,7 +30,7 @@ export function TicketModal(
 ) {
   const open = useSignal(false);
   const status = useSignal<"pending" | "submitting" | "submitted">("pending");
-  const ticket = useSignal<Ticket | null>(null);
+  const ticket = useSignal<ApiTicket | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const ref = useRef<HTMLFormElement>(null);
 
@@ -72,7 +72,7 @@ export function TicketModal(
         {children}
       </button>
       <div
-        class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-950/70 z-[80] flex justify-center items-center overflow-hidden ${
+        class={`fixed top-0 right-0 w-screen h-screen bg-gray-300/40 dark:bg-jsr-gray-950/70 z-80 flex justify-center items-center overflow-hidden ${
           open.value ? "opacity-100" : "opacity-0 pointer-events-none"
         } transition`}
         aria-labelledby={`${prefix}-ticket-modal`}
@@ -81,9 +81,9 @@ export function TicketModal(
       >
         <form
           ref={ref}
-          class={`space-y-3 z-[90] rounded border-1.5 border-current dark:border-cyan-700 bg-white dark:bg-jsr-gray-950 shadow min-w-96 ${
+          class={`z-90 rounded border-1.5 border-current dark:border-cyan-700 bg-white dark:bg-jsr-gray-950 shadow min-w-96 ${
             status.value === "pending" ? "w-[40vw]" : ""
-          } max-w-[95vw] max-h-[95vh] px-6 py-4 ${
+          } max-w-[95vw] max-h-[95vh] px-6 py-5 ${
             open.value ? "translate-y-0" : "translate-y-5"
           } transition`}
           style="--tw-shadow-color: rgba(156,163,175,0.2);"
@@ -110,7 +110,7 @@ export function TicketModal(
 
             status.value = "submitting";
 
-            api.post<Ticket>(path`/tickets`, data).then((res) => {
+            api.post<ApiTicket>(path`/tickets`, data).then((res) => {
               if (res.ok) {
                 status.value = "submitted";
                 ticket.value = res.data;
@@ -118,69 +118,73 @@ export function TicketModal(
             });
           }}
         >
-          <h2 class="text-lg font-semibold text-primary">
-            New Ticket: {title}
-          </h2>
+          <div class="space-y-2">
+            <h2 class="text-xl font-bold">
+              {title}
+            </h2>
+            {status.value === "pending" && (
+              <div class="text-secondary">
+                {description}
+              </div>
+            )}
+          </div>
 
           {status.value === "pending"
             ? (
               <>
-                <div class="text-sm text-secondary">
-                  {description}
+                <div class="space-y-4 mt-5">
+                  {fields.map((field) => {
+                    let input;
+
+                    switch (field.type) {
+                      case "textarea":
+                        input = (
+                          <textarea
+                            name={field.name}
+                            required={field.required}
+                            class={`${BASE_INPUT_STYLING} min-h-[10em] max-h-[20em]`}
+                          />
+                        );
+                        break;
+                      case "select":
+                        input = (
+                          <select
+                            name={field.name}
+                            required={field.required}
+                            class={BASE_INPUT_STYLING}
+                          >
+                            {field.values!.map((value) => (
+                              <option key={value} value={value}>{value}</option>
+                            ))}
+                          </select>
+                        );
+                        break;
+                      default:
+                        input = (
+                          <input
+                            type={field.type}
+                            name={field.name}
+                            required={field.required}
+                            class={BASE_INPUT_STYLING}
+                          />
+                        );
+                    }
+
+                    return (
+                      <label class="block">
+                        <span class="text-sm font-medium mb-1.5 block">
+                          {field.label}
+                          {field.required
+                            ? <span class="text-red-500 ml-0.5">*</span>
+                            : null}
+                        </span>
+                        {input}
+                      </label>
+                    );
+                  })}
                 </div>
 
-                {fields.map((field) => {
-                  let input;
-
-                  switch (field.type) {
-                    case "textarea":
-                      input = (
-                        <textarea
-                          name={field.name}
-                          required={field.required}
-                          class={`${BASE_INPUT_STYLING} min-h-[4em] max-h-[20em]`}
-                        />
-                      );
-                      break;
-                    case "select":
-                      input = (
-                        <select
-                          name={field.name}
-                          required={field.required}
-                          class={BASE_INPUT_STYLING}
-                        >
-                          {field.values!.map((value) => (
-                            <option key={value} value={value}>{value}</option>
-                          ))}
-                        </select>
-                      );
-                      break;
-                    default:
-                      input = (
-                        <input
-                          type={field.type}
-                          name={field.name}
-                          required={field.required}
-                          class={BASE_INPUT_STYLING}
-                        />
-                      );
-                  }
-
-                  return (
-                    <label class="block">
-                      <span class="text-sm text-primary mb-1.5 block">
-                        {field.label}
-                        {field.required
-                          ? <span class="text-sm text-red-500">*</span>
-                          : null}
-                      </span>
-                      {input}
-                    </label>
-                  );
-                })}
-
-                <div class="flex justify-between">
-                  <input type="submit" value="Submit" class="button-primary" />
+                <div class="flex justify-end gap-3 mt-5">
                   <button
                     type="button"
                     class="button-danger"
@@ -191,6 +195,7 @@ export function TicketModal(
                   >
                     Cancel
                   </button>
+                  <input type="submit" value="Submit" class="button-primary" />
                 </div>
               </>
             )

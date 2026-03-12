@@ -16,6 +16,7 @@ RUN rm src/*.rs
 # copy your source tree
 COPY ./src ./src
 COPY ./migrations ./migrations
+COPY ./license-list-data ./license-list-data
 COPY ./.sqlx ./.sqlx
 
 # build for release
@@ -28,9 +29,11 @@ FROM debian:bookworm-20250428-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # copy the build artifact from the build stage
-COPY --from=build /registry_api/target/release/registry_api .
+COPY --from=build /registry_api/target/release/registry_api ./registry_api
+COPY --from=build /registry_api/license-list-data ./license-list-data
 
 ENV RUST_BACKTRACE=1
+ENV LICENSE_LIST_DATA_PATH=/license-list-data
 
 # set the startup command to run your binary
 ENTRYPOINT ["./registry_api"]

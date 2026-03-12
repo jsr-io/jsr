@@ -1,13 +1,13 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { FullScope, List } from "../../../utils/api_types.ts";
 import { Table, TableData, TableRow } from "../../../components/Table.tsx";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { AdminNav } from "../(_components)/AdminNav.tsx";
 import { URLQuerySearch } from "../(_components)/URLQuerySearch.tsx";
 import { define } from "../../../util.ts";
 import TbArrowRight from "tb-icons/TbArrowRight";
 import twas from "twas";
-import { CopyButton } from "../(_islands)/CopyButton.tsx";
+import { AdminCopyButton } from "../(_islands)/AdminCopyButton.tsx";
 import { EditModal } from "../(_islands)/EditModal.tsx";
 
 export default define.page<typeof handler>(function Scopes({ data, url }) {
@@ -56,9 +56,9 @@ export default define.page<typeof handler>(function Scopes({ data, url }) {
               </a>
             </TableData>
             <TableData flex>
-              <CopyButton value={scope.creator.id} label="copy user ID">
+              <AdminCopyButton value={scope.creator.id} label="copy user ID">
                 ID
-              </CopyButton>
+              </AdminCopyButton>
               <a
                 href={`/admin/users?search=${scope.creator.id}`}
                 class="underline underline-offset-2"
@@ -134,7 +134,7 @@ export const handler = define.handlers({
       page,
       limit,
     });
-    if (!resp.ok) throw resp; // gracefully handle this
+    assertOk(resp);
 
     return {
       data: {

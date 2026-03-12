@@ -7,9 +7,12 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
+use sqlx::Database;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::ValueRef;
+use sqlx::encode::IsNull;
+use sqlx::error::BoxDynError;
 use sqlx::types::Json;
 use uuid::Uuid;
 
@@ -62,7 +65,8 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserPublic {
   pub id: Uuid,
   pub name: String,
@@ -189,8 +193,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for PublishingTaskError {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PublishingTaskError {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&PublishingTaskError> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -418,10 +422,27 @@ pub struct PackageVersion {
   pub is_yanked: bool,
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
-  pub newer_versions_count: i64,
-  pub lifetime_download_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionWithNewerVersionsCount {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub version: Version,
+  pub user_id: Option<Uuid>,
+  pub exports: ExportsMap,
+  pub is_yanked: bool,
+  pub readme_path: Option<PackagePath>,
+  pub uses_npm: bool,
+  pub newer_versions_count: i64,
+  pub meta: PackageVersionMeta,
+  pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -436,6 +457,23 @@ pub struct NewPackageVersion<'s> {
   pub exports: &'s ExportsMap,
   pub uses_npm: bool,
   pub meta: PackageVersionMeta,
+  pub license: String,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionForResolution {
+  pub version: Version,
+  pub exports: ExportsMap,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionForNpmVersionManifest {
+  pub version: Version,
+  pub is_yanked: bool,
+  pub created_at: DateTime<Utc>,
+  pub npm_tarball_revision: i32,
+  pub npm_tarball_sha1: String,
+  pub npm_tarball_sha512: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -466,8 +504,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for PackageVersionMeta {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PackageVersionMeta {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&PackageVersionMeta> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -676,8 +714,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Permissions {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&Permissions> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -797,8 +835,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for ExportsMap {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for ExportsMap {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&IndexMap<String, String>> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -865,6 +903,19 @@ pub struct NewPackageVersionDependency<'s> {
 pub type PackageWithGitHubRepoAndMeta =
   (Package, Option<GithubRepository>, PackageVersionMeta);
 
+#[derive(Debug)]
+pub struct StatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+}
+
+#[derive(Debug)]
+pub struct StatsPackageVersion {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub version: Version,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct NpmTarball {
@@ -919,8 +970,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for RuntimeCompat {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for RuntimeCompat {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&RuntimeCompat> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -973,12 +1024,6 @@ pub enum DownloadKind {
   NpmTgz,
 }
 
-impl sqlx::postgres::PgHasArrayType for DownloadKind {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    sqlx::postgres::PgTypeInfo::with_name("_download_kind")
-  }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "ticket_kind", rename_all = "snake_case")]
@@ -1027,7 +1072,8 @@ pub struct NewTicketMessage {
   pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TicketMessage {
   pub ticket_id: Uuid,
   pub author: Uuid,
@@ -1038,7 +1084,8 @@ pub struct TicketMessage {
 
 pub type FullTicket = (Ticket, User, Vec<(TicketMessage, UserPublic)>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditLog {
   pub actor_id: Uuid,
   pub is_sudo: bool,

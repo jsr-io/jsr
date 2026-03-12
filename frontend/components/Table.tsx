@@ -1,13 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
-import {
-  TbChevronLeft,
-  TbChevronRight,
-  TbSortAscending,
-  TbSortDescending,
-} from "tb-icons";
+import { TbSortAscending, TbSortDescending } from "tb-icons";
 import { PaginationData } from "../util.ts";
+
+const PAGINATION_BUTTON_STYLE =
+  "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold text-primary ring-1 ring-inset ring-jsr-gray-300 dark:ring-jsr-cyan-800 hover:bg-jsr-gray-50 dark:hover:bg-jsr-gray-900 focus-visible:outline-offset-0 select-none";
 
 interface TableProps {
   columns: ColumnProps[];
@@ -37,92 +35,105 @@ export function Table(
   }
 
   return (
-    <>
-      <div
-        class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden ${
-          class_ ?? ""
-        }`}
-      >
-        <div class="overflow-x-auto">
-          <table class="w-full divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-900">
-            <thead class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950">
-              <TableRow class="children:font-semibold">
-                {columns.map(({ align, class: _class, title, fieldName }) => {
-                  let icon;
+    <div
+      class={`-mx-4 md:mx-0 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 sm:rounded overflow-hidden ${
+        class_ ?? ""
+      }`}
+    >
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900">
+            <TableRow class="children:font-semibold">
+              {columns.map(({ align, class: _class, title, fieldName }) => {
+                let icon;
 
-                  if (fieldName) {
-                    if (sortBy === fieldName) {
-                      if (desc) {
-                        icon = <TbSortDescending class="size-5" />;
-                      } else {
-                        icon = <TbSortAscending class="size-5" />;
-                      }
+                if (fieldName) {
+                  if (sortBy === fieldName) {
+                    if (desc) {
+                      icon = (
+                        <TbSortDescending class="size-5" aria-hidden="true" />
+                      );
                     } else {
                       icon = (
-                        <TbSortDescending class="size-5 text-gray-400 group-hover:text-inherit" />
+                        <TbSortAscending class="size-5" aria-hidden="true" />
                       );
                     }
-                  }
-
-                  const url = new URL(currentUrl);
-                  if (fieldName) {
-                    url.searchParams.set(
-                      "sortBy",
-                      (sortBy === fieldName && desc)
-                        ? `!${fieldName}`
-                        : fieldName,
+                  } else {
+                    icon = (
+                      <TbSortDescending
+                        class="size-5 text-gray-400 group-hover:text-inherit"
+                        aria-hidden="true"
+                      />
                     );
                   }
+                }
 
-                  return (
-                    <th
-                      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
-                        _class ?? ""
-                      }`}
-                    >
-                      {fieldName
-                        ? (
-                          <a
-                            class={`flex items-center gap-2.5 group select-none ${
-                              align === "right" ? "justify-end" : ""
-                            }`}
-                            href={url.pathname + url.search}
-                          >
-                            {title}
-                            {icon}
-                          </a>
-                        )
-                        : (
-                          <div
-                            class={`flex items-center gap-2.5 group select-none ${
-                              align === "right" ? "justify-end" : ""
-                            }`}
-                          >
-                            {title}
-                            {icon}
-                          </div>
-                        )}
-                    </th>
+                const url = new URL(currentUrl);
+                if (fieldName) {
+                  url.searchParams.set(
+                    "sortBy",
+                    (sortBy === fieldName && desc)
+                      ? `!${fieldName}`
+                      : fieldName,
                   );
-                })}
-              </TableRow>
-            </thead>
-            <tbody class="divide-y divide-jsr-cyan-300/30 dark:divide-jsr-cyan-900 bg-white dark:bg-jsr-gray-950">
-              {children}
-            </tbody>
-          </table>
-        </div>
+                }
+
+                return (
+                  <th
+                    scope="col"
+                    aria-sort={sortBy === fieldName
+                      ? (desc ? "descending" : "ascending")
+                      : undefined}
+                    class={`py-2.5 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
+                      _class ?? ""
+                    }`}
+                  >
+                    {fieldName
+                      ? (
+                        <a
+                          class={`flex items-center gap-2.5 group select-none ${
+                            align === "right" ? "justify-end" : ""
+                          }`}
+                          href={url.pathname + url.search}
+                        >
+                          {title}
+                          {icon}
+                        </a>
+                      )
+                      : (
+                        <div
+                          class={`flex items-center gap-2.5 group select-none ${
+                            align === "right" ? "justify-end" : ""
+                          }`}
+                        >
+                          {title}
+                          {icon}
+                        </div>
+                      )}
+                  </th>
+                );
+              })}
+            </TableRow>
+          </thead>
+          <tbody class="divide-y divide-jsr-cyan-300/30 dark:divide-jsr-cyan-900 bg-white dark:bg-jsr-gray-950">
+            {children}
+          </tbody>
+          {pagination && (
+            <tfoot class="bg-white dark:bg-jsr-gray-950">
+              <tr>
+                <td colspan={columns.length}>
+                  <Pagination
+                    pagination={pagination}
+                    itemsCount={children.length}
+                    currentUrl={currentUrl}
+                  />
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
       </div>
-      <div class="py-3 sm:px-6 flex justify-end items-center gap-6">
-        {pagination && (
-          <Pagination
-            pagination={pagination}
-            itemsCount={children.length}
-            currentUrl={currentUrl}
-          />
-        )}
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -133,44 +144,60 @@ function Pagination(
     currentUrl: URL;
   },
 ) {
-  const hasPrevious = pagination.page > 1;
-  const hasNext = pagination.limit * pagination.page < pagination.total;
+  const start = pagination.page * pagination.limit - pagination.limit;
 
   const prevURL = new URL(currentUrl);
   prevURL.searchParams.set("page", (pagination.page - 1).toString());
   const nextURL = new URL(currentUrl);
   nextURL.searchParams.set("page", (pagination.page + 1).toString());
 
+  const hasPrevious = pagination.page > 1;
+  const hasNext = pagination.limit * pagination.page < pagination.total;
+
   return (
-    <div class="flex items-center gap-3 text-secondary">
-      {hasPrevious && (
-        <a
-          href={prevURL.pathname + prevURL.search}
-          class="hover:text-black dark:hover:text-white hover:bg-jsr-cyan-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
-          title="Previous page"
-        >
-          <TbChevronLeft class="size-5" />
-        </a>
-      )}
-      <div class="text-sm text-secondary">
-        Showing items {(pagination.page * pagination.limit) - pagination.limit +
-          (Math.min(itemsCount, 1))}
-        -
-        {(pagination.page * pagination.limit) - pagination.limit +
-          ((itemsCount < pagination.limit) ? itemsCount : pagination.limit)} of
-        {" "}
-        {pagination.total}
+    <nav
+      class="flex items-center justify-between border-t border-jsr-cyan-900/10 dark:border-jsr-cyan-900 px-4 py-3 sm:px-6"
+      aria-label="Pagination"
+    >
+      <div class="hidden sm:block">
+        <p class="text-sm text-secondary">
+          {start + itemsCount === 0 ? "No results found" : (
+            <>
+              Showing <span class="font-semibold">{start + 1}</span> to{" "}
+              <span class="font-semibold">{start + itemsCount}</span>{" "}
+              results, out of{" "}
+              <span class="font-semibold">{pagination.total}</span>
+            </>
+          )}
+        </p>
       </div>
-      {hasNext && (
-        <a
-          href={nextURL.pathname + nextURL.search}
-          class="hover:text-black dark:hover:text-white hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 p-1 -m-1 rounded-full"
-          title="Next page"
-        >
-          <TbChevronRight class="size-5" />
-        </a>
-      )}
-    </div>
+      <div
+        class={`flex flex-1 gap-3 ${
+          hasPrevious && hasNext
+            ? "justify-between"
+            : hasPrevious
+            ? "justify-start"
+            : "justify-end"
+        } sm:justify-end`}
+      >
+        {hasPrevious && (
+          <a
+            href={prevURL.pathname + prevURL.search}
+            class={PAGINATION_BUTTON_STYLE}
+          >
+            Previous
+          </a>
+        )}
+        {hasNext && (
+          <a
+            href={nextURL.pathname + nextURL.search}
+            class={PAGINATION_BUTTON_STYLE}
+          >
+            Next
+          </a>
+        )}
+      </div>
+    </nav>
   );
 }
 
@@ -213,7 +240,7 @@ export function TableData(
 ) {
   return (
     <td
-      class={`py-4 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
+      class={`py-3 px-3 first:pl-4 first:sm:pl-6 last:pr-4 last:sm:pr-6 whitespace-nowrap text-sm text-primary ${
         _class ?? ""
       } ${align === "right" ? "text-right" : "text-left"}`}
       title={title}
