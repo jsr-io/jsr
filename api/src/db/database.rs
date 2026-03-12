@@ -3711,6 +3711,7 @@ gitlab_id: r.user_gitlab_id,
       .await
   }
 
+  #[cfg(not(test))]
   #[instrument(name = "Database::get_gitlab_identity", skip(self), err)]
   pub async fn get_gitlab_identity(
     &self,

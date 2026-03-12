@@ -57,6 +57,7 @@ impl GitLabUserClient {
     }
   }
 
+  #[allow(dead_code)]
   #[instrument(name = "GitLabUserClient::get_user", skip(self), err)]
   pub async fn get_user(
     &self,

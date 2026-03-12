@@ -3,7 +3,6 @@ mod analysis;
 mod api;
 mod auth;
 mod buckets;
-mod cloudflare;
 mod config;
 mod db;
 mod docs;
@@ -72,7 +71,7 @@ pub struct MainRouterOptions {
   npm_tarball_build_queue: Option<Queue>,
   logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
   analytics_engine_config: Option<(
-    cloudflare::AnalyticsEngineClient,
+    external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
   expose_api: bool,
@@ -247,7 +246,7 @@ async fn main() {
     config.cloudflare_analytics_dataset,
   ) {
     (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
-      cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      external::cloudflare::AnalyticsEngineClient::new(account_id, api_token),
       dataset_name,
     )),
     _ => None,
