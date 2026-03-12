@@ -78,28 +78,6 @@ impl GitLabUserClient {
       ))
     }
   }
-
-  /*#[instrument(name = "GitLabUserClient::get_repo", skip(self), err)]
-  pub async fn get_repo(
-    &self,
-    owner: &str,
-    name: &str,
-  ) -> Result<Option<Repository>, anyhow::Error> {
-    let owner = super::sanitize_url_part(owner);
-    let name = super::sanitize_url_part(name);
-    let res = self.request(&format!("/projects/{owner}%2F{name}")).await?;
-    let status = res.status();
-    if status == StatusCode::NOT_FOUND {
-      return Ok(None);
-    } else if !status.is_success() {
-      let response = res.text().await?;
-      return Err(anyhow::anyhow!(
-        "failed to get repository '{owner}/{name}' (status {status}): {response}",
-      ));
-    }
-    let repo: Repository = res.json().await?;
-    Ok(Some(repo))
-  }*/
 }
 
 #[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
