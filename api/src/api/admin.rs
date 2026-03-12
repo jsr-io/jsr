@@ -2,7 +2,7 @@
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::buckets::Buckets;
-use crate::orama::OramaClient;
+use crate::external::orama::OramaClient;
 use hyper::Body;
 use hyper::Request;
 use routerify::Router;

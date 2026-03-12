@@ -3,20 +3,18 @@ mod analysis;
 mod api;
 mod auth;
 mod buckets;
-mod cloudflare;
 mod config;
 mod db;
 mod docs;
 mod emails;
 mod errors_internal;
+mod external;
 mod gcp;
 mod gcs_paths;
-mod github;
 mod iam;
 mod ids;
 mod metadata;
 mod npm;
-mod orama;
 mod provenance;
 mod publish;
 mod s3;
@@ -33,14 +31,13 @@ mod util;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
 use crate::api::api_router;
-use crate::auth::GithubOauth2Client;
 use crate::buckets::Buckets;
 use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
+use crate::external::orama::OramaClient;
 use crate::gcp::Queue;
-use crate::orama::OramaClient;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
@@ -63,7 +60,8 @@ use url::Url;
 pub struct MainRouterOptions {
   database: Database,
   buckets: Buckets,
-  github_client: GithubOauth2Client,
+  github_client: auth::github::Oauth2Client,
+  gitlab_client: auth::gitlab::Oauth2Client,
   orama_client: Option<OramaClient>,
   email_sender: Option<EmailSender>,
   license_store: util::LicenseStore,
@@ -73,7 +71,7 @@ pub struct MainRouterOptions {
   npm_tarball_build_queue: Option<Queue>,
   logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
   analytics_engine_config: Option<(
-    cloudflare::AnalyticsEngineClient,
+    external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
   expose_api: bool,
@@ -88,6 +86,7 @@ pub(crate) fn main_router(
     database,
     buckets,
     github_client,
+    gitlab_client,
     orama_client,
     license_store,
     email_sender,
@@ -105,6 +104,7 @@ pub(crate) fn main_router(
     .data(database)
     .data(buckets)
     .data(github_client)
+    .data(gitlab_client)
     .data(orama_client)
     .data(email_sender)
     .data(license_store)
@@ -123,9 +123,18 @@ pub(crate) fn main_router(
       .get("/sitemap.xml", sitemap_index_handler)
       .get("/sitemap-scopes.xml", scopes_sitemap_handler)
       .get("/sitemap-packages.xml", packages_sitemap_handler)
-      .get("/login", auth::login_handler)
-      .get("/login/callback", auth::login_callback_handler)
+      .get("/login/:service", auth::login_handler)
+      .get("/login/callback/:service", auth::login_callback_handler)
       .get("/logout", auth::logout_handler)
+      .get("/connect/:service", util::full_auth(auth::connect_handler))
+      .get(
+        "/connect/callback/:service",
+        util::full_auth(auth::connect_callback_handler),
+      )
+      .get(
+        "/disconnect/:service",
+        util::full_auth(auth::disconnect_handler),
+      )
   } else {
     builder
   };
@@ -237,25 +246,22 @@ async fn main() {
     config.cloudflare_analytics_dataset,
   ) {
     (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
-      cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      external::cloudflare::AnalyticsEngineClient::new(account_id, api_token),
       dataset_name,
     )),
     _ => None,
   };
 
-  let github_client = GithubOauth2Client::new(
-    oauth2::ClientId::new(config.github_client_id),
-    Some(oauth2::ClientSecret::new(config.github_client_secret)),
-    oauth2::AuthUrl::new(
-      "https://github.com/login/oauth/authorize".to_string(),
-    )
-    .unwrap(),
-    Some(
-      oauth2::TokenUrl::new(
-        "https://github.com/login/oauth/access_token".to_string(),
-      )
-      .unwrap(),
-    ),
+  let github_client = auth::github::Oauth2Client::new(
+    &config.registry_url,
+    config.github_client_id,
+    config.github_client_secret,
+  );
+
+  let gitlab_client = auth::gitlab::Oauth2Client::new(
+    &config.registry_url,
+    config.gitlab_client_id,
+    config.gitlab_client_secret,
   );
 
   let orama_client = if let Some(orama_packages_project_id) =
@@ -306,6 +312,7 @@ async fn main() {
     database,
     buckets,
     github_client,
+    gitlab_client,
     orama_client,
     email_sender,
     license_store,

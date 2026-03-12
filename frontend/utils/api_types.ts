@@ -11,6 +11,7 @@ export interface User {
   id: string;
   name: string;
   githubId: number | null;
+  gitlabId: number | null;
   avatarUrl: string;
   updatedAt: string;
   createdAt: string;
