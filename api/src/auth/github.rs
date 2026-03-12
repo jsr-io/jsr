@@ -8,6 +8,7 @@ use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
 use oauth2::ExtraTokenFields;
+use oauth2::RedirectUrl;
 use oauth2::StandardRevocableToken;
 use oauth2::StandardTokenIntrospectionResponse;
 use oauth2::StandardTokenResponse;
@@ -19,6 +20,7 @@ use oauth2::reqwest::async_http_client;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::instrument;
+use url::Url;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct GithubTokenExtraFields {
@@ -43,7 +45,7 @@ pub struct Oauth2Client(
 );
 
 impl Oauth2Client {
-  pub fn new(id: String, secret: String) -> Self {
+  pub fn new(registry_url: &Url, id: String, secret: String) -> Self {
     Self(
       oauth2::Client::new(
         oauth2::ClientId::new(id),
@@ -58,7 +60,13 @@ impl Oauth2Client {
           )
           .unwrap(),
         ),
-      ),
+      )
+      .set_redirect_uri(RedirectUrl::from_url(
+        Url::options()
+          .base_url(Some(registry_url))
+          .parse("./login/callback/github")
+          .unwrap(),
+      )),
       secret,
     )
   }

@@ -253,6 +253,7 @@ async fn main() {
   };
 
   let github_client = auth::github::Oauth2Client::new(
+    &config.registry_url,
     config.github_client_id,
     config.github_client_secret,
   );

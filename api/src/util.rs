@@ -702,8 +702,11 @@ pub mod test {
         npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
       };
       let registry_url = "http://jsr-tests.test".parse().unwrap();
-      let github_oauth2_client =
-        crate::auth::github::Oauth2Client::new("".to_string(), "".to_string());
+      let github_oauth2_client = crate::auth::github::Oauth2Client::new(
+        &registry_url,
+        "".to_string(),
+        "".to_string(),
+      );
       let gitlab_oauth2_client = crate::auth::gitlab::Oauth2Client::new(
         &registry_url,
         "".to_string(),
