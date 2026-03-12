@@ -8,16 +8,17 @@ import { ScopeInviteForm } from "../(_islands)/ScopeInviteForm.tsx";
 import { ScopeMemberRole } from "../(_islands)/ScopeMemberRole.tsx";
 import { Table, TableData, TableRow } from "../../../components/Table.tsx";
 import { CopyButton } from "../../../islands/CopyButton.tsx";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import {
   FullUser,
   ScopeInvite,
   ScopeMember,
 } from "../../../utils/api_types.ts";
 import { scopeData } from "../../../utils/data.ts";
-import TbTrash from "@preact-icons/tb/TbTrash";
+import TbTrash from "tb-icons/TbTrash";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { ScopeIAM } from "../../../utils/iam.ts";
+import { ScopeMemberLeave } from "../(_islands)/ScopeMemberLeave.tsx";
 
 export default define.page<typeof handler>(function ScopeMembersPage(
   { params, data, state, url },
@@ -68,12 +69,15 @@ export default define.page<typeof handler>(function ScopeMembersPage(
           />
         ))}
       </Table>
-      {iam.canAdmin && <MemberInvite scope={data.scope.scope} />}
+      {iam.canAdmin && (
+        <MemberInvite currentUser={state.user!} scope={data.scope.scope} />
+      )}
       {data.scopeMember && (
-        <MemberLeave
+        <ScopeMemberLeave
           userId={data.scopeMember.user.id}
           isAdmin={data.scopeMember.isAdmin}
           isLastAdmin={isLastAdmin}
+          scopeName={data.scope.scope}
         />
       )}
     </div>
@@ -92,7 +96,7 @@ export function MemberItem(props: MemberItemProps) {
     <TableRow key={member.user.id}>
       <TableData>
         <a
-          class="text-jsr-cyan-700 hover:text-jsr-cyan-400 hover:underline"
+          class="text-jsr-cyan-700 dark:text-cyan-400 hover:text-jsr-cyan-400 hover:underline"
           href={`/user/${member.user.id}`}
         >
           {member.user.name}
@@ -181,54 +185,19 @@ export function InviteItem(props: InviteItemProps) {
   );
 }
 
-function MemberInvite({ scope }: { scope: string }) {
+function MemberInvite(
+  { currentUser, scope }: { currentUser: FullUser; scope: string },
+) {
   return (
     <div class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-8">
       <h2 class="text-lg font-semibold">Invite member</h2>
-      <p class="mt-2 text-jsr-gray-600">
+      <p class="mt-2 text-secondary">
         Inviting users to this scope grants them access to publish all packages
         in this scope and create new packages. They will not be able to manage
         members unless they are granted admin status.
       </p>
-      <ScopeInviteForm scope={scope} />
+      <ScopeInviteForm currentUser={currentUser} scope={scope} />
     </div>
-  );
-}
-
-function MemberLeave(
-  props: { userId: string; isAdmin: boolean; isLastAdmin: boolean },
-) {
-  return (
-    <form
-      method="POST"
-      class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-12"
-    >
-      <h2 class="text-lg font-semibold">Leave scope</h2>
-      <p class="mt-2 text-jsr-gray-600">
-        Leaving this scope will revoke your access to all packages in this
-        scope. You will no longer be able to publish packages to this
-        scope{props.isAdmin && " or manage members"}.
-      </p>
-      <input type="hidden" name="userId" value={props.userId} />
-      {props.isLastAdmin && (
-        <div class="mt-6 border-1 rounded-md border-red-300 bg-red-50 p-6 text-red-600">
-          <span class="font-bold text-xl">Warning</span>
-          <p>
-            You are the last admin in this scope. You must promote another
-            member to admin before leaving.
-          </p>
-        </div>
-      )}
-      <button
-        class="button-danger mt-6"
-        type="submit"
-        name="action"
-        value="deleteMember"
-        disabled={props.isLastAdmin}
-      >
-        Leave
-      </button>
-    </form>
   );
 }
 
@@ -248,23 +217,20 @@ export const handler = define.handlers({
     ]);
     if (user instanceof Response) return user;
     if (data === null) throw new HttpError(404, "The scope was not found.");
-    if (!membersResp.ok) {
-      if (membersResp.code === "scopeNotFound") {
-        throw new HttpError(404, "The scope was not found.");
-      }
-      throw membersResp; // graceful handle errors
+    if (!membersResp.ok && membersResp.code === "scopeNotFound") {
+      throw new HttpError(404, "The scope was not found.");
     }
+    assertOk(membersResp);
     if (invitesResp && !invitesResp.ok) {
       if (
         invitesResp.code === "actorNotScopeMember" ||
         invitesResp.code === "actorNotScopeAdmin"
       ) {
         invitesResp = null;
+      } else if (invitesResp.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       } else {
-        if (invitesResp.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw invitesResp; // graceful handle errors
+        assertOk(invitesResp);
       }
     }
 
@@ -295,35 +261,29 @@ export const handler = define.handlers({
       const res = await ctx.state.api.delete<null>(
         path`/scopes/${scope}/invites/${userId}`,
       );
-      if (!res.ok) {
-        if (res.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw res; // graceful handle errors
+      if (!res.ok && res.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       }
+      assertOk(res);
     } else if (action === "deleteMember") {
       const userId = String(form.get("userId"));
       const res = await ctx.state.api.delete<null>(
         path`/scopes/${scope}/members/${userId}`,
       );
-      if (!res.ok) {
-        if (res.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw res; // graceful handle errors
+      if (!res.ok && res.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       }
+      assertOk(res);
     } else if (action === "invite") {
       const githubLogin = String(form.get("githubLogin"));
       const res = await ctx.state.api.post<ScopeInvite>(
         path`/scopes/${scope}/members`,
         { githubLogin },
       );
-      if (!res.ok) {
-        if (res.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw res; // graceful handle errors
+      if (!res.ok && res.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       }
+      assertOk(res);
     } else {
       throw new Error("Invalid action");
     }

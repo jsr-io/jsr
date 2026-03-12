@@ -12,7 +12,7 @@ export function Nav(props: NavProps) {
     <nav
       class={`${
         props.noTopMargin ? "" : "mt-3"
-      } border-b border-jsr-cyan-300/30 max-w-full flex justify-between overflow-x-auto items-end`}
+      } border-b border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 max-w-full flex justify-between overflow-x-auto items-end`}
     >
       <style
         // deno-lint-ignore react-no-danger
@@ -45,21 +45,39 @@ export function Nav(props: NavProps) {
 export interface NavItemProps {
   href: string;
   active?: boolean;
-  children?: ComponentChildren;
+  chip?: number;
+  notification?: boolean;
+  children?: string;
 }
 
 export function NavItem(props: NavItemProps) {
   return (
     <a
-      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 flex items-center select-none focus:outline-none focus:border-1 focus:border-jsr-cyan-300 focus:ring-1 focus:ring-jsr-cyan-300 focus:ring-opacity-50 ${
+      class={`md:px-3 px-4 py-2 text-sm md:text-base min-h-10 leading-none rounded-md hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 flex items-center select-none focus:outline-none focus-visible:outline-1 focus-visible:outline-jsr-cyan-300 dark:focus-visible:outline-jsr-cyan-600 focus-visible:outline-offset-0 focus-visible:ring-0 border ${
         props.active
-          ? "bg-jsr-cyan-50 border-1 border-jsr-cyan-300/30 font-semibold"
-          : ""
+          ? "bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-jsr-cyan-300/30 dark:border-jsr-cyan-600/50 font-semibold"
+          : "border-transparent"
       }`}
       data-active={props.active ? "true" : undefined}
       href={props.href}
     >
-      {props.children}
+      <span className="flex items-center">
+        <span class="nav-item-text" data-text={props.children}>
+          {props.children}
+        </span>
+
+        {props.chip !== undefined && (
+          <span
+            className={`chip ml-2 tabular-nums text-xs py-0.5 px-2 border-1 border-white dark:border-jsr-gray-950 ${
+              (props.chip > 0 && props.notification)
+                ? "bg-orange-600 text-white"
+                : "bg-jsr-gray-100 text-jsr-gray-500 dark:bg-jsr-gray-800 dark:text-jsr-gray-400"
+            }`}
+          >
+            {props.chip}
+          </span>
+        )}
+      </span>
     </a>
   );
 }

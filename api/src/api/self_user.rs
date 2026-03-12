@@ -3,14 +3,15 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
 use std::borrow::Cow;
 
+use crate::RegistryUrl;
 use crate::db::Database;
 use crate::db::PackagePublishPermission;
 use crate::db::Permission;
@@ -20,10 +21,9 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiCreateTokenRequest;
 use super::ApiCreatedToken;
@@ -32,6 +32,7 @@ use super::ApiFullUser;
 use super::ApiScope;
 use super::ApiScopeInvite;
 use super::ApiScopeMember;
+use super::ApiTicket;
 use super::ApiToken;
 
 pub fn self_user_router() -> Router<Body, ApiError> {
@@ -48,6 +49,7 @@ pub fn self_user_router() -> Router<Body, ApiError> {
     .get("/tokens", util::auth(util::json(list_tokens)))
     .post("/tokens", util::auth(util::json(create_token)))
     .delete("/tokens/:id", util::auth(delete_token))
+    .get("/tickets", util::auth(util::json(list_tickets)))
     .build()
     .unwrap()
 }
@@ -158,7 +160,8 @@ pub async fn decline_invite_handler(
 
   let db = req.data::<Database>().unwrap();
 
-  db.delete_scope_invite(&current_user.id, &scope).await?;
+  db.delete_scope_invite(&current_user.id, false, &current_user.id, &scope)
+    .await?;
 
   let resp = Response::builder()
     .status(StatusCode::NO_CONTENT)
@@ -206,12 +209,12 @@ async fn create_token(
     });
   }
 
-  if let Some(permissions) = permissions.as_ref() {
-    if permissions.0.len() != 1 {
-      return Err(ApiError::MalformedRequest {
-        msg: "permissions must contain exactly one element".into(),
-      });
-    }
+  if let Some(permissions) = permissions.as_ref()
+    && permissions.0.len() != 1
+  {
+    return Err(ApiError::MalformedRequest {
+      msg: "permissions must contain exactly one element".into(),
+    });
   }
 
   let iam = req.iam();
@@ -313,6 +316,17 @@ async fn delete_token(req: Request<Body>) -> Result<Response<Body>, ApiError> {
     .body(Body::empty())
     .unwrap();
   Ok(resp)
+}
+
+#[instrument(name = "GET /api/user/tickets", skip(req), err)]
+pub async fn list_tickets(req: Request<Body>) -> ApiResult<Vec<ApiTicket>> {
+  let iam = req.iam();
+  let current_user = iam.check_current_user_access()?;
+
+  let db = req.data::<Database>().unwrap();
+
+  let tickets = db.list_tickets_for_user(current_user.id).await?;
+  Ok(tickets.into_iter().map(|scope| scope.into()).collect())
 }
 
 #[cfg(test)]

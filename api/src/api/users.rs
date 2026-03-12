@@ -1,11 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
 use crate::db::Database;
 use crate::util;

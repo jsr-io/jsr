@@ -3,10 +3,10 @@ use hyper::Body;
 use hyper::Response;
 use std::borrow::Cow;
 
+use super::ApiPublishingTask;
 use crate::errors;
 use crate::gcp::GcsError;
-
-use super::ApiPublishingTask;
+use crate::s3::S3Error;
 
 errors!(
   TarballSizeLimitExceeded {
@@ -43,6 +43,10 @@ errors!(
   PackageVersionNotFound {
     status: NOT_FOUND,
     "The requested package version was not found.",
+  },
+  DiffNoIndex {
+    status: NOT_FOUND,
+    "Diffs do not have an index.",
   },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
@@ -237,16 +241,44 @@ errors!(
     status: BAD_REQUEST,
     "The requested package is archived. Unarchive it to modify settings or publish to it.",
   },
+  DeleteVersionHasDependents {
+    status: BAD_REQUEST,
+    "The requested package version has dependents. Only a version without dependents can be deleted.",
+  },
+  TicketNotFound {
+    status: NOT_FOUND,
+    "The requested ticket was not found.",
+  },
+  TicketMessageEmpty {
+    status: BAD_REQUEST,
+    "The ticket message is empty.",
+  },
+  TicketMetaNotValid {
+    status: BAD_REQUEST,
+    "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
+  },
+  UnknownLoginService {
+    status: BAD_REQUEST,
+    "The login service is not known.",
+  },
+  ConnectTakenService {
+    status: BAD_REQUEST,
+    "Another user is already connected with this user from the provided service.",
+  },
+  DisconnectLastService {
+    status: BAD_REQUEST,
+    "You cannot disconnect the last connected service.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
-  if let Some(db_err) = err.as_database_error() {
-    if let Some(code) = db_err.code() {
-      // Code 23505 is unique_violation.
-      // See https://www.postgresql.org/docs/13/errcodes-appendix.html
-      if code == "23505" {
-        return new_err;
-      }
+  if let Some(db_err) = err.as_database_error()
+    && let Some(code) = db_err.code()
+  {
+    // Code 23505 is unique_violation.
+    // See https://www.postgresql.org/docs/13/errcodes-appendix.html
+    if code == "23505" {
+      return new_err;
     }
   }
   err.into()
@@ -350,8 +382,32 @@ impl From<oauth2::ConfigurationError> for ApiError {
   }
 }
 
+impl
+  From<
+    oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  > for ApiError
+{
+  fn from(
+    error: oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  ) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 impl From<GcsError> for ApiError {
   fn from(error: GcsError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<S3Error> for ApiError {
+  fn from(error: S3Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

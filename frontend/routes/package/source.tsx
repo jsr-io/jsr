@@ -5,9 +5,10 @@ import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { TbFolder, TbSourceCode } from "@preact-icons/tb";
+import { TbFileOff, TbFolder, TbFolderOpen, TbSourceCode } from "tb-icons";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
+import { format as formatBytes } from "@std/fmt/bytes";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
@@ -25,10 +26,6 @@ export default define.page<typeof handler>(function PackagePage(
             // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
           />
-          <style
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: data.source.css }}
-          />
           <script
             hidden
             // deno-lint-ignore react-no-danger
@@ -40,83 +37,114 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
+        downloads={data.downloads}
       />
       <PackageNav
         currentTab="Files"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
 
-      <div class="space-y-3 pt-3">
-        <div class="flex flex-row gap-1 items-center pt-1 pl-3">
-          {data.sourcePath.split("/").filter((part, i) =>
-            !(part === "" && i !== 0)
-          ).map((part, i, arr) => {
-            if (part === "") {
-              // @ts-ignore ok
-              part = (
-                <span class="text-lg font-semibold">
-                  Package root
-                </span>
-              );
-            }
-            return (
-              <>
-                {i !== 0 && (
-                  <span class="px-2 text-md text-jsr-gray-600 select-none">
-                    {"\u003E"}
-                  </span>
-                )}
+      <div class="pt-8">
+        <div class="ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded-md overflow-hidden">
+          <nav
+            aria-label="File navigation"
+            class="flex items-center gap-2.5 px-5 py-3 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900"
+          >
+            <TbFolderOpen
+              class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 shrink-0"
+              aria-hidden="true"
+            />
+            <div class="flex flex-row flex-wrap gap-1 items-center">
+              {data.sourcePath.split("/").filter((part, i) =>
+                !(part === "" && i !== 0)
+              ).map((part, i, arr) => {
+                const isRoot = part === "";
+                const displayPart = isRoot ? "Package root" : part;
+                const isLast = (i + 1) >= arr.length;
 
-                {(i + 1) < arr.length
-                  ? (
-                    <a
-                      class="link"
-                      href={sourceRoot + arr.slice(0, i + 1).join("/")}
-                    >
-                      {part}
-                    </a>
-                  )
-                  : <span>{part}</span>}
-              </>
-            );
-          })}
+                return (
+                  <>
+                    {i !== 0 && (
+                      <span
+                        class="text-secondary select-none"
+                        aria-hidden="true"
+                      >
+                        /
+                      </span>
+                    )}
+                    {isLast
+                      ? (
+                        <span class={isRoot ? "font-semibold" : ""}>
+                          {displayPart}
+                        </span>
+                      )
+                      : (
+                        <a
+                          class={`text-jsr-cyan-700 dark:text-jsr-cyan-400 hover:text-jsr-cyan-900 dark:hover:text-jsr-cyan-300 ${
+                            isRoot ? "font-semibold" : ""
+                          }`}
+                          href={sourceRoot + arr.slice(0, i + 1).join("/")}
+                        >
+                          {displayPart}
+                        </a>
+                      )}
+                  </>
+                );
+              })}
+            </div>
+          </nav>
+
+          {data.source
+            ? (
+              data.source.source.kind == "dir"
+                ? (
+                  <ListDisplay hasHeader>
+                    {data.source.source.entries.map((entry) => (
+                      {
+                        href: (sourceRoot +
+                          (data.sourcePath === "/" ? "" : data.sourcePath) +
+                          "/") + entry.name,
+                        content: <DirEntry entry={entry} />,
+                      }
+                    ))}
+                  </ListDisplay>
+                )
+                : (
+                  data.source.source.view
+                    ? (
+                      <div class="ddoc">
+                        <div
+                          class="markdown ddoc-full children:!bg-transparent"
+                          // deno-lint-ignore react-no-danger
+                          dangerouslySetInnerHTML={{
+                            __html: data.source.source.view,
+                          }}
+                        />
+                      </div>
+                    )
+                    : (
+                      <div class="flex items-center gap-2 px-5 py-4 text-secondary">
+                        <TbFileOff
+                          class="size-5 shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span>Source cannot be displayed.</span>
+                      </div>
+                    )
+                )
+            )
+            : (
+              <div class="flex items-center gap-2 px-5 py-4 text-secondary">
+                <TbFileOff class="size-5 shrink-0" aria-hidden="true" />
+                <span>Source does not exist.</span>
+              </div>
+            )}
         </div>
-
-        {data.source
-          ? (
-            data.source.source.kind == "dir"
-              ? (
-                <ListDisplay>
-                  {data.source.source.entries.map((entry) => (
-                    {
-                      href: (sourceRoot +
-                        (data.sourcePath === "/" ? "" : data.sourcePath) +
-                        "/") + entry.name,
-                      content: <DirEntry entry={entry} />,
-                    }
-                  ))}
-                </ListDisplay>
-              )
-              : (
-                data.source.source.view
-                  ? (
-                    <div class="ddoc">
-                      <div
-                        class="markdown ddoc-full children:!bg-transparent"
-                        // deno-lint-ignore react-no-danger
-                        dangerouslySetInnerHTML={{
-                          __html: data.source.source.view,
-                        }}
-                      />
-                    </div>
-                  )
-                  : <i>Source can not be displayed.</i>
-              )
-          )
-          : <i>Source does not exist.</i>}
       </div>
     </div>
   );
@@ -124,27 +152,20 @@ export default define.page<typeof handler>(function PackagePage(
 
 function DirEntry({ entry }: { entry: SourceDirEntry }) {
   return (
-    <div class="grow-1 flex justify-between items-center w-full">
+    <div class="grow flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
-        <div class="text-jsr-gray-500">
+        <div class="text-tertiary">
           {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}
         </div>
         <div class="text-cyan-700 font-semibold">
           {entry.name}
         </div>
       </div>
-      <div class="text-sm text-jsr-gray-600">
-        {bytesToSize(entry.size)}
+      <div class="text-sm text-secondary">
+        {formatBytes(entry.size, { maximumFractionDigits: 0 }).toUpperCase()}
       </div>
     </div>
   );
-}
-
-function bytesToSize(bytes: number) {
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  if (bytes == 0) return "0 B";
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(0) + " " + sizes[i];
 }
 
 const LINE_COL_REGEX = /(.*):(\d+):(\d+)$/;
@@ -190,6 +211,7 @@ export const handler = define.handlers({
       scopeMember,
       selectedVersion,
       source,
+      downloads,
     } = res;
 
     ctx.state.meta = {
@@ -198,9 +220,14 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,
+        downloads,
         selectedVersion,
         source,
         sourcePath,

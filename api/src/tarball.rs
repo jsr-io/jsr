@@ -22,23 +22,22 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use thiserror::Error;
-use tracing::instrument;
 use tracing::Span;
+use tracing::instrument;
 use url::Url;
 use uuid::Uuid;
 
-use crate::analysis::analyze_package;
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
+use crate::analysis::analyze_package;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
+use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcp::GcsError;
 use crate::gcp::GcsUploadOptions;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcs_paths::docs_v1_path;
 use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
@@ -49,6 +48,9 @@ use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::s3::S3Error;
+use crate::s3::UploadTaskBody;
+use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
@@ -60,13 +62,14 @@ static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
 pub struct ProcessTarballOutput {
   pub file_infos: Vec<FileInfo>,
-  pub module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
+  pub module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
   pub exports: ExportsMap,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball_info: NpmTarballInfo,
   pub readme_path: Option<PackagePath>,
   pub meta: PackageVersionMeta,
   pub doc_search_json: serde_json::Value,
+  pub license: String,
 }
 
 pub struct NpmTarballInfo {
@@ -78,31 +81,49 @@ pub struct NpmTarballInfo {
   pub size: u64,
 }
 
+static SUPPORTED_LICENSE_FILE_NAMES: [&str; 12] = [
+  "/LICENSE",
+  "/LICENSE.md",
+  "/LICENSE.txt",
+  "/LICENCE",
+  "/LICENCE.md",
+  "/LICENCE.txt",
+  "/COPYING",
+  "/COPYING.md",
+  "/COPYING.txt",
+  "/COPYING.LESSER",
+  "/COPYING.LESSER.md",
+  "/COPYING.LESSER.txt",
+];
+
 #[instrument(
   name = "process_tarball",
-  skip(buckets, registry_url, publishing_task),
+  skip(buckets, license_store, registry_url, publishing_task),
   err
 )]
 pub async fn process_tarball(
   db: &Database,
   buckets: &Buckets,
+  license_store: &LicenseStore,
   registry_url: Url,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
-  let tarball_path = gcs_tarball_path(publishing_task.id);
+  let tarball_path = bucket_tarball_path(publishing_task.id);
   let stream = buckets
     .publishing_bucket
     .bucket
     .download_stream(&tarball_path, None)
     .await
-    .map_err(PublishError::GcsDownloadError)?
+    .map_err(PublishError::S3DownloadError)?
     .ok_or(PublishError::MissingTarball)?
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+    .map_err(io::Error::other);
 
   let async_read = stream.into_async_read();
-  let mut tar = async_tar::Archive::new(async_read)
+  let decompressed =
+    async_compression::futures::bufread::GzipDecoder::new(async_read);
+  let mut tar = async_tar::Archive::new(decompressed)
     .entries()
-    .map_err(PublishError::UntarError)?;
+    .map_err(from_tarball_io_error)?;
 
   let mut files = HashMap::new();
   let mut case_insensitive_paths = HashSet::<CaseInsensitivePackagePath>::new();
@@ -126,7 +147,7 @@ pub async fn process_tarball(
   };
 
   while let Some(res) = tar.next().await {
-    let mut entry = res.map_err(PublishError::UntarError)?;
+    let mut entry = res.map_err(from_tarball_io_error)?;
 
     let header = entry.header();
     let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
@@ -158,7 +179,7 @@ pub async fn process_tarball(
       });
     }
 
-    let size = header.size().map_err(PublishError::UntarError)?;
+    let size = header.size().map_err(from_tarball_io_error)?;
     if size > max_file_size {
       return Err(PublishError::FileTooLarge {
         path,
@@ -180,7 +201,7 @@ pub async fn process_tarball(
     entry
       .read_to_end(&mut bytes)
       .await
-      .map_err(PublishError::UntarError)?;
+      .map_err(from_tarball_io_error)?;
 
     // sha256 hash the bytes
     let hash = sha2::Sha256::digest(&bytes);
@@ -247,14 +268,14 @@ pub async fn process_tarball(
       publish_task_name: publishing_task_scoped_package_name,
     });
   }
-  if let Some(config_file_version) = config_file.version {
-    if config_file_version != publishing_task.package_version {
-      return Err(PublishError::ConfigFileVersionMismatch {
-        path: Box::new(publishing_task.config_file.clone()),
-        deno_json_version: Box::new(config_file_version),
-        publish_task_version: Box::new(publishing_task.package_version.clone()),
-      });
-    }
+  if let Some(config_file_version) = config_file.version
+    && config_file_version != publishing_task.package_version
+  {
+    return Err(PublishError::ConfigFileVersionMismatch {
+      path: Box::new(publishing_task.config_file.clone()),
+      deno_json_version: Box::new(config_file_version),
+      publish_task_version: Box::new(publishing_task.package_version.clone()),
+    });
   }
 
   let exports =
@@ -272,6 +293,35 @@ pub async fn process_tarball(
         .to_string(),
     });
   }
+
+  let license = if let Some(license) = config_file.license {
+    if !license_store.is_recognized(&license) {
+      return Err(PublishError::InvalidLicense);
+    } else {
+      license
+    }
+  } else {
+    let mut license = None;
+    for license_file_name in SUPPORTED_LICENSE_FILE_NAMES {
+      if let Some(license_file) =
+        files.get(&PackagePath::new(license_file_name.to_string()).unwrap())
+      {
+        let license_content = String::from_utf8_lossy(license_file);
+        let analyzed = license_store
+          .0
+          .analyze(&askalono::TextData::new(license_content.as_ref()));
+        if analyzed.score > 0.8 {
+          license = Some(analyzed.name.to_string());
+        } else {
+          return Err(PublishError::InvalidLicense);
+        }
+
+        break;
+      }
+    }
+
+    license.ok_or_else(|| PublishError::MissingLicense)?
+  };
 
   let span = Span::current();
   let scope = publishing_task.package_scope.clone();
@@ -300,7 +350,7 @@ pub async fn process_tarball(
     )
   })
   .await
-  .unwrap()?;
+  .map_err(|e| PublishError::UnexpectedError(format!("{:?}", e)))??;
 
   // ensure all of the JSR dependencies are resolvable
   for (kind, req) in dependencies.iter() {
@@ -311,12 +361,12 @@ pub async fn process_tarball(
         })?;
 
       let mut versions = db
-        .list_package_versions(&package_scope.scope, &package_scope.package)
-        .await?
-        .into_iter()
-        .map(|v| v.0)
-        .collect::<Vec<_>>();
-      versions.sort_by_cached_key(|v| v.version.clone());
+        .list_package_versions_for_resolution(
+          &package_scope.scope,
+          &package_scope.package,
+        )
+        .await?;
+      versions.sort_by(|a, b| b.version.cmp(&a.version));
 
       let mut found = false;
       for version in versions.iter().rev() {
@@ -361,7 +411,7 @@ pub async fn process_tarball(
         &publishing_task.package_version,
       )
       .into(),
-      UploadTaskBody::Bytes(doc_nodes_json),
+      crate::s3::UploadTaskBody::Bytes(doc_nodes_json),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
@@ -369,7 +419,7 @@ pub async fn process_tarball(
       },
     )
     .await
-    .map_err(PublishError::GcsUploadError)?;
+    .map_err(PublishError::S3UploadError)?;
 
   let npm_tarball_info = NpmTarballInfo {
     sha1: npm_tarball.sha1,
@@ -387,7 +437,7 @@ pub async fn process_tarball(
     .npm_bucket
     .upload(
       npm_tarball_path.into(),
-      UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
+      crate::s3::UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
       GcsUploadOptions {
         content_type: Some("application/octet-stream".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
@@ -395,7 +445,7 @@ pub async fn process_tarball(
       },
     )
     .await
-    .map_err(PublishError::GcsUploadError)?;
+    .map_err(PublishError::S3UploadError)?;
 
   let mut uploads = futures::stream::iter(files)
     .map(|(path, data)| {
@@ -441,7 +491,7 @@ pub async fn process_tarball(
             },
           )
           .await
-          .map_err(PublishError::GcsUploadError)
+          .map_err(PublishError::S3UploadError)
       }
     })
     .buffer_unordered(MAX_CONCURRENT_UPLOADS);
@@ -461,10 +511,11 @@ pub async fn process_tarball(
     readme_path,
     meta,
     doc_search_json,
+    license,
   })
 }
 
-pub fn gcs_tarball_path(id: Uuid) -> String {
+pub fn bucket_tarball_path(id: Uuid) -> String {
   format!("publishing_tasks/{}.tar.gz", id)
 }
 
@@ -473,14 +524,21 @@ pub enum PublishError {
   #[error("gcs download error: {0}")]
   GcsDownloadError(GcsError),
 
+  #[error("s3 download error: {0}")]
+  S3DownloadError(S3Error),
+
   #[error("missing tarball")]
   MissingTarball,
 
+  #[allow(dead_code)]
   #[error("gcs upload error: {0}")]
   GcsUploadError(GcsError),
 
-  #[error("untar error: {0}")]
-  UntarError(io::Error),
+  #[error("s3 upload error: {0}")]
+  S3UploadError(S3Error),
+
+  #[error("invalid tarball: {0}")]
+  InvalidTarball(io::Error),
 
   #[error("database error")]
   DatabaseError(#[from] sqlx::Error),
@@ -502,7 +560,9 @@ pub enum PublishError {
   #[error("path '{path}' is invalid: .git files are not allowed")]
   InvalidGitPath { path: String },
 
-  #[error("invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed ({info})")]
+  #[error(
+    "invalid external import to '{specifier}', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed ({info})"
+  )]
   InvalidExternalImport { specifier: String, info: String },
 
   #[error("modifying global types is not allowed {specifier}:{line}:{column}")]
@@ -519,14 +579,18 @@ pub enum PublishError {
     column: usize,
   },
 
-  #[error("triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}")]
+  #[error(
+    "triple slash directives that modify globals (for example, '/// <reference no-default-lib=\"true\" />' or '/// <reference lib=\"dom\" />') are not allowed. Instead instruct the user of your package to specify these directives. {specifier}:{line}:{column}"
+  )]
   BannedTripleSlashDirectives {
     specifier: String,
     line: usize,
     column: usize,
   },
 
-  #[error("import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}")]
+  #[error(
+    "import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') {specifier}:{line}:{column}"
+  )]
   BannedImportAssertion {
     specifier: String,
     line: usize,
@@ -554,9 +618,7 @@ pub enum PublishError {
   #[error("case-insensitive duplicate path '{a}' and '{b}'")]
   CaseInsensitiveDuplicatePath { a: PackagePath, b: PackagePath },
 
-  #[error(
-    "missing config file '{0}', is it perhaps excluded from publishing?"
-  )]
+  #[error("missing config file '{0}', is it perhaps excluded from publishing?")]
   MissingConfigFile(Box<PackagePath>),
 
   #[error("invalid config file '{path}': {error}")]
@@ -565,21 +627,23 @@ pub enum PublishError {
     error: anyhow::Error,
   },
 
-  #[error("package name specified during publish does not match name in config file '{path}', expected {publish_task_name}, got {deno_json_name}")]
+  #[error(
+    "package name specified during publish does not match name in config file '{path}', expected {publish_task_name}, got {deno_json_name}"
+  )]
   ConfigFileNameMismatch {
     path: Box<PackagePath>,
     deno_json_name: ScopedPackageName,
     publish_task_name: ScopedPackageName,
   },
-  #[error("version specified during publish does not match version in config file '{path}', expected {publish_task_version}, got {deno_json_version}")]
+  #[error(
+    "version specified during publish does not match version in config file '{path}', expected {publish_task_version}, got {deno_json_version}"
+  )]
   ConfigFileVersionMismatch {
     path: Box<PackagePath>,
     deno_json_version: Box<Version>,
     publish_task_version: Box<Version>,
   },
-  #[error(
-    "invalid 'exports' field in config file '{path}': {invalid_exports}"
-  )]
+  #[error("invalid 'exports' field in config file '{path}': {invalid_exports}")]
   ConfigFileExportsInvalid {
     path: Box<PackagePath>,
     invalid_exports: String,
@@ -612,15 +676,32 @@ pub enum PublishError {
     ScopedPackageNameValidateError,
   ),
 
-  #[error("unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint")]
+  #[error("unexpected error: {0}")]
+  UnexpectedError(String),
+
+  #[error(
+    "unresolvable 'jsr:' dependency: '{0}', no published version matches the constraint"
+  )]
   UnresolvableJsrDependency(PackageReq),
 
-  #[error("invalid 'jsr:' dependency subpath: '{req}', resolved to {resolved_version}, has no export '{exports_key}'")]
+  #[error(
+    "invalid 'jsr:' dependency subpath: '{req}', resolved to {resolved_version}, has no export '{exports_key}'"
+  )]
   InvalidJsrDependencySubPath {
     req: Box<PackageReqReference>,
     resolved_version: Version,
     exports_key: String,
   },
+
+  #[error(
+    "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
+  )]
+  MissingLicense,
+
+  #[error(
+    "The license specified in the \"license\" field of your configuration file, or in the LICENSE file was not recognized."
+  )]
+  InvalidLicense,
 }
 
 impl PublishError {
@@ -629,10 +710,13 @@ impl PublishError {
   pub fn user_error_code(&self) -> Option<&'static str> {
     match self {
       PublishError::GcsDownloadError(_) => None,
+      PublishError::S3DownloadError(_) => None,
       PublishError::GcsUploadError(_) => None,
-      PublishError::UntarError(_) => None,
+      PublishError::S3UploadError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
+      PublishError::UnexpectedError(_) => None,
+      PublishError::InvalidTarball(_) => Some("invalidTarball"),
       PublishError::LinkInTarball { .. } => Some("linkInTarball"),
       PublishError::InvalidEntryType { .. } => Some("invalidEntryType"),
       PublishError::InvalidPath { .. } => Some("invalidPath"),
@@ -682,7 +766,19 @@ impl PublishError {
       PublishError::InvalidJsrDependencySubPath { .. } => {
         Some("invalidJsrDependencySubPath")
       }
+      PublishError::MissingLicense => Some("missingLicense"),
+      PublishError::InvalidLicense => Some("invalidLicense"),
     }
+  }
+}
+
+fn from_tarball_io_error(err: io::Error) -> PublishError {
+  match err.downcast::<s3::error::S3Error>() {
+    Ok(err) => PublishError::S3DownloadError(S3Error::S3(err)),
+    Err(err) => match err.downcast::<reqwest::Error>() {
+      Ok(err) => PublishError::GcsDownloadError(GcsError::Reqwest(err)),
+      Err(err) => PublishError::InvalidTarball(err),
+    },
   }
 }
 
@@ -696,6 +792,7 @@ pub struct FileInfo {
 pub struct ConfigFile {
   pub name: ScopedPackageName,
   pub version: Option<Version>,
+  pub license: Option<String>,
   pub exports: Option<serde_json::Value>,
 }
 
@@ -753,7 +850,9 @@ pub fn exports_map_from_json(
       ));
     }
     if !value.starts_with("./") {
-      return Err(format!("the path '{value}' for {key} could not be resolved as a relative path from the config file, did you mean './{value}'?"));
+      return Err(format!(
+        "the path '{value}' for {key} could not be resolved as a relative path from the config file, did you mean './{value}'?"
+      ));
     }
     if value.ends_with('/') || !has_extension(value) {
       return Err(format!(

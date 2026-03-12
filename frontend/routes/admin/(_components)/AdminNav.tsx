@@ -7,26 +7,47 @@ export interface Params {
   version?: string;
 }
 
-type Tab = "scopes" | "users" | "publishingTasks";
+type Tab =
+  | "users"
+  | "scopes"
+  | "packages"
+  | "publishingTasks"
+  | "tickets"
+  | "audit";
 
 export function AdminNav({ currentTab }: {
   currentTab: Tab;
 }) {
   return (
     <>
-      <h1 class="font-bold text-2xl">Admin</h1>
+      <h1 class="font-bold text-2xl dark:text-gray-100">Admin</h1>
       <Nav>
+        <NavItem href="/admin/users" active={currentTab === "users"}>
+          Users
+        </NavItem>
         <NavItem href="/admin/scopes" active={currentTab === "scopes"}>
           Scopes
         </NavItem>
-        <NavItem href="/admin/users" active={currentTab === "users"}>
-          Users
+        <NavItem href="/admin/packages" active={currentTab === "packages"}>
+          Packages
         </NavItem>
         <NavItem
           href="/admin/publishingTasks"
           active={currentTab === "publishingTasks"}
         >
           Publishing Tasks
+        </NavItem>
+        <NavItem
+          href="/admin/tickets"
+          active={currentTab === "tickets"}
+        >
+          Support Tickets
+        </NavItem>
+        <NavItem
+          href="/admin/audit"
+          active={currentTab === "audit"}
+        >
+          Audit Logs
         </NavItem>
       </Nav>
     </>

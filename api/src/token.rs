@@ -79,9 +79,9 @@ pub fn encode_base62(mut num: u32) -> String {
 
 #[cfg(test)]
 mod tests {
+  use super::TokenType;
   use super::encode_base62;
   use super::generate_token;
-  use super::TokenType;
 
   #[test]
   fn test_encode_base62() {

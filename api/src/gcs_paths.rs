@@ -15,6 +15,14 @@ pub fn file_path(
   format!("@{scope}/{package_name}/{version}{path}")
 }
 
+pub fn file_path_root_directory(
+  scope: &ScopeName,
+  package_name: &PackageName,
+  version: &Version,
+) -> String {
+  format!("@{scope}/{package_name}/{version}/")
+}
+
 pub fn docs_v1_path(
   scope: &ScopeName,
   package_name: &PackageName,
@@ -79,10 +87,10 @@ mod tests {
     assert!(
       deno_semver::Version::parse_standard(&format!("{crazy}_meta")).is_err()
     );
-    assert!(deno_semver::Version::parse_standard(&format!(
-      "{crazy}_meta.json"
-    ))
-    .is_err());
+    assert!(
+      deno_semver::Version::parse_standard(&format!("{crazy}_meta.json"))
+        .is_err()
+    );
     // Therefore /r/:scope/:package/:version_meta.json is ok.
   }
 }

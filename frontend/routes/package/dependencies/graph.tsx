@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, type RouteConfig } from "fresh";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { scopeIAM } from "../../../utils/iam.ts";
 import { define } from "../../../util.ts";
 import { DependencyGraph } from "../(_islands)/DependencyGraph.tsx";
@@ -18,11 +18,14 @@ export default define.page<typeof handler>(
         <PackageHeader
           package={data.package}
           selectedVersion={data.selectedVersion}
+          downloads={data.downloads}
         />
 
         <PackageNav
           currentTab="Dependencies"
           versionCount={data.package.versionCount}
+          dependencyCount={data.package.dependencyCount}
+          dependentCount={data.package.dependentCount}
           iam={iam}
           params={params as unknown as Params}
           latestVersion={data.package.latestVersion}
@@ -55,6 +58,7 @@ export const handler = define.handlers({
       pkg,
       scopeMember,
       selectedVersion,
+      downloads,
     } = res;
 
     if (selectedVersion === null) {
@@ -69,7 +73,7 @@ export const handler = define.handlers({
     const depsResp = await ctx.state.api.get<DependencyGraphItem[]>(
       path`/scopes/${pkg.scope}/packages/${pkg.name}/versions/${selectedVersion.version}/dependencies/graph`,
     );
-    if (!depsResp.ok) throw depsResp;
+    assertOk(depsResp);
 
     ctx.state.meta = {
       title: `Dependencies Graph - @${pkg.scope}/${pkg.name} - JSR`,
@@ -78,9 +82,14 @@ export const handler = define.handlers({
       }`,
     };
 
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400"
+      : "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+
     return {
       data: {
         package: pkg,
+        downloads,
         deps: depsResp.data,
         selectedVersion,
         member: scopeMember,

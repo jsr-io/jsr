@@ -1,31 +1,31 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use futures::FutureExt;
-use hyper::body;
-use hyper::header;
-use hyper::header::COOKIE;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use hyper::body;
+use hyper::header;
+use hyper::header::COOKIE;
 use oauth2::http::HeaderName;
 use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 use url::Url;
 use uuid::Uuid;
 
 use crate::api::ApiError;
 use crate::db::Database;
 use crate::db::Permissions;
-use crate::github::verify_oidc_token;
+use crate::external::github::verify_oidc_token;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
@@ -114,7 +114,11 @@ where
 pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
+  pub const FIVE_MINUTES: CacheDuration = CacheDuration(60 * 5);
+  pub const TEN_MINUTES: CacheDuration = CacheDuration(60 * 10);
+  pub const ONE_HOUR: CacheDuration = CacheDuration(60 * 60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
+  pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
 
 pub fn cache<H, HF>(
@@ -126,21 +130,114 @@ where
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
 {
   let value =
-    header::HeaderValue::from_str(&format!("public, s-maxage={}", duration.0))
-      .unwrap();
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("public, max-age=60, s-maxage={}, immutable", duration.0)
+    } else {
+      let swr = std::cmp::min(duration.0 * 3, CacheDuration::ONE_DAY.0);
+      format!(
+        "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+        duration.0, swr
+      )
+    })
+    .unwrap();
+  let private_value =
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("private, max-age={}, immutable", duration.0)
+    } else {
+      format!("private, max-age={}", duration.0)
+    })
+    .unwrap();
   let handler = Arc::new(handler);
   move |req: Request<Body>| {
     let handler = handler.clone();
     let value = value.clone();
+    let private_value = private_value.clone();
     async move {
       let is_anonymous = req.iam().is_anonymous();
       let mut res = handler(req).await?;
-      if is_anonymous {
-        res
-          .headers_mut()
-          .entry(header::CACHE_CONTROL)
-          .or_insert_with(|| value);
-      }
+      let value = if is_anonymous { value } else { private_value };
+      res
+        .headers_mut()
+        .entry(header::CACHE_CONTROL)
+        .or_insert_with(|| value);
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
+/// Cache middleware that applies different durations based on whether the
+/// `:version` path parameter is a specific version or "latest".
+/// This prevents aggressive caching of "latest"-resolved content while
+/// allowing long caching for immutable versioned content.
+pub fn cache_versioned<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let latest_swr =
+    std::cmp::min(latest_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let latest_value = header::HeaderValue::from_str(&format!(
+    "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+    latest_duration.0, latest_swr
+  ))
+  .unwrap();
+  let versioned_swr =
+    std::cmp::min(versioned_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let versioned_value = header::HeaderValue::from_str(&if versioned_duration.0
+    >= CacheDuration::FOREVER.0
+  {
+    format!(
+      "public, max-age=60, s-maxage={}, immutable",
+      versioned_duration.0
+    )
+  } else {
+    format!(
+      "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+      versioned_duration.0, versioned_swr
+    )
+  })
+  .unwrap();
+  let private_latest_value = header::HeaderValue::from_str(&format!(
+    "private, max-age={}",
+    latest_duration.0
+  ))
+  .unwrap();
+  let private_versioned_value =
+    header::HeaderValue::from_str(&if versioned_duration.0
+      >= CacheDuration::FOREVER.0
+    {
+      format!("private, max-age={}, immutable", versioned_duration.0)
+    } else {
+      format!("private, max-age={}", versioned_duration.0)
+    })
+    .unwrap();
+  let handler = Arc::new(handler);
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+    let latest_value = latest_value.clone();
+    let versioned_value = versioned_value.clone();
+    let private_latest_value = private_latest_value.clone();
+    let private_versioned_value = private_versioned_value.clone();
+    async move {
+      let is_anonymous = req.iam().is_anonymous();
+      let is_latest =
+        req.param("version").map(|v| v == "latest").unwrap_or(true);
+      let mut res = handler(req).await?;
+      let value = match (is_anonymous, is_latest) {
+        (true, true) => latest_value,
+        (true, false) => versioned_value,
+        (false, true) => private_latest_value,
+        (false, false) => private_versioned_value,
+      };
+      res
+        .headers_mut()
+        .entry(header::CACHE_CONTROL)
+        .or_insert(value);
       Ok(res)
     }
     .boxed()
@@ -161,10 +258,10 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
         if let Some(token) =
           db.get_token_by_hash(&crate::token::hash(token)).await?
         {
-          if let Some(expires_at) = token.expires_at {
-            if expires_at < chrono::Utc::now() {
-              return Err(ApiError::InvalidBearerToken);
-            }
+          if let Some(expires_at) = token.expires_at
+            && expires_at < chrono::Utc::now()
+          {
+            return Err(ApiError::InvalidBearerToken);
           }
 
           let user = db.get_user(token.user_id).await?.unwrap();
@@ -205,6 +302,27 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
   Ok(req)
 }
 
+pub fn full_auth<H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let handler = Arc::new(auth(handler));
+
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+
+    async move {
+      let req = auth_middleware(req).await?;
+      let res = handler(req).await?;
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
 enum AuthorizationToken<'s> {
   Bearer(&'s str),
   GithubOIDC(&'s str),
@@ -213,8 +331,8 @@ enum AuthorizationToken<'s> {
 static X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
 
 fn extract_token_and_sudo(
-  req: &Request<Body>,
-) -> Option<(AuthorizationToken, bool)> {
+  req: &'_ Request<Body>,
+) -> Option<(AuthorizationToken<'_>, bool)> {
   let headers = req.headers();
 
   let mut sudo = headers
@@ -239,14 +357,14 @@ fn extract_token_and_sudo(
     }
   }
 
-  if let Some(auth) = headers.get(header::AUTHORIZATION) {
-    if let Ok(auth) = auth.to_str() {
-      if let Some(token) = auth.strip_prefix("Bearer ") {
-        return Some((AuthorizationToken::Bearer(token), sudo));
-      }
-      if let Some(token) = auth.strip_prefix("githuboidc ") {
-        return Some((AuthorizationToken::GithubOIDC(token), sudo));
-      }
+  if let Some(auth) = headers.get(header::AUTHORIZATION)
+    && let Ok(auth) = auth.to_str()
+  {
+    if let Some(token) = auth.strip_prefix("Bearer ") {
+      return Some((AuthorizationToken::Bearer(token), sudo));
+    }
+    if let Some(token) = auth.strip_prefix("githuboidc ") {
+      return Some((AuthorizationToken::GithubOIDC(token), sudo));
     }
   }
 
@@ -277,6 +395,10 @@ pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }
 
+pub fn sort(req: &Request<Body>) -> Option<&str> {
+  req.query("sortBy").map(|q| q.as_str())
+}
+
 pub fn pagination(req: &Request<Body>) -> (i64, i64) {
   let limit = req
     .query("limit")
@@ -292,6 +414,40 @@ pub fn pagination(req: &Request<Body>) -> (i64, i64) {
   let start = (page * limit) - limit;
 
   (start, limit)
+}
+
+pub struct DocsQueries<'a> {
+  pub all_symbols: bool,
+  pub entrypoint: Option<&'a str>,
+  pub symbol: Option<std::borrow::Cow<'a, str>>,
+}
+
+pub fn docs_queries(req: &Request<Body>) -> Result<DocsQueries<'_>, ApiError> {
+  let all_symbols = req.query("all_symbols").is_some();
+  let entrypoint = req.query("entrypoint").map(|s| match s.as_str() {
+    "" => ".",
+    s => s,
+  });
+
+  let symbol = req
+    .query("symbol")
+    .and_then(|s| match s.as_str() {
+      "" => None,
+      s => Some(urlencoding::decode(s)),
+    })
+    .transpose()?;
+
+  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
+    return Err(ApiError::MalformedRequest {
+      msg: "Cannot specify both all_symbols and entrypoint".into(),
+    });
+  }
+
+  Ok(DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  })
 }
 
 // Sanitize redirect urls
@@ -334,7 +490,7 @@ pub trait RequestIdExt {
   fn param_version_or_latest(&self) -> Result<VersionOrLatest, ApiError>;
 }
 
-fn param<'a>(
+pub fn param<'a>(
   req: &'a Request<Body>,
   name: &str,
 ) -> Result<&'a String, ApiError> {
@@ -411,30 +567,90 @@ impl RequestIdExt for Request<Body> {
   }
 }
 
+#[derive(Clone)]
+pub struct LicenseStore(pub Arc<askalono::Store>);
+
+impl LicenseStore {
+  /// Check if a license identifier is recognized, either as a primary key
+  /// or as an alias of another license (e.g. GPL-3.0-or-later is an alias
+  /// of GPL-3.0-only because they share the same license text).
+  pub fn is_recognized(&self, name: &str) -> bool {
+    if self.0.get_original(name).is_some() {
+      return true;
+    }
+    self.0.licenses().any(|key| {
+      self
+        .0
+        .aliases(key)
+        .is_ok_and(|aliases| aliases.iter().any(|a| a == name))
+    })
+  }
+}
+
+pub fn license_store() -> LicenseStore {
+  let mut license_store = askalono::Store::new();
+  let license_path =
+    std::env::var("LICENSE_LIST_DATA_PATH").unwrap_or_else(|_| {
+      concat!(env!("CARGO_MANIFEST_DIR"), "/license-list-data").to_string()
+    });
+  license_store
+    .load_spdx(
+      &std::path::Path::new(&license_path).join("json/details"),
+      false,
+    )
+    .unwrap();
+  LicenseStore(Arc::new(license_store))
+}
+
 #[cfg(test)]
 pub mod test {
-  use crate::auth::GithubOauth2Client;
-  use crate::buckets::BucketWithQueue;
-  use crate::buckets::Buckets;
-  use crate::db::EphemeralDatabase;
-  use crate::db::NewGithubIdentity;
-  use crate::db::{Database, NewUser, User};
-  use crate::errors_internal::ApiErrorStruct;
-  use crate::gcp::FakeGcsTester;
-  use crate::util::sanitize_redirect_url;
   use crate::ApiError;
   use crate::MainRouterOptions;
-  use hyper::http::HeaderName;
-  use hyper::http::HeaderValue;
-  use hyper::service::Service;
+  use crate::buckets::Buckets;
+  use crate::db::Database;
+  use crate::db::EphemeralDatabase;
+  use crate::db::NewGithubIdentity;
+  use crate::db::NewGitlabIdentity;
+  use crate::db::NewUser;
+  use crate::db::User;
+  use crate::errors_internal::ApiErrorStruct;
+  use crate::gcp::FakeGcsTester;
+  use crate::ids::ScopeDescription;
+  use crate::s3::BucketWithQueue;
+  use crate::s3::FakeS3Tester;
+  use crate::util::LicenseStore;
+
+  static SERVERS_STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+  static LICENSE_STORE: std::sync::OnceLock<LicenseStore> =
+    std::sync::OnceLock::new();
+
+  static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+  /// Ensure both fake servers are running. The first call starts GCS and S3
+  /// in parallel; subsequent calls return immediately.
+  fn ensure_servers_started() {
+    SERVERS_STARTED.get_or_init(|| {
+      std::thread::scope(|s| {
+        s.spawn(FakeGcsTester::new);
+        s.spawn(FakeS3Tester::new);
+      });
+    });
+  }
+  use crate::util::sanitize_redirect_url;
   use hyper::Body;
   use hyper::HeaderMap;
   use hyper::Response;
   use hyper::StatusCode;
+  use hyper::http::HeaderName;
+  use hyper::http::HeaderValue;
+  use hyper::service::Service;
   use routerify::RequestService;
   use routerify::RouteError;
   use serde::de::DeserializeOwned;
-  use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+  use std::net::Ipv4Addr;
+  use std::net::SocketAddr;
+  use std::net::SocketAddrV4;
   use url::Url;
 
   #[derive(Debug)]
@@ -446,9 +662,8 @@ pub mod test {
 
   pub struct TestSetup {
     pub ephemeral_database: EphemeralDatabase,
-    #[allow(dead_code)]
-    pub gcs: FakeGcsTester,
     pub buckets: Buckets,
+    pub license_store: LicenseStore,
     pub user1: TestUser,
     pub user2: TestUser,
     pub user3: TestUser,
@@ -456,38 +671,46 @@ pub mod test {
     #[allow(dead_code)]
     pub scope: crate::db::Scope,
     #[allow(dead_code)]
-    pub github_oauth2_client: GithubOauth2Client,
+    pub github_oauth2_client: crate::auth::github::Oauth2Client,
+    #[allow(dead_code)]
+    pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
     pub service: RequestService<Body, ApiError>,
   }
 
   impl TestSetup {
     pub async fn new() -> Self {
+      ensure_servers_started();
+      let test_id = TEST_INSTANCE_COUNTER
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
       let ephemeral_database = EphemeralDatabase::create().await;
       let db = ephemeral_database.database.clone().unwrap();
-      let gcs = FakeGcsTester::new().await;
-      let publishing_bucket = gcs.create_bucket("publishing").await;
-      let modules_bucket = gcs.create_bucket("modules").await;
-      let docs_bucket = gcs.create_bucket("docs").await;
-      let npm_bucket = gcs.create_bucket("npm").await;
+      let s3 = FakeS3Tester::new();
+      let publishing_name = format!("publishing-{test_id}");
+      let modules_name = format!("modules-{test_id}");
+      let docs_name = format!("docs-{test_id}");
+      let npm_name = format!("npm-{test_id}");
+      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
+        s3.create_bucket(&publishing_name),
+        s3.create_bucket(&modules_name),
+        s3.create_bucket(&docs_name),
+        s3.create_bucket(&npm_name),
+      );
       let buckets = Buckets {
-        publishing_bucket: BucketWithQueue::new(publishing_bucket),
+        publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
-        docs_bucket: BucketWithQueue::new(docs_bucket),
-        npm_bucket: BucketWithQueue::new(npm_bucket),
+        docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
+        npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
       };
-      let github_oauth2_client = GithubOauth2Client::new(
-        oauth2::ClientId::new("".to_string()),
-        Some(oauth2::ClientSecret::new("".to_string())),
-        oauth2::AuthUrl::new(
-          "https://github.com/login/oauth/authorize".to_string(),
-        )
-        .unwrap(),
-        Some(
-          oauth2::TokenUrl::new(
-            "https://github.com/login/oauth/access_token".to_string(),
-          )
-          .unwrap(),
-        ),
+      let registry_url = "http://jsr-tests.test".parse().unwrap();
+      let github_oauth2_client = crate::auth::github::Oauth2Client::new(
+        &registry_url,
+        "".to_string(),
+        "".to_string(),
+      );
+      let gitlab_oauth2_client = crate::auth::gitlab::Oauth2Client::new(
+        &registry_url,
+        "".to_string(),
+        "".to_string(),
       );
 
       let user1 = Self::create_user(
@@ -497,6 +720,7 @@ pub mod test {
           email: None,
           avatar_url: "https://avatars0.githubusercontent.com/u/952?v=4",
           github_id: Some(101),
+          gitlab_id: Some(101),
           is_blocked: false,
           is_staff: false,
         },
@@ -511,6 +735,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(102),
+          gitlab_id: Some(102),
           is_blocked: false,
           is_staff: false,
         },
@@ -525,6 +750,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(103),
+          gitlab_id: Some(103),
           is_blocked: false,
           is_staff: false,
         },
@@ -539,6 +765,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(104),
+          gitlab_id: Some(104),
           is_blocked: false,
           is_staff: true,
         },
@@ -548,25 +775,45 @@ pub mod test {
 
       let scope_name = "scope".try_into().unwrap();
 
-      db.create_scope(&scope_name, user1.user.id).await.unwrap();
+      db.create_scope(
+        &user1.user.id,
+        false,
+        &scope_name,
+        user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
       let (scope, _, _) = db
-        .update_scope_limits(&scope_name, Some(250), Some(200), Some(1000))
+        .update_scope_limits(
+          &staff_user.user.id,
+          &scope_name,
+          Some(250),
+          Some(200),
+          Some(1000),
+        )
         .await
         .unwrap();
 
       db.add_bad_word_for_test("somebadword").await.unwrap();
 
+      let license_store =
+        LICENSE_STORE.get_or_init(super::license_store).clone();
+
       let router = crate::main_router(MainRouterOptions {
         database: db,
         buckets: buckets.clone(),
         github_client: github_oauth2_client.clone(),
+        gitlab_client: gitlab_oauth2_client.clone(),
         orama_client: None,
         email_sender: None,
-        registry_url: "http://jsr-tests.test".parse().unwrap(),
+        license_store: license_store.clone(),
+        registry_url,
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
         logs_bigquery_table: None,     // no bigquery locally
+        analytics_engine_config: None, // no analytics engine locally
         expose_api: true,              // api enabled
         expose_tasks: true,            // task endpoints enabled
       });
@@ -577,14 +824,15 @@ pub mod test {
 
       Self {
         ephemeral_database,
-        gcs,
         buckets,
+        license_store,
         user1,
         user2,
         user3,
         staff_user,
         scope,
         github_oauth2_client,
+        gitlab_oauth2_client,
         service,
       }
     }
@@ -600,6 +848,14 @@ pub mod test {
         access_token_expires_at: None,
         refresh_token: None,
         refresh_token_expires_at: None,
+      })
+      .await
+      .unwrap();
+      db.upsert_gitlab_identity(NewGitlabIdentity {
+        gitlab_id: new_user.gitlab_id.unwrap(),
+        access_token: None,
+        access_token_expires_at: None,
+        refresh_token: None,
       })
       .await
       .unwrap();
@@ -632,6 +888,10 @@ pub mod test {
       self.buckets.clone()
     }
 
+    pub fn license_store(&self) -> LicenseStore {
+      self.license_store.clone()
+    }
+
     pub fn registry_url(&self) -> Url {
       Url::parse("http://jsr-tests.test").unwrap()
     }
@@ -640,14 +900,14 @@ pub mod test {
       Url::parse("http://npm.jsr-tests.test").unwrap()
     }
 
-    pub fn http(&mut self) -> TestHttpClient {
+    pub fn http(&'_ mut self) -> TestHttpClient<'_, '_> {
       TestHttpClient {
         service: &mut self.service,
         auth: Some(&self.user1.token),
       }
     }
 
-    pub fn unauthed_http(&mut self) -> TestHttpClient {
+    pub fn unauthed_http(&'_ mut self) -> TestHttpClient<'_, '_> {
       TestHttpClient {
         service: &mut self.service,
         auth: None,

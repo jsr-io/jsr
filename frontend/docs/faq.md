@@ -100,8 +100,8 @@ us at security@jsr.io.
 
 ## How do I report a bug in JSR?
 
-> During the open beta, please email us at help@jsr.io, or chat in the `#jsr`
-> channel on the Deno Discord (https://discord.gg/deno).
+> During the open beta, please email us at help@jsr.io, or chat in the
+> [JSR Discord](https://discord.gg/hMqvhAn9xG).
 
 Please open an issue on the JSR GitHub repository at
 [jsr-io/jsr](https://github.com/jsr-io/jsr).

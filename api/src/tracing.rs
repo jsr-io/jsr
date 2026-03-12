@@ -1,16 +1,17 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
+use opentelemetry::KeyValue;
 use opentelemetry::global;
+use opentelemetry::sdk::Resource;
 use opentelemetry::sdk::propagation::TraceContextPropagator;
 use opentelemetry::sdk::trace;
-use opentelemetry::sdk::Resource;
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry::trace::TraceId;
-use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_opentelemetry::OtelData;
+use tracing_subscriber::Registry;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::FormatFields;
@@ -18,7 +19,6 @@ use tracing_subscriber::layer::Layered;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::reload;
-use tracing_subscriber::Registry;
 
 pub enum TracingExportTarget {
   Otlp(String),
@@ -81,8 +81,9 @@ pub async fn setup_tracing(
     .add_directive("swc_ecma_codegen=off".parse().unwrap());
   let default_filter_directive = base_filter.to_string();
   let (filter, reload_handle) = reload::Layer::new(base_filter);
-  let fmt =
-    tracing_subscriber::fmt::layer().event_format(FullOutputWithTraceId);
+  let fmt = tracing_subscriber::fmt::layer()
+    .with_ansi(false)
+    .event_format(FullOutputWithTraceId);
   let subscriber = Registry::default().with(telemetry).with(filter).with(fmt);
   tracing::subscriber::set_global_default(subscriber).unwrap();
 

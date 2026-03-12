@@ -4,7 +4,7 @@ import {
   CloudTrace,
   CredentialsClient,
   Span,
-} from "https://googleapis.deno.dev/v1/cloudtrace:v2.ts";
+} from "./cloudtrace.v2.ts";
 
 const CLOUD_TRACE = Deno.env.get("CLOUD_TRACE") === "true";
 let CLOUD_TRACE_AUTH: CredentialsClient | null = null;
@@ -52,6 +52,8 @@ const OTLP_ENDPOINT = Deno.env.get("OTLP_ENDPOINT");
 
 const FLUSH_INTERVAL = 1000; // 5s
 
+export type SpanKind = "SERVER" | "CLIENT" | "INTERNAL";
+
 interface RecordedSpan {
   traceId: string;
   parentSpanId: string | null;
@@ -60,7 +62,14 @@ interface RecordedSpan {
   endTime: Date;
   displayName: string;
   attributes: Record<string, string | bigint | boolean>;
+  spanKind: SpanKind;
 }
+
+const OTLP_SPAN_KIND: Record<SpanKind, number> = {
+  INTERNAL: 1,
+  SERVER: 2,
+  CLIENT: 3,
+};
 
 const BATCH_SPAN_IMMEDIATE_FLUSH_LEN = 100;
 const BATCH_SPAN_OVERFLOW_LEN = 1000;
@@ -164,6 +173,7 @@ export class Tracer {
         startTime: span.startTime,
         endTime: span.endTime,
         attributes: { attributeMap },
+        spanKind: span.spanKind,
       } satisfies Span;
     });
     await this.#cloudTrace!.projectsTracesBatchWrite(
@@ -198,6 +208,7 @@ export class Tracer {
         parentSpanId: span.parentSpanId,
         spanId: span.spanId,
         name: span.displayName,
+        kind: OTLP_SPAN_KIND[span.spanKind],
         startTimeUnixNano: span.startTime.getTime() * 1e6,
         endTimeUnixNano: span.endTime.getTime() * 1e6,
         attributes,
@@ -325,6 +336,7 @@ export class TraceSpan {
     startTime: Date,
     endTime: Date,
     attributes: Record<string, string | bigint | boolean>,
+    spanKind: SpanKind,
   ) {
     if (!this.isSampled) return;
     this.#tracer.recordSpan({
@@ -335,6 +347,7 @@ export class TraceSpan {
       endTime,
       displayName,
       attributes,
+      spanKind,
     });
   }
 

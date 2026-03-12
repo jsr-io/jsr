@@ -11,14 +11,11 @@ import twas from "twas";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { path } from "../../utils/api.ts";
-import {
-  TbAlertCircle,
-  TbCheck,
-  TbClockHour3,
-  TbTrashX,
-} from "@preact-icons/tb";
+import { assertOk, path } from "../../utils/api.ts";
+import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
+import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
+import { Card } from "../../components/Card.tsx";
 
 export default define.page<typeof handler>(function Versions({
   data,
@@ -90,20 +87,29 @@ export default define.page<typeof handler>(function Versions({
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader
+        package={data.package}
+        downloads={null}
+      />
 
       <PackageNav
         currentTab="Versions"
         params={params as unknown as Params}
         iam={iam}
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         latestVersion={data.package.latestVersion}
       />
+
+      <div class="mt-4 md:mt-6">
+        <DownloadChart downloads={data.downloads.recentVersions} />
+      </div>
 
       <div class="space-y-3 mt-8">
         {versionsArray.length === 0
           ? (
-            <div class="text-jsr-gray-500 text-center">
+            <div class="text-tertiary text-center">
               This package has not published any versions yet.
             </div>
           )
@@ -167,20 +173,33 @@ function Version({
 }) {
   const isPublished = version !== null;
   const isFailed = tasks.length > 0 && tasks[0].status === "failure";
+  const isSuccess = tasks.length > 0 &&
+    tasks.some((task) => task.status === "success");
+
+  const isRedState = (!isPublished && (isFailed || isSuccess)) ||
+    version?.yanked;
+  const isBlueState = !isPublished && !isFailed && !isSuccess;
+
+  const variant = isRedState
+    ? "red"
+    : isBlueState
+    ? "blue"
+    : isLatestInReleaseTrack
+    ? "green"
+    : "gray";
+
+  const filled = isRedState || isBlueState || isLatestInReleaseTrack;
+
+  const interactive = isRedState
+    ? (version?.yanked || (!isPublished && isSuccess))
+    : !isBlueState;
 
   return (
-    <div
-      class={`relative py-2 px-2 md:py-3 md:px-6 border rounded-lg ${
-        (!isPublished && isFailed) || version?.yanked
-          ? `bg-red-50 border-red-200 ${
-            version?.yanked ? "hover:bg-red-100 hover:border-red-300" : ""
-          }`
-          : (!isPublished
-            ? "bg-blue-50 border-blue-200"
-            : (isLatestInReleaseTrack
-              ? "bg-green-50 hover:bg-green-100 border-green-300 hover:border-green-400"
-              : "hover:bg-jsr-gray-100 border-jsr-gray-100 hover:border-jsr-gray-300"))
-      }`}
+    <Card
+      variant={variant}
+      filled={filled}
+      interactive={interactive}
+      class="relative py-2 px-2 md:py-3 md:px-6 rounded-lg"
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 md:gap-6">
@@ -189,17 +208,19 @@ function Version({
               (!isPublished && isFailed) || version?.yanked
                 ? "bg-red-300 border-red-400 text-red-700"
                 : (!isPublished
-                  ? "bg-blue-300 border-blue-400 text-blue-700"
+                  ? isSuccess
+                    ? "bg-red-300 border-red-400 text-red-700"
+                    : "bg-blue-300 border-blue-400 text-blue-700"
                   : (isLatestInReleaseTrack
                     ? "bg-green-300 border-green-400 text-green-700"
-                    : "bg-jsr-gray-200 border-jsr-gray-300 text-jsr-gray-600"))
+                    : "bg-jsr-gray-200 dark:bg-jsr-gray-900 border-jsr-gray-300 dark:border-jsr-gray-800 text-secondary"))
             }`}
             title={version?.yanked
               ? "Yanked"
               : (isFailed
                 ? "Task failed"
                 : !isPublished
-                ? "Publishing..."
+                ? isSuccess ? "Deleted" : "Publishing..."
                 : `Release Track ${releaseTrack}`)}
           >
             {version?.yanked
@@ -207,26 +228,26 @@ function Version({
               : (isFailed
                 ? <TbAlertCircle class="size-8 stroke-red-500 stroke-2" />
                 : !isPublished
-                ? "..."
+                ? isSuccess ? <TbTrashX class="size-8" /> : "..."
                 : releaseTrack)}
           </div>
           <div>
             {isPublished
               ? (
                 <a
-                  class="font-bold z-10 after:absolute after:inset-0 after:content-empty"
+                  class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty"
                   href={`/@${version.scope}/${version.package}@${version.version}`}
                 >
                   {format(semver)}
                 </a>
               )
               : (
-                <span class="font-bold z-10 after:absolute after:inset-0 after:content-empty">
+                <span class="font-bold relative z-10 after:absolute after:inset-0 after:content-empty dark:text-gray-200">
                   {format(semver)}
                 </span>
               )}
             {isPublished && (
-              <div class="text-sm select-none text-jsr-gray-500 z-0">
+              <div class="text-sm select-none text-tertiary z-0">
                 Released {version?.user && (
                   <>
                     {"by "}
@@ -257,10 +278,23 @@ function Version({
             </button>
           </form>
         )}
+        {isPublished && iam.hasSudo && (
+          <form method="POST" class="z-20">
+            <input type="hidden" name="version" value={version.version} />
+            <button
+              type="submit"
+              class="button-danger"
+              name="action"
+              value="delete"
+            >
+              Delete
+            </button>
+          </form>
+        )}
       </div>
       <ul>
         {tasks.map((task, i) => (
-          <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-jsr-gray-500 w-full">
+          <li class="first:mt-3 mt-1 text-sm flex items-center gap-1 text-tertiary w-full">
             {task.status === "failure"
               ? <TbAlertCircle class="size-4 stroke-red-500 stroke-2" />
               : task.status === "success"
@@ -277,7 +311,7 @@ function Version({
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }
 
@@ -296,12 +330,12 @@ export const handler = define.handlers({
     ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
 
-    if (!versionsResp.ok) throw versionsResp; // TODO: handle errors gracefully
+    assertOk(versionsResp);
     let publishingTasks;
     if (tasksResp) {
       if (!tasksResp.ok) {
         if (tasksResp.code !== "actorNotScopeMember") {
-          throw tasksResp; // TODO: handle errors gracefully
+          assertOk(tasksResp);
         }
       } else {
         publishingTasks = tasksResp.data;
@@ -314,12 +348,16 @@ export const handler = define.handlers({
         res.pkg.description ? `: ${res.pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: res.pkg,
         versions: versionsResp.data,
         publishingTasks,
         member: res.scopeMember,
+        downloads: res.downloads,
       },
     };
   },
@@ -342,7 +380,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: true },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },
@@ -354,7 +392,18 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
           { yanked: false },
         );
-        if (!res.ok) throw res;
+        assertOk(res);
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/@${scope}/${packageName}/versions` },
+        });
+      }
+      case "delete": {
+        const version = String(data.get("version"));
+        const res = await api.delete(
+          path`/scopes/${scope}/packages/${packageName}/versions/${version}`,
+        );
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/versions` },

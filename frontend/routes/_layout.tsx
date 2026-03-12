@@ -12,11 +12,10 @@ export default function Layout(
       <div
         class="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-4.5rem)]"
         style="container: page / inline-size"
-        data-dark-theme="light"
       >
         <a
           href="#main-content"
-          class="absolute p-4 -translate-y-full bg-jsr-cyan-100 font-medium focus:translate-y-0 transition-transform duration-100	z-20"
+          class="absolute p-4 -translate-y-full bg-jsr-cyan-100 dark:bg-jsr-cyan-950 dark:text-white font-medium focus:translate-y-0 transition-transform duration-100	z-20"
         >
           Skip to main content
         </a>
@@ -36,7 +35,7 @@ export default function Layout(
       </div>
       <footer
         id="footer"
-        class="text-xs text-center mt-4 md:mt-6 md:p-4 p-2 text-jsr-gray-500"
+        class="text-xs text-center mt-4 md:mt-6 md:p-4 p-2 text-tertiary"
       >
         JSR - It is{" "}
         <time datetime={currentDatetime.toISOString()}>
@@ -48,42 +47,42 @@ export default function Layout(
         -{" "}
         <a
           href="/docs"
-          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
           Docs
         </a>{" "}
         -{" "}
         <a
           href="https://github.com/jsr-io/jsr"
-          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
           <span>GitHub</span>
         </a>{" "}
         -{" "}
         <a
           href="https://discord.gg/hMqvhAn9xG"
-          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
           <span>Discord</span>
         </a>{" "}
         -{" "}
         <a
           href="https://bsky.app/profile/jsr.io"
-          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
           <span>Bluesky</span>
         </a>{" "}
         -{" "}
         <a
           href="https://x.com/jsr_io"
-          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
           <span>X (ex Twitter)</span>
         </a>{" "}
         -{" "}
         <a
           href="https://www.youtube.com/@jsr-io"
-          class="text-jsr-cyan-700 hover:text-blue-400 underline"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
           <span>YouTube</span>
         </a>

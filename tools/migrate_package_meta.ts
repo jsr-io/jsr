@@ -1,9 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { Client } from "https://deno.land/x/postgres/mod.ts";
-import type {
-  DocNode,
-  JsDocTagDoc,
-} from "https://deno.land/x/deno_doc@0.115.0/types.d.ts";
+import { Client } from "postgres";
+import type { DocNode, JsDocTagDoc } from "@deno/doc";
 
 const client = new Client(
   "postgres://postgres:postgres@127.0.0.1:5432/registry3",

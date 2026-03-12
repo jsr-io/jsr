@@ -2,41 +2,51 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
+use crate::RegistryUrl;
 use crate::api::package::package_router;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
-use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use routerify::ext::RequestExt;
 use routerify::Router;
+use routerify::ext::RequestExt;
+use tracing::Span;
+use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
-use super::errors::map_unique_violation;
 use super::errors::ApiError;
+use super::errors::map_unique_violation;
 use super::types::*;
 
-use crate::auth::lookup_user_by_github_login;
-use crate::auth::GithubOauth2Client;
+use crate::auth;
 use crate::db::*;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
+use crate::util::decode_json;
 
 pub fn scope_router() -> Router<Body, ApiError> {
   Router::builder()
     .scope("/:scope/packages", package_router())
     .post("/", util::auth(util::json(create_handler)))
-    .get("/:scope", util::json(get_handler))
+    .get(
+      "/:scope",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:scope", util::auth(util::json(update_handler)))
     .delete("/:scope", util::auth(delete_handler))
-    .get("/:scope/members", util::json(list_members_handler))
+    .get(
+      "/:scope/members",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_members_handler),
+      ),
+    )
     .post(
       "/:scope/members",
       util::auth(util::json(invite_member_handler)),
@@ -63,8 +73,10 @@ static RESERVED_SCOPES: OnceLock<std::collections::HashSet<String>> =
 
 #[instrument(name = "POST /api/scopes", skip(req), err, fields(scope))]
 async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
-  let ApiCreateScopeRequest { scope } = decode_json(&mut req).await?;
+  let ApiCreateScopeRequest { scope, description } =
+    decode_json(&mut req).await?;
   Span::current().record("scope", field::display(&scope));
+  Span::current().record("description", field::display(&description));
 
   let db = req.data::<Database>().unwrap();
 
@@ -94,7 +106,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   }
 
   let scope = db
-    .create_scope(&scope, user.id)
+    .create_scope(&user.id, false, &scope, user.id, &description)
     .await
     .map_err(|e| map_unique_violation(e, ApiError::ScopeAlreadyExists))?;
 
@@ -113,7 +125,7 @@ async fn get_handler(req: Request<Body>) -> ApiResult<ApiScopeOrFullScope> {
     .ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  if let Ok(()) = iam.check_scope_admin_access(&scope.scope).await {
+  if iam.check_scope_admin_access(&scope.scope).await.is_ok() {
     let user = db
       .get_user_public(scope.creator)
       .await?
@@ -142,19 +154,31 @@ async fn update_handler(
 
   let updated_scope = match update_req {
     ApiUpdateScopeRequest::GhActionsVerifyActor(gh_actions_verify_actor) => {
-      iam.check_scope_admin_access(&scope).await?;
-      db.scope_set_verify_oidc_actor(&scope, gh_actions_verify_actor)
-        .await?
+      let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+      db.scope_set_verify_oidc_actor(
+        &user.id,
+        sudo,
+        &scope,
+        gh_actions_verify_actor,
+      )
+      .await?
     }
     ApiUpdateScopeRequest::RequirePublishingFromCI(
       require_publishing_from_ci,
     ) => {
-      iam.check_scope_admin_access(&scope).await?;
+      let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
       db.scope_set_require_publishing_from_ci(
+        &user.id,
+        sudo,
         &scope,
         require_publishing_from_ci,
       )
       .await?
+    }
+    ApiUpdateScopeRequest::Description(description) => {
+      let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+      db.scope_set_description(&user.id, sudo, &scope, description)
+        .await?
     }
   };
 
@@ -178,9 +202,9 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let _ = db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  iam.check_scope_admin_access(&scope).await?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  let deleted = db.delete_scope(&scope).await?;
+  let deleted = db.delete_scope(&user.id, sudo, &scope).await?;
   if !deleted {
     return Err(ApiError::ScopeNotEmpty);
   }
@@ -232,24 +256,34 @@ async fn invite_member_handler(
 
   let invite = decode_json::<ApiAddScopeMemberRequest>(&mut req).await?;
 
-  let iam = req.iam();
-  let current_user = iam.check_current_user_access()?.to_owned();
-
   let db = req.data::<Database>().unwrap();
-  let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  iam.check_scope_admin_access(&scope).await?;
+  let (current_user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
   let new_user = match invite {
     ApiAddScopeMemberRequest::GithubLogin(github_login) => {
-      lookup_user_by_github_login(
+      let github_oauth2_client =
+        req.data::<auth::github::Oauth2Client>().unwrap();
+      auth::github::lookup_user_by_github_login(
         db,
         github_oauth2_client,
-        &current_user,
+        current_user,
         &github_login,
+      )
+      .await?
+      .ok_or(ApiError::UserNotFound)?
+    }
+    ApiAddScopeMemberRequest::GitlabUsername(gitlab_username) => {
+      let gitlab_oauth2_client =
+        req.data::<auth::gitlab::Oauth2Client>().unwrap();
+      auth::gitlab::lookup_user_by_gitlab_username(
+        db,
+        gitlab_oauth2_client,
+        current_user,
+        &gitlab_username,
       )
       .await?
       .ok_or(ApiError::UserNotFound)?
@@ -264,11 +298,15 @@ async fn invite_member_handler(
   }
 
   let scope_invite = db
-    .add_scope_invite(NewScopeInvite {
-      scope: &scope,
-      target_user_id: new_user.id,
-      requesting_user_id: current_user.id,
-    })
+    .add_scope_invite(
+      &current_user.id,
+      sudo,
+      NewScopeInvite {
+        scope: &scope,
+        target_user_id: new_user.id,
+        requesting_user_id: current_user.id,
+      },
+    )
     .await
     .map_err(|e| map_unique_violation(e, ApiError::AlreadyInvited))?;
 
@@ -298,36 +336,10 @@ async fn invite_member_handler(
     (
       scope_invite,
       UserPublic::from(new_user),
-      UserPublic::from(current_user),
+      UserPublic::from(current_user.to_owned()),
     )
       .into(),
   )
-}
-
-#[instrument(
-  name = "GET /api/scopes/:scope/members/:member",
-  skip(req),
-  err,
-  fields(scope, member)
-)]
-async fn get_member_handler(req: Request<Body>) -> ApiResult<ApiScopeMember> {
-  let scope = req.param_scope()?;
-  let member_id = req.param_uuid("member")?;
-  Span::current().record("scope", field::display(&scope));
-  Span::current().record("member", field::display(&member_id));
-
-  let db = req.data::<Database>().unwrap();
-
-  let user = db
-    .get_user_public(member_id)
-    .await?
-    .ok_or(ApiError::UserNotFound)?;
-  let scope_member = db
-    .get_scope_member(&scope, member_id)
-    .await?
-    .ok_or(ApiError::ScopeMemberNotFound)?;
-
-  Ok((scope_member, user).into())
 }
 
 #[instrument(
@@ -351,29 +363,32 @@ async fn update_member_handler(
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  iam.check_scope_admin_access(&scope).await?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
   let res = db
-    .update_scope_member_role(&scope, member_id, is_admin)
+    .update_scope_member_role(&user.id, sudo, &scope, member_id, is_admin)
     .await?;
 
   let scope_member = match res {
     ScopeMemberUpdateResult::Ok(scope_member) => scope_member,
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
-      return Err(ApiError::NoScopeOwnerAvailable)
+      return Err(ApiError::NoScopeOwnerAvailable);
     }
     ScopeMemberUpdateResult::TargetIsLastAdmin => {
-      return Err(ApiError::ScopeMustHaveAdmin)
+      return Err(ApiError::ScopeMustHaveAdmin);
     }
     ScopeMemberUpdateResult::TargetNotMember => {
-      return Err(ApiError::ScopeMemberNotFound)
+      return Err(ApiError::ScopeMemberNotFound);
     }
   };
 
-  let user = db
-    .get_user_public(scope_member.user_id)
-    .await?
-    .ok_or(ApiError::InternalServerError)?;
+  let user =
+    db.get_user_public(scope_member.user_id)
+      .await?
+      .ok_or_else(|| {
+        error!("user not found for scope member: {}", scope_member.user_id);
+        ApiError::InternalServerError
+      })?;
 
   Ok((scope_member, user).into())
 }
@@ -405,13 +420,13 @@ pub async fn delete_member_handler(
   match res {
     ScopeMemberUpdateResult::Ok(_) => {}
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
-      return Err(ApiError::NoScopeOwnerAvailable)
+      return Err(ApiError::NoScopeOwnerAvailable);
     }
     ScopeMemberUpdateResult::TargetIsLastAdmin => {
-      return Err(ApiError::ScopeMustHaveAdmin)
+      return Err(ApiError::ScopeMustHaveAdmin);
     }
     ScopeMemberUpdateResult::TargetNotMember => {
-      return Err(ApiError::ScopeMemberNotFound)
+      return Err(ApiError::ScopeMemberNotFound);
     }
   };
 
@@ -470,9 +485,10 @@ pub async fn delete_invite_handler(
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
   let iam = req.iam();
-  iam.check_scope_admin_access(&scope).await?;
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
-  db.delete_scope_invite(&user_id, &scope).await?;
+  db.delete_scope_invite(&user.id, sudo, &user_id, &scope)
+    .await?;
 
   let resp = Response::builder()
     .status(StatusCode::NO_CONTENT)
@@ -484,8 +500,7 @@ pub async fn delete_invite_handler(
 #[cfg(test)]
 pub mod tests {
   use super::*;
-  use crate::ids::PackageName;
-  use crate::ids::ScopeName;
+  use crate::ids::{PackageName, ScopeDescription, ScopeName};
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use serde_json::json;
@@ -502,7 +517,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope1" }))
+      .body_json(json!({ "scope": "scope1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -517,7 +532,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope1" }))
+      .body_json(json!({ "scope": "scope1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -529,7 +544,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scop-e1" }))
+      .body_json(json!({ "scope": "scop-e1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -541,7 +556,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope 1" }))
+      .body_json(json!({ "scope": "scope 1", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -552,7 +567,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "somebadword" }))
+      .body_json(json!({ "scope": "somebadword", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -563,7 +578,7 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "react" }))
+      .body_json(json!({ "scope": "react", "description": "" }))
       .call()
       .await
       .unwrap();
@@ -589,7 +604,9 @@ pub mod tests {
     let mut resp = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope1" }))
+      .body_json(
+        json!({ "scope": "scope1", "description": "Super scope 🐢 !!!" }),
+      )
       .call()
       .await
       .unwrap();
@@ -597,7 +614,9 @@ pub mod tests {
     let mut resp: Response<Body> = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope2" }))
+      .body_json(
+        json!({ "scope": "scope2",  "description": "Super scope 🐢 !!!" }),
+      )
       .call()
       .await
       .unwrap();
@@ -607,7 +626,7 @@ pub mod tests {
     let mut resp: Response<Body> = t
       .http()
       .post("/api/scopes")
-      .body_json(json!({ "scope": "scope3" }))
+      .body_json(json!({ "scope": "scope3", "description": "Another super scope 🐢 !!!" }))
       .call()
       .await
       .unwrap();
@@ -765,7 +784,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let members = list_members(&mut t).await;
@@ -829,7 +854,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -878,7 +909,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -927,7 +964,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -990,7 +1033,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1055,7 +1104,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1116,7 +1171,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1161,7 +1222,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1208,7 +1275,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1270,7 +1343,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1332,7 +1411,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1402,7 +1487,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1472,7 +1563,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1544,7 +1641,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1615,7 +1718,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1670,7 +1779,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1712,7 +1827,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1756,7 +1877,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1815,7 +1942,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1877,7 +2010,13 @@ pub mod tests {
 
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1960,7 +2099,13 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -1981,15 +2126,25 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     t.db()
-      .add_scope_invite(NewScopeInvite {
-        target_user_id: t.user2.user.id,
-        requesting_user_id: t.user1.user.id,
-        scope: &scope_name,
-      })
+      .add_scope_invite(
+        &t.user1.user.id,
+        false,
+        NewScopeInvite {
+          target_user_id: t.user2.user.id,
+          requesting_user_id: t.user1.user.id,
+          scope: &scope_name,
+        },
+      )
       .await
       .unwrap();
     t.db()
@@ -2018,7 +2173,13 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
@@ -2055,7 +2216,13 @@ pub mod tests {
     // create scope and package
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     let name = PackageName::new("foo".to_owned()).unwrap();
@@ -2078,15 +2245,25 @@ pub mod tests {
     // create scope and package
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
     t.db()
-      .add_scope_invite(NewScopeInvite {
-        target_user_id: t.user3.user.id,
-        requesting_user_id: t.user1.user.id,
-        scope: &scope_name,
-      })
+      .add_scope_invite(
+        &t.user1.user.id,
+        false,
+        NewScopeInvite {
+          target_user_id: t.user3.user.id,
+          requesting_user_id: t.user1.user.id,
+          scope: &scope_name,
+        },
+      )
       .await
       .unwrap();
 
@@ -2102,14 +2279,26 @@ pub mod tests {
     // create scope
     let scope_name = ScopeName::try_from("scope1").unwrap();
     t.db()
-      .create_scope(&scope_name, t.user1.user.id)
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
       .await
       .unwrap();
 
     for i in 0..3 {
       let scope_name = ScopeName::try_from(format!("temp{i}")).unwrap();
       t.db()
-        .create_scope(&scope_name, t.user2.user.id)
+        .create_scope(
+          &t.user2.user.id,
+          false,
+          &scope_name,
+          t.user2.user.id,
+          &ScopeDescription::default(),
+        )
         .await
         .unwrap();
     }

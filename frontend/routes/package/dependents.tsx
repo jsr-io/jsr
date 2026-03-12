@@ -2,7 +2,7 @@
 import { HttpError, RouteConfig } from "fresh";
 import { define } from "../../util.ts";
 import type { Dependent, List } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
@@ -16,11 +16,16 @@ export default define.page<typeof handler>(function Dep(
 
   return (
     <div class="mb-20">
-      <PackageHeader package={data.package} />
+      <PackageHeader
+        package={data.package}
+        downloads={data.downloads}
+      />
 
       <PackageNav
         currentTab="Dependents"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -29,7 +34,7 @@ export default define.page<typeof handler>(function Dep(
       <div class="space-y-4 mt-8">
         {data.dependents.length === 0
           ? (
-            <div class="text-jsr-gray-500 text-center">
+            <div class="text-tertiary text-center">
               This package is not depended on by any other JSR packages.
             </div>
           )
@@ -73,13 +78,20 @@ function Dependent(
           {name}
         </a>
       </TableData>
-      <TableData class="space-x-4">
-        {versions.map((version, idx) => <span key={idx}>{version}</span>)}
-        {totalVersions > 5 && (
-          <span>
-            and {totalVersions - 5} additional version{totalVersions > 6 && "s"}
-          </span>
-        )}
+      <TableData class="whitespace-normal!">
+        <div class="flex flex-wrap gap-x-4 gap-y-1">
+          {versions.map((version, idx) => (
+            <a key={idx} href={`/@${scope}/${pkg}@${version}`} class="link">
+              {version}
+            </a>
+          ))}
+          {totalVersions > 5 && (
+            <a href={`/@${scope}/${pkg}/versions`} class="link">
+              and {totalVersions - 5}{" "}
+              additional version{totalVersions > 6 && "s"}
+            </a>
+          )}
+        </div>
       </TableData>
     </TableRow>
   );
@@ -99,8 +111,7 @@ export const handler = define.handlers({
     ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
 
-    // TODO: handle errors gracefully
-    if (!dependentsResp.ok) throw dependentsResp;
+    assertOk(dependentsResp);
 
     ctx.state.meta = {
       title: `Dependents - @${res.pkg.scope}/${res.pkg.name} - JSR`,
@@ -108,9 +119,13 @@ export const handler = define.handlers({
         res.pkg.description ? `: ${res.pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+
     return {
       data: {
         package: res.pkg,
+        downloads: res.downloads,
         dependents: dependentsResp.data.items,
         member: res.scopeMember,
         page,

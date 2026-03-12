@@ -2,9 +2,10 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
@@ -16,23 +17,23 @@ use crate::db::PackageVersionMeta;
 use crate::db::PublishingTask;
 use crate::db::PublishingTaskError;
 use crate::db::PublishingTaskStatus;
-use crate::gcp::GcsUploadOptions;
+use crate::external::orama::OramaClient;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
+use crate::gcp::GcsUploadOptions;
 use crate::ids::PackagePath;
 use crate::metadata::ManifestEntry;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
-use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
-use crate::orama::OramaClient;
-use crate::tarball::process_tarball;
+use crate::npm::generate_npm_version_manifest;
+use crate::s3::UploadTaskBody;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
-use crate::util::decode_json;
+use crate::tarball::process_tarball;
 use crate::util::ApiResult;
-use crate::NpmUrl;
-use crate::RegistryUrl;
+use crate::util::LicenseStore;
+use crate::util::decode_json;
 use deno_semver::package::PackageReqReference;
 use hyper::Body;
 use hyper::Request;
@@ -54,6 +55,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
@@ -61,6 +63,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   publish_task(
     publishing_task_id,
     buckets,
+    license_store,
     registry_url,
     npm_url,
     db,
@@ -73,18 +76,19 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, registry_url, orama_client),
+  skip(buckets, db, license_store, registry_url, orama_client),
   err
 )]
 pub async fn publish_task(
   publish_id: Uuid,
   buckets: Buckets,
+  license_store: LicenseStore,
   registry_url: Url,
   npm_url: Url,
   db: Database,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
-  let mut publishing_task = db
+  let (mut publishing_task, _) = db
     .get_publishing_task(publish_id)
     .await?
     .ok_or(ApiError::PublishNotFound)?;
@@ -99,6 +103,7 @@ pub async fn publish_task(
         let res = process_publishing_task(
           &db,
           &buckets,
+          &license_store,
           &orama_client,
           registry_url.clone(),
           &mut publishing_task,
@@ -107,6 +112,7 @@ pub async fn publish_task(
         if let Err(err) = res {
           // retryable errors
           db.update_publishing_task_status(
+            None,
             publishing_task.id,
             PublishingTaskStatus::Processing,
             PublishingTaskStatus::Pending,
@@ -126,6 +132,7 @@ pub async fn publish_task(
           .await?;
         publishing_task = db
           .update_publishing_task_status(
+            None,
             publishing_task.id,
             PublishingTaskStatus::Processed,
             PublishingTaskStatus::Success,
@@ -142,7 +149,13 @@ pub async fn publish_task(
               &publishing_task.package_name,
             )
             .await?
-            .ok_or(ApiError::InternalServerError)?;
+            .ok_or_else(|| {
+              error!(
+                "package not found after successful publishing: {}/{}",
+                &publishing_task.package_scope, &publishing_task.package_name
+              );
+              ApiError::InternalServerError
+            })?;
           orama_client.upsert_package(&package, &meta);
         }
         return Ok(());
@@ -154,12 +167,14 @@ pub async fn publish_task(
 async fn process_publishing_task(
   db: &Database,
   buckets: &Buckets,
+  license_store: &LicenseStore,
   orama_client: &Option<OramaClient>,
   registry_url: Url,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
     .update_publishing_task_status(
+      None,
       publishing_task.id,
       PublishingTaskStatus::Pending,
       PublishingTaskStatus::Processing,
@@ -167,32 +182,40 @@ async fn process_publishing_task(
     )
     .await?;
 
-  let output =
-    match process_tarball(db, buckets, registry_url, publishing_task).await {
-      Ok(output) => output,
-      Err(err) => match err.user_error_code() {
-        Some(code) => {
-          // non retryable, fatal error
-          error!("Error processing tarball, fatal: {}", err);
-          *publishing_task = db
-            .update_publishing_task_status(
-              publishing_task.id,
-              PublishingTaskStatus::Processing,
-              PublishingTaskStatus::Failure,
-              Some(PublishingTaskError {
-                code: code.to_owned(),
-                message: err.to_string(),
-              }),
-            )
-            .await?;
-          return Ok(());
-        }
-        None => {
-          // retryable errors
-          return Err(anyhow::Error::from(err));
-        }
-      },
-    };
+  let output = match process_tarball(
+    db,
+    buckets,
+    license_store,
+    registry_url,
+    publishing_task,
+  )
+  .await
+  {
+    Ok(output) => output,
+    Err(err) => match err.user_error_code() {
+      Some(code) => {
+        // non retryable, fatal error
+        error!("Error processing tarball, fatal: {}", err);
+        *publishing_task = db
+          .update_publishing_task_status(
+            None,
+            publishing_task.id,
+            PublishingTaskStatus::Processing,
+            PublishingTaskStatus::Failure,
+            Some(PublishingTaskError {
+              code: code.to_owned(),
+              message: err.to_string(),
+            }),
+          )
+          .await?;
+        return Ok(());
+      }
+      None => {
+        // retryable errors
+        return Err(anyhow::Error::from(err));
+      }
+    },
+  };
 
   let ProcessTarballOutput {
     file_infos,
@@ -203,6 +226,7 @@ async fn process_publishing_task(
     readme_path,
     meta,
     doc_search_json,
+    license,
   } = output;
 
   upload_version_manifest(
@@ -223,6 +247,7 @@ async fn process_publishing_task(
     &npm_tarball_info,
     readme_path,
     meta,
+    license,
   )
   .await?;
 
@@ -242,7 +267,7 @@ async fn upload_version_manifest(
   publishing_task: &PublishingTask,
   file_infos: &[crate::tarball::FileInfo],
   exports: IndexMap<String, String>,
-  module_graph_2: HashMap<String, deno_graph::ModuleInfo>,
+  module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
 ) -> Result<(), anyhow::Error> {
   let version_metadata_gcs_path = crate::gcs_paths::version_metadata(
     &publishing_task.package_scope,
@@ -266,7 +291,7 @@ async fn upload_version_manifest(
     manifest,
     module_graph_2,
   };
-  let content = serde_json::to_vec_pretty(&version_metadata)?;
+  let content = serde_json::to_vec(&version_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -293,6 +318,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
   npm_tarball_info: &NpmTarballInfo,
   readme_path: Option<PackagePath>,
   meta: PackageVersionMeta,
+  license: String,
 ) -> Result<(), anyhow::Error> {
   let uses_npm = dependencies
     .iter()
@@ -307,6 +333,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
     uses_npm,
     exports: &exports,
     meta,
+    license,
   };
 
   let new_package_files = file_infos
@@ -372,7 +399,7 @@ async fn upload_package_manifest(
     &publishing_task.package_name,
   )
   .await?;
-  let content = serde_json::to_vec_pretty(&package_metadata)?;
+  let content = serde_json::to_vec(&package_metadata)?;
   buckets
     .modules_bucket
     .upload(
@@ -412,7 +439,7 @@ async fn upload_npm_version_manifest(
     .npm_bucket
     .upload(
       npm_version_manifest_path_gcs_path.into(),
-      UploadTaskBody::Bytes(content.into()),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
       GcsUploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
@@ -428,6 +455,7 @@ async fn upload_npm_version_manifest(
 pub mod tests {
   use super::*;
   use crate::api::ApiPublishingTask;
+  use crate::api::package::MAX_PUBLISH_TARBALL_SIZE;
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
   use crate::db::NewPublishingTask;
@@ -435,14 +463,14 @@ pub mod tests {
   use crate::ids::Version;
   use crate::ids::{PackageName, PackagePath};
   use crate::metadata::VersionMetadata;
-  use crate::tarball::gcs_tarball_path;
   use crate::tarball::ConfigFile;
+  use crate::tarball::bucket_tarball_path;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use bytes::Bytes;
-  use deno_graph::ModuleInfo;
-  use flate2::write::GzEncoder;
+  use deno_graph::analysis::ModuleInfo;
   use flate2::Compression;
+  use flate2::write::GzEncoder;
   use hyper::StatusCode;
   use serde_json::json;
   use std::collections::HashMap;
@@ -496,12 +524,12 @@ pub mod tests {
       unreachable!()
     };
 
-    let tarball_path = gcs_tarball_path(task.id);
+    let tarball_path = bucket_tarball_path(task.0.id);
     t.buckets
       .publishing_bucket
       .upload(
         tarball_path.into(),
-        UploadTaskBody::Bytes(tarball_data),
+        crate::s3::UploadTaskBody::Bytes(tarball_data),
         GcsUploadOptions {
           content_type: Some("application/x-tar".into()),
           cache_control: None,
@@ -512,8 +540,9 @@ pub mod tests {
       .unwrap();
 
     publish_task(
-      task.id,
+      task.0.id,
       t.buckets(),
+      t.license_store(),
       t.registry_url(),
       t.npm_url(),
       t.db(),
@@ -521,7 +550,12 @@ pub mod tests {
     )
     .await
     .unwrap();
-    t.db().get_publishing_task(task.id).await.unwrap().unwrap()
+    t.db()
+      .get_publishing_task(task.0.id)
+      .await
+      .unwrap()
+      .unwrap()
+      .0
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {
@@ -582,7 +616,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn payload_too_large() {
-    let body = Body::from(vec![0; 999999999]);
+    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
 
     let mut t = TestSetup::new().await;
     let mut resp = t
@@ -605,7 +639,7 @@ pub mod tests {
   async fn payload_too_large_stream() {
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
     let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
-      vec![0; 999999999],
+      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
     )));
 
     let mut t = TestSetup::new().await;
@@ -660,28 +694,31 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/jsr.json")
+      .bucket
+      .get_object("@scope/foo/1.2.3/jsr.json")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/mod.ts")
+      .bucket
+      .get_object("@scope/foo/1.2.3/mod.ts")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "text/typescript");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/logo.svg")
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "image/svg+xml");
   }
 
@@ -757,7 +794,12 @@ pub mod tests {
     let data = create_mock_tarball("ok");
 
     t.db()
-      .scope_set_require_publishing_from_ci(&t.scope.scope, true)
+      .scope_set_require_publishing_from_ci(
+        &t.user1.user.id,
+        false,
+        &t.scope.scope,
+        true,
+      )
       .await
       .unwrap();
 
@@ -808,8 +850,8 @@ pub mod tests {
         serde_json::to_value(metadata_json.manifest).unwrap(),
         serde_json::json!({
             "/jsr.json": {
-                "checksum": "sha256-404be7a6cf542ac6ee2c4ba0c9d6a2101e0c0aeee42fe24739a94432646541ac",
-                "size": 74
+                "checksum": "sha256-1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5",
+                "size": 93
             },
             "/mod.ts": {
                 "checksum": "sha256-fcc96c29c74f914ed8f38c0357d07f495d79091d2baea146a1525f140736951b",
@@ -828,7 +870,8 @@ pub mod tests {
             self_types_specifier: None,
             jsx_import_source: None,
             jsx_import_source_types: None,
-            jsdoc_imports: vec![]
+            jsdoc_imports: vec![],
+            source_map_url: None,
           }
         )])
       );
@@ -912,7 +955,8 @@ pub mod tests {
             "type": "static",
             "kind": "import",
             "specifier": "./test.js",
-            "specifierRange": [[3,15],[3,26]]
+            "specifierRange": [[3,15],[3,26]],
+            "sideEffect": true
           },
           {
             "type": "static",
@@ -923,7 +967,8 @@ pub mod tests {
             },
             "specifier": "./jsr.json",
             "specifierRange": [[6,7],[6,19]],
-            "importAttributes": { "known": { "type" : "json" } }
+            "importAttributes": { "known": { "type" : "json" } },
+            "sideEffect": true
           }
         ],
         "jsxImportSource": {
@@ -1016,7 +1061,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: Module not found \"file:///Youtube.tsx\".\n    at file:///mod.ts:1:8");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: Module not found \"file:///Youtube.tsx\".\n    at file:///mod.ts:1:8"
+    );
   }
 
   #[tokio::test]
@@ -1075,7 +1123,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "bannedImportAssertion");
-    assert_eq!(error.message, "import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') file:///mod.ts:1:29");
+    assert_eq!(
+      error.message,
+      "import assertions are not allowed, use import attributes instead (replace 'assert' with 'with') file:///mod.ts:1:29"
+    );
   }
 
   #[tokio::test]
@@ -1106,6 +1157,36 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn license_file() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_file");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn license_alias() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_alias");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
+  async fn no_license() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("no_license");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "missingLicense");
+    assert_eq!(
+      error.message,
+      "No license was specified. Either provide a LICENSE file or specify the \"license\" field in your configuration file."
+    );
+  }
+
+  #[tokio::test]
   async fn https_import() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("https_import");
@@ -1113,7 +1194,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "invalidExternalImport");
-    assert_eq!(error.message, "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed (http(s) import)");
+    assert_eq!(
+      error.message,
+      "invalid external import to 'https://deno.land/r/std/http/server.ts', only 'jsr:', 'npm:', 'data:', 'bun:', and 'node:' imports are allowed (http(s) import)"
+    );
   }
 
   async fn uses_npm(t: &TestSetup, task: &crate::db::PublishingTask) -> bool {
@@ -1142,6 +1226,24 @@ pub mod tests {
   async fn bun_import() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("bun_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn virtual_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("virtual_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+    assert!(!uses_npm(&t, &task).await);
+  }
+
+  #[tokio::test]
+  async fn cloudflare_import() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("cloudflare_import");
     let task = process_tarball_setup(&t, bytes).await;
     assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
     assert!(!uses_npm(&t, &task).await);
@@ -1184,7 +1286,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "unresolvableJsrDependency");
-    assert_eq!(error.message, "unresolvable 'jsr:' dependency: '@scope/foo@1', no published version matches the constraint");
+    assert_eq!(
+      error.message,
+      "unresolvable 'jsr:' dependency: '@scope/foo@1', no published version matches the constraint"
+    );
   }
 
   #[tokio::test]
@@ -1216,7 +1321,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:27\n\n  const invalidTypeScript = ;\n                            ~");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:27\n\n  const invalidTypeScript = ;\n                            ~"
+    );
   }
 
   #[tokio::test]
@@ -1227,7 +1335,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:1\n\n  +\n  ~");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:2\n\n  +\n   ~"
+    );
   }
 
   #[tokio::test]
@@ -1246,7 +1357,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///other.js:1:27\n\n  const invalidJavaScript = ;\n                            ~");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///other.js:1:27\n\n  const invalidJavaScript = ;\n                            ~"
+    );
   }
 
   #[tokio::test]
@@ -1257,7 +1371,10 @@ pub mod tests {
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     let error = task.error.unwrap();
     assert_eq!(error.code, "graphError");
-    assert_eq!(error.message, "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~");
+    assert_eq!(
+      error.message,
+      "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~"
+    );
   }
 
   #[tokio::test]
@@ -1329,12 +1446,14 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .download_resp("@jsr/scope__foo")
+      .bucket
+      .get_object("@jsr/scope__foo")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
-    let mut json: serde_json::Value = response.json().await.unwrap();
+    let mut json: serde_json::Value =
+      serde_json::from_slice(&response.into_bytes()).unwrap();
     json.as_object_mut().unwrap().remove("time");
     let dist = json
       .as_object_mut()
@@ -1383,10 +1502,11 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .download_resp(res_url.as_str())
+      .bucket
+      .get_object(res_url.as_str())
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(
       response.headers()["content-type"],
       "application/octet-stream"

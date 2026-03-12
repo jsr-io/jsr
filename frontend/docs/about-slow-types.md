@@ -65,7 +65,7 @@ and consumers of your package. So, if you have a slow type that is not exported,
 you can keep it as is:
 
 ```ts
-export add(a: number, b: number): number {
+export function add(a: number, b: number): number {
   return addInternal(a, b);
 }
 
@@ -413,7 +413,7 @@ to `jsr publish` or `deno publish`.
 When using Deno, one can supress slow type diagnostics from being surfaced in
 `deno lint` by adding an exclude for the `no-slow-types` rule. This can be done
 by specifying `--rules-exclude=no-slow-types` when running `deno lint`, or by
-adding the following to your `deno.json` configuration file:
+adding the following to your `deno.json(c)` configuration file:
 
 ```json
 {

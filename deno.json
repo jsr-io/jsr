@@ -1,18 +1,19 @@
 {
   "tasks": {
-    "services:macos": "./tools/bin/darwin-arm64/jaeger-all-in-one  & ./tools/bin/darwin-arm64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
-    "services:macos:amd": "./tools/bin/darwin-amd64/jaeger-all-in-one  & ./tools/bin/darwin-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
-    "services:linux": "docker compose up & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
-    "services:linux-no-postgres": "docker compose up jaeger & ./tools/bin/linux-amd64/fake-gcs-server -scheme http -port 4080 -filesystem-root=.gcs & ./tools/server.ts",
-    "dev:api": "cd api && cargo run",
-    "dev:frontend": "cd frontend && OLTP_ENDPOINT=http://localhost:4318 deno task dev",
+    "dev": "deno run -A ./tools/dev.ts",
     "prod:frontend": "deno run -A --watch ./tools/prod_proxy.ts & cd frontend && API_ROOT=https://api.jsr.io deno task dev",
-    "lint": "deno task lint:frontend && deno task lint:tools && deno task lint:license",
+
+    "db:prepare": "cd api && cargo sqlx prepare -- --all-targets",
+    "db:migrate": "cd api && sqlx migrate run",
+
+    "lint": "deno task lint:frontend && deno task lint:tools && deno task lint:license && deno task lint:lb",
     "lint:frontend": "cd frontend && deno lint && deno check --allow-import=googleapis.deno.dev,deno.land,jsr.io dev.ts main.ts routes/**/*.tsx routes/**/*.ts",
+    "lint:lb": "cd lb && deno lint && deno check ./**/*.ts",
     "lint:tools": "deno lint tools/ && deno check --allow-import=googleapis.deno.dev,deno.land,jsr.io tools/**/*.ts",
     "lint:license": "deno run --allow-read jsr:@kt3k/license-checker@3.2.11/main -q",
     "lint:license:fix": "deno run --allow-read --allow-write jsr:@kt3k/license-checker@3.2.11/main -q --inject",
-    "tools:orama:package_reindex": "deno run --allow-env --allow-net tools/orama_package_reindex.ts",
+
+    "tools:orama:packages_reindex": "deno run --allow-env --allow-net tools/orama_packages_reindex.ts",
     "tools:orama:symbols_reindex": "deno run --allow-env --allow-net tools/orama_symbols_reindex.ts",
     "tools:orama:docs_reindex": "deno run --allow-env --allow-net --allow-read tools/orama_docs_reindex.ts",
     "tools:deno_symbols": "deno run --allow-run --allow-read --allow-env --allow-net --allow-write tools/generate_global_symbols.ts",
@@ -35,14 +36,27 @@
     "target/",
     "api/testdata/",
     ".gcs/",
+    ".minio/",
     "frontend/_fresh",
-    "e2e/vendor"
+    "e2e/vendor",
+    "api/license-list-data"
   ],
   "imports": {
+    "@deno/doc": "jsr:@deno/doc@^0.194.0",
     "@deno/gfm": "jsr:@deno/gfm@^0.10.0",
+    "@mdn/browser-compat-data": "npm:@mdn/browser-compat-data@^7.1.6",
     "@std/async": "jsr:@std/async@^1.0.8",
+    "@std/bytes": "jsr:@std/bytes@^1.0.6",
+    "@std/collections": "jsr:@std/collections@^1.1.3",
+    "@std/crypto": "jsr:@std/crypto@^1.0.5",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "@std/fmt": "jsr:@std/fmt@^1.0.8",
     "@std/front-matter": "jsr:@std/front-matter@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8",
-    "github-slugger": "npm:github-slugger@^2.0.0"
+    "@std/semver": "jsr:@std/semver@^1.0.8",
+    "@orama/core": "npm:@orama/core@^1.2.17",
+    "@std/streams": "jsr:@std/streams@^1.0.17",
+    "github-slugger": "npm:github-slugger@^2.0.0",
+    "postgres": "https://deno.land/x/postgres@v0.19.5/mod.ts"
   }
 }

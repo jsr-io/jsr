@@ -1,7 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
-import { path } from "../utils/api.ts";
-import type { Package, PackageVersion, Stats } from "../utils/api_types.ts";
+import { assertOk, path } from "../utils/api.ts";
+import type {
+  Stats,
+  StatsPackage,
+  StatsPackageVersion,
+} from "../utils/api_types.ts";
 import type { PanelEntry } from "../components/ListPanel.tsx";
 import { ListPanel } from "../components/ListPanel.tsx";
 import { ComponentChildren } from "preact";
@@ -20,8 +24,8 @@ export default define.page<typeof handler>(function Home({ data }) {
   return (
     <div class="flex flex-col">
       <HomepageHero
-        apiKey={Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY")}
-        indexId={Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID")}
+        projectId={Deno.env.get("ORAMA_PACKAGES_PROJECT_ID")}
+        apiKey={Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY")}
       />
       {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">
@@ -84,7 +88,7 @@ export default define.page<typeof handler>(function Home({ data }) {
             class="w-full max-w-16 lg:max-w-36 lg:col-span-2 lg:mx-auto select-none"
             draggable={false}
           />
-          <div class="col-span-3 max-w-screen-sm lg:max-w-none">
+          <div class="col-span-3 max-w-(--breakpoint-sm) lg:max-w-none">
             <BenefitHeading>
               Made for <b class="font-bold">TypeScript & ESM</b>
             </BenefitHeading>
@@ -126,7 +130,7 @@ export default define.page<typeof handler>(function Home({ data }) {
               draggable={false}
             />
           </div>
-          <div class="col-span-3 max-w-screen-sm lg:order-1">
+          <div class="col-span-3 max-w-(--breakpoint-sm) lg:order-1">
             <BenefitHeading>
               <b class="font-bold">Builds on</b> npm
             </BenefitHeading>
@@ -174,7 +178,7 @@ export default define.page<typeof handler>(function Home({ data }) {
               draggable={false}
             />
           </div>
-          <div class="col-span-3 max-w-screen-sm lg:max-w-none">
+          <div class="col-span-3 max-w-(--breakpoint-sm) lg:max-w-none">
             <BenefitHeading>
               Works with <b class="font-bold">any runtime</b>
             </BenefitHeading>
@@ -205,7 +209,7 @@ export default define.page<typeof handler>(function Home({ data }) {
 
 function BenefitContainer({ children }: { children: ComponentChildren }) {
   return (
-    <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-jsr-cyan-900/10 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
+    <div class="space-y-4 py-16 lg:py-24 border-b-1.5 border-jsr-cyan-900/10 dark:border-jsr-gray-800 lg:space-y-6 lg:grid lg:grid-cols-5 lg:gap-16 lg:items-center">
       {children}
     </div>
   );
@@ -221,14 +225,14 @@ function BenefitHeading({ children }: { children: ComponentChildren }) {
 
 function BenefitText({ children }: { children: ComponentChildren }) {
   return (
-    <div class="text-xl space-y-4 md:text-2xl lg:text-[1.75rem] lg:leading-snug text-jsr-gray-400">
+    <div class="text-xl space-y-4 md:text-2xl lg:text-[1.75rem] lg:leading-snug text-jsr-gray-400 dark:text-gray-300">
       {children}
     </div>
   );
 }
 
 function PackageToPanelEntry(
-  entry: Package,
+  entry: StatsPackage,
 ): PanelEntry {
   return {
     value: `@${entry.scope}/${entry.name}`,
@@ -237,7 +241,7 @@ function PackageToPanelEntry(
 }
 
 function PackageVersionToPanelEntry(
-  entry: PackageVersion,
+  entry: StatsPackageVersion,
 ): PanelEntry {
   return {
     value: `@${entry.scope}/${entry.package}`,
@@ -246,23 +250,77 @@ function PackageVersionToPanelEntry(
   };
 }
 
+let cachedPosts: Post[] = [];
+let cachedPostsAt = 0;
+const POSTS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+async function fetchBlogPosts(
+  span: {
+    child(): {
+      record(
+        name: string,
+        start: Date,
+        end: Date,
+        attrs: Record<string, string | bigint | boolean>,
+        kind: string,
+      ): void;
+    };
+  },
+): Promise<Post[]> {
+  const now = Date.now();
+  if (cachedPosts.length > 0 && now - cachedPostsAt < POSTS_CACHE_TTL) {
+    return cachedPosts;
+  }
+
+  const childSpan = span.child();
+  const start = new Date();
+  const attributes: Record<string, string | bigint | boolean> = {
+    "http.url": "https://deno.com/blog/json?tag=JSR",
+    "http.method": "GET",
+  };
+  let posts: Post[] = [];
+  try {
+    const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR", {
+      signal: AbortSignal.timeout(1000),
+    });
+    attributes["http.status_code"] = BigInt(jsrPosts.status);
+    if (jsrPosts.ok) {
+      posts = await jsrPosts.json() as Post[];
+      cachedPosts = posts;
+      cachedPostsAt = now;
+    } else if (cachedPosts.length > 0) {
+      // On error, extend stale cache rather than returning empty
+      posts = cachedPosts;
+    }
+  } catch (e) {
+    attributes["error"] = "true";
+    attributes["error.message"] = String((e as Error).message);
+    // On timeout/network error, serve stale if available
+    if (cachedPosts.length > 0) {
+      posts = cachedPosts;
+    }
+  } finally {
+    childSpan.record(
+      "fetch_dotcom_posts",
+      start,
+      new Date(),
+      attributes,
+      "CLIENT",
+    );
+  }
+  return posts;
+}
+
 export const handler = define.handlers({
   async GET(ctx) {
-    const statsResp = await ctx.state.api.get<Stats>(path`/stats`, undefined, {
-      anonymous: true,
-    });
+    const [statsResp, posts] = await Promise.all([
+      ctx.state.api.get<Stats>(path`/stats`, undefined, {
+        anonymous: true,
+      }),
+      fetchBlogPosts(ctx.state.span),
+    ]);
 
-    let posts: Post[] = [];
-    try {
-      const jsrPosts = await fetch("https://deno.com/blog/json?tag=JSR");
-      if (jsrPosts.ok) {
-        posts = await jsrPosts.json() as Post[];
-      }
-    } catch (_e) {
-      // ignore
-    }
-
-    if (!statsResp.ok) throw statsResp; // gracefully handle this
+    assertOk(statsResp);
 
     ctx.state.meta = {
       title: "JSR: the JavaScript Registry",
@@ -270,11 +328,11 @@ export const handler = define.handlers({
         "JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers.",
     };
 
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+
     return {
-      data: { stats: statsResp.data, posts: posts || [] },
-      headers: ctx.state.api.hasToken()
-        ? undefined
-        : { "Cache-Control": "public, s-maxage=60" },
+      data: { stats: statsResp.data, posts },
     };
   },
 });

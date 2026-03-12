@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, type RouteConfig } from "fresh";
 import type { Dependency } from "../../../utils/api_types.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { define } from "../../../util.ts";
 import { packageDataWithVersion } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
@@ -63,11 +63,14 @@ export default define.page<typeof handler>(function Deps(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
+        downloads={data.downloads}
       />
 
       <PackageNav
         currentTab="Dependencies"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -76,7 +79,7 @@ export default define.page<typeof handler>(function Deps(
       <div class="space-y-3 mt-8">
         {list.length === 0
           ? (
-            <div class="text-jsr-gray-500 text-lg text-center">
+            <div class="text-tertiary text-lg text-center">
               @{data.package.scope}/{data.package.name}@{data.selectedVersion
                 .version} has no dependencies. 🎉
             </div>
@@ -101,7 +104,7 @@ export default define.page<typeof handler>(function Deps(
                   />
                 ))}
               </Table>
-              <p class="text-jsr-gray-700">
+              <p class="text-jsr-gray-700 dark:text-jsr-gray-200">
                 You can find a visualization of the dependencies by clicking the
                 button below.
               </p>
@@ -179,6 +182,7 @@ export const handler = define.handlers({
 
     const {
       pkg,
+      downloads,
       scopeMember,
       selectedVersion,
     } = res;
@@ -195,7 +199,7 @@ export const handler = define.handlers({
     const depsResp = await ctx.state.api.get<Dependency[]>(
       path`/scopes/${pkg.scope}/packages/${pkg.name}/versions/${selectedVersion.version}/dependencies`,
     );
-    if (!depsResp.ok) throw depsResp;
+    assertOk(depsResp);
 
     ctx.state.meta = {
       title: `Dependencies - @${pkg.scope}/${pkg.name} - JSR`,
@@ -203,9 +207,14 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,
+        downloads,
         deps: depsResp.data,
         selectedVersion,
         member: scopeMember,

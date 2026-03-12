@@ -19,10 +19,13 @@ export default define.page<typeof handler>(function PackagePage(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion ?? undefined}
+        downloads={data.downloads}
       />
       <PackageNav
         currentTab="Index"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -32,13 +35,15 @@ export default define.page<typeof handler>(function PackagePage(
         ? (
           <DocsView
             docs={data.docs}
-            params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
+            user={state.user}
+            scope={data.package.scope}
+            pkg={data.package.name}
             showProvenanceBadge
           />
         )
         : (
-          <div class="mt-8 text-jsr-gray-500 text-center">
+          <div class="mt-8 text-tertiary text-center">
             This package has not published{" "}
             {data.package.versionCount > 0
               ? "a stable release"
@@ -73,6 +78,7 @@ export const handler = define.handlers({
       scopeMember,
       selectedVersion,
       docs,
+      downloads,
     } = res as DocsData;
 
     if (scopeMember && pkg.versionCount === 0) {
@@ -91,9 +97,14 @@ export const handler = define.handlers({
       }`,
       ogImage: `${FRONTEND_ROOT}/@${pkg.scope}/${pkg.name}/og`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,
+        downloads,
         selectedVersion,
         docs,
         member: scopeMember,

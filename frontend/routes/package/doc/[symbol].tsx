@@ -17,11 +17,14 @@ export default define.page<typeof handler>(function Symbol(
       <PackageHeader
         package={data.package}
         selectedVersion={data.selectedVersion}
+        downloads={data.downloads}
       />
 
       <PackageNav
         currentTab="Docs"
         versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
         iam={iam}
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
@@ -29,8 +32,10 @@ export default define.page<typeof handler>(function Symbol(
 
       <DocsView
         docs={data.docs}
-        params={params as unknown as Params}
         selectedVersion={data.selectedVersion}
+        user={state.user}
+        scope={data.package.scope}
+        pkg={data.package.name}
       />
     </div>
   );
@@ -54,6 +59,9 @@ export const handler = define.handlers({
         "This package, package version, entrypoint, or symbol was not found.",
       );
     }
+    if (res instanceof Response) {
+      return res;
+    }
 
     if (res.kind === "redirect") {
       return new Response(null, {
@@ -69,6 +77,7 @@ export const handler = define.handlers({
       scopeMember,
       selectedVersion,
       docs,
+      downloads,
     } = res as DocsData;
     if (selectedVersion === null) {
       return new Response(null, {
@@ -95,9 +104,14 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,
+        downloads,
         selectedVersion,
         docs,
         member: scopeMember,

@@ -8,16 +8,16 @@ mod db;
 mod docs;
 mod emails;
 mod errors_internal;
+mod external;
 mod gcp;
 mod gcs_paths;
-mod github;
 mod iam;
 mod ids;
 mod metadata;
 mod npm;
-mod orama;
 mod provenance;
 mod publish;
+mod s3;
 mod sitemap;
 mod tarball;
 mod task_queue;
@@ -28,26 +28,24 @@ mod tracing;
 mod tree_sitter;
 mod util;
 
-use crate::api::api_router;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
-use crate::auth::GithubOauth2Client;
-use crate::buckets::BucketWithQueue;
+use crate::api::api_router;
 use crate::buckets::Buckets;
 use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
+use crate::external::orama::OramaClient;
 use crate::gcp::Queue;
-use crate::orama::OramaClient;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
-use crate::tasks::tasks_router;
 use crate::tasks::NpmTarballBuildQueue;
+use crate::tasks::tasks_router;
 use crate::traced_router::TracedRouterService;
-use crate::tracing::setup_tracing;
 use crate::tracing::TracingExportTarget;
+use crate::tracing::setup_tracing;
 
 use clap::Parser;
 use hyper::Body;
@@ -55,20 +53,27 @@ use hyper::Server;
 use routerify::Router;
 use std::net::SocketAddr;
 use std::time::Duration;
+use tasks::AnalyticsEngineConfig;
 use tasks::LogsBigQueryTable;
 use url::Url;
 
 pub struct MainRouterOptions {
   database: Database,
   buckets: Buckets,
-  github_client: GithubOauth2Client,
+  github_client: auth::github::Oauth2Client,
+  gitlab_client: auth::gitlab::Oauth2Client,
   orama_client: Option<OramaClient>,
   email_sender: Option<EmailSender>,
+  license_store: util::LicenseStore,
   registry_url: Url,
   npm_url: Url,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
   logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
+  analytics_engine_config: Option<(
+    external::cloudflare::AnalyticsEngineClient,
+    /* dataset_name */ String,
+  )>,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -81,13 +86,16 @@ pub(crate) fn main_router(
     database,
     buckets,
     github_client,
+    gitlab_client,
     orama_client,
+    license_store,
     email_sender,
     registry_url,
     npm_url,
     publish_queue,
     npm_tarball_build_queue,
     logs_bigquery_table,
+    analytics_engine_config,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -96,13 +104,16 @@ pub(crate) fn main_router(
     .data(database)
     .data(buckets)
     .data(github_client)
+    .data(gitlab_client)
     .data(orama_client)
     .data(email_sender)
+    .data(license_store)
     .data(RegistryUrl(registry_url))
     .data(NpmUrl(npm_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(LogsBigQueryTable(logs_bigquery_table))
+    .data(AnalyticsEngineConfig(analytics_engine_config))
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
 
@@ -112,9 +123,18 @@ pub(crate) fn main_router(
       .get("/sitemap.xml", sitemap_index_handler)
       .get("/sitemap-scopes.xml", scopes_sitemap_handler)
       .get("/sitemap-packages.xml", packages_sitemap_handler)
-      .get("/login", auth::login_handler)
-      .get("/login/callback", auth::login_callback_handler)
+      .get("/login/:service", auth::login_handler)
+      .get("/login/callback/:service", auth::login_callback_handler)
       .get("/logout", auth::logout_handler)
+      .get("/connect/:service", util::full_auth(auth::connect_handler))
+      .get(
+        "/connect/callback/:service",
+        util::full_auth(auth::connect_callback_handler),
+      )
+      .get(
+        "/disconnect/:service",
+        util::full_auth(auth::disconnect_handler),
+      )
   } else {
     builder
   };
@@ -146,35 +166,54 @@ async fn main() {
   let database = Database::connect(
     &config.database_url,
     config.database_pool_size,
-    Duration::from_secs(5),
+    Duration::from_secs(15),
   )
   .await
   .unwrap();
 
+  let s3_region = ::s3::Region::Custom {
+    region: config.s3_region,
+    endpoint: config.s3_endpoint,
+  };
+  let s3_credentials = ::s3::creds::Credentials {
+    access_key: Some(config.s3_access_key),
+    secret_key: Some(config.s3_secret_key),
+    security_token: None,
+    session_token: None,
+    expiration: None,
+  };
+
   let gcp_client = gcp::Client::new(config.metadata_strategy);
-  let publishing_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.publishing_bucket,
-    config.gcs_endpoint.clone(),
-  ));
-  let modules_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.modules_bucket,
-    config.gcs_endpoint.clone(),
-  ));
-  let docs_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.docs_bucket,
-    config.gcs_endpoint.clone(),
-  ));
-  let npm_bucket = BucketWithQueue::new(gcp::Bucket::new(
-    gcp_client.clone(),
-    config.npm_bucket,
-    config.gcs_endpoint,
-  ));
+  let publishing_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(
+      config.publishing_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
+  let modules_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(
+      config.modules_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
+  let docs_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(
+      config.docs_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
+  let npm_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(config.npm_bucket, s3_region, s3_credentials).unwrap(),
+  );
   let buckets = Buckets {
     publishing_bucket,
-    modules_bucket: modules_bucket.clone(),
+    modules_bucket,
     docs_bucket,
     npm_bucket,
   };
@@ -201,33 +240,54 @@ async fn main() {
       )
     });
 
-  let github_client = GithubOauth2Client::new(
-    oauth2::ClientId::new(config.github_client_id),
-    Some(oauth2::ClientSecret::new(config.github_client_secret)),
-    oauth2::AuthUrl::new(
-      "https://github.com/login/oauth/authorize".to_string(),
-    )
-    .unwrap(),
-    Some(
-      oauth2::TokenUrl::new(
-        "https://github.com/login/oauth/access_token".to_string(),
-      )
-      .unwrap(),
-    ),
+  let analytics_engine_config = match (
+    config.cloudflare_account_id,
+    config.cloudflare_api_token,
+    config.cloudflare_analytics_dataset,
+  ) {
+    (Some(account_id), Some(api_token), Some(dataset_name)) => Some((
+      external::cloudflare::AnalyticsEngineClient::new(account_id, api_token),
+      dataset_name,
+    )),
+    _ => None,
+  };
+
+  let github_client = auth::github::Oauth2Client::new(
+    &config.registry_url,
+    config.github_client_id,
+    config.github_client_secret,
   );
 
-  let orama_client = if let Some(orama_package_private_api_key) =
-    config.orama_package_private_api_key
+  let gitlab_client = auth::gitlab::Oauth2Client::new(
+    &config.registry_url,
+    config.gitlab_client_id,
+    config.gitlab_client_secret,
+  );
+
+  let orama_client = if let Some(orama_packages_project_id) =
+    config.orama_packages_project_id
   {
-    Some(OramaClient::new(
-      orama_package_private_api_key,
-      config
-        .orama_package_index_id
-        .expect("orama_package_private_api_key was provided but no orama_package_index_id"),
-      config
-        .orama_symbols_index_id
-        .expect("orama_package_private_api_key was provided but no orama_symbols_index_id"),
-    ))
+    Some(
+        OramaClient::new(
+          orama_packages_project_id,
+          config.orama_packages_project_key.expect(
+            "orama_packages_project_id was provided but no orama_packages_project_key",
+          ),
+          config.orama_packages_data_source.expect(
+            "orama_packages_project_id was provided but no orama_packages_data_source",
+          ),
+          config.orama_symbols_project_id.expect(
+            "orama_packages_project_id was provided but no orama_symbols_project_id",
+          ),
+          config.orama_symbols_project_key.expect(
+            "orama_packages_project_id was provided but no orama_symbols_project_key",
+          ),
+          config.orama_symbols_data_source.expect(
+            "orama_packages_project_id was provided but no orama_symbols_data_source",
+          ),
+        )
+        .await,
+      )
   } else {
     None
   };
@@ -246,17 +306,22 @@ async fn main() {
     )
   });
 
+  let license_store = util::license_store();
+
   let router = main_router(MainRouterOptions {
     database,
     buckets,
     github_client,
+    gitlab_client,
     orama_client,
     email_sender,
+    license_store,
     registry_url: config.registry_url,
     npm_url: config.npm_url,
     publish_queue,
     npm_tarball_build_queue,
     logs_bigquery_table,
+    analytics_engine_config,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });
@@ -273,42 +338,5 @@ async fn main() {
   println!("App is running on: {}", addr);
   if let Err(err) = server.await {
     eprintln!("Server error: {}", err);
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use crate::util::test::TestSetup;
-  use serde_json::json;
-
-  // Test the case where everything is fine and a publishing task is created.
-  #[tokio::test]
-  async fn alias_route() {
-    let mut t = TestSetup::new().await;
-    let token = t.staff_user.token.clone();
-    let resp = t
-      .http()
-      .post("/api/admin/aliases")
-      .body_json(json!({
-        "name": "express",
-        "majorVersion": 1,
-        "target": "npm:express"
-      }))
-      .token(Some(&token))
-      .call()
-      .await
-      .unwrap();
-    assert!(
-      resp.status().is_success(),
-      "unsuccessful response: {:?}",
-      resp
-    );
-    let aliases = t.db().list_aliases_for_package("express").await.unwrap();
-    assert_eq!(aliases.len(), 1);
-    assert_eq!(aliases[0].major_version, 1);
-    assert_eq!(
-      aliases[0].target,
-      crate::db::AliasTarget::Npm("express".to_string())
-    );
   }
 }

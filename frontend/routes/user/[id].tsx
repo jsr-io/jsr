@@ -1,31 +1,33 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { define } from "../../util.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { FullUser, Scope, User } from "../../utils/api_types.ts";
-import { ListPanel } from "../../components/ListPanel.tsx";
+import { ScopeCard } from "../../components/ScopeCard.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
 
 export default define.page<typeof handler>(function UserPage({ data, state }) {
   return (
     <AccountLayout user={data.user} active="Profile">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
         {data.scopes.length > 0
           ? (
-            <ListPanel
-              title="Scopes"
-              subtitle={state.user?.id === data.user.id
-                ? "Scopes you are a member of."
-                : "Scopes this user belongs to."}
-              // deno-lint-ignore jsx-no-children-prop
-              children={data.scopes.map((scope) => ({
-                value: `@${scope.scope}`,
-                href: `/@${scope.scope}`,
-              }))}
-            />
+            <div>
+              <h3 class="text-lg md:text-xl font-semibold">Scopes</h3>
+              <p class="text-base text-tertiary mb-4">
+                {state.user?.id === data.user.id
+                  ? "Scopes you are a member of."
+                  : "Scopes this user belongs to."}
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.scopes.map((scope) => (
+                  <ScopeCard key={scope.scope} scope={scope} />
+                ))}
+              </div>
+            </div>
           )
           : (
-            <div class="p-3 text-jsr-gray-500 text-center italic">
+            <div class="p-3 text-tertiary text-center italic">
               {state.user?.id === data.user.id ? "You are" : "This user is"}
               {" "}
               not a member of any scopes.
@@ -35,7 +37,7 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
         {
           /*<div>
           <span class="font-semibold">Recently published</span>
-          <div class="text-jsr-gray-500 text-base">
+          <div class="text-tertiary text-base"
             TODO: all packages recently published by this user
           </div>
         </div>*/
@@ -54,14 +56,11 @@ export const handler = define.handlers({
     ]);
     if (currentUser instanceof Response) return currentUser;
 
-    if (!userRes.ok) {
-      if (userRes.code == "userNotFound") {
-        throw new HttpError(404, "This user was not found.");
-      }
-
-      throw userRes; // gracefully handle errors
+    if (!userRes.ok && userRes.code === "userNotFound") {
+      throw new HttpError(404, "This user was not found.");
     }
-    if (!scopesRes.ok) throw scopesRes; // gracefully handle errors
+    assertOk(userRes);
+    assertOk(scopesRes);
 
     let user: User | FullUser = userRes.data;
     if (ctx.params.id === currentUser?.id) {

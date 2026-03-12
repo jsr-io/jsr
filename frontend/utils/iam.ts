@@ -7,6 +7,7 @@ export interface ScopeIAM {
   isStaff: boolean;
   canAdmin: boolean;
   canWrite: boolean;
+  hasSudo: boolean;
 }
 
 export function scopeIAM(
@@ -22,5 +23,6 @@ export function scopeIAM(
     isStaff,
     canAdmin,
     canWrite,
+    hasSudo,
   };
 }

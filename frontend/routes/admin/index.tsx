@@ -4,7 +4,7 @@ import { define } from "../../util.ts";
 export const handler = define.handlers({
   GET() {
     return new Response(null, {
-      headers: { location: "/admin/scopes" },
+      headers: { location: "/admin/users" },
       status: 307,
     });
   },

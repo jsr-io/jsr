@@ -1,9 +1,15 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { HttpError } from "fresh";
-import { APIResponseError } from "../utils/api.ts";
-import { ErrorDisplay } from "../components/ErrorDisplay.tsx";
+import { HttpError, PageProps } from "fresh";
+import { APIError } from "../utils/api.ts";
+import {
+  ErrorDisplay,
+  UnknownErrorDisplay,
+} from "../components/ErrorDisplay.tsx";
 
-export default function Error({ error }: { error: unknown }) {
+const HIDE_ERROR_OVERLAY_STYLE =
+  `#fresh-error-overlay { display: none !important; }`;
+
+export default function Error({ url, error }: PageProps) {
   if (error instanceof HttpError) {
     if (error.status === 404 && error.message === "Not Found") {
       error.message = "Couldn't find what you're looking for.";
@@ -12,17 +18,15 @@ export default function Error({ error }: { error: unknown }) {
       <>
         <style
           // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{
-            __html: `#fresh-error-overlay { display: none !important; }`,
-          }}
+          dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
         />
         <div class="w-full overflow-x-hidden relative flex justify-between flex-col flex-wrap">
           <div class="flex-top">
             <header class="text-center px-8 py-[15vh]">
-              <h1 class="font-extrabold text-5xl leading-10 tracking-tight text-gray-900">
+              <h1 class="font-extrabold text-5xl leading-10 tracking-tight text-primary">
                 {error.status}
               </h1>
-              <h2 class="mt-4 sm:mt-5 font-light text-2xl text-center leading-tight text-gray-900">
+              <h2 class="mt-4 sm:mt-5 font-light text-2xl text-center leading-tight text-primary">
                 {error.message}
               </h2>
               {error.status === 404 && (
@@ -37,29 +41,32 @@ export default function Error({ error }: { error: unknown }) {
     );
   }
 
-  if (
-    typeof error === "object" && error !== null && "ok" in error &&
-    error.ok === false && "status" in error && "code" in error &&
-    "message" in error &&
-    "traceId" in error
-  ) {
+  if (error instanceof APIError) {
     return (
       <>
         <style
           // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{
-            __html: `#fresh-error-overlay { display: none !important; }`,
-          }}
+          dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
         />
-        <ErrorDisplay error={error as APIResponseError} />
+        <ErrorDisplay error={error.response} url={url} />
       </>
     );
   }
 
+  const formatted = Deno.inspect(error);
   return (
-    <div>
-      <h1>Error</h1>
-      <pre>{JSON.stringify(error, null, 2)}</pre>
-    </div>
+    <>
+      <style
+        // deno-lint-ignore react-no-danger
+        dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
+      />
+
+      <UnknownErrorDisplay
+        title="An unexpected error occurred"
+        message={formatted}
+        url={url}
+        formatted={formatted}
+      />
+    </>
   );
 }

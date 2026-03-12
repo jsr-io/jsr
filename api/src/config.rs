@@ -17,12 +17,21 @@ pub struct Config {
   /// testing against a local GCS emulator.
   pub gcs_endpoint: Option<String>,
 
+  #[clap(long = "s3_region", env = "S3_REGION")]
+  pub s3_region: String,
+  #[clap(long = "s3_endpoint", env = "S3_ENDPOINT")]
+  pub s3_endpoint: String,
+  #[clap(long = "s3_access_key", env = "S3_ACCESS_KEY")]
+  pub s3_access_key: String,
+  #[clap(long = "s3_secret_key", env = "S3_SECRET_KEY")]
+  pub s3_secret_key: String,
+
   #[clap(
     long = "publishing_bucket",
     env = "PUBLISHING_BUCKET",
     default_value = "publishing"
   )]
-  /// The name of the GCS bucket to use to store tarballs during publishing.
+  /// The name of the GCS/S3 bucket to use to store tarballs during publishing.
   pub publishing_bucket: String,
 
   #[clap(
@@ -65,20 +74,52 @@ pub struct Config {
   /// The GitHub Client Secret
   pub github_client_secret: String,
 
-  #[clap(long = "orama_package_index_id", env = "ORAMA_PACKAGE_INDEX_ID")]
-  /// The Orama index for package search
-  pub orama_package_index_id: Option<String>,
+  #[clap(long = "gitlab_client_id", env = "GITLAB_CLIENT_ID")]
+  /// The GitLab Client ID
+  pub gitlab_client_id: String,
 
-  #[clap(long = "orama_symbols_index_id", env = "ORAMA_SYMBOLS_INDEX_ID")]
-  /// The Orama index for symbol search
-  pub orama_symbols_index_id: Option<String>,
+  #[clap(long = "gitlab_client_secret", env = "GITLAB_CLIENT_SECRET")]
+  /// The GitLab Client Secret
+  pub gitlab_client_secret: String,
 
   #[clap(
-    long = "orama_package_private_api_key",
-    env = "ORAMA_PACKAGE_PRIVATE_API_KEY"
+    long = "orama_packages_project_id",
+    env = "ORAMA_PACKAGES_PROJECT_ID"
   )]
-  /// The private API key for Orama
-  pub orama_package_private_api_key: Option<String>,
+  /// The Orama package project id
+  pub orama_packages_project_id: Option<String>,
+
+  #[clap(
+    long = "orama_packages_project_key",
+    env = "ORAMA_PACKAGES_PROJECT_KEY"
+  )]
+  /// The Orama package project key
+  pub orama_packages_project_key: Option<String>,
+
+  #[clap(
+    long = "orama_packages_data_source",
+    env = "ORAMA_PACKAGES_DATA_SOURCE"
+  )]
+  /// The Orama package data source
+  pub orama_packages_data_source: Option<String>,
+
+  #[clap(long = "orama_symbols_project_id", env = "ORAMA_SYMBOLS_PROJECT_ID")]
+  /// The Orama symbol project id
+  pub orama_symbols_project_id: Option<String>,
+
+  #[clap(
+    long = "orama_symbols_project_key",
+    env = "ORAMA_SYMBOLS_PROJECT_KEY"
+  )]
+  /// The Orama symbol project key
+  pub orama_symbols_project_key: Option<String>,
+
+  #[clap(
+    long = "orama_symbols_data_source",
+    env = "ORAMA_SYMBOLS_DATA_SOURCE"
+  )]
+  /// The Orama symbol data source
+  pub orama_symbols_data_source: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
   /// OTLP endpoint to send traces to.
@@ -141,6 +182,21 @@ pub struct Config {
   #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
   /// The ID of the project.
   pub gcp_project_id: Option<String>,
+
+  #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
+  /// The Cloudflare account ID for Analytics Engine.
+  pub cloudflare_account_id: Option<String>,
+
+  #[clap(long = "cloudflare_api_token", env = "CLOUDFLARE_API_TOKEN")]
+  /// The Cloudflare API token.
+  pub cloudflare_api_token: Option<String>,
+
+  #[clap(
+    long = "cloudflare_analytics_dataset",
+    env = "CLOUDFLARE_ANALYTICS_DATASET"
+  )]
+  /// The Cloudflare Analytics Engine dataset name for download tracking.
+  pub cloudflare_analytics_dataset: Option<String>,
 
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.

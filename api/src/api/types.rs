@@ -2,8 +2,10 @@
 use std::borrow::Cow;
 
 use crate::db::*;
+use crate::docs::GeneratedDocsContent;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::provenance::ProvenanceBundle;
@@ -57,7 +59,7 @@ pub struct ApiPublishingTask {
   pub id: Uuid,
   pub status: ApiPublishingTaskStatus,
   pub error: Option<ApiPublishingTaskError>,
-  pub user_id: Option<Uuid>,
+  pub user: Option<ApiUser>,
   pub package_scope: ScopeName,
   pub package_name: PackageName,
   pub package_version: Version,
@@ -65,13 +67,13 @@ pub struct ApiPublishingTask {
   pub updated_at: DateTime<Utc>,
 }
 
-impl From<PublishingTask> for ApiPublishingTask {
-  fn from(value: PublishingTask) -> Self {
+impl From<(PublishingTask, Option<UserPublic>)> for ApiPublishingTask {
+  fn from((value, user): (PublishingTask, Option<UserPublic>)) -> Self {
     Self {
       id: value.id,
       status: value.status.into(),
       error: value.error.map(Into::into),
-      user_id: value.user_id,
+      user: user.map(Into::into),
       package_scope: value.package_scope,
       package_name: value.package_name,
       package_version: value.package_version,
@@ -113,12 +115,13 @@ impl
   }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiUser {
   pub id: Uuid,
   pub name: String,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub avatar_url: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -130,6 +133,7 @@ impl From<User> for ApiUser {
       id: user.id,
       name: user.name,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -143,6 +147,7 @@ impl From<UserPublic> for ApiUser {
       id: user.id,
       name: user.name,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -160,11 +165,13 @@ pub struct ApiFullUser {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i32,
   pub scope_limit: i32,
   pub invite_count: u64,
+  pub newer_ticket_messages_count: u64,
 }
 
 impl From<User> for ApiFullUser {
@@ -177,41 +184,13 @@ impl From<User> for ApiFullUser {
       updated_at: user.updated_at,
       created_at: user.created_at,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       is_blocked: user.is_blocked,
       is_staff: user.is_staff,
       scope_usage: user.scope_usage as i32,
       scope_limit: user.scope_limit,
       invite_count: user.invite_count as u64,
-    }
-  }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiCreateAliasRequest {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiAlias {
-  pub name: String,
-  pub major_version: i32,
-  pub target: AliasTarget,
-  pub updated_at: DateTime<Utc>,
-  pub created_at: DateTime<Utc>,
-}
-
-impl From<Alias> for ApiAlias {
-  fn from(alias: Alias) -> Self {
-    Self {
-      name: alias.name,
-      major_version: alias.major_version,
-      target: alias.target,
-      updated_at: alias.updated_at,
-      created_at: alias.created_at,
+      newer_ticket_messages_count: user.newer_ticket_messages_count as u64,
     }
   }
 }
@@ -220,6 +199,7 @@ impl From<Alias> for ApiAlias {
 #[serde(rename_all = "camelCase")]
 pub struct ApiScope {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -228,6 +208,7 @@ impl From<Scope> for ApiScope {
   fn from(scope: Scope) -> Self {
     Self {
       scope: scope.scope,
+      description: scope.description,
       updated_at: scope.updated_at,
       created_at: scope.created_at,
     }
@@ -249,6 +230,7 @@ pub struct ApiScopeQuotas {
 #[serde(rename_all = "camelCase")]
 pub struct ApiFullScope {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
   pub creator: ApiUser,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -263,6 +245,7 @@ impl From<(Scope, ScopeUsage, UserPublic)> for ApiFullScope {
     assert_eq!(scope.creator, user.id);
     Self {
       scope: scope.scope,
+      description: scope.description,
       creator: user.into(),
       updated_at: scope.updated_at,
       created_at: scope.created_at,
@@ -291,6 +274,7 @@ pub enum ApiScopeOrFullScope {
 #[serde(rename_all = "camelCase")]
 pub struct ApiCreateScopeRequest {
   pub scope: ScopeName,
+  pub description: ScopeDescription,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -320,6 +304,7 @@ impl From<(ScopeMember, UserPublic)> for ApiScopeMember {
 #[serde(rename_all = "camelCase")]
 pub enum ApiAddScopeMemberRequest {
   GithubLogin(String),
+  GitlabUsername(String),
   Id(Uuid),
 }
 
@@ -470,10 +455,13 @@ pub struct ApiPackage {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub version_count: u64,
+  pub dependency_count: u64,
+  pub dependent_count: u64,
   pub score: Option<u32>,
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub readme_source: ApiReadmeSource,
 }
 
 impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
@@ -491,6 +479,8 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       updated_at: package.updated_at,
       created_at: package.created_at,
       version_count: package.version_count as u64,
+      dependency_count: 0,
+      dependent_count: 0,
       score: package
         .latest_version
         .as_ref()
@@ -498,6 +488,7 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       latest_version: package.latest_version,
       when_featured: package.when_featured,
       is_archived: package.is_archived,
+      readme_source: package.readme_source.into(),
     }
   }
 }
@@ -514,8 +505,34 @@ pub enum ApiUpdatePackageRequest {
   Description(String),
   GithubRepository(Option<ApiUpdatePackageGithubRepositoryRequest>),
   RuntimeCompat(ApiRuntimeCompat),
+  ReadmeSource(ApiReadmeSource),
   IsFeatured(bool),
   IsArchived(bool),
+}
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiReadmeSource {
+  Readme,
+  JSDoc,
+}
+
+impl From<ApiReadmeSource> for ReadmeSource {
+  fn from(value: ApiReadmeSource) -> Self {
+    match value {
+      ApiReadmeSource::Readme => ReadmeSource::Readme,
+      ApiReadmeSource::JSDoc => ReadmeSource::JSDoc,
+    }
+  }
+}
+
+impl From<ReadmeSource> for ApiReadmeSource {
+  fn from(value: ReadmeSource) -> Self {
+    match value {
+      ReadmeSource::Readme => ApiReadmeSource::Readme,
+      ReadmeSource::JSDoc => ApiReadmeSource::JSDoc,
+    }
+  }
 }
 
 #[derive(Debug, Deserialize)]
@@ -606,9 +623,9 @@ pub struct ApiPackageVersion {
   pub version: Version,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: u64,
-  pub lifetime_download_count: u64,
+  pub newer_versions_count: Option<u64>,
   pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -621,16 +638,36 @@ pub enum ApiPackageVersionDocs {
   #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
-    css: Cow<'static, str>,
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
-    breadcrumbs: Option<String>,
-    toc: Option<String>,
-    main: String,
+    breadcrumbs: Option<deno_doc::html::util::BreadcrumbsCtx>,
+    toc: deno_doc::html::util::ToCCtx,
+    main: ApiGeneratedDocsContent,
   },
   Redirect {
     symbol: String,
   },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "value")]
+#[allow(clippy::large_enum_variant)]
+pub enum ApiGeneratedDocsContent {
+  AllSymbols(deno_doc::html::AllSymbolsCtx),
+  File(deno_doc::html::jsdoc::ModuleDocCtx),
+  Index(deno_doc::html::jsdoc::ModuleDocCtx),
+  Symbol(deno_doc::html::SymbolGroupCtx),
+}
+
+impl From<GeneratedDocsContent> for ApiGeneratedDocsContent {
+  fn from(value: GeneratedDocsContent) -> Self {
+    match value {
+      GeneratedDocsContent::AllSymbols(val) => Self::AllSymbols(val),
+      GeneratedDocsContent::File(val) => Self::File(val),
+      GeneratedDocsContent::Index(val) => Self::Index(val),
+      GeneratedDocsContent::Symbol(val) => Self::Symbol(val),
+    }
+  }
 }
 
 impl From<PackageVersion> for ApiPackageVersion {
@@ -641,9 +678,27 @@ impl From<PackageVersion> for ApiPackageVersion {
       version: value.version,
       yanked: value.is_yanked,
       uses_npm: value.uses_npm,
-      newer_versions_count: value.newer_versions_count as u64,
-      lifetime_download_count: value.lifetime_download_count as u64,
+      newer_versions_count: None,
       rekor_log_id: value.rekor_log_id,
+      license: value.license,
+      readme_path: value.readme_path,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+impl From<PackageVersionWithNewerVersionsCount> for ApiPackageVersion {
+  fn from(value: PackageVersionWithNewerVersionsCount) -> Self {
+    ApiPackageVersion {
+      scope: value.scope,
+      package: value.name,
+      version: value.version,
+      yanked: value.is_yanked,
+      uses_npm: value.uses_npm,
+      newer_versions_count: Some(value.newer_versions_count as u64),
+      rekor_log_id: value.rekor_log_id,
+      license: value.license,
       readme_path: value.readme_path,
       updated_at: value.updated_at,
       created_at: value.created_at,
@@ -677,7 +732,6 @@ pub enum ApiSource {
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageVersionSource {
   pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
   pub comrak_css: Cow<'static, str>,
   pub script: Cow<'static, str>,
   pub source: ApiSource,
@@ -692,8 +746,6 @@ pub struct ApiPackageVersionWithUser {
   pub user: Option<ApiUser>,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: i64,
-  pub lifetime_download_count: i64,
   pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
@@ -715,8 +767,6 @@ impl From<(PackageVersion, Option<UserPublic>)> for ApiPackageVersionWithUser {
       user: user.map(|user| user.into()),
       yanked: package_version.is_yanked,
       uses_npm: package_version.uses_npm,
-      newer_versions_count: package_version.newer_versions_count,
-      lifetime_download_count: package_version.lifetime_download_count,
       rekor_log_id: package_version.rekor_log_id,
       readme_path: package_version.readme_path,
       updated_at: package_version.updated_at,
@@ -748,14 +798,50 @@ pub enum ApiUpdateScopeRequest {
   GhActionsVerifyActor(bool),
   #[serde(rename = "requirePublishingFromCI")]
   RequirePublishingFromCI(bool),
+  #[serde(rename = "description")]
+  Description(Option<String>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStats {
-  pub newest: Vec<ApiPackage>,
-  pub updated: Vec<ApiPackageVersion>,
-  pub featured: Vec<ApiPackage>,
+  pub newest: Vec<ApiStatsPackage>,
+  pub updated: Vec<ApiStatsPackageVersion>,
+  pub featured: Vec<ApiStatsPackage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+}
+
+impl From<StatsPackage> for ApiStatsPackage {
+  fn from(p: StatsPackage) -> Self {
+    Self {
+      scope: p.scope,
+      name: p.name,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackageVersion {
+  pub scope: ScopeName,
+  pub package: PackageName,
+  pub version: Version,
+}
+
+impl From<StatsPackageVersion> for ApiStatsPackageVersion {
+  fn from(v: StatsPackageVersion) -> Self {
+    Self {
+      scope: v.scope,
+      package: v.name,
+      version: v.version,
+    }
+  }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -898,6 +984,16 @@ impl From<DownloadDataPoint> for ApiDownloadDataPoint {
   }
 }
 
+impl From<VersionDownloadDataPoint> for ApiDownloadDataPoint {
+  fn from(value: VersionDownloadDataPoint) -> Self {
+    Self {
+      time_bucket: value.time_bucket,
+      kind: value.kind.into(),
+      count: value.count as u64,
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiDownloadKind {
@@ -1001,4 +1097,129 @@ pub struct ApiPackageDownloads {
 pub struct ApiPackageDownloadsRecentVersion {
   pub version: Version,
   pub downloads: Vec<ApiDownloadDataPoint>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum ApiTicketMessageOrAuditLog {
+  Message {
+    message: TicketMessage,
+    user: UserPublic,
+  },
+  #[serde(rename_all = "camelCase")]
+  AuditLog {
+    audit_log: AuditLog,
+    user: UserPublic,
+  },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketOverview {
+  pub id: Uuid,
+  pub kind: TicketKind,
+  pub creator: ApiUser,
+  pub meta: serde_json::Value,
+  pub closed: bool,
+  pub events: Vec<ApiTicketMessageOrAuditLog>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
+  for ApiTicketOverview
+{
+  fn from(
+    (value, user, events): (Ticket, User, Vec<ApiTicketMessageOrAuditLog>),
+  ) -> Self {
+    Self {
+      id: value.id,
+      kind: value.kind,
+      creator: user.into(),
+      meta: value.meta,
+      closed: value.closed,
+      events,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicket {
+  pub id: Uuid,
+  pub kind: TicketKind,
+  pub creator: ApiUser,
+  pub meta: serde_json::Value,
+  pub closed: bool,
+  pub messages: Vec<ApiTicketMessage>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
+  fn from(
+    (value, user, messages): (Ticket, User, Vec<(TicketMessage, UserPublic)>),
+  ) -> Self {
+    Self {
+      id: value.id,
+      kind: value.kind,
+      creator: user.into(),
+      meta: value.meta,
+      closed: value.closed,
+      messages: messages.into_iter().map(|message| message.into()).collect(),
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketMessage {
+  pub author: ApiUser,
+  pub message: String,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
+  fn from((value, user): (TicketMessage, UserPublic)) -> Self {
+    Self {
+      author: user.into(),
+      message: value.message,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAdminUpdateTicketRequest {
+  pub closed: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiAuditLog {
+  pub actor: ApiUser,
+  pub action: String,
+  pub is_sudo: bool,
+  pub meta: serde_json::Value,
+  pub created_at: DateTime<Utc>,
+}
+
+impl From<(AuditLog, UserPublic)> for ApiAuditLog {
+  fn from((value, user): (AuditLog, UserPublic)) -> Self {
+    assert_eq!(value.actor_id, user.id);
+    Self {
+      actor: user.into(),
+      action: value.action,
+      is_sudo: value.is_sudo,
+      meta: value.meta,
+      created_at: value.created_at,
+    }
+  }
 }

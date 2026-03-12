@@ -1,13 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::db::GithubRepository;
+use crate::db::ReadmeSource;
 use crate::db::RuntimeCompat;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
-use comrak::nodes::{Ast, AstNode, NodeValue};
+use comrak::nodes::Ast;
+use comrak::nodes::AstNode;
+use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::html::pages::SymbolPage;
+use deno_doc::DocNode;
+use deno_doc::DocNodeDef;
+use deno_doc::Location;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
 use deno_doc::html::HrefResolver;
@@ -15,10 +20,8 @@ use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
-use deno_doc::html::HANDLEBARS;
-use deno_doc::DocNode;
-use deno_doc::DocNodeKind;
-use deno_doc::Location;
+use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::util::BreadcrumbsCtx;
 use deno_semver::RangeSetOrTag;
 use indexmap::IndexMap;
 use std::borrow::Cow;
@@ -78,7 +81,7 @@ lazy_static::lazy_static! {
       .add_tag_attributes("rect", ["x", "y", "width", "height", "fill"])
       .add_tag_attributes("video", ["src", "controls"])
       .add_allowed_classes("pre", ["highlight"])
-      .add_allowed_classes("button", ["context_button"])
+      .add_allowed_classes("button", ["copyButton"])
       .add_allowed_classes(
         "div",
         [
@@ -88,6 +91,7 @@ lazy_static::lazy_static! {
           "alert-important",
           "alert-warning",
           "alert-caution",
+          "or-bar"
         ],
       )
       .link_rel(Some("nofollow"))
@@ -133,102 +137,101 @@ fn match_node_value<'a>(
 ) {
   match &node.data.borrow().value {
     NodeValue::BlockQuote => {
-      if let Some(paragraph_child) = node.first_child() {
-        if paragraph_child.data.borrow().value == NodeValue::Paragraph {
-          let alert = paragraph_child.first_child().and_then(|text_child| {
-            if let NodeValue::Text(text) = &text_child.data.borrow().value {
-              match text
-                .split_once(' ')
-                .map_or((text.as_str(), None), |(kind, title)| {
-                  (kind, Some(title))
-                }) {
-                ("[!NOTE]", title) => {
-                  Some((Alert::Note, title.unwrap_or("Note").to_string()))
-                }
-                ("[!TIP]", title) => {
-                  Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
-                }
-                ("[!IMPORTANT]", title) => Some((
-                  Alert::Important,
-                  title.unwrap_or("Important").to_string(),
-                )),
-                ("[!WARNING]", title) => {
-                  Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
-                }
-                ("[!CAUTION]", title) => {
-                  Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
-                }
-                _ => None,
+      if let Some(paragraph_child) = node.first_child()
+        && paragraph_child.data.borrow().value == NodeValue::Paragraph
+      {
+        let alert = paragraph_child.first_child().and_then(|text_child| {
+          if let NodeValue::Text(text) = &text_child.data.borrow().value {
+            match text
+              .split_once(' ')
+              .map_or((text.as_str(), None), |(kind, title)| {
+                (kind, Some(title))
+              }) {
+              ("[!NOTE]", title) => {
+                Some((Alert::Note, title.unwrap_or("Note").to_string()))
               }
-            } else {
-              None
+              ("[!TIP]", title) => {
+                Some((Alert::Tip, title.unwrap_or("Tip").to_string()))
+              }
+              ("[!IMPORTANT]", title) => Some((
+                Alert::Important,
+                title.unwrap_or("Important").to_string(),
+              )),
+              ("[!WARNING]", title) => {
+                Some((Alert::Warning, title.unwrap_or("Warning").to_string()))
+              }
+              ("[!CAUTION]", title) => {
+                Some((Alert::Caution, title.unwrap_or("Caution").to_string()))
+              }
+              _ => None,
             }
-          });
-
-          if let Some((alert, title)) = alert {
-            let start_col = node.data.borrow().sourcepos.start;
-
-            let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-              NodeValue::Document,
-              start_col,
-            ))));
-
-            let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
-              Ast::new(NodeValue::Paragraph, start_col),
-            )));
-
-            for child_node in paragraph_child.children().skip(1) {
-              node_without_alert.append(child_node);
-            }
-            for child_node in node.children().skip(1) {
-              node_without_alert.append(child_node);
-            }
-
-            document.append(node_without_alert);
-
-            let html =
-              deno_doc::html::comrak::render_node(document, options, plugins);
-
-            let alert_title = match alert {
-              Alert::Note => {
-                format!("{}{title}", include_str!("./docs/info-circle.svg"))
-              }
-              Alert::Tip => {
-                format!("{}{title}", include_str!("./docs/bulb.svg"))
-              }
-              Alert::Important => {
-                format!("{}{title}", include_str!("./docs/warning-message.svg"))
-              }
-              Alert::Warning => format!(
-                "{}{title}",
-                include_str!("./docs/warning-triangle.svg")
-              ),
-              Alert::Caution => {
-                format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
-              }
-            };
-
-            let html = format!(
-              r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
-              match alert {
-                Alert::Note => "note",
-                Alert::Tip => "tip",
-                Alert::Important => "important",
-                Alert::Warning => "warning",
-                Alert::Caution => "caution",
-              }
-            );
-
-            let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
-              NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
-                block_type: 6,
-                literal: html,
-              }),
-              start_col,
-            ))));
-            node.insert_before(alert_node);
-            node.detach();
+          } else {
+            None
           }
+        });
+
+        if let Some((alert, title)) = alert {
+          let start_col = node.data.borrow().sourcepos.start;
+
+          let document = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+            NodeValue::Document,
+            start_col,
+          ))));
+
+          let node_without_alert = arena.alloc(AstNode::new(RefCell::new(
+            Ast::new(NodeValue::Paragraph, start_col),
+          )));
+
+          for child_node in paragraph_child.children().skip(1) {
+            node_without_alert.append(child_node);
+          }
+          for child_node in node.children().skip(1) {
+            node_without_alert.append(child_node);
+          }
+
+          document.append(node_without_alert);
+
+          let html =
+            deno_doc::html::comrak::render_node(document, options, plugins);
+
+          let alert_title = match alert {
+            Alert::Note => {
+              format!("{}{title}", include_str!("./docs/info-circle.svg"))
+            }
+            Alert::Tip => {
+              format!("{}{title}", include_str!("./docs/bulb.svg"))
+            }
+            Alert::Important => {
+              format!("{}{title}", include_str!("./docs/warning-message.svg"))
+            }
+            Alert::Warning => {
+              format!("{}{title}", include_str!("./docs/warning-triangle.svg"))
+            }
+            Alert::Caution => {
+              format!("{}{title}", include_str!("./docs/warning-octagon.svg"))
+            }
+          };
+
+          let html = format!(
+            r#"<div class="alert alert-{}"><div>{alert_title}</div><div>{html}</div></div>"#,
+            match alert {
+              Alert::Note => "note",
+              Alert::Tip => "tip",
+              Alert::Important => "important",
+              Alert::Warning => "warning",
+              Alert::Caution => "caution",
+            }
+          );
+
+          let alert_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+            NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+              block_type: 6,
+              literal: html,
+            }),
+            start_col,
+          ))));
+          node.insert_before(alert_node);
+          node.detach();
         }
       }
     }
@@ -268,7 +271,7 @@ struct WebType {
 pub fn generate_docs(
   mut source_files: Vec<ModuleSpecifier>,
   graph: &deno_graph::ModuleGraph,
-  analyzer: &deno_graph::CapturingModuleAnalyzer,
+  analyzer: &deno_graph::ast::CapturingModuleAnalyzer,
 ) -> Result<DocNodesByUrl, anyhow::Error> {
   source_files.sort();
 
@@ -295,6 +298,7 @@ pub enum DocsRequest {
   Symbol(ModuleSpecifier, String),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum GeneratedDocsOutput {
   Docs(GeneratedDocs),
@@ -303,9 +307,17 @@ pub enum GeneratedDocsOutput {
 
 #[derive(Debug)]
 pub struct GeneratedDocs {
-  pub breadcrumbs: Option<String>,
-  pub toc: Option<String>,
-  pub main: String,
+  pub breadcrumbs: Option<BreadcrumbsCtx>,
+  pub toc: deno_doc::html::ToCCtx,
+  pub main: GeneratedDocsContent,
+}
+
+#[derive(Debug)]
+pub enum GeneratedDocsContent {
+  AllSymbols(deno_doc::html::AllSymbolsCtx),
+  File(deno_doc::html::jsdoc::ModuleDocCtx),
+  Index(deno_doc::html::jsdoc::ModuleDocCtx),
+  Symbol(deno_doc::html::SymbolGroupCtx),
 }
 
 pub struct DocsInfo {
@@ -336,10 +348,10 @@ pub fn get_docs_info(
     } else {
       name.strip_prefix('.').unwrap_or(name)
     };
-    if let Some(entrypoint) = entrypoint {
-      if key.strip_prefix('/').unwrap_or(key) == entrypoint {
-        entrypoint_url = Some(specifier.clone());
-      }
+    if let Some(entrypoint) = entrypoint
+      && key.strip_prefix('/').unwrap_or(key) == entrypoint
+    {
+      entrypoint_url = Some(specifier.clone());
     }
     rewrite_map.insert(specifier, key.into());
   }
@@ -392,15 +404,13 @@ fn get_url_rewriter(
       base.clone()
     };
 
-    if !is_readme {
-      if let Some(current_file) = current_file {
-        let (path, _file) = current_file
-          .specifier
-          .path()
-          .rsplit_once('/')
-          .unwrap_or((current_file.specifier.path(), ""));
-        return format!("{base}{path}/{url}");
-      }
+    if !is_readme && let Some(current_file) = current_file {
+      let (path, _file) = current_file
+        .specifier
+        .path()
+        .rsplit_once('/')
+        .unwrap_or((current_file.specifier.path(), ""));
+      return format!("{base}{path}/{url}");
     }
 
     format!("{base}/{url}")
@@ -420,10 +430,12 @@ fn get_url_rewriter(
     version_is_latest,
     has_readme,
     runtime_compat,
-    registry_url
+    registry_url,
+    diff
   )
 )]
-pub fn get_generate_ctx<'a>(
+pub fn get_generate_ctx(
+  doc_base: String,
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -435,6 +447,7 @@ pub fn get_generate_ctx<'a>(
   has_readme: bool,
   runtime_compat: RuntimeCompat,
   registry_url: String,
+  diff: Option<(deno_doc::diff::DocDiff, bool)>,
 ) -> GenerateCtx {
   let package_name = format!("@{scope}/{package}");
   let url_rewriter_base = format!("/{package_name}/{version}");
@@ -496,12 +509,16 @@ pub fn get_generate_ctx<'a>(
             .collect()
           })
           .clone(),
+        doc_base,
+        full: diff.as_ref().map(|diff| diff.1),
       }),
-      usage_composer: (Rc::new(DocUsageComposer {
-        runtime_compat,
-        scope,
-        package,
-      })),
+      usage_composer: diff.is_none().then(|| {
+        Rc::new(DocUsageComposer {
+          runtime_compat,
+          scope,
+          package,
+        }) as Rc<dyn deno_doc::html::UsageComposer>
+      }),
       rewrite_map: Some(rewrite_map),
       category_docs: None,
       disable_search: false,
@@ -510,10 +527,13 @@ pub fn get_generate_ctx<'a>(
       markdown_renderer,
       markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
       head_inject: None,
+      id_prefix: None,
+      diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
     },
     None,
     deno_doc::html::FileMode::Normal,
     doc_nodes_by_url,
+    diff.map(|diff| diff.0),
   )
   .unwrap()
 }
@@ -521,10 +541,11 @@ pub fn get_generate_ctx<'a>(
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "generate_docs_html",
-  skip(doc_nodes_by_url, rewrite_map, readme),
+  skip(doc_nodes_by_url, rewrite_map, readme, diff_data),
   err
 )]
 pub fn generate_docs_html(
+  doc_base: String,
   doc_nodes_by_url: DocNodesByUrl,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
@@ -537,8 +558,20 @@ pub fn generate_docs_html(
   readme: Option<String>,
   runtime_compat: RuntimeCompat,
   registry_url: String,
+  readme_source: ReadmeSource,
+  diff_data: Option<(DocNodesByUrl, bool)>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
+  let diff = if let Some((old_doc_nodes_by_url, full)) = diff_data {
+    Some((
+      deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &doc_nodes_by_url),
+      full,
+    ))
+  } else {
+    None
+  };
+
   let ctx = get_generate_ctx(
+    doc_base,
     doc_nodes_by_url,
     main_entrypoint,
     rewrite_map,
@@ -550,6 +583,7 @@ pub fn generate_docs_html(
     readme.is_some(),
     runtime_compat,
     registry_url,
+    diff,
   );
 
   match req {
@@ -557,46 +591,15 @@ pub fn generate_docs_html(
       let render_ctx =
         RenderContext::new(&ctx, &[], UrlResolveKind::AllSymbols);
 
-      let all_doc_nodes = ctx.doc_nodes.values().flatten().map(Cow::Borrowed);
+      let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
+      let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let partitions_by_kind =
-        deno_doc::html::partition::partition_nodes_by_entrypoint(
-          &ctx,
-          all_doc_nodes,
-          true,
-        );
-
-      let sections = deno_doc::html::namespace::render_namespace(
-        partitions_by_kind.into_iter().map(|(path, nodes)| {
-          (
-            render_ctx.clone(),
-            deno_doc::html::SectionHeaderCtx::new_for_namespace(
-              &render_ctx,
-              &path,
-            ),
-            nodes,
-          )
-        }),
-      );
-
-      let breadcrumbs = HANDLEBARS
-        .render("breadcrumbs", &render_ctx.get_breadcrumbs())
-        .context("failed to render breadcrumbs")?;
-      let main = HANDLEBARS
-        .render(
-          "symbol_content",
-          &deno_doc::html::SymbolContentCtx {
-            id: String::new(),
-            sections,
-            docs: None,
-          },
-        )
-        .context("failed to all symbols list")?;
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: None,
-        main,
+        toc,
+        main: GeneratedDocsContent::AllSymbols(all_symbols),
       })))
     }
     DocsRequest::Index => {
@@ -609,13 +612,21 @@ pub fn generate_docs_html(
       let render_ctx =
         RenderContext::new(&ctx, doc_nodes, UrlResolveKind::Root);
 
-      let mut index_module_doc = ctx
-        .main_entrypoint
-        .as_ref()
-        .map(|entrypoint| {
-          deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, entrypoint)
-        })
-        .unwrap_or_default();
+      let mut index_module_doc = match readme_source {
+        ReadmeSource::JSDoc => ctx
+          .main_entrypoint
+          .as_ref()
+          .map(|entrypoint| {
+            deno_doc::html::jsdoc::ModuleDocCtx::new(
+              &render_ctx,
+              entrypoint,
+              false,
+              false,
+            )
+          })
+          .unwrap_or_default(),
+        ReadmeSource::Readme => Default::default(),
+      };
 
       if index_module_doc.sections.docs.is_none() {
         let markdown = readme
@@ -637,20 +648,12 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let main = HANDLEBARS
-        .render("module_doc", &index_module_doc)
-        .context("failed to render index module doc")?;
-
-      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
-
-      let toc = HANDLEBARS
-        .render("toc", &toc_ctx)
-        .context("failed to render toc")?;
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
-        toc: Some(toc),
-        main,
+        toc,
+        main: GeneratedDocsContent::Index(index_module_doc),
       })))
     }
     DocsRequest::File(specifier) => {
@@ -666,27 +669,24 @@ pub fn generate_docs_html(
         UrlResolveKind::File { file: short_path },
       );
 
-      let module_doc =
-        deno_doc::html::jsdoc::ModuleDocCtx::new(&render_ctx, short_path);
+      let mut module_doc = deno_doc::html::jsdoc::ModuleDocCtx::new(
+        &render_ctx,
+        short_path,
+        true,
+        false,
+      );
+      if short_path.is_main {
+        module_doc.sections.docs = None;
+      }
 
-      let breadcrumbs = HANDLEBARS
-        .render("breadcrumbs", &render_ctx.get_breadcrumbs())
-        .context("failed to render breadcrumbs")?;
+      let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let main = HANDLEBARS
-        .render("module_doc", &module_doc)
-        .context("failed to render module doc")?;
-
-      let toc_ctx = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
-
-      let toc = HANDLEBARS
-        .render("toc", &toc_ctx)
-        .context("failed to render toc")?;
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
-        toc: Some(toc),
-        main,
+        toc,
+        main: GeneratedDocsContent::File(module_doc),
       })))
     }
     DocsRequest::Symbol(specifier, symbol) => {
@@ -708,25 +708,11 @@ pub fn generate_docs_html(
           symbol_group_ctx,
           toc_ctx,
           categories_panel: _categories_panel,
-        } => {
-          let breadcrumbs = HANDLEBARS
-            .render("breadcrumbs", &breadcrumbs_ctx)
-            .context("failed to render breadcrumbs")?;
-
-          let main = HANDLEBARS
-            .render("symbol_group", &symbol_group_ctx)
-            .context("failed to render symbol group")?;
-
-          let toc = HANDLEBARS
-            .render("toc", &toc_ctx)
-            .context("failed to render toc")?;
-
-          Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
-            breadcrumbs: Some(breadcrumbs),
-            toc: Some(toc),
-            main,
-          })))
-        }
+        } => Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
+          breadcrumbs: Some(breadcrumbs_ctx),
+          toc: *toc_ctx,
+          main: GeneratedDocsContent::Symbol(symbol_group_ctx),
+        }))),
         SymbolPage::Redirect { href, .. } => {
           Ok(Some(GeneratedDocsOutput::Redirect(href)))
         }
@@ -750,7 +736,7 @@ fn generate_symbol_page(
     let mut nodes = doc_nodes
       .iter()
       .filter(|node| {
-        !(matches!(node.kind(), DocNodeKind::ModuleDoc | DocNodeKind::Import)
+        !(matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
           || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
           && node.get_name() == next_part
       })
@@ -768,8 +754,8 @@ fn generate_symbol_page(
 
     if name_parts.peek().is_some() {
       for node in &nodes {
-        let drilldown_node = match node.kind() {
-          DocNodeKind::Class => {
+        let drilldown_node = match &node.def {
+          DocNodeDef::Class { class_def: class } => {
             let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
             let mut is_static = true;
 
@@ -778,6 +764,7 @@ fn generate_symbol_page(
                 return Some(SymbolPage::Redirect {
                   current_symbol: name.to_string(),
                   href: name.rsplit_once('.').unwrap().0.to_string(),
+                  diff_status: None, // TODO
                 });
               } else {
                 is_static = false;
@@ -786,8 +773,6 @@ fn generate_symbol_page(
             }
 
             let drilldown_name = drilldown_parts.join(".");
-
-            let class = node.class_def().unwrap();
 
             class
               .methods
@@ -827,11 +812,11 @@ fn generate_symbol_page(
                 })
               })
           }
-          DocNodeKind::Interface => {
+          DocNodeDef::Interface {
+            interface_def: interface,
+          } => {
             let drilldown_name =
               name_parts.clone().collect::<Vec<_>>().join(".");
-
-            let interface = node.interface_def().unwrap();
 
             interface
               .methods
@@ -860,9 +845,9 @@ fn generate_symbol_page(
                 })
               })
           }
-          DocNodeKind::TypeAlias => {
-            let type_alias = node.type_alias_def().unwrap();
-
+          DocNodeDef::TypeAlias {
+            type_alias_def: type_alias,
+          } => {
             if let Some(ts_type_literal) =
               type_alias.ts_type.type_literal.as_ref()
             {
@@ -899,9 +884,9 @@ fn generate_symbol_page(
               None
             }
           }
-          DocNodeKind::Variable => {
-            let variable = node.variable_def().unwrap();
-
+          DocNodeDef::Variable {
+            variable_def: variable,
+          } => {
             if let Some(ts_type_literal) = variable
               .ts_type
               .as_ref()
@@ -940,12 +925,12 @@ fn generate_symbol_page(
               None
             }
           }
-          DocNodeKind::Import
-          | DocNodeKind::Enum
-          | DocNodeKind::ModuleDoc
-          | DocNodeKind::Function
-          | DocNodeKind::Namespace
-          | DocNodeKind::Reference => None,
+          DocNodeDef::Import { .. }
+          | DocNodeDef::Enum { .. }
+          | DocNodeDef::ModuleDoc
+          | DocNodeDef::Function { .. }
+          | DocNodeDef::Namespace { .. }
+          | DocNodeDef::Reference { .. } => None,
         };
 
         if let Some(drilldown_node) = drilldown_node {
@@ -974,7 +959,7 @@ fn generate_symbol_page(
 
     if let Some(namespace_node) = nodes
       .iter()
-      .find(|node| matches!(node.kind(), DocNodeKind::Namespace))
+      .find(|node| matches!(node.def, DocNodeDef::Namespace { .. }))
     {
       namespace_paths.push(next_part.to_string());
       doc_nodes = namespace_node
@@ -1032,6 +1017,8 @@ struct DocResolver {
   registry_url: String,
   deno_types: std::collections::HashSet<Vec<String>>,
   web_types: std::collections::HashMap<Vec<String>, String>,
+  doc_base: String,
+  full: Option<bool>,
 }
 
 impl HrefResolver for DocResolver {
@@ -1050,11 +1037,11 @@ impl HrefResolver for DocResolver {
         String::new()
       }
     );
-    let doc_base = format!("{package_base}/doc");
+    let doc_base = format!("{package_base}{}", self.doc_base);
 
-    match target {
+    let path = match target {
       UrlResolveKind::Root => package_base,
-      UrlResolveKind::AllSymbols => doc_base,
+      UrlResolveKind::AllSymbols => format!("{doc_base}/all_symbols"),
       UrlResolveKind::Symbol { file, symbol } => {
         format!(
           "{doc_base}{}/~/{symbol}",
@@ -1074,6 +1061,12 @@ impl HrefResolver for DocResolver {
         }
       ),
       UrlResolveKind::Category { .. } => unreachable!(),
+    };
+
+    if self.full.is_some_and(std::convert::identity) {
+      path + "?full"
+    } else {
+      path
     }
   }
 
@@ -1098,7 +1091,7 @@ impl HrefResolver for DocResolver {
     if let Ok(url) = Url::parse(src) {
       match url.scheme() {
         "node" => Some(format!("https://nodejs.org/api/{}.html", url.path())),
-        "bun" => None,
+        "bun" | "virtual" | "cloudflare" => None,
         "npm" => {
           let npm_package_req =
             deno_semver::npm::NpmPackageReqReference::from_str(src).ok()?;
@@ -1127,11 +1120,11 @@ impl HrefResolver for DocResolver {
           let req = jsr_package_req.req();
 
           let mut version_path = Cow::Borrowed("");
-          if let Some(range) = req.version_req.range() {
-            if let Ok(version) = Version::new(&range.to_string()) {
-              // If using a specific version, link to it (e.g. prerelease)
-              version_path = Cow::Owned(format!("@{}", version));
-            }
+          if let Some(range) = req.version_req.range()
+            && let Ok(version) = Version::new(&range.to_string())
+          {
+            // If using a specific version, link to it (e.g. prerelease)
+            version_path = Cow::Owned(format!("@{}", version));
           }
 
           let mut internal_path = Cow::Borrowed("");
@@ -1215,54 +1208,50 @@ impl deno_doc::html::UsageComposer for DocUsageComposer {
 
     if !self.runtime_compat.deno.is_some_and(|compat| !compat) {
       map.insert(
-          UsageComposerEntry {
-            name: "Deno".to_string(),
-            icon: Some(
-              r#"<img src="/logos/deno.svg" alt="deno logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n---- OR ----\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
-        );
+        UsageComposerEntry {
+          name: "Deno".to_string(),
+          icon: Some("/logos/deno.svg".into()),
+        },
+        format!("Add Package\n```\ndeno add jsr:{scoped_name}\n```{import}\n<div class='or-bar'>or</div>\n\nImport directly with a jsr specifier\n{}\n", usage_to_md(&format!("jsr:{url}"), Some(self.package.as_str()))),
+      );
     }
 
     if !self.runtime_compat.node.is_some_and(|compat| !compat) {
       map.insert(
-          UsageComposerEntry {
-            name: "npm".to_string(),
-            icon: Some(
-              r#"<img src="/logos/npm_textless.svg" alt="npm logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
-        );
+        UsageComposerEntry {
+          name: "pnpm".to_string(),
+          icon: Some("/logos/pnpm_textless.svg".into()),
+        },
+        format!("Add Package\n```\npnpm i jsr:{scoped_name}\n```\n<div class='or-bar'>or (using pnpm 10.8 or older)</div>\n\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
+      );
       map.insert(
-          UsageComposerEntry {
-            name: "Yarn".to_string(),
-            icon: Some(
-              r#"<img src="/logos/yarn_textless.svg" alt="yarn logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
-        );
+        UsageComposerEntry {
+          name: "Yarn".to_string(),
+          icon: Some("/logos/yarn_textless.svg".into()),
+        },
+        format!("Add Package\n```\nyarn add jsr:{scoped_name}\n```\n<div class='or-bar'>or (using Yarn 4.8 or older)</div>\n\n```\nyarn dlx jsr add {scoped_name}\n```{import}"),
+      );
       map.insert(
-          UsageComposerEntry {
-            name: "pnpm".to_string(),
-            icon: Some(
-              r#"<img src="/logos/pnpm_textless.svg" alt="pnpm logo" draggable="false" />"#.into(),
-            ),
-          },
-          format!("Add Package\n```\npnpm dlx jsr add {scoped_name}\n```{import}"),
-        );
+        UsageComposerEntry {
+          name: "vlt".to_string(),
+          icon: Some("/logos/vlt.svg".into()),
+        },
+        format!("Add Package\n```\nvlt install jsr:{scoped_name}\n```{import}"),
+      );
+      map.insert(
+        UsageComposerEntry {
+          name: "npm".to_string(),
+          icon: Some("/logos/npm_textless.svg".into()),
+        },
+        format!("Add Package\n```\nnpx jsr add {scoped_name}\n```{import}"),
+      );
     }
 
     if !self.runtime_compat.bun.is_some_and(|compat| !compat) {
       map.insert(
         UsageComposerEntry {
           name: "Bun".to_string(),
-          icon: Some(
-            r#"<img src="/logos/bun.svg" alt="bun logo" draggable="false" />"#
-              .into(),
-          ),
+          icon: Some("/logos/bun.svg".into()),
         },
         format!("Add Package\n```\nbunx jsr add {scoped_name}\n```{import}"),
       );
@@ -1287,6 +1276,8 @@ mod tests {
       registry_url: "".to_string(),
       deno_types: Default::default(),
       web_types: Default::default(),
+      doc_base: "/doc".to_string(),
+      full: None,
     };
 
     let specifier = ModuleSpecifier::parse("file:///mod.ts").unwrap();
@@ -1304,7 +1295,7 @@ mod tests {
       );
       assert_eq!(
         resolver.resolve_path(UrlResolveKind::Root, UrlResolveKind::AllSymbols),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1333,7 +1324,7 @@ mod tests {
       assert_eq!(
         resolver
           .resolve_path(UrlResolveKind::AllSymbols, UrlResolveKind::AllSymbols),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1367,7 +1358,7 @@ mod tests {
           UrlResolveKind::File { file: &short_path },
           UrlResolveKind::AllSymbols
         ),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
@@ -1407,7 +1398,7 @@ mod tests {
           },
           UrlResolveKind::AllSymbols
         ),
-        "/@foo/bar@0.0.1/doc"
+        "/@foo/bar@0.0.1/doc/all_symbols"
       );
       assert_eq!(
         resolver.resolve_path(
