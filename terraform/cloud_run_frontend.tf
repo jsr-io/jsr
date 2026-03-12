@@ -46,6 +46,12 @@ resource "google_cloud_run_v2_service" "registry_frontend" {
     containers {
       image = var.frontend_image_id
 
+      resources {
+        limits = {
+          memory = "1Gi"
+        }
+      }
+
       dynamic "env" {
         for_each = local.frontend_envs
         content {
@@ -85,7 +91,7 @@ resource "google_compute_backend_service" "registry_frontend" {
       include_query_string  = true
       include_named_cookies = ["token"] # segment cache by user
     }
-    serve_while_stale = 0        # don't serve stale content
+    serve_while_stale = 600      # serve stale content for up to 10 minutes while revalidating
     default_ttl       = 0        # no caching unless specified by the backend
     max_ttl           = 31622400 # 1 year
     client_ttl        = 31622400 # 1 year

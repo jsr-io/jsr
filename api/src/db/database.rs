@@ -90,7 +90,7 @@ impl Database {
   pub async fn get_user_public(&self, id: Uuid) -> Result<Option<UserPublic>> {
     sqlx::query_as!(
       UserPublic,
-      r#"SELECT id, name, avatar_url, github_id, updated_at, created_at
+      r#"SELECT id, name, avatar_url, github_id, gitlab_id, updated_at, created_at
       FROM users
       WHERE id = $1"#,
       id
@@ -108,6 +108,20 @@ impl Database {
       User,
       "SELECT ", USER_SELECT_FULL, " FROM users WHERE github_id = $1";
       github_id
+    )
+    .fetch_optional(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::get_user_by_gitlab_id", skip(self), err)]
+  pub async fn get_user_by_gitlab_id(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<Option<User>> {
+    query_concat_as!(
+      User,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE gitlab_id = $1";
+      gitlab_id
     )
     .fetch_optional(&self.pool)
     .await
@@ -183,13 +197,14 @@ impl Database {
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
     query_concat_as!(
       User,
-      "INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      "INSERT INTO users (name, email, avatar_url, github_id, gitlab_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING ", USER_SELECT_FULL;
       new_user.name,
       new_user.email,
       new_user.avatar_url,
       new_user.github_id,
+      new_user.gitlab_id,
       new_user.is_blocked,
       new_user.is_staff
     )
@@ -225,6 +240,68 @@ impl Database {
       .await
   }
 
+  #[instrument(name = "Database::upsert_user_by_gitlab_id", skip(
+    self,
+    new_user
+  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ))]
+  pub async fn upsert_user_by_gitlab_id(
+    &self,
+    new_user: NewUser<'_>,
+  ) -> Result<User> {
+    assert!(new_user.gitlab_id.is_some(), "gitlab_id is required");
+    query_concat_as!(
+      User,
+      "INSERT INTO users (name, email, avatar_url, gitlab_id, is_blocked, is_staff)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT(gitlab_id) DO UPDATE
+      SET name = $1, email = $2, avatar_url = $3
+      RETURNING ", USER_SELECT_FULL;
+      new_user.name,
+      new_user.email,
+      new_user.avatar_url,
+      new_user.gitlab_id,
+      new_user.is_blocked,
+      new_user.is_staff
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::user_set_github_id", skip(self), err)]
+  pub async fn user_set_github_id(
+    &self,
+    user: Uuid,
+    id: Option<i64>,
+  ) -> Result<User> {
+    query_concat_as!(
+      User,
+      "UPDATE users SET github_id = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
+      id,
+      user as _,
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::user_set_gitlab_id", skip(self), err)]
+  pub async fn user_set_gitlab_id(
+    &self,
+    user: Uuid,
+    id: Option<i64>,
+  ) -> Result<User> {
+    query_concat_as!(
+      User,
+      "UPDATE users SET gitlab_id = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
+      id,
+      user as _,
+    )
+    .fetch_one(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::user_set_staff", skip(self), err)]
   pub async fn user_set_staff(
     &self,
@@ -249,7 +326,7 @@ impl Database {
     let user = sqlx::query_as!(
       User,
       r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, is_blocked, is_staff, scope_limit,
+      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
         (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
         (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
         (SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
@@ -977,7 +1054,8 @@ impl Database {
       scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
       scopes.updated_at as "scope_updated_at",
       scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
+users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
       usage.package as "usage_package", usage.new_package_per_week as "usage_new_package_per_week", usage.publish_attempts_per_week as "usage_publish_attempts_per_week"
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
@@ -1009,6 +1087,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -1600,6 +1679,7 @@ impl Database {
           name: r.user_name.unwrap(),
           avatar_url: r.user_avatar_url.unwrap(),
           github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at.unwrap(),
           created_at: r.user_created_at.unwrap(),
         };
@@ -2114,6 +2194,7 @@ impl Database {
         name: r.user_name,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at,
         created_at: r.user_created_at,
       };
@@ -2237,6 +2318,7 @@ impl Database {
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
           github_id: r.target_user_github_id,
+          gitlab_id: r.target_user_gitlab_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -2245,6 +2327,7 @@ impl Database {
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
           github_id: r.requesting_user_github_id,
+          gitlab_id: r.requesting_user_gitlab_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -2280,6 +2363,7 @@ impl Database {
           name: r.target_user_name,
           avatar_url: r.target_user_avatar_url,
           github_id: r.target_user_github_id,
+          gitlab_id: r.target_user_gitlab_id,
           updated_at: r.target_user_updated_at,
           created_at: r.target_user_created_at,
         };
@@ -2288,6 +2372,7 @@ impl Database {
           name: r.requesting_user_name,
           avatar_url: r.requesting_user_avatar_url,
           github_id: r.requesting_user_github_id,
+          gitlab_id: r.requesting_user_gitlab_id,
           updated_at: r.requesting_user_updated_at,
           created_at: r.requesting_user_created_at,
         };
@@ -2681,6 +2766,7 @@ impl Database {
           name: r.user_name.unwrap(),
           avatar_url: r.user_avatar_url.unwrap(),
           github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at.unwrap(),
           created_at: r.user_created_at.unwrap(),
         }
@@ -2751,6 +2837,7 @@ impl Database {
             name: r.user_name.unwrap(),
             avatar_url: r.user_avatar_url.unwrap(),
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at.unwrap(),
             created_at: r.user_created_at.unwrap(),
           }
@@ -2832,6 +2919,7 @@ impl Database {
         name: r.user_name.unwrap(),
         avatar_url: r.user_avatar_url.unwrap(),
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at.unwrap(),
         created_at: r.user_created_at.unwrap(),
       });
@@ -2949,6 +3037,7 @@ impl Database {
             name: r.user_name.unwrap(),
             avatar_url: r.user_avatar_url.unwrap(),
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at.unwrap(),
             created_at: r.user_created_at.unwrap(),
           }
@@ -3005,6 +3094,7 @@ impl Database {
             name: r.user_name.unwrap(),
             avatar_url: r.user_avatar_url.unwrap(),
             github_id: r.user_github_id,
+            gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at.unwrap(),
             created_at: r.user_created_at.unwrap(),
           }
@@ -3167,6 +3257,76 @@ impl Database {
       GithubIdentity,
       "SELECT ", GITHUB_IDENTITY_SELECT, " FROM github_identities WHERE github_id = $1";
       github_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_github_identity", skip(self), err)]
+  pub async fn delete_github_identity(
+    &self,
+    github_id: i64,
+  ) -> Result<GithubIdentity> {
+    sqlx::query_as!(
+      GithubIdentity,
+      "DELETE FROM github_identities WHERE github_id = $1
+      RETURNING github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at",
+      github_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::insert_gitlab_identity", skip(
+    self,
+    new_gitlab_identity
+  ), err, fields(gitlab_identity.gitlab_id = new_gitlab_identity.gitlab_id))]
+  pub async fn upsert_gitlab_identity(
+    &self,
+    new_gitlab_identity: NewGitlabIdentity,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "INSERT INTO gitlab_identities (gitlab_id, access_token, access_token_expires_at, refresh_token) VALUES ($1, $2, $3, $4)
+      ON CONFLICT (gitlab_id) DO
+      UPDATE SET access_token = $2, access_token_expires_at = $3, refresh_token = $4
+      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+      new_gitlab_identity.gitlab_id,
+      new_gitlab_identity.access_token,
+      new_gitlab_identity.access_token_expires_at,
+      new_gitlab_identity.refresh_token,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[cfg(not(test))]
+  #[instrument(name = "Database::get_gitlab_identity", skip(self), err)]
+  pub async fn get_gitlab_identity(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "SELECT gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at
+      FROM gitlab_identities
+      WHERE gitlab_id = $1",
+      gitlab_id
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_gitlab_identity", skip(self), err)]
+  pub async fn delete_gitlab_identity(
+    &self,
+    gitlab_id: i64,
+  ) -> Result<GitlabIdentity> {
+    sqlx::query_as!(
+      GitlabIdentity,
+      "DELETE FROM gitlab_identities WHERE gitlab_id = $1
+      RETURNING gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at",
+      gitlab_id
     )
       .fetch_one(&self.pool)
       .await
@@ -3785,6 +3945,7 @@ impl Database {
         email: r.user_email,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
         scope_usage: r.user_scope_usage,
@@ -3894,6 +4055,7 @@ impl Database {
             name: r.user_name,
             avatar_url: r.user_avatar_url,
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at,
             created_at: r.user_created_at,
           };
@@ -3960,6 +4122,7 @@ impl Database {
         email: r.user_email,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
         scope_usage: r.user_scope_usage,
@@ -4000,6 +4163,7 @@ impl Database {
             name: r.user_name,
             avatar_url: r.user_avatar_url,
             github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
             updated_at: r.user_updated_at,
             created_at: r.user_created_at,
           };
@@ -4050,6 +4214,7 @@ impl Database {
         email: r.user_email,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
         scope_usage: r.user_scope_usage,
@@ -4091,6 +4256,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };
@@ -4140,6 +4306,7 @@ impl Database {
         name: r.user_name,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at,
         created_at: r.user_created_at,
       };
@@ -4197,6 +4364,7 @@ impl Database {
         name: r.user_name,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         updated_at: r.user_updated_at,
         created_at: r.user_created_at,
       };
@@ -4276,6 +4444,7 @@ impl Database {
         email: r.user_email,
         avatar_url: r.user_avatar_url,
         github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
         scope_usage: r.user_scope_usage,
@@ -4314,6 +4483,7 @@ impl Database {
           name: r.user_name,
           avatar_url: r.user_avatar_url,
           github_id: r.user_github_id,
+gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at,
           created_at: r.user_created_at,
         };

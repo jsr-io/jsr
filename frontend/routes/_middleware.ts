@@ -26,7 +26,7 @@ const tracing = define.middleware(async (ctx) => {
     return resp;
   } finally {
     const end = new Date();
-    ctx.state.span.record(ctx.url.pathname, start, end, attributes);
+    ctx.state.span.record(ctx.url.pathname, start, end, attributes, "SERVER");
   }
 });
 
@@ -84,4 +84,12 @@ const auth = define.middleware(async (ctx) => {
   return await ctx.next();
 });
 
-export const handler: Middleware<State>[] = [tracing, auth];
+const cache = define.middleware(async (ctx) => {
+  const resp = await ctx.next();
+  if (!ctx.state.api.hasToken() && ctx.state.cacheControl) {
+    resp.headers.set("cache-control", ctx.state.cacheControl);
+  }
+  return resp;
+});
+
+export const handler: Middleware<State>[] = [tracing, auth, cache];

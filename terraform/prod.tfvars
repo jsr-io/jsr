@@ -5,6 +5,7 @@ orama_packages_public_api_key = "c1_qOf4wRA3hbdtDfbVaOJWPFDRGmLbVVxal48UnMfZbFJX
 orama_symbols_public_api_key  = "c1_DPguTK9XAhUOWFiPM9R7_JkCMiAPSH0DQYRts9QYU_mqkAzQTyfDdG03v8W"
 orama_docs_public_api_key     = "c1_QaLbldF71B0D-6ALgEbBra7gTvrhgo0L_JWqGEH3T7yCU8ohrJvGNAfzHl5"
 github_client_id              = "Iv1.c0627603fa450ec3"
+gitlab_client_id              = "ffcfde310e3fc7cc2e9061c28f08268664a80b7d8b56011d239c46d7debf6fd8"
 cloudflare_account_id         = "c3f1be9953433bc0c6fcf7df942a5fea"
 cloudflare_zone_id            = "d0b4d9a871f50fe85f83f8cd9293d9c5"
 production                    = true

@@ -52,10 +52,8 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
-use crate::auth::GithubOauth2Client;
-use crate::auth::access_token;
+use crate::auth;
 use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
@@ -67,6 +65,7 @@ use crate::db::User;
 use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
+use crate::external::orama::OramaClient;
 use crate::gcp;
 use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::gcp::GcsUploadOptions;
@@ -78,9 +77,9 @@ use crate::ids::Version;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
-use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
+use crate::s3::UploadTaskBody;
 use crate::tarball::bucket_tarball_path;
 use crate::util;
 use crate::util::LicenseStore;
@@ -129,18 +128,40 @@ pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/", util::json(list_handler))
     .post("/", util::json(create_handler))
-    .get("/:package", util::json(get_handler))
+    .get(
+      "/:package",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
       "/:package/versions",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_versions_handler),
+      ),
     )
-    .get("/:package/dependents", util::json(list_dependents_handler))
-    .get("/:package/downloads", util::json(get_downloads_handler))
+    .get(
+      "/:package/dependents",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_dependents_handler),
+      ),
+    )
+    .get(
+      "/:package/downloads",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_downloads_handler),
+      ),
+    )
     .get(
       "/:package/versions/:version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_version_handler),
+      ),
     )
     .post(
       "/:package/versions/:version",
@@ -164,33 +185,47 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_docs_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/docs/search",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_handler),
       ),
     )
     .get(
       "/:package/versions/:version/docs/search_structured",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
       "/:package/versions/:version/source",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_source_handler),
+      ),
     )
     .get(
       "/:package/diff/:old_version/:new_version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_diff_handler)),
+      util::cache(CacheDuration::ONE_DAY, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
-      util::json(list_dependencies_handler),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(list_dependencies_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies/graph",
@@ -203,7 +238,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
-    .get("/:package/score", util::json(get_score_handler))
+    .get(
+      "/:package/score",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)),
+    )
     .build()
     .unwrap()
 }
@@ -394,7 +432,6 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
   let db: &Database = req.data::<Database>().unwrap();
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
   let (package, repo, meta) = db
     .get_package(&scope, &package_name)
@@ -446,6 +483,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let github_oauth2_client =
+        req.data::<auth::github::Oauth2Client>().unwrap();
       update_github_repository(
         &user.id,
         sudo,
@@ -598,13 +637,13 @@ async fn update_description(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
+#[instrument(skip(db, scope, package, github_oauth2_client, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
   actor_id: &Uuid,
   is_sudo: bool,
   user: &User,
   db: &Database,
-  github_oauth2_client: &GithubOauth2Client,
+  github_oauth2_client: &auth::github::Oauth2Client,
   scope: ScopeName,
   package: PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
@@ -617,8 +656,9 @@ async fn update_github_repository(
   let ghid = db.get_github_identity(gh_user_id).await?;
   let mut new_ghid = ghid.into();
   let access_token =
-    access_token(db, github_oauth2_client, &mut new_ghid).await?;
-  let github_u2s_client = crate::github::GitHubUserClient::new(access_token);
+    auth::github::access_token(db, github_oauth2_client, &mut new_ghid).await?;
+  let github_u2s_client =
+    crate::external::github::GitHubUserClient::new(access_token);
 
   let repo = github_u2s_client
     .get_repo(&req.owner, &req.name)
@@ -1981,7 +2021,7 @@ struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
 }
 
@@ -2188,7 +2228,7 @@ async fn analyze_deps_tree(
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: IndexMap<String, String>,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
