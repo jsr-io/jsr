@@ -267,7 +267,7 @@ pub async fn scrape_download_counts_handler(
       .query_downloads(format!(
         r#"
 SELECT
-  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
+  toStartOfInterval(timestamp, INTERVAL '1' DAY) as time_bucket,
   blob2 as scope,
   blob3 as package,
   blob4 as ver,
@@ -303,7 +303,7 @@ ORDER BY
       .query_downloads(format!(
         r#"
 SELECT
-  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
+  toStartOfInterval(timestamp, INTERVAL '1' DAY) as time_bucket,
   blob2 as scope,
   blob3 as package,
   blob4 as ver,

@@ -31,13 +31,13 @@ resource "google_cloud_scheduler_job" "clean_oauth_states" {
 
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
-  description = "Scrape download counts from BigQuery & Analytics Engine and insert them into Postgres."
-  schedule    = "15 * * * *"
+  description = "Scrape download counts from Analytics Engine and insert them into Postgres."
+  schedule    = "15 */3 * * *"
   region      = "us-central1"
 
   http_target {
     http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/scrape_download_counts?intervalHrs=12"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/scrape_download_counts?intervalHrs=24"
     oidc_token {
       service_account_email = google_service_account.task_dispatcher.email
     }
