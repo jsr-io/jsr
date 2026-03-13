@@ -421,12 +421,9 @@ impl Database {
     let mut tx = self.pool.begin().await?;
 
     // Check user exists
-    let user_exists = sqlx::query!(
-      r#"SELECT id FROM users WHERE id = $1"#,
-      id
-    )
-    .fetch_optional(&mut *tx)
-    .await?;
+    let user_exists = sqlx::query!(r#"SELECT id FROM users WHERE id = $1"#, id)
+      .fetch_optional(&mut *tx)
+      .await?;
     if user_exists.is_none() {
       return Ok(None);
     }

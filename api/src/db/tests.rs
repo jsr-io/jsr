@@ -193,7 +193,10 @@ async fn users() {
   assert_eq!(users[0].scope_usage, 0);
   assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
-  db.delete_user(&user.id, false, user.id).await.unwrap().unwrap();
+  db.delete_user(&user.id, false, user.id)
+    .await
+    .unwrap()
+    .unwrap();
 
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());

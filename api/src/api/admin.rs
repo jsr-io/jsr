@@ -118,7 +118,12 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
   }
 }
 
-#[instrument(name = "DELETE /api/admin/users/:user_id", skip(req), err, fields(user_id))]
+#[instrument(
+  name = "DELETE /api/admin/users/:user_id",
+  skip(req),
+  err,
+  fields(user_id)
+)]
 pub async fn delete_user_admin(
   req: Request<Body>,
 ) -> ApiResult<hyper::Response<Body>> {
@@ -611,10 +616,7 @@ mod tests {
       .await;
 
     // Cannot delete service account
-    let service_path = format!(
-      "/api/admin/users/{}",
-      uuid::Uuid::nil()
-    );
+    let service_path = format!("/api/admin/users/{}", uuid::Uuid::nil());
     t.http()
       .delete(&service_path)
       .token(Some(&staff_token))
