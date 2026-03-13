@@ -17,6 +17,7 @@ RUN rm src/*.rs
 COPY ./src ./src
 COPY ./migrations ./migrations
 COPY ./license-list-data ./license-list-data
+COPY ./macros ./macros
 COPY ./.sqlx ./.sqlx
 
 # build for release
