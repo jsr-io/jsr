@@ -19,6 +19,9 @@ locals {
     "GITHUB_CLIENT_ID" = var.github_client_id
     # GITHUB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
 
+    "GITLAB_CLIENT_ID" = var.gitlab_client_id
+    # GITLAB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
+
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
     # ORAMA_PACKAGES_PROJECT_KEY is defined inline, because it comes from Secrets Manager
@@ -88,6 +91,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.github_client_secret.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GITLAB_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.gitlab_client_secret.id
             version = "latest"
           }
         }
@@ -241,6 +254,17 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         }
       }
 
+
+      env {
+        name = "GITLAB_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.gitlab_client_secret.id
+            version = "latest"
+          }
+        }
+      }
+
       env {
         name = "ORAMA_PACKAGES_PROJECT_KEY"
         value_source {
@@ -295,6 +319,12 @@ resource "google_project_iam_member" "registry_api_cloudsql" {
 
 resource "google_secret_manager_secret_iam_member" "github_client_secret" {
   secret_id = google_secret_manager_secret.github_client_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "gitlab_client_secret" {
+  secret_id = google_secret_manager_secret.gitlab_client_secret.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

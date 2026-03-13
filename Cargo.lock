@@ -3881,6 +3881,7 @@ dependencies = [
  "pretty_assertions",
  "rand",
  "regex",
+ "registry_api_macros",
  "reqwest 0.11.27",
  "routerify",
  "routerify-query",
@@ -3914,6 +3915,15 @@ dependencies = [
  "urlencoding",
  "uuid",
  "x509-parser",
+]
+
+[[package]]
+name = "registry_api_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]

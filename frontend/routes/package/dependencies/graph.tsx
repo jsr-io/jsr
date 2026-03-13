@@ -82,6 +82,10 @@ export const handler = define.handlers({
       }`,
     };
 
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400"
+      : "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+
     return {
       data: {
         package: pkg,

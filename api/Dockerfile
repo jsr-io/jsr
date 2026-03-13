@@ -8,6 +8,8 @@ WORKDIR /registry_api
 
 # copy over your manifests
 COPY ./Cargo.toml ./Cargo.toml
+COPY ./macros/Cargo.toml ./macros/Cargo.toml
+RUN mkdir -p macros/src && touch macros/src/lib.rs
 
 # this build step will cache your dependencies
 RUN cargo build --release
@@ -17,10 +19,11 @@ RUN rm src/*.rs
 COPY ./src ./src
 COPY ./migrations ./migrations
 COPY ./license-list-data ./license-list-data
+COPY ./macros ./macros
 COPY ./.sqlx ./.sqlx
 
 # build for release
-RUN rm ./target/release/deps/registry_api*
+RUN rm -f ./target/release/deps/registry_api* ./target/release/deps/libregistry_api*
 RUN cargo build --release
 
 # our final base

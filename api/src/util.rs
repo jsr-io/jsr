@@ -25,7 +25,7 @@ use uuid::Uuid;
 use crate::api::ApiError;
 use crate::db::Database;
 use crate::db::Permissions;
-use crate::github::verify_oidc_token;
+use crate::external::github::verify_oidc_token;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
@@ -114,7 +114,9 @@ where
 pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
+  pub const FIVE_MINUTES: CacheDuration = CacheDuration(60 * 5);
   pub const TEN_MINUTES: CacheDuration = CacheDuration(60 * 10);
+  pub const ONE_HOUR: CacheDuration = CacheDuration(60 * 60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
   pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
@@ -128,21 +130,114 @@ where
   HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
 {
   let value =
-    header::HeaderValue::from_str(&format!("public, s-maxage={}", duration.0))
-      .unwrap();
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("public, max-age=60, s-maxage={}, immutable", duration.0)
+    } else {
+      let swr = std::cmp::min(duration.0 * 3, CacheDuration::ONE_DAY.0);
+      format!(
+        "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+        duration.0, swr
+      )
+    })
+    .unwrap();
+  let private_value =
+    header::HeaderValue::from_str(&if duration.0 >= CacheDuration::FOREVER.0 {
+      format!("private, max-age={}, immutable", duration.0)
+    } else {
+      format!("private, max-age={}", duration.0)
+    })
+    .unwrap();
   let handler = Arc::new(handler);
   move |req: Request<Body>| {
     let handler = handler.clone();
     let value = value.clone();
+    let private_value = private_value.clone();
     async move {
       let is_anonymous = req.iam().is_anonymous();
       let mut res = handler(req).await?;
-      if is_anonymous {
-        res
-          .headers_mut()
-          .entry(header::CACHE_CONTROL)
-          .or_insert_with(|| value);
-      }
+      let value = if is_anonymous { value } else { private_value };
+      res
+        .headers_mut()
+        .entry(header::CACHE_CONTROL)
+        .or_insert_with(|| value);
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
+/// Cache middleware that applies different durations based on whether the
+/// `:version` path parameter is a specific version or "latest".
+/// This prevents aggressive caching of "latest"-resolved content while
+/// allowing long caching for immutable versioned content.
+pub fn cache_versioned<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let latest_swr =
+    std::cmp::min(latest_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let latest_value = header::HeaderValue::from_str(&format!(
+    "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+    latest_duration.0, latest_swr
+  ))
+  .unwrap();
+  let versioned_swr =
+    std::cmp::min(versioned_duration.0 * 3, CacheDuration::ONE_DAY.0);
+  let versioned_value = header::HeaderValue::from_str(&if versioned_duration.0
+    >= CacheDuration::FOREVER.0
+  {
+    format!(
+      "public, max-age=60, s-maxage={}, immutable",
+      versioned_duration.0
+    )
+  } else {
+    format!(
+      "public, max-age=30, s-maxage={}, stale-while-revalidate={}",
+      versioned_duration.0, versioned_swr
+    )
+  })
+  .unwrap();
+  let private_latest_value = header::HeaderValue::from_str(&format!(
+    "private, max-age={}",
+    latest_duration.0
+  ))
+  .unwrap();
+  let private_versioned_value =
+    header::HeaderValue::from_str(&if versioned_duration.0
+      >= CacheDuration::FOREVER.0
+    {
+      format!("private, max-age={}, immutable", versioned_duration.0)
+    } else {
+      format!("private, max-age={}", versioned_duration.0)
+    })
+    .unwrap();
+  let handler = Arc::new(handler);
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+    let latest_value = latest_value.clone();
+    let versioned_value = versioned_value.clone();
+    let private_latest_value = private_latest_value.clone();
+    let private_versioned_value = private_versioned_value.clone();
+    async move {
+      let is_anonymous = req.iam().is_anonymous();
+      let is_latest =
+        req.param("version").map(|v| v == "latest").unwrap_or(true);
+      let mut res = handler(req).await?;
+      let value = match (is_anonymous, is_latest) {
+        (true, true) => latest_value,
+        (true, false) => versioned_value,
+        (false, true) => private_latest_value,
+        (false, false) => private_versioned_value,
+      };
+      res
+        .headers_mut()
+        .entry(header::CACHE_CONTROL)
+        .or_insert(value);
       Ok(res)
     }
     .boxed()
@@ -205,6 +300,27 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
   req.set_context(iam_info);
 
   Ok(req)
+}
+
+pub fn full_auth<H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let handler = Arc::new(auth(handler));
+
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+
+    async move {
+      let req = auth_middleware(req).await?;
+      let res = handler(req).await?;
+      Ok(res)
+    }
+    .boxed()
+  }
 }
 
 enum AuthorizationToken<'s> {
@@ -490,10 +606,10 @@ pub fn license_store() -> LicenseStore {
 pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
-  use crate::auth::GithubOauth2Client;
   use crate::db::Database;
   use crate::db::EphemeralDatabase;
   use crate::db::NewGithubIdentity;
+  use crate::db::NewGitlabIdentity;
   use crate::db::NewUser;
   use crate::db::User;
   use crate::errors_internal::ApiErrorStruct;
@@ -550,7 +666,9 @@ pub mod test {
     #[allow(dead_code)]
     pub scope: crate::db::Scope,
     #[allow(dead_code)]
-    pub github_oauth2_client: GithubOauth2Client,
+    pub github_oauth2_client: crate::auth::github::Oauth2Client,
+    #[allow(dead_code)]
+    pub gitlab_oauth2_client: crate::auth::gitlab::Oauth2Client,
     pub service: RequestService<Body, ApiError>,
   }
 
@@ -578,19 +696,16 @@ pub mod test {
         docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
         npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
       };
-      let github_oauth2_client = GithubOauth2Client::new(
-        oauth2::ClientId::new("".to_string()),
-        Some(oauth2::ClientSecret::new("".to_string())),
-        oauth2::AuthUrl::new(
-          "https://github.com/login/oauth/authorize".to_string(),
-        )
-        .unwrap(),
-        Some(
-          oauth2::TokenUrl::new(
-            "https://github.com/login/oauth/access_token".to_string(),
-          )
-          .unwrap(),
-        ),
+      let registry_url = "http://jsr-tests.test".parse().unwrap();
+      let github_oauth2_client = crate::auth::github::Oauth2Client::new(
+        &registry_url,
+        "".to_string(),
+        "".to_string(),
+      );
+      let gitlab_oauth2_client = crate::auth::gitlab::Oauth2Client::new(
+        &registry_url,
+        "".to_string(),
+        "".to_string(),
       );
 
       let user1 = Self::create_user(
@@ -600,6 +715,7 @@ pub mod test {
           email: None,
           avatar_url: "https://avatars0.githubusercontent.com/u/952?v=4",
           github_id: Some(101),
+          gitlab_id: Some(101),
           is_blocked: false,
           is_staff: false,
         },
@@ -614,6 +730,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(102),
+          gitlab_id: Some(102),
           is_blocked: false,
           is_staff: false,
         },
@@ -628,6 +745,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(103),
+          gitlab_id: Some(103),
           is_blocked: false,
           is_staff: false,
         },
@@ -642,6 +760,7 @@ pub mod test {
           email: None,
           avatar_url: "",
           github_id: Some(104),
+          gitlab_id: Some(104),
           is_blocked: false,
           is_staff: true,
         },
@@ -680,10 +799,11 @@ pub mod test {
         database: db,
         buckets: buckets.clone(),
         github_client: github_oauth2_client.clone(),
+        gitlab_client: gitlab_oauth2_client.clone(),
         orama_client: None,
         email_sender: None,
         license_store: license_store.clone(),
-        registry_url: "http://jsr-tests.test".parse().unwrap(),
+        registry_url,
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
@@ -706,6 +826,7 @@ pub mod test {
         staff_user,
         scope,
         github_oauth2_client,
+        gitlab_oauth2_client,
         service,
       }
     }
@@ -721,6 +842,14 @@ pub mod test {
         access_token_expires_at: None,
         refresh_token: None,
         refresh_token_expires_at: None,
+      })
+      .await
+      .unwrap();
+      db.upsert_gitlab_identity(NewGitlabIdentity {
+        gitlab_id: new_user.gitlab_id.unwrap(),
+        access_token: None,
+        access_token_expires_at: None,
+        refresh_token: None,
       })
       .await
       .unwrap();

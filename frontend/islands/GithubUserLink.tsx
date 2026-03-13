@@ -5,12 +5,12 @@ import { useEffect } from "preact/hooks";
 import { User } from "../utils/api_types.ts";
 import { cachedGitHubLogin } from "../utils/github.ts";
 
-export function GitHubUserLink({ user }: { user?: User }) {
+export function GitHubUserLink({ user }: { user: User }) {
   const login = useSignal("");
   const error = useSignal(false);
 
   useEffect(() => {
-    if (user) {
+    if (user.githubId !== null) {
       cachedGitHubLogin(user)
         .then((login_) => {
           login.value = login_;
@@ -23,21 +23,43 @@ export function GitHubUserLink({ user }: { user?: User }) {
     }
   });
 
-  if (error.value) {
-    return (
-      <span class="italic text-[0.625rem]">Could not load GitHub username</span>
-    );
-  }
+  const icon = (
+    <TbBrandGithub
+      class="size-6 text-white rounded-full p-1 bg-jsr-gray-900"
+      aria-hidden
+    />
+  );
 
-  return login.value == ""
-    ? <span className="text-tertiary">loading...</span>
-    : (
+  if (user.githubId === null) {
+    return (
+      <span className="text-tertiary text-sm inline-flex justify-center items-center gap-1">
+        {icon}
+        account not linked
+      </span>
+    );
+  } else if (error.value) {
+    return (
+      <span className="text-tertiary text-sm inline-flex justify-center items-center gap-1">
+        {icon}
+        unavailable
+      </span>
+    );
+  } else if (login.value == "") {
+    return (
+      <span className="text-tertiary text-sm inline-flex justify-center items-center gap-1">
+        {icon}
+        loading...
+      </span>
+    );
+  } else {
+    return (
       <a
         class="link inline-flex justify-center items-center gap-1"
         href={"https://github.com/" + login.value}
       >
-        <TbBrandGithub class="size-4" aria-hidden />
-        GitHub
+        {icon}
+        {login.value}
       </a>
     );
+  }
 }

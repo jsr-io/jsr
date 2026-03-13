@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import { TbBrandGithub, TbFolder, TbPackage } from "tb-icons";
+import { asset } from "fresh/runtime";
+import { TbFolder, TbPackage } from "tb-icons";
 import {
   CreatePackage,
   IconCircle,
@@ -65,12 +66,26 @@ export default define.page<typeof handler>(function New(props) {
                     <p class="text-jsr-gray-700 dark:text-white">
                       You must be logged in to publish a package.
                     </p>
-                    <a
-                      href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
-                      class="button-primary"
-                    >
-                      <TbBrandGithub /> Sign in with GitHub
-                    </a>
+                    <div class="flex gap-5 flex-col xl:flex-row">
+                      <a
+                        href={`/login/github?redirect=${
+                          encodeURIComponent(loginUrl)
+                        }`}
+                        class="button-primary"
+                      >
+                        <img class="size-5" src={asset("/logos/github.svg")} />
+                        Sign in with GitHub
+                      </a>
+                      <a
+                        href={`/login/gitlab?redirect=${
+                          encodeURIComponent(loginUrl)
+                        }`}
+                        class="button-primary"
+                      >
+                        <img class="size-5" src={asset("/logos/gitlab.svg")} />
+                        Sign in with GitLab
+                      </a>
+                    </div>
                   </div>
                 )}
             </div>

@@ -202,8 +202,9 @@ function isAPIRoute(path: string): boolean {
     path === "/sitemap.xml" ||
     path === "/sitemap-scopes.xml" ||
     path === "/sitemap-packages.xml" ||
-    path === "/login" ||
     path.startsWith("/login/") ||
+    path.startsWith("/connect/") ||
+    path.startsWith("/disconnect/") ||
     path === "/logout"
   );
 }

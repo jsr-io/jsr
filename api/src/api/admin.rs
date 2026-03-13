@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::NpmUrl;
 use crate::RegistryUrl;
-use crate::orama::OramaClient;
+use crate::external::orama::OramaClient;
 use crate::s3::Buckets;
 use hyper::Body;
 use hyper::Request;

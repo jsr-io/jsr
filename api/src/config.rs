@@ -68,6 +68,14 @@ pub struct Config {
   /// The GitHub Client Secret
   pub github_client_secret: String,
 
+  #[clap(long = "gitlab_client_id", env = "GITLAB_CLIENT_ID")]
+  /// The GitLab Client ID
+  pub gitlab_client_id: String,
+
+  #[clap(long = "gitlab_client_secret", env = "GITLAB_CLIENT_SECRET")]
+  /// The GitLab Client Secret
+  pub gitlab_client_secret: String,
+
   #[clap(
     long = "orama_packages_project_id",
     env = "ORAMA_PACKAGES_PROJECT_ID"
