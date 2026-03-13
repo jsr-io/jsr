@@ -323,23 +323,15 @@ impl Database {
     )
     .await?;
 
-    let user = sqlx::query_as!(
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-        )) as "newer_ticket_messages_count!"
-      "#,
+      "UPDATE users SET is_staff = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       is_staff,
       user_id
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
