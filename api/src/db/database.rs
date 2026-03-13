@@ -1,6 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+use crate::api::ApiMetrics;
+use crate::ids::PackageName;
+use crate::ids::PackagePath;
+use crate::ids::ScopeDescription;
+use crate::ids::ScopeName;
+use crate::ids::Version;
 use chrono::DateTime;
 use chrono::Utc;
+use registry_api_macros::query_concat;
+use registry_api_macros::query_concat_as;
 use serde_json::json;
 use sqlx::FromRow;
 use sqlx::Result;
@@ -9,13 +17,6 @@ use sqlx::migrate;
 use sqlx::postgres::PgPoolOptions;
 use tracing::instrument;
 use uuid::Uuid;
-
-use crate::api::ApiMetrics;
-use crate::ids::PackageName;
-use crate::ids::PackagePath;
-use crate::ids::ScopeDescription;
-use crate::ids::ScopeName;
-use crate::ids::Version;
 
 use super::models::*;
 
@@ -76,30 +77,13 @@ impl Database {
 
   #[instrument(name = "Database::get_user", skip(self), err)]
   pub async fn get_user(&self, id: Uuid) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      FROM users
-      WHERE id = $1"#,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE id = $1";
       id
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_user_public", skip(self), err)]
@@ -120,30 +104,13 @@ impl Database {
     &self,
     github_id: i64,
   ) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      FROM users
-      WHERE github_id = $1"#,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE github_id = $1";
       github_id
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_user_by_gitlab_id", skip(self), err)]
@@ -151,30 +118,13 @@ impl Database {
     &self,
     gitlab_id: i64,
   ) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      FROM users
-      WHERE gitlab_id = $1"#,
+      "SELECT ", USER_SELECT_FULL, " FROM users WHERE gitlab_id = $1";
       gitlab_id
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::list_users", skip(self), err)]
@@ -208,32 +158,19 @@ impl Database {
       "created_at",
     } || "created_at DESC");
 
-    let users: Vec<User> = sqlx::query_as(
-      &format!(r#"SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count"
+    let users: Vec<User> = sqlx::query_as(&format!(
+      r#"SELECT {}
       FROM users
       WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL)
-      ORDER BY {sort} OFFSET $3 LIMIT $4"#)
-    )
-      .bind(&search)
-      .bind(maybe_id)
-      .bind(start)
-      .bind(limit)
-      .fetch_all(&mut *tx).await?;
+      ORDER BY {sort} OFFSET $3 LIMIT $4"#,
+      crate::db::sql_fragments::USER_SELECT_FULL_RT,
+    ))
+    .bind(&search)
+    .bind(maybe_id)
+    .bind(start)
+    .bind(limit)
+    .fetch_all(&mut *tx)
+    .await?;
 
     let total_users = sqlx::query!(
       r#"SELECT COUNT(created_at) as "count!" FROM users WHERE (name ILIKE $1 OR email ILIKE $1) AND (id = $2 OR $2 IS NULL);"#,
@@ -258,27 +195,11 @@ impl Database {
     )
   )]
   pub async fn insert_user(&self, new_user: NewUser<'_>) -> Result<User> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"INSERT INTO users (name, email, avatar_url, github_id, gitlab_id, is_blocked, is_staff)
+      "INSERT INTO users (name, email, avatar_url, github_id, gitlab_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      RETURNING ", USER_SELECT_FULL;
       new_user.name,
       new_user.email,
       new_user.avatar_url,
@@ -301,29 +222,13 @@ impl Database {
     new_user: NewUser<'_>,
   ) -> Result<User> {
     assert!(new_user.github_id.is_some(), "github_id is required");
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
+      "INSERT INTO users (name, email, avatar_url, github_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT(github_id) DO UPDATE
       SET name = $1, email = $2, avatar_url = $3
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      RETURNING ", USER_SELECT_FULL;
       new_user.name,
       new_user.email,
       new_user.avatar_url,
@@ -345,29 +250,13 @@ impl Database {
     new_user: NewUser<'_>,
   ) -> Result<User> {
     assert!(new_user.gitlab_id.is_some(), "gitlab_id is required");
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"INSERT INTO users (name, email, avatar_url, gitlab_id, is_blocked, is_staff)
+      "INSERT INTO users (name, email, avatar_url, gitlab_id, is_blocked, is_staff)
       VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT(gitlab_id) DO UPDATE
       SET name = $1, email = $2, avatar_url = $3
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      RETURNING ", USER_SELECT_FULL;
       new_user.name,
       new_user.email,
       new_user.avatar_url,
@@ -385,31 +274,15 @@ impl Database {
     user: Uuid,
     id: Option<i64>,
   ) -> Result<User> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"UPDATE users SET github_id = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      "UPDATE users SET github_id = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       id,
       user as _,
     )
-      .fetch_one(&self.pool)
-      .await
+    .fetch_one(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::user_set_gitlab_id", skip(self), err)]
@@ -418,31 +291,15 @@ impl Database {
     user: Uuid,
     id: Option<i64>,
   ) -> Result<User> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"UPDATE users SET gitlab_id = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      "UPDATE users SET gitlab_id = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       id,
       user as _,
     )
-      .fetch_one(&self.pool)
-      .await
+    .fetch_one(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::user_set_staff", skip(self), err)]
@@ -466,23 +323,15 @@ impl Database {
     )
     .await?;
 
-    let user = sqlx::query_as!(
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET is_staff = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-        )) as "newer_ticket_messages_count!"
-      "#,
+      "UPDATE users SET is_staff = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       is_staff,
       user_id
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -510,31 +359,15 @@ impl Database {
     )
     .await?;
 
-    let user = sqlx::query_as!(
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET is_blocked = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      "UPDATE users SET is_blocked = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       is_blocked,
       user_id
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -562,31 +395,15 @@ impl Database {
     )
     .await?;
 
-    let user = sqlx::query_as!(
+    let user = query_concat_as!(
       User,
-      r#"UPDATE users SET scope_limit = $1 WHERE id = $2
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      "UPDATE users SET scope_limit = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
       scope_limit,
       user_id
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -596,31 +413,14 @@ impl Database {
   #[cfg(test)]
   #[instrument(name = "Database::delete_user", skip(self), err)]
   pub async fn delete_user(&self, id: Uuid) -> Result<Option<User>> {
-    sqlx::query_as!(
+    query_concat_as!(
       User,
-      r#"DELETE FROM users
-      WHERE id = $1
-      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
-        (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
-        (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "newer_ticket_messages_count!"
-      "#,
+      "DELETE FROM users WHERE id = $1
+      RETURNING ", USER_SELECT_FULL;
       id
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_package", skip(self), err)]
@@ -629,15 +429,11 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Option<PackageWithGitHubRepoAndMeta>> {
-    sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat: RuntimeCompat", packages.readme_source "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    query_concat!(
+      "SELECT ", PACKAGE_SELECT_JOINED, ", ", GITHUB_REPOSITORY_SELECT_JOINED, "
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
-      WHERE packages.scope = $1 AND packages.name = $2"#,
+      WHERE packages.scope = $1 AND packages.name = $2";
       scope as _,
       name as _
     )
@@ -683,15 +479,14 @@ impl Database {
     name: &PackageName,
   ) -> Result<CreatePackageResult> {
     let mut tx = self.pool.begin().await?;
-    let res = sqlx::query_as!(
+    let res = query_concat_as!(
       Package,
-      r#"
-      INSERT INTO packages (scope, name)
+      "INSERT INTO packages (scope, name)
       VALUES ($1, $2)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
         (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
-      "#,
+      "#;
       scope as _,
       name as _
     )
@@ -766,38 +561,35 @@ impl Database {
     )
     .await?;
 
-    let package = sqlx::query!(
-      r#"UPDATE packages
+    let package = query_concat!(
+      "UPDATE packages
       SET description = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta""#,
+      RETURNING ", PACKAGE_SELECT_JOINED;
       scope as _,
       name as _,
       description
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.scope,
-          name: r.name,
-          description: r.description,
-          github_repository_id: r.github_repository_id,
-          runtime_compat: r.runtime_compat,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-          version_count: r.version_count,
-          latest_version: r.latest_version,
-          when_featured: r.when_featured,
-          is_archived: r.is_archived,
-          readme_source: r.readme_source,
-        };
+    .map(|r| {
+      let package = Package {
+        scope: r.package_scope,
+        name: r.package_name,
+        description: r.package_description,
+        github_repository_id: r.package_github_repository_id,
+        runtime_compat: r.package_runtime_compat,
+        updated_at: r.package_updated_at,
+        created_at: r.package_created_at,
+        version_count: r.package_version_count,
+        latest_version: r.package_latest_version,
+        when_featured: r.package_when_featured,
+        is_archived: r.package_is_archived,
+        readme_source: r.package_readme_source,
+      };
 
-        (package, None, r.package_version_meta.unwrap_or_default())
-      })
-      .fetch_one(&mut *tx)
-      .await?;
+      (package, None, r.package_version_meta.unwrap_or_default())
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -846,38 +638,35 @@ impl Database {
     .fetch_one(&mut *tx)
     .await?;
 
-    let (package, meta) = sqlx::query!(
-      r#"UPDATE packages
+    let (package, meta) = query_concat!(
+      "UPDATE packages
       SET github_repository_id = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta""#,
+      RETURNING ", PACKAGE_SELECT_JOINED;
       scope as _,
       name as _,
       repo.id
     )
-      .map(|r| {
-        let package = Package {
-          scope: r.scope,
-          name: r.name,
-          description: r.description,
-          github_repository_id: r.github_repository_id,
-          runtime_compat: r.runtime_compat,
-          updated_at: r.updated_at,
-          created_at: r.created_at,
-          version_count: r.version_count,
-          latest_version: r.latest_version,
-          when_featured: r.when_featured,
-          is_archived: r.is_archived,
-          readme_source: r.readme_source,
-        };
+    .map(|r| {
+      let package = Package {
+        scope: r.package_scope,
+        name: r.package_name,
+        description: r.package_description,
+        github_repository_id: r.package_github_repository_id,
+        runtime_compat: r.package_runtime_compat,
+        updated_at: r.package_updated_at,
+        created_at: r.package_created_at,
+        version_count: r.package_version_count,
+        latest_version: r.package_latest_version,
+        when_featured: r.package_when_featured,
+        is_archived: r.package_is_archived,
+        readme_source: r.package_readme_source,
+      };
 
-        (package, r.package_version_meta.unwrap_or_default())
-      })
-      .fetch_one(&mut *tx)
-      .await?;
+      (package, r.package_version_meta.unwrap_or_default())
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -910,14 +699,14 @@ impl Database {
     )
     .await?;
 
-    let package = sqlx::query_as!(
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET github_repository_id = NULL
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
     )
@@ -957,14 +746,14 @@ impl Database {
     )
     .await?;
 
-    let package = sqlx::query_as!(
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET runtime_compat = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       runtime_compat as _
@@ -1002,14 +791,14 @@ impl Database {
     )
     .await?;
 
-    let package = sqlx::query_as!(
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET when_featured = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       when_featured,
@@ -1046,14 +835,14 @@ impl Database {
     )
     .await?;
 
-    let package = sqlx::query_as!(
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET is_archived = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       is_archived,
@@ -1090,14 +879,14 @@ impl Database {
     )
     .await?;
 
-    let package = sqlx::query_as!(
+    let package = query_concat_as!(
       Package,
-      r#"UPDATE packages
+      "UPDATE packages
       SET readme_source = $3
       WHERE scope = $1 AND name = $2
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", description, github_repository_id, runtime_compat as "runtime_compat: RuntimeCompat", readme_source as "readme_source: ReadmeSource", when_featured, is_archived, updated_at, created_at,
+      RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#,
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       source as _,
@@ -1137,40 +926,17 @@ impl Database {
     )
     .await?;
 
-    let scope = sqlx::query_as!(
+    let scope = query_concat_as!(
       Scope,
-      r#"
-        WITH ins_scope AS (
+      "WITH ins_scope AS (
             INSERT INTO scopes (scope, creator) VALUES ($1, $2)
-            RETURNING
-            scope,
-            description,
-            creator,
-            package_limit,
-            new_package_per_week_limit,
-            publish_attempts_per_week_limit,
-            verify_oidc_actor,
-            require_publishing_from_ci,
-            updated_at,
-            created_at
+            RETURNING scope, description, creator, package_limit, new_package_per_week_limit, publish_attempts_per_week_limit, verify_oidc_actor, require_publishing_from_ci, updated_at, created_at
         ),
         ins_member AS (
             INSERT INTO scope_members (scope, user_id, is_admin)
             VALUES ($1, $2, true)
         )
-        SELECT
-        scope as "scope: ScopeName",
-        description as "description: ScopeDescription",
-        creator,
-        package_limit,
-        new_package_per_week_limit,
-        publish_attempts_per_week_limit,
-        verify_oidc_actor,
-        require_publishing_from_ci,
-        updated_at,
-        created_at
-        FROM ins_scope
-        "#,
+        SELECT ", SCOPE_SELECT, " FROM ins_scope";
       scope_name,
       user_id,
     )
@@ -1350,40 +1116,29 @@ gitlab_id: r.user_gitlab_id,
     } || "scopes.created_at DESC");
 
     let scopes = sqlx::query(&format!(
-      r#"SELECT
-      scopes.scope as "scope_scope",
-      scopes.description as "scope_description",
-      scopes.creator as "scope_creator",
-      scopes.package_limit as "scope_package_limit",
-      scopes.new_package_per_week_limit as "scope_new_package_per_week_limit",
-      scopes.publish_attempts_per_week_limit as "scope_publish_attempts_per_week_limit",
-      scopes.updated_at as "scope_updated_at",
-      scopes.verify_oidc_actor as "scope_verify_oidc_actor",
-      scopes.require_publishing_from_ci as "scope_require_publishing_from_ci",
-      scopes.created_at as "scope_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
-      (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope) AS "usage_package",
-      (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_new_package_per_week",
-      (SELECT COUNT(created_at) FROM publishing_tasks WHERE publishing_tasks.package_scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_publish_attempts_per_week"
+      r#"SELECT {}, {}, {}
       FROM scopes
       LEFT JOIN users ON scopes.creator = users.id
       WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1
       ORDER BY {sort}
       OFFSET $2 LIMIT $3
       "#,
+      crate::db::sql_fragments::SCOPE_SELECT_JOINED_RT,
+      crate::db::sql_fragments::USER_PUBLIC_SELECT_JOINED_RT,
+      crate::db::sql_fragments::SCOPE_USAGE_SELECT_RT,
     ))
-      .bind(&search)
-      .bind(start)
-      .bind(limit)
-      .try_map(|r| {
-        let scope = Scope::from_row(&r)?;
-        let usage = ScopeUsage::from_row(&r)?;
-        let user = UserPublic::from_row(&r)?;
+    .bind(&search)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let scope = Scope::from_row(&r)?;
+      let usage = ScopeUsage::from_row(&r)?;
+      let user = UserPublic::from_row(&r)?;
 
-        Ok((scope, usage, user))
-      })
-      .fetch_all(&mut *tx)
-      .await?;
+      Ok((scope, usage, user))
+    })
+    .fetch_all(&mut *tx)
+    .await?;
 
     let total_scopes = sqlx::query!(
       r#"SELECT COUNT(scopes.created_at) FROM scopes LEFT JOIN users ON scopes.creator = users.id WHERE scopes.scope ILIKE $1 OR users.name ILIKE $1;"#,
@@ -1404,21 +1159,9 @@ gitlab_id: r.user_gitlab_id,
     &self,
     user_id: Uuid,
   ) -> Result<Vec<Scope>> {
-    sqlx::query_as!(
+    query_concat_as!(
       Scope,
-      r#"SELECT
-      scope as "scope: ScopeName",
-      description as "description: ScopeDescription",
-      creator,
-      package_limit,
-      new_package_per_week_limit,
-      publish_attempts_per_week_limit,
-      verify_oidc_actor,
-      require_publishing_from_ci,
-      updated_at,
-      created_at
-      FROM scopes WHERE creator = $1
-      ORDER BY scope ASC"#,
+      "SELECT ", SCOPE_SELECT, " FROM scopes WHERE creator = $1 ORDER BY scope ASC";
       user_id
     )
     .fetch_all(&self.pool)
@@ -1427,20 +1170,9 @@ gitlab_id: r.user_gitlab_id,
 
   #[instrument(name = "Database::get_scope", skip(self), err)]
   pub async fn get_scope(&self, scope: &ScopeName) -> Result<Option<Scope>> {
-    sqlx::query_as!(
+    query_concat_as!(
       Scope,
-      r#"SELECT
-      scope as "scope: ScopeName",
-      description as "description: ScopeDescription",
-      creator,
-      package_limit,
-      new_package_per_week_limit,
-      publish_attempts_per_week_limit,
-      verify_oidc_actor,
-      require_publishing_from_ci,
-      updated_at,
-      created_at
-      FROM scopes WHERE scope = $1"#,
+      "SELECT ", SCOPE_SELECT, " FROM scopes WHERE scope = $1";
       scope
     )
     .fetch_optional(&self.pool)
@@ -1489,23 +1221,10 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    let scope = sqlx::query_as!(
+    let scope = query_concat_as!(
       Scope,
-      r#"
-        UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
-        RETURNING
-          scope as "scope: ScopeName",
-          description as "description: ScopeDescription",
-          creator,
-          package_limit,
-          new_package_per_week_limit,
-          publish_attempts_per_week_limit,
-          verify_oidc_actor,
-          require_publishing_from_ci,
-          updated_at,
-          created_at
-
-      "#,
+      "UPDATE scopes SET verify_oidc_actor = $1 WHERE scope = $2
+        RETURNING ", SCOPE_SELECT;
       verify_oidc_actor,
       scope as _
     )
@@ -1543,23 +1262,10 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    let scope = sqlx::query_as!(
+    let scope = query_concat_as!(
       Scope,
-      r#"
-        UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
-        RETURNING
-          scope as "scope: ScopeName",
-          description as "description: ScopeDescription",
-          creator,
-          package_limit,
-          new_package_per_week_limit,
-          publish_attempts_per_week_limit,
-          verify_oidc_actor,
-          require_publishing_from_ci,
-          updated_at,
-          created_at
-
-      "#,
+      "UPDATE scopes SET require_publishing_from_ci = $1 WHERE scope = $2
+        RETURNING ", SCOPE_SELECT;
       require_publishing_from_ci,
       scope as _
     )
@@ -1593,23 +1299,10 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    let scope = sqlx::query_as!(
+    let scope = query_concat_as!(
       Scope,
-      r#"
-        UPDATE scopes SET description = $1 WHERE scope = $2
-        RETURNING
-          scope as "scope: ScopeName",
-          description as "description: ScopeDescription",
-          creator,
-          package_limit,
-          new_package_per_week_limit,
-          publish_attempts_per_week_limit,
-          verify_oidc_actor,
-          require_publishing_from_ci,
-          updated_at,
-          created_at
-
-      "#,
+      "UPDATE scopes SET description = $1 WHERE scope = $2
+        RETURNING ", SCOPE_SELECT;
       description,
       scope as _
     )
@@ -1631,17 +1324,13 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
     let mut tx = self.pool.begin().await?;
 
-    let packages = sqlx::query!(
-      r#"SELECT packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat: RuntimeCompat", packages.readme_source as "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta: PackageVersionMeta",
-        github_repositories.id "github_repository_id?", github_repositories.owner "github_repository_owner?", github_repositories.name "github_repository_name?", github_repositories.updated_at "github_repository_updated_at?", github_repositories.created_at "github_repository_created_at?"
+    let packages = query_concat!(
+      "SELECT ", PACKAGE_SELECT_JOINED, ", ", GITHUB_REPOSITORY_SELECT_JOINED, "
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
       ORDER BY packages.is_archived ASC, packages.name
-      OFFSET $3 LIMIT $4"#,
+      OFFSET $3 LIMIT $4";
       scope as _,
       show_archived,
       start,
@@ -1759,11 +1448,7 @@ gitlab_id: r.user_gitlab_id,
     } || "packages.name ASC, packages.scope ASC");
 
     let packages = sqlx::query(
-      &format!(r#"SELECT packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat", packages.when_featured "package_when_featured", packages.readme_source "package_readme_source", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at",  packages.created_at "package_created_at",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-        (SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta",
-        github_repositories.id "github_repository_id", github_repositories.owner "github_repository_owner", github_repositories.name "github_repository_name", github_repositories.updated_at "github_repository_updated_at", github_repositories.created_at "github_repository_created_at"
+      &format!(r#"SELECT {}, {}
        FROM packages
        LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
        WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
@@ -1774,7 +1459,10 @@ gitlab_id: r.user_gitlab_id,
            ELSE 3 -- Fuzzy matches will be ordered by package name and then scope name below
         END,
         {sort}
-       OFFSET $6 LIMIT $7"#),
+       OFFSET $6 LIMIT $7"#,
+        crate::db::sql_fragments::PACKAGE_SELECT_JOINED_RT,
+        crate::db::sql_fragments::GITHUB_REPOSITORY_SELECT_JOINED_RT,
+      ),
     )
       .bind(&scope_ilike_query)
       .bind(&package_ilike_query)
@@ -1950,53 +1638,53 @@ gitlab_id: r.user_gitlab_id,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
-    sqlx::query!(
-      r#"SELECT package_versions.scope as "package_version_scope: ScopeName", package_versions.name as "package_version_name: PackageName", package_versions.version as "package_version_version: Version", package_versions.user_id as "package_version_user_id", package_versions.readme_path as "package_version_readme_path: PackagePath", package_versions.exports as "package_version_exports: ExportsMap", package_versions.is_yanked as "package_version_is_yanked", package_versions.uses_npm as "package_version_uses_npm", package_versions.meta as "package_version_meta: PackageVersionMeta", package_versions.updated_at as "package_version_updated_at", package_versions.created_at as "package_version_created_at", package_versions.rekor_log_id as "package_version_rekor_log_id", package_versions.license as "package_version_license",
-      users.id as "user_id?", users.name as "user_name?", users.avatar_url as "user_avatar_url?", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at?", users.created_at as "user_created_at?"
+    query_concat!(
+      "SELECT ", PACKAGE_VERSION_SELECT_JOINED, ",
+      ", USER_PUBLIC_SELECT_JOINED, "
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
       WHERE package_versions.scope = $1 AND package_versions.name = $2
-      ORDER BY package_versions.version DESC"#,
+      ORDER BY package_versions.version DESC";
       scope as _,
       name as _,
     )
-      .map(|r| {
-        let package_version = PackageVersion {
-          scope: r.package_version_scope,
-          name: r.package_version_name,
-          version: r.package_version_version,
-          user_id: r.package_version_user_id,
-          exports: r.package_version_exports,
-          is_yanked: r.package_version_is_yanked,
-          readme_path: r.package_version_readme_path,
-          uses_npm: r.package_version_uses_npm,
-          meta: r.package_version_meta,
-          updated_at: r.package_version_updated_at,
-          created_at: r.package_version_created_at,
-          rekor_log_id: r.package_version_rekor_log_id,
-          license: r.package_version_license,
+    .map(|r| {
+      let package_version = PackageVersion {
+        scope: r.package_version_scope,
+        name: r.package_version_name,
+        version: r.package_version_version,
+        user_id: r.package_version_user_id,
+        exports: r.package_version_exports,
+        is_yanked: r.package_version_is_yanked,
+        readme_path: r.package_version_readme_path,
+        uses_npm: r.package_version_uses_npm,
+        meta: r.package_version_meta,
+        updated_at: r.package_version_updated_at,
+        created_at: r.package_version_created_at,
+        rekor_log_id: r.package_version_rekor_log_id,
+        license: r.package_version_license,
+      };
+
+      let user = if r.package_version_user_id.is_some() {
+        let user = UserPublic {
+          id: r.user_id.unwrap(),
+          name: r.user_name.unwrap(),
+          avatar_url: r.user_avatar_url.unwrap(),
+          github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
+          updated_at: r.user_updated_at.unwrap(),
+          created_at: r.user_created_at.unwrap(),
         };
 
-        let user = if r.package_version_user_id.is_some() {
-          let user = UserPublic {
-            id: r.user_id.unwrap(),
-            name: r.user_name.unwrap(),
-            avatar_url: r.user_avatar_url.unwrap(),
-            github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-            updated_at: r.user_updated_at.unwrap(),
-            created_at: r.user_created_at.unwrap(),
-          };
+        Some(user)
+      } else {
+        None
+      };
 
-          Some(user)
-        } else {
-          None
-        };
-
-        (package_version, user)
-      })
-      .fetch_all(&self.pool)
-      .await
+      (package_version, user)
+    })
+    .fetch_all(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -2065,13 +1753,13 @@ gitlab_id: r.user_gitlab_id,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Option<PackageVersion>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license
+      "SELECT ", PACKAGE_VERSION_SELECT, "
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
-      LIMIT 1"#,
+      LIMIT 1";
       scope as _,
       name as _,
     )
@@ -2089,20 +1777,14 @@ gitlab_id: r.user_gitlab_id,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersionWithNewerVersionsCount,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+      "SELECT ", PACKAGE_VERSION_SELECT, ",
+      ", NEWER_VERSIONS_COUNT_SUBQUERY, "
       FROM package_versions
       WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
       ORDER BY version DESC
-      LIMIT 1"#,
+      LIMIT 1";
       scope as _,
       name as _,
     )
@@ -2145,17 +1827,17 @@ gitlab_id: r.user_gitlab_id,
     name: &PackageName,
     version: &Version,
   ) -> Result<Option<PackageVersion>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersion,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license
+      "SELECT ", PACKAGE_VERSION_SELECT, "
       FROM package_versions
-      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      WHERE scope = $1 AND name = $2 AND version = $3";
       scope as _,
       name as _,
       version as _
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -2169,24 +1851,18 @@ gitlab_id: r.user_gitlab_id,
     name: &PackageName,
     version: &Version,
   ) -> Result<Option<PackageVersionWithNewerVersionsCount>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersionWithNewerVersionsCount,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!"
+      "SELECT ", PACKAGE_VERSION_SELECT, ",
+      ", NEWER_VERSIONS_COUNT_SUBQUERY, "
       FROM package_versions
-      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      WHERE scope = $1 AND name = $2 AND version = $3";
       scope as _,
       name as _,
       version as _
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -2267,16 +1943,16 @@ gitlab_id: r.user_gitlab_id,
       .execute(&mut *tx)
       .await?;
 
-    let task = sqlx::query_as!(
+    let task = query_concat_as!(
       PublishingTask,
-      r#"UPDATE publishing_tasks
+      "UPDATE publishing_tasks
       SET status = 'processed'
       WHERE id = $1 AND status = 'processing'
-      RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
+      RETURNING ", PUBLISHING_TASK_SELECT;
       publishing_task_id,
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -2293,18 +1969,12 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_package_version: NewPackageVersion<'_>,
   ) -> Result<PackageVersionWithNewerVersionsCount> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersionWithNewerVersionsCount,
-      r#"INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
+      "INSERT INTO package_versions (scope, name, version, user_id, readme_path, exports, uses_npm, meta)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license,
-      (SELECT COUNT(*)
-        FROM package_versions AS pv
-        WHERE pv.scope = package_versions.scope
-        AND pv.name = package_versions.name
-        AND pv.version > package_versions.version
-        AND pv.version NOT LIKE '%-%'
-        AND pv.is_yanked = false) as "newer_versions_count!""#,
+      RETURNING ", PACKAGE_VERSION_SELECT, ",
+      ", NEWER_VERSIONS_COUNT_SUBQUERY;
       new_package_version.scope as _,
       new_package_version.name as _,
       new_package_version.version as _,
@@ -2344,19 +2014,19 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    let package_version = sqlx::query_as!(
+    let package_version = query_concat_as!(
       PackageVersion,
-      r#"UPDATE package_versions
+      "UPDATE package_versions
       SET is_yanked = $4
       WHERE scope = $1 AND name = $2 AND version = $3
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", user_id, readme_path as "readme_path: PackagePath", exports as "exports: ExportsMap", is_yanked, uses_npm, meta as "meta: PackageVersionMeta", updated_at, created_at, rekor_log_id, license"#,
+      RETURNING ", PACKAGE_VERSION_SELECT;
       scope as _,
       name as _,
       version as _,
       yank
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -2408,17 +2078,17 @@ gitlab_id: r.user_gitlab_id,
     name: &PackageName,
     version: &Version,
   ) -> Result<Vec<PackageFile>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageFile,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at
+      "SELECT ", PACKAGE_FILE_SELECT, "
       FROM package_files
-      WHERE scope = $1 AND name = $2 AND version = $3"#,
+      WHERE scope = $1 AND name = $2 AND version = $3";
       scope as _,
       name as _,
       version as _
     )
-      .fetch_all(&self.pool)
-      .await
+    .fetch_all(&self.pool)
+    .await
   }
 
   #[cfg(test)]
@@ -2431,11 +2101,11 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_package_file: NewPackageFile<'_>,
   ) -> Result<PackageFile> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageFile,
-      r#"INSERT INTO package_files (scope, name, version, path, size, checksum)
+      "INSERT INTO package_files (scope, name, version, path, size, checksum)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", path as "path: PackagePath", size, checksum, updated_at, created_at"#,
+      RETURNING ", PACKAGE_FILE_SELECT;
       new_package_file.scope as _,
       new_package_file.name as _,
       new_package_file.version as _,
@@ -2443,8 +2113,8 @@ gitlab_id: r.user_gitlab_id,
       new_package_file.size,
       new_package_file.checksum
     )
-      .fetch_one(&self.pool)
-      .await
+    .fetch_one(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -2456,11 +2126,11 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_npm_tarball: NewNpmTarball<'_>,
   ) -> Result<NpmTarball> {
-    sqlx::query_as!(
+    query_concat_as!(
       NpmTarball,
-      r#"INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)
+      "INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at"#,
+      RETURNING ", NPM_TARBALL_SELECT;
       new_npm_tarball.scope as _,
       new_npm_tarball.name as _,
       new_npm_tarball.version as _,
@@ -2479,10 +2149,9 @@ gitlab_id: r.user_gitlab_id,
     scope: &ScopeName,
     user_id: Uuid,
   ) -> Result<Option<ScopeMember>> {
-    sqlx::query_as!(
+    query_concat_as!(
       ScopeMember,
-      r#"SELECT scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at
-    FROM scope_members WHERE scope = $1 AND user_id = $2"#,
+      "SELECT ", SCOPE_MEMBER_SELECT, " FROM scope_members WHERE scope = $1 AND user_id = $2";
       scope as _,
       user_id
     )
@@ -2495,37 +2164,36 @@ gitlab_id: r.user_gitlab_id,
     &self,
     scope: &ScopeName,
   ) -> Result<Vec<(ScopeMember, UserPublic)>> {
-    sqlx::query!(
-      r#"SELECT scope_members.scope as "scope_member_scope: ScopeName", scope_members.user_id as "scope_member_user_id", scope_members.is_admin as "scope_member_is_admin", scope_members.updated_at as "scope_member_updated_at", scope_members.created_at as "scope_member_created_at",
-        users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
+    query_concat!(
+      "SELECT ", SCOPE_MEMBER_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_RT, "
       FROM scope_members
       LEFT JOIN users ON scope_members.user_id = users.id
       WHERE scope = $1
-      ORDER BY users.name ASC"#,
+      ORDER BY users.name ASC";
       scope as _
     )
-      .map(|r| {
-        let scope_member = ScopeMember {
-          scope: r.scope_member_scope,
-          user_id: r.scope_member_user_id,
-          is_admin: r.scope_member_is_admin,
-          created_at: r.scope_member_created_at,
-          updated_at: r.scope_member_updated_at,
-        };
-        let user = UserPublic {
-          id: r.user_id,
-          name: r.user_name,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
-        (scope_member, user)
-      })
-      .fetch_all(&self.pool)
-      .await
+    .map(|r| {
+      let scope_member = ScopeMember {
+        scope: r.scope_member_scope,
+        user_id: r.scope_member_user_id,
+        is_admin: r.scope_member_is_admin,
+        created_at: r.scope_member_created_at,
+        updated_at: r.scope_member_updated_at,
+      };
+      let user = UserPublic {
+        id: r.user_id,
+        name: r.user_name,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
+      (scope_member, user)
+    })
+    .fetch_all(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_member_scopes_by_user", skip(self), err)]
@@ -2576,17 +2244,17 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    let scope_invite = sqlx::query_as!(
+    let scope_invite = query_concat_as!(
       ScopeInvite,
-      r#"INSERT INTO scope_invites (scope, target_user_id, requesting_user_id)
+      "INSERT INTO scope_invites (scope, target_user_id, requesting_user_id)
       VALUES ($1, $2, $3)
-      RETURNING scope as "scope: ScopeName", target_user_id, requesting_user_id, updated_at, created_at"#,
+      RETURNING ", SCOPE_INVITE_SELECT;
       new_scope_invite.scope as _,
       new_scope_invite.target_user_id,
       new_scope_invite.requesting_user_id,
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -2603,17 +2271,17 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_scope_member: NewScopeMember<'_>,
   ) -> Result<ScopeMember> {
-    sqlx::query_as!(
+    query_concat_as!(
       ScopeMember,
-      r#"INSERT INTO scope_members (scope, user_id, is_admin)
+      "INSERT INTO scope_members (scope, user_id, is_admin)
       VALUES ($1, $2, $3)
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      RETURNING ", SCOPE_MEMBER_SELECT;
       new_scope_member.scope as _,
       new_scope_member.user_id,
       new_scope_member.is_admin,
     )
-      .fetch_one(&self.pool)
-      .await
+    .fetch_one(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_scope_invites_by_user", skip(self), err)]
@@ -2621,14 +2289,12 @@ gitlab_id: r.user_gitlab_id,
     &self,
     target_user: &Uuid,
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
-    sqlx::query!(
-      r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.github_id as "target_user_github_id", target_user.gitlab_id as "target_user_gitlab_id", target_user.avatar_url as "target_user_avatar_url", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.github_id as "requesting_user_github_id", requesting_user.gitlab_id as "requesting_user_gitlab_id", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+    query_concat!(
+      "SELECT ", SCOPE_INVITE_SELECT_JOINED, "
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
-      WHERE target_user_id = $1"#,
+      WHERE target_user_id = $1";
       target_user
     )
       .map(|r| {
@@ -2668,14 +2334,12 @@ gitlab_id: r.user_gitlab_id,
     &self,
     scope: &ScopeName,
   ) -> Result<Vec<(ScopeInvite, UserPublic, UserPublic)>> {
-    sqlx::query!(
-      r#"SELECT scope_invites.scope as "scope_invite_scope: ScopeName", scope_invites.target_user_id as "scope_invite_target_user_id", scope_invites.requesting_user_id as "scope_invite_requesting_user_id", scope_invites.updated_at as "scope_invite_updated_at", scope_invites.created_at as "scope_invite_created_at",
-        target_user.id as "target_user_id", target_user.name as "target_user_name", target_user.avatar_url as "target_user_avatar_url", target_user.github_id as "target_user_github_id", target_user.gitlab_id as "target_user_gitlab_id", target_user.updated_at as "target_user_updated_at", target_user.created_at as "target_user_created_at",
-        requesting_user.id as "requesting_user_id", requesting_user.name as "requesting_user_name", requesting_user.avatar_url as "requesting_user_avatar_url", requesting_user.github_id as "requesting_user_github_id", requesting_user.gitlab_id as "requesting_user_gitlab_id", requesting_user.updated_at as "requesting_user_updated_at", requesting_user.created_at as "requesting_user_created_at"
+    query_concat!(
+      "SELECT ", SCOPE_INVITE_SELECT_JOINED, "
       FROM scope_invites
       LEFT JOIN users AS target_user ON scope_invites.target_user_id = target_user.id
       LEFT JOIN users AS requesting_user ON scope_invites.requesting_user_id = requesting_user.id
-      WHERE scope = $1"#,
+      WHERE scope = $1";
       scope as _
     )
       .map(|r| {
@@ -2729,15 +2393,15 @@ gitlab_id: r.user_gitlab_id,
       return Ok(None);
     }
 
-    let member = sqlx::query_as!(
+    let member = query_concat_as!(
       ScopeMember,
-      r#"INSERT INTO scope_members (scope, user_id) VALUES ($1, $2)
-      RETURNING scope as "scope: ScopeName", user_id, is_admin, updated_at, created_at"#,
+      "INSERT INTO scope_members (scope, user_id) VALUES ($1, $2)
+      RETURNING ", SCOPE_MEMBER_SELECT;
       scope as _,
       target_user_id,
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -3063,29 +2727,14 @@ gitlab_id: r.user_gitlab_id,
     let mut tx = self.pool.begin().await?;
 
     // only allow insert if no non status==failure tasks exist
-    let already_processing = sqlx::query!(
-      r#"SELECT
-        publishing_tasks.id as "task_id",
-        publishing_tasks.status as "task_status: PublishingTaskStatus",
-        publishing_tasks.error as "task_error: PublishingTaskError",
-        publishing_tasks.user_id as "task_user_id",
-        publishing_tasks.package_scope as "task_package_scope: ScopeName",
-        publishing_tasks.package_name as "task_package_name: PackageName",
-        publishing_tasks.package_version as "task_package_version: Version",
-        publishing_tasks.config_file as "task_config_file: PackagePath",
-        publishing_tasks.created_at as "task_created_at",
-        publishing_tasks.updated_at as "task_updated_at",
-        users.id as "user_id?",
-        users.name as "user_name?",
-        users.avatar_url as "user_avatar_url?",
-        users.github_id as "user_github_id?",
-users.gitlab_id as "user_gitlab_id?",
-        users.updated_at as "user_updated_at?",
-        users.created_at as "user_created_at?"
+    let already_processing = query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
       LEFT JOIN users on publishing_tasks.user_id = users.id
       WHERE package_scope = $1 AND package_name = $2 AND package_version = $3 AND status != 'failure'
-      LIMIT 1"#,
+      LIMIT 1";
       task.package_scope as _,
       task.package_name as _,
       task.package_version as _
@@ -3109,7 +2758,7 @@ users.gitlab_id as "user_gitlab_id?",
           name: r.user_name.unwrap(),
           avatar_url: r.user_avatar_url.unwrap(),
           github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
+          gitlab_id: r.user_gitlab_id,
           updated_at: r.user_updated_at.unwrap(),
           created_at: r.user_created_at.unwrap(),
         }
@@ -3124,8 +2773,8 @@ gitlab_id: r.user_gitlab_id,
       return Ok(CreatePublishingTaskResult::Exists(already_processing));
     }
 
-    let task = sqlx::query!(
-      r#"WITH task AS (
+    let task = query_concat!(
+      "WITH task AS (
           INSERT INTO publishing_tasks (user_id, package_scope, package_name, package_version, config_file)
           VALUES ($1, $2, $3, $4, $5)
           RETURNING
@@ -3141,25 +2790,19 @@ gitlab_id: r.user_gitlab_id,
             updated_at
         )
         SELECT
-          task.id as "task_id",
-          task.status as "task_status: PublishingTaskStatus",
-          task.error as "task_error: PublishingTaskError",
-          task.user_id as "task_user_id",
-          task.package_scope as "task_package_scope: ScopeName",
-          task.package_name as "task_package_name: PackageName",
-          task.package_version as "task_package_version: Version",
-          task.config_file as "task_config_file: PackagePath",
-          task.created_at as "task_created_at",
-          task.updated_at as "task_updated_at",
-        users.id as "user_id?",
-        users.name as "user_name?",
-        users.avatar_url as "user_avatar_url?",
-        users.github_id as "user_github_id?",
-users.gitlab_id as "user_gitlab_id?",
-        users.updated_at as "user_updated_at?",
-        users.created_at as "user_created_at?"
+          task.id as \"task_id\",
+          task.status as \"task_status: PublishingTaskStatus\",
+          task.error as \"task_error: PublishingTaskError\",
+          task.user_id as \"task_user_id\",
+          task.package_scope as \"task_package_scope: ScopeName\",
+          task.package_name as \"task_package_name: PackageName\",
+          task.package_version as \"task_package_version: Version\",
+          task.config_file as \"task_config_file: PackagePath\",
+          task.created_at as \"task_created_at\",
+          task.updated_at as \"task_updated_at\",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
         FROM task
-        LEFT JOIN users ON task.user_id = users.id"#,
+        LEFT JOIN users ON task.user_id = users.id";
       task.user_id,
       task.package_scope as _,
       task.package_name as _,
@@ -3240,28 +2883,13 @@ gitlab_id: r.user_gitlab_id,
     &self,
     id: Uuid,
   ) -> Result<Option<(PublishingTask, Option<UserPublic>)>> {
-    sqlx::query!(
-      r#"SELECT
-        publishing_tasks.id as "task_id",
-        publishing_tasks.status as "task_status: PublishingTaskStatus",
-        publishing_tasks.error as "task_error: PublishingTaskError",
-        publishing_tasks.user_id as "task_user_id",
-        publishing_tasks.package_scope as "task_package_scope: ScopeName",
-        publishing_tasks.package_name as "task_package_name: PackageName",
-        publishing_tasks.package_version as "task_package_version: Version",
-        publishing_tasks.config_file as "task_config_file: PackagePath",
-        publishing_tasks.created_at as "task_created_at",
-        publishing_tasks.updated_at as "task_updated_at",
-        users.id as "user_id?",
-        users.name as "user_name?",
-        users.avatar_url as "user_avatar_url?",
-        users.github_id as "user_github_id?",
-        users.gitlab_id as "user_gitlab_id?",
-        users.updated_at as "user_updated_at?",
-        users.created_at as "user_created_at?"
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
       LEFT JOIN users on publishing_tasks.user_id = users.id
-      WHERE publishing_tasks.id = $1"#,
+      WHERE publishing_tasks.id = $1";
       id
     )
     .map(|r| {
@@ -3319,29 +2947,15 @@ gitlab_id: r.user_gitlab_id,
 
     let publishing_tasks = sqlx::query(&format!(
       r#"SELECT
-        publishing_tasks.id as "task_id",
-        publishing_tasks.status as "task_status",
-        publishing_tasks.error as "task_error",
-        publishing_tasks.user_id as "task_user_id",
-        publishing_tasks.package_scope as "task_package_scope",
-        publishing_tasks.package_name as "task_package_name",
-        publishing_tasks.package_version as "task_package_version",
-        publishing_tasks.config_file as "task_config_file",
-        publishing_tasks.created_at as "task_created_at",
-        publishing_tasks.updated_at as "task_updated_at",
-        users.id as "user_id",
-        users.name as "user_name",
-        users.avatar_url as "user_avatar_url",
-        users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-        users.updated_at as "user_updated_at",
-        users.created_at as "user_created_at"
+        {}, {}
       FROM publishing_tasks
       LEFT JOIN users on publishing_tasks.user_id = users.id
       WHERE publishing_tasks.package_scope ILIKE $1
          OR publishing_tasks.package_name ILIKE $1
          OR publishing_tasks.package_version ILIKE $1
-      ORDER BY {sort} OFFSET $2 LIMIT $3"#
+      ORDER BY {sort} OFFSET $2 LIMIT $3"#,
+      crate::db::sql_fragments::PUBLISHING_TASK_SELECT_JOINED_RT,
+      crate::db::sql_fragments::USER_PUBLIC_SELECT_JOINED_RT,
     ))
     .bind(&search)
     .bind(start)
@@ -3383,30 +2997,15 @@ users.gitlab_id as "user_gitlab_id",
     scope_name: &ScopeName,
     package_name: &PackageName,
   ) -> Result<Vec<(PublishingTask, Option<UserPublic>)>> {
-    sqlx::query!(
-      r#"SELECT
-        publishing_tasks.id as "task_id",
-        publishing_tasks.status as "task_status: PublishingTaskStatus",
-        publishing_tasks.error as "task_error: PublishingTaskError",
-        publishing_tasks.user_id as "task_user_id",
-        publishing_tasks.package_scope as "task_package_scope: ScopeName",
-        publishing_tasks.package_name as "task_package_name: PackageName",
-        publishing_tasks.package_version as "task_package_version: Version",
-        publishing_tasks.config_file as "task_config_file: PackagePath",
-        publishing_tasks.created_at as "task_created_at",
-        publishing_tasks.updated_at as "task_updated_at",
-        users.id as "user_id?",
-        users.name as "user_name?",
-        users.avatar_url as "user_avatar_url?",
-        users.github_id as "user_github_id?",
-users.gitlab_id as "user_gitlab_id?",
-        users.updated_at as "user_updated_at?",
-        users.created_at as "user_created_at?"
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
       LEFT JOIN users on publishing_tasks.user_id = users.id
       JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
       WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.created_at >= packages.created_at
-      ORDER BY publishing_tasks.package_version DESC"#,
+      ORDER BY publishing_tasks.package_version DESC";
       scope_name as _,
       package_name as _,
     )
@@ -3453,31 +3052,16 @@ gitlab_id: r.user_gitlab_id,
     package_name: &PackageName,
     version: &Version,
   ) -> Result<(PublishingTask, Option<UserPublic>)> {
-    sqlx::query!(
-      r#"SELECT
-        publishing_tasks.id as "task_id",
-        publishing_tasks.status as "task_status: PublishingTaskStatus",
-        publishing_tasks.error as "task_error: PublishingTaskError",
-        publishing_tasks.user_id as "task_user_id",
-        publishing_tasks.package_scope as "task_package_scope: ScopeName",
-        publishing_tasks.package_name as "task_package_name: PackageName",
-        publishing_tasks.package_version as "task_package_version: Version",
-        publishing_tasks.config_file as "task_config_file: PackagePath",
-        publishing_tasks.created_at as "task_created_at",
-        publishing_tasks.updated_at as "task_updated_at",
-        users.id as "user_id?",
-        users.name as "user_name?",
-        users.avatar_url as "user_avatar_url?",
-        users.github_id as "user_github_id?",
-        users.gitlab_id as "user_gitlab_id?",
-        users.updated_at as "user_updated_at?",
-        users.created_at as "user_created_at?"
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
       FROM publishing_tasks
       LEFT JOIN users on publishing_tasks.user_id = users.id
       JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
       WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.package_version = $3 AND publishing_tasks.created_at >= packages.created_at
       ORDER BY publishing_tasks.created_at DESC
-      LIMIT 1"#,
+      LIMIT 1";
       scope_name as _,
       package_name as _,
       version as _,
@@ -3548,19 +3132,19 @@ gitlab_id: r.user_gitlab_id,
       .await?;
     }
 
-    let task = sqlx::query_as!(
+    let task = query_concat_as!(
       PublishingTask,
-      r#"UPDATE publishing_tasks
+      "UPDATE publishing_tasks
       SET status = $1, error = $2
       WHERE id = $3 AND status = $4
-      RETURNING id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#,
+      RETURNING ", PUBLISHING_TASK_SELECT;
       new_status as _,
       new_error as _,
       id,
       prev_status as _,
     )
-      .fetch_one(&mut *tx)
-      .await?;
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -3572,13 +3156,13 @@ gitlab_id: r.user_gitlab_id,
     &self,
     csrf_token: &str,
   ) -> Result<Option<OauthState>> {
-    sqlx::query_as!(
+    query_concat_as!(
       OauthState,
-      "SELECT csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at FROM oauth_states WHERE csrf_token = $1",
+      "SELECT ", OAUTH_STATE_SELECT, " FROM oauth_states WHERE csrf_token = $1";
       csrf_token
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::delete_expired_oauth_states", skip(self), err)]
@@ -3604,17 +3188,17 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_oauth_state: NewOauthState<'a>,
   ) -> Result<OauthState> {
-    sqlx::query_as!(
+    query_concat_as!(
       OauthState,
       "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url)
       VALUES ($1, $2, $3)
-      RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
+      RETURNING ", OAUTH_STATE_SELECT;
       new_oauth_state.csrf_token,
       new_oauth_state.pkce_code_verifier,
       new_oauth_state.redirect_url,
     )
-      .fetch_one(&self.pool)
-      .await
+    .fetch_one(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::delete_oauth_state", skip(self), err)]
@@ -3622,15 +3206,14 @@ gitlab_id: r.user_gitlab_id,
     &self,
     csrf_token: &str,
   ) -> Result<Option<OauthState>> {
-    sqlx::query_as!(
+    query_concat_as!(
       OauthState,
-      "DELETE FROM oauth_states
-      WHERE csrf_token = $1
-      RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
+      "DELETE FROM oauth_states WHERE csrf_token = $1
+      RETURNING ", OAUTH_STATE_SELECT;
       csrf_token
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::insert_github_identity", skip(
@@ -3641,12 +3224,12 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_github_identity: NewGithubIdentity,
   ) -> Result<GithubIdentity> {
-    sqlx::query_as!(
+    query_concat_as!(
       GithubIdentity,
       "INSERT INTO github_identities (github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at) VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (github_id) DO
       UPDATE SET access_token = $2, access_token_expires_at = $3, refresh_token = $4, refresh_token_expires_at = $5
-      RETURNING github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at",
+      RETURNING ", GITHUB_IDENTITY_SELECT;
       new_github_identity.github_id,
       new_github_identity.access_token,
       new_github_identity.access_token_expires_at,
@@ -3662,11 +3245,9 @@ gitlab_id: r.user_gitlab_id,
     &self,
     github_id: i64,
   ) -> Result<GithubIdentity> {
-    sqlx::query_as!(
+    query_concat_as!(
       GithubIdentity,
-      "SELECT github_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at, updated_at, created_at
-      FROM github_identities
-      WHERE github_id = $1",
+      "SELECT ", GITHUB_IDENTITY_SELECT, " FROM github_identities WHERE github_id = $1";
       github_id
     )
       .fetch_one(&self.pool)
@@ -3750,11 +3331,11 @@ gitlab_id: r.user_gitlab_id,
     fields(token.r#type = ?new_token.r#type)
   )]
   pub async fn insert_token(&self, new_token: NewToken) -> Result<Token> {
-    sqlx::query_as!(
+    query_concat_as!(
       Token,
-      r#"INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)
+      "INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at"#,
+      RETURNING ", TOKEN_SELECT;
       new_token.hash,
       new_token.user_id,
       new_token.r#type as _,
@@ -3768,7 +3349,7 @@ gitlab_id: r.user_gitlab_id,
 
   #[instrument(name = "Database::get_token_by_hash", skip(self), err)]
   pub async fn get_token_by_hash(&self, hash: &str) -> Result<Option<Token>> {
-    sqlx::query_as!(Token, r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at FROM tokens WHERE hash = $1"#, hash)
+    query_concat_as!(Token, "SELECT ", TOKEN_SELECT, " FROM tokens WHERE hash = $1"; hash)
       .fetch_optional(&self.pool)
       .await
   }
@@ -3776,13 +3357,12 @@ gitlab_id: r.user_gitlab_id,
   #[instrument(name = "Database::list_token", skip(self), err)]
   pub async fn list_tokens(&self, user_id: Uuid) -> Result<Vec<Token>> {
     // list a user's tokens where the expiration date is at most 1 day in the past
-    sqlx::query_as!(
+    query_concat_as!(
       Token,
-      r#"SELECT id, hash, user_id, type "type: _", description, expires_at, permissions "permissions: _", updated_at, created_at
+      "SELECT ", TOKEN_SELECT, "
       FROM tokens
       WHERE user_id = $1 AND (expires_at > now() - interval '1 day' OR expires_at IS NULL)
-      ORDER BY expires_at DESC NULLS FIRST, created_at DESC
-      "#,
+      ORDER BY expires_at DESC NULLS FIRST, created_at DESC";
       user_id
     )
       .fetch_all(&self.pool)
@@ -3810,11 +3390,11 @@ gitlab_id: r.user_gitlab_id,
     &self,
     new_authorization: NewAuthorization<'_>,
   ) -> Result<Authorization> {
-    sqlx::query_as!(
+    query_concat_as!(
       Authorization,
-      r#"INSERT INTO authorizations (exchange_token, code, challenge, permissions, expires_at)
+      "INSERT INTO authorizations (exchange_token, code, challenge, permissions, expires_at)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at"#,
+      RETURNING ", AUTHORIZATION_SELECT;
       new_authorization.exchange_token,
       new_authorization.code,
       new_authorization.challenge,
@@ -3830,15 +3410,13 @@ gitlab_id: r.user_gitlab_id,
     &self,
     code: &str,
   ) -> Result<Option<Authorization>> {
-    sqlx::query_as!(
+    query_concat_as!(
       Authorization,
-      r#"SELECT exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at
-      FROM authorizations
-      WHERE code = $1"#,
+      "SELECT ", AUTHORIZATION_SELECT, " FROM authorizations WHERE code = $1";
       code
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -3852,15 +3430,14 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Option<Authorization>> {
     let mut tx = self.pool.begin().await?;
 
-    let maybe_authorization = sqlx::query_as!(
+    let maybe_authorization = query_concat_as!(
       Authorization,
-      r#"DELETE FROM authorizations
-      WHERE exchange_token = $1
-      RETURNING exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at"#,
+      "DELETE FROM authorizations WHERE exchange_token = $1
+      RETURNING ", AUTHORIZATION_SELECT;
       exchange_token
     )
-      .fetch_optional(&mut *tx)
-      .await?;
+    .fetch_optional(&mut *tx)
+    .await?;
 
     if let Some(authorization) = &maybe_authorization
       && authorization.user_id.is_some()
@@ -3897,12 +3474,12 @@ gitlab_id: r.user_gitlab_id,
     scope: &ScopeName,
     name: &PackageName,
   ) -> Result<Vec<PackageVersionDependency>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersionDependency,
-      r#"SELECT package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at
+      "SELECT ", PACKAGE_VERSION_DEPENDENCY_SELECT, "
       FROM package_version_dependencies
       WHERE package_scope = $1 AND package_name = $2
-      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC"#,
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC";
       scope as _,
       name as _,
     )
@@ -3921,12 +3498,12 @@ gitlab_id: r.user_gitlab_id,
     name: &PackageName,
     version: &Version,
   ) -> Result<Vec<PackageVersionDependency>> {
-    sqlx::query_as!(
+    query_concat_as!(
       PackageVersionDependency,
-      r#"SELECT package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at
+      "SELECT ", PACKAGE_VERSION_DEPENDENCY_SELECT, "
       FROM package_version_dependencies
       WHERE package_scope = $1 AND package_name = $2 AND package_version = $3
-      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC"#,
+      ORDER BY dependency_kind ASC, dependency_name ASC, dependency_constraint ASC, dependency_path ASC";
       scope as _,
       name as _,
       version as _
@@ -4052,19 +3629,18 @@ gitlab_id: r.user_gitlab_id,
     version: &Version,
     revision: i32,
   ) -> Result<Option<NpmTarball>> {
-    sqlx::query_as!(
+    query_concat_as!(
       NpmTarball,
-      r#"SELECT scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at
-      FROM npm_tarballs
+      "SELECT ", NPM_TARBALL_SELECT, " FROM npm_tarballs
       WHERE scope = $1 AND name = $2 AND version = $3 AND revision = $4
-      LIMIT 1"#,
+      LIMIT 1";
       scope as _,
       name as _,
       version as _,
       revision,
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::list_missing_npm_tarballs", skip(self), err)]
@@ -4322,85 +3898,60 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<(Ticket, User, TicketMessage)> {
     let mut tx = self.pool.begin().await?;
 
-    let (ticket, user) = sqlx::query!(
-      r#"WITH ticket AS (
+    let (ticket, user) = query_concat!(
+      "WITH ticket AS (
           INSERT INTO tickets (kind, creator, meta)
           VALUES ($1, $2, $3)
           RETURNING id, kind, creator, meta, closed, updated_at, created_at
         )
         SELECT
-            ticket.id as "ticket_id",
-            ticket.kind as "ticket_kind: TicketKind",
-            ticket.creator as "ticket_creator",
-            ticket.meta as "ticket_meta",
-            ticket.closed as "ticket_closed",
-            ticket.updated_at as "ticket_updated_at",
-            ticket.created_at as "ticket_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.email as "user_email",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.is_blocked as "user_is_blocked",
-            users.is_staff as "user_is_staff",
-            users.scope_limit as "user_scope_limit",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at",
-            (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
-            (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
-            (CASE WHEN users.is_staff THEN (
-              SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-                  SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-                )
-              )
-            ) ELSE (
-              SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-                )
-              )
-            ) END) as "user_newer_ticket_messages_count!"
+            ticket.id as \"ticket_id\",
+            ticket.kind as \"ticket_kind: TicketKind\",
+            ticket.creator as \"ticket_creator\",
+            ticket.meta as \"ticket_meta\",
+            ticket.closed as \"ticket_closed\",
+            ticket.updated_at as \"ticket_updated_at\",
+            ticket.created_at as \"ticket_created_at\",
+            ", USER_SELECT_FULL_JOINED, "
         FROM ticket
         INNER JOIN users ON users.id = ticket.creator
-    "#,
+    ";
       new_ticket.kind as _,
       user_id as _,
       new_ticket.meta as _,
     )
-      .map(|r| {
-        let ticket = Ticket {
-          id: r.ticket_id,
-          kind: r.ticket_kind,
-          creator: r.ticket_creator,
-          meta: r.ticket_meta,
-          closed: r.ticket_closed,
-          updated_at: r.ticket_updated_at,
-          created_at: r.ticket_created_at,
-        };
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
 
-        let user = User {
-          id: r.user_id,
-          name: r.user_name,
-          email: r.user_email,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-          is_blocked: r.user_is_blocked,
-          is_staff: r.user_is_staff,
-          scope_usage: r.user_scope_usage,
-          scope_limit: r.user_scope_limit,
-          invite_count: r.user_invite_count,
-          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
 
-        (ticket, user)
-      })
-      .fetch_one(&mut *tx)
-      .await?;
+      (ticket, user)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
     let message = sqlx::query!(
       r#"INSERT INTO ticket_messages (ticket_id, author, message)
@@ -4446,42 +3997,8 @@ gitlab_id: r.user_gitlab_id,
       "created_at" => "tickets.created_at",
     } || "tickets.closed ASC, tickets.created_at DESC");
 
-    let tickets = sqlx::query(
-      &format!(r#"SELECT
-        tickets.id as "ticket_id",
-        tickets.kind as "ticket_kind",
-        tickets.creator as "ticket_creator",
-        tickets.meta as "ticket_meta",
-        tickets.closed as "ticket_closed",
-        tickets.updated_at as "ticket_updated_at",
-        tickets.created_at as "ticket_created_at",
-        users.id as "user_id",
-        users.name as "user_name",
-        users.email as "user_email",
-        users.avatar_url as "user_avatar_url",
-        users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-        users.is_blocked as "user_is_blocked",
-        users.is_staff as "user_is_staff",
-        users.scope_limit as "user_scope_limit",
-        users.updated_at as "user_updated_at",
-        users.created_at as "user_created_at",
-        (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
-        (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "user_newer_ticket_messages_count"
-    FROM tickets
+    let tickets = sqlx::query(&format!(
+      r#"SELECT {}, {} FROM tickets
     INNER JOIN users ON users.id = tickets.creator
     WHERE users.name ILIKE $1
        OR EXISTS (
@@ -4491,38 +4008,29 @@ users.gitlab_id as "user_gitlab_id",
            AND ticket_messages.message ILIKE $1
        )
     ORDER BY {sort} OFFSET $2 LIMIT $3
-"#))
-      .bind(&search)
-      .bind(start)
-      .bind(limit)
-      .try_map(|r| {
-        let ticket = Ticket::from_row(&r)?;
-        let user = User::from_row(&r)?;
+"#,
+      crate::db::sql_fragments::TICKET_SELECT_JOINED_RT,
+      crate::db::sql_fragments::USER_SELECT_FULL_JOINED_RT,
+    ))
+    .bind(&search)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let ticket = Ticket::from_row(&r)?;
+      let user = User::from_row(&r)?;
 
-        Ok((ticket, user))
-      })
-      .fetch_all(&mut *tx)
-      .await?;
+      Ok((ticket, user))
+    })
+    .fetch_all(&mut *tx)
+    .await?;
 
     let mut out = Vec::with_capacity(tickets.len());
     for (ticket, user) in tickets {
-      let messages = sqlx::query!(
-      r#"SELECT
-            ticket_messages.ticket_id as "message_ticket_id",
-            ticket_messages.author as "message_author",
-            ticket_messages.message as "message_message",
-            ticket_messages.updated_at as "message_updated_at",
-            ticket_messages.created_at as "message_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at"
+      let messages = query_concat!(
+      "SELECT ", TICKET_MESSAGE_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM ticket_messages
         LEFT JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
       ticket.id as _,
     )
         .map(|r| {
@@ -4580,100 +4088,57 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Vec<FullTicket>> {
     let mut tx = self.pool.begin().await?;
 
-    let tickets = sqlx::query!(
-      r#"SELECT
-        tickets.id as "ticket_id",
-        tickets.kind as "ticket_kind: TicketKind",
-        tickets.creator as "ticket_creator",
-        tickets.meta as "ticket_meta",
-        tickets.closed as "ticket_closed",
-        tickets.updated_at as "ticket_updated_at",
-        tickets.created_at as "ticket_created_at",
-        users.id as "user_id",
-        users.name as "user_name",
-        users.email as "user_email",
-        users.avatar_url as "user_avatar_url",
-        users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-        users.is_blocked as "user_is_blocked",
-        users.is_staff as "user_is_staff",
-        users.scope_limit as "user_scope_limit",
-        users.updated_at as "user_updated_at",
-        users.created_at as "user_created_at",
-        (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
-        (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
-        (CASE WHEN users.is_staff THEN (
-          SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-              SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-            )
-          )
-        ) ELSE (
-          SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-            SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-              SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-            )
-          )
-        ) END) as "user_newer_ticket_messages_count!"
+    let tickets = query_concat!(
+      "SELECT ", TICKET_SELECT_JOINED, ", ", USER_SELECT_FULL_JOINED, "
     FROM tickets
     INNER JOIN users ON users.id = tickets.creator
     WHERE tickets.creator = $1
     ORDER BY tickets.closed ASC, tickets.created_at DESC
-"#,
+";
       user_id as _,
     )
-      .map(|r| {
-        let ticket = Ticket {
-          id: r.ticket_id,
-          kind: r.ticket_kind,
-          creator: r.ticket_creator,
-          meta: r.ticket_meta,
-          closed: r.ticket_closed,
-          updated_at: r.ticket_updated_at,
-          created_at: r.ticket_created_at,
-        };
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
 
-        let user = User {
-          id: r.user_id,
-          name: r.user_name,
-          email: r.user_email,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-          is_blocked: r.user_is_blocked,
-          is_staff: r.user_is_staff,
-          scope_usage: r.user_scope_usage,
-          scope_limit: r.user_scope_limit,
-          invite_count: r.user_invite_count,
-          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
 
-        (ticket, user)
-      })
-      .fetch_all(&mut *tx)
-      .await?;
+      (ticket, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
 
     let mut out = Vec::with_capacity(tickets.len());
     for (ticket, user) in tickets {
-      let messages = sqlx::query!(
-      r#"SELECT
-            ticket_messages.ticket_id as "message_ticket_id",
-            ticket_messages.author as "message_author",
-            ticket_messages.message as "message_message",
-            ticket_messages.updated_at as "message_updated_at",
-            ticket_messages.created_at as "message_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at"
+      let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM ticket_messages
         INNER JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
       ticket.id as _,
     )
         .map(|r| {
@@ -4715,99 +4180,58 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Option<FullTicket>> {
     let mut tx = self.pool.begin().await?;
 
-    let Some((ticket, user)) = sqlx::query!(
-      r#"SELECT
-            tickets.id as "ticket_id",
-            tickets.kind as "ticket_kind: TicketKind",
-            tickets.creator as "ticket_creator",
-            tickets.meta as "ticket_meta",
-            tickets.closed as "ticket_closed",
-            tickets.updated_at as "ticket_updated_at",
-            tickets.created_at as "ticket_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.email as "user_email",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-            users.gitlab_id as "user_gitlab_id",
-            users.is_blocked as "user_is_blocked",
-            users.is_staff as "user_is_staff",
-            users.scope_limit as "user_scope_limit",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at",
-            (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
-            (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
-            (CASE WHEN users.is_staff THEN (
-              SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-                  SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-                )
-              )
-            ) ELSE (
-              SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-                )
-              )
-            ) END) as "user_newer_ticket_messages_count!"
+    let Some((ticket, user)) = query_concat!(
+      "SELECT
+            ", TICKET_SELECT_JOINED, ",
+            ", USER_SELECT_FULL_JOINED, "
         FROM tickets
         INNER JOIN users ON users.id = tickets.creator
-        WHERE tickets.id = $1"#,
+        WHERE tickets.id = $1";
       ticket_id as _,
     )
-      .map(|r| {
-        let ticket = Ticket {
-          id: r.ticket_id,
-          kind: r.ticket_kind,
-          creator: r.ticket_creator,
-          meta: r.ticket_meta,
-          closed: r.ticket_closed,
-          updated_at: r.ticket_updated_at,
-          created_at: r.ticket_created_at,
-        };
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
 
-        let user = User {
-          id: r.user_id,
-          name: r.user_name,
-          email: r.user_email,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-          gitlab_id: r.user_gitlab_id,
-          is_blocked: r.user_is_blocked,
-          is_staff: r.user_is_staff,
-          scope_usage: r.user_scope_usage,
-          scope_limit: r.user_scope_limit,
-          invite_count: r.user_invite_count,
-          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
 
-        (ticket, user)
-      })
-      .fetch_optional(&mut *tx)
-      .await?
+      (ticket, user)
+    })
+    .fetch_optional(&mut *tx)
+    .await?
     else {
       return Ok(None);
     };
 
-    let messages = sqlx::query!(
-      r#"SELECT
-            ticket_messages.ticket_id as "message_ticket_id",
-            ticket_messages.author as "message_author",
-            ticket_messages.message as "message_message",
-            ticket_messages.updated_at as "message_updated_at",
-            ticket_messages.created_at as "message_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at"
+    let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM ticket_messages
         INNER JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
       ticket_id as _,
     )
       .map(|r| {
@@ -4846,21 +4270,10 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Vec<(AuditLog, UserPublic)>> {
     let mut tx = self.pool.begin().await?;
 
-    let audit_logs = sqlx::query!(
-      r#"
-        SELECT
-          audit_logs.actor_id as "audit_actor_id",
-          audit_logs.is_sudo as "audit_is_sudo",
-          audit_logs.action as "audit_action",
-          audit_logs.meta as "audit_meta",
-          audit_logs.created_at as "audit_created_at",
-          users.id as "user_id",
-          users.name as "user_name",
-          users.avatar_url as "user_avatar_url",
-          users.github_id as "user_github_id",
-          users.gitlab_id as "user_gitlab_id",
-          users.updated_at as "user_updated_at",
-          users.created_at as "user_created_at"
+    let audit_logs = query_concat!(
+      "SELECT
+          ", AUDIT_LOG_SELECT_JOINED, ",
+          ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM
           audit_logs
         LEFT JOIN
@@ -4868,16 +4281,16 @@ gitlab_id: r.user_gitlab_id,
         WHERE
           audit_logs.meta::text LIKE $1
         ORDER BY audit_logs.created_at DESC;
-        "#,
+        ";
       format!("%\"ticket_id\": \"{}\"%", ticket_id),
     )
     .map(|r| {
       let audit_log = AuditLog {
-        actor_id: r.audit_actor_id,
-        is_sudo: r.audit_is_sudo,
-        action: r.audit_action,
-        meta: r.audit_meta,
-        created_at: r.audit_created_at,
+        actor_id: r.audit_log_actor_id,
+        is_sudo: r.audit_log_is_sudo,
+        action: r.audit_log_action,
+        meta: r.audit_log_meta,
+        created_at: r.audit_log_created_at,
       };
 
       let user = UserPublic {
@@ -4909,28 +4322,22 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<(TicketMessage, UserPublic)> {
     let mut tx = self.pool.begin().await?;
 
-    let message = sqlx::query!(
-      r#"WITH message AS (
+    let message = query_concat!(
+      "WITH message AS (
           INSERT INTO ticket_messages (ticket_id, author, message)
           VALUES ($1, $2, $3)
           RETURNING ticket_id, author, message, updated_at, created_at
         )
         SELECT
-            message.ticket_id as "message_ticket_id",
-            message.author as "message_author",
-            message.message as "message_message",
-            message.updated_at as "message_updated_at",
-            message.created_at as "message_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at"
+            message.ticket_id as \"message_ticket_id\",
+            message.author as \"message_author\",
+            message.message as \"message_message\",
+            message.updated_at as \"message_updated_at\",
+            message.created_at as \"message_created_at\",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM message
         INNER JOIN users ON users.id = message.author
-    "#,
+    ";
       id as _,
       author as _,
       message.message as _,
@@ -4992,101 +4399,66 @@ users.gitlab_id as "user_gitlab_id",
     )
     .await?;
 
-    let (ticket, user) = sqlx::query!(
-      r#"WITH ticket AS (
+    let (ticket, user) = query_concat!(
+      "WITH ticket AS (
           UPDATE tickets SET closed = $1 WHERE id = $2
           RETURNING id, kind, creator, meta, closed, updated_at, created_at
         )
         SELECT
-            ticket.id as "ticket_id",
-            ticket.kind as "ticket_kind: TicketKind",
-            ticket.creator as "ticket_creator",
-            ticket.meta as "ticket_meta",
-            ticket.closed as "ticket_closed",
-            ticket.updated_at as "ticket_updated_at",
-            ticket.created_at as "ticket_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.email as "user_email",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.is_blocked as "user_is_blocked",
-            users.is_staff as "user_is_staff",
-            users.scope_limit as "user_scope_limit",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at",
-            (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
-            (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
-            (CASE WHEN users.is_staff THEN (
-              SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (
-                  SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id
-                )
-              )
-            ) ELSE (
-              SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (
-                SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (
-                  SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id
-                )
-              )
-            ) END) as "user_newer_ticket_messages_count!"
+            ticket.id as \"ticket_id\",
+            ticket.kind as \"ticket_kind: TicketKind\",
+            ticket.creator as \"ticket_creator\",
+            ticket.meta as \"ticket_meta\",
+            ticket.closed as \"ticket_closed\",
+            ticket.updated_at as \"ticket_updated_at\",
+            ticket.created_at as \"ticket_created_at\",
+            ", USER_SELECT_FULL_JOINED, "
         FROM ticket
         INNER JOIN users ON users.id = ticket.creator
-    "#,
+    ";
       closed as _,
       ticket_id as _,
     )
-      .map(|r| {
-        let ticket = Ticket {
-          id: r.ticket_id,
-          kind: r.ticket_kind,
-          creator: r.ticket_creator,
-          meta: r.ticket_meta,
-          closed: r.ticket_closed,
-          updated_at: r.ticket_updated_at,
-          created_at: r.ticket_created_at,
-        };
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        meta: r.ticket_meta,
+        closed: r.ticket_closed,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
 
-        let user = User {
-          id: r.user_id,
-          name: r.user_name,
-          email: r.user_email,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-          is_blocked: r.user_is_blocked,
-          is_staff: r.user_is_staff,
-          scope_usage: r.user_scope_usage,
-          scope_limit: r.user_scope_limit,
-          invite_count: r.user_invite_count,
-          newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
+      let user = User {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email,
+        avatar_url: r.user_avatar_url,
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked,
+        is_staff: r.user_is_staff,
+        scope_usage: r.user_scope_usage,
+        scope_limit: r.user_scope_limit,
+        invite_count: r.user_invite_count,
+        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
+        updated_at: r.user_updated_at,
+        created_at: r.user_created_at,
+      };
 
-        (ticket, user)
-      })
-      .fetch_one(&mut *tx)
-      .await?;
+      (ticket, user)
+    })
+    .fetch_one(&mut *tx)
+    .await?;
 
-    let messages = sqlx::query!(
-      r#"SELECT
-            ticket_messages.ticket_id as "message_ticket_id",
-            ticket_messages.author as "message_author",
-            ticket_messages.message as "message_message",
-            ticket_messages.updated_at as "message_updated_at",
-            ticket_messages.created_at as "message_created_at",
-            users.id as "user_id",
-            users.name as "user_name",
-            users.avatar_url as "user_avatar_url",
-            users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id",
-            users.updated_at as "user_updated_at",
-            users.created_at as "user_created_at"
+    let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_RT, "
         FROM ticket_messages
         INNER JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at"#,
+        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
       ticket_id as _,
     )
       .map(|r| {
@@ -5138,15 +4510,9 @@ gitlab_id: r.user_gitlab_id,
       "created_at" => "audit_logs.created_at",
     } || "audit_logs.created_at DESC");
 
-    let scopes = sqlx::query(
-      &format!(r#"SELECT
-      audit_logs.actor_id as "audit_log_actor_id",
-      audit_logs.is_sudo as "audit_log_is_sudo",
-      audit_logs.action as "audit_log_action",
-      audit_logs.meta as "audit_log_meta",
-      audit_logs.created_at as "audit_log_created_at",
-      users.id as "user_id", users.name as "user_name", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id",
-users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", users.created_at as "user_created_at"
+    let scopes = sqlx::query(&format!(
+      r#"SELECT
+      {}, {}
       FROM audit_logs
       LEFT JOIN users ON audit_logs.actor_id = users.id
       WHERE (audit_logs.action ILIKE $1
@@ -5154,19 +4520,22 @@ users.gitlab_id as "user_gitlab_id", users.updated_at as "user_updated_at", user
          OR audit_logs.meta::text ILIKE $1)
          AND ($2 IS NOT TRUE OR audit_logs.is_sudo = TRUE)
       ORDER BY {sort} OFFSET $3 LIMIT $4
-      "#))
-      .bind(&search)
-      .bind(sudo_only)
-      .bind(start)
-      .bind(limit)
-      .try_map(|r| {
-        let audit_log = AuditLog::from_row(&r)?;
-        let user = UserPublic::from_row(&r)?;
+      "#,
+      crate::db::sql_fragments::AUDIT_LOG_SELECT_JOINED,
+      crate::db::sql_fragments::USER_PUBLIC_SELECT_JOINED_RT,
+    ))
+    .bind(&search)
+    .bind(sudo_only)
+    .bind(start)
+    .bind(limit)
+    .try_map(|r| {
+      let audit_log = AuditLog::from_row(&r)?;
+      let user = UserPublic::from_row(&r)?;
 
-        Ok((audit_log, user))
-      })
-      .fetch_all(&mut *tx)
-      .await?;
+      Ok((audit_log, user))
+    })
+    .fetch_all(&mut *tx)
+    .await?;
 
     let total_scopes = sqlx::query!(
       r#"SELECT COUNT(audit_logs.created_at) FROM audit_logs LEFT JOIN users ON audit_logs.actor_id = users.id WHERE audit_logs.action ILIKE $1 OR users.name ILIKE $2 AND ($3 IS NOT TRUE OR audit_logs.is_sudo = TRUE);"#,
