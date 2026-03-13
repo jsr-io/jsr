@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { proxyToCloudRun, proxyToGCS, proxyToR2 } from "./proxy.ts";
+import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -202,8 +202,9 @@ function isAPIRoute(path: string): boolean {
     path === "/sitemap.xml" ||
     path === "/sitemap-scopes.xml" ||
     path === "/sitemap-packages.xml" ||
-    path === "/login" ||
     path.startsWith("/login/") ||
+    path.startsWith("/connect/") ||
+    path.startsWith("/disconnect/") ||
     path === "/logout"
   );
 }
@@ -236,9 +237,8 @@ async function handleModuleFileRoute(
   env: WorkerEnv,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const response = await proxyToGCS(
+  const response = await proxyToR2(
     request,
-    env.GCS_ENDPOINT,
     env.MODULES_BUCKET,
   );
 

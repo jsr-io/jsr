@@ -11,6 +11,7 @@ export interface User {
   id: string;
   name: string;
   githubId: number | null;
+  gitlabId: number | null;
   avatarUrl: string;
   updatedAt: string;
   createdAt: string;
@@ -246,10 +247,21 @@ export interface PackageVersionReference {
   version: string;
 }
 
+export interface StatsPackage {
+  scope: string;
+  name: string;
+}
+
+export interface StatsPackageVersion {
+  scope: string;
+  package: string;
+  version: string;
+}
+
 export interface Stats {
-  newest: Package[];
-  updated: PackageVersionWithUser[];
-  featured: Package[];
+  newest: StatsPackage[];
+  updated: StatsPackageVersion[];
+  featured: StatsPackage[];
 }
 
 export interface List<T> {

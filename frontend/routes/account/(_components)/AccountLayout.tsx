@@ -4,6 +4,7 @@ import twas from "twas";
 import { AccountNav, AccountNavTab } from "./AccountNav.tsx";
 import { FullUser, User } from "../../../utils/api_types.ts";
 import { GitHubUserLink } from "../../../islands/GithubUserLink.tsx";
+//import { GitLabUserLink } from "../../../islands/GitLabUserLink.tsx";
 
 interface AccountLayoutProps {
   user: User | FullUser;
@@ -35,8 +36,9 @@ export function AccountLayout({ user, active, children }: AccountLayoutProps) {
           <p class="text-sm text-secondary">
             Created account {twas(new Date(user.createdAt).getTime())}
           </p>
-          <p class="text-sm mt-2">
+          <p class="text-sm mt-3">
             <GitHubUserLink user={user} />
+            {/* TODO: figure out a way to get this working, requires auth tokens to gitlab <GitLabUserLink user={user} />*/}
           </p>
         </div>
       </div>

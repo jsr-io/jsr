@@ -125,7 +125,8 @@ impl<
       "http.url" = ?uri,
       "http.user_agent" = user_agent,
       "http.status_code" = field::Empty,
-      "otel.status_code" = "ok"
+      "otel.status_code" = "ok",
+      "otel.kind" = "server"
     );
 
     if self.is_internal {
