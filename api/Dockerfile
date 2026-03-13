@@ -23,7 +23,7 @@ COPY ./macros ./macros
 COPY ./.sqlx ./.sqlx
 
 # build for release
-RUN rm ./target/release/deps/registry_api*
+RUN rm -f ./target/release/deps/registry_api* ./target/release/deps/libregistry_api*
 RUN cargo build --release
 
 # our final base
