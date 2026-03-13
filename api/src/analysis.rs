@@ -47,7 +47,6 @@ use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::PackageVersionMeta;
 use crate::docs::DocNodesByUrl;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
@@ -57,6 +56,7 @@ use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
 use crate::npm::create_npm_tarball;
 use crate::s3::BucketWithQueue;
+use crate::s3_paths;
 use crate::tarball::PublishError;
 
 pub struct PackageAnalysisData {
@@ -585,7 +585,7 @@ async fn rebuild_npm_tarball_inner(
     .build(
       roots.clone(),
       vec![],
-      &GcsLoader {
+      &S3Loader {
         files: &files,
         bucket: &modules_bucket,
         scope: &scope,
@@ -644,7 +644,7 @@ async fn rebuild_npm_tarball_inner(
   Ok(npm_tarball)
 }
 
-struct GcsLoader<'a> {
+struct S3Loader<'a> {
   files: &'a HashSet<PackagePath>,
   bucket: &'a BucketWithQueue,
   scope: &'a ScopeName,
@@ -652,7 +652,7 @@ struct GcsLoader<'a> {
   version: &'a Version,
 }
 
-impl GcsLoader<'_> {
+impl S3Loader<'_> {
   fn load_inner(
     &self,
     specifier: &ModuleSpecifier,
@@ -666,12 +666,12 @@ impl GcsLoader<'_> {
         if !self.files.contains(&path) {
           return async move { Ok(None) }.boxed();
         };
-        let gcs_path =
-          gcs_paths::file_path(self.scope, self.name, self.version, &path);
+        let s3_path =
+          s3_paths::file_path(self.scope, self.name, self.version, &path);
         let bucket = self.bucket.clone();
         async move {
           let Some(bytes) = bucket
-            .download(gcs_path.into())
+            .download(s3_path.into())
             .await
             .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
           else {
@@ -702,7 +702,7 @@ impl GcsLoader<'_> {
   }
 }
 
-impl deno_graph::source::Loader for GcsLoader<'_> {
+impl deno_graph::source::Loader for S3Loader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,

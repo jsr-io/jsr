@@ -2,7 +2,6 @@
 mod analysis;
 mod api;
 mod auth;
-mod buckets;
 mod config;
 mod db;
 mod docs;
@@ -10,7 +9,6 @@ mod emails;
 mod errors_internal;
 mod external;
 mod gcp;
-mod gcs_paths;
 mod iam;
 mod ids;
 mod metadata;
@@ -18,6 +16,7 @@ mod npm;
 mod provenance;
 mod publish;
 mod s3;
+mod s3_paths;
 mod sitemap;
 mod tarball;
 mod task_queue;
@@ -31,13 +30,13 @@ mod util;
 use crate::api::ApiError;
 use crate::api::PublishQueue;
 use crate::api::api_router;
-use crate::buckets::Buckets;
 use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
 use crate::external::orama::OramaClient;
 use crate::gcp::Queue;
+use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
 use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
@@ -54,7 +53,6 @@ use routerify::Router;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tasks::AnalyticsEngineConfig;
-use tasks::LogsBigQueryTable;
 use url::Url;
 
 pub struct MainRouterOptions {
@@ -69,7 +67,6 @@ pub struct MainRouterOptions {
   npm_url: Url,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
-  logs_bigquery_table: Option<(gcp::BigQuery, /* logs_table_id */ String)>,
   analytics_engine_config: Option<(
     external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
@@ -94,7 +91,6 @@ pub(crate) fn main_router(
     npm_url,
     publish_queue,
     npm_tarball_build_queue,
-    logs_bigquery_table,
     analytics_engine_config,
     expose_api,
     expose_tasks,
@@ -112,7 +108,6 @@ pub(crate) fn main_router(
     .data(NpmUrl(npm_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
-    .data(LogsBigQueryTable(logs_bigquery_table))
     .data(AnalyticsEngineConfig(analytics_engine_config))
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
@@ -226,20 +221,6 @@ async fn main() {
     .npm_tarball_build_queue_id
     .map(|id: String| Queue::new(gcp_client.clone(), id, None));
 
-  let logs_bigquery_table =
-    config.logs_bigquery_table_id.map(|logs_table_id| {
-      (
-        gcp::BigQuery::new(
-          gcp_client.clone(),
-          config.gcp_project_id.clone().expect(
-            "gcp_project_id must be set when logs_bigquery_table_id is set",
-          ),
-          None,
-        ),
-        logs_table_id,
-      )
-    });
-
   let analytics_engine_config = match (
     config.cloudflare_account_id,
     config.cloudflare_api_token,
@@ -320,7 +301,6 @@ async fn main() {
     npm_url: config.npm_url,
     publish_queue,
     npm_tarball_build_queue,
-    logs_bigquery_table,
     analytics_engine_config,
     expose_api: config.api,
     expose_tasks: config.tasks,

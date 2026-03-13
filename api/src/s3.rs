@@ -1,7 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::pin::Pin;
-use std::sync::Arc;
-
 use crate::task_queue::DynamicBackgroundTaskQueue;
 use crate::task_queue::RestartableTask;
 use crate::task_queue::RestartableTaskResult;
@@ -14,8 +11,25 @@ use futures::TryStreamExt;
 use futures::join;
 use hyper::StatusCode;
 use s3::serde_types::ListBucketResult;
+use std::borrow::Cow;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
 use thiserror::Error;
 use tracing::instrument;
+
+pub const CACHE_CONTROL_IMMUTABLE: &str = "public, max-age=31536000, immutable";
+pub const CACHE_CONTROL_DO_NOT_CACHE: &str = "no-cache, no-store, max-age=0";
+
+const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[derive(Clone)]
+pub struct Buckets {
+  pub publishing_bucket: BucketWithQueue,
+  pub modules_bucket: BucketWithQueue,
+  pub docs_bucket: BucketWithQueue,
+  pub npm_bucket: BucketWithQueue,
+}
 
 #[derive(Debug, Error, deno_error::JsError)]
 #[class(generic)]
@@ -45,6 +59,13 @@ impl S3Error {
   }
 }
 
+#[derive(Debug)]
+pub struct S3UploadOptions<'a> {
+  pub content_type: Option<Cow<'a, str>>,
+  pub cache_control: Option<Cow<'a, str>>,
+  pub gzip_encoded: bool,
+}
+
 #[derive(Clone)]
 pub struct Bucket {
   pub(crate) bucket: Box<s3::Bucket>,
@@ -57,7 +78,9 @@ impl Bucket {
     region: s3::Region,
     credentials: s3::creds::Credentials,
   ) -> Result<Self, S3Error> {
-    let bucket = s3::Bucket::new(&name, region, credentials)?.with_path_style();
+    let bucket = s3::Bucket::new(&name, region, credentials)?
+      .with_path_style()
+      .with_request_timeout(HTTP_CONNECT_TIMEOUT)?;
 
     Ok(Self { bucket, name })
   }
@@ -144,7 +167,7 @@ impl Bucket {
     &self,
     path: &str,
     data: Bytes,
-    options: &crate::gcp::GcsUploadOptions<'_>,
+    options: &S3UploadOptions<'_>,
   ) -> Result<(), S3Error> {
     let mut builder = self
       .bucket
@@ -178,7 +201,7 @@ impl Bucket {
     &self,
     path: &str,
     stream: &mut (impl tokio::io::AsyncRead + Unpin + Send),
-    options: &crate::gcp::GcsUploadOptions<'_>,
+    options: &S3UploadOptions<'_>,
   ) -> Result<(), S3Error> {
     let mut builder = self
       .bucket
@@ -253,7 +276,7 @@ impl BucketWithQueue {
     &self,
     path: Arc<str>,
     body: UploadTaskBody,
-    options: crate::gcp::GcsUploadOptions<'static>,
+    options: S3UploadOptions<'static>,
   ) -> Result<(), S3Error> {
     self
       .upload_queue
@@ -324,7 +347,7 @@ struct UploadTask {
   bucket: Bucket,
   path: Arc<str>,
   body: UploadTaskBody,
-  options: crate::gcp::GcsUploadOptions<'static>,
+  options: S3UploadOptions<'static>,
 }
 
 pub enum UploadTaskBody {
@@ -503,6 +526,36 @@ pub struct FakeS3Tester {
 static SHARED_S3_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
 
 #[cfg(test)]
+/// Global list of child processes to kill on exit.
+static TEST_CHILD_PROCS: std::sync::Mutex<Vec<std::process::Child>> =
+  std::sync::Mutex::new(Vec::new());
+
+#[cfg(test)]
+/// Register an atexit handler (once) that kills all tracked child processes.
+static ATEXIT_REGISTERED: std::sync::Once = std::sync::Once::new();
+
+#[cfg(test)]
+pub(crate) fn track_child_proc(proc: std::process::Child) {
+  ATEXIT_REGISTERED.call_once(|| {
+    extern "C" fn kill_children() {
+      if let Ok(mut children) = TEST_CHILD_PROCS.lock() {
+        for child in children.iter_mut() {
+          let _ = child.kill();
+          let _ = child.wait();
+        }
+      }
+    }
+    unsafe extern "C" {
+      fn atexit(cb: extern "C" fn()) -> std::ffi::c_int;
+    }
+    unsafe {
+      atexit(kill_children);
+    }
+  });
+  TEST_CHILD_PROCS.lock().unwrap().push(proc);
+}
+
+#[cfg(test)]
 fn start_shared_fake_s3() -> u16 {
   use std::io::BufRead;
   use std::io::BufReader;
@@ -566,13 +619,12 @@ fn start_shared_fake_s3() -> u16 {
       continue;
     }
 
-    // Then copy the rest of stderr to a sink to prevent fake-gcs-server from
-    // blocking.
+    // Then copy the rest of stderr to a sink to prevent minio from blocking.
     std::thread::spawn(move || {
       std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
     });
 
-    crate::gcp::track_child_proc(proc);
+    track_child_proc(proc);
     return port;
   }
   panic!("failed to start shared fake s3 server after 5 attempts");
@@ -622,7 +674,7 @@ mod tests {
       .upload(
         "upload_download.txt",
         "hello world".as_bytes().to_vec().into(),
-        &crate::gcp::GcsUploadOptions {
+        &S3UploadOptions {
           content_type: None,
           cache_control: None,
           gzip_encoded: false,
