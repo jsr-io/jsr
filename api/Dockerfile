@@ -8,6 +8,8 @@ WORKDIR /registry_api
 
 # copy over your manifests
 COPY ./Cargo.toml ./Cargo.toml
+COPY ./macros/Cargo.toml ./macros/Cargo.toml
+RUN mkdir -p macros/src && touch macros/src/lib.rs
 
 # this build step will cache your dependencies
 RUN cargo build --release
