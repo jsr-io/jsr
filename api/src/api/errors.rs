@@ -32,6 +32,10 @@ errors!(
     status: NOT_FOUND,
     "The requested user was not found. Only users who have logged in to JSR at least once are visible.",
   },
+  CannotDeleteServiceAccount {
+    status: BAD_REQUEST,
+    "The service account cannot be deleted.",
+  },
   ScopeNotFound {
     status: NOT_FOUND,
     "The requested scope was not found.",

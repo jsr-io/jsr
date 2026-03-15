@@ -171,6 +171,13 @@ async fn main() {
   .await
   .unwrap();
 
+  database
+    .upsert_service_account_token(
+      config.service_account_token.as_deref().map(token::hash),
+    )
+    .await
+    .expect("failed to upsert service account token");
+
   let s3_region = ::s3::Region::Custom {
     region: config.s3_region,
     endpoint: config.s3_endpoint,
