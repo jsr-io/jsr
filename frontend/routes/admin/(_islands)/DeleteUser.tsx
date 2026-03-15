@@ -128,11 +128,17 @@ export function DeleteUser(
                           key={scope.scope}
                           class="px-3 py-2 flex items-center justify-between gap-4"
                         >
-                          <span class="font-mono">@{scope.scope}</span>
+                          <a
+                            href={`/@${scope.scope}`}
+                            target="_blank"
+                            class="link"
+                          >
+                            @{scope.scope}
+                          </a>
                           <span class="text-secondary text-xs">
                             {scope.memberCount <= 1
                               ? "transferred to service account"
-                              : "user will be removed"}
+                              : "transferred to another user in scope"}
                           </span>
                         </li>
                       ))}
