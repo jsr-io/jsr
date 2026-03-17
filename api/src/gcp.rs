@@ -54,11 +54,8 @@ pub struct Client(Arc<ClientInner>);
 
 impl Client {
   pub fn new(metadata_strategy: MetadataStrategy) -> Self {
-    let http = reqwest::ClientBuilder::new()
-      .connect_timeout(HTTP_CONNECT_TIMEOUT)
-      .build()
-      .unwrap();
     let http_without_compression = reqwest::ClientBuilder::new()
+      .user_agent(crate::util::USER_AGENT)
       .connect_timeout(HTTP_CONNECT_TIMEOUT)
       .no_gzip()
       .no_deflate()
@@ -66,7 +63,6 @@ impl Client {
       .build()
       .unwrap();
     Self(Arc::new(ClientInner {
-      http,
       http_without_compression,
       access_token: Mutex::new(None),
       metadata_strategy,
@@ -84,7 +80,6 @@ impl std::ops::Deref for Client {
 
 #[allow(dead_code)]
 pub struct ClientInner {
-  http: reqwest::Client,
   http_without_compression: reqwest::Client,
   metadata_strategy: MetadataStrategy,
   access_token: Mutex<Option<(String, Instant)>>,
@@ -92,8 +87,8 @@ pub struct ClientInner {
 
 #[allow(dead_code)]
 impl ClientInner {
-  pub fn http(&self) -> &reqwest::Client {
-    &self.http
+  pub fn http(&self) -> &'static reqwest::Client {
+    crate::util::shared_http_client()
   }
 
   pub fn http_without_compression(&self) -> &reqwest::Client {

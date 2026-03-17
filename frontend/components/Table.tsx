@@ -126,6 +126,7 @@ export function Table(
                     pagination={pagination}
                     itemsCount={children.length}
                     currentUrl={currentUrl}
+                    class="border-t border-jsr-cyan-900/10 dark:border-jsr-cyan-900"
                   />
                 </td>
               </tr>
@@ -137,11 +138,12 @@ export function Table(
   );
 }
 
-function Pagination(
-  { pagination, itemsCount, currentUrl }: {
+export function Pagination(
+  { pagination, itemsCount, currentUrl, class: classes }: {
     pagination: PaginationData;
     itemsCount: number;
     currentUrl: URL;
+    class?: string;
   },
 ) {
   const start = pagination.page * pagination.limit - pagination.limit;
@@ -156,7 +158,7 @@ function Pagination(
 
   return (
     <nav
-      class="flex items-center justify-between border-t border-jsr-cyan-900/10 dark:border-jsr-cyan-900 px-4 py-3 sm:px-6"
+      class={`flex items-center justify-between ${classes} px-4 py-3 sm:px-6`}
       aria-label="Pagination"
     >
       <div class="hidden sm:block">

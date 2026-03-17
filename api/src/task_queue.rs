@@ -283,12 +283,19 @@ type TaskResultSender<T> = oneshot::Sender<
 /// [DynamicBackgroundTaskQueue] is similar to [DynamicTaskQueue], but it runs
 /// tasks in the background, channeling the results back to the inserter, rather
 /// than returning the results directly.
+///
+/// Uses a bounded channel to provide backpressure and prevent unbounded memory
+/// growth when tasks are submitted faster than they can be processed.
 pub struct DynamicBackgroundTaskQueue<T: RestartableTask> {
-  sender: tokio::sync::mpsc::UnboundedSender<(
+  sender: tokio::sync::mpsc::Sender<(
     InstrumentedQueueTask<T>,
     TaskResultSender<T>,
   )>,
 }
+
+/// Maximum number of pending tasks that can be buffered in the channel before
+/// backpressure is applied.
+const BACKGROUND_QUEUE_BOUND: usize = 128;
 
 impl<T: RestartableTask> Clone for DynamicBackgroundTaskQueue<T> {
   fn clone(&self) -> Self {
@@ -306,7 +313,8 @@ where
   T::Fut: Send + 'static,
 {
   fn default() -> Self {
-    let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (sender, receiver) =
+      tokio::sync::mpsc::channel(BACKGROUND_QUEUE_BOUND);
     tokio::spawn(DynamicBackgroundTaskQueueDriveFuture {
       queue: DynamicTaskQueue::new(Vec::new()),
       new_tasks: Some(receiver),
@@ -323,11 +331,15 @@ where
   T::Err: Send + 'static,
   T::Fut: Send + 'static,
 {
-  pub fn run(&self, task: T) -> oneshot::Receiver<Result<T::Ok, T::Err>> {
+  pub async fn run(&self, task: T) -> Result<T::Ok, T::Err> {
     let (sender, receiver) = oneshot::channel();
     let instrumented_queue_task = InstrumentedQueueTask::new(task);
-    self.sender.send((instrumented_queue_task, sender)).unwrap();
-    receiver
+    self
+      .sender
+      .send((instrumented_queue_task, sender))
+      .await
+      .expect("background task queue closed");
+    receiver.await.expect("task result sender dropped")
   }
 }
 
@@ -336,7 +348,7 @@ pub struct DynamicBackgroundTaskQueueDriveFuture<T: RestartableTask> {
   #[pin]
   queue: DynamicTaskQueue<QueueTaskWithId<T>>,
   new_tasks:
-    Option<tokio::sync::mpsc::UnboundedReceiver<(T, TaskResultSender<T>)>>,
+    Option<tokio::sync::mpsc::Receiver<(T, TaskResultSender<T>)>>,
   senders: HashMap<Uuid, TaskResultSender<T>>,
 }
 

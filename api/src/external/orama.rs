@@ -12,18 +12,21 @@ use oramacore_client::OramaCloud;
 use oramacore_client::cloud::CloudSearchParams;
 use oramacore_client::cloud::DataSourceNamespace;
 use oramacore_client::cloud::ProjectManagerConfig;
+use tokio::sync::Semaphore;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::error;
 use tracing::instrument;
 
 const MAX_ORAMA_INSERT_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
+const MAX_CONCURRENT_ORAMA_TASKS: usize = 32;
 
 #[derive(Clone)]
 pub struct OramaClient {
   symbols_client: Arc<OramaCloud>,
   package_datasource: Arc<DataSourceNamespace>,
   symbols_datasource: Arc<DataSourceNamespace>,
+  semaphore: Arc<Semaphore>,
 }
 
 impl OramaClient {
@@ -57,6 +60,7 @@ impl OramaClient {
       symbols_client: Arc::new(symbols_client),
       package_datasource: Arc::new(package_datasource),
       symbols_datasource: Arc::new(symbols_datasource),
+      semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_ORAMA_TASKS)),
     }
   }
 
@@ -87,8 +91,10 @@ impl OramaClient {
     });
     let span = Span::current();
     let package_datasource = self.package_datasource.clone();
+    let semaphore = self.semaphore.clone();
     tokio::spawn(
       async move {
+        let _permit = semaphore.acquire().await;
         if let Err(err) = package_datasource.upsert_documents(vec![body]).await
         {
           error!("failed to OramaClient::upsert_package: {err}");
@@ -103,8 +109,10 @@ impl OramaClient {
     let id = format!("@{scope}/{package}");
     let span = Span::current();
     let package_datasource = self.package_datasource.clone();
+    let semaphore = self.semaphore.clone();
     tokio::spawn(
       async move {
+        let _permit = semaphore.acquire().await;
         if let Err(err) = package_datasource.delete_documents(vec![id]).await {
           error!("failed to OramaClient::delete_package: {err}");
         }
@@ -127,8 +135,11 @@ impl OramaClient {
     let span = Span::current();
     let symbols_client = self.symbols_client.clone();
     let symbols_datasource = self.symbols_datasource.clone();
+    let semaphore = self.semaphore.clone();
     tokio::spawn(
       async move {
+        let _permit = semaphore.acquire().await;
+
         #[derive(serde::Deserialize)]
         struct IDDocument {
           id: String,
@@ -187,9 +198,11 @@ impl OramaClient {
         let span = Span::current();
         let chunk = chunk.to_vec();
         let symbols_datasource = self.symbols_datasource.clone();
+        let semaphore = self.semaphore.clone();
 
         tokio::spawn(
           async move {
+            let _permit = semaphore.acquire().await;
             if let Err(err) = symbols_datasource.insert_documents(chunk).await {
               error!("failed to OramaClient::upsert_symbols: {err}");
             }
