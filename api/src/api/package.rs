@@ -2986,8 +2986,9 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert!(versions.is_empty());
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert!(list.items.is_empty());
+    assert_eq!(list.total, 0);
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -3010,9 +3011,10 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert_eq!(versions.len(), 1);
-    assert_eq!(versions[0].version.to_string(), "1.0.0");
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert_eq!(list.items.len(), 1);
+    assert_eq!(list.total, 1);
+    assert_eq!(list.items[0].version.to_string(), "1.0.0");
 
     let mut resp = t
       .http()
