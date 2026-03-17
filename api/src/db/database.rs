@@ -1687,6 +1687,7 @@ gitlab_id: r.user_gitlab_id,
     .await
   }
 
+  #[allow(clippy::type_complexity)]
   #[instrument(
     name = "Database::list_package_versions_paginated",
     skip(self),

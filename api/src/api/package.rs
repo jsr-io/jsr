@@ -1292,7 +1292,7 @@ pub async fn get_docs_handler(
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes_fut = doc_node_cache.get(&docs_path, &buckets);
+  let doc_nodes_fut = doc_node_cache.get(&docs_path, buckets);
 
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
@@ -1430,7 +1430,7 @@ pub async fn get_docs_search_handler(
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = doc_node_cache.get(&docs_path, &buckets).await?;
+  let docs = doc_node_cache.get(&docs_path, buckets).await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1504,7 +1504,7 @@ pub async fn get_docs_search_structured_handler(
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = doc_node_cache.get(&docs_path, &buckets).await?;
+  let docs = doc_node_cache.get(&docs_path, buckets).await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1787,8 +1787,8 @@ pub async fn get_diff_handler(
   let new_docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
   let (old_docs, new_docs) = futures::future::try_join(
-    doc_node_cache.get(&old_docs_path, &buckets),
-    doc_node_cache.get(&new_docs_path, &buckets),
+    doc_node_cache.get(&old_docs_path, buckets),
+    doc_node_cache.get(&new_docs_path, buckets),
   )
   .await?;
 
