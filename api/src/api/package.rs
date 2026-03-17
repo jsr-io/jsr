@@ -1289,8 +1289,7 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache =
-    req.data::<crate::docs::DocNodeCache>().unwrap().clone();
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
   let doc_nodes_fut = doc_node_cache.get(&docs_path, &buckets);
@@ -1428,8 +1427,7 @@ pub async fn get_docs_search_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache =
-    req.data::<crate::docs::DocNodeCache>().unwrap().clone();
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
   let docs = doc_node_cache.get(&docs_path, &buckets).await?;
@@ -1503,8 +1501,7 @@ pub async fn get_docs_search_structured_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache =
-    req.data::<crate::docs::DocNodeCache>().unwrap().clone();
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
   let docs = doc_node_cache.get(&docs_path, &buckets).await?;
@@ -1784,8 +1781,7 @@ pub async fn get_diff_handler(
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache =
-    req.data::<crate::docs::DocNodeCache>().unwrap().clone();
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let old_docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
   let new_docs_path =
