@@ -287,10 +287,8 @@ type TaskResultSender<T> = oneshot::Sender<
 /// Uses a bounded channel to provide backpressure and prevent unbounded memory
 /// growth when tasks are submitted faster than they can be processed.
 pub struct DynamicBackgroundTaskQueue<T: RestartableTask> {
-  sender: tokio::sync::mpsc::Sender<(
-    InstrumentedQueueTask<T>,
-    TaskResultSender<T>,
-  )>,
+  sender:
+    tokio::sync::mpsc::Sender<(InstrumentedQueueTask<T>, TaskResultSender<T>)>,
 }
 
 /// Maximum number of pending tasks that can be buffered in the channel before
@@ -313,8 +311,7 @@ where
   T::Fut: Send + 'static,
 {
   fn default() -> Self {
-    let (sender, receiver) =
-      tokio::sync::mpsc::channel(BACKGROUND_QUEUE_BOUND);
+    let (sender, receiver) = tokio::sync::mpsc::channel(BACKGROUND_QUEUE_BOUND);
     tokio::spawn(DynamicBackgroundTaskQueueDriveFuture {
       queue: DynamicTaskQueue::new(Vec::new()),
       new_tasks: Some(receiver),
@@ -347,8 +344,7 @@ where
 pub struct DynamicBackgroundTaskQueueDriveFuture<T: RestartableTask> {
   #[pin]
   queue: DynamicTaskQueue<QueueTaskWithId<T>>,
-  new_tasks:
-    Option<tokio::sync::mpsc::Receiver<(T, TaskResultSender<T>)>>,
+  new_tasks: Option<tokio::sync::mpsc::Receiver<(T, TaskResultSender<T>)>>,
   senders: HashMap<Uuid, TaskResultSender<T>>,
 }
 
