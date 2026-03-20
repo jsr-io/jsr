@@ -56,7 +56,7 @@ const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const HIGH_MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
 const HIGH_MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
-const MAX_CONCURRENT_UPLOADS: usize = 1024;
+const MAX_CONCURRENT_UPLOADS: usize = 64;
 
 static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 

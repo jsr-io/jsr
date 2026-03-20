@@ -62,7 +62,6 @@ impl BucketWithQueue {
         options,
       })
       .await
-      .unwrap()
   }
 
   #[instrument(name = "BucketWithQueue::download", skip(self), err)]
@@ -77,7 +76,6 @@ impl BucketWithQueue {
         path,
       })
       .await
-      .unwrap()
   }
 
   #[instrument(name = "BucketWithQueue::delete_file", skip(self), err)]
@@ -89,7 +87,6 @@ impl BucketWithQueue {
         path,
       })
       .await
-      .unwrap()
   }
 
   #[instrument(name = "BucketWithQueue::delete_directory", skip(self), err)]
@@ -100,8 +97,7 @@ impl BucketWithQueue {
         bucket: self.bucket.clone(),
         path,
       })
-      .await
-      .unwrap()?;
+      .await?;
 
     if let Some(list) = list {
       let stream = futures::stream::iter(list.items)

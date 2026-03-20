@@ -264,7 +264,6 @@ impl BucketWithQueue {
         options,
       })
       .await
-      .unwrap()
   }
 
   #[allow(dead_code)]
@@ -280,7 +279,6 @@ impl BucketWithQueue {
         path,
       })
       .await
-      .unwrap()
   }
 
   #[allow(dead_code)]
@@ -293,7 +291,6 @@ impl BucketWithQueue {
         path,
       })
       .await
-      .unwrap()
   }
 
   #[allow(dead_code)]
@@ -305,8 +302,7 @@ impl BucketWithQueue {
         bucket: self.bucket.clone(),
         path,
       })
-      .await
-      .unwrap()?;
+      .await?;
 
     if !list.is_empty() {
       let stream = futures::stream::iter(list)

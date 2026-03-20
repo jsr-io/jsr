@@ -34,6 +34,53 @@ use url::Url;
 
 pub type DocNodesByUrl = IndexMap<ModuleSpecifier, Vec<DocNode>>;
 
+/// Cache for doc node bytes downloaded from GCS. Doc nodes are immutable per
+/// version, so caching them avoids redundant GCS downloads and
+/// deserialization—especially since every doc page view also triggers a
+/// search-index request for the same data.
+///
+/// Bounded by total byte size (128 MB) rather than entry count, so a few large
+/// doc blobs won't starve the cache.
+#[derive(Clone)]
+pub struct DocNodeCache {
+  cache: moka::future::Cache<String, bytes::Bytes>,
+}
+
+impl DocNodeCache {
+  pub fn new() -> Self {
+    Self {
+      cache: moka::future::Cache::builder()
+        // 128 MB max weighing by value size
+        .max_capacity(128 * 1024 * 1024)
+        .weigher(|_key: &String, value: &bytes::Bytes| -> u32 {
+          // Weight = size of the cached bytes (capped at u32::MAX)
+          value.len().try_into().unwrap_or(u32::MAX)
+        })
+        .build(),
+    }
+  }
+
+  /// Get doc nodes bytes for a given GCS path, fetching from the bucket on
+  /// cache miss.
+  pub async fn get(
+    &self,
+    gcs_path: &str,
+    bucket: &crate::buckets::Buckets,
+  ) -> Result<Option<bytes::Bytes>, crate::s3::S3Error> {
+    if let Some(cached) = self.cache.get(gcs_path).await {
+      return Ok(Some(cached));
+    }
+
+    let result = bucket.docs_bucket.download(Arc::from(gcs_path)).await?;
+
+    if let Some(ref bytes) = result {
+      self.cache.insert(gcs_path.to_string(), bytes.clone()).await;
+    }
+
+    Ok(result)
+  }
+}
+
 pub type URLRewriter =
   Arc<dyn (Fn(Option<&ShortPath>, &str) -> String) + Send + Sync>;
 

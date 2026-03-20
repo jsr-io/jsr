@@ -703,12 +703,14 @@ async fn update_github_repository(
 )]
 pub async fn list_versions_handler(
   req: Request<Body>,
-) -> ApiResult<Vec<ApiPackageVersionWithUser>> {
+) -> ApiResult<ApiList<ApiPackageVersionWithUser>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package));
+
+  let (start, limit) = pagination(&req);
 
   let db = req.data::<Database>().unwrap();
 
@@ -716,14 +718,17 @@ pub async fn list_versions_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let versions = db
-    .list_package_versions(&scope, &package)
-    .await?
-    .into_iter()
-    .map(ApiPackageVersionWithUser::from)
-    .collect::<Vec<_>>();
+  let (total, versions) = db
+    .list_package_versions_paginated(&scope, &package, start, limit)
+    .await?;
 
-  Ok(versions)
+  Ok(ApiList {
+    items: versions
+      .into_iter()
+      .map(ApiPackageVersionWithUser::from)
+      .collect(),
+    total,
+  })
 }
 
 #[instrument(
@@ -1284,9 +1289,10 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
+  let doc_nodes_fut = doc_node_cache.get(&docs_path, buckets);
 
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
@@ -1421,9 +1427,10 @@ pub async fn get_docs_search_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
+  let docs = doc_node_cache.get(&docs_path, buckets).await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1494,9 +1501,10 @@ pub async fn get_docs_search_structured_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
+  let docs = doc_node_cache.get(&docs_path, buckets).await?;
   let docs = docs.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1773,15 +1781,16 @@ pub async fn get_diff_handler(
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
 
+  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let old_docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
-  let old_doc_nodes_fut = buckets.docs_bucket.download(old_docs_path.into());
   let new_docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
-  let new_doc_nodes_fut = buckets.docs_bucket.download(new_docs_path.into());
-
-  let (old_docs, new_docs) =
-    futures::future::try_join(old_doc_nodes_fut, new_doc_nodes_fut).await?;
+  let (old_docs, new_docs) = futures::future::try_join(
+    doc_node_cache.get(&old_docs_path, buckets),
+    doc_node_cache.get(&new_docs_path, buckets),
+  )
+  .await?;
 
   let old_docs = old_docs.ok_or_else(|| {
     error!(
@@ -2973,8 +2982,9 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert!(versions.is_empty());
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert!(list.items.is_empty());
+    assert_eq!(list.total, 0);
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -2997,9 +3007,10 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert_eq!(versions.len(), 1);
-    assert_eq!(versions[0].version.to_string(), "1.0.0");
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert_eq!(list.items.len(), 1);
+    assert_eq!(list.total, 1);
+    assert_eq!(list.items[0].version.to_string(), "1.0.0");
 
     let mut resp = t
       .http()
