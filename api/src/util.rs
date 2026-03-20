@@ -817,7 +817,7 @@ pub mod test {
       let router = crate::main_router(MainRouterOptions {
         database: db,
         buckets: buckets.clone(),
-        doc_node_cache: crate::docs::DocNodeCache::new(),
+        generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
         orama_client: None,

@@ -65,7 +65,7 @@ use url::Url;
 pub struct MainRouterOptions {
   database: Database,
   buckets: Buckets,
-  doc_node_cache: crate::docs::DocNodeCache,
+  generate_ctx_cache: crate::docs::GenerateCtxCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
   orama_client: Option<OramaClient>,
@@ -91,7 +91,7 @@ pub(crate) fn main_router(
   MainRouterOptions {
     database,
     buckets,
-    doc_node_cache,
+    generate_ctx_cache,
     github_client,
     gitlab_client,
     orama_client,
@@ -110,7 +110,7 @@ pub(crate) fn main_router(
   let builder = Router::builder()
     .data(database)
     .data(buckets)
-    .data(doc_node_cache)
+    .data(generate_ctx_cache)
     .data(github_client)
     .data(gitlab_client)
     .data(orama_client)
@@ -316,12 +316,12 @@ async fn main() {
 
   let license_store = util::license_store();
 
-  let doc_node_cache = crate::docs::DocNodeCache::new();
+  let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
 
   let router = main_router(MainRouterOptions {
     database,
     buckets,
-    doc_node_cache,
+    generate_ctx_cache,
     github_client,
     gitlab_client,
     orama_client,

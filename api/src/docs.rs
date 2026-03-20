@@ -35,7 +35,6 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::io::Read;
 use std::io::Write;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use tracing::instrument;
@@ -133,91 +132,124 @@ fn deserialize_doc_nodes_v1(
   }
 }
 
-/// Cache for deserialized doc nodes downloaded from GCS. Doc nodes are
-/// immutable per version, so caching the parsed structure avoids redundant
-/// GCS downloads *and* deserialization—especially since every doc page view
-/// also triggers a search-index request for the same data.
-///
-/// Bounded by entry count (256 entries). Each entry is an Arc so concurrent
-/// readers share the same allocation.
-#[derive(Clone)]
-pub struct DocNodeCache {
-  cache: moka::future::Cache<String, Arc<ParseOutput>>,
+/// Download doc nodes from GCS for a package version, trying v2
+/// (msgpack+gzip) first and falling back to v1 (JSON) with migration.
+/// Used by the diff endpoint which needs raw ParseOutput.
+pub async fn download_doc_nodes(
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+  bucket: &crate::buckets::Buckets,
+) -> Result<Option<ParseOutput>, DocNodeCacheError> {
+  let v2_path = crate::gcs_paths::docs_v2_path(scope, package, version);
+  let v2_result = bucket
+    .docs_bucket
+    .download(Arc::from(v2_path.as_str()))
+    .await?;
+
+  if let Some(bytes) = v2_result {
+    return Ok(Some(deserialize_doc_nodes_v2(&bytes)?));
+  }
+
+  let v1_path = crate::gcs_paths::docs_v1_path(scope, package, version);
+  let v1_result = bucket
+    .docs_bucket
+    .download(Arc::from(v1_path.as_str()))
+    .await?;
+
+  let Some(bytes) = v1_result else {
+    return Ok(None);
+  };
+
+  let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
+
+  // Re-upload migrated data as v2 so future reads use the fast path,
+  // then delete the now-redundant v1 file.
+  let v2_bytes = serialize_doc_nodes(&doc_nodes);
+  bucket
+    .docs_bucket
+    .upload(
+      Arc::from(v2_path.as_str()),
+      crate::s3::UploadTaskBody::Bytes(v2_bytes),
+      crate::gcp::GcsUploadOptions {
+        content_type: Some("application/x-msgpack".into()),
+        cache_control: Some(crate::gcp::CACHE_CONTROL_IMMUTABLE.into()),
+        gzip_encoded: true,
+      },
+    )
+    .await?;
+
+  bucket
+    .docs_bucket
+    .delete_file(Arc::from(v1_path.as_str()))
+    .await?;
+
+  Ok(Some(doc_nodes))
 }
 
-impl DocNodeCache {
+/// Cache for fully-built GenerateCtx. Keyed by
+/// `scope/package/version/is_latest/has_readme` so concurrent requests
+/// for the same doc page share a single GenerateCtx without rebuilding.
+#[derive(Clone)]
+pub struct GenerateCtxCache {
+  cache: moka::future::Cache<String, Arc<GenerateCtx>>,
+}
+
+impl GenerateCtxCache {
   pub fn new() -> Self {
     Self {
-      cache: moka::future::Cache::builder().max_capacity(256).build(),
+      cache: moka::future::Cache::builder().max_capacity(64).build(),
     }
   }
 
-  /// Get deserialized doc nodes for a package version, trying the v2
-  /// (msgpack+gzip) format first and falling back to v1 (JSON) with
-  /// migration via `deno_doc::docnodes_v1_to_v2`.
+  #[allow(clippy::too_many_arguments)]
   pub async fn get(
     &self,
     scope: &ScopeName,
     package: &PackageName,
     version: &Version,
+    version_is_latest: bool,
+    has_readme: bool,
+    exports: &crate::db::ExportsMap,
+    github_repository: Option<GithubRepository>,
+    runtime_compat: RuntimeCompat,
+    registry_url: &str,
     bucket: &crate::buckets::Buckets,
-  ) -> Result<Option<Arc<ParseOutput>>, DocNodeCacheError> {
-    let v2_path = crate::gcs_paths::docs_v2_path(scope, package, version);
+  ) -> Result<Option<Arc<GenerateCtx>>, DocNodeCacheError> {
+    let key = format!(
+      "@{scope}/{package}/{version}/{version_is_latest}/{has_readme}"
+    );
 
-    if let Some(cached) = self.cache.get(&v2_path).await {
+    if let Some(cached) = self.cache.get(&key).await {
       return Ok(Some(cached));
     }
 
-    let v2_result = bucket
-      .docs_bucket
-      .download(Arc::from(v2_path.as_str()))
-      .await?;
-
-    if let Some(bytes) = v2_result {
-      let doc_nodes = deserialize_doc_nodes_v2(&bytes)?;
-      let doc_nodes = Arc::new(doc_nodes);
-      self.cache.insert(v2_path, doc_nodes.clone()).await;
-      return Ok(Some(doc_nodes));
-    }
-
-    let v1_path = crate::gcs_paths::docs_v1_path(scope, package, version);
-    let v1_result = bucket
-      .docs_bucket
-      .download(Arc::from(v1_path.as_str()))
-      .await?;
-
-    let Some(bytes) = v1_result else {
+    let Some(doc_nodes) =
+      download_doc_nodes(scope, package, version, bucket).await?
+    else {
       return Ok(None);
     };
 
-    let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
+    let docs_info = get_docs_info(exports, None);
+    let ctx = get_generate_ctx(
+      "/doc".to_string(),
+      doc_nodes,
+      docs_info.main_entrypoint,
+      docs_info.rewrite_map,
+      scope.clone(),
+      package.clone(),
+      version.clone(),
+      version_is_latest,
+      github_repository,
+      has_readme,
+      runtime_compat,
+      registry_url.to_string(),
+      None,
+    );
 
-    // Re-upload migrated data as v2 so future reads use the fast path,
-    // then delete the now-redundant v1 file.
-    let v2_bytes = serialize_doc_nodes(&doc_nodes);
-    bucket
-      .docs_bucket
-      .upload(
-        Arc::from(v2_path.as_str()),
-        crate::s3::UploadTaskBody::Bytes(v2_bytes),
-        crate::gcp::GcsUploadOptions {
-          content_type: Some("application/x-msgpack".into()),
-          cache_control: Some(crate::gcp::CACHE_CONTROL_IMMUTABLE.into()),
-          gzip_encoded: true,
-        },
-      )
-      .await?;
-
-    bucket
-      .docs_bucket
-      .delete_file(Arc::from(v1_path.as_str()))
-      .await?;
-
-    let doc_nodes = Arc::new(doc_nodes);
-
-    self.cache.insert(v2_path, doc_nodes.clone()).await;
-
-    Ok(Some(doc_nodes))
+    let ctx = Arc::new(ctx);
+    self.cache.insert(key, ctx.clone()).await;
+    Ok(Some(ctx))
   }
 }
 
@@ -651,7 +683,7 @@ pub fn get_generate_ctx(
     Some(Box::new(|html| AMMONIA.clean(&html).to_string())),
   );
 
-  let markdown_renderer = Rc::new(
+  let markdown_renderer = Arc::new(
     move |md: &str,
           title_only: bool,
           file_path: Option<ShortPath>,
@@ -674,7 +706,7 @@ pub fn get_generate_ctx(
     deno_doc::html::GenerateOptions {
       package_name: Some(package_name),
       main_entrypoint,
-      href_resolver: Rc::new(DocResolver {
+      href_resolver: Arc::new(DocResolver {
         scope: scope.clone(),
         package: package.clone(),
         version,
@@ -705,11 +737,11 @@ pub fn get_generate_ctx(
         full: diff.as_ref().map(|diff| diff.1),
       }),
       usage_composer: diff.is_none().then(|| {
-        Rc::new(DocUsageComposer {
+        Arc::new(DocUsageComposer {
           runtime_compat,
           scope,
           package,
-        }) as Rc<dyn deno_doc::html::UsageComposer>
+        }) as Arc<dyn deno_doc::html::UsageComposer>
       }),
       rewrite_map: Some(rewrite_map),
       category_docs: None,
@@ -717,7 +749,7 @@ pub fn get_generate_ctx(
       symbol_redirect_map: None,
       default_symbol_map: None,
       markdown_renderer,
-      markdown_stripper: Rc::new(deno_doc::html::comrak::strip),
+      markdown_stripper: Arc::new(deno_doc::html::comrak::strip),
       head_inject: None,
       id_prefix: None,
       diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
@@ -730,54 +762,13 @@ pub fn get_generate_ctx(
   .unwrap()
 }
 
-#[allow(clippy::too_many_arguments)]
-#[instrument(
-  name = "generate_docs_html",
-  skip(documents_by_url, rewrite_map, readme, diff_data),
-  err
-)]
-pub fn generate_docs_html(
-  doc_base: String,
-  documents_by_url: ParseOutput,
-  main_entrypoint: Option<ModuleSpecifier>,
-  rewrite_map: IndexMap<ModuleSpecifier, String>,
+#[instrument(name = "render_docs_html", skip(ctx, readme), err)]
+pub fn render_docs_html(
+  ctx: &GenerateCtx,
   req: DocsRequest,
-  scope: ScopeName,
-  package: PackageName,
-  version: Version,
-  version_is_latest: bool,
-  github_repository: Option<GithubRepository>,
   readme: Option<String>,
-  runtime_compat: RuntimeCompat,
-  registry_url: String,
   readme_source: ReadmeSource,
-  diff_data: Option<(ParseOutput, bool)>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
-  let diff = if let Some((old_doc_nodes_by_url, full)) = diff_data {
-    Some((
-      deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &documents_by_url),
-      full,
-    ))
-  } else {
-    None
-  };
-
-  let ctx = get_generate_ctx(
-    doc_base,
-    documents_by_url,
-    main_entrypoint,
-    rewrite_map,
-    scope,
-    package,
-    version,
-    version_is_latest,
-    github_repository,
-    readme.is_some(),
-    runtime_compat,
-    registry_url,
-    diff,
-  );
-
   match req {
     DocsRequest::AllSymbols => {
       let render_ctx =

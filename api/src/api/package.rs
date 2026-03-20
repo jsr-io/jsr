@@ -1290,41 +1290,51 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let doc_nodes_fut =
-    doc_node_cache.get(&scope, &package_name, &version.version, buckets);
+  let has_readme =
+    !all_symbols && entrypoint.is_none() && symbol.is_none() && version.readme_path.is_some();
 
-  let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
-    if let Some(readme_path) = &version.readme_path {
-      let gcs_path = crate::gcs_paths::file_path(
-        &scope,
-        &package_name,
-        &version.version,
-        readme_path,
-      )
-      .into();
-      Either::Left(buckets.modules_bucket.download(gcs_path))
-    } else {
-      Either::Right(futures::future::ready(Ok(None)))
-    }
+  let readme_fut = if has_readme {
+    let gcs_path = crate::gcs_paths::file_path(
+      &scope,
+      &package_name,
+      &version.version,
+      version.readme_path.as_ref().unwrap(),
+    )
+    .into();
+    Either::Left(buckets.modules_bucket.download(gcs_path))
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (doc_nodes, readme) = futures::future::try_join(
-    doc_nodes_fut.map_err(ApiError::from),
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx_fut = generate_ctx_cache.get(
+    &scope,
+    &package_name,
+    &version.version,
+    version_or_latest == VersionOrLatest::Latest,
+    has_readme,
+    &version.exports,
+    repo,
+    package.runtime_compat,
+    &registry_url,
+    buckets,
+  );
+
+  let (ctx, readme) = futures::future::try_join(
+    ctx_fut.map_err(ApiError::from),
     readme_fut.map_err(ApiError::from),
   )
   .await?;
-  let doc_nodes = doc_nodes.ok_or_else(|| {
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes =
-    Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
@@ -1335,8 +1345,6 @@ pub async fn get_docs_handler(
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
   }
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let req = match (docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
@@ -1355,22 +1363,11 @@ pub async fn get_docs_handler(
   };
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
-  let docs = crate::docs::generate_docs_html(
-    "/doc".to_string(),
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
+  let docs = crate::docs::render_docs_html(
+    &ctx,
     req,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
     readme,
-    package.runtime_compat,
-    registry_url,
     package.readme_source,
-    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1428,41 +1425,33 @@ pub async fn get_docs_search_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let doc_nodes = doc_node_cache
-    .get(&scope, &package_name, &version.version, buckets)
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
     .await?;
-  let doc_nodes = doc_nodes.ok_or_else(|| {
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes =
-    Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
-
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
-  let ctx = crate::docs::get_generate_ctx(
-    "/doc".to_string(),
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    false,
-    package.runtime_compat,
-    registry_url,
-    None,
-  );
-
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
@@ -1503,41 +1492,38 @@ pub async fn get_docs_search_structured_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let doc_nodes = doc_node_cache
-    .get(&scope, &package_name, &version.version, buckets)
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
     .await?;
-  let doc_nodes = doc_nodes.ok_or_else(|| {
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes =
-    Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
-
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
-  let docs = crate::docs::generate_docs_html(
-    "/doc".to_string(),
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
+  let docs = crate::docs::render_docs_html(
+    &ctx,
     DocsRequest::AllSymbols,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
     None,
-    package.runtime_compat,
-    registry_url,
     package.readme_source,
-    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1784,10 +1770,19 @@ pub async fn get_diff_handler(
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
 
-  let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
-    doc_node_cache.get(&scope, &package_name, &old_version.version, buckets),
-    doc_node_cache.get(&scope, &package_name, &new_version.version, buckets),
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &old_version.version,
+      buckets,
+    ),
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &new_version.version,
+      buckets,
+    ),
   )
   .await?;
 
@@ -1806,11 +1801,6 @@ pub async fn get_diff_handler(
     ApiError::InternalServerError
   })?;
 
-  let old_doc_nodes =
-    Arc::try_unwrap(old_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
-  let new_doc_nodes =
-    Arc::try_unwrap(new_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
-
   // diffs are applied on top of the new version
   let new_docs_info =
     crate::docs::get_docs_info(&new_version.exports, entrypoint);
@@ -1821,7 +1811,7 @@ pub async fn get_diff_handler(
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
-  let req = match (new_docs_info.entrypoint_url, symbol) {
+  let docs_req = match (new_docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
     (Some(entrypoint), None) => DocsRequest::File(entrypoint),
     (Some(entrypoint), Some(symbol)) => {
@@ -1837,23 +1827,30 @@ pub async fn get_diff_handler(
     (None, None) => DocsRequest::Index,
   };
 
+  let diff = deno_doc::diff::DocDiff::diff(&old_doc_nodes, &new_doc_nodes);
+
   let _permit = crate::docs::acquire_doc_render_permit().await;
-  let docs = crate::docs::generate_docs_html(
+  let ctx = crate::docs::get_generate_ctx(
     format!("/diff/{}...{}", old_version.version, new_version.version),
     new_doc_nodes,
     new_docs_info.main_entrypoint,
     new_docs_info.rewrite_map,
-    req,
     scope.clone(),
     package_name.clone(),
     new_version.version.clone(),
     true,
     repo,
-    None,
+    false,
     package.runtime_compat,
     registry_url,
+    Some((diff, full)),
+  );
+
+  let docs = crate::docs::render_docs_html(
+    &ctx,
+    docs_req,
+    None,
     package.readme_source,
-    Some((old_doc_nodes, full)),
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
