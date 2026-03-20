@@ -4,7 +4,6 @@
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 mod analysis;
-mod jemalloc_profiling;
 mod api;
 mod auth;
 mod buckets;
@@ -18,6 +17,7 @@ mod gcp;
 mod gcs_paths;
 mod iam;
 mod ids;
+mod jemalloc_profiling;
 mod metadata;
 mod npm;
 mod provenance;

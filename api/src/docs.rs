@@ -39,15 +39,15 @@ pub type DocNodesByUrl = IndexMap<ModuleSpecifier, Vec<DocNode>>;
 /// Without a limit, high concurrent requests can easily exceed 2 GB.
 const MAX_CONCURRENT_DOC_RENDERS: usize = 16;
 
-static DOC_RENDER_SEMAPHORE: once_cell::sync::Lazy<Arc<tokio::sync::Semaphore>> =
-  once_cell::sync::Lazy::new(|| {
-    Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_DOC_RENDERS))
-  });
+static DOC_RENDER_SEMAPHORE: once_cell::sync::Lazy<
+  Arc<tokio::sync::Semaphore>,
+> = once_cell::sync::Lazy::new(|| {
+  Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_DOC_RENDERS))
+});
 
 /// Acquire a permit to perform doc rendering. Callers should hold the permit
 /// for the duration of the render.
-pub async fn acquire_doc_render_permit(
-) -> tokio::sync::OwnedSemaphorePermit {
+pub async fn acquire_doc_render_permit() -> tokio::sync::OwnedSemaphorePermit {
   DOC_RENDER_SEMAPHORE
     .clone()
     .acquire_owned()
@@ -70,9 +70,7 @@ pub struct DocNodeCache {
 impl DocNodeCache {
   pub fn new() -> Self {
     Self {
-      cache: moka::future::Cache::builder()
-        .max_capacity(256)
-        .build(),
+      cache: moka::future::Cache::builder().max_capacity(256).build(),
     }
   }
 
@@ -97,8 +95,8 @@ impl DocNodeCache {
       return Ok(None);
     };
 
-    let doc_nodes: DocNodesByUrl = serde_json::from_slice(&bytes)
-      .context("failed to parse doc nodes")?;
+    let doc_nodes: DocNodesByUrl =
+      serde_json::from_slice(&bytes).context("failed to parse doc nodes")?;
     let doc_nodes = Arc::new(doc_nodes);
 
     self
