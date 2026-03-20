@@ -97,9 +97,7 @@ pub async fn heap_profile_handler(
     // &value as newp, so T = *const c_char makes mallctl see a pointer to
     // the C string path. `path` is kept alive for the duration of the call.
     let ptr: *const std::ffi::c_char = path.as_ptr();
-    let res = unsafe { tikv_jemalloc_ctl::raw::write(b"prof.dump\0", ptr) };
-
-    res
+    unsafe { tikv_jemalloc_ctl::raw::write(b"prof.dump\0", ptr) }
   };
 
   match result {
