@@ -62,7 +62,6 @@ use crate::db::NewPublishingTask;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
-use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
 use crate::external::orama::OramaClient;
@@ -1311,20 +1310,19 @@ pub async fn get_docs_handler(
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) = futures::future::try_join(
+  let (doc_nodes, readme) = futures::future::try_join(
     doc_nodes_fut.map_err(ApiError::from),
     readme_fut.map_err(ApiError::from),
   )
   .await?;
-  let docs = docs.ok_or_else(|| {
+  let doc_nodes = doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+  let doc_nodes = (*doc_nodes).clone();
 
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
@@ -1354,6 +1352,7 @@ pub async fn get_docs_handler(
     (None, None) => DocsRequest::Index,
   };
 
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let docs = crate::docs::generate_docs_html(
     "/doc".to_string(),
     doc_nodes,
@@ -1430,21 +1429,21 @@ pub async fn get_docs_search_handler(
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = doc_node_cache.get(&docs_path, buckets).await?;
-  let docs = docs.ok_or_else(|| {
+  let doc_nodes = doc_node_cache.get(&docs_path, buckets).await?;
+  let doc_nodes = doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+  let doc_nodes = (*doc_nodes).clone();
 
   let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let ctx = crate::docs::get_generate_ctx(
     "/doc".to_string(),
     doc_nodes,
@@ -1504,21 +1503,21 @@ pub async fn get_docs_search_structured_handler(
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
   let docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = doc_node_cache.get(&docs_path, buckets).await?;
-  let docs = docs.ok_or_else(|| {
+  let doc_nodes = doc_node_cache.get(&docs_path, buckets).await?;
+  let doc_nodes = doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+  let doc_nodes = (*doc_nodes).clone();
 
   let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let docs = crate::docs::generate_docs_html(
     "/doc".to_string(),
     doc_nodes,
@@ -1786,20 +1785,20 @@ pub async fn get_diff_handler(
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
   let new_docs_path =
     crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
-  let (old_docs, new_docs) = futures::future::try_join(
+  let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
     doc_node_cache.get(&old_docs_path, buckets),
     doc_node_cache.get(&new_docs_path, buckets),
   )
   .await?;
 
-  let old_docs = old_docs.ok_or_else(|| {
+  let old_doc_nodes = old_doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, old_version.version
     );
     ApiError::InternalServerError
   })?;
-  let new_docs = new_docs.ok_or_else(|| {
+  let new_doc_nodes = new_doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, new_version.version
@@ -1807,10 +1806,8 @@ pub async fn get_diff_handler(
     ApiError::InternalServerError
   })?;
 
-  let old_doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&old_docs).context("failed to parse doc nodes")?;
-  let new_doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&new_docs).context("failed to parse doc nodes")?;
+  let old_doc_nodes = (*old_doc_nodes).clone();
+  let new_doc_nodes = (*new_doc_nodes).clone();
 
   // diffs are applied on top of the new version
   let new_docs_info =
@@ -1838,6 +1835,7 @@ pub async fn get_diff_handler(
     (None, None) => DocsRequest::Index,
   };
 
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let docs = crate::docs::generate_docs_html(
     format!("/diff/{}...{}", old_version.version, new_version.version),
     new_doc_nodes,

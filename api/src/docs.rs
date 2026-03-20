@@ -34,50 +34,79 @@ use url::Url;
 
 pub type DocNodesByUrl = IndexMap<ModuleSpecifier, Vec<DocNode>>;
 
-/// Cache for doc node bytes downloaded from GCS. Doc nodes are immutable per
-/// version, so caching them avoids redundant GCS downloads and
-/// deserialization—especially since every doc page view also triggers a
-/// search-index request for the same data.
+/// Maximum number of concurrent doc rendering operations. Each doc render
+/// builds a GenerateCtx from doc nodes, which can use 10-50 MB.
+/// Without a limit, high concurrent requests can easily exceed 2 GB.
+const MAX_CONCURRENT_DOC_RENDERS: usize = 16;
+
+static DOC_RENDER_SEMAPHORE: once_cell::sync::Lazy<Arc<tokio::sync::Semaphore>> =
+  once_cell::sync::Lazy::new(|| {
+    Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_DOC_RENDERS))
+  });
+
+/// Acquire a permit to perform doc rendering. Callers should hold the permit
+/// for the duration of the render.
+pub async fn acquire_doc_render_permit(
+) -> tokio::sync::OwnedSemaphorePermit {
+  DOC_RENDER_SEMAPHORE
+    .clone()
+    .acquire_owned()
+    .await
+    .expect("doc render semaphore closed")
+}
+
+/// Cache for deserialized doc nodes downloaded from GCS. Doc nodes are
+/// immutable per version, so caching the parsed structure avoids redundant
+/// GCS downloads *and* deserialization—especially since every doc page view
+/// also triggers a search-index request for the same data.
 ///
-/// Bounded by total byte size (128 MB) rather than entry count, so a few large
-/// doc blobs won't starve the cache.
+/// Bounded by entry count (256 entries). Each entry is an Arc so concurrent
+/// readers share the same allocation.
 #[derive(Clone)]
 pub struct DocNodeCache {
-  cache: moka::future::Cache<String, bytes::Bytes>,
+  cache: moka::future::Cache<String, Arc<DocNodesByUrl>>,
 }
 
 impl DocNodeCache {
   pub fn new() -> Self {
     Self {
       cache: moka::future::Cache::builder()
-        // 128 MB max weighing by value size
-        .max_capacity(128 * 1024 * 1024)
-        .weigher(|_key: &String, value: &bytes::Bytes| -> u32 {
-          // Weight = size of the cached bytes (capped at u32::MAX)
-          value.len().try_into().unwrap_or(u32::MAX)
-        })
+        .max_capacity(256)
         .build(),
     }
   }
 
-  /// Get doc nodes bytes for a given GCS path, fetching from the bucket on
-  /// cache miss.
+  /// Get deserialized doc nodes for a given GCS path, fetching from the
+  /// bucket and deserializing on cache miss.
   pub async fn get(
     &self,
     gcs_path: &str,
     bucket: &crate::buckets::Buckets,
-  ) -> Result<Option<bytes::Bytes>, crate::s3::S3Error> {
+  ) -> Result<Option<Arc<DocNodesByUrl>>, anyhow::Error> {
     if let Some(cached) = self.cache.get(gcs_path).await {
       return Ok(Some(cached));
     }
 
-    let result = bucket.docs_bucket.download(Arc::from(gcs_path)).await?;
+    let result = bucket
+      .docs_bucket
+      .download(Arc::from(gcs_path))
+      .await
+      .map_err(anyhow::Error::from)?;
 
-    if let Some(ref bytes) = result {
-      self.cache.insert(gcs_path.to_string(), bytes.clone()).await;
-    }
+    let Some(bytes) = result else {
+      return Ok(None);
+    };
 
-    Ok(result)
+    let doc_nodes: DocNodesByUrl = serde_json::from_slice(&bytes)
+      .context("failed to parse doc nodes")?;
+    let doc_nodes = Arc::new(doc_nodes);
+
+    self
+      .cache
+      .insert(gcs_path.to_string(), doc_nodes.clone())
+      .await;
+
+    Ok(Some(doc_nodes))
   }
 }
 

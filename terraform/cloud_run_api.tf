@@ -60,10 +60,10 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     scaling {
       min_instance_count = var.production ? 1 : 0
-      max_instance_count = 20
+      max_instance_count = 30
     }
 
-    max_instance_request_concurrency = 250
+    max_instance_request_concurrency = 100
 
     containers {
       image = var.api_image_id

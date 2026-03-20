@@ -116,6 +116,8 @@ tree-sitter-html = "0.20.3"
 tree-sitter-bash = "0.21.0"
 tree-sitter-xml = "0.6.4"
 lazy_static = "1.5.0"
+tikv-jemallocator = { version = "0.6", features = ["profiling"] }
+tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 registry_api_macros = { path = "macros" }
 
 [dev-dependencies]
