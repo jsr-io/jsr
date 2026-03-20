@@ -72,6 +72,20 @@ struct StoredDocNodes {
   doc_nodes: ParseOutput,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum DocNodeCacheError {
+  #[error(transparent)]
+  S3(#[from] crate::s3::S3Error),
+  #[error("failed to decompress doc nodes: {0}")]
+  Decompress(std::io::Error),
+  #[error("failed to deserialize doc nodes: {0}")]
+  Deserialize(String),
+  #[error("failed to parse module specifier in legacy doc nodes: {0}")]
+  InvalidSpecifier(url::ParseError),
+  #[error("unexpected doc nodes JSON shape")]
+  UnexpectedJsonShape,
+}
+
 /// Serialize doc nodes to gzip-compressed MessagePack with a version field.
 pub fn serialize_doc_nodes(doc_nodes: &ParseOutput) -> Bytes {
   let stored = StoredDocNodes {
@@ -87,38 +101,35 @@ pub fn serialize_doc_nodes(doc_nodes: &ParseOutput) -> Bytes {
 /// Deserialize doc nodes from gzip-compressed MessagePack (v2 format).
 fn deserialize_doc_nodes_v2(
   bytes: &[u8],
-) -> Result<ParseOutput, anyhow::Error> {
+) -> Result<ParseOutput, DocNodeCacheError> {
   let mut decoder = GzDecoder::new(bytes);
   let mut decompressed = Vec::new();
   decoder
     .read_to_end(&mut decompressed)
-    .context("failed to decompress doc nodes")?;
+    .map_err(DocNodeCacheError::Decompress)?;
   let stored: StoredDocNodes = rmp_serde::from_slice(&decompressed)
-    .context("failed to deserialize doc nodes from msgpack")?;
+    .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
   Ok(stored.doc_nodes)
 }
 
 /// Deserialize doc nodes from legacy JSON (v1 format), migrating to v2.
 fn deserialize_doc_nodes_v1(
   bytes: &[u8],
-) -> Result<ParseOutput, anyhow::Error> {
+) -> Result<ParseOutput, DocNodeCacheError> {
   let value: serde_json::Value = serde_json::from_slice(bytes)
-    .context("failed to parse legacy doc nodes JSON")?;
+    .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
 
-  // The v1 format was a direct serialization of ParseOutput (IndexMap<ModuleSpecifier, Document>).
-  // Each Document in v1 had a flat array format for symbols; v2 uses the new Document struct.
-  // We need to check if this is the old flat-array format or the already-v2 structure.
   match value {
     serde_json::Value::Object(map) => {
       let mut result = IndexMap::new();
       for (key, val) in map {
         let specifier = ModuleSpecifier::parse(&key)
-          .context("failed to parse module specifier in legacy doc nodes")?;
-        result.insert(specifier, deno_doc::docnodes_v1_to_v2(val.clone()));
+          .map_err(DocNodeCacheError::InvalidSpecifier)?;
+        result.insert(specifier, deno_doc::docnodes_v1_to_v2(val));
       }
       Ok(result)
     }
-    _ => anyhow::bail!("unexpected doc nodes JSON shape"),
+    _ => Err(DocNodeCacheError::UnexpectedJsonShape),
   }
 }
 
@@ -150,7 +161,7 @@ impl DocNodeCache {
     package: &PackageName,
     version: &Version,
     bucket: &crate::buckets::Buckets,
-  ) -> Result<Option<Arc<ParseOutput>>, anyhow::Error> {
+  ) -> Result<Option<Arc<ParseOutput>>, DocNodeCacheError> {
     let v2_path = crate::gcs_paths::docs_v2_path(scope, package, version);
 
     if let Some(cached) = self.cache.get(&v2_path).await {
@@ -160,8 +171,7 @@ impl DocNodeCache {
     let v2_result = bucket
       .docs_bucket
       .download(Arc::from(v2_path.as_str()))
-      .await
-      .map_err(anyhow::Error::from)?;
+      .await?;
 
     if let Some(bytes) = v2_result {
       let doc_nodes = deserialize_doc_nodes_v2(&bytes)?;
@@ -174,8 +184,7 @@ impl DocNodeCache {
     let v1_result = bucket
       .docs_bucket
       .download(Arc::from(v1_path.as_str()))
-      .await
-      .map_err(anyhow::Error::from)?;
+      .await?;
 
     let Some(bytes) = v1_result else {
       return Ok(None);
@@ -183,7 +192,8 @@ impl DocNodeCache {
 
     let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
 
-    // Re-upload migrated data as v2 so future reads use the fast path.
+    // Re-upload migrated data as v2 so future reads use the fast path,
+    // then delete the now-redundant v1 file.
     let v2_bytes = serialize_doc_nodes(&doc_nodes);
     bucket
       .docs_bucket
@@ -196,8 +206,12 @@ impl DocNodeCache {
           gzip_encoded: true,
         },
       )
-      .await
-      .map_err(anyhow::Error::from)?;
+      .await?;
+
+    bucket
+      .docs_bucket
+      .delete_file(Arc::from(v1_path.as_str()))
+      .await?;
 
     let doc_nodes = Arc::new(doc_nodes);
 
