@@ -63,6 +63,14 @@ pub fn api_router() -> Router<Body, ApiError> {
     )
     .scope("/tickets", tickets_router())
     .get("/.well-known/openapi", openapi_handler)
+    .get(
+      "/debug/mem_stats",
+      util::auth(crate::jemalloc_profiling::mem_stats_handler),
+    )
+    .get(
+      "/debug/mem_dump",
+      util::auth(crate::jemalloc_profiling::heap_profile_handler),
+    )
     .build()
     .unwrap()
 }

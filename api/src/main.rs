@@ -1,4 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod analysis;
 mod api;
 mod auth;
@@ -13,6 +17,7 @@ mod gcp;
 mod gcs_paths;
 mod iam;
 mod ids;
+mod jemalloc_profiling;
 mod metadata;
 mod npm;
 mod provenance;
