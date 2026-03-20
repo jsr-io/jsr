@@ -6,6 +6,7 @@ use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use anyhow::Context;
+use bytes::Bytes;
 use comrak::nodes::Ast;
 use comrak::nodes::AstNode;
 use comrak::nodes::NodeValue;
@@ -24,9 +25,16 @@ use deno_doc::html::UsageComposerEntry;
 use deno_doc::html::pages::SymbolPage;
 use deno_doc::html::util::BreadcrumbsCtx;
 use deno_semver::RangeSetOrTag;
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 use indexmap::IndexMap;
+use serde::Deserialize;
+use serde::Serialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::io::Read;
+use std::io::Write;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -54,6 +62,66 @@ pub async fn acquire_doc_render_permit() -> tokio::sync::OwnedSemaphorePermit {
     .expect("doc render semaphore closed")
 }
 
+/// Current doc nodes storage format version.
+const DOC_NODES_VERSION: u32 = 2;
+
+/// Versioned wrapper for stored doc nodes.
+#[derive(Serialize, Deserialize)]
+struct StoredDocNodes {
+  version: u32,
+  doc_nodes: ParseOutput,
+}
+
+/// Serialize doc nodes to gzip-compressed MessagePack with a version field.
+pub fn serialize_doc_nodes(doc_nodes: &ParseOutput) -> Bytes {
+  let stored = StoredDocNodes {
+    version: DOC_NODES_VERSION,
+    doc_nodes: doc_nodes.clone(),
+  };
+  let msgpack = rmp_serde::to_vec(&stored).unwrap();
+  let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+  encoder.write_all(&msgpack).unwrap();
+  encoder.finish().unwrap().into()
+}
+
+/// Deserialize doc nodes from gzip-compressed MessagePack (v2 format).
+fn deserialize_doc_nodes_v2(
+  bytes: &[u8],
+) -> Result<ParseOutput, anyhow::Error> {
+  let mut decoder = GzDecoder::new(bytes);
+  let mut decompressed = Vec::new();
+  decoder
+    .read_to_end(&mut decompressed)
+    .context("failed to decompress doc nodes")?;
+  let stored: StoredDocNodes = rmp_serde::from_slice(&decompressed)
+    .context("failed to deserialize doc nodes from msgpack")?;
+  Ok(stored.doc_nodes)
+}
+
+/// Deserialize doc nodes from legacy JSON (v1 format), migrating to v2.
+fn deserialize_doc_nodes_v1(
+  bytes: &[u8],
+) -> Result<ParseOutput, anyhow::Error> {
+  let value: serde_json::Value = serde_json::from_slice(bytes)
+    .context("failed to parse legacy doc nodes JSON")?;
+
+  // The v1 format was a direct serialization of ParseOutput (IndexMap<ModuleSpecifier, Document>).
+  // Each Document in v1 had a flat array format for symbols; v2 uses the new Document struct.
+  // We need to check if this is the old flat-array format or the already-v2 structure.
+  match value {
+    serde_json::Value::Object(map) => {
+      let mut result = IndexMap::new();
+      for (key, val) in map {
+        let specifier = ModuleSpecifier::parse(&key)
+          .context("failed to parse module specifier in legacy doc nodes")?;
+        result.insert(specifier, deno_doc::docnodes_v1_to_v2(val.clone()));
+      }
+      Ok(result)
+    }
+    _ => anyhow::bail!("unexpected doc nodes JSON shape"),
+  }
+}
+
 /// Cache for deserialized doc nodes downloaded from GCS. Doc nodes are
 /// immutable per version, so caching the parsed structure avoids redundant
 /// GCS downloads *and* deserialization—especially since every doc page view
@@ -73,35 +141,67 @@ impl DocNodeCache {
     }
   }
 
-  /// Get deserialized doc nodes for a given GCS path, fetching from the
-  /// bucket and deserializing on cache miss.
+  /// Get deserialized doc nodes for a package version, trying the v2
+  /// (msgpack+gzip) format first and falling back to v1 (JSON) with
+  /// migration via `deno_doc::docnodes_v1_to_v2`.
   pub async fn get(
     &self,
-    gcs_path: &str,
+    scope: &ScopeName,
+    package: &PackageName,
+    version: &Version,
     bucket: &crate::buckets::Buckets,
   ) -> Result<Option<Arc<ParseOutput>>, anyhow::Error> {
-    if let Some(cached) = self.cache.get(gcs_path).await {
+    let v2_path = crate::gcs_paths::docs_v2_path(scope, package, version);
+
+    if let Some(cached) = self.cache.get(&v2_path).await {
       return Ok(Some(cached));
     }
 
-    let result = bucket
+    let v2_result = bucket
       .docs_bucket
-      .download(Arc::from(gcs_path))
+      .download(Arc::from(v2_path.as_str()))
       .await
       .map_err(anyhow::Error::from)?;
 
-    let Some(bytes) = result else {
+    if let Some(bytes) = v2_result {
+      let doc_nodes = deserialize_doc_nodes_v2(&bytes)?;
+      let doc_nodes = Arc::new(doc_nodes);
+      self.cache.insert(v2_path, doc_nodes.clone()).await;
+      return Ok(Some(doc_nodes));
+    }
+
+    let v1_path = crate::gcs_paths::docs_v1_path(scope, package, version);
+    let v1_result = bucket
+      .docs_bucket
+      .download(Arc::from(v1_path.as_str()))
+      .await
+      .map_err(anyhow::Error::from)?;
+
+    let Some(bytes) = v1_result else {
       return Ok(None);
     };
 
-    let doc_nodes: ParseOutput =
-      serde_json::from_slice(&bytes).context("failed to parse doc nodes")?;
+    let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
+
+    // Re-upload migrated data as v2 so future reads use the fast path.
+    let v2_bytes = serialize_doc_nodes(&doc_nodes);
+    bucket
+      .docs_bucket
+      .upload(
+        Arc::from(v2_path.as_str()),
+        crate::s3::UploadTaskBody::Bytes(v2_bytes),
+        crate::gcp::GcsUploadOptions {
+          content_type: Some("application/x-msgpack".into()),
+          cache_control: Some(crate::gcp::CACHE_CONTROL_IMMUTABLE.into()),
+          gzip_encoded: true,
+        },
+      )
+      .await
+      .map_err(anyhow::Error::from)?;
+
     let doc_nodes = Arc::new(doc_nodes);
 
-    self
-      .cache
-      .insert(gcs_path.to_string(), doc_nodes.clone())
-      .await;
+    self.cache.insert(v2_path, doc_nodes.clone()).await;
 
     Ok(Some(doc_nodes))
   }
@@ -331,8 +431,9 @@ fn match_node_value<'a>(
 
 static DENO_TYPES: OnceLock<Arc<std::collections::HashSet<Vec<String>>>> =
   OnceLock::new();
-static WEB_TYPES: OnceLock<Arc<std::collections::HashMap<Vec<String>, String>>> =
-  OnceLock::new();
+static WEB_TYPES: OnceLock<
+  Arc<std::collections::HashMap<Vec<String>, String>>,
+> = OnceLock::new();
 
 #[derive(serde::Deserialize)]
 struct WebType {

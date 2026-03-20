@@ -38,7 +38,6 @@ use crate::db::{DependencyKind, PackageVersionMeta};
 use crate::gcp::CACHE_CONTROL_IMMUTABLE;
 use crate::gcp::GcsError;
 use crate::gcp::GcsUploadOptions;
-use crate::gcs_paths::docs_v1_path;
 use crate::gcs_paths::file_path;
 use crate::gcs_paths::npm_tarball_path;
 use crate::ids::CaseInsensitivePackagePath;
@@ -332,7 +331,7 @@ pub async fn process_tarball(
   let PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes_json,
+    doc_nodes_bytes,
     doc_search_json,
     dependencies,
     npm_tarball,
@@ -405,17 +404,17 @@ pub async fn process_tarball(
   buckets
     .docs_bucket
     .upload(
-      docs_v1_path(
+      crate::gcs_paths::docs_v2_path(
         &publishing_task.package_scope,
         &publishing_task.package_name,
         &publishing_task.package_version,
       )
       .into(),
-      crate::s3::UploadTaskBody::Bytes(doc_nodes_json),
+      crate::s3::UploadTaskBody::Bytes(doc_nodes_bytes),
       GcsUploadOptions {
-        content_type: Some("application/json".into()),
+        content_type: Some("application/x-msgpack".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
-        gzip_encoded: false,
+        gzip_encoded: true,
       },
     )
     .await

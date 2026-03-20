@@ -1187,7 +1187,7 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.194.0"
+version = "0.194.1"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3938,6 +3938,7 @@ dependencies = [
  "regex",
  "registry_api_macros",
  "reqwest 0.11.27",
+ "rmp-serde",
  "routerify",
  "routerify-query",
  "rust-s3",

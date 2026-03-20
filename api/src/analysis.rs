@@ -66,7 +66,7 @@ pub struct PackageAnalysisData {
 pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
   pub module_graph_2: HashMap<String, ModuleInfo>,
-  pub doc_nodes_json: Bytes,
+  pub doc_nodes_bytes: Bytes,
   pub doc_search_json: serde_json::Value,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
@@ -247,7 +247,7 @@ async fn analyze_package_inner(
     )
   };
 
-  let doc_nodes_json = serde_json::to_vec(&doc_nodes).unwrap().into();
+  let doc_nodes_bytes = crate::docs::serialize_doc_nodes(&doc_nodes);
 
   let info = crate::docs::get_docs_info(&exports, None);
 
@@ -283,7 +283,7 @@ async fn analyze_package_inner(
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes_json,
+    doc_nodes_bytes,
     doc_search_json,
     dependencies,
     npm_tarball,

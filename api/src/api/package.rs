@@ -1143,8 +1143,10 @@ pub async fn version_delete_handler(
   db.delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
 
-  let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
-  buckets.docs_bucket.delete_file(path.into()).await?;
+  let v1_path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
+  let v2_path = crate::gcs_paths::docs_v2_path(&scope, &package, &version);
+  buckets.docs_bucket.delete_file(v1_path.into()).await?;
+  buckets.docs_bucket.delete_file(v2_path.into()).await?;
 
   let path = crate::gcs_paths::version_metadata(&scope, &package, &version);
   buckets.modules_bucket.delete_file(path.into()).await?;
@@ -1289,9 +1291,8 @@ pub async fn get_docs_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes_fut = doc_node_cache.get(&docs_path, buckets);
+  let doc_nodes_fut =
+    doc_node_cache.get(&scope, &package_name, &version.version, buckets);
 
   let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
     if let Some(readme_path) = &version.readme_path {
@@ -1322,7 +1323,8 @@ pub async fn get_docs_handler(
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes = Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
+  let doc_nodes =
+    Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
@@ -1427,9 +1429,9 @@ pub async fn get_docs_search_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes = doc_node_cache.get(&docs_path, buckets).await?;
+  let doc_nodes = doc_node_cache
+    .get(&scope, &package_name, &version.version, buckets)
+    .await?;
   let doc_nodes = doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1437,7 +1439,8 @@ pub async fn get_docs_search_handler(
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes = Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
+  let doc_nodes =
+    Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
@@ -1501,9 +1504,9 @@ pub async fn get_docs_search_structured_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes = doc_node_cache.get(&docs_path, buckets).await?;
+  let doc_nodes = doc_node_cache
+    .get(&scope, &package_name, &version.version, buckets)
+    .await?;
   let doc_nodes = doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
@@ -1511,7 +1514,8 @@ pub async fn get_docs_search_structured_handler(
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes = Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
+  let doc_nodes =
+    Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
@@ -1781,13 +1785,9 @@ pub async fn get_diff_handler(
     .ok_or(ApiError::PackageVersionNotFound)?;
 
   let doc_node_cache = req.data::<crate::docs::DocNodeCache>().unwrap().clone();
-  let old_docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &old_version.version);
-  let new_docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &new_version.version);
   let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
-    doc_node_cache.get(&old_docs_path, buckets),
-    doc_node_cache.get(&new_docs_path, buckets),
+    doc_node_cache.get(&scope, &package_name, &old_version.version, buckets),
+    doc_node_cache.get(&scope, &package_name, &new_version.version, buckets),
   )
   .await?;
 
@@ -1806,8 +1806,10 @@ pub async fn get_diff_handler(
     ApiError::InternalServerError
   })?;
 
-  let old_doc_nodes = Arc::try_unwrap(old_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
-  let new_doc_nodes = Arc::try_unwrap(new_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
+  let old_doc_nodes =
+    Arc::try_unwrap(old_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
+  let new_doc_nodes =
+    Arc::try_unwrap(new_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   // diffs are applied on top of the new version
   let new_docs_info =

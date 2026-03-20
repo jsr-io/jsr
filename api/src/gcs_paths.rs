@@ -31,6 +31,14 @@ pub fn docs_v1_path(
   format!("@{scope}/{package_name}/{version}/raw.json")
 }
 
+pub fn docs_v2_path(
+  scope: &ScopeName,
+  package_name: &PackageName,
+  version: &Version,
+) -> String {
+  format!("@{scope}/{package_name}/{version}/raw.rmp.gz")
+}
+
 pub fn package_metadata(
   scope: &ScopeName,
   package_name: &PackageName,
