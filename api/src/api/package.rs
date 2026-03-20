@@ -1322,7 +1322,7 @@ pub async fn get_docs_handler(
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes = (*doc_nodes).clone();
+  let doc_nodes = Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
@@ -1437,7 +1437,7 @@ pub async fn get_docs_search_handler(
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes = (*doc_nodes).clone();
+  let doc_nodes = Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
@@ -1511,7 +1511,7 @@ pub async fn get_docs_search_structured_handler(
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes = (*doc_nodes).clone();
+  let doc_nodes = Arc::try_unwrap(doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   let docs_info = crate::docs::get_docs_info(&version.exports, None);
 
@@ -1806,8 +1806,8 @@ pub async fn get_diff_handler(
     ApiError::InternalServerError
   })?;
 
-  let old_doc_nodes = (*old_doc_nodes).clone();
-  let new_doc_nodes = (*new_doc_nodes).clone();
+  let old_doc_nodes = Arc::try_unwrap(old_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
+  let new_doc_nodes = Arc::try_unwrap(new_doc_nodes).unwrap_or_else(|arc| (*arc).clone());
 
   // diffs are applied on top of the new version
   let new_docs_info =

@@ -329,9 +329,9 @@ fn match_node_value<'a>(
   }
 }
 
-static DENO_TYPES: OnceLock<std::collections::HashSet<Vec<String>>> =
+static DENO_TYPES: OnceLock<Arc<std::collections::HashSet<Vec<String>>>> =
   OnceLock::new();
-static WEB_TYPES: OnceLock<std::collections::HashMap<Vec<String>, String>> =
+static WEB_TYPES: OnceLock<Arc<std::collections::HashMap<Vec<String>, String>>> =
   OnceLock::new();
 
 #[derive(serde::Deserialize)]
@@ -567,19 +567,23 @@ pub fn get_generate_ctx(
         registry_url,
         deno_types: DENO_TYPES
           .get_or_init(|| {
-            serde_json::from_str(include_str!("./docs/deno_types.json"))
-              .unwrap()
+            Arc::new(
+              serde_json::from_str(include_str!("./docs/deno_types.json"))
+                .unwrap(),
+            )
           })
           .clone(),
         web_types: WEB_TYPES
           .get_or_init(|| {
-            serde_json::from_str::<Vec<WebType>>(include_str!(
-              "./docs/web_builtins.json"
-            ))
-            .unwrap()
-            .into_iter()
-            .map(|web_type| (web_type.id, web_type.docs))
-            .collect()
+            Arc::new(
+              serde_json::from_str::<Vec<WebType>>(include_str!(
+                "./docs/web_builtins.json"
+              ))
+              .unwrap()
+              .into_iter()
+              .map(|web_type| (web_type.id, web_type.docs))
+              .collect(),
+            )
           })
           .clone(),
         doc_base,
@@ -1098,8 +1102,8 @@ struct DocResolver {
   version: Version,
   version_is_latest: bool,
   registry_url: String,
-  deno_types: std::collections::HashSet<Vec<String>>,
-  web_types: std::collections::HashMap<Vec<String>, String>,
+  deno_types: Arc<std::collections::HashSet<Vec<String>>>,
+  web_types: Arc<std::collections::HashMap<Vec<String>, String>>,
   doc_base: String,
   full: Option<bool>,
 }
