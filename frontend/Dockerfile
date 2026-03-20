@@ -6,10 +6,9 @@ COPY . .
 
 RUN deno task build
 RUN rm -rf $DENO_DIR
-RUN deno install --allow-import -e main.ts
-
-RUN timeout 2s deno run -A --cached-only main.ts || true
+RUN deno install
+RUN deno install --allow-import -e _fresh/server.js
 
 ENV PORT=8000
 
-CMD deno serve -A --port=$PORT _fresh/server.js
+CMD deno serve -A --cached-only --port=$PORT _fresh/server.js
