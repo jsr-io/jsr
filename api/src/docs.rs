@@ -216,9 +216,8 @@ impl GenerateCtxCache {
     registry_url: &str,
     bucket: &crate::buckets::Buckets,
   ) -> Result<Option<Arc<GenerateCtx>>, DocNodeCacheError> {
-    let key = format!(
-      "@{scope}/{package}/{version}/{version_is_latest}/{has_readme}"
-    );
+    let key =
+      format!("@{scope}/{package}/{version}/{version_is_latest}/{has_readme}");
 
     if let Some(cached) = self.cache.get(&key).await {
       return Ok(Some(cached));

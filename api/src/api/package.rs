@@ -1290,8 +1290,10 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let has_readme =
-    !all_symbols && entrypoint.is_none() && symbol.is_none() && version.readme_path.is_some();
+  let has_readme = !all_symbols
+    && entrypoint.is_none()
+    && symbol.is_none()
+    && version.readme_path.is_some();
 
   let readme_fut = if has_readme {
     let gcs_path = crate::gcs_paths::file_path(
@@ -1363,17 +1365,13 @@ pub async fn get_docs_handler(
   };
 
   let _permit = crate::docs::acquire_doc_render_permit().await;
-  let docs = crate::docs::render_docs_html(
-    &ctx,
-    req,
-    readme,
-    package.readme_source,
-  )
-  .map_err(|e| {
-    error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
-  })?
-  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+  let docs =
+    crate::docs::render_docs_html(&ctx, req, readme, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
@@ -1846,17 +1844,13 @@ pub async fn get_diff_handler(
     Some((diff, full)),
   );
 
-  let docs = crate::docs::render_docs_html(
-    &ctx,
-    docs_req,
-    None,
-    package.readme_source,
-  )
-  .map_err(|e| {
-    error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
-  })?
-  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+  let docs =
+    crate::docs::render_docs_html(&ctx, docs_req, None, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
