@@ -10,9 +10,10 @@ use comrak::nodes::Ast;
 use comrak::nodes::AstNode;
 use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::DocNode;
-use deno_doc::DocNodeDef;
+use deno_doc::DeclarationDef;
 use deno_doc::Location;
+use deno_doc::ParseOutput;
+use deno_doc::Symbol;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
 use deno_doc::html::HrefResolver;
@@ -31,8 +32,6 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use tracing::instrument;
 use url::Url;
-
-pub type DocNodesByUrl = IndexMap<ModuleSpecifier, Vec<DocNode>>;
 
 /// Maximum number of concurrent doc rendering operations. Each doc render
 /// builds a GenerateCtx from doc nodes, which can use 10-50 MB.
@@ -64,7 +63,7 @@ pub async fn acquire_doc_render_permit() -> tokio::sync::OwnedSemaphorePermit {
 /// readers share the same allocation.
 #[derive(Clone)]
 pub struct DocNodeCache {
-  cache: moka::future::Cache<String, Arc<DocNodesByUrl>>,
+  cache: moka::future::Cache<String, Arc<ParseOutput>>,
 }
 
 impl DocNodeCache {
@@ -80,7 +79,7 @@ impl DocNodeCache {
     &self,
     gcs_path: &str,
     bucket: &crate::buckets::Buckets,
-  ) -> Result<Option<Arc<DocNodesByUrl>>, anyhow::Error> {
+  ) -> Result<Option<Arc<ParseOutput>>, anyhow::Error> {
     if let Some(cached) = self.cache.get(gcs_path).await {
       return Ok(Some(cached));
     }
@@ -95,7 +94,7 @@ impl DocNodeCache {
       return Ok(None);
     };
 
-    let doc_nodes: DocNodesByUrl =
+    let doc_nodes: ParseOutput =
       serde_json::from_slice(&bytes).context("failed to parse doc nodes")?;
     let doc_nodes = Arc::new(doc_nodes);
 
@@ -346,7 +345,7 @@ pub fn generate_docs(
   mut source_files: Vec<ModuleSpecifier>,
   graph: &deno_graph::ModuleGraph,
   analyzer: &deno_graph::ast::CapturingModuleAnalyzer,
-) -> Result<DocNodesByUrl, anyhow::Error> {
+) -> Result<ParseOutput, anyhow::Error> {
   source_files.sort();
 
   let parser = deno_doc::DocParser::new(
@@ -495,7 +494,7 @@ fn get_url_rewriter(
 #[instrument(
   name = "get_generate_ctx",
   skip(
-    doc_nodes_by_url,
+    documents_by_url,
     main_entrypoint,
     rewrite_map,
     scope,
@@ -510,7 +509,7 @@ fn get_url_rewriter(
 )]
 pub fn get_generate_ctx(
   doc_base: String,
-  doc_nodes_by_url: DocNodesByUrl,
+  documents_by_url: ParseOutput,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
   scope: ScopeName,
@@ -606,7 +605,7 @@ pub fn get_generate_ctx(
     },
     None,
     deno_doc::html::FileMode::Normal,
-    doc_nodes_by_url,
+    documents_by_url,
     diff.map(|diff| diff.0),
   )
   .unwrap()
@@ -615,12 +614,12 @@ pub fn get_generate_ctx(
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "generate_docs_html",
-  skip(doc_nodes_by_url, rewrite_map, readme, diff_data),
+  skip(documents_by_url, rewrite_map, readme, diff_data),
   err
 )]
 pub fn generate_docs_html(
   doc_base: String,
-  doc_nodes_by_url: DocNodesByUrl,
+  documents_by_url: ParseOutput,
   main_entrypoint: Option<ModuleSpecifier>,
   rewrite_map: IndexMap<ModuleSpecifier, String>,
   req: DocsRequest,
@@ -633,11 +632,11 @@ pub fn generate_docs_html(
   runtime_compat: RuntimeCompat,
   registry_url: String,
   readme_source: ReadmeSource,
-  diff_data: Option<(DocNodesByUrl, bool)>,
+  diff_data: Option<(ParseOutput, bool)>,
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
   let diff = if let Some((old_doc_nodes_by_url, full)) = diff_data {
     Some((
-      deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &doc_nodes_by_url),
+      deno_doc::diff::DocDiff::diff(&old_doc_nodes_by_url, &documents_by_url),
       full,
     ))
   } else {
@@ -646,7 +645,7 @@ pub fn generate_docs_html(
 
   let ctx = get_generate_ctx(
     doc_base,
-    doc_nodes_by_url,
+    documents_by_url,
     main_entrypoint,
     rewrite_map,
     scope,
@@ -668,7 +667,7 @@ pub fn generate_docs_html(
       let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
@@ -722,7 +721,7 @@ pub fn generate_docs_html(
         index_module_doc.sections.docs = Some(markdown);
       }
 
-      let toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, true, Some(None));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: None,
@@ -755,7 +754,7 @@ pub fn generate_docs_html(
 
       let breadcrumbs = render_ctx.get_breadcrumbs();
 
-      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(&[]));
+      let toc = deno_doc::html::ToCCtx::new(render_ctx, false, Some(None));
 
       Ok(Some(GeneratedDocsOutput::Docs(GeneratedDocs {
         breadcrumbs: Some(breadcrumbs),
@@ -810,12 +809,17 @@ fn generate_symbol_page(
     let mut nodes = doc_nodes
       .iter()
       .filter(|node| {
-        !(matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
-          || node.declaration_kind == deno_doc::node::DeclarationKind::Private)
-          && node.get_name() == next_part
+        !node.declarations.iter().all(|decl| {
+          decl.declaration_kind
+            == deno_doc::node::DeclarationKind::Private
+        }) && node.get_name() == next_part
       })
       .flat_map(|node| {
-        if let Some(reference) = node.reference_def() {
+        if let Some(reference) = node
+          .declarations
+          .iter()
+          .find_map(|decl| decl.reference_def())
+        {
           ctx
             .resolve_reference(node.parent.as_deref(), &reference.target)
             .map(|node| node.into_owned())
@@ -828,18 +832,22 @@ fn generate_symbol_page(
 
     if name_parts.peek().is_some() {
       for node in &nodes {
-        let drilldown_node = match &node.def {
-          DocNodeDef::Class { class_def: class } => {
+        let declaration_kind = node.inner.declarations[0].declaration_kind;
+        let drilldown_node = node
+          .declarations
+          .iter()
+          .find_map(|decl| match &decl.def {
+          DeclarationDef::Class(class) => {
             let mut drilldown_parts = name_parts.clone().collect::<Vec<_>>();
             let mut is_static = true;
 
             if drilldown_parts[0] == "prototype" {
               if drilldown_parts.len() == 1 {
-                return Some(SymbolPage::Redirect {
+                return Some(Err(SymbolPage::Redirect {
                   current_symbol: name.to_string(),
                   href: name.rsplit_once('.').unwrap().0.to_string(),
                   diff_status: None, // TODO
-                });
+                }));
               } else {
                 is_static = false;
                 drilldown_parts.remove(0);
@@ -855,18 +863,18 @@ fn generate_symbol_page(
                 if *method.name == drilldown_name
                   && method.is_static == is_static
                 {
-                  Some(node.create_child_method(
-                    DocNode::function(
+                  Some(Ok(node.create_child_method(
+                    Symbol::function(
                       method.name.clone(),
                       false,
                       method.location.clone(),
-                      node.declaration_kind,
+                      declaration_kind,
                       method.js_doc.clone(),
                       method.function_def.clone(),
                     ),
                     is_static,
                     method.kind,
-                  ))
+                  )))
                 } else {
                   None
                 }
@@ -876,19 +884,17 @@ fn generate_symbol_page(
                   if *property.name == drilldown_name
                     && property.is_static == is_static
                   {
-                    Some(node.create_child_property(
-                      DocNode::from(property.clone()),
+                    Some(Ok(node.create_child_property(
+                      Symbol::from(property.clone()),
                       is_static,
-                    ))
+                    )))
                   } else {
                     None
                   }
                 })
               })
           }
-          DocNodeDef::Interface {
-            interface_def: interface,
-          } => {
+          DeclarationDef::Interface(interface) => {
             let drilldown_name =
               name_parts.clone().collect::<Vec<_>>().join(".");
 
@@ -897,11 +903,11 @@ fn generate_symbol_page(
               .iter()
               .find_map(|method| {
                 if method.name == drilldown_name {
-                  Some(node.create_child_method(
-                    DocNode::from(method.clone()),
+                  Some(Ok(node.create_child_method(
+                    Symbol::from(method.clone()),
                     true,
                     method.kind,
-                  ))
+                  )))
                 } else {
                   None
                 }
@@ -909,21 +915,20 @@ fn generate_symbol_page(
               .or_else(|| {
                 interface.properties.iter().find_map(|property| {
                   if property.name == drilldown_name {
-                    Some(node.create_child_property(
-                      DocNode::from(property.clone()),
+                    Some(Ok(node.create_child_property(
+                      Symbol::from(property.clone()),
                       true,
-                    ))
+                    )))
                   } else {
                     None
                   }
                 })
               })
           }
-          DocNodeDef::TypeAlias {
-            type_alias_def: type_alias,
-          } => {
-            if let Some(ts_type_literal) =
-              type_alias.ts_type.type_literal.as_ref()
+          DeclarationDef::TypeAlias(type_alias) => {
+            if let deno_doc::ts_type::TsTypeDefKind::TypeLiteral(
+              ts_type_literal,
+            ) = &type_alias.ts_type.kind
             {
               let drilldown_name =
                 name_parts.clone().collect::<Vec<_>>().join(".");
@@ -933,11 +938,11 @@ fn generate_symbol_page(
                 .iter()
                 .find_map(|method| {
                   if method.name == drilldown_name {
-                    Some(node.create_child_method(
-                      DocNode::from(method.clone()),
+                    Some(Ok(node.create_child_method(
+                      Symbol::from(method.clone()),
                       true,
                       method.kind,
-                    ))
+                    )))
                   } else {
                     None
                   }
@@ -945,10 +950,10 @@ fn generate_symbol_page(
                 .or_else(|| {
                   ts_type_literal.properties.iter().find_map(|property| {
                     if property.name == drilldown_name {
-                      Some(node.create_child_property(
-                        DocNode::from(property.clone()),
+                      Some(Ok(node.create_child_property(
+                        Symbol::from(property.clone()),
                         true,
-                      ))
+                      )))
                     } else {
                       None
                     }
@@ -958,13 +963,10 @@ fn generate_symbol_page(
               None
             }
           }
-          DocNodeDef::Variable {
-            variable_def: variable,
-          } => {
-            if let Some(ts_type_literal) = variable
-              .ts_type
-              .as_ref()
-              .and_then(|ts_type| ts_type.type_literal.as_ref())
+          DeclarationDef::Variable(variable) => {
+            if let Some(deno_doc::ts_type::TsTypeDefKind::TypeLiteral(
+              ts_type_literal,
+            )) = variable.ts_type.as_ref().map(|ts_type| &ts_type.kind)
             {
               let drilldown_name =
                 name_parts.clone().collect::<Vec<_>>().join(".");
@@ -974,11 +976,11 @@ fn generate_symbol_page(
                 .iter()
                 .find_map(|method| {
                   if method.name == drilldown_name {
-                    Some(node.create_child_method(
-                      DocNode::from(method.clone()),
+                    Some(Ok(node.create_child_method(
+                      Symbol::from(method.clone()),
                       true,
                       method.kind,
-                    ))
+                    )))
                   } else {
                     None
                   }
@@ -986,10 +988,10 @@ fn generate_symbol_page(
                 .or_else(|| {
                   ts_type_literal.properties.iter().find_map(|property| {
                     if property.name == drilldown_name {
-                      Some(node.create_child_property(
-                        DocNode::from(property.clone()),
+                      Some(Ok(node.create_child_property(
+                        Symbol::from(property.clone()),
                         true,
-                      ))
+                      )))
                     } else {
                       None
                     }
@@ -999,16 +1001,17 @@ fn generate_symbol_page(
               None
             }
           }
-          DocNodeDef::Import { .. }
-          | DocNodeDef::Enum { .. }
-          | DocNodeDef::ModuleDoc
-          | DocNodeDef::Function { .. }
-          | DocNodeDef::Namespace { .. }
-          | DocNodeDef::Reference { .. } => None,
-        };
+          DeclarationDef::Enum(..)
+          | DeclarationDef::Function(..)
+          | DeclarationDef::Namespace(..)
+          | DeclarationDef::Reference(..) => None,
+        });
 
-        if let Some(drilldown_node) = drilldown_node {
-          break 'outer vec![drilldown_node];
+        if let Some(drilldown_result) = drilldown_node {
+          match drilldown_result {
+            Ok(node) => break 'outer vec![node],
+            Err(redirect) => return Some(redirect),
+          }
         }
       }
     }
@@ -1016,7 +1019,11 @@ fn generate_symbol_page(
     nodes = nodes
       .into_iter()
       .flat_map(|node| {
-        if let Some(reference) = node.reference_def() {
+        if let Some(reference) = node
+          .declarations
+          .iter()
+          .find_map(|decl| decl.reference_def())
+        {
           ctx
             .resolve_reference(node.parent.as_deref(), &reference.target)
             .map(|node| node.into_owned())
@@ -1031,9 +1038,12 @@ fn generate_symbol_page(
       break nodes;
     }
 
-    if let Some(namespace_node) = nodes
-      .iter()
-      .find(|node| matches!(node.def, DocNodeDef::Namespace { .. }))
+    if let Some(namespace_node) = nodes.iter().find(|node| {
+      node
+        .declarations
+        .iter()
+        .any(|decl| matches!(decl.def, DeclarationDef::Namespace(..)))
+    })
     {
       namespace_paths.push(next_part.to_string());
       doc_nodes = namespace_node
@@ -1042,7 +1052,11 @@ fn generate_symbol_page(
         .unwrap()
         .into_iter()
         .flat_map(|node| {
-          if let Some(reference_def) = node.reference_def() {
+          if let Some(reference_def) = node
+            .declarations
+            .iter()
+            .find_map(|decl| decl.reference_def())
+          {
             ctx
               .resolve_reference(Some(namespace_node), &reference_def.target)
               .map(|node| node.into_owned())
@@ -1071,8 +1085,7 @@ fn generate_symbol_page(
     deno_doc::html::pages::render_symbol_page(
       &render_ctx,
       short_path,
-      name,
-      &doc_nodes,
+      &doc_nodes[0],
     );
 
   Some(SymbolPage::Symbol {
