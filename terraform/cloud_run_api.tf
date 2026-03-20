@@ -74,7 +74,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "1.5Gi"
+          memory = "2Gi"
         }
       }
 
