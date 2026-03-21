@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT tickets.id as \"ticket_id\", tickets.kind as \"ticket_kind: TicketKind\", tickets.creator as \"ticket_creator\", tickets.meta as \"ticket_meta\", tickets.closed as \"ticket_closed\", tickets.updated_at as \"ticket_updated_at\", tickets.created_at as \"ticket_created_at\", users.id as \"user_id\", users.name as \"user_name\", users.email as \"user_email\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.gitlab_id as \"user_gitlab_id\", users.is_blocked as \"user_is_blocked\", users.is_staff as \"user_is_staff\", users.scope_limit as \"user_scope_limit\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n(SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as \"user_invite_count!\",\n(SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as \"user_scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"user_newer_ticket_messages_count!\"\n    FROM tickets\n    INNER JOIN users ON users.id = tickets.creator\n    WHERE tickets.creator = $1\n    ORDER BY tickets.closed ASC, tickets.created_at DESC\n",
+  "query": "SELECT\n            tickets.id as \"ticket_id\", tickets.kind as \"ticket_kind: TicketKind\", tickets.creator as \"ticket_creator\", tickets.meta as \"ticket_meta\", tickets.closed as \"ticket_closed\", tickets.updated_at as \"ticket_updated_at\", tickets.created_at as \"ticket_created_at\",\n            users.id as \"user_id\", users.name as \"user_name\", users.email as \"user_email\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.gitlab_id as \"user_gitlab_id\", users.is_blocked as \"user_is_blocked\", users.is_staff as \"user_is_staff\", users.scope_limit as \"user_scope_limit?\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n(SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as \"user_invite_count!\",\n(SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as \"user_scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"user_newer_ticket_messages_count!\"\n        FROM tickets\n        INNER JOIN users ON users.id = tickets.creator\n        WHERE tickets.id = $1",
   "describe": {
     "columns": [
       {
@@ -93,7 +93,7 @@
       },
       {
         "ordinal": 15,
-        "name": "user_scope_limit",
+        "name": "user_scope_limit?",
         "type_info": "Int4"
       },
       {
@@ -151,5 +151,5 @@
       null
     ]
   },
-  "hash": "d8cd03fa745501b0a555f7c8bbda26a30cfaa3cd8d0917ee99194921f2b408ab"
+  "hash": "007a76bd696d4b089fe0bfb9732c7128a4d443b735a2b7ae85ee74d2908a655b"
 }

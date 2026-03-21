@@ -213,6 +213,12 @@ pub struct Config {
   #[clap(long = "database_pool_size", default_value = "3")]
   /// The size of the database connection pool.
   pub database_pool_size: u32,
+
+  #[clap(long = "service_account_token", env = "SERVICE_ACCOUNT_TOKEN")]
+  /// A static bearer token for the system service account
+  /// (00000000-0000-0000-0000-000000000000). When set, a token with this
+  /// value's hash is upserted into the database on startup.
+  pub service_account_token: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -242,6 +248,10 @@ impl std::fmt::Debug for Config {
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)
+      .field(
+        "service_account_token",
+        &self.service_account_token.as_ref().map(|_| "***"),
+      )
       .finish()
   }
 }

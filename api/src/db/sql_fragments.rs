@@ -116,7 +116,7 @@ pub const TICKET_SELECT_JOINED: &str = r#"tickets.id as "ticket_id", tickets.kin
 
 pub const TICKET_SELECT_JOINED_RT: &str = r#"tickets.id as "ticket_id", tickets.kind as "ticket_kind", tickets.creator as "ticket_creator", tickets.meta as "ticket_meta", tickets.closed as "ticket_closed", tickets.updated_at as "ticket_updated_at", tickets.created_at as "ticket_created_at""#;
 
-pub const USER_SELECT_FULL_JOINED: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+pub const USER_SELECT_FULL_JOINED: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit?", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
 (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count!",
 (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage!",
 (CASE WHEN users.is_staff THEN (
@@ -133,7 +133,7 @@ pub const USER_SELECT_FULL_JOINED: &str = r#"users.id as "user_id", users.name a
   )
 ) END) as "user_newer_ticket_messages_count!""#;
 
-pub const USER_SELECT_FULL_JOINED_RT: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
+pub const USER_SELECT_FULL_JOINED_RT: &str = r#"users.id as "user_id", users.name as "user_name", users.email as "user_email", users.avatar_url as "user_avatar_url", users.github_id as "user_github_id", users.gitlab_id as "user_gitlab_id", users.is_blocked as "user_is_blocked", users.is_staff as "user_is_staff", users.scope_limit as "user_scope_limit?", users.updated_at as "user_updated_at", users.created_at as "user_created_at",
 (SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as "user_invite_count",
 (SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as "user_scope_usage",
 (CASE WHEN users.is_staff THEN (
