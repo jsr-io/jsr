@@ -83,6 +83,8 @@ pub enum DocNodeCacheError {
   InvalidSpecifier(url::ParseError),
   #[error("unexpected doc nodes JSON shape")]
   UnexpectedJsonShape,
+  #[error("unsupported doc nodes version: {0} (expected {DOC_NODES_VERSION})")]
+  UnsupportedVersion(u32),
 }
 
 /// Serialize doc nodes to gzip-compressed MessagePack with a version field.
@@ -108,6 +110,9 @@ fn deserialize_doc_nodes_v2(
     .map_err(DocNodeCacheError::Decompress)?;
   let stored: StoredDocNodes = rmp_serde::from_slice(&decompressed)
     .map_err(|e| DocNodeCacheError::Deserialize(e.to_string()))?;
+  if stored.version != DOC_NODES_VERSION {
+    return Err(DocNodeCacheError::UnsupportedVersion(stored.version));
+  }
   Ok(stored.doc_nodes)
 }
 
@@ -163,10 +168,10 @@ pub async fn download_doc_nodes(
 
   let doc_nodes = deserialize_doc_nodes_v1(&bytes)?;
 
-  // Re-upload migrated data as v2 so future reads use the fast path,
-  // then delete the now-redundant v1 file.
+  // Best-effort migration: re-upload as v2 and delete v1. Failures are
+  // logged but not propagated — the doc nodes were already read successfully.
   let v2_bytes = serialize_doc_nodes(&doc_nodes);
-  bucket
+  match bucket
     .docs_bucket
     .upload(
       Arc::from(v2_path.as_str()),
@@ -177,12 +182,21 @@ pub async fn download_doc_nodes(
         gzip_encoded: true,
       },
     )
-    .await?;
-
-  bucket
-    .docs_bucket
-    .delete_file(Arc::from(v1_path.as_str()))
-    .await?;
+    .await
+  {
+    Ok(()) => {
+      if let Err(err) = bucket
+        .docs_bucket
+        .delete_file(Arc::from(v1_path.as_str()))
+        .await
+      {
+        tracing::warn!("failed to delete v1 doc nodes after migration: {err}");
+      }
+    }
+    Err(err) => {
+      tracing::warn!("failed to upload v2 doc nodes during migration: {err}");
+    }
+  }
 
   Ok(Some(doc_nodes))
 }
@@ -198,6 +212,8 @@ pub struct GenerateCtxCache {
 impl GenerateCtxCache {
   pub fn new() -> Self {
     Self {
+      // estimated 2-5mb for the average package (based on std packages).
+      // 5*64 = 320mb estimated max average.
       cache: moka::future::Cache::builder().max_capacity(64).build(),
     }
   }
