@@ -786,8 +786,7 @@ pub fn render_docs_html(
 ) -> Result<Option<GeneratedDocsOutput>, anyhow::Error> {
   match req {
     DocsRequest::AllSymbols => {
-      let render_ctx =
-        RenderContext::new(&ctx, &[], UrlResolveKind::AllSymbols);
+      let render_ctx = RenderContext::new(ctx, &[], UrlResolveKind::AllSymbols);
 
       let all_symbols = deno_doc::html::AllSymbolsCtx::new(&render_ctx);
       let breadcrumbs = render_ctx.get_breadcrumbs();
@@ -807,8 +806,7 @@ pub fn render_docs_html(
         .map(|entrypoint| ctx.doc_nodes.get(entrypoint).unwrap().as_slice())
         .unwrap_or_default();
 
-      let render_ctx =
-        RenderContext::new(&ctx, doc_nodes, UrlResolveKind::Root);
+      let render_ctx = RenderContext::new(ctx, doc_nodes, UrlResolveKind::Root);
 
       let mut index_module_doc = match readme_source {
         ReadmeSource::JSDoc => ctx
@@ -862,7 +860,7 @@ pub fn render_docs_html(
         .context("doc nodes missing for specifier")?;
 
       let render_ctx = RenderContext::new(
-        &ctx,
+        ctx,
         doc_nodes,
         UrlResolveKind::File { file: short_path },
       );
@@ -895,7 +893,7 @@ pub fn render_docs_html(
         .context("doc nodes missing for specifier")?;
 
       let Some(symbol_page) =
-        generate_symbol_page(&ctx, short_path, doc_nodes, &symbol)
+        generate_symbol_page(ctx, short_path, doc_nodes, &symbol)
       else {
         return Ok(None);
       };
