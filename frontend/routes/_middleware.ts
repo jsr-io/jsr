@@ -86,7 +86,7 @@ const auth = define.middleware(async (ctx) => {
 
 const cache = define.middleware(async (ctx) => {
   const resp = await ctx.next();
-  if (!ctx.state.api.hasToken() && ctx.state.cacheControl) {
+  if (ctx.state.api && !ctx.state.api.hasToken() && ctx.state.cacheControl) {
     resp.headers.set("cache-control", ctx.state.cacheControl);
   }
   return resp;

@@ -2,14 +2,10 @@
 
 use serde::Deserialize;
 use serde::Serialize;
-use std::time::Duration;
 use tracing::error;
-
-const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct AnalyticsEngineClient {
-  http: reqwest::Client,
   account_id: String,
   api_token: String,
 }
@@ -32,13 +28,7 @@ pub struct DownloadRecord {
 
 impl AnalyticsEngineClient {
   pub fn new(account_id: String, api_token: String) -> Self {
-    let http = reqwest::ClientBuilder::new()
-      .connect_timeout(HTTP_CONNECT_TIMEOUT)
-      .build()
-      .unwrap();
-
     Self {
-      http,
       account_id,
       api_token,
     }
@@ -48,8 +38,7 @@ impl AnalyticsEngineClient {
     &self,
     query: String,
   ) -> Result<Vec<DownloadRecord>, anyhow::Error> {
-    let response = self
-      .http
+    let response = crate::util::shared_http_client()
       .post(format!(
         "https://api.cloudflare.com/client/v4/accounts/{}/analytics_engine/sql",
         self.account_id,

@@ -1,4 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod analysis;
 mod api;
 mod auth;
@@ -11,6 +15,7 @@ mod external;
 mod gcp;
 mod iam;
 mod ids;
+mod jemalloc_profiling;
 mod metadata;
 mod npm;
 mod provenance;
@@ -58,6 +63,7 @@ use url::Url;
 pub struct MainRouterOptions {
   database: Database,
   buckets: Buckets,
+  generate_ctx_cache: crate::docs::GenerateCtxCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
   orama_client: Option<OramaClient>,
@@ -82,6 +88,7 @@ pub(crate) fn main_router(
   MainRouterOptions {
     database,
     buckets,
+    generate_ctx_cache,
     github_client,
     gitlab_client,
     orama_client,
@@ -99,6 +106,7 @@ pub(crate) fn main_router(
   let builder = Router::builder()
     .data(database)
     .data(buckets)
+    .data(generate_ctx_cache)
     .data(github_client)
     .data(gitlab_client)
     .data(orama_client)
@@ -289,9 +297,12 @@ async fn main() {
 
   let license_store = util::license_store();
 
+  let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
+
   let router = main_router(MainRouterOptions {
     database,
     buckets,
+    generate_ctx_cache,
     github_client,
     gitlab_client,
     orama_client,

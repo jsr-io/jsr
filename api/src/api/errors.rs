@@ -399,6 +399,12 @@ impl
   }
 }
 
+impl From<crate::docs::DocNodeCacheError> for ApiError {
+  fn from(error: crate::docs::DocNodeCacheError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
 impl From<S3Error> for ApiError {
   fn from(error: S3Error) -> ApiError {
     anyhow::Error::from(error).into()

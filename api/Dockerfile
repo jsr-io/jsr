@@ -11,6 +11,11 @@ COPY ./Cargo.toml ./Cargo.toml
 COPY ./macros/Cargo.toml ./macros/Cargo.toml
 RUN mkdir -p macros/src && touch macros/src/lib.rs
 
+# Enable jemalloc heap profiling support at compile time.
+# prof:true enables the profiler; prof_active:true keeps sampling on so heap
+# dumps reflect cumulative allocations (needed to diagnose memory growth).
+ENV JEMALLOC_SYS_WITH_MALLOC_CONF=prof:true,prof_active:true
+
 # this build step will cache your dependencies
 RUN cargo build --release
 RUN rm src/*.rs

@@ -61,7 +61,6 @@ use crate::db::NewPublishingTask;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
-use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
 use crate::external::orama::OramaClient;
@@ -703,12 +702,14 @@ async fn update_github_repository(
 )]
 pub async fn list_versions_handler(
   req: Request<Body>,
-) -> ApiResult<Vec<ApiPackageVersionWithUser>> {
+) -> ApiResult<ApiList<ApiPackageVersionWithUser>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package));
+
+  let (start, limit) = pagination(&req);
 
   let db = req.data::<Database>().unwrap();
 
@@ -716,14 +717,17 @@ pub async fn list_versions_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let versions = db
-    .list_package_versions(&scope, &package)
-    .await?
-    .into_iter()
-    .map(ApiPackageVersionWithUser::from)
-    .collect::<Vec<_>>();
+  let (total, versions) = db
+    .list_package_versions_paginated(&scope, &package, start, limit)
+    .await?;
 
-  Ok(versions)
+  Ok(ApiList {
+    items: versions
+      .into_iter()
+      .map(ApiPackageVersionWithUser::from)
+      .collect(),
+    total,
+  })
 }
 
 #[instrument(
@@ -1139,8 +1143,10 @@ pub async fn version_delete_handler(
   db.delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
 
-  let path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
-  buckets.docs_bucket.delete_file(path.into()).await?;
+  let v1_path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
+  let v2_path = crate::s3_paths::docs_v2_path(&scope, &package, &version);
+  buckets.docs_bucket.delete_file(v1_path.into()).await?;
+  buckets.docs_bucket.delete_file(v2_path.into()).await?;
 
   let path = crate::s3_paths::version_metadata(&scope, &package, &version);
   buckets.modules_bucket.delete_file(path.into()).await?;
@@ -1284,41 +1290,53 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::s3_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
+  let has_readme = !all_symbols
+    && entrypoint.is_none()
+    && symbol.is_none()
+    && version.readme_path.is_some();
 
-  let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
-    if let Some(readme_path) = &version.readme_path {
-      let s3_path = crate::s3_paths::file_path(
-        &scope,
-        &package_name,
-        &version.version,
-        readme_path,
-      )
-      .into();
-      Either::Left(buckets.modules_bucket.download(s3_path))
-    } else {
-      Either::Right(futures::future::ready(Ok(None)))
-    }
+  let readme_fut = if has_readme {
+    let s3_path = crate::s3_paths::file_path(
+      &scope,
+      &package_name,
+      &version.version,
+      version.readme_path.as_ref().unwrap(),
+    )
+    .into();
+    Either::Left(buckets.modules_bucket.download(s3_path))
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) = futures::future::try_join(
-    doc_nodes_fut.map_err(ApiError::from),
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx_fut = generate_ctx_cache.get(
+    &scope,
+    &package_name,
+    &version.version,
+    version_or_latest == VersionOrLatest::Latest,
+    has_readme,
+    &version.exports,
+    repo,
+    package.runtime_compat,
+    &registry_url,
+    buckets,
+  );
+
+  let (ctx, readme) = futures::future::try_join(
+    ctx_fut.map_err(ApiError::from),
     readme_fut.map_err(ApiError::from),
   )
   .await?;
-  let docs = docs.ok_or_else(|| {
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
@@ -1329,8 +1347,6 @@ pub async fn get_docs_handler(
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
   }
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let req = match (docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
@@ -1348,28 +1364,14 @@ pub async fn get_docs_handler(
     (None, None) => DocsRequest::Index,
   };
 
-  let docs = crate::docs::generate_docs_html(
-    "/doc".to_string(),
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    req,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    readme,
-    package.runtime_compat,
-    registry_url,
-    package.readme_source,
-    None,
-  )
-  .map_err(|e| {
-    error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
-  })?
-  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let docs =
+    crate::docs::render_docs_html(&ctx, req, readme, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
@@ -1421,39 +1423,33 @@ pub async fn get_docs_search_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::s3_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
+    .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
-
-  let ctx = crate::docs::get_generate_ctx(
-    "/doc".to_string(),
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    false,
-    package.runtime_compat,
-    registry_url,
-    None,
-  );
-
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
@@ -1494,39 +1490,38 @@ pub async fn get_docs_search_structured_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::s3_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
+    .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
-
-  let docs = crate::docs::generate_docs_html(
-    "/doc".to_string(),
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let docs = crate::docs::render_docs_html(
+    &ctx,
     DocsRequest::AllSymbols,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
     None,
-    package.runtime_compat,
-    registry_url,
     package.readme_source,
-    None,
   )
   .map_err(|e| {
     error!("failed to generate docs: {}", e);
@@ -1773,35 +1768,36 @@ pub async fn get_diff_handler(
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
 
-  let old_docs_path =
-    crate::s3_paths::docs_v1_path(&scope, &package_name, &old_version.version);
-  let old_doc_nodes_fut = buckets.docs_bucket.download(old_docs_path.into());
-  let new_docs_path =
-    crate::s3_paths::docs_v1_path(&scope, &package_name, &new_version.version);
-  let new_doc_nodes_fut = buckets.docs_bucket.download(new_docs_path.into());
+  let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &old_version.version,
+      buckets,
+    ),
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &new_version.version,
+      buckets,
+    ),
+  )
+  .await?;
 
-  let (old_docs, new_docs) =
-    futures::future::try_join(old_doc_nodes_fut, new_doc_nodes_fut).await?;
-
-  let old_docs = old_docs.ok_or_else(|| {
+  let old_doc_nodes = old_doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, old_version.version
     );
     ApiError::InternalServerError
   })?;
-  let new_docs = new_docs.ok_or_else(|| {
+  let new_doc_nodes = new_doc_nodes.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, new_version.version
     );
     ApiError::InternalServerError
   })?;
-
-  let old_doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&old_docs).context("failed to parse doc nodes")?;
-  let new_doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&new_docs).context("failed to parse doc nodes")?;
 
   // diffs are applied on top of the new version
   let new_docs_info =
@@ -1813,7 +1809,7 @@ pub async fn get_diff_handler(
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
-  let req = match (new_docs_info.entrypoint_url, symbol) {
+  let docs_req = match (new_docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
     (Some(entrypoint), None) => DocsRequest::File(entrypoint),
     (Some(entrypoint), Some(symbol)) => {
@@ -1829,28 +1825,32 @@ pub async fn get_diff_handler(
     (None, None) => DocsRequest::Index,
   };
 
-  let docs = crate::docs::generate_docs_html(
+  let diff = deno_doc::diff::DocDiff::diff(&old_doc_nodes, &new_doc_nodes);
+
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let ctx = crate::docs::get_generate_ctx(
     format!("/diff/{}...{}", old_version.version, new_version.version),
     new_doc_nodes,
     new_docs_info.main_entrypoint,
     new_docs_info.rewrite_map,
-    req,
     scope.clone(),
     package_name.clone(),
     new_version.version.clone(),
     true,
     repo,
-    None,
+    false,
     package.runtime_compat,
     registry_url,
-    package.readme_source,
-    Some((old_doc_nodes, full)),
-  )
-  .map_err(|e| {
-    error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
-  })?
-  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+    Some((diff, full)),
+  );
+
+  let docs =
+    crate::docs::render_docs_html(&ctx, docs_req, None, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
@@ -2973,8 +2973,9 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert!(versions.is_empty());
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert!(list.items.is_empty());
+    assert_eq!(list.total, 0);
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -2997,9 +2998,10 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert_eq!(versions.len(), 1);
-    assert_eq!(versions[0].version.to_string(), "1.0.0");
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert_eq!(list.items.len(), 1);
+    assert_eq!(list.total, 1);
+    assert_eq!(list.items[0].version.to_string(), "1.0.0");
 
     let mut resp = t
       .http()

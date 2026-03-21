@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
 import type {
+  List,
   PackageVersionWithUser,
   PublishingTask,
   PublishingTaskStatus,
@@ -16,11 +17,13 @@ import { TbAlertCircle, TbCheck, TbClockHour3, TbTrashX } from "tb-icons";
 import { ScopeIAM, scopeIAM } from "../../utils/iam.ts";
 import { DownloadChart } from "./(_islands)/DownloadChart.tsx";
 import { Card } from "../../components/Card.tsx";
+import { Pagination } from "../../components/Table.tsx";
 
 export default define.page<typeof handler>(function Versions({
   data,
   params,
   state,
+  url,
 }) {
   const iam = scopeIAM(state, data.member);
 
@@ -130,6 +133,14 @@ export default define.page<typeof handler>(function Versions({
               />
             );
           })}
+      </div>
+
+      <div class="mt-4 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden">
+        <Pagination
+          pagination={data}
+          itemsCount={data.versions.length}
+          currentUrl={url}
+        />
       </div>
     </div>
   );
@@ -317,10 +328,14 @@ function Version({
 
 export const handler = define.handlers({
   async GET(ctx) {
+    const page = +(ctx.url.searchParams.get("page") || 1);
+    const limit = +(ctx.url.searchParams.get("limit") || 100);
+
     const [res, versionsResp, tasksResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
-      ctx.state.api.get<PackageVersionWithUser[]>(
+      ctx.state.api.get<List<PackageVersionWithUser>>(
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/versions`,
+        { page, limit },
       ),
       ctx.state.api.hasToken()
         ? ctx.state.api.get<PublishingTask[]>(
@@ -354,7 +369,10 @@ export const handler = define.handlers({
     return {
       data: {
         package: res.pkg,
-        versions: versionsResp.data,
+        versions: versionsResp.data.items,
+        total: versionsResp.data.total,
+        page,
+        limit,
         publishingTasks,
         member: res.scopeMember,
         downloads: res.downloads,

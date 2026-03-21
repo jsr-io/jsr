@@ -396,6 +396,9 @@ pub async fn create_npm_tarball<'a>(
   tarball.into_inner().unwrap();
   gz_encoder.finish().unwrap();
 
+  // Free the in-memory file map now that the tarball is built
+  drop(package_files);
+
   let sha1_digest = sha1::Sha1::digest(&tar_gz_bytes);
   let sha1 = format!("{sha1_digest:X}");
   let sha512_digest = sha2::Sha512::digest(&tar_gz_bytes);

@@ -55,7 +55,7 @@ const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const HIGH_MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
 const HIGH_MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
-const MAX_CONCURRENT_UPLOADS: usize = 1024;
+const MAX_CONCURRENT_UPLOADS: usize = 64;
 
 static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
@@ -331,7 +331,7 @@ pub async fn process_tarball(
   let PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes_json,
+    doc_nodes_bytes,
     doc_search_json,
     dependencies,
     npm_tarball,
@@ -404,17 +404,17 @@ pub async fn process_tarball(
   buckets
     .docs_bucket
     .upload(
-      docs_v1_path(
+      crate::gcs_paths::docs_v2_path(
         &publishing_task.package_scope,
         &publishing_task.package_name,
         &publishing_task.package_version,
       )
       .into(),
-      crate::s3::UploadTaskBody::Bytes(doc_nodes_json),
+      crate::s3::UploadTaskBody::Bytes(doc_nodes_bytes),
       S3UploadOptions {
-        content_type: Some("application/json".into()),
+        content_type: Some("application/x-msgpack".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
-        gzip_encoded: false,
+        gzip_encoded: true,
       },
     )
     .await

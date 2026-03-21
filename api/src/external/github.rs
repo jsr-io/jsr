@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use crate::api::ApiError;
 use crate::util::ApiResult;
-use crate::util::USER_AGENT;
+use crate::util::shared_http_client;
 use anyhow::Context;
 use hyper::StatusCode;
 use serde::Deserialize;
@@ -27,9 +27,7 @@ impl GitHubUserClient {
     &self,
     path: &str,
   ) -> Result<reqwest::Response, anyhow::Error> {
-    let response = reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .build()?
+    let response = shared_http_client()
       .get(format!("https://api.github.com{}", path))
       .bearer_auth(&self.access_token)
       .send()
@@ -127,9 +125,7 @@ impl GitHubAppClient {
     &self,
     access_token: String,
   ) -> Result<(), anyhow::Error> {
-    let res = reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .build()?
+    let res = shared_http_client()
       .delete(format!(
         "https://api.github.com/applications/{}/grant",
         self.id
@@ -227,9 +223,8 @@ pub struct GitHubClaims {
 
 #[instrument(name = "github::verify_oidc_token", err, skip(token))]
 pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
-  let client = reqwest::Client::new();
   let url = format!("{GITHUB_OIDC_ISSUER}/.well-known/jwks");
-  let res = client
+  let res = shared_http_client()
     .get(url)
     .header("Accept", "application/json")
     .send()

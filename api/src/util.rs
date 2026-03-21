@@ -34,6 +34,20 @@ use crate::ids::Version;
 
 pub const USER_AGENT: &str = "JSR";
 
+/// A shared `reqwest::Client` for all outbound HTTP requests. Reusing a single
+/// client avoids per-request connection pool and TLS session allocation.
+pub fn shared_http_client() -> &'static reqwest::Client {
+  static CLIENT: std::sync::OnceLock<reqwest::Client> =
+    std::sync::OnceLock::new();
+  CLIENT.get_or_init(|| {
+    reqwest::Client::builder()
+      .user_agent(USER_AGENT)
+      .connect_timeout(std::time::Duration::from_secs(10))
+      .build()
+      .expect("failed to build shared reqwest client")
+  })
+}
+
 pub type ApiResult<D> = Result<D, ApiError>;
 
 pub type ApiHandlerFuture<D> =
@@ -798,6 +812,7 @@ pub mod test {
       let router = crate::main_router(MainRouterOptions {
         database: db,
         buckets: buckets.clone(),
+        generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
         orama_client: None,
