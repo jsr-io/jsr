@@ -7,6 +7,7 @@ RUN USER=root cargo new --bin registry_api
 WORKDIR /registry_api
 
 # copy over your manifests
+COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./macros/Cargo.toml ./macros/Cargo.toml
 RUN mkdir -p macros/src && touch macros/src/lib.rs
