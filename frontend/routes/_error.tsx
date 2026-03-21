@@ -10,6 +10,18 @@ const HIDE_ERROR_OVERLAY_STYLE =
   `#fresh-error-overlay { display: none !important; }`;
 
 export default function Error({ url, error }: PageProps) {
+  if (error instanceof APIError) {
+    return (
+      <>
+        <style
+          // deno-lint-ignore react-no-danger
+          dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
+        />
+        <ErrorDisplay error={error.response} url={url} />
+      </>
+    );
+  }
+
   if (error instanceof HttpError) {
     if (error.status === 404 && error.message === "Not Found") {
       error.message = "Couldn't find what you're looking for.";
@@ -37,18 +49,6 @@ export default function Error({ url, error }: PageProps) {
             </header>
           </div>
         </div>
-      </>
-    );
-  }
-
-  if (error instanceof APIError) {
-    return (
-      <>
-        <style
-          // deno-lint-ignore react-no-danger
-          dangerouslySetInnerHTML={{ __html: HIDE_ERROR_OVERLAY_STYLE }}
-        />
-        <ErrorDisplay error={error.response} url={url} />
       </>
     );
   }
