@@ -17,7 +17,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 use thiserror::Error;
-use tracing::error;
 use tracing::instrument;
 
 pub const CACHE_CONTROL_IMMUTABLE: &str = "public, max-age=31536000, immutable";
