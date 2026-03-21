@@ -1187,9 +1187,9 @@ dependencies = [
 
 [[package]]
 name = "deno_doc"
-version = "0.194.0"
+version = "0.195.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1264b31a19f293d6f14d3633053a1450ac3b863fa73ed5f5ba1fb10f89c07cd6"
+checksum = "dca3e6557d8ae3fd25140a2b4d18f4e0c3ac9ab604b4f121e96c4681e22b423c"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3940,6 +3940,7 @@ dependencies = [
  "regex",
  "registry_api_macros",
  "reqwest 0.11.27",
+ "rmp-serde",
  "routerify",
  "routerify-query",
  "rust-s3",
