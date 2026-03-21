@@ -46,7 +46,6 @@ use crate::s3::CACHE_CONTROL_IMMUTABLE;
 use crate::s3::S3Error;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
-use crate::s3_paths::docs_v1_path;
 use crate::s3_paths::file_path;
 use crate::s3_paths::npm_tarball_path;
 use crate::util::LicenseStore;
@@ -404,7 +403,7 @@ pub async fn process_tarball(
   buckets
     .docs_bucket
     .upload(
-      crate::gcs_paths::docs_v2_path(
+      crate::s3_paths::docs_v2_path(
         &publishing_task.package_scope,
         &publishing_task.package_name,
         &publishing_task.package_version,
