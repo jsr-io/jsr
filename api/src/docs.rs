@@ -93,7 +93,7 @@ pub fn serialize_doc_nodes(doc_nodes: &ParseOutput) -> Bytes {
     version: DOC_NODES_VERSION,
     doc_nodes: doc_nodes.clone(),
   };
-  let msgpack = rmp_serde::to_vec(&stored).unwrap();
+  let msgpack = rmp_serde::to_vec_named(&stored).unwrap();
   let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
   encoder.write_all(&msgpack).unwrap();
   encoder.finish().unwrap().into()

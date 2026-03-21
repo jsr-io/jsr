@@ -526,7 +526,6 @@ fn start_shared_fake_s3() -> u16 {
   dir.push("fake-s3-server");
 
   for attempt in 0..5 {
-    dbg!();
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     drop(listener);
