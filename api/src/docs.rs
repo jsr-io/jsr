@@ -11,10 +11,8 @@ use comrak::nodes::Ast;
 use comrak::nodes::AstNode;
 use comrak::nodes::NodeValue;
 use deno_ast::ModuleSpecifier;
-use deno_doc::DeclarationDef;
-use deno_doc::Location;
-use deno_doc::ParseOutput;
-use deno_doc::Symbol;
+use deno_doc::html::pages::SymbolPage;
+use deno_doc::html::util::BreadcrumbsCtx;
 use deno_doc::html::DocNodeWithContext;
 use deno_doc::html::GenerateCtx;
 use deno_doc::html::HrefResolver;
@@ -22,12 +20,14 @@ use deno_doc::html::RenderContext;
 use deno_doc::html::ShortPath;
 use deno_doc::html::UrlResolveKind;
 use deno_doc::html::UsageComposerEntry;
-use deno_doc::html::pages::SymbolPage;
-use deno_doc::html::util::BreadcrumbsCtx;
+use deno_doc::DeclarationDef;
+use deno_doc::Location;
+use deno_doc::ParseOutput;
+use deno_doc::Symbol;
 use deno_semver::RangeSetOrTag;
-use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use flate2::Compression;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -1759,7 +1759,8 @@ mod tests {
       "https://raw.githubusercontent.com/foo/bar/HEAD/assets/logo.png"
     );
 
-    let rewriter = get_url_rewriter(String::from("/@foo/bar/1.2.3"), None, true);
+    let rewriter =
+      get_url_rewriter(String::from("/@foo/bar/1.2.3"), None, true);
 
     assert_eq!(rewriter(None, "/docs/foo.md"), "/docs/foo.md");
   }
