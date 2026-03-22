@@ -1759,7 +1759,8 @@ mod tests {
       "https://raw.githubusercontent.com/foo/bar/HEAD/assets/logo.png"
     );
 
-    let rewriter = get_url_rewriter(String::from("/@foo/bar/1.2.3"), None, true);
+    let rewriter =
+      get_url_rewriter(String::from("/@foo/bar/1.2.3"), None, true);
 
     assert_eq!(rewriter(None, "/docs/foo.md"), "/docs/foo.md");
   }
