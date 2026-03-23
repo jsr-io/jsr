@@ -15,18 +15,13 @@ locals {
     "ORAMA_DOCS_PUBLIC_API_KEY" = var.orama_docs_public_api_key
     "ORAMA_DOCS_PROJECT_ID"     = var.orama_docs_project_id
   }
-  frontend_regions = toset([
-    "us-central1",          # Iowa
-  ])
 }
 
 ### Frontend service
 
 resource "google_cloud_run_v2_service" "registry_frontend" {
-  for_each = local.frontend_regions
-
-  name     = "registry-frontend-${each.key}"
-  location = each.key
+  name     = "registry-frontend"
+  location = "us-central1"
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
@@ -58,14 +53,12 @@ resource "google_cloud_run_v2_service" "registry_frontend" {
 }
 
 resource "google_compute_region_network_endpoint_group" "registry_frontend" {
-  for_each = local.frontend_regions
-
   name                  = "registry-frontend-neg"
   network_endpoint_type = "SERVERLESS"
-  region                = each.key
+  region                = "us-central1"
 
   cloud_run {
-    service = google_cloud_run_v2_service.registry_frontend[each.key].name
+    service = google_cloud_run_v2_service.registry_frontend.name
   }
 }
 
@@ -91,11 +84,8 @@ resource "google_compute_backend_service" "registry_frontend" {
     client_ttl        = 31622400 # 1 year
   }
 
-  dynamic "backend" {
-    for_each = local.frontend_regions
-    content {
-      group = google_compute_region_network_endpoint_group.registry_frontend[backend.key].id
-    }
+  backend {
+    group = google_compute_region_network_endpoint_group.registry_frontend.id
   }
 
   log_config {
@@ -109,11 +99,9 @@ resource "google_compute_backend_service" "registry_frontend" {
 }
 
 resource "google_cloud_run_service_iam_member" "frontend_public_policy" {
-  for_each = local.frontend_regions
-
-  location = google_cloud_run_v2_service.registry_frontend[each.key].location
-  project  = google_cloud_run_v2_service.registry_frontend[each.key].project
-  service  = google_cloud_run_v2_service.registry_frontend[each.key].name
+  location = google_cloud_run_v2_service.registry_frontend.location
+  project  = google_cloud_run_v2_service.registry_frontend.project
+  service  = google_cloud_run_v2_service.registry_frontend.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
