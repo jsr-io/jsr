@@ -5,7 +5,6 @@ use std::borrow::Cow;
 
 use super::ApiPublishingTask;
 use crate::errors;
-use crate::gcp::GcsError;
 use crate::s3::S3Error;
 
 errors!(
@@ -396,12 +395,6 @@ impl
       oauth2::basic::BasicRevocationErrorResponse,
     >,
   ) -> ApiError {
-    anyhow::Error::from(error).into()
-  }
-}
-
-impl From<GcsError> for ApiError {
-  fn from(error: GcsError) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

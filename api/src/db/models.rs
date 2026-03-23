@@ -124,9 +124,9 @@ pub enum PublishingTaskStatus {
   /// The task is currently being processed. Processing entails unpacking the
   /// package tarball, validating the package, and publishing individual files
   /// to the registry. It is finalized by uploading the package version
-  /// manifest to GCS and inserting the published version into the database.
+  /// manifest to S3 and inserting the published version into the database.
   Processing,
-  /// The task processing has been completed. The package manifest on GCS is
+  /// The task processing has been completed. The package manifest on S3 is
   /// being updated to reflect the new version.
   Processed,
   /// The task has been completed successfully.

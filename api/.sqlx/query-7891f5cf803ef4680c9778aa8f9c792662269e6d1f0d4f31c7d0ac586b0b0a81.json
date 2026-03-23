@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      INSERT INTO version_download_counts_24h (scope, package, version, time_bucket, kind, count)\n      SELECT temp.scope, temp.package, temp.version, temp.time_bucket, temp.kind, SUM(temp.count)\n      FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::download_kind[], $6::INT[]) as temp(scope, package, version, time_bucket, kind, count)\n      WHERE (SELECT COUNT(*) FROM package_versions WHERE package_versions.scope = temp.scope AND package_versions.name = temp.package AND version = temp.version) > 0\n      GROUP BY temp.scope, temp.package, temp.version, temp.time_bucket, temp.kind\n      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count\n      ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TimestamptzArray",
+        {
+          "Custom": {
+            "name": "download_kind[]",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "download_kind",
+                  "kind": {
+                    "Enum": [
+                      "npm_tgz",
+                      "jsr_meta"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7891f5cf803ef4680c9778aa8f9c792662269e6d1f0d4f31c7d0ac586b0b0a81"
+}

@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
-use crate::buckets::Buckets;
 use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
@@ -18,15 +17,16 @@ use crate::db::PublishingTask;
 use crate::db::PublishingTaskError;
 use crate::db::PublishingTaskStatus;
 use crate::external::orama::OramaClient;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcp::GcsUploadOptions;
 use crate::ids::PackagePath;
 use crate::metadata::ManifestEntry;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
@@ -269,7 +269,7 @@ async fn upload_version_manifest(
   exports: IndexMap<String, String>,
   module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
 ) -> Result<(), anyhow::Error> {
-  let version_metadata_gcs_path = crate::gcs_paths::version_metadata(
+  let version_metadata_s3_path = crate::s3_paths::version_metadata(
     &publishing_task.package_scope,
     &publishing_task.package_name,
     &publishing_task.package_version,
@@ -295,9 +295,9 @@ async fn upload_version_manifest(
   buckets
     .modules_bucket
     .upload(
-      version_metadata_gcs_path.into(),
+      version_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: false,
@@ -389,7 +389,7 @@ async fn upload_package_manifest(
   buckets: &Buckets,
   publishing_task: &PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  let package_metadata_gcs_path = crate::gcs_paths::package_metadata(
+  let package_metadata_s3_path = crate::s3_paths::package_metadata(
     &publishing_task.package_scope,
     &publishing_task.package_name,
   );
@@ -403,9 +403,9 @@ async fn upload_package_manifest(
   buckets
     .modules_bucket
     .upload(
-      package_metadata_gcs_path.into(),
+      package_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -422,8 +422,8 @@ async fn upload_npm_version_manifest(
   npm_url: &Url,
   publishing_task: &PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  let npm_version_manifest_path_gcs_path =
-    crate::gcs_paths::npm_version_manifest_path(
+  let npm_version_manifest_path_s3_path =
+    crate::s3_paths::npm_version_manifest_path(
       &publishing_task.package_scope,
       &publishing_task.package_name,
     );
@@ -438,9 +438,9 @@ async fn upload_npm_version_manifest(
   buckets
     .npm_bucket
     .upload(
-      npm_version_manifest_path_gcs_path.into(),
+      npm_version_manifest_path_s3_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -530,7 +530,7 @@ pub mod tests {
       .upload(
         tarball_path.into(),
         crate::s3::UploadTaskBody::Bytes(tarball_data),
-        GcsUploadOptions {
+        S3UploadOptions {
           content_type: Some("application/x-tar".into()),
           cache_control: None,
           gzip_encoded: true,

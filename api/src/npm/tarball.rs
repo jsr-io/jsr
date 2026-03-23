@@ -322,13 +322,13 @@ pub async fn create_npm_tarball<'a>(
 
       let downloads = futures::stream::iter(paths_to_download.into_iter())
         .map(|path| {
-          let gcs_path =
-            crate::gcs_paths::file_path(scope, package, version, path).into();
+          let s3_path =
+            crate::s3_paths::file_path(scope, package, version, path).into();
           async move {
             let bytes = modules_bucket
-              .download(gcs_path)
+              .download(s3_path)
               .await?
-              .ok_or_else(|| anyhow::anyhow!("file missing on GCS: {path}"))?;
+              .ok_or_else(|| anyhow::anyhow!("file missing on S3: {path}"))?;
             Ok::<_, anyhow::Error>((path, bytes))
           }
         })
