@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { RouteConfig } from "fresh";
 import { asset } from "fresh/runtime";
 import { DevelopmentLogin } from "../islands/DevelopmentLogin.tsx";
 
