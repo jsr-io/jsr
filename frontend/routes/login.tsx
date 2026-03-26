@@ -44,7 +44,3 @@ export default function Login({ url }: { url: URL }) {
     </div>
   );
 }
-
-export const config: RouteConfig = {
-  skipInheritedLayouts: false,
-};
