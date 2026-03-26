@@ -7,6 +7,7 @@ import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
 import { SignInMenu } from "../islands/SignInMenu.tsx";
+import TbLogin2 from "tb-icons/TbLogin2";
 
 export function Header({
   user,
@@ -118,7 +119,15 @@ export function Header({
                     />
                   )
                   : (prodProxy
-                    ? <a href={`/login${redirect}`} class="link-header" />
+                    ? (
+                      <a
+                        href={`/login${redirect}`}
+                        class="flex items-center gap-2 link-header"
+                      >
+                        <TbLogin2 class="size-5" />
+                        <span>Sign in</span>
+                      </a>
+                    )
                     : <SignInMenu redirect={redirect} />)}
               </>
             )}
