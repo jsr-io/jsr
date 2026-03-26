@@ -951,8 +951,12 @@ body .ddoc .or-bar {
     --base-text-weight-semibold: 500;
     --bgColor-muted: var(--colors-slate-50);
     --text-shadow:
-      0 0 2em white, 0 0 1em white, 0 0 0.5em white, 0 0 0.25em white, 0 0 3em
-      white, 0 0 0.5em white;
+      0 0 2em white,
+      0 0 1em white,
+      0 0 0.5em white,
+      0 0 0.25em white,
+      0 0 3em white,
+      0 0 0.5em white;
   }
 
   .dark {
@@ -965,8 +969,12 @@ body .ddoc .or-bar {
     --color-fg-default: var(--colors-gray-200) !important;
     --bgColor-muted: var(--colors-jsr-gray-800);
     --text-shadow:
-      0 0 2em black, 0 0 1em black, 0 0 0.5em black, 0 0 0.25em black, 0 0 3em
-      black, 0 0 0.5em black;
+      0 0 2em black,
+      0 0 1em black,
+      0 0 0.5em black,
+      0 0 0.25em black,
+      0 0 3em black,
+      0 0 0.5em black;
   }
 }
 

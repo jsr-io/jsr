@@ -3,13 +3,33 @@
     Replaces: fontFamily: { ... }
   */
   --font-mono:
-    "DM Mono", "Menlo", "Monaco", "Lucida Console", "Consolas",
-    "Liberation Mono", "Courier New", monospace;
+    "DM Mono",
+    "Menlo",
+    "Monaco",
+    "Lucida Console",
+    "Consolas",
+    "Liberation Mono",
+    "Courier New",
+    monospace;
   --font-sans:
-    "DM Sans", "Inter", system-ui, -apple-system, "BlinkMacSystemFont",
-    "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", sans-serif;
+    "DM Sans",
+    "Inter",
+    system-ui,
+    -apple-system,
+    "BlinkMacSystemFont",
+    "Segoe UI",
+    "Roboto",
+    "Helvetica Neue",
+    "Arial",
+    "Noto Sans",
+    sans-serif;
   --font-serif:
-    "DM Serif", "Georgia", "Cambria", "Times New Roman", "Times", serif;
+    "DM Serif",
+    "Georgia",
+    "Cambria",
+    "Times New Roman",
+    "Times",
+    serif;
 
   --margin-indent: 2ch; /* Scoped specifically to margin utilities (m-indent) */
   --max-width-prose: 75ch; /* Scoped to max-width (max-w-prose) */
