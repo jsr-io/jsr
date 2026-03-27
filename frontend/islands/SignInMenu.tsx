@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
-import { TbLogin2 } from "tb-icons";
+import TbLogin2 from "tb-icons/TbLogin2";
 import { asset } from "fresh/runtime";
 
 const SHARED_ITEM_CLASSES =
