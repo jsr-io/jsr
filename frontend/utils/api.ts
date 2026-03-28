@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { IS_BROWSER } from "fresh/runtime";
-import { HttpError } from "fresh";
+import { IS_BROWSER, HttpError } from "fresh/runtime";
 import type { TraceSpan } from "./tracing.ts";
 import type { ErrorStatus } from "@std/http";
 

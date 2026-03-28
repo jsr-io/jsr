@@ -1,10 +1,6 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@david/console-static-text@0.3": "0.3.0",
-    "jsr:@david/dax@0.43.2": "0.43.2",
-    "jsr:@david/path@0.2": "0.2.0",
-    "jsr:@david/which@~0.4.1": "0.4.1",
     "jsr:@deno/cache-dir@0.25": "0.25.0",
     "jsr:@deno/doc@0.194": "0.194.0",
     "jsr:@deno/esbuild-plugin@^1.2.0": "1.2.0",
@@ -14,23 +10,21 @@
     "jsr:@deno/loader@~0.3.3": "0.3.12",
     "jsr:@denosaurs/emoji@~0.3.1": "0.3.1",
     "jsr:@fresh/build-id@1": "1.0.1",
-    "jsr:@fresh/core@2": "2.2.0",
-    "jsr:@fresh/core@^2.2.0": "2.2.0",
+    "jsr:@fresh/core@2": "2.2.2",
+    "jsr:@fresh/core@^2.2.2": "2.2.2",
     "jsr:@fresh/plugin-tailwind@1": "1.0.0",
     "jsr:@preact-icons/common@^1.1.0": "1.1.0",
     "jsr:@preact-icons/tb@^1.0.14": "1.0.14",
-    "jsr:@std/assert@1": "1.0.18",
+    "jsr:@std/assert@1.0.15": "1.0.15",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
     "jsr:@std/cli@^1.0.27": "1.0.28",
     "jsr:@std/collections@^1.1.3": "1.1.5",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
-    "jsr:@std/fmt@1": "1.0.9",
     "jsr:@std/fmt@^1.0.3": "1.0.9",
     "jsr:@std/fmt@^1.0.6": "1.0.9",
     "jsr:@std/fmt@^1.0.8": "1.0.9",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
     "jsr:@std/front-matter@1": "1.0.9",
-    "jsr:@std/fs@1": "1.0.23",
     "jsr:@std/fs@^1.0.19": "1.0.23",
     "jsr:@std/fs@^1.0.22": "1.0.23",
     "jsr:@std/fs@^1.0.6": "1.0.23",
@@ -59,7 +53,7 @@
     "npm:@orama/highlight@~0.1.8": "0.1.9",
     "npm:@orama/orama@2": "2.1.1",
     "npm:@preact/signals@2.7.0": "2.7.0_preact@10.28.3",
-    "npm:@preact/signals@^2.2.1": "2.7.0_preact@10.28.3",
+    "npm:@preact/signals@^2.5.1": "2.7.0_preact@10.28.3",
     "npm:@tailwindcss/postcss@^4.1.10": "4.2.0",
     "npm:@viz-js/viz@^3.11.0": "3.24.0",
     "npm:apexcharts@^4.5.0": "4.7.0_@svgdotjs+svg.js@3.2.5_@svgdotjs+svg.select.js@4.0.3__@svgdotjs+svg.js@3.2.5",
@@ -82,8 +76,8 @@
     "npm:preact-render-to-string@^6.6.3": "6.6.6_preact@10.28.3",
     "npm:preact@10": "10.28.3",
     "npm:preact@^10.22.1": "10.28.3",
-    "npm:preact@^10.27.0": "10.28.3",
-    "npm:preact@^10.27.2": "10.28.3",
+    "npm:preact@^10.28.2": "10.28.3",
+    "npm:preact@^10.28.3": "10.28.3",
     "npm:prismjs@^1.29.0": "1.30.0",
     "npm:sanitize-html@^2.13.0": "2.17.0",
     "npm:tailwindcss@3.4.3": "3.4.3_postcss@8.5.6",
@@ -91,31 +85,6 @@
     "npm:twas@^2.1.3": "2.1.3"
   },
   "jsr": {
-    "@david/console-static-text@0.3.0": {
-      "integrity": "2dfb46ecee525755f7989f94ece30bba85bd8ffe3e8666abc1bf926e1ee0698d"
-    },
-    "@david/dax@0.43.2": {
-      "integrity": "8c7df175465d994c0e3568e3eb91102768c2f1c86d2a513d7fc4cab13f9cb328",
-      "dependencies": [
-        "jsr:@david/console-static-text",
-        "jsr:@david/path",
-        "jsr:@david/which",
-        "jsr:@std/fmt@1",
-        "jsr:@std/fs@1",
-        "jsr:@std/io",
-        "jsr:@std/path@1"
-      ]
-    },
-    "@david/path@0.2.0": {
-      "integrity": "f2d7aa7f02ce5a55e27c09f9f1381794acb09d328f8d3c8a2e3ab3ffc294dccd",
-      "dependencies": [
-        "jsr:@std/fs@1",
-        "jsr:@std/path@1"
-      ]
-    },
-    "@david/which@0.4.1": {
-      "integrity": "896a682b111f92ab866cc70c5b4afab2f5899d2f9bde31ed00203b9c250f225e"
-    },
     "@deno/cache-dir@0.25.0": {
       "integrity": "e9c3e901f87961a813a197b076668007699953dcbeb3af51971d90fdb0d29723",
       "dependencies": [
@@ -174,8 +143,8 @@
         "jsr:@std/encoding"
       ]
     },
-    "@fresh/core@2.2.0": {
-      "integrity": "b3c00f82288a2c4c8ec85e4abb67b080b366ec5971860f2f2898eb281ea1a80f",
+    "@fresh/core@2.2.2": {
+      "integrity": "c34873df58457720f7b915a65fef6fe5cd7215f237cf4d1064d1925b320de96c",
       "dependencies": [
         "jsr:@deno/esbuild-plugin",
         "jsr:@fresh/build-id",
@@ -190,12 +159,12 @@
         "jsr:@std/semver@^1.0.6",
         "jsr:@std/uuid",
         "npm:@opentelemetry/api",
-        "npm:@preact/signals@^2.2.1",
+        "npm:@preact/signals@^2.5.1",
         "npm:esbuild-wasm",
         "npm:esbuild@0.25.7",
         "npm:preact-render-to-string@^6.6.3",
-        "npm:preact@^10.27.0",
-        "npm:preact@^10.27.2"
+        "npm:preact@^10.28.2",
+        "npm:preact@^10.28.3"
       ]
     },
     "@fresh/plugin-tailwind@1.0.0": {
@@ -219,8 +188,8 @@
         "npm:preact@^10.22.1"
       ]
     },
-    "@std/assert@1.0.18": {
-      "integrity": "270245e9c2c13b446286de475131dc688ca9abcd94fc5db41d43a219b34d1c78",
+    "@std/assert@1.0.15": {
+      "integrity": "d64018e951dbdfab9777335ecdb000c0b4e3df036984083be219ce5941e4703b",
       "dependencies": [
         "jsr:@std/internal"
       ]
@@ -250,7 +219,6 @@
     "@std/fs@1.0.23": {
       "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37",
       "dependencies": [
-        "jsr:@std/internal",
         "jsr:@std/path@^1.1.4"
       ]
     },
@@ -1476,7 +1444,7 @@
     "dependencies": [
       "jsr:@deno/doc@0.194",
       "jsr:@deno/gfm@0.11",
-      "jsr:@fresh/core@^2.2.0",
+      "jsr:@fresh/core@^2.2.2",
       "jsr:@fresh/plugin-tailwind@1",
       "jsr:@preact-icons/tb@^1.0.14",
       "jsr:@std/fmt@^1.0.6",
