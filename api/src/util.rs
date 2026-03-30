@@ -643,7 +643,7 @@ pub mod test {
   /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
   fn ensure_servers_started() {
     SERVERS_STARTED.get_or_init(|| {
-      std::thread::spawn(FakeS3Tester::new);
+      FakeS3Tester::new();
     });
   }
   use crate::util::sanitize_redirect_url;
