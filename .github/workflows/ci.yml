@@ -165,9 +165,8 @@ jobs:
         if: github.event_name == 'push'
         id: check_existing
         run: |
-          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
-            echo "api_imageid=$(docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} | jq -r '.config.digest')" >> $GITHUB_OUTPUT
-            echo "frontend_imageid=$(docker manifest inspect ${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }} | jq -r '.config.digest')" >> $GITHUB_OUTPUT
+          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1 &&
+             docker manifest inspect ${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
@@ -205,11 +204,21 @@ jobs:
 
       - name: Set api_image_id output
         id: api_image_id
-        run: echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}${{ steps.check_existing.outputs.api_imageid }}" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ steps.api_push.outputs.imageid }}" ]; then
+            echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_id=${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set frontend_image_id output
         id: frontend_image_id
-        run: echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}${{ steps.check_existing.outputs.frontend_imageid }}" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ steps.frontend_push.outputs.imageid }}" ]; then
+            echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
 
   staging:
     if: github.event_name == 'merge_group' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
