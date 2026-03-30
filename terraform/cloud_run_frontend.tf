@@ -119,3 +119,18 @@ resource "google_project_iam_member" "frontend_cloud_trace" {
   role    = "roles/cloudtrace.agent"
   member  = "serviceAccount:${google_service_account.registry_frontend.email}"
 }
+
+moved {
+  from = google_cloud_run_v2_service.registry_frontend["us-central1"]
+  to   = google_cloud_run_v2_service.registry_frontend
+}
+
+moved {
+  from = google_compute_region_network_endpoint_group.registry_frontend["us-central1"]
+  to   = google_compute_region_network_endpoint_group.registry_frontend
+}
+
+moved {
+  from = google_cloud_run_service_iam_member.frontend_public_policy["us-central1"]
+  to   = google_cloud_run_service_iam_member.frontend_public_policy
+}
