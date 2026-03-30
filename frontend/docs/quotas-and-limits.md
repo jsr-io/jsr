@@ -13,7 +13,7 @@ increase, and the reason for the increase.
 
 Don't see quotas as limits. If you need more than the default quota, please
 reach out to us and we'll be happy to increase it. Quotas are in place to
-prevent abuse, not to prevent you from using JSR to it's fullest.
+prevent abuse, not to prevent you from using JSR to its fullest.
 
 ## Quotas per account
 
