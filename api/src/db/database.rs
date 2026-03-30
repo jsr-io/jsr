@@ -3259,6 +3259,20 @@ gitlab_id: r.user_gitlab_id,
     Ok(result.rows_affected())
   }
 
+  #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
+  pub async fn cleanup_download_counts_4h(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM version_download_counts_4h WHERE time_bucket < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
   #[instrument(name = "Database::insert_oauth_state", skip(
     self,
     new_oauth_state
@@ -3822,6 +3836,9 @@ gitlab_id: r.user_gitlab_id,
     let mut kinds = Vec::with_capacity(entries.len());
     let mut counts = Vec::with_capacity(entries.len());
 
+    let mut smallest_time_bucket = Utc::now();
+    let mut largest_time_bucket = DateTime::from_timestamp_nanos(0);
+
     for entry in entries {
       scopes.push(entry.scope);
       packages.push(entry.package);
@@ -3829,18 +3846,21 @@ gitlab_id: r.user_gitlab_id,
       time_buckets.push(entry.time_bucket);
       kinds.push(entry.kind);
       counts.push(entry.count);
+
+      if entry.time_bucket < smallest_time_bucket {
+        smallest_time_bucket = entry.time_bucket;
+      }
+      if entry.time_bucket > largest_time_bucket {
+        largest_time_bucket = entry.time_bucket;
+      }
     }
 
-    // Upsert directly into version_download_counts_24h. Input entries are
-    // already day-bucketed from Cloudflare Analytics, so we just need to
-    // aggregate by (scope, package, version, day, kind) and replace on conflict.
+    // Upsert data into version_download_counts_4h
     sqlx::query!(
       r#"
-      INSERT INTO version_download_counts_24h (scope, package, version, time_bucket, kind, count)
-      SELECT temp.scope, temp.package, temp.version, temp.time_bucket, temp.kind, SUM(temp.count)
-      FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::download_kind[], $6::INT[]) as temp(scope, package, version, time_bucket, kind, count)
+      INSERT INTO version_download_counts_4h (scope, package, version, time_bucket, kind, count)
+      SELECT * FROM UNNEST($1::TEXT[], $2::TEXT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::download_kind[], $6::INT[]) as temp(scope, package, version, time_bucket, kind, count)
       WHERE (SELECT COUNT(*) FROM package_versions WHERE package_versions.scope = temp.scope AND package_versions.name = temp.package AND version = temp.version) > 0
-      GROUP BY temp.scope, temp.package, temp.version, temp.time_bucket, temp.kind
       ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
       "#,
       &scopes as _,
@@ -3849,6 +3869,23 @@ gitlab_id: r.user_gitlab_id,
       &time_buckets,
       &kinds as _,
       &counts as _,
+    )
+      .execute(&mut *tx)
+      .await?;
+
+    // Compute data in version_download_counts_24h from version_download_counts_4h between smallest_timestamp and largest_timestamp.
+    // smallest_timestamp must be truncated down to the nearest day and largest_timestamp must be truncated up to the nearest day.
+    sqlx::query!(
+      r#"
+      INSERT INTO version_download_counts_24h (scope, package, version, time_bucket, kind, count)
+      SELECT scope, package, version, date_trunc('day', time_bucket), kind, SUM(count)
+      FROM version_download_counts_4h
+      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
+      GROUP BY scope, package, version, date_trunc('day', time_bucket), kind
+      ON CONFLICT (scope, package, version, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      smallest_time_bucket,
+      largest_time_bucket,
     )
       .execute(&mut *tx)
       .await?;

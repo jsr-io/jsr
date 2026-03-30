@@ -1,1 +1,0 @@
-DROP TABLE version_download_counts_4h;

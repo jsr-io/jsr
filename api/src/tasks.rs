@@ -74,6 +74,10 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/clean_oauth_states",
       util::json(clean_oauth_states_handler),
     )
+    .post(
+      "/clean_download_counts_4h",
+      util::json(clean_download_counts_4h_handler),
+    )
     .build()
     .unwrap()
 }
@@ -267,7 +271,7 @@ pub async fn scrape_download_counts_handler(
       .query_downloads(format!(
         r#"
 SELECT
-  toStartOfInterval(timestamp, INTERVAL '1' DAY) as time_bucket,
+  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
   blob2 as scope,
   blob3 as package,
   blob4 as ver,
@@ -303,7 +307,7 @@ ORDER BY
       .query_downloads(format!(
         r#"
 SELECT
-  toStartOfInterval(timestamp, INTERVAL '1' DAY) as time_bucket,
+  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
   blob2 as scope,
   blob3 as package,
   blob4 as ver,
@@ -341,6 +345,21 @@ pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
   let cutoff = Utc::now() - Duration::hours(1);
   let deleted = db.delete_expired_oauth_states(cutoff).await?;
   tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
+#[instrument(
+  name = "POST /tasks/clean_download_counts_4h",
+  skip(req),
+  err
+)]
+pub async fn clean_download_counts_4h_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::days(7);
+  let deleted = db.cleanup_download_counts_4h(cutoff).await?;
+  tracing::info!(deleted, "cleaned up old 4h download counts");
   Ok(())
 }
 
