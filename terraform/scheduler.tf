@@ -47,7 +47,7 @@ resource "google_cloud_scheduler_job" "clean_download_counts_4h" {
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
   description = "Scrape download counts from Analytics Engine and insert them into Postgres."
-  schedule    = "15 */3 * * *"
+  schedule    = "15 * * * *"
   region      = "us-central1"
 
   http_target {
