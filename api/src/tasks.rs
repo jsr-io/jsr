@@ -348,11 +348,7 @@ pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
   Ok(())
 }
 
-#[instrument(
-  name = "POST /tasks/clean_download_counts_4h",
-  skip(req),
-  err
-)]
+#[instrument(name = "POST /tasks/clean_download_counts_4h", skip(req), err)]
 pub async fn clean_download_counts_4h_handler(
   req: Request<Body>,
 ) -> ApiResult<()> {
