@@ -17,8 +17,6 @@ export interface WorkerEnv {
 
   REGISTRY_FRONTEND_URL: string;
 
-  GCS_ENDPOINT?: string;
-
   ROOT_DOMAIN: string;
   API_DOMAIN: string;
   NPM_DOMAIN: string;

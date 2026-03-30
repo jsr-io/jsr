@@ -3259,6 +3259,20 @@ gitlab_id: r.user_gitlab_id,
     Ok(result.rows_affected())
   }
 
+  #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
+  pub async fn cleanup_download_counts_4h(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM version_download_counts_4h WHERE time_bucket < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
   #[instrument(name = "Database::insert_oauth_state", skip(
     self,
     new_oauth_state
@@ -3879,38 +3893,6 @@ gitlab_id: r.user_gitlab_id,
     tx.commit().await?;
 
     Ok(())
-  }
-
-  #[cfg(test)]
-  #[instrument(
-    name = "Database::get_package_version_downloads_4h",
-    skip(self),
-    err
-  )]
-  pub async fn get_package_version_downloads_4h(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-    start: DateTime<Utc>,
-    end: DateTime<Utc>,
-  ) -> Result<Vec<DownloadDataPoint>> {
-    sqlx::query_as!(
-      DownloadDataPoint,
-      r#"
-      SELECT time_bucket, kind as "kind: DownloadKind", count
-      FROM version_download_counts_4h
-      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
-      ORDER BY time_bucket ASC
-      "#,
-      scope as _,
-      name as _,
-      version as _,
-      start,
-      end,
-    )
-      .fetch_all(&self.pool)
-      .await
   }
 
   #[instrument(

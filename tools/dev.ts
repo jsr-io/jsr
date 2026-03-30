@@ -64,21 +64,6 @@ function getProcessDefs(noDockerPostgres: boolean): ProcessDef[] {
   }
 
   defs.push({
-    name: "gcs",
-    cmd: `${binDir}/fake-gcs-server`,
-    args: [
-      "-scheme",
-      "http",
-      "-port",
-      "4080",
-      "-filesystem-root=.gcs",
-      "-public-host=localhost:4080",
-    ],
-    cwd: rootDir,
-    color: blue,
-  });
-
-  defs.push({
     name: "minio",
     cmd: `${binDir}/minio`,
     args: ["server", "--quiet", ".minio"],

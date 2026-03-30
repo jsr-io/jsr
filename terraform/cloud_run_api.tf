@@ -4,10 +4,10 @@ locals {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 
-    "PUBLISHING_BUCKET" = google_storage_bucket.publishing.name
-    "MODULES_BUCKET"    = google_storage_bucket.modules.name
-    "DOCS_BUCKET"       = google_storage_bucket.docs.name
-    "NPM_BUCKET"        = google_storage_bucket.npm.name
+    "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
+    "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
+    "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
+    "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
 
     "S3_REGION"     = "auto"
     "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
@@ -315,30 +315,6 @@ resource "google_project_iam_member" "registry_api_cloudsql" {
   project = var.gcp_project
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "publishing_bucket_access" {
-  bucket = google_storage_bucket.publishing.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "modules_bucket_access" {
-  bucket = google_storage_bucket.modules.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "docs_bucket_access" {
-  bucket = google_storage_bucket.docs.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "npm_bucket_access" {
-  bucket = google_storage_bucket.npm.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "github_client_secret" {

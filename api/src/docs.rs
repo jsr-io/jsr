@@ -144,9 +144,9 @@ pub async fn download_doc_nodes(
   scope: &ScopeName,
   package: &PackageName,
   version: &Version,
-  bucket: &crate::buckets::Buckets,
+  bucket: &crate::s3::Buckets,
 ) -> Result<Option<ParseOutput>, DocNodeCacheError> {
-  let v2_path = crate::gcs_paths::docs_v2_path(scope, package, version);
+  let v2_path = crate::s3_paths::docs_v2_path(scope, package, version);
   let v2_result = bucket
     .docs_bucket
     .download(Arc::from(v2_path.as_str()))
@@ -156,7 +156,7 @@ pub async fn download_doc_nodes(
     return Ok(Some(deserialize_doc_nodes_v2(&bytes)?));
   }
 
-  let v1_path = crate::gcs_paths::docs_v1_path(scope, package, version);
+  let v1_path = crate::s3_paths::docs_v1_path(scope, package, version);
   let v1_result = bucket
     .docs_bucket
     .download(Arc::from(v1_path.as_str()))
@@ -176,9 +176,9 @@ pub async fn download_doc_nodes(
     .upload(
       Arc::from(v2_path.as_str()),
       crate::s3::UploadTaskBody::Bytes(v2_bytes),
-      crate::gcp::GcsUploadOptions {
+      crate::s3::S3UploadOptions {
         content_type: Some("application/x-msgpack".into()),
-        cache_control: Some(crate::gcp::CACHE_CONTROL_IMMUTABLE.into()),
+        cache_control: Some(crate::s3::CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: true,
       },
     )
@@ -230,7 +230,7 @@ impl GenerateCtxCache {
     github_repository: Option<GithubRepository>,
     runtime_compat: RuntimeCompat,
     registry_url: &str,
-    bucket: &crate::buckets::Buckets,
+    bucket: &crate::s3::Buckets,
   ) -> Result<Option<Arc<GenerateCtx>>, DocNodeCacheError> {
     let key =
       format!("@{scope}/{package}/{version}/{version_is_latest}/{has_readme}");

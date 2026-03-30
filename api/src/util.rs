@@ -620,7 +620,6 @@ pub fn license_store() -> LicenseStore {
 pub mod test {
   use crate::ApiError;
   use crate::MainRouterOptions;
-  use crate::buckets::Buckets;
   use crate::db::Database;
   use crate::db::EphemeralDatabase;
   use crate::db::NewGithubIdentity;
@@ -628,9 +627,9 @@ pub mod test {
   use crate::db::NewUser;
   use crate::db::User;
   use crate::errors_internal::ApiErrorStruct;
-  use crate::gcp::FakeGcsTester;
   use crate::ids::ScopeDescription;
   use crate::s3::BucketWithQueue;
+  use crate::s3::Buckets;
   use crate::s3::FakeS3Tester;
   use crate::util::LicenseStore;
 
@@ -641,14 +640,10 @@ pub mod test {
   static TEST_INSTANCE_COUNTER: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 
-  /// Ensure both fake servers are running. The first call starts GCS and S3
-  /// in parallel; subsequent calls return immediately.
+  /// Ensure fake s3 server is running. The first call starts S3; subsequent calls return immediately.
   fn ensure_servers_started() {
     SERVERS_STARTED.get_or_init(|| {
-      std::thread::scope(|s| {
-        s.spawn(FakeGcsTester::new);
-        s.spawn(FakeS3Tester::new);
-      });
+      FakeS3Tester::new();
     });
   }
   use crate::util::sanitize_redirect_url;
@@ -827,7 +822,6 @@ pub mod test {
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
-        logs_bigquery_table: None,     // no bigquery locally
         analytics_engine_config: None, // no analytics engine locally
         expose_api: true,              // api enabled
         expose_tasks: true,            // task endpoints enabled
