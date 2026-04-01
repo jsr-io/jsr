@@ -8,31 +8,31 @@
   "licenseId": "OPUBL-1.0",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://www.ctan.org/license/opl",
+      "match": "true",
+      "url": "http://opencontent.org/openpub/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:53Z",
+      "timestamp": "2026-03-05T17:56:48Z",
       "isWayBackLink": false,
-      "order": 2
+      "order": 0
     },
     {
       "match": "false",
       "url": "https://www.debian.org/opl",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:53Z",
+      "timestamp": "2026-03-05T17:56:49Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "true",
-      "url": "http://opencontent.org/openpub/",
+      "match": "false",
+      "url": "https://www.ctan.org/license/opl",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:53Z",
+      "timestamp": "2026-03-05T17:56:51Z",
       "isWayBackLink": false,
-      "order": 0
+      "order": 2
     }
   ],
   "seeAlso": [

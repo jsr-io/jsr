@@ -8,11 +8,11 @@
   "licenseId": "Caldera-no-preamble",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/apache/apr/blob/trunk/LICENSE#L298C6-L298C29",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:59:24Z",
+      "timestamp": "2026-03-05T17:56:55Z",
       "isWayBackLink": false,
       "order": 0
     }

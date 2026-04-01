@@ -9,21 +9,21 @@
   "crossRef": [
     {
       "match": "true",
-      "url": "https://web.mit.edu/kerberos/krb5-1.21/doc/mitK5license.html",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:52:51Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "false",
       "url": "https://github.com/krb5/krb5/blob/krb5-1.21.2-final/NOTICE#L718-L728",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:52:52Z",
+      "timestamp": "2026-03-05T17:59:15Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "true",
+      "url": "https://web.mit.edu/kerberos/krb5-1.21/doc/mitK5license.html",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-03-05T17:59:15Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

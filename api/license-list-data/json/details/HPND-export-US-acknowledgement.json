@@ -8,22 +8,22 @@
   "licenseId": "HPND-export-US-acknowledgement",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://github.com/krb5/krb5/blob/krb5-1.21.2-final/NOTICE#L831-L852",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:01:26Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "true",
       "url": "https://web.mit.edu/kerberos/krb5-1.21/doc/mitK5license.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:01:26Z",
+      "timestamp": "2026-03-05T18:01:55Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "true",
+      "url": "https://github.com/krb5/krb5/blob/krb5-1.21.2-final/NOTICE#L831-L852",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-03-05T18:01:56Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

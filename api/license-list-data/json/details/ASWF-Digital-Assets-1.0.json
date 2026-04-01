@@ -6,11 +6,11 @@
   "licenseId": "ASWF-Digital-Assets-1.0",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/AcademySoftwareFoundation/foundation/blob/main/digital_assets/aswf_digital_assets_license_v1.0.txt",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:06Z",
+      "timestamp": "2026-03-05T17:58:29Z",
       "isWayBackLink": false,
       "order": 0
     }

@@ -6,11 +6,11 @@
   "licenseId": "Graphics-Gems",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/erich666/GraphicsGems/blob/master/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:04:35Z",
+      "timestamp": "2026-03-05T17:56:48Z",
       "isWayBackLink": false,
       "order": 0
     }

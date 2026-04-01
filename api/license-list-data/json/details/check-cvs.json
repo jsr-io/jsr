@@ -8,11 +8,11 @@
   "licenseId": "check-cvs",
   "crossRef": [
     {
-      "match": "N/A",
+      "match": "false",
       "url": "http://cvs.savannah.gnu.org/viewvc/cvs/ccvs/contrib/check_cvs.in?revision\u003d1.1.4.3\u0026view\u003dmarkup\u0026pathrev\u003dcvs1-11-23#l2",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-02-20T20:53:53Z",
+      "isLive": true,
+      "timestamp": "2026-03-05T17:58:49Z",
       "isWayBackLink": false,
       "order": 0
     }

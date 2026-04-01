@@ -6,11 +6,11 @@
   "licenseId": "BSD-3-Clause-flex",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/westes/flex/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:49Z",
+      "timestamp": "2026-03-05T17:57:19Z",
       "isWayBackLink": false,
       "order": 0
     }

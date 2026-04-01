@@ -8,11 +8,11 @@
   "licenseId": "BSD-2-Clause-Darwin",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/file/file/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:11Z",
+      "timestamp": "2026-03-05T18:01:53Z",
       "isWayBackLink": false,
       "order": 0
     }

@@ -9,10 +9,19 @@
   "crossRef": [
     {
       "match": "false",
+      "url": "https://metacpan.org/pod/Qmail::Deliverable::Client#LICENSE",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-03-05T18:00:39Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
+      "match": "false",
       "url": "https://metacpan.org/release/JUERD/Exporter-Tidy-0.09/view/Tidy.pm#LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:52Z",
+      "timestamp": "2026-03-05T18:00:39Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -21,18 +30,9 @@
       "url": "https://metacpan.org/pod/Net::MQTT::Simple#LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:52Z",
+      "timestamp": "2026-03-05T18:00:39Z",
       "isWayBackLink": false,
       "order": 2
-    },
-    {
-      "match": "false",
-      "url": "https://metacpan.org/pod/Qmail::Deliverable::Client#LICENSE",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:58:52Z",
-      "isWayBackLink": false,
-      "order": 1
     }
   ],
   "seeAlso": [
