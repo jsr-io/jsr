@@ -5,9 +5,12 @@ import { TbLoader2 } from "tb-icons";
 import { api, path } from "../../../utils/api.ts";
 import type { ScopeWithMemberCount } from "../settings.tsx";
 
-export function DeleteAccount(props: { scopes: ScopeWithMemberCount[] }) {
+export function DeleteAccount(
+  props: { scopes: ScopeWithMemberCount[]; userName: string },
+) {
   const open = useSignal(false);
   const status = useSignal<"pending" | "submitting">("pending");
+  const confirmInput = useSignal("");
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const prefix = useId();
@@ -29,6 +32,7 @@ export function DeleteAccount(props: { scopes: ScopeWithMemberCount[] }) {
     if (!open.value && status.value !== "pending") {
       setTimeout(() => {
         status.value = "pending";
+        confirmInput.value = "";
       }, 200);
     }
   }, [open.value]);
@@ -105,6 +109,20 @@ export function DeleteAccount(props: { scopes: ScopeWithMemberCount[] }) {
                   </div>
                 )}
 
+                <label class="block mt-4">
+                  <span class="text-sm text-secondary">
+                    Type <strong>{props.userName}</strong> to confirm:
+                  </span>
+                  <input
+                    type="text"
+                    class="w-full block px-2 py-1.5 mt-1 input-container input"
+                    value={confirmInput.value}
+                    onInput={(e) =>
+                      confirmInput.value = e.currentTarget.value}
+                    autoComplete="off"
+                  />
+                </label>
+
                 <div class="flex justify-end gap-3 mt-5">
                   <button
                     type="button"
@@ -116,6 +134,7 @@ export function DeleteAccount(props: { scopes: ScopeWithMemberCount[] }) {
                   <button
                     type="button"
                     class="button-danger"
+                    disabled={confirmInput.value !== props.userName}
                     onClick={onConfirm}
                   >
                     Delete my account

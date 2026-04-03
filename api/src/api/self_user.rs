@@ -76,7 +76,10 @@ async fn delete_account(req: Request<Body>) -> ApiResult<Response<Body>> {
   let db = req.data::<Database>().unwrap();
   let user_id = current_user.id;
 
-  db.delete_user(&user_id, false, user_id).await?;
+  let deleted = db.delete_user(&user_id, false, user_id).await?;
+  if deleted.is_none() {
+    return Err(ApiError::UserNotFound);
+  }
 
   let resp = Response::builder()
     .status(StatusCode::NO_CONTENT)

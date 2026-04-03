@@ -78,7 +78,7 @@ export default define.page<typeof handler>(function Users({ data, url }) {
                       name: "scopeLimit",
                       label: "scope limit",
                       type: "number",
-                      value: user.scopeLimit ?? Number.POSITIVE_INFINITY,
+                      value: user.scopeLimit ?? undefined,
                     },
                     {
                       name: "isStaff",

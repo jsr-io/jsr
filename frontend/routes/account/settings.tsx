@@ -100,7 +100,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
             any scopes that you are the sole owner of will be orphaned. You will
             not be able to recover your account after deletion.
           </p>
-          <DeleteAccount scopes={data.scopes} />
+          <DeleteAccount scopes={data.scopes} userName={data.user.name} />
         </div>
       </div>
     </AccountLayout>
