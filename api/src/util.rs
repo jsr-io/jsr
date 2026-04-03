@@ -937,6 +937,7 @@ pub mod test {
         npm_tarball_build_queue: None, // no queue locally
         webhook_dispatch_queue: None,  // no queue locally
         analytics_engine_config: None, // no analytics engine locally
+        webhook_secret_encryption_key: WebhookSecretEncryptionKey([0u8; 32]),
         expose_api: true,              // api enabled
         expose_tasks: true,            // task endpoints enabled
       });

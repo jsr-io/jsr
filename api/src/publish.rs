@@ -576,6 +576,7 @@ pub mod tests {
       t.npm_url(),
       t.db(),
       WebhookDispatchQueue(None),
+      crate::util::WebhookSecretEncryptionKey([0u8; 32]),
       None,
     )
     .await

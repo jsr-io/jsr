@@ -689,7 +689,7 @@ async fn dispatch_webhook(
       let json = serde_json::to_value(webhook.payload)?;
       let signature = if let Some(secret) = webhook.secret {
         let decrypted = crate::util::decrypt_webhook_secret(enc_key, &secret)
-          .map_err(|e| ApiError::InternalServerError(e.into()))?;
+          .map_err(|e| { tracing::error!("webhook secret decryption failed: {e}"); ApiError::InternalServerError })?;
         let mut hmac =
           hmac::Hmac::<sha2::Sha256>::new_from_slice(decrypted.as_bytes())
             .unwrap();
