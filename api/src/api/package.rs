@@ -18,6 +18,7 @@ use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
 use deno_semver::StackString;
 use futures::StreamExt;
+use futures::TryFutureExt;
 use futures::future::Either;
 use hyper::Body;
 use hyper::Request;
@@ -51,10 +52,8 @@ use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
-use crate::auth::GithubOauth2Client;
-use crate::auth::access_token;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
+use crate::auth;
+use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
 use crate::db::NewGithubRepository;
@@ -63,13 +62,11 @@ use crate::db::NewWebhookEndpoint;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
-use crate::db::{CreatePackageResult, UpdateWebhookEndpoint};
-use crate::docs::DocNodesByUrl;
+use crate::db::UpdateWebhookEndpoint;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
+use crate::external::orama::OramaClient;
 use crate::gcp;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::GcsUploadOptions;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -78,20 +75,23 @@ use crate::ids::Version;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
-use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
-use crate::tarball::gcs_tarball_path;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
+use crate::tarball::bucket_tarball_path;
 use crate::tasks::WebhookDispatchQueue;
 use crate::util;
-use crate::util::ApiResult;
-use crate::util::CacheDuration;
 use crate::util::LicenseStore;
 use crate::util::RequestIdExt;
 use crate::util::VersionOrLatest;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
+use crate::util::{ApiResult, docs_queries};
+use crate::util::{CacheDuration, DocsQueries};
 
 use super::ApiDependency;
 use super::ApiDependencyGraphItem;
@@ -114,14 +114,17 @@ use super::ApiSource;
 use super::ApiSourceDirEntry;
 use super::ApiSourceDirEntryKind;
 use super::ApiStats;
+use super::ApiStatsPackage;
+use super::ApiStatsPackageVersion;
 use super::ApiUpdatePackageGithubRepositoryRequest;
+
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 use super::ApiWebhookEndpoint;
 use super::{ApiCreatePackageRequest, ApiUpdateWebhookEndpointRequest};
 use super::{ApiCreateWebhookEndpointRequest, ApiWebhookDelivery};
 
-const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
+pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
@@ -129,18 +132,40 @@ pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/", util::json(list_handler))
     .post("/", util::json(create_handler))
-    .get("/:package", util::json(get_handler))
+    .get(
+      "/:package",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
       "/:package/versions",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_versions_handler),
+      ),
     )
-    .get("/:package/dependents", util::json(list_dependents_handler))
-    .get("/:package/downloads", util::json(get_downloads_handler))
+    .get(
+      "/:package/dependents",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_dependents_handler),
+      ),
+    )
+    .get(
+      "/:package/downloads",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_downloads_handler),
+      ),
+    )
     .get(
       "/:package/versions/:version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_version_handler),
+      ),
     )
     .post(
       "/:package/versions/:version",
@@ -159,30 +184,52 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::auth(version_provenance_statements_handler),
     )
     .get(
+      "/:package/versions/:version/tarball",
+      util::cache(CacheDuration::FOREVER, version_tarball_handler),
+    )
+    .get(
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_docs_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/docs/search",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_handler),
       ),
     )
     .get(
       "/:package/versions/:version/docs/search_structured",
-      util::cache(
+      util::cache_versioned(
         CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
         util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
       "/:package/versions/:version/source",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(get_source_handler),
+      ),
+    )
+    .get(
+      "/:package/diff/:old_version/:new_version",
+      util::cache(CacheDuration::ONE_DAY, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
-      util::json(list_dependencies_handler),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::ONE_HOUR,
+        util::json(list_dependencies_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies/graph",
@@ -195,13 +242,16 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
-    .get("/:package/score", util::json(get_score_handler))
+    .get(
+      "/:package/score",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)),
+    )
     .post(
       "/:package/webhooks",
       util::auth(util::json(create_webhook_handler)),
     )
     .get(
-      " /:package/webhooks/:webhook",
+      "/:package/webhooks/:webhook",
       util::auth(util::json(get_webhook_handler)),
     )
     .get(
@@ -267,9 +317,12 @@ pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
   let (newest, updated, featured) = db.package_stats().await?;
 
   Ok(ApiStats {
-    newest: newest.into_iter().map(ApiPackage::from).collect(),
-    updated: updated.into_iter().map(ApiPackageVersion::from).collect(),
-    featured: featured.into_iter().map(ApiPackage::from).collect(),
+    newest: newest.into_iter().map(ApiStatsPackage::from).collect(),
+    updated: updated
+      .into_iter()
+      .map(ApiStatsPackageVersion::from)
+      .collect(),
+    featured: featured.into_iter().map(ApiStatsPackage::from).collect(),
   })
 }
 
@@ -424,7 +477,6 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
   let db: &Database = req.data::<Database>().unwrap();
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
 
   let (package, repo, meta) = db
     .get_package(&scope, &package_name)
@@ -476,6 +528,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let github_oauth2_client =
+        req.data::<auth::github::Oauth2Client>().unwrap();
       update_github_repository(
         &user.id,
         sudo,
@@ -618,7 +672,7 @@ async fn update_description(
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(scope, &package.name);
+    crate::s3_paths::npm_version_manifest_path(scope, &package.name);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, scope, &package.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -626,8 +680,8 @@ async fn update_description(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -639,13 +693,13 @@ async fn update_description(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
+#[instrument(skip(db, scope, package, github_oauth2_client, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
   actor_id: &Uuid,
   is_sudo: bool,
   user: &User,
   db: &Database,
-  github_oauth2_client: &GithubOauth2Client,
+  github_oauth2_client: &auth::github::Oauth2Client,
   scope: ScopeName,
   package: PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
@@ -658,8 +712,9 @@ async fn update_github_repository(
   let ghid = db.get_github_identity(gh_user_id).await?;
   let mut new_ghid = ghid.into();
   let access_token =
-    access_token(db, github_oauth2_client, &mut new_ghid).await?;
-  let github_u2s_client = crate::github::GitHubUserClient::new(access_token);
+    auth::github::access_token(db, github_oauth2_client, &mut new_ghid).await?;
+  let github_u2s_client =
+    crate::external::github::GitHubUserClient::new(access_token);
 
   let repo = github_u2s_client
     .get_repo(&req.owner, &req.name)
@@ -704,12 +759,14 @@ async fn update_github_repository(
 )]
 pub async fn list_versions_handler(
   req: Request<Body>,
-) -> ApiResult<Vec<ApiPackageVersionWithUser>> {
+) -> ApiResult<ApiList<ApiPackageVersionWithUser>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package));
+
+  let (start, limit) = pagination(&req);
 
   let db = req.data::<Database>().unwrap();
 
@@ -717,14 +774,17 @@ pub async fn list_versions_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let versions = db
-    .list_package_versions(&scope, &package)
-    .await?
-    .into_iter()
-    .map(ApiPackageVersionWithUser::from)
-    .collect::<Vec<_>>();
+  let (total, versions) = db
+    .list_package_versions_paginated(&scope, &package, start, limit)
+    .await?;
 
-  Ok(versions)
+  Ok(ApiList {
+    items: versions
+      .into_iter()
+      .map(ApiPackageVersionWithUser::from)
+      .collect(),
+    total,
+  })
 }
 
 #[instrument(
@@ -799,11 +859,16 @@ pub async fn get_version_handler(
 
   let maybe_version = match version {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package, &version).await?
+      db.get_package_version_with_newer_versions_count(
+        &scope, &package, &version,
+      )
+      .await?
     }
     VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package)
-        .await?
+      db.get_latest_unyanked_version_for_package_with_newer_versions_count(
+        &scope, &package,
+      )
+      .await?
     }
   };
 
@@ -903,7 +968,7 @@ pub async fn version_publish_handler(
     }
   };
 
-  let gcs_path = gcs_tarball_path(publishing_task.id);
+  let s3_path = bucket_tarball_path(publishing_task.id);
 
   let body = req.into_body();
   let total_size = Arc::new(AtomicU64::new(0));
@@ -928,9 +993,9 @@ pub async fn version_publish_handler(
   let upload_result = buckets
     .publishing_bucket
     .upload(
-      gcs_path.into(),
-      UploadTaskBody::Stream(Box::new(stream)),
-      GcsUploadOptions {
+      s3_path.into(),
+      crate::s3::UploadTaskBody::Stream(Box::new(stream)),
+      S3UploadOptions {
         content_type: Some("application/x-tar".into()),
         cache_control: None,
         gzip_encoded: true,
@@ -1080,7 +1145,7 @@ pub async fn version_update_handler(
   .await?;
 
   let package_metadata_path =
-    crate::gcs_paths::package_metadata(&scope, &package);
+    crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
@@ -1089,7 +1154,7 @@ pub async fn version_update_handler(
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1098,7 +1163,7 @@ pub async fn version_update_handler(
     .await?;
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -1106,8 +1171,8 @@ pub async fn version_update_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1171,18 +1236,20 @@ pub async fn version_delete_handler(
   )
   .await?;
 
-  let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
-  buckets.docs_bucket.delete_file(path.into()).await?;
+  let v1_path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
+  let v2_path = crate::s3_paths::docs_v2_path(&scope, &package, &version);
+  buckets.docs_bucket.delete_file(v1_path.into()).await?;
+  buckets.docs_bucket.delete_file(v2_path.into()).await?;
 
-  let path = crate::gcs_paths::version_metadata(&scope, &package, &version);
+  let path = crate::s3_paths::version_metadata(&scope, &package, &version);
   buckets.modules_bucket.delete_file(path.into()).await?;
 
   let path =
-    crate::gcs_paths::file_path_root_directory(&scope, &package, &version);
+    crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
   let package_metadata_path =
-    crate::gcs_paths::package_metadata(&scope, &package);
+    crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
@@ -1191,7 +1258,7 @@ pub async fn version_delete_handler(
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1200,7 +1267,7 @@ pub async fn version_delete_handler(
     .await?;
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -1208,8 +1275,8 @@ pub async fn version_delete_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -1221,6 +1288,51 @@ pub async fn version_delete_handler(
     Response::builder()
       .status(StatusCode::NO_CONTENT)
       .body(Body::empty())
+      .unwrap(),
+  )
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/versions/:version/tarball",
+  skip(req),
+  err,
+  fields(scope, package, version)
+)]
+pub async fn version_tarball_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+
+  let (task, _) = db
+    .get_publishing_task_for_version(&scope, &package, &version)
+    .await?;
+
+  let path = bucket_tarball_path(task.id);
+  let body = buckets
+    .publishing_bucket
+    .bucket
+    .download_stream(&path, None)
+    .await?
+    .unwrap();
+
+  Ok(
+    Response::builder()
+      .status(StatusCode::OK)
+      .header(hyper::header::CONTENT_TYPE, "application/gzip")
+      .body(Body::wrap_stream(body.map(|r| {
+        r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+          Box::new(e)
+        })
+      })))
       .unwrap(),
   )
 }
@@ -1240,30 +1352,17 @@ pub async fn get_docs_handler(
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package_name));
   Span::current().record("version", field::display(&version_or_latest));
-  let all_symbols = req.query("all_symbols").is_some();
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+
   Span::current().record("all_symbols", field::display(&all_symbols));
-  let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
-  });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
-
-  let symbol = req
-    .query("symbol")
-    .and_then(|s| match s.as_str() {
-      "" => None,
-      s => Some(urlencoding::decode(s)),
-    })
-    .transpose()?;
   Span::current()
     .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
-
-  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "Cannot specify both all_symbols and entrypoint".into(),
-    });
-  }
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1284,37 +1383,54 @@ pub async fn get_docs_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
-  let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
-    if let Some(readme_path) = &version.readme_path {
-      let gcs_path = crate::gcs_paths::file_path(
-        &scope,
-        &package_name,
-        &version.version,
-        readme_path,
-      )
-      .into();
-      Either::Left(buckets.modules_bucket.download(gcs_path))
-    } else {
-      Either::Right(futures::future::ready(Ok(None)))
-    }
+  let has_readme = !all_symbols
+    && entrypoint.is_none()
+    && symbol.is_none()
+    && version.readme_path.is_some();
+
+  let readme_fut = if has_readme {
+    let s3_path = crate::s3_paths::file_path(
+      &scope,
+      &package_name,
+      &version.version,
+      version.readme_path.as_ref().unwrap(),
+    )
+    .into();
+    Either::Left(buckets.modules_bucket.download(s3_path))
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) =
-    futures::future::try_join(doc_nodes_fut, readme_fut).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx_fut = generate_ctx_cache.get(
+    &scope,
+    &package_name,
+    &version.version,
+    version_or_latest == VersionOrLatest::Latest,
+    has_readme,
+    &version.exports,
+    repo,
+    package.runtime_compat,
+    &registry_url,
+    buckets,
+  );
+
+  let (ctx, readme) = futures::future::try_join(
+    ctx_fut.map_err(ApiError::from),
+    readme_fut.map_err(ApiError::from),
+  )
+  .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
@@ -1324,8 +1440,6 @@ pub async fn get_docs_handler(
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
   }
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let req = match (docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
@@ -1343,30 +1457,17 @@ pub async fn get_docs_handler(
     (None, None) => DocsRequest::Index,
   };
 
-  let docs = crate::docs::generate_docs_html(
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    req,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    readme,
-    package.runtime_compat,
-    registry_url,
-    package.readme_source,
-  )
-  .map_err(|e| {
-    error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
-  })?
-  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let docs =
+    crate::docs::render_docs_html(&ctx, req, readme, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
@@ -1415,37 +1516,33 @@ pub async fn get_docs_search_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
+    .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
-
-  let ctx = crate::docs::get_generate_ctx(
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    false,
-    package.runtime_compat,
-    registry_url,
-  );
-
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
@@ -1459,7 +1556,7 @@ pub async fn get_docs_search_handler(
 )]
 pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<deno_doc::html::SymbolContentCtx> {
+) -> ApiResult<deno_doc::html::AllSymbolsCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1486,36 +1583,37 @@ pub async fn get_docs_search_structured_handler(
   };
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
+    .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
-
-  let docs = crate::docs::generate_docs_html(
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let docs = crate::docs::render_docs_html(
+    &ctx,
     DocsRequest::AllSymbols,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
     None,
-    package.runtime_compat,
-    registry_url,
     package.readme_source,
   )
   .map_err(|e| {
@@ -1573,14 +1671,14 @@ pub async fn get_source_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let file = if path == "meta.json" {
-    let source_file_path = crate::gcs_paths::package_metadata(&scope, &package);
+    let source_file_path = crate::s3_paths::package_metadata(&scope, &package);
     buckets
       .modules_bucket
       .download(source_file_path.into())
       .await?
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
-      crate::gcs_paths::version_metadata(&scope, &package, &version.version);
+      crate::s3_paths::version_metadata(&scope, &package, &version.version);
     buckets
       .modules_bucket
       .download(source_file_path.into())
@@ -1591,7 +1689,7 @@ pub async fn get_source_handler(
       ApiError::MalformedRequest { msg }
     })?;
 
-    let source_file_path = crate::gcs_paths::file_path(
+    let source_file_path = crate::s3_paths::file_path(
       &scope,
       &package,
       &version.version,
@@ -1693,11 +1791,173 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
     comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
   })
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/diff/:old_version/:new_version",
+  skip(req),
+  err,
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_diff_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageVersionDocs> {
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+
+  let old_version = util::param(&req, "old_version")?;
+  let old_version = Version::try_from(old_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'old_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("old_version", field::display(&old_version));
+
+  let new_version = util::param(&req, "new_version")?;
+  let new_version = Version::try_from(new_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'new_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("new_version", field::display(&new_version));
+
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+  if !all_symbols && entrypoint.is_none() {
+    return Err(ApiError::DiffNoIndex);
+  }
+
+  Span::current().record("all_symbols", field::display(&all_symbols));
+  Span::current()
+    .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
+  Span::current()
+    .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
+
+  let full = req.query("full").is_some();
+  Span::current().record("full", field::display(full));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, repo, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let old_version = db
+    .get_package_version(&scope, &package_name, &old_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+  let new_version = db
+    .get_package_version(&scope, &package_name, &new_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+
+  let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &old_version.version,
+      buckets,
+    ),
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &new_version.version,
+      buckets,
+    ),
+  )
+  .await?;
+
+  let old_doc_nodes = old_doc_nodes.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, old_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let new_doc_nodes = new_doc_nodes.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, new_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+
+  // diffs are applied on top of the new version
+  let new_docs_info =
+    crate::docs::get_docs_info(&new_version.exports, entrypoint);
+
+  if entrypoint.is_some() && new_docs_info.entrypoint_url.is_none() {
+    return Err(ApiError::EntrypointOrSymbolNotFound);
+  }
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let docs_req = match (new_docs_info.entrypoint_url, symbol) {
+    _ if all_symbols => DocsRequest::AllSymbols,
+    (Some(entrypoint), None) => DocsRequest::File(entrypoint),
+    (Some(entrypoint), Some(symbol)) => {
+      DocsRequest::Symbol(entrypoint, symbol.into())
+    }
+    (None, Some(symbol)) => {
+      if let Some(entrypoint_url) = new_docs_info.main_entrypoint.clone() {
+        DocsRequest::Symbol(entrypoint_url, symbol.into())
+      } else {
+        return Err(ApiError::EntrypointOrSymbolNotFound);
+      }
+    }
+    (None, None) => DocsRequest::Index,
+  };
+
+  let diff = deno_doc::diff::DocDiff::diff(&old_doc_nodes, &new_doc_nodes);
+
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let ctx = crate::docs::get_generate_ctx(
+    format!("/diff/{}...{}", old_version.version, new_version.version),
+    new_doc_nodes,
+    new_docs_info.main_entrypoint,
+    new_docs_info.rewrite_map,
+    scope.clone(),
+    package_name.clone(),
+    new_version.version.clone(),
+    true,
+    repo,
+    false,
+    package.runtime_compat,
+    registry_url,
+    Some((diff, full)),
+  );
+
+  let docs =
+    crate::docs::render_docs_html(&ctx, docs_req, None, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+
+  match docs {
+    GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
+      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
+      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+      breadcrumbs: docs.breadcrumbs,
+      toc: docs.toc,
+      main: docs.main.into(),
+      version: ApiPackageVersion::from(new_version),
+    }),
+    GeneratedDocsOutput::Redirect(href) => {
+      Ok(ApiPackageVersionDocs::Redirect { symbol: href })
+    }
+  }
 }
 
 #[instrument(
@@ -1854,7 +2114,7 @@ struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
 }
 
@@ -1880,7 +2140,7 @@ impl DepTreeLoader {
         async move {
           let Some(bytes) = bucket
             .download(
-              crate::gcs_paths::file_path(&scope, &package, &version, &path)
+              crate::s3_paths::file_path(&scope, &package, &version, &path)
                 .into(),
             )
             .await
@@ -2061,7 +2321,7 @@ async fn analyze_deps_tree(
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: IndexMap<String, String>,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
@@ -2389,11 +2649,11 @@ pub async fn get_dependencies_graph_handler(
   Span::current().record("version", field::display(&version));
 
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let gcs_path =
-    crate::gcs_paths::version_metadata(&scope, &package, &version).into();
+  let s3_path =
+    crate::s3_paths::version_metadata(&scope, &package, &version).into();
   let version_meta = buckets
     .modules_bucket
-    .download(gcs_path)
+    .download(s3_path)
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
@@ -3040,8 +3300,9 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert!(versions.is_empty());
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert!(list.items.is_empty());
+    assert_eq!(list.total, 0);
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -3064,9 +3325,10 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert_eq!(versions.len(), 1);
-    assert_eq!(versions[0].version.to_string(), "1.0.0");
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert_eq!(list.items.len(), 1);
+    assert_eq!(list.total, 1);
+    assert_eq!(list.items[0].version.to_string(), "1.0.0");
 
     let mut resp = t
       .http()
@@ -3883,17 +4145,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3909,17 +4168,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_none(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3935,17 +4191,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3964,17 +4217,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_some());
-        assert!(toc.is_some(), "{:?}", toc);
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }

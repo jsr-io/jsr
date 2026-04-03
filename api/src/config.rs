@@ -11,18 +11,21 @@ pub struct Config {
   /// The bind address for the primary server.
   pub port: u16,
 
-  #[clap(long = "gcs_endpoint", env = "GCS_ENDPOINT")]
-  /// The endpoint to use to communicate with GCS. Defaults to the production
-  /// GCS endpoint at https://storage.googleapis.com. This is useful for
-  /// testing against a local GCS emulator.
-  pub gcs_endpoint: Option<String>,
+  #[clap(long = "s3_region", env = "S3_REGION")]
+  pub s3_region: String,
+  #[clap(long = "s3_endpoint", env = "S3_ENDPOINT")]
+  pub s3_endpoint: String,
+  #[clap(long = "s3_access_key", env = "S3_ACCESS_KEY")]
+  pub s3_access_key: String,
+  #[clap(long = "s3_secret_key", env = "S3_SECRET_KEY")]
+  pub s3_secret_key: String,
 
   #[clap(
     long = "publishing_bucket",
     env = "PUBLISHING_BUCKET",
     default_value = "publishing"
   )]
-  /// The name of the GCS bucket to use to store tarballs during publishing.
+  /// The name of the S3 bucket to use to store tarballs during publishing.
   pub publishing_bucket: String,
 
   #[clap(
@@ -30,15 +33,15 @@ pub struct Config {
     env = "MODULES_BUCKET",
     default_value = "modules"
   )]
-  /// The name of the GCS bucket where module files and metadata is stored.
+  /// The name of the S3 bucket where module files and metadata is stored.
   pub modules_bucket: String,
 
   #[clap(long = "docs_bucket", env = "DOCS_BUCKET", default_value = "docs")]
-  /// The name of the GCS bucket where docs are stored.
+  /// The name of the S3 bucket where docs are stored.
   pub docs_bucket: String,
 
   #[clap(long = "npm_bucket", env = "NPM_BUCKET", default_value = "npm")]
-  /// The name of the GCS bucket where npm tarballs and metadata are stored.
+  /// The name of the S3 bucket where npm tarballs and metadata are stored.
   pub npm_bucket: String,
 
   #[clap(
@@ -65,20 +68,52 @@ pub struct Config {
   /// The GitHub Client Secret
   pub github_client_secret: String,
 
-  #[clap(long = "orama_package_index_id", env = "ORAMA_PACKAGE_INDEX_ID")]
-  /// The Orama index for package search
-  pub orama_package_index_id: Option<String>,
+  #[clap(long = "gitlab_client_id", env = "GITLAB_CLIENT_ID")]
+  /// The GitLab Client ID
+  pub gitlab_client_id: String,
 
-  #[clap(long = "orama_symbols_index_id", env = "ORAMA_SYMBOLS_INDEX_ID")]
-  /// The Orama index for symbol search
-  pub orama_symbols_index_id: Option<String>,
+  #[clap(long = "gitlab_client_secret", env = "GITLAB_CLIENT_SECRET")]
+  /// The GitLab Client Secret
+  pub gitlab_client_secret: String,
 
   #[clap(
-    long = "orama_package_private_api_key",
-    env = "ORAMA_PACKAGE_PRIVATE_API_KEY"
+    long = "orama_packages_project_id",
+    env = "ORAMA_PACKAGES_PROJECT_ID"
   )]
-  /// The private API key for Orama
-  pub orama_package_private_api_key: Option<String>,
+  /// The Orama package project id
+  pub orama_packages_project_id: Option<String>,
+
+  #[clap(
+    long = "orama_packages_project_key",
+    env = "ORAMA_PACKAGES_PROJECT_KEY"
+  )]
+  /// The Orama package project key
+  pub orama_packages_project_key: Option<String>,
+
+  #[clap(
+    long = "orama_packages_data_source",
+    env = "ORAMA_PACKAGES_DATA_SOURCE"
+  )]
+  /// The Orama package data source
+  pub orama_packages_data_source: Option<String>,
+
+  #[clap(long = "orama_symbols_project_id", env = "ORAMA_SYMBOLS_PROJECT_ID")]
+  /// The Orama symbol project id
+  pub orama_symbols_project_id: Option<String>,
+
+  #[clap(
+    long = "orama_symbols_project_key",
+    env = "ORAMA_SYMBOLS_PROJECT_KEY"
+  )]
+  /// The Orama symbol project key
+  pub orama_symbols_project_key: Option<String>,
+
+  #[clap(
+    long = "orama_symbols_data_source",
+    env = "ORAMA_SYMBOLS_DATA_SOURCE"
+  )]
+  /// The Orama symbol data source
+  pub orama_symbols_data_source: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
   /// OTLP endpoint to send traces to.
@@ -141,10 +176,6 @@ pub struct Config {
   /// The ID of the npm tarball build queue.
   pub webhook_dispatch_queue_id: Option<String>,
 
-  #[clap(long = "logs_bigquery_table_id", env = "LOGS_BIGQUERY_TABLE_ID")]
-  /// The ID of the logs table in BigQuery that is used for download analysis.
-  pub logs_bigquery_table_id: Option<String>,
-
   #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
   /// The ID of the project.
   pub gcp_project_id: Option<String>,
@@ -185,7 +216,6 @@ impl std::fmt::Debug for Config {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("Config")
       .field("port", &self.port)
-      .field("gcs_endpoint", &self.gcs_endpoint)
       .field("publishing_bucket", &self.publishing_bucket)
       .field("modules_bucket", &self.modules_bucket)
       .field("metadata_strategy", &self.metadata_strategy)

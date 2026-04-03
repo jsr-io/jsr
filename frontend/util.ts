@@ -19,6 +19,7 @@ export interface State {
   user: FullUser | null;
   sudo: boolean;
   meta: Meta;
+  cacheControl?: string;
   searchKind?: SearchKind;
 }
 
@@ -31,18 +32,15 @@ export interface Meta {
 export type SearchKind = "packages" | "docs";
 
 export interface Docs {
-  css: string;
   comrakCss: string;
   script: string;
   // null only on index page
   breadcrumbs: BreadcrumbsCtx | null;
-  // null only on all symbols page
-  toc: ToCCtx | null;
+  toc: ToCCtx;
   main: DocsMainContent;
 }
 
 export interface Source {
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;

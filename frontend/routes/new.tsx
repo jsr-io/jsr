@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import { TbBrandGithub, TbFolder, TbPackage } from "tb-icons";
+import { asset } from "fresh/runtime";
+import { TbFolder, TbPackage } from "tb-icons";
 import {
   CreatePackage,
   IconCircle,
@@ -8,7 +9,7 @@ import {
   ScopeSelect,
 } from "../islands/new.tsx";
 import { Package, Scope } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { define } from "../util.ts";
 
 export default define.page<typeof handler>(function New(props) {
@@ -21,11 +22,11 @@ export default define.page<typeof handler>(function New(props) {
   return (
     <>
       <div class="flex flex-col md:grid md:grid-cols-2 gap-12">
-        <div class="w-full space-y-4 flex-shrink-0">
+        <div class="w-full space-y-4 shrink-0">
           <h1 class="mb-8 font-bold text-3xl leading-none">
             Publish a package
           </h1>
-          <p class="max-w-screen-md">
+          <p class="max-w-3xl">
             Publish your package to the JSR to share it with the world!
           </p>
           <p>
@@ -65,12 +66,26 @@ export default define.page<typeof handler>(function New(props) {
                     <p class="text-jsr-gray-700 dark:text-white">
                       You must be logged in to publish a package.
                     </p>
-                    <a
-                      href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
-                      class="button-primary"
-                    >
-                      <TbBrandGithub /> Sign in with GitHub
-                    </a>
+                    <div class="flex gap-5 flex-col xl:flex-row">
+                      <a
+                        href={`/login/github?redirect=${
+                          encodeURIComponent(loginUrl)
+                        }`}
+                        class="button-primary"
+                      >
+                        <img class="size-5" src={asset("/logos/github.svg")} />
+                        Sign in with GitHub
+                      </a>
+                      <a
+                        href={`/login/gitlab?redirect=${
+                          encodeURIComponent(loginUrl)
+                        }`}
+                        class="button-primary"
+                      >
+                        <img class="size-5" src={asset("/logos/gitlab.svg")} />
+                        Sign in with GitLab
+                      </a>
+                    </div>
                   </div>
                 )}
             </div>
@@ -111,8 +126,8 @@ export const handler = define.handlers({
     const scopesResp = await (ctx.state.api.hasToken()
       ? ctx.state.api.get<Scope[]>(path`/user/scopes`)
       : Promise.resolve(null));
-    if (scopesResp && !scopesResp.ok) {
-      throw scopesResp; // gracefully handle this
+    if (scopesResp) {
+      assertOk(scopesResp);
     }
     const scopes = scopesResp?.data.map((scope) =>
       scope.scope

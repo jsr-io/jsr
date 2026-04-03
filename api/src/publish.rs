@@ -5,8 +5,6 @@ use std::collections::HashSet;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
@@ -18,16 +16,18 @@ use crate::db::PackageVersionMeta;
 use crate::db::PublishingTask;
 use crate::db::PublishingTaskError;
 use crate::db::PublishingTaskStatus;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcp::GcsUploadOptions;
+use crate::external::orama::OramaClient;
 use crate::ids::PackagePath;
 use crate::metadata::ManifestEntry;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
-use crate::orama::OramaClient;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
 use crate::tarball::process_tarball;
@@ -293,7 +293,7 @@ async fn upload_version_manifest(
   exports: IndexMap<String, String>,
   module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
 ) -> Result<(), anyhow::Error> {
-  let version_metadata_gcs_path = crate::gcs_paths::version_metadata(
+  let version_metadata_s3_path = crate::s3_paths::version_metadata(
     &publishing_task.package_scope,
     &publishing_task.package_name,
     &publishing_task.package_version,
@@ -319,9 +319,9 @@ async fn upload_version_manifest(
   buckets
     .modules_bucket
     .upload(
-      version_metadata_gcs_path.into(),
+      version_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: false,
@@ -413,7 +413,7 @@ async fn upload_package_manifest(
   buckets: &Buckets,
   publishing_task: &PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  let package_metadata_gcs_path = crate::gcs_paths::package_metadata(
+  let package_metadata_s3_path = crate::s3_paths::package_metadata(
     &publishing_task.package_scope,
     &publishing_task.package_name,
   );
@@ -427,9 +427,9 @@ async fn upload_package_manifest(
   buckets
     .modules_bucket
     .upload(
-      package_metadata_gcs_path.into(),
+      package_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -446,8 +446,8 @@ async fn upload_npm_version_manifest(
   npm_url: &Url,
   publishing_task: &PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  let npm_version_manifest_path_gcs_path =
-    crate::gcs_paths::npm_version_manifest_path(
+  let npm_version_manifest_path_s3_path =
+    crate::s3_paths::npm_version_manifest_path(
       &publishing_task.package_scope,
       &publishing_task.package_name,
     );
@@ -462,9 +462,9 @@ async fn upload_npm_version_manifest(
   buckets
     .npm_bucket
     .upload(
-      npm_version_manifest_path_gcs_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      npm_version_manifest_path_s3_path.into(),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -479,6 +479,7 @@ async fn upload_npm_version_manifest(
 pub mod tests {
   use super::*;
   use crate::api::ApiPublishingTask;
+  use crate::api::package::MAX_PUBLISH_TARBALL_SIZE;
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
   use crate::db::NewPublishingTask;
@@ -487,7 +488,7 @@ pub mod tests {
   use crate::ids::{PackageName, PackagePath};
   use crate::metadata::VersionMetadata;
   use crate::tarball::ConfigFile;
-  use crate::tarball::gcs_tarball_path;
+  use crate::tarball::bucket_tarball_path;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use bytes::Bytes;
@@ -547,13 +548,13 @@ pub mod tests {
       unreachable!()
     };
 
-    let tarball_path = gcs_tarball_path(task.0.id);
+    let tarball_path = bucket_tarball_path(task.0.id);
     t.buckets
       .publishing_bucket
       .upload(
         tarball_path.into(),
-        UploadTaskBody::Bytes(tarball_data),
-        GcsUploadOptions {
+        crate::s3::UploadTaskBody::Bytes(tarball_data),
+        S3UploadOptions {
           content_type: Some("application/x-tar".into()),
           cache_control: None,
           gzip_encoded: true,
@@ -640,7 +641,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn payload_too_large() {
-    let body = Body::from(vec![0; 999999999]);
+    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
 
     let mut t = TestSetup::new().await;
     let mut resp = t
@@ -663,7 +664,7 @@ pub mod tests {
   async fn payload_too_large_stream() {
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
     let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
-      vec![0; 999999999],
+      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
     )));
 
     let mut t = TestSetup::new().await;
@@ -718,28 +719,31 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/jsr.json")
+      .bucket
+      .get_object("@scope/foo/1.2.3/jsr.json")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/mod.ts")
+      .bucket
+      .get_object("@scope/foo/1.2.3/mod.ts")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "text/typescript");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/logo.svg")
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "image/svg+xml");
   }
 
@@ -1186,6 +1190,14 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn license_alias() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_alias");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
   async fn no_license() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("no_license");
@@ -1459,12 +1471,14 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .download_resp("@jsr/scope__foo")
+      .bucket
+      .get_object("@jsr/scope__foo")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
-    let mut json: serde_json::Value = response.json().await.unwrap();
+    let mut json: serde_json::Value =
+      serde_json::from_slice(&response.into_bytes()).unwrap();
     json.as_object_mut().unwrap().remove("time");
     let dist = json
       .as_object_mut()
@@ -1513,10 +1527,11 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .download_resp(res_url.as_str())
+      .bucket
+      .get_object(res_url.as_str())
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(
       response.headers()["content-type"],
       "application/octet-stream"

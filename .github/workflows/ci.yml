@@ -66,12 +66,51 @@ jobs:
         run: deno task build
         working-directory: lb
 
+  check:
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push'
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+        working-directory: api
+
+      - name: Setup postgres for tests
+        run: docker compose up -d
+
+      - uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: sqlx-cli@0.7.1
+
+      - name: Check sqlx metadata is up to date
+        run: |
+          cargo sqlx migrate run
+          cargo sqlx prepare --check -- --all-targets
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://user:password@localhost/registry
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: api
+
   test:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Install Rust
         uses: dsherret/rust-toolchain-file@v1
@@ -87,28 +126,6 @@ jobs:
 
       - name: Test
         run: cargo test
-        working-directory: api
-
-      - uses: taiki-e/cache-cargo-install-action@v1
-        with:
-          tool: sqlx-cli@0.7.1
-
-      # If it's not up to date, run `cargo sqlx prepare` locally and commit the
-      # changes. You may have to run `cargo install sqlx-cli` first.
-      - name: Check sqlx metadata is up to date
-        run: |
-          cargo sqlx migrate run
-          cargo sqlx prepare --check
-        working-directory: api
-        env:
-          DATABASE_URL: postgres://user:password@localhost/registry
-
-      - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: api
-
-      - name: Format
-        run: cargo fmt --all -- --check
         working-directory: api
 
   docker-images:
@@ -142,13 +159,29 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.gcp_auth.outputs.access_token }}
 
+      # On push to main, try to reuse images already built during merge_group.
+      # Falls back to building if the images don't exist (e.g. admin bypass).
+      - name: Check if images already exist
+        if: github.event_name == 'push'
+        id: check_existing
+        run: |
+          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1 &&
+             docker manifest inspect ${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up docker buildx
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Copy Cargo.lock
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         run: cp Cargo.lock api/Cargo.lock
 
       - name: Build and push api docker image
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         uses: docker/build-push-action@v5
         id: api_push
         with:
@@ -159,6 +192,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=docker-api
 
       - name: Build and push frontend docker image
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         uses: docker/build-push-action@v5
         id: frontend_push
         with:
@@ -170,11 +204,21 @@ jobs:
 
       - name: Set api_image_id output
         id: api_image_id
-        run: echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ steps.api_push.outputs.imageid }}" ]; then
+            echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_id=${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set frontend_image_id output
         id: frontend_image_id
-        run: echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ steps.frontend_push.outputs.imageid }}" ]; then
+            echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
 
   staging:
     if: github.event_name == 'merge_group' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-on-staging'))
@@ -220,10 +264,15 @@ jobs:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+          TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
-          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
-          TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
@@ -234,8 +283,9 @@ jobs:
 
       - name: Reindex orama docs search
         env:
-          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
-          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
+          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
         run: deno task tools:orama:docs_reindex
 
   prod:
@@ -282,10 +332,15 @@ jobs:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+          TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_package_index_id: ${{ secrets.ORAMA_PACKAGE_INDEX_ID }}
-          TF_VAR_orama_symbols_index_id: ${{ secrets.ORAMA_SYMBOLS_INDEX_ID }}
-          TF_VAR_orama_package_private_api_key: ${{ secrets.ORAMA_PACKAGE_PRIVATE_API_KEY }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: terraform apply
@@ -296,6 +351,7 @@ jobs:
 
       - name: Reindex orama docs search
         env:
-          ORAMA_DOCS_INDEX_ID: ${{ secrets.ORAMA_DOCS_INDEX_ID }}
-          ORAMA_DOCS_PRIVATE_API_KEY: ${{ secrets.ORAMA_DOCS_PRIVATE_API_KEY }}
+          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
+          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
         run: deno task tools:orama:docs_reindex

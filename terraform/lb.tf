@@ -11,12 +11,13 @@ resource "cloudflare_workers_script" "jsr_lb" {
   main_module = "worker.js"
 
   observability = {
-    enabled = true
+    enabled            = true
     head_sampling_rate = 1
     logs = {
-      enabled = true
-      invocation_logs = true
+      enabled            = true
+      invocation_logs    = true
       head_sampling_rate = 1
+      persist            = false
     }
   }
 
@@ -25,6 +26,14 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type    = "analytics_engine"
       name    = "DOWNLOADS"
       dataset = local.worker_download_analytics_dataset
+      }, {
+      type        = "r2_bucket"
+      name        = "MODULES_BUCKET"
+      bucket_name = cloudflare_r2_bucket.modules.name
+    }, {
+      type        = "r2_bucket"
+      name        = "NPM_BUCKET"
+      bucket_name = cloudflare_r2_bucket.npm.name
       }, {
       type = "plain_text"
       name = "ROOT_DOMAIN"
@@ -45,14 +54,6 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type = "secret_text"
       name = "REGISTRY_FRONTEND_URL"
       text = google_cloud_run_v2_service.registry_frontend["us-central1"].uri
-      }, {
-      type = "secret_text"
-      name = "MODULES_BUCKET"
-      text = google_storage_bucket.modules.name
-      }, {
-      type = "secret_text"
-      name = "NPM_BUCKET"
-      text = google_storage_bucket.npm.name
     }
   ]
 

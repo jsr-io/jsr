@@ -5,7 +5,7 @@ import {
   RuntimeCompat,
   WebhookEndpoint,
 } from "../../../utils/api_types.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { define } from "../../../util.ts";
 import { PackageGitHubSettings } from "../(_islands)/PackageGitHubSettings.tsx";
 import { packageData } from "../../../utils/data.ts";
@@ -409,7 +409,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { isArchived: true },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -420,7 +420,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { isArchived: false },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -430,9 +430,7 @@ export const handler = define.handlers({
         const deleteRes = await api.delete(
           path`/scopes/${scope}/packages/${packageName}`,
         );
-        if (!deleteRes.ok) {
-          throw deleteRes;
-        }
+        assertOk(deleteRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}` },
@@ -443,9 +441,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { description: data.get("description") },
         );
-        if (!descriptionRes.ok) {
-          throw descriptionRes;
-        }
+        assertOk(descriptionRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -456,9 +452,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { readmeSource: data.get("source") },
         );
-        if (!sourceRes.ok) {
-          throw sourceRes;
-        }
+        assertOk(sourceRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -471,7 +465,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { githubRepository: { owner, name } },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -482,7 +476,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { githubRepository: null },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -502,7 +496,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { runtimeCompat },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -513,7 +507,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { isFeatured: true },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },
@@ -524,7 +518,7 @@ export const handler = define.handlers({
           path`/scopes/${scope}/packages/${packageName}`,
           { isFeatured: false },
         );
-        if (!repoRes.ok) throw repoRes;
+        assertOk(repoRes);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/${packageName}/settings` },

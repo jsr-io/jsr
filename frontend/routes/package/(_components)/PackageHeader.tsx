@@ -46,7 +46,7 @@ export function PackageHeader({
   }
 
   return (
-    <div class="space-y-6 mt-0 md:mt-4">
+    <div class="space-y-6">
       {pkg.isArchived && (
         <div class="rounded border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/50 flex items-center justify-center p-4 dark:text-white">
           This package has been archived, and as such it is read-only.
@@ -56,47 +56,56 @@ export function PackageHeader({
       {selectedVersion && pkg.latestVersion &&
         pkg.latestVersion !== selectedVersion.version && (
         <div class="border border-jsr-yellow-500 dark:border-jsr-yellow-700 bg-jsr-yellow-50 dark:bg-jsr-yellow-900/30 rounded py-3 px-4 md:text-center dark:text-gray-200">
-          <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
-            <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
-            <span class="font-medium">
-              This release {selectedVersion.yanked
-                ? (
-                  <>
-                    was yanked — the latest version of @{pkg
-                      .scope}/{pkg.name} is {pkg.latestVersion}.
-                  </>
-                )
-                : isNewerPrerelease
-                ? (
-                  <>
-                    is a pre-release — the latest non-prerelease version of
-                    @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
-                  </>
-                )
-                : (
-                  <>
-                    <span class="bold">
-                      is {selectedVersion.newerVersionsCount}{" "}
-                      version{selectedVersion.newerVersionsCount !== 1 && "s"}
-                      {" "}
-                      behind {pkg.latestVersion}
-                    </span>{" "}
-                    — the latest version of @{pkg.scope}/{pkg.name}.
-                  </>
-                )}{" "}
+          <div class="flex items-center justify-between max-md:flex-col gap-4 md:gap-2">
+            <div class="text-sm md:text-base flex items-center justify-center gap-4 md:gap-2">
+              <TbAlertTriangleFilled class="text-jsr-yellow-400 flex-none" />
+              <span class="font-medium">
+                This release {selectedVersion.yanked
+                  ? (
+                    <>
+                      was yanked — the latest version of @{pkg
+                        .scope}/{pkg.name} is {pkg.latestVersion}.
+                    </>
+                  )
+                  : isNewerPrerelease
+                  ? (
+                    <>
+                      is a pre-release — the latest non-prerelease version of
+                      @{pkg.scope}/{pkg.name} is {pkg.latestVersion}.
+                    </>
+                  )
+                  : (
+                    <>
+                      <span class="bold">
+                        is {selectedVersion.newerVersionsCount!}{" "}
+                        version{selectedVersion.newerVersionsCount! !== 1 &&
+                          "s"} behind {pkg.latestVersion}
+                      </span>{" "}
+                      — the latest version of @{pkg.scope}/{pkg.name}.
+                    </>
+                  )}
+              </span>
+            </div>
+            <div class="flex gap-4 max-md:w-full max-md:text-center">
               <a
-                class="link font-medium whitespace-nowrap"
+                class="max-md:flex-1 max-md:block button-sm button-primary whitespace-nowrap"
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
                 Jump to {isNewerPrerelease ? "this version " : "latest"}
               </a>
-            </span>
+              <a
+                class="max-md:flex-1 max-md:block button-sm button-primary whitespace-nowrap"
+                href={`/@${pkg.scope}/${pkg.name}/diff/${selectedVersion.version}...${pkg.latestVersion}`}
+              >
+                Jump to diff
+              </a>
+            </div>
           </div>
         </div>
       )}
 
       <div class="flex flex-col flex-wrap md:flex-row items-start justify-between gap-6 min-h-24">
-        <div class="flex-shrink">
+        <div class="shrink">
           <div class="flex flex-row gap-x-3 gap-y-2 flex-wrap md:items-center mb-2">
             <h1 class="text-2xl md:text-3xl flex flex-wrap items-center font-sans gap-x-2">
               <div class="flex items-baseline gap-x-1">
@@ -122,7 +131,7 @@ export function PackageHeader({
                       class="text-lg md:text-[0.75em] font-bold"
                       aria-label={`Version: ${selectedVersion.version}`}
                     >
-                      <span class="relative text-[0.80em] -top-[0.175em] font-[800]">
+                      <span class="relative text-[0.80em] -top-[0.175em] font-extrabold">
                         @
                       </span>
                       {selectedVersion.version}
@@ -153,14 +162,14 @@ export function PackageHeader({
 
               {pkg.githubRepository && (
                 <a
-                  class="chip bg-jsr-gray-100 dark:bg-jsr-gray-900 !inline-flex items-center gap-1 select-none"
+                  class="chip bg-jsr-gray-100 dark:bg-jsr-gray-900 inline-flex! items-center gap-1 select-none"
                   href={`https://github.com/${pkg.githubRepository.owner}/${pkg.githubRepository.name}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub repository"
                 >
                   <TbBrandGithub
-                    class="text-black dark:text-white !size-4"
+                    class="text-black dark:text-white size-4!"
                     aria-hidden
                   />
                   <span>

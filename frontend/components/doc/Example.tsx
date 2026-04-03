@@ -11,7 +11,7 @@ export function Example(
     <div class="anchorable">
       <Anchor anchor={anchor} />
       <h3
-        class="example-header"
+        class="font-bold text-lg mb-3"
         // jsdoc rendering
         // deno-lint-ignore react-no-danger
         dangerouslySetInnerHTML={{ __html: markdown_title }}

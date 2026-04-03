@@ -35,7 +35,6 @@ export default define.page<typeof handler>(function PackagePage(
         ? (
           <DocsView
             docs={data.docs}
-            params={params as unknown as Params}
             selectedVersion={data.selectedVersion}
             user={state.user}
             scope={data.package.scope}
@@ -98,6 +97,10 @@ export const handler = define.handlers({
       }`,
       ogImage: `${FRONTEND_ROOT}/@${pkg.scope}/${pkg.name}/og`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,

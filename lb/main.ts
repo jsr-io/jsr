@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { proxyToCloudRun, proxyToGCS } from "./proxy.ts";
+import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -95,9 +95,8 @@ export async function handleNPMRequest(
   }
 
   const url = new URL(request.url);
-  const response = await proxyToGCS(
+  const response = await proxyToR2(
     request,
-    env.GCS_ENDPOINT,
     env.NPM_BUCKET,
     (path) => {
       if (path === "/" || path === "/-/ping") {
@@ -203,13 +202,14 @@ function isAPIRoute(path: string): boolean {
     path === "/sitemap.xml" ||
     path === "/sitemap-scopes.xml" ||
     path === "/sitemap-packages.xml" ||
-    path === "/login" ||
     path.startsWith("/login/") ||
+    path.startsWith("/connect/") ||
+    path.startsWith("/disconnect/") ||
     path === "/logout"
   );
 }
 
-function isModuleFilePath(path: string): boolean {
+export function isModuleFilePath(path: string): boolean {
   return /^\/@[^/]+\/[^/]+\/(?:meta\.json|\d[^/]*_meta\.json|\d[^/]*\/.*)$/
     .test(
       path,
@@ -237,9 +237,8 @@ async function handleModuleFileRoute(
   env: WorkerEnv,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const response = await proxyToGCS(
+  const response = await proxyToR2(
     request,
-    env.GCS_ENDPOINT,
     env.MODULES_BUCKET,
   );
 

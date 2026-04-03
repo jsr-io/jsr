@@ -2,7 +2,7 @@
 mod admin;
 mod authorization;
 mod errors;
-mod package;
+pub mod package;
 mod publishing_task;
 mod scope;
 mod self_user;
@@ -48,10 +48,13 @@ pub fn api_router() -> Router<Body, ApiError> {
     .scope("/users", users_router())
     .scope("/authorizations", authorization_router())
     .scope("/publishing_tasks", publishing_task_router())
-    .get("/packages", util::json(global_list_handler))
+    .get(
+      "/packages",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(global_list_handler)),
+    )
     .get(
       "/stats",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(global_stats_handler)),
+      util::cache(CacheDuration::TEN_MINUTES, util::json(global_stats_handler)),
     )
     .get(
       // todo: remove once CLI uses the new endpoint
@@ -60,6 +63,14 @@ pub fn api_router() -> Router<Body, ApiError> {
     )
     .scope("/tickets", tickets_router())
     .get("/.well-known/openapi", openapi_handler)
+    .get(
+      "/debug/mem_stats",
+      util::auth(crate::jemalloc_profiling::mem_stats_handler),
+    )
+    .get(
+      "/debug/mem_dump",
+      util::auth(crate::jemalloc_profiling::heap_profile_handler),
+    )
     .build()
     .unwrap()
 }

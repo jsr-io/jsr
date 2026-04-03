@@ -1,7 +1,7 @@
 import {
+  AllSymbolsCtx,
   BreadcrumbsCtx,
   ModuleDocCtx,
-  SymbolContentCtx,
   SymbolGroupCtx,
   ToCCtx,
 } from "@deno/doc/html-types";
@@ -11,6 +11,7 @@ export interface User {
   id: string;
   name: string;
   githubId: number | null;
+  gitlabId: number | null;
   avatarUrl: string;
   updatedAt: string;
   createdAt: string;
@@ -142,7 +143,7 @@ export interface PackageVersion {
   version: string;
   yanked: boolean;
   usesNpm: boolean;
-  newerVersionsCount: number;
+  newerVersionsCount: number | null;
   rekorLogId: string | null;
   license: string | null;
   readmePath: string;
@@ -157,17 +158,17 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocsContent {
   kind: "content";
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   breadcrumbs: BreadcrumbsCtx | null;
-  toc: ToCCtx | null;
+  toc: ToCCtx;
   main: DocsMainContent;
 }
 
 export type DocsMainContent =
-  | { kind: "allSymbols"; value: SymbolContentCtx }
+  | { kind: "allSymbols"; value: AllSymbolsCtx }
   | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "file"; value: ModuleDocCtx }
   | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {
@@ -198,7 +199,6 @@ export interface SourceFile {
 
 export interface PackageVersionSource {
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;
@@ -247,10 +247,21 @@ export interface PackageVersionReference {
   version: string;
 }
 
+export interface StatsPackage {
+  scope: string;
+  name: string;
+}
+
+export interface StatsPackageVersion {
+  scope: string;
+  package: string;
+  version: string;
+}
+
 export interface Stats {
-  newest: Package[];
-  updated: PackageVersionWithUser[];
-  featured: Package[];
+  newest: StatsPackage[];
+  updated: StatsPackageVersion[];
+  featured: StatsPackage[];
 }
 
 export interface List<T> {

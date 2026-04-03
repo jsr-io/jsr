@@ -3,10 +3,9 @@ use hyper::Body;
 use hyper::Response;
 use std::borrow::Cow;
 
-use crate::errors;
-use crate::gcp::GcsError;
-
 use super::ApiPublishingTask;
+use crate::errors;
+use crate::s3::S3Error;
 
 errors!(
   TarballSizeLimitExceeded {
@@ -43,6 +42,10 @@ errors!(
   PackageVersionNotFound {
     status: NOT_FOUND,
     "The requested package version was not found.",
+  },
+  DiffNoIndex {
+    status: NOT_FOUND,
+    "Diffs do not have an index.",
   },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
@@ -253,6 +256,18 @@ errors!(
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
   },
+  UnknownLoginService {
+    status: BAD_REQUEST,
+    "The login service is not known.",
+  },
+  ConnectTakenService {
+    status: BAD_REQUEST,
+    "Another user is already connected with this user from the provided service.",
+  },
+  DisconnectLastService {
+    status: BAD_REQUEST,
+    "You cannot disconnect the last connected service.",
+  },
   WebhookResponseFailure {
     status: BAD_REQUEST,
     fields: { status: reqwest::StatusCode },
@@ -371,8 +386,32 @@ impl From<oauth2::ConfigurationError> for ApiError {
   }
 }
 
-impl From<GcsError> for ApiError {
-  fn from(error: GcsError) -> ApiError {
+impl
+  From<
+    oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  > for ApiError
+{
+  fn from(
+    error: oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  ) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<crate::docs::DocNodeCacheError> for ApiError {
+  fn from(error: crate::docs::DocNodeCacheError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<S3Error> for ApiError {
+  fn from(error: S3Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

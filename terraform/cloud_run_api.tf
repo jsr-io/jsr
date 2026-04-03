@@ -2,21 +2,34 @@
 locals {
   api_envs = {
     "DATABASE_URL" = local.postgres_url
+    "NO_COLOR"     = "true"
 
-    "PUBLISHING_BUCKET" = google_storage_bucket.publishing.name
-    "MODULES_BUCKET"    = google_storage_bucket.modules.name
-    "DOCS_BUCKET"       = google_storage_bucket.docs.name
-    "NPM_BUCKET"        = google_storage_bucket.npm.name
+    "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
+    "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
+    "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
+    "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
+
+    "S3_REGION"     = "auto"
+    "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
+    "S3_ACCESS_KEY" = cloudflare_account_token.buckets_rw.id
+    "S3_SECRET_KEY" = local.r2_secret_access_key
 
     "METADATA_STRATEGY" = "instance_metadata"
 
     "GITHUB_CLIENT_ID" = var.github_client_id
     # GITHUB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
 
+    "GITLAB_CLIENT_ID" = var.gitlab_client_id
+    # GITLAB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
+
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
-    # ORAMA_PACKAGE_PRIVATE_API_KEY is defined inline, because it comes from Secrets Manager
-    # ORAMA_PACKAGE_INDEX_ID is defined inline, because it comes from Secrets Manager
+    # ORAMA_PACKAGES_PROJECT_KEY is defined inline, because it comes from Secrets Manager
+    "ORAMA_PACKAGES_PROJECT_ID"  = var.orama_packages_project_id
+    "ORAMA_PACKAGES_DATA_SOURCE" = var.orama_packages_data_source
+    # ORAMA_SYMBOLS_PROJECT_KEY is defined inline, because it comes from Secrets Manager
+    "ORAMA_SYMBOLS_PROJECT_ID"  = var.orama_symbols_project_id
+    "ORAMA_SYMBOLS_DATA_SOURCE" = var.orama_symbols_data_source
 
     "REGISTRY_URL" = "https://${var.domain_name}"
     "NPM_URL"      = "https://${local.npm_domain}"
@@ -47,10 +60,10 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     scaling {
       min_instance_count = var.production ? 1 : 0
-      max_instance_count = 20
+      max_instance_count = 30
     }
 
-    max_instance_request_concurrency = 250
+    max_instance_request_concurrency = 100
 
     containers {
       image = var.api_image_id
@@ -84,6 +97,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
+        name = "GITLAB_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.gitlab_client_secret.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "POSTMARK_TOKEN"
         value_source {
           secret_key_ref {
@@ -94,30 +117,20 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
-        name = "ORAMA_PACKAGE_PRIVATE_API_KEY"
+        name = "ORAMA_PACKAGES_PROJECT_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_package_private_api_key.id
+            secret  = google_secret_manager_secret.orama_packages_project_key.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_PACKAGE_INDEX_ID"
+        name = "ORAMA_SYMBOLS_PROJECT_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_package_index_id.id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "ORAMA_SYMBOLS_INDEX_ID"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.orama_symbols_index_id.id
+            secret  = google_secret_manager_secret.orama_symbols_project_key.id
             version = "latest"
           }
         }
@@ -241,31 +254,32 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
         }
       }
 
+
       env {
-        name = "ORAMA_PACKAGE_PRIVATE_API_KEY"
+        name = "GITLAB_CLIENT_SECRET"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_package_private_api_key.id
+            secret  = google_secret_manager_secret.gitlab_client_secret.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_PACKAGE_INDEX_ID"
+        name = "ORAMA_PACKAGES_PROJECT_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_package_index_id.id
+            secret  = google_secret_manager_secret.orama_packages_project_key.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_SYMBOLS_INDEX_ID"
+        name = "ORAMA_SYMBOLS_PROJECT_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_symbols_index_id.id
+            secret  = google_secret_manager_secret.orama_symbols_project_key.id
             version = "latest"
           }
         }
@@ -303,32 +317,14 @@ resource "google_project_iam_member" "registry_api_cloudsql" {
   member  = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_storage_bucket_iam_member" "publishing_bucket_access" {
-  bucket = google_storage_bucket.publishing.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "modules_bucket_access" {
-  bucket = google_storage_bucket.modules.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "docs_bucket_access" {
-  bucket = google_storage_bucket.docs.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "npm_bucket_access" {
-  bucket = google_storage_bucket.npm.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
 resource "google_secret_manager_secret_iam_member" "github_client_secret" {
   secret_id = google_secret_manager_secret.github_client_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "gitlab_client_secret" {
+  secret_id = google_secret_manager_secret.gitlab_client_secret.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
@@ -339,20 +335,14 @@ resource "google_secret_manager_secret_iam_member" "postmark_token" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_package_private_api_key" {
-  secret_id = google_secret_manager_secret.orama_package_private_api_key.id
+resource "google_secret_manager_secret_iam_member" "orama_packages_project_key" {
+  secret_id = google_secret_manager_secret.orama_packages_project_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_package_index_id" {
-  secret_id = google_secret_manager_secret.orama_package_index_id.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "orama_symbols_index_id" {
-  secret_id = google_secret_manager_secret.orama_symbols_index_id.id
+resource "google_secret_manager_secret_iam_member" "orama_symbols_project_key" {
+  secret_id = google_secret_manager_secret.orama_symbols_project_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

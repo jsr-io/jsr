@@ -13,6 +13,8 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 ## Project Information
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/jsr-io/jsr/badge)](https://scorecard.dev/viewer/?uri=github.com/jsr-io/jsr)
+
 **Goals**
 
 - Robust
@@ -22,19 +24,23 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 **Implementation details**
 
-- Modules and package metadata are stored on Google Cloud Storage (GCS)
-- npm compatibility tarballs are stored on Google Cloud Storage (GCS)
+- Modules and package metadata are stored on Cloudflare R2
+- npm compatibility tarballs are stored on Cloudflare R2
 - Management API is implemented in Rust and runs on Google Cloud Run
-- Frontend uses Fresh and is running on Google Cloud Run in 6 regions
+- Frontend uses Fresh and is running on Google Cloud Run
 - https://jsr.io, https://api.jsr.io, and https://npm.jsr.io are served by a
   Cloudflare Workers worker
-  - Module, package metadata, and npm tarballs is served directly from GCS
+  - Module, package metadata, and npm tarballs are served directly from R2
   - /api requests are proxied to the management API
   - All other requests are proxied to the frontend
 - Data is stored in PostgreSQL (using Google Cloud SQL)
   - The database is highly available
   - Not used for serving registry requests
+- Search powered by Orama
 - Distributed tracing using Google Cloud Trace (and Jaeger in development)
+
+For a detailed breakdown of the system, see
+[architecture.md](./architecture.md).
 
 ## Getting started (frontend only)
 
@@ -44,15 +50,15 @@ frontend in a development mode that connects to the production API.
 ### Prerequisites
 
 - Clone this repo
-- Install Deno (https://deno.land/#installation)
-- Add the following to your `/etc/hosts` file. If you're using WSL, you'll also
-  need to update the `hosts` file located at
-  `C:\Windows\System32\drivers\etc\hosts`.
-  ```
-  127.0.0.1       jsr.test
-  127.0.0.1       api.jsr.test
-  127.0.0.1       npm.jsr.test
-  ```
+- Install Deno (https://deno.com)
+
+### Setup
+
+Run the frontend setup to add the required `/etc/hosts` entries:
+
+```sh
+deno task dev setup frontend
+```
 
 ### Running jsr
 
@@ -70,16 +76,11 @@ making changes to the API.
 ### Prerequisites
 
 - Clone this repo
-- Install Deno (https://deno.land/#installation)
+- Install Deno (https://deno.com)
 - Install Rust (https://rustup.rs/)
-- Add the following to your `/etc/hosts` file. If you're using WSL, you'll also
-  need to update the `hosts` file located at
-  `C:\Windows\System32\drivers\etc\hosts`.
-  ```
-  127.0.0.1       jsr.test
-  127.0.0.1       api.jsr.test
-  127.0.0.1       npm.jsr.test
-  ```
+- On Linux: install `docker` & `docker-compose`
+- On macOS: install PostgreSQL (`brew install postgresql`)
+- Install `sqlx` by running `cargo install sqlx-cli`
 
 - Set up `api/.env` file:
   - For **@denoland employees**: Download the `.env` file from 1Password (it's
@@ -95,32 +96,51 @@ making changes to the API.
     3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` to the values from the
        GitHub App you created in step 1.
     4. Set `DATABASE_URL` to point to your local Postgres database.
-- Install `sqlx` by running `cargo install sqlx-cli`
 
-**macOS**
+### Setup
 
-- Postgres installed and running: `brew install postgresql`
-- Postgres database created with `createdb registry`
-- Postgres user created and granted access to the database
-- Run `cd api`
-- Run `cargo sqlx migrate run`
-  - If you get the error `role "postgres" does not exist`, run
-    `createuser -s postgres`.
+Run the setup command to verify prerequisites, configure `/etc/hosts`, create
+the database, and run migrations:
 
-**Linux**
+```sh
+deno task dev setup
+```
 
-- `docker` & `docker-compose` installed and running
-- Run `cd api`
-- Run `cargo sqlx migrate run`
-  - If you get the error `role "postgres" does not exist`, run
-    `createuser -s postgres`.
+This will:
+
+- Check that all required tools are installed (Deno, Cargo, sqlx,
+  Docker/Postgres)
+- Add `jsr.test`, `api.jsr.test`, and `npm.jsr.test` to `/etc/hosts` (and the
+  Windows hosts file if running under WSL)
+- Install frontend dependencies
+- Copy `api/.env.example` to `api/.env` if it doesn't exist
+- Create the `registry` database and run migrations
 
 ### Running jsr
 
-1. `deno task services:macos`, `deno task services:macos:amd` or
-   `deno task services:linux` in one terminal
-2. `deno task dev:api` in another terminal
-3. `deno task dev:frontend` in another terminal
+Start all services, the API, and the frontend in a single terminal:
+
+```sh
+deno task dev
+```
+
+On Linux, if you manage PostgreSQL outside of Docker:
+
+```sh
+deno task dev --no-docker-postgres
+```
+
+While running, type commands into the prompt at the bottom:
+
+- `restart <name|all>` - restart a process (or all)
+- `help` - show available commands
+- `quit` / Ctrl+C - shutdown all and exit
+
+You can also run a single service standalone:
+
+```sh
+deno task dev start <name> [args...]
+```
 
 You can view the registry at `http://jsr.test`. The API can be found at
 `http://api.jsr.test`.
@@ -165,7 +185,7 @@ When the database schema has been changed, you can migrate the local database by
 running this command:
 
 ```sh
-cd api; sqlx migrate run
+deno task db:migrate
 ```
 
 ### Loading bad words

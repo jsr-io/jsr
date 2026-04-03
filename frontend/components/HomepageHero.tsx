@@ -18,14 +18,14 @@ body {
 }`;
 
 export function HomepageHero(
-  { apiKey, indexId }: {
+  { projectId, apiKey }: {
+    projectId: string | undefined;
     apiKey: string | undefined;
-    indexId: string | undefined;
   },
 ) {
   return (
     <div
-      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-gradient-to-t before:from-white dark:before:from-jsr-gray-950 before:bottom-0 before:z-10 before:pointer-events-none"
+      class="w-screen -ml-[calc(50vw-50%)] -mt-6 bg-repeat py-32 lg:pt-48 relative before:absolute before:left-0 before:right-0 before:h-32 before:bg-linear-to-t before:from-white dark:before:from-jsr-gray-950 before:bottom-0 before:z-10 before:pointer-events-none"
       id="particles-js"
     >
       <script src={asset("/scripts/particles.js")} defer></script>
@@ -75,8 +75,8 @@ export function HomepageHero(
         </div>
         <div class="w-full md:w-3/4 relative z-20">
           <GlobalSearch
+            projectId={projectId}
             apiKey={apiKey}
-            indexId={indexId}
             jumbo
           />
         </div>

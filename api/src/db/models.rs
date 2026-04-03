@@ -7,9 +7,12 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::Serialize;
+use sqlx::Database;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::ValueRef;
+use sqlx::encode::IsNull;
+use sqlx::error::BoxDynError;
 use sqlx::types::Json;
 use uuid::Uuid;
 
@@ -28,6 +31,7 @@ pub struct User {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i64,
@@ -44,6 +48,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
       email: try_get_row_or(row, "email", "user_email")?,
       avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
       github_id: try_get_row_or(row, "github_id", "user_github_id")?,
+      gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
       is_blocked: try_get_row_or(row, "is_blocked", "user_is_blocked")?,
       is_staff: try_get_row_or(row, "is_staff", "user_is_staff")?,
       scope_usage: try_get_row_or(row, "scope_usage", "user_scope_usage")?,
@@ -67,6 +72,7 @@ pub struct UserPublic {
   pub name: String,
   pub avatar_url: String,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -78,6 +84,7 @@ impl From<User> for UserPublic {
       name: user.name,
       avatar_url: user.avatar_url,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       updated_at: user.updated_at,
       created_at: user.created_at,
     }
@@ -91,6 +98,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for UserPublic {
       name: try_get_row_or(row, "name", "user_name")?,
       avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
       github_id: try_get_row_or(row, "github_id", "user_github_id")?,
+      gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
       updated_at: try_get_row_or(row, "created_at", "user_created_at")?,
       created_at: try_get_row_or(row, "created_at", "user_created_at")?,
     })
@@ -103,6 +111,7 @@ pub struct NewUser<'s> {
   pub email: Option<&'s str>,
   pub avatar_url: &'s str,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
 }
@@ -115,9 +124,9 @@ pub enum PublishingTaskStatus {
   /// The task is currently being processed. Processing entails unpacking the
   /// package tarball, validating the package, and publishing individual files
   /// to the registry. It is finalized by uploading the package version
-  /// manifest to GCS and inserting the published version into the database.
+  /// manifest to S3 and inserting the published version into the database.
   Processing,
-  /// The task processing has been completed. The package manifest on GCS is
+  /// The task processing has been completed. The package manifest on S3 is
   /// being updated to reflect the new version.
   Processed,
   /// The task has been completed successfully.
@@ -184,8 +193,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for PublishingTaskError {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PublishingTaskError {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&PublishingTaskError> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -413,8 +422,24 @@ pub struct PackageVersion {
   pub is_yanked: bool,
   pub readme_path: Option<PackagePath>,
   pub uses_npm: bool,
+  pub meta: PackageVersionMeta,
+  pub rekor_log_id: Option<String>,
+  pub license: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub struct PackageVersionWithNewerVersionsCount {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub version: Version,
+  pub user_id: Option<Uuid>,
+  pub exports: ExportsMap,
+  pub is_yanked: bool,
+  pub readme_path: Option<PackagePath>,
+  pub uses_npm: bool,
   pub newer_versions_count: i64,
-  pub lifetime_download_count: i64,
   pub meta: PackageVersionMeta,
   pub rekor_log_id: Option<String>,
   pub license: Option<String>,
@@ -479,8 +504,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for PackageVersionMeta {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PackageVersionMeta {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&PackageVersionMeta> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -593,6 +618,35 @@ impl From<GithubIdentity> for NewGithubIdentity {
 }
 
 #[derive(Debug, Clone)]
+pub struct GitlabIdentity {
+  pub gitlab_id: i64,
+  pub access_token: Option<String>,
+  pub access_token_expires_at: Option<DateTime<Utc>>,
+  pub refresh_token: Option<String>,
+  pub updated_at: DateTime<Utc>,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewGitlabIdentity {
+  pub gitlab_id: i64,
+  pub access_token: Option<String>,
+  pub access_token_expires_at: Option<DateTime<Utc>>,
+  pub refresh_token: Option<String>,
+}
+
+impl From<GitlabIdentity> for NewGitlabIdentity {
+  fn from(t: GitlabIdentity) -> Self {
+    Self {
+      gitlab_id: t.gitlab_id,
+      access_token: t.access_token,
+      access_token_expires_at: t.access_token_expires_at,
+      refresh_token: t.refresh_token,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
   pub id: Uuid,
   pub hash: String,
@@ -659,8 +713,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for Permissions {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Permissions {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&Permissions> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -780,8 +834,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for ExportsMap {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for ExportsMap {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&IndexMap<String, String>> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -848,6 +902,19 @@ pub struct NewPackageVersionDependency<'s> {
 pub type PackageWithGitHubRepoAndMeta =
   (Package, Option<GithubRepository>, PackageVersionMeta);
 
+#[derive(Debug)]
+pub struct StatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+}
+
+#[derive(Debug)]
+pub struct StatsPackageVersion {
+  pub scope: ScopeName,
+  pub name: PackageName,
+  pub version: Version,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct NpmTarball {
@@ -902,8 +969,8 @@ impl sqlx::Decode<'_, sqlx::Postgres> for RuntimeCompat {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for RuntimeCompat {
   fn encode_by_ref(
     &self,
-    buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-  ) -> sqlx::encode::IsNull {
+    buf: &mut <sqlx::Postgres as Database>::ArgumentBuffer<'q>,
+  ) -> Result<IsNull, BoxDynError> {
     <sqlx::types::Json<&RuntimeCompat> as sqlx::Encode<
       '_,
       sqlx::Postgres,
@@ -954,12 +1021,6 @@ pub enum DownloadKind {
   JsrMeta,
   /// A download of the NPM tarball.
   NpmTgz,
-}
-
-impl sqlx::postgres::PgHasArrayType for DownloadKind {
-  fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-    sqlx::postgres::PgTypeInfo::with_name("_download_kind")
-  }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]

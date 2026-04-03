@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { IS_BROWSER } from "fresh/runtime";
+import { HttpError, IS_BROWSER } from "fresh/runtime";
 import type { TraceSpan } from "./tracing.ts";
+import type { ErrorStatus } from "@std/http";
 
 export type QueryParams = Record<string, string | number | null>;
 
@@ -69,6 +70,21 @@ interface APIOptions {
 interface RequestOptions {
   signal?: AbortSignal;
   anonymous?: boolean;
+}
+
+export class APIError extends HttpError {
+  response: APIResponseError;
+  constructor(response: APIResponseError) {
+    super(response.status as ErrorStatus, response.message);
+    this.name = "APIError";
+    this.response = response;
+  }
+}
+
+export function assertOk<T>(
+  resp: APIResponse<T>,
+): asserts resp is APIResponseOK<T> {
+  if (!resp.ok) throw new APIError(resp);
 }
 
 export class API {
@@ -244,6 +260,7 @@ export class API {
               "error.message": result.message,
             }),
         },
+        "CLIENT",
       );
     }
     return result;

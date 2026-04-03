@@ -26,6 +26,15 @@ variable "github_client_secret" {
   sensitive = true
 }
 
+variable "gitlab_client_id" {
+  type = string
+}
+
+variable "gitlab_client_secret" {
+  type      = string
+  sensitive = true
+}
+
 variable "postmark_token" {
   type      = string
   sensitive = true
@@ -35,26 +44,37 @@ variable "email_from_name" {
   type = string
 }
 
-variable "orama_package_private_api_key" {
+variable "orama_packages_project_key" {
   type      = string
   sensitive = true
 }
 
-variable "orama_package_index_id" {
-  type      = string
-  sensitive = true
-}
-
-variable "orama_symbols_index_id" {
-  type      = string
-  sensitive = true
-}
-
-variable "orama_package_public_api_key" {
+variable "orama_packages_public_api_key" {
   type = string
 }
 
-variable "orama_package_public_index_id" {
+variable "orama_packages_project_id" {
+  type = string
+}
+
+variable "orama_packages_data_source" {
+  type = string
+}
+
+variable "orama_symbols_project_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "orama_symbols_public_api_key" {
+  type = string
+}
+
+variable "orama_symbols_project_id" {
+  type = string
+}
+
+variable "orama_symbols_data_source" {
   type = string
 }
 
@@ -62,7 +82,7 @@ variable "orama_docs_public_api_key" {
   type = string
 }
 
-variable "orama_docs_public_index_id" {
+variable "orama_docs_project_id" {
   type = string
 }
 

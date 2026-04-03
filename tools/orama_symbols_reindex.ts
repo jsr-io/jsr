@@ -1,28 +1,19 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { List, Package } from "../frontend/utils/api_types.ts";
 import { chunk } from "@std/collections";
+import { OramaCloud } from "@orama/core";
 
-const index = Deno.env.get("ORAMA_SYMBOLS_INDEX_ID");
-const auth = Deno.env.get("ORAMA_PACKAGE_PRIVATE_API_KEY");
 const jsr_url = Deno.env.get("JSR_ENDPOINT_URL");
+
+const orama = new OramaCloud({
+  projectId: Deno.env.get("ORAMA_SYMBOLS_PROJECT_ID")!,
+  apiKey: Deno.env.get("ORAMA_SYMBOLS_PROJECT_KEY")!,
+});
+const datasource = orama.dataSource(Deno.env.get("ORAMA_SYMBOLS_DATA_SOURCE")!);
 
 const MAX_ORAMA_INSERT_SIZE = 3 * 1024 * 1024;
 
-const ORAMA_URL = "https://api.oramasearch.com/api/v1/webhooks";
-
-// Clear the index
-const res = await fetch(`${ORAMA_URL}/${index}/snapshot`, {
-  method: "POST",
-  headers: {
-    authorization: `Bearer ${auth}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify([]),
-});
-if (res.status !== 200) {
-  console.log(await res.text());
-  throw res;
-}
+const temp = await datasource.createTemporaryIndex();
 
 let page = 1;
 while (true) {
@@ -42,6 +33,8 @@ while (true) {
     );
     // deno-lint-ignore no-explicit-any
     const searchJson: any = await searchRes.json();
+    if (searchJson.nodes.length === 0) continue;
+
     for (const node of searchJson.nodes) {
       node.scope = pkg.scope;
       node.package = pkg.name;
@@ -56,19 +49,8 @@ while (true) {
         searchJson.nodes.length / chunks,
       )
     ) {
-      const notifyRes = await fetch(`${ORAMA_URL}/${index}/notify`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${auth}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ "upsert": chunkItem }),
-      });
-      if (notifyRes.status !== 200) {
-        console.log(pkg);
-        console.log(await notifyRes.text());
-        throw notifyRes;
-      }
+      // deno-lint-ignore no-explicit-any
+      await temp.insertDocuments(chunkItem as any);
     }
   }
 
@@ -77,15 +59,4 @@ while (true) {
   }
 }
 
-// deploy the index
-const res3 = await fetch(`${ORAMA_URL}/${index}/deploy`, {
-  method: "POST",
-  headers: {
-    authorization: `Bearer ${auth}`,
-    "Content-Type": "application/json",
-  },
-});
-if (res3.status !== 200) {
-  console.log(await res3.text());
-  throw res3;
-}
+await temp.swap();

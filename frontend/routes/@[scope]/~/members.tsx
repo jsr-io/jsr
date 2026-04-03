@@ -8,7 +8,7 @@ import { ScopeInviteForm } from "../(_islands)/ScopeInviteForm.tsx";
 import { ScopeMemberRole } from "../(_islands)/ScopeMemberRole.tsx";
 import { Table, TableData, TableRow } from "../../../components/Table.tsx";
 import { CopyButton } from "../../../islands/CopyButton.tsx";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import {
   FullUser,
   ScopeInvite,
@@ -69,7 +69,9 @@ export default define.page<typeof handler>(function ScopeMembersPage(
           />
         ))}
       </Table>
-      {iam.canAdmin && <MemberInvite scope={data.scope.scope} />}
+      {iam.canAdmin && (
+        <MemberInvite currentUser={state.user!} scope={data.scope.scope} />
+      )}
       {data.scopeMember && (
         <ScopeMemberLeave
           userId={data.scopeMember.user.id}
@@ -183,7 +185,9 @@ export function InviteItem(props: InviteItemProps) {
   );
 }
 
-function MemberInvite({ scope }: { scope: string }) {
+function MemberInvite(
+  { currentUser, scope }: { currentUser: FullUser; scope: string },
+) {
   return (
     <div class="max-w-3xl border-t border-jsr-cyan-950/10 pt-8 mt-8">
       <h2 class="text-lg font-semibold">Invite member</h2>
@@ -192,7 +196,7 @@ function MemberInvite({ scope }: { scope: string }) {
         in this scope and create new packages. They will not be able to manage
         members unless they are granted admin status.
       </p>
-      <ScopeInviteForm scope={scope} />
+      <ScopeInviteForm currentUser={currentUser} scope={scope} />
     </div>
   );
 }
@@ -213,23 +217,20 @@ export const handler = define.handlers({
     ]);
     if (user instanceof Response) return user;
     if (data === null) throw new HttpError(404, "The scope was not found.");
-    if (!membersResp.ok) {
-      if (membersResp.code === "scopeNotFound") {
-        throw new HttpError(404, "The scope was not found.");
-      }
-      throw membersResp; // graceful handle errors
+    if (!membersResp.ok && membersResp.code === "scopeNotFound") {
+      throw new HttpError(404, "The scope was not found.");
     }
+    assertOk(membersResp);
     if (invitesResp && !invitesResp.ok) {
       if (
         invitesResp.code === "actorNotScopeMember" ||
         invitesResp.code === "actorNotScopeAdmin"
       ) {
         invitesResp = null;
+      } else if (invitesResp.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       } else {
-        if (invitesResp.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw invitesResp; // graceful handle errors
+        assertOk(invitesResp);
       }
     }
 
@@ -260,35 +261,29 @@ export const handler = define.handlers({
       const res = await ctx.state.api.delete<null>(
         path`/scopes/${scope}/invites/${userId}`,
       );
-      if (!res.ok) {
-        if (res.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw res; // graceful handle errors
+      if (!res.ok && res.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       }
+      assertOk(res);
     } else if (action === "deleteMember") {
       const userId = String(form.get("userId"));
       const res = await ctx.state.api.delete<null>(
         path`/scopes/${scope}/members/${userId}`,
       );
-      if (!res.ok) {
-        if (res.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw res; // graceful handle errors
+      if (!res.ok && res.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       }
+      assertOk(res);
     } else if (action === "invite") {
       const githubLogin = String(form.get("githubLogin"));
       const res = await ctx.state.api.post<ScopeInvite>(
         path`/scopes/${scope}/members`,
         { githubLogin },
       );
-      if (!res.ok) {
-        if (res.code === "scopeNotFound") {
-          throw new HttpError(404, "The scope was not found.");
-        }
-        throw res; // graceful handle errors
+      if (!res.ok && res.code === "scopeNotFound") {
+        throw new HttpError(404, "The scope was not found.");
       }
+      assertOk(res);
     } else {
       throw new Error("Invalid action");
     }

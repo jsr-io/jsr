@@ -1,5 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+import type { PartialBucket } from "./types.ts";
+
 export async function proxyToCloudRun(
   request: Request,
   backendUrl: string,
@@ -66,10 +68,9 @@ export async function proxyToCloudRun(
   }
 }
 
-export async function proxyToGCS(
+export async function proxyToR2(
   request: Request,
-  bucketEndpoint: string | undefined,
-  bucketName: string,
+  bucket: PartialBucket,
   pathRewrite?: (path: string) => string,
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -77,49 +78,58 @@ export async function proxyToGCS(
   if (pathRewrite) {
     path = pathRewrite(path);
   }
-  path = path.slice(1);
+  const key = decodeURIComponent(path.slice(1));
 
-  const gcsUrl = `${
-    bucketEndpoint ?? "https://storage.googleapis.com"
-  }/${bucketName}/${path}`;
-
-  const headers = new Headers();
-
-  const ifNoneMatch = request.headers.get("If-None-Match");
-  if (ifNoneMatch) {
-    headers.set("If-None-Match", ifNoneMatch);
+  const cacheKey = new Request(request.url, { method: "GET" });
+  const cached = await caches.default?.match(cacheKey);
+  if (cached) {
+    if (request.method === "HEAD") {
+      return new Response(null, {
+        headers: cached.headers,
+        status: cached.status,
+      });
+    }
+    return cached;
   }
-
-  const ifModifiedSince = request.headers.get("If-Modified-Since");
-  if (ifModifiedSince) {
-    headers.set("If-Modified-Since", ifModifiedSince);
-  }
-
-  const range = request.headers.get("Range");
-  if (range) {
-    headers.set("Range", range);
-  }
-
-  const method = request.method === "HEAD" ? "HEAD" : "GET";
 
   try {
-    const response = await cachedFetch(true, gcsUrl, {
-      method,
-      headers,
-      redirect: "follow",
-    });
+    if (request.method === "HEAD") {
+      const object = await bucket.head(key);
+      if (!object) {
+        return new Response(null, { status: 404 });
+      }
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("etag", object.httpEtag);
+      headers.set("content-length", object.size.toString());
+      return new Response(null, { headers });
+    } else {
+      const object = await bucket.get(key, {
+        onlyIf: request.headers,
+      });
 
-    return new Response(response.body, {
-      headers: response.headers,
-      status: response.status,
-    });
+      if (!object) {
+        return new Response("404 - Not Found", { status: 404 });
+      }
+
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("etag", object.httpEtag);
+      headers.set("content-length", object.size.toString());
+
+      if (!("body" in object)) {
+        return new Response(null, { status: 304, headers });
+      }
+
+      const response = new Response(object.body, { headers });
+      caches.default?.put(cacheKey, response.clone());
+      return response;
+    }
   } catch (error) {
-    console.error("GCS proxy error:", error);
+    console.error("R2 proxy error:", error);
     return new Response("Bad Gateway", {
       status: 502,
-      headers: {
-        "Content-Type": "text/plain",
-      },
+      headers: { "Content-Type": "text/plain" },
     });
   }
 }

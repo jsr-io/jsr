@@ -2,7 +2,7 @@
 import type { Middleware } from "fresh";
 import { deleteCookie, getCookies } from "@std/http/cookie";
 import { State } from "../util.ts";
-import { API, path } from "../utils/api.ts";
+import { API, APIError, path } from "../utils/api.ts";
 import { FullUser } from "../utils/api_types.ts";
 import { Tracer } from "../utils/tracing.ts";
 import { define } from "../util.ts";
@@ -26,7 +26,7 @@ const tracing = define.middleware(async (ctx) => {
     return resp;
   } finally {
     const end = new Date();
-    ctx.state.span.record(ctx.url.pathname, start, end, attributes);
+    ctx.state.span.record(ctx.url.pathname, start, end, attributes, "SERVER");
   }
 });
 
@@ -65,7 +65,7 @@ const auth = define.middleware(async (ctx) => {
           deleteCookie(resp.headers, "token", { path: "/" });
           return resp;
         } else {
-          throw userResp;
+          throw new APIError(userResp);
         }
       })();
       ctx.state.userPromise.catch(() => {}); // don't trigger unhandled rejection
@@ -84,4 +84,12 @@ const auth = define.middleware(async (ctx) => {
   return await ctx.next();
 });
 
-export const handler: Middleware<State>[] = [tracing, auth];
+const cache = define.middleware(async (ctx) => {
+  const resp = await ctx.next();
+  if (ctx.state.api && !ctx.state.api.hasToken() && ctx.state.cacheControl) {
+    resp.headers.set("cache-control", ctx.state.cacheControl);
+  }
+  return resp;
+});
+
+export const handler: Middleware<State>[] = [tracing, auth, cache];

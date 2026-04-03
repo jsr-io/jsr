@@ -121,6 +121,7 @@ pub struct ApiUser {
   pub id: Uuid,
   pub name: String,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub avatar_url: String,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
@@ -132,6 +133,7 @@ impl From<User> for ApiUser {
       id: user.id,
       name: user.name,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -145,6 +147,7 @@ impl From<UserPublic> for ApiUser {
       id: user.id,
       name: user.name,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       avatar_url: user.avatar_url,
       updated_at: user.updated_at,
       created_at: user.created_at,
@@ -162,6 +165,7 @@ pub struct ApiFullUser {
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
   pub github_id: Option<i64>,
+  pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
   pub scope_usage: i32,
@@ -180,6 +184,7 @@ impl From<User> for ApiFullUser {
       updated_at: user.updated_at,
       created_at: user.created_at,
       github_id: user.github_id,
+      gitlab_id: user.gitlab_id,
       is_blocked: user.is_blocked,
       is_staff: user.is_staff,
       scope_usage: user.scope_usage as i32,
@@ -299,6 +304,7 @@ impl From<(ScopeMember, UserPublic)> for ApiScopeMember {
 #[serde(rename_all = "camelCase")]
 pub enum ApiAddScopeMemberRequest {
   GithubLogin(String),
+  GitlabUsername(String),
   Id(Uuid),
 }
 
@@ -617,8 +623,7 @@ pub struct ApiPackageVersion {
   pub version: Version,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: u64,
-  pub lifetime_download_count: u64,
+  pub newer_versions_count: Option<u64>,
   pub rekor_log_id: Option<String>,
   pub license: Option<String>,
   pub readme_path: Option<PackagePath>,
@@ -633,11 +638,10 @@ pub enum ApiPackageVersionDocs {
   #[serde(rename_all = "camelCase")]
   Content {
     version: ApiPackageVersion,
-    css: Cow<'static, str>,
     comrak_css: Cow<'static, str>,
     script: Cow<'static, str>,
     breadcrumbs: Option<deno_doc::html::util::BreadcrumbsCtx>,
-    toc: Option<deno_doc::html::util::ToCCtx>,
+    toc: deno_doc::html::util::ToCCtx,
     main: ApiGeneratedDocsContent,
   },
   Redirect {
@@ -649,7 +653,7 @@ pub enum ApiPackageVersionDocs {
 #[serde(rename_all = "camelCase", tag = "kind", content = "value")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiGeneratedDocsContent {
-  AllSymbols(deno_doc::html::SymbolContentCtx),
+  AllSymbols(deno_doc::html::AllSymbolsCtx),
   File(deno_doc::html::jsdoc::ModuleDocCtx),
   Index(deno_doc::html::jsdoc::ModuleDocCtx),
   Symbol(deno_doc::html::SymbolGroupCtx),
@@ -674,8 +678,25 @@ impl From<PackageVersion> for ApiPackageVersion {
       version: value.version,
       yanked: value.is_yanked,
       uses_npm: value.uses_npm,
-      newer_versions_count: value.newer_versions_count as u64,
-      lifetime_download_count: value.lifetime_download_count as u64,
+      newer_versions_count: None,
+      rekor_log_id: value.rekor_log_id,
+      license: value.license,
+      readme_path: value.readme_path,
+      updated_at: value.updated_at,
+      created_at: value.created_at,
+    }
+  }
+}
+
+impl From<PackageVersionWithNewerVersionsCount> for ApiPackageVersion {
+  fn from(value: PackageVersionWithNewerVersionsCount) -> Self {
+    ApiPackageVersion {
+      scope: value.scope,
+      package: value.name,
+      version: value.version,
+      yanked: value.is_yanked,
+      uses_npm: value.uses_npm,
+      newer_versions_count: Some(value.newer_versions_count as u64),
       rekor_log_id: value.rekor_log_id,
       license: value.license,
       readme_path: value.readme_path,
@@ -711,7 +732,6 @@ pub enum ApiSource {
 #[serde(rename_all = "camelCase")]
 pub struct ApiPackageVersionSource {
   pub version: ApiPackageVersion,
-  pub css: Cow<'static, str>,
   pub comrak_css: Cow<'static, str>,
   pub script: Cow<'static, str>,
   pub source: ApiSource,
@@ -726,8 +746,6 @@ pub struct ApiPackageVersionWithUser {
   pub user: Option<ApiUser>,
   pub yanked: bool,
   pub uses_npm: bool,
-  pub newer_versions_count: i64,
-  pub lifetime_download_count: i64,
   pub rekor_log_id: Option<String>,
   pub readme_path: Option<PackagePath>,
   pub updated_at: DateTime<Utc>,
@@ -749,8 +767,6 @@ impl From<(PackageVersion, Option<UserPublic>)> for ApiPackageVersionWithUser {
       user: user.map(|user| user.into()),
       yanked: package_version.is_yanked,
       uses_npm: package_version.uses_npm,
-      newer_versions_count: package_version.newer_versions_count,
-      lifetime_download_count: package_version.lifetime_download_count,
       rekor_log_id: package_version.rekor_log_id,
       readme_path: package_version.readme_path,
       updated_at: package_version.updated_at,
@@ -789,9 +805,43 @@ pub enum ApiUpdateScopeRequest {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStats {
-  pub newest: Vec<ApiPackage>,
-  pub updated: Vec<ApiPackageVersion>,
-  pub featured: Vec<ApiPackage>,
+  pub newest: Vec<ApiStatsPackage>,
+  pub updated: Vec<ApiStatsPackageVersion>,
+  pub featured: Vec<ApiStatsPackage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackage {
+  pub scope: ScopeName,
+  pub name: PackageName,
+}
+
+impl From<StatsPackage> for ApiStatsPackage {
+  fn from(p: StatsPackage) -> Self {
+    Self {
+      scope: p.scope,
+      name: p.name,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiStatsPackageVersion {
+  pub scope: ScopeName,
+  pub package: PackageName,
+  pub version: Version,
+}
+
+impl From<StatsPackageVersion> for ApiStatsPackageVersion {
+  fn from(v: StatsPackageVersion) -> Self {
+    Self {
+      scope: v.scope,
+      package: v.name,
+      version: v.version,
+    }
+  }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

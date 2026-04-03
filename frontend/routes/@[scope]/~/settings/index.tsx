@@ -12,7 +12,7 @@ import {
   WebhookEndpoint,
 } from "../../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../../utils/data.ts";
-import { path } from "../../../../utils/api.ts";
+import { assertOk, path } from "../../../../utils/api.ts";
 import { QuotaCard } from "../../../../components/QuotaCard.tsx";
 import { scopeIAM } from "../../../../utils/iam.ts";
 import { TicketModal } from "../../../../islands/TicketModal.tsx";
@@ -291,7 +291,7 @@ function CardButton(props: CardButtonProps) {
           {props.title}
         </p>
         <div
-          class={`-mt-2 -mr-2 h-6 w-6 rounded-full flex-shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700/20 ${
+          class={`-mt-2 -mr-2 h-6 w-6 rounded-full shrink-0 flex justify-center items-center group-focus-visible:ring-2 ring-jsr-yellow-700/20 ${
             props.selected
               ? "ring ring-jsr-cyan-950 bg-jsr-cyan-950 text-jsr-yellow"
               : "ring"
@@ -377,12 +377,10 @@ export const handler = define.handlers({
           path`/scopes/${scope}`,
           { ghActionsVerifyActor: enableGhActionsVerifyActor },
         );
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
+        if (!res.ok && res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
         }
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/~/settings` },
@@ -394,12 +392,10 @@ export const handler = define.handlers({
           path`/scopes/${scope}`,
           { requirePublishingFromCI: value },
         );
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
+        if (!res.ok && res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
         }
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/@${scope}/~/settings` },
@@ -407,12 +403,10 @@ export const handler = define.handlers({
       }
       case "deleteScope": {
         const res = await ctx.state.api.delete(path`/scopes/${scope}`);
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
+        if (!res.ok && res.code === "scopeNotFound") {
+          throw new HttpError(404, "The scope was not found.");
         }
+        assertOk(res);
         return new Response(null, {
           status: 303,
           headers: { Location: `/` },

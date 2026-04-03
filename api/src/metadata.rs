@@ -26,7 +26,7 @@ use std::collections::HashMap;
 ///   }
 /// }
 /// ```
-/// See also [`gcs_paths::package_metadata`]
+/// See also [`s3_paths::package_metadata`]
 #[derive(Serialize, Deserialize)]
 pub struct PackageMetadata {
   pub scope: ScopeName,
@@ -110,7 +110,7 @@ pub struct PackageMetadataVersion {
 ///  }
 /// }
 /// ```
-/// See also [`gcs_paths::version_metadata`]
+/// See also [`s3_paths::version_metadata`]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionMetadata {

@@ -25,7 +25,6 @@ use tar::Header;
 use tracing::error;
 use url::Url;
 
-use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
@@ -33,6 +32,7 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
+use crate::s3::BucketWithQueue;
 
 use super::NPM_TARBALL_REVISION;
 use super::emit::transpile_to_dts;
@@ -322,13 +322,13 @@ pub async fn create_npm_tarball<'a>(
 
       let downloads = futures::stream::iter(paths_to_download.into_iter())
         .map(|path| {
-          let gcs_path =
-            crate::gcs_paths::file_path(scope, package, version, path).into();
+          let s3_path =
+            crate::s3_paths::file_path(scope, package, version, path).into();
           async move {
             let bytes = modules_bucket
-              .download(gcs_path)
+              .download(s3_path)
               .await?
-              .ok_or_else(|| anyhow::anyhow!("file missing on GCS: {path}"))?;
+              .ok_or_else(|| anyhow::anyhow!("file missing on S3: {path}"))?;
             Ok::<_, anyhow::Error>((path, bytes))
           }
         })
@@ -395,6 +395,9 @@ pub async fn create_npm_tarball<'a>(
 
   tarball.into_inner().unwrap();
   gz_encoder.finish().unwrap();
+
+  // Free the in-memory file map now that the tarball is built
+  drop(package_files);
 
   let sha1_digest = sha1::Sha1::digest(&tar_gz_bytes);
   let sha1 = format!("{sha1_digest:X}");

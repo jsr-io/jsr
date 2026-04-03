@@ -3,10 +3,11 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
+import { SignInMenu } from "../islands/SignInMenu.tsx";
+import TbLogin2 from "tb-icons/TbLogin2";
 
 export function Header({
   user,
@@ -20,21 +21,22 @@ export function Header({
   searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
-  const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
-  const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
+  const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-  const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
+  const oramaPackageProjectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
 
   const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
-  const oramaDocsIndexId = Deno.env.get("ORAMA_DOCS_PUBLIC_INDEX_ID");
+  const oramaDocsProjectId = Deno.env.get("ORAMA_DOCS_PROJECT_ID");
 
   const oramaApiKey = searchKind === "packages"
     ? oramaPackageApiKey
     : oramaDocsApiKey;
-  const oramaIndexId = searchKind === "packages"
-    ? oramaPackageIndexId
-    : oramaDocsIndexId;
+  const oramaProjectId = searchKind === "packages"
+    ? oramaPackageProjectId
+    : oramaDocsProjectId;
+
+  const prodProxy = !!Deno.env.get("PROD_PROXY");
 
   const isHomepage = url.pathname === "/";
 
@@ -62,14 +64,14 @@ export function Header({
               <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
-          <div class="hidden sm:block grow-1 flex-1">
+          <div class="hidden sm:block grow flex-1">
             {!isHomepage && (
               <GlobalSearch
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
+                projectId={oramaProjectId}
                 apiKey={oramaApiKey}
-                indexId={oramaIndexId}
                 kind={searchKind}
               />
             )}
@@ -105,23 +107,38 @@ export function Header({
             )}
             <Divider />
             <DarkModeToggle />
-            <Divider />
-            {user
-              ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-              : (
-                <a href={loginUrl} class="link-header flex items-center gap-2">
-                  <TbBrandGithub class="size-5 flex-none" aria-hidden />
-                  Sign in
-                </a>
-              )}
+            {url.pathname !== "/login" && (
+              <>
+                <Divider />
+                {user
+                  ? (
+                    <UserMenu
+                      user={user}
+                      sudo={sudo}
+                      logoutUrl={`/logout${redirect}`}
+                    />
+                  )
+                  : (prodProxy
+                    ? (
+                      <a
+                        href={`/login${redirect}`}
+                        class="flex items-center gap-2 link-header"
+                      >
+                        <TbLogin2 class="size-5" />
+                        <span>Sign in</span>
+                      </a>
+                    )
+                    : <SignInMenu redirect={redirect} />)}
+              </>
+            )}
           </div>
         </div>
         <div class="mt-4 sm:hidden">
           {!isHomepage && (
             <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
+              projectId={oramaProjectId}
               apiKey={oramaApiKey}
-              indexId={oramaIndexId}
               kind={searchKind}
             />
           )}
