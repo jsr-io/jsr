@@ -4828,6 +4828,8 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
+    // TODO: secret is stored in plaintext. Consider encrypting at rest with
+    // application-level encryption (AES-256-GCM) once key management is in place.
     let res = sqlx::query_as!(
       WebhookEndpoint,
       r#"INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format, is_active)
@@ -4877,7 +4879,8 @@ gitlab_id: r.user_gitlab_id,
         "webhook": webhook_id,
         "url": webhook.url,
         "description": webhook.description,
-        "secret": webhook.secret,
+        "secret_changed": webhook.secret.is_some(),
+        "secret_cleared": webhook.clear_secret,
         "events": webhook.events,
         "payload_format": webhook.payload_format,
         "is_active": webhook.is_active,
@@ -4887,17 +4890,18 @@ gitlab_id: r.user_gitlab_id,
 
     let webhook_endpoint = sqlx::query_as!(
       WebhookEndpoint,
-      r#"UPDATE webhook_endpoints SET url = COALESCE($4, url), description = COALESCE($5, description), secret = COALESCE($6, secret), events = COALESCE($7, events), payload_format = COALESCE($8, payload_format), is_active = COALESCE($9, is_active) WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3
+      r#"UPDATE webhook_endpoints SET url = COALESCE($4, url), description = COALESCE($5, description), secret = CASE WHEN $10 THEN NULL WHEN $6 IS NOT NULL THEN $6 ELSE secret END, events = COALESCE($7, events), payload_format = COALESCE($8, payload_format), is_active = COALESCE($9, is_active) WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3
         RETURNING id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at"#,
       scope as _,
       package as _,
       webhook_id,
       webhook.url,
       webhook.description,
-      webhook.secret, // TODO
+      webhook.secret,
       webhook.events as _,
       webhook.payload_format as _,
       webhook.is_active,
+      webhook.clear_secret,
     )
       .fetch_one(&mut *tx)
       .await?;
@@ -4993,8 +4997,8 @@ gitlab_id: r.user_gitlab_id,
       r#"SELECT
           webhook_endpoints.url as "url", webhook_events.event as "event: _", webhook_events.id as "event_id", webhook_endpoints.secret as "secret", webhook_endpoints.payload_format AS "payload_format: _", webhook_events.payload as "payload: WebhookPayload"
         FROM webhook_endpoints
-        LEFT JOIN webhook_deliveries ON webhook_endpoints.id = webhook_deliveries.endpoint_id
-        LEFT JOIN webhook_events ON webhook_events.id = webhook_deliveries.event_id
+        INNER JOIN webhook_deliveries ON webhook_endpoints.id = webhook_deliveries.endpoint_id
+        INNER JOIN webhook_events ON webhook_events.id = webhook_deliveries.event_id
         WHERE webhook_deliveries.id = $1"#,
       id,
     )
@@ -5077,7 +5081,7 @@ gitlab_id: r.user_gitlab_id,
         webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
       FROM webhook_deliveries
       INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
-      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND endpoint_id = $3 ORDER BY webhook_deliveries.created_at DESC"#,
+      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND endpoint_id = $3 ORDER BY webhook_deliveries.created_at DESC LIMIT 100"#,
       scope as _,
       package as _,
       webhook_endpoint_id,

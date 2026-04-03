@@ -1240,7 +1240,9 @@ pub struct ApiCreateWebhookEndpointRequest {
 pub struct ApiUpdateWebhookEndpointRequest {
   pub url: Option<String>,
   pub description: Option<String>,
-  pub secret: Option<String>, // TODO: it already is an option, how to distinguish between clearing and not changing it?
+  pub secret: Option<String>,
+  #[serde(default)]
+  pub clear_secret: bool,
   pub events: Option<Vec<WebhookEventKind>>,
   pub payload_format: Option<WebhookPayloadFormat>,
   pub is_active: Option<bool>,

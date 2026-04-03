@@ -1,12 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { ComponentChildren } from "preact";
 import twas from "twas";
-import type {
-  WebhookDelivery,
-  WebhookDeliveryStatus,
-} from "../utils/api_types.ts";
-import { TbAlertCircle, TbCheck, TbClockHour3, TbRefresh } from "tb-icons";
+import type { WebhookDelivery } from "../utils/api_types.ts";
 import { WEBHOOK_EVENTS } from "../islands/WebhookEdit.tsx";
+import { StatusToIcon } from "./WebhookDeliveries.tsx";
 
 export function WebhookDelivery(
   { delivery }: {
@@ -136,15 +133,3 @@ function Code({ children }: { children: ComponentChildren }) {
   );
 }
 
-export function StatusToIcon(status: WebhookDeliveryStatus) {
-  switch (status) {
-    case "pending":
-      return <TbClockHour3 class="size-6 stroke-blue-500 stroke-2" />;
-    case "success":
-      return <TbCheck class="size-6 stroke-green-500 stroke-2" />;
-    case "failure":
-      return <TbAlertCircle class="size-6 stroke-red-500 stroke-2" />;
-    case "retrying":
-      return <TbRefresh class="size-6 stroke-yellow-500 stroke-2" />;
-  }
-}

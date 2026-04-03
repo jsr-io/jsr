@@ -173,7 +173,7 @@ pub struct Config {
     long = "webhook_dispatch_queue_id",
     env = "WEBHOOK_DISPATCH_QUEUE_ID"
   )]
-  /// The ID of the npm tarball build queue.
+  /// The ID of the webhook dispatch queue.
   pub webhook_dispatch_queue_id: Option<String>,
 
   #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]

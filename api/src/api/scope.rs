@@ -465,7 +465,7 @@ pub async fn delete_member_handler(
         webhook_dispatch_queue,
         db,
         registry_url,
-        webhook_deliveries.unwrap(),
+        webhook_deliveries.unwrap_or_default(),
       )
       .await?;
     }
@@ -573,6 +573,7 @@ pub async fn create_webhook_handler(
       msg: "events must not be empty".into(),
     });
   }
+  crate::util::validate_webhook_url(&url)?;
 
   let db = req.data::<Database>().unwrap();
 
@@ -640,6 +641,7 @@ pub async fn update_webhook_handler(
     url,
     description,
     secret,
+    clear_secret,
     events,
     payload_format,
     is_active,
@@ -651,6 +653,9 @@ pub async fn update_webhook_handler(
         msg: "events must not be empty".into(),
       });
     }
+  }
+  if let Some(ref url) = url {
+    crate::util::validate_webhook_url(url)?;
   }
 
   let db = req.data::<Database>().unwrap();
@@ -667,6 +672,7 @@ pub async fn update_webhook_handler(
         url,
         description,
         secret,
+        clear_secret,
         events,
         payload_format,
         is_active,

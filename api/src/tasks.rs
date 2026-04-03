@@ -232,8 +232,19 @@ pub async fn npm_tarball_build_handler(
     )
     .await?;
 
-  db.process_webhooks_for_npm_tarball(&job.scope, &job.name, &job.version)
+  let webhook_deliveries = db
+    .process_webhooks_for_npm_tarball(&job.scope, &job.name, &job.version)
     .await?;
+
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let full_registry_url = req.data::<RegistryUrl>().unwrap();
+  enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    &db,
+    full_registry_url,
+    webhook_deliveries,
+  )
+  .await?;
 
   Ok(())
 }
@@ -497,15 +508,14 @@ pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
   let retry_count = req
     .headers()
     .get("x-cloudtasks-taskretrycount")
-    .unwrap()
-    .to_str()
-    .unwrap()
-    .parse::<usize>()
-    .unwrap()
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.parse::<usize>().ok())
+    .unwrap_or(0)
     + 1;
 
   // sync retry count value with terraform
-  dispatch_webhook(db, registry_url, webhook_dispatch_id, 3 - retry_count)
+  let retries_left = 3usize.saturating_sub(retry_count);
+  dispatch_webhook(db, registry_url, webhook_dispatch_id, retries_left)
     .await?;
 
   Ok(())

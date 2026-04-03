@@ -405,6 +405,72 @@ where
   Ok(data)
 }
 
+/// Validate that a webhook URL is safe to send requests to.
+/// Rejects non-HTTPS schemes, private/loopback IPs, link-local addresses,
+/// and metadata service IPs.
+pub fn validate_webhook_url(raw: &str) -> ApiResult<()> {
+  let url = Url::parse(raw).map_err(|_| ApiError::MalformedRequest {
+    msg: "invalid URL".into(),
+  })?;
+
+  if url.scheme() != "https" {
+    return Err(ApiError::MalformedRequest {
+      msg: "webhook URL must use HTTPS".into(),
+    });
+  }
+
+  let host = url.host_str().ok_or(ApiError::MalformedRequest {
+    msg: "webhook URL must have a host".into(),
+  })?;
+
+  // Reject IP literals that resolve to private/loopback/link-local ranges
+  if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+    if ip.is_loopback()
+      || ip.is_unspecified()
+      || is_private_ip(ip)
+      || is_link_local(ip)
+    {
+      return Err(ApiError::MalformedRequest {
+        msg: "webhook URL must not target private or loopback addresses".into(),
+      });
+    }
+  }
+
+  // Block well-known dangerous hostnames
+  let lower = host.to_lowercase();
+  if lower == "localhost"
+    || lower.ends_with(".local")
+    || lower == "metadata.google.internal"
+  {
+    return Err(ApiError::MalformedRequest {
+      msg: "webhook URL must not target private or internal hosts".into(),
+    });
+  }
+
+  Ok(())
+}
+
+fn is_private_ip(ip: std::net::IpAddr) -> bool {
+  match ip {
+    std::net::IpAddr::V4(v4) => {
+      v4.is_private()                          // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+        || v4.octets()[0] == 100 && (v4.octets()[1] & 0xC0) == 64  // 100.64.0.0/10 (CGNAT)
+        || v4.octets()[0] == 169 && v4.octets()[1] == 254           // 169.254.0.0/16 (link-local / metadata)
+    }
+    std::net::IpAddr::V6(v6) => {
+      // fc00::/7 (unique local), ::1 (loopback already covered)
+      (v6.segments()[0] & 0xfe00) == 0xfc00
+    }
+  }
+}
+
+fn is_link_local(ip: std::net::IpAddr) -> bool {
+  match ip {
+    std::net::IpAddr::V4(v4) => v4.is_link_local(),
+    std::net::IpAddr::V6(v6) => (v6.segments()[0] & 0xffc0) == 0xfe80,
+  }
+}
+
 pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }

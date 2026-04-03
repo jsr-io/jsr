@@ -81,9 +81,11 @@ export function WebhookEdit(
   const url = useSignal(webhook?.url ?? "");
   const payloadFormat = useSignal(webhook?.payloadFormat ?? "json");
   const secret = useSignal<string | null>("");
+  const clearSecret = useSignal(false);
   const events = useSignal(new Set(webhook?.events ?? []));
   const isActive = useSignal(webhook?.isActive ?? true);
   const processing = useSignal(false);
+  const error = useSignal<string | null>(null);
 
   return (
     <form
@@ -93,6 +95,7 @@ export function WebhookEdit(
         e.preventDefault();
 
         processing.value = true;
+        error.value = null;
 
         (webhook
           ? api.patch(
@@ -107,7 +110,8 @@ export function WebhookEdit(
               payloadFormat: payloadFormat.value === webhook.payloadFormat
                 ? undefined
                 : payloadFormat.value,
-              secret: secret.value || null, // TODO
+              secret: secret.value || undefined,
+              clearSecret: clearSecret.value || undefined,
               events: events.value.symmetricDifference(new Set(webhook.events))
                   .size === 0
                 ? undefined
@@ -129,7 +133,12 @@ export function WebhookEdit(
               events: Array.from(events.value),
               isActive: isActive.value,
             },
-          )).then(() => {
+          )).then((res) => {
+            if (!res.ok) {
+              error.value = res.message;
+              processing.value = false;
+              return;
+            }
             if (webhook) {
               location.reload();
             } else {
@@ -137,6 +146,9 @@ export function WebhookEdit(
                 ? `/@${scope}/${pkg}/settings#webhooks`
                 : `/@${scope}/~/settings#webhooks`;
             }
+          }).catch((err) => {
+            error.value = String(err);
+            processing.value = false;
           });
       }}
     >
@@ -204,16 +216,23 @@ export function WebhookEdit(
               <Help href="/docs/webhooks#secrets-and-signature-verification" />
             </h2>
             {webhook?.hasSecret && (
-              secret.value === null
+              clearSecret.value
                 ? (
-                  <div>
-                    Secret cleared
+                  <div class="text-sm text-secondary">
+                    Secret will be cleared on save.{" "}
+                    <button
+                      type="button"
+                      class="underline"
+                      onClick={() => clearSecret.value = false}
+                    >
+                      Undo
+                    </button>
                   </div>
                 )
                 : (
                   <div class="text-sm text-red-500">
                     A secret is already set. Inputting a new value will
-                    overwrite the current secret
+                    overwrite the current secret.
                   </div>
                 )
             )}
@@ -221,16 +240,21 @@ export function WebhookEdit(
               <input
                 type="text"
                 class="inline-block w-full px-3 py-2 input-container text-sm input"
-                // @ts-ignore null is acceptable
-                value={secret}
-                onInput={(e) => secret.value = e.currentTarget.value}
-                disabled={processing}
+                value={secret.value ?? ""}
+                onInput={(e) => {
+                  secret.value = e.currentTarget.value;
+                  clearSecret.value = false;
+                }}
+                disabled={processing.value || clearSecret.value}
               />
-              {webhook?.hasSecret && (
+              {webhook?.hasSecret && !clearSecret.value && (
                 <button
                   class="button-danger"
                   type="button"
-                  onClick={() => secret.value = null}
+                  onClick={() => {
+                    clearSecret.value = true;
+                    secret.value = "";
+                  }}
                   disabled={processing}
                 >
                   Clear
@@ -261,11 +285,13 @@ export function WebhookEdit(
                   value={event.id}
                   checked={events.value.has(event.id)}
                   onInput={(e) => {
+                    const next = new Set(events.value);
                     if (e.currentTarget.checked) {
-                      events.value.add(event.id);
+                      next.add(event.id);
                     } else {
-                      events.value.delete(event.id);
+                      next.delete(event.id);
                     }
+                    events.value = next;
                   }}
                   disabled={processing}
                 />
@@ -278,6 +304,11 @@ export function WebhookEdit(
           </div>
         </fieldset>
       </div>
+      {error.value && (
+        <div class="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-300 text-sm">
+          {error.value}
+        </div>
+      )}
       <div class="flex gap-8 mt-8 items-center">
         {webhook && (
           <button
@@ -285,16 +316,27 @@ export function WebhookEdit(
             class="button-danger"
             disabled={processing}
             onClick={() => {
+              if (!confirm("Are you sure you want to delete this webhook?")) {
+                return;
+              }
               processing.value = true;
 
               api.delete(
                 pkg
                   ? path`/scopes/${scope}/packages/${pkg}/webhooks/${webhook.id}`
                   : path`/scopes/${scope}/webhooks/${webhook.id}`,
-              ).then(() => {
+              ).then((res) => {
+                if (!res.ok) {
+                  error.value = res.message;
+                  processing.value = false;
+                  return;
+                }
                 location.href = pkg
                   ? `/@${scope}/${pkg}/settings#webhooks`
                   : `/@${scope}/~/settings#webhooks`;
+              }).catch((err) => {
+                error.value = String(err);
+                processing.value = false;
               });
             }}
           >

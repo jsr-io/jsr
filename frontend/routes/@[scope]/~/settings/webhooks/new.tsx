@@ -6,7 +6,6 @@ import { ScopeNav } from "../../../(_components)/ScopeNav.tsx";
 import { WebhookEdit } from "../../../../../islands/WebhookEdit.tsx";
 import { FullScope } from "../../../../../utils/api_types.ts";
 import { scopeDataWithMember } from "../../../../../utils/data.ts";
-import { path } from "../../../../../utils/api.ts";
 import { scopeIAM } from "../../../../../utils/iam.ts";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
@@ -40,65 +39,5 @@ export const handler = define.handlers({
         iam,
       },
     };
-  },
-  async POST(ctx) {
-    const req = ctx.req;
-    const scope = ctx.params.scope;
-    const form = await req.formData();
-    const action = String(form.get("action"));
-    let enableGhActionsVerifyActor = false;
-    switch (action) {
-      case "enableGhActionsVerifyActor":
-        enableGhActionsVerifyActor = true;
-        // fallthrough
-      case "disableGhActionsVerifyActor": {
-        const res = await ctx.state.api.patch(
-          path`/scopes/${scope}`,
-          { ghActionsVerifyActor: enableGhActionsVerifyActor },
-        );
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
-        }
-        return new Response(null, {
-          status: 303,
-          headers: { Location: `/@${scope}/~/settings` },
-        });
-      }
-      case "requirePublishingFromCI": {
-        const value = form.get("value") === "true";
-        const res = await ctx.state.api.patch(
-          path`/scopes/${scope}`,
-          { requirePublishingFromCI: value },
-        );
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
-        }
-        return new Response(null, {
-          status: 303,
-          headers: { Location: `/@${scope}/~/settings` },
-        });
-      }
-      case "deleteScope": {
-        const res = await ctx.state.api.delete(path`/scopes/${scope}`);
-        if (!res.ok) {
-          if (res.code === "scopeNotFound") {
-            throw new HttpError(404, "The scope was not found.");
-          }
-          throw res; // graceful handle errors
-        }
-        return new Response(null, {
-          status: 303,
-          headers: { Location: `/` },
-        });
-      }
-      default:
-        throw new Error("Invalid action " + action);
-    }
   },
 });

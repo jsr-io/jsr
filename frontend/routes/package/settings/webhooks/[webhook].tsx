@@ -74,7 +74,7 @@ export const handler = define.handlers({
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/webhooks/${ctx.params.webhook}`,
       ),
       ctx.state.api.get<WebhookDelivery[]>(
-        path`/scopes/${ctx.params.scope}/webhooks/${ctx.params.webhook}/deliveries`,
+        path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/webhooks/${ctx.params.webhook}/deliveries`,
       ),
     ]);
     if (user instanceof Response) return user;
