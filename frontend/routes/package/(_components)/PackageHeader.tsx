@@ -37,16 +37,12 @@ export function PackageHeader({
     (pkg.latestVersion === null ||
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
 
-  // Calculate weekly downloads for mobile display
+  // Calculate weekly downloads for mobile display (drop incomplete current week)
   let weeklyDownloads: number | null = null;
   if (downloads && downloads.total.length > 1) {
     const xValues = collectX(downloads.total, "weekly");
-    const data = normalize(downloads.total, xValues, "weekly");
-    weeklyDownloads = data.length > 1
-      ? data[data.length - 2][1]
-      : data.length > 0
-      ? data[data.length - 1][1]
-      : null;
+    const data = normalize(downloads.total, xValues, "weekly").slice(0, -1);
+    weeklyDownloads = data.length > 0 ? data[data.length - 1][1] : null;
   }
 
   return (

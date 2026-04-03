@@ -21,7 +21,9 @@ export function DownloadWidget(props: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
 
   const xValues = collectX(props.downloads, AGGREGATION_PERIOD);
-  const data = normalize(props.downloads, xValues, AGGREGATION_PERIOD);
+  // Drop the last (current, incomplete) week so the chart only shows full weeks
+  const data = normalize(props.downloads, xValues, AGGREGATION_PERIOD)
+    .slice(0, -1);
 
   let min = Infinity;
   let max = 0;
@@ -157,12 +159,12 @@ export function DownloadWidget(props: Props) {
                   ).toISOString()
                     .split("T")[0]
                 }`
-                : "Weekly downloads (last week)"}
+                : "Weekly downloads"}
             </div>
             <div>
               {hoveredDataPoint.value
                 ? hoveredDataPoint.value.data.toLocaleString()
-                : (data.at(-2) ?? data.at(-1))![1].toLocaleString()}
+                : data.at(-1)![1].toLocaleString()}
             </div>
           </>
         )}
