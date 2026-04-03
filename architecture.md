@@ -103,7 +103,7 @@ api/
 - **Package management**: CRUD operations for scopes, packages, versions, and
   members.
 - **NPM compatibility**: Generates npm-compatible tarballs so JSR packages can
-  be consumed by npm, yarn, pnpm, vlt and bun.
+  be consumed by npm, yarn, pnpm, vlt, and bun.
 - **Search indexing**: Pushes package metadata, symbols, and documentation to
   Orama for full-text search.
 - **Background tasks**: Long-running work (publishing, npm tarball generation)
