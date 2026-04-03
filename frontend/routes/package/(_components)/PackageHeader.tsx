@@ -247,7 +247,7 @@ export function PackageHeader({
           </div>
 
           {pkg.description && (
-            <p class="text-secondary text-base max-w-3xl mb-6">
+            <p class="text-secondary text-base max-w-3xl mb-6 break-words">
               {pkg.description}
             </p>
           )}
