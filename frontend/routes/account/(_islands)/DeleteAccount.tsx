@@ -117,8 +117,7 @@ export function DeleteAccount(
                     type="text"
                     class="w-full block px-2 py-1.5 mt-1 input-container input"
                     value={confirmInput.value}
-                    onInput={(e) =>
-                      confirmInput.value = e.currentTarget.value}
+                    onInput={(e) => confirmInput.value = e.currentTarget.value}
                     autoComplete="off"
                   />
                 </label>
