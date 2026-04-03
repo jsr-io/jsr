@@ -12,6 +12,7 @@ import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
+import TbAdjustmentsHorizontal from "tb-icons/TbAdjustmentsHorizontal";
 
 interface GlobalSearchProps {
   query?: string;
@@ -506,8 +507,8 @@ function SuggestionList(
           setScoreFilter={setScoreFilter}
         />
       )}
-      <div class="bg-jsr-gray-50 dark:bg-jsr-gray-900 flex items-center justify-between py-1 px-2 text-sm">
-        <div class="flex items-center gap-2">
+      <div class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950/50 flex items-center justify-between py-1.5 px-3 text-sm border-t border-jsr-cyan-100 dark:border-jsr-cyan-900">
+        <div class="flex items-center gap-3">
           {kind === "packages" && (
             <>
               <button
@@ -517,37 +518,23 @@ function SuggestionList(
                   e.stopPropagation();
                   showFilters.value = !showFilters.value;
                 }}
-                class={`flex items-center gap-1 text-xs font-medium transition-colors ${
+                class={`flex items-center gap-1 text-xs font-semibold transition-colors ${
                   showFilters.value || filtersActive
-                    ? "text-jsr-cyan-700 dark:text-jsr-cyan-400"
-                    : "text-tertiary hover:text-secondary"
+                    ? "text-jsr-cyan-800 dark:text-jsr-cyan-300"
+                    : "text-jsr-gray-500 dark:text-jsr-gray-400 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300"
                 }`}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width={2}
-                  stroke="currentColor"
-                  class="w-3.5 h-3.5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"
-                  />
-                </svg>
+                <TbAdjustmentsHorizontal class="size-3.5" />
                 Filters
                 {filtersActive && (
-                  <span class="bg-jsr-cyan-600 text-white text-[10px] leading-none px-1 py-0.5 rounded-full min-w-[14px] text-center">
+                  <span class="chip bg-jsr-cyan-200 dark:bg-jsr-cyan-900 text-jsr-cyan-800 dark:text-jsr-cyan-200 text-[10px] py-0 px-1.5 leading-[16px]">
                     {activeFilters.value.runtimes.size +
                       (activeFilters.value.scoreValue !== null ? 1 : 0)}
                   </span>
                 )}
               </button>
-              <span class="text-jsr-gray-300 dark:text-jsr-gray-700">|</span>
               <a
-                class="link text-xs"
+                class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300 transition-colors"
                 href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
                 target="_blank"
               >
@@ -557,12 +544,12 @@ function SuggestionList(
           )}
         </div>
         <div class="flex items-center gap-1">
-          <span class="text-tertiary">
+          <span class="text-jsr-gray-400 dark:text-jsr-gray-500 text-xs">
             powered by <span class="sr-only">Orama</span>
           </span>
-          <img class="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
+          <img class="h-3.5 dark:hidden" src="/logos/orama-dark.svg" alt="" />
           <img
-            className="h-4 hidden dark:block"
+            className="h-3.5 hidden dark:block"
             src="/logos/orama-light.svg"
             alt=""
           />
@@ -571,6 +558,11 @@ function SuggestionList(
     </div>
   );
 }
+
+const ACTIVE_FILTER_CLASSES =
+  "border-jsr-cyan-300 dark:border-jsr-cyan-700 bg-jsr-cyan-100 dark:bg-jsr-cyan-900 text-jsr-cyan-800 dark:text-jsr-cyan-200";
+const INACTIVE_FILTER_CLASSES =
+  "border-jsr-gray-200 dark:border-jsr-gray-700 text-jsr-gray-600 dark:text-jsr-gray-300 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 hover:border-jsr-cyan-200 dark:hover:border-jsr-cyan-800";
 
 function FilterBar(
   { activeFilters, toggleFilter, setScoreFilter }: {
@@ -584,12 +576,14 @@ function FilterBar(
 ) {
   return (
     <div
-      class="px-3 py-2 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900 space-y-2"
+      class="px-3 py-2.5 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900 space-y-2.5"
       onClick={(e) => e.stopPropagation()}
     >
       <div class="flex flex-wrap items-center gap-1.5">
-        <span class="text-xs text-tertiary font-medium mr-0.5">Runtime:</span>
-        {RUNTIME_COMPAT_KEYS.map(([key, name]) => {
+        <span class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 font-semibold mr-0.5 select-none">
+          Runtime
+        </span>
+        {RUNTIME_COMPAT_KEYS.map(([key, name, icon, w, h]) => {
           const active = activeFilters.value.runtimes.has(key);
           return (
             <button
@@ -600,20 +594,26 @@ function FilterBar(
                 e.stopPropagation();
                 toggleFilter(`runtime:${key}`);
               }}
-              class={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                active
-                  ? "border-jsr-cyan-600 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 text-jsr-cyan-700 dark:text-jsr-cyan-300 font-medium"
-                  : "border-jsr-gray-200 dark:border-jsr-gray-700 text-secondary hover:border-jsr-cyan-400 dark:hover:border-jsr-cyan-600"
+              class={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer select-none transition-colors duration-75 ${
+                active ? ACTIVE_FILTER_CLASSES : INACTIVE_FILTER_CLASSES
               }`}
             >
+              <img
+                src={icon}
+                width={w}
+                height={h}
+                alt=""
+                class="h-3"
+                style={`aspect-ratio: ${w} / ${h}`}
+              />
               {name}
             </button>
           );
         })}
       </div>
-      <div class="flex items-center gap-1.5">
-        <span class="text-xs text-tertiary font-medium mr-0.5">
-          Min score:
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 font-semibold mr-0.5 select-none">
+          Min score
         </span>
         {SCORE_OPTIONS.map(({ label, value }) => {
           const active =
@@ -628,10 +628,8 @@ function FilterBar(
                 e.stopPropagation();
                 setScoreFilter(value);
               }}
-              class={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                active
-                  ? "border-jsr-cyan-600 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 text-jsr-cyan-700 dark:text-jsr-cyan-300 font-medium"
-                  : "border-jsr-gray-200 dark:border-jsr-gray-700 text-secondary hover:border-jsr-cyan-400 dark:hover:border-jsr-cyan-600"
+              class={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer select-none transition-colors duration-75 ${
+                active ? ACTIVE_FILTER_CLASSES : INACTIVE_FILTER_CLASSES
               }`}
             >
               {label}
