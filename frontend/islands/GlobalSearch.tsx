@@ -159,7 +159,7 @@ export function GlobalSearch(
               term,
               where,
               limit: 5,
-              mode: "fulltext",
+              ...(term ? { mode: "fulltext" as const } : {}),
               boost: kind === "packages"
                 ? {
                   id: 3,
