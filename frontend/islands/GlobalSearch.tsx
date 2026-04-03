@@ -448,8 +448,13 @@ function SuggestionList(
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null && kind === "packages"
         ? (
-          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2 text-sm">
-            Loading...
+          <div class="bg-white dark:bg-jsr-gray-950 text-jsr-gray-400 dark:text-jsr-gray-500 px-3 py-2 text-xs space-y-1">
+            <p>
+              Try <code class="search-input-tag">scope:std</code>{" "}
+              <code class="search-input-tag">runtime:deno</code>{" "}
+              <code class="search-input-tag">{"score:>80"}</code> or use
+              Filters below
+            </p>
           </div>
         )
         : suggestions.value === null || suggestions.value.length === 0
