@@ -513,23 +513,29 @@ impl Database {
     .execute(&mut *tx)
     .await?;
 
-    // Reassign audit logs BEFORE writing the deletion entry,
-    // so the "user_delete" entry retains the actual admin who performed it.
+    // Write the deletion audit entry, storing the actual actor in meta
+    // so it's preserved even when the actor is the user being deleted.
+    let audit_actor = if *actor_id == id {
+      &service_account_id
+    } else {
+      actor_id
+    };
+    audit_log(
+      &mut tx,
+      audit_actor,
+      is_sudo,
+      "user_delete",
+      json!({ "user_id": id, "performed_by": actor_id }),
+    )
+    .await?;
+
+    // Reassign all of the deleted user's audit log entries to the service account.
     sqlx::query!(
       r#"UPDATE audit_logs SET actor_id = $1 WHERE actor_id = $2"#,
       service_account_id,
       id,
     )
     .execute(&mut *tx)
-    .await?;
-
-    audit_log(
-      &mut tx,
-      actor_id,
-      is_sudo,
-      "user_delete",
-      json!({ "user_id": id }),
-    )
     .await?;
 
     // Delete the user — FK cascades handle scope_members, scope_invites,

@@ -449,7 +449,8 @@ mod tests {
       "00000000-0000-0000-0000-000000000000".try_into().unwrap();
 
     let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
-    assert!(!user.is_staff);
+    // Service account migration sets is_staff = true
+    assert!(user.is_staff);
     assert!(!user.is_blocked);
 
     let token = t.staff_user.token.clone();
@@ -457,7 +458,7 @@ mod tests {
       .http()
       .patch(format!("/api/admin/users/{}", mock_user_id))
       .body_json(json!({
-        "isStaff": true
+        "isStaff": false
       }))
       .token(Some(&token))
       .call()
@@ -467,7 +468,7 @@ mod tests {
     eprintln!("resp status {}", resp.status());
     assert!(resp.status().is_success());
     let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
-    assert!(user.is_staff);
+    assert!(!user.is_staff);
     assert!(!user.is_blocked);
 
     // Try again without authorization header
@@ -483,13 +484,13 @@ mod tests {
       .unwrap();
     assert_eq!(resp.status(), hyper::StatusCode::UNAUTHORIZED);
 
-    // Turn off admin, turn on blocked, update scope limit
+    // Turn on admin, turn on blocked, update scope limit
 
     let resp = t
       .http()
       .patch(format!("/api/admin/users/{}", mock_user_id))
       .body_json(json!({
-        "isStaff": false,
+        "isStaff": true,
         "isBlocked": true,
         "scopeLimit": 30,
       }))
@@ -499,7 +500,7 @@ mod tests {
       .unwrap();
     assert!(resp.status().is_success());
     let user = t.db().get_user(mock_user_id).await.unwrap().unwrap();
-    assert!(!user.is_staff);
+    assert!(user.is_staff);
     assert!(user.is_blocked);
     assert_eq!(user.scope_limit, Some(30));
   }

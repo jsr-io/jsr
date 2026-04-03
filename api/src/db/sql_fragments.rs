@@ -2,7 +2,7 @@
 
 // SQL fragments for use with sqlx_query! / sqlx_query_as! macros.
 // These constants are resolved at compile time by the proc macro.
-pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,
+pub const USER_SELECT_FULL: &str = r#"id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit as "scope_limit?",
 (SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as "invite_count!",
 (SELECT COUNT(created_at) FROM scopes WHERE creator = id) as "scope_usage!",
 (CASE WHEN users.is_staff THEN (
