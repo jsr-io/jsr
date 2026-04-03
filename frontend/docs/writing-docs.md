@@ -26,7 +26,7 @@ There are two important pieces to documentation:
 > Also see this blog post on
 > [how to write docs for your package](https://deno.com/blog/document-javascript-package).
 
-## Symbol documentation
+## Symbol Documentation
 
 To add documentation for a symbol, add a JSDoc comment above the symbol:
 
@@ -133,7 +133,7 @@ export class Person {
 }
 ```
 
-## Module documentation
+## Module Documentation
 
 Not just symbols can be documented. Modules can also be documented. This is
 useful to give an overview of the module and its exported symbols.

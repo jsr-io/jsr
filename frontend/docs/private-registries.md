@@ -1,30 +1,30 @@
 ---
-description: JSR can integrate with NPM private registries to enable you to use JSR packages inside companies that require the use of an NPM private registry.
+description: JSR can integrate with npm private registries to enable you to use JSR packages inside companies that require the use of an npm private registry.
 ---
 
 Private registries are often used inside of companies to control access to
 packages, for example to ensure that only approved packages are used. JSR can
-integrate with NPM private registries so that you can use JSR packages inside of
-companies that require the use of an NPM private registry.
+integrate with npm private registries so that you can use JSR packages inside of
+companies that require the use of an npm private registry.
 
 > Note: JSR does not provide private registry functionality itself at this time.
 > This means that it is currently not possible to publish private packages to
 > JSR. This is a feature that is being tracked in
 > [issue #203](https://github.com/jsr-io/jsr/issues/203).
 
-## Using JSR as an upstream for an NPM private registry
+## Using JSR as an Upstream for an npm Private Registry
 
-When JSR is used as an upstream for an NPM private registry, the private
+When JSR is used as an upstream for an npm private registry, the private
 registry proxies requests to JSR for packages that are not found in the private
 registry to JSR. This allows the private registry to be used as a cache for JSR
 packages, and enforce rules about which packages may be used within the company.
 
-To use JSR as an upstream for an NPM private registry, you need to configure the
+To use JSR as an upstream for an npm private registry, you need to configure the
 private registry to proxy requests to JSR. The exact steps to do this depend on
 the private registry software that you are using. Below are some examples of how
 to configure some popular private registry software to use JSR as an upstream.
 
-### Configuring a JSR upstream with Azure DevOps Artifacts
+### Configuring a JSR Upstream with Azure DevOps Artifacts
 
 To use JSR as an upstream for Azure DevOps Artifacts, you need to create a new
 upstream source in Azure DevOps Artifacts that points to JSR. You can do this by
@@ -46,7 +46,7 @@ following these steps:
 11. Click on "Save" to save the upstream source.
 12. Select the "JSR" upstream source in the list of upstream sources and press
     the "Move up" button until it is above the "npmjs" upstream source. This
-    ensures that JSR is checked before the public NPM registry.
+    ensures that JSR is checked before the public npm registry.
 13. Click on "Save" in the top right corner of the upstream sources page to save
     the changes to the upstream sources.
 
@@ -73,20 +73,20 @@ package will be fetched from JSR. Users do not have to configure JSR as an
 upstream in their `.npmrc` file, as the JSR packages will now be available from
 the Azure DevOps Artifacts feed.
 
-### Configuring a JSR upstream with Google Artifact Registry
+### Configuring a JSR Upstream with Google Artifact Registry
 
 JSR cannot yet be used as an upstream for Google Artifact Registry due to a
 differing layout of package tarball URLs between JSR and the layout that is
 expected by Google Artifact Registry.
 
-Aligning JSRs package tarball URLs with the NPM upstream is being tracked in
+Aligning JSRs package tarball URLs with the npm upstream is being tracked in
 [issue #405](https://github.com/jsr-io/jsr/issues/405).
 
-### Configuring a JSR upstream with JFrog Artifactory
+### Configuring a JSR Upstream with JFrog Artifactory
 
 JSR cannot yet be used as an upstream for JFrog Artifactory due to a differing
 layout of package tarball URLs between JSR and the layout that is expected by
 JFrog Artifactory.
 
-Aligning JSRs package tarball URLs with the NPM upstream is being tracked in
+Aligning JSRs package tarball URLs with the npm upstream is being tracked in
 [issue #405](https://github.com/jsr-io/jsr/issues/405).

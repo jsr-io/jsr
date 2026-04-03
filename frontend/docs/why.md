@@ -34,7 +34,7 @@ opportunities.
 
 Here are a few reasons why we think you should consider using JSR.
 
-## Native TypeScript support
+## Native TypeScript Support
 
 JSR was designed with TypeScript support in mind. TypeScript source files are
 published directly to JSR. Platforms (like Deno) that
@@ -50,14 +50,14 @@ JSR will also generate reference documentation for your packages from TypeScript
 source code, providing rich online documentation that you can maintain alongside
 your code.
 
-## ECMAScript modules only
+## ECMAScript Modules Only
 
 The web standard for JavaScript modules is
 [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules). A
 modern package registry should rally around this standard and shift the
 community in this direction. For this reason, JSR was designed for ESM only.
 
-## Cross-runtime support
+## Cross-runtime Support
 
 The goal of JSR is to work everywhere JavaScript works, and to provide a
 runtime-agnostic registry for JavaScript and TypeScript code. Today, JSR works
@@ -68,7 +68,7 @@ dependencies with a `package.json` can interoperate with JSR as well.
 We intend to expand our support of bundlers and other runtimes as time goes on,
 and document the APIs and techniques for doing so.
 
-## JSR is a superset of npm
+## JSR Is a Superset of npm
 
 The npm registry has been incredibly successful thanks to the contributions of
 developers worldwide. We want JSR to build on this success, not fork it. JSR is
@@ -79,7 +79,7 @@ JSR is designed to
 You can use JSR packages in any runtime environment that uses a `node_modules`
 folder. JSR modules can import dependencies from npm.
 
-## Outstanding developer experience
+## Outstanding Developer Experience
 
 JSR has many features aimed at helping module publishers become more productive,
 including but not limited to:
@@ -94,7 +94,7 @@ including but not limited to:
   loading as fast as possible.
 - Much more
 
-## Fast, secure, and reliable
+## Fast, Secure, and Reliable
 
 JSR is intended to be secure, fast, and flexible, and also work well in
 resource-constrained environments.
@@ -108,7 +108,7 @@ resource-constrained environments.
 - JSR uses OIDC-based authentication for publishing packages from CI, and uses a
   tokenless interactive authentication flow for publishing from a local machine.
 
-## JSR is still evolving
+## JSR Is Still Evolving
 
 Your feedback will be critical to the success of JSR. If you have any ideas or
 feedback on how JSR could work better for your use case, please let us know on

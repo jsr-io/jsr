@@ -33,7 +33,7 @@ Because of this, these kinds of types are not supported in the public API.
 >   "slow types" will be omitted or missing details in the generated
 >   documentation.
 
-## What are slow types?
+## What Are Slow Types?
 
 "Slow types" occur when a function, class, const declaration, or let declaration
 is exported from a package, and its type is not explicitly written or the type
@@ -76,7 +76,7 @@ function addInternal(a: number, b: number) {
 }
 ```
 
-## TypeScript restrictions
+## TypeScript Restrictions
 
 This section lists out all of the restrictions that the "no slow types" policy
 imposes on TypeScript code:
@@ -102,7 +102,7 @@ imposes on TypeScript code:
 
 1. Types must not reference private fields of classes.
 
-### Explicit types
+### Explicit Types
 
 All symbols exported from a package must explicitly specify types. For example,
 functions should have an explicit return type:
@@ -136,7 +136,7 @@ Constants should have explicit type annotations:
 + export const GLOBAL_ID: string = crypto.randomUUID();
 ```
 
-### Global augmentation
+### Global Augmentation
 
 Module augmentation and global augmentation must not be used. This means that
 packages cannot use `declare global` to introduce new global variables, or
@@ -156,7 +156,7 @@ declare module "some-module" {
 }
 ```
 
-### CommonJS features
+### CommonJS Features
 
 CommonJS features must not be used. This means that packages cannot use
 `export =` or `import foo = require("foo")`.
@@ -173,7 +173,7 @@ Use ESM syntax instead:
 + import foo from "foo";
 ```
 
-### Types must be simply inferred or explicit
+### Types Must Be Simply Inferred or Explicit
 
 All types in exported functions, classes, variables, and types must be
 [simply inferred](#simple-inference) or explicit. If an expression is too
@@ -224,7 +224,7 @@ intermediate type:
 
 <!--TODO: example for unsupported-complex-reference-->
 
-### No destructuring in exports
+### No Destructuring in Exports
 
 Destructuring in exports is not supported. Instead of destructuring, export each
 symbol individually:
@@ -236,7 +236,7 @@ symbol individually:
 + export const bar: string = obj.bar;
 ```
 
-### Types must not reference private fields of the class
+### Types Must Not Reference Private Fields of the Class
 
 Types must not reference private fields of classes during inference.
 
@@ -254,7 +254,7 @@ allowed.
 + type MyPrivateMember = string;
 ```
 
-## JavaScript entrypoints
+## JavaScript Entrypoints
 
 If a package has a JavaScript entrypoint, JSR will not be able to create type
 definitions for the package. JSR only generates type definitions for TypeScript,
@@ -312,7 +312,7 @@ export function foo() {
 export function foo(): string;
 ```
 
-## Simple inference
+## Simple Inference
 
 In a few cases, JSR can infer a type without you needing to specify it
 explicitly. These cases are called "simple inference". Types that can be simply
@@ -399,7 +399,7 @@ are:
     const x = (a: number, b: number): number => a + b;
     ```
 
-## Ignoring slow types
+## Ignoring Slow Types
 
 Due to their nature of affecting _if_ JSR can understand the code, you cannot
 selectively ignore individual diagnostics for slow types. Slow type diagnostics

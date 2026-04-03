@@ -12,9 +12,9 @@ usage policy that all users must follow to use the service.
 We reserve the right to suspend or terminate access to JSR for any account that
 violates this usage policy.
 
-## Package contents and metadata
+## Package Contents and Metadata
 
-### Acceptable use
+### Acceptable Use
 
 JSR may only be used to publish and consume packages that consist of source code
 destined to be executed in a runtime that supports JavaScript or TypeScript.
@@ -25,7 +25,7 @@ purposes.
 It is acceptable to publish tooling that is designed to analyze or identify
 malware.
 
-### Unacceptable use
+### Unacceptable Use
 
 Packages must not grossly misrepresent their purpose or functionality to deceive
 users. This includes, but is not limited to, packages that are designed to
@@ -64,13 +64,13 @@ America is not permitted on JSR.
 - You MAY use JSR to publish a package that contains a tool for analyzing
   malware, as long as the tool is not itself malware.
 
-## Scope names
+## Scope Names
 
 JSR organizes packages into scopes. A scope is a collection of packages that are
 related to each other in some way. For example, the `@deno` scope contains
 packages that are related to the Deno runtime.
 
-### Name guidelines
+### Name Guidelines
 
 Scope names should generally be one of:
 
@@ -91,7 +91,7 @@ is unfortunately not a clear cut rule for what is too generic, but we will do
 our best to be reasonable and fair. If you are unsure if a scope name is too
 generic, please reach out to us at [help@jsr.io](mailto:help@jsr.io).
 
-### Scope name squatting
+### Scope Name Squatting
 
 JSR disallows name squatting of scope names. We define name squatting as the act
 of registering a scope / package name with no intention of using it, or to
@@ -103,7 +103,7 @@ but then never get around to it. We will always reach out to the current scope
 owner to hear their side of the story, and come to a reasonable resolution for
 all parties involved.
 
-### Sale of scope names
+### Sale of Scope Names
 
 Scope names may not be registered with the intention of selling them to others.
 Selling a scope name is expressly prohibited and will result in the suspension
@@ -117,17 +117,17 @@ It is ok to offer a user a small gratuity after a scope name has exchanged
 hands, such as some stickers or a T-shirt, but this occurring must never be a
 condition of the scope name transfer.
 
-### Trademark and copyright
+### Trademark and Copyright
 
 We reserve the right to reclaim scope names that violate copyright, trademark,
 or other laws.
 
-## Reporting violations
+## Reporting Violations
 
 If you believe that a package on JSR violates this usage policy, please open a
 ticket via the "Report Package" button located on the package page.
 
-## Changes to this policy
+## Changes to This Policy
 
 We may change this usage policy at any time. We will notify users of any changes
 to this policy by updating the "Last updated" date at the top of this document.

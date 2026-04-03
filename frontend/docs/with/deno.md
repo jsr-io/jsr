@@ -7,7 +7,7 @@ description: Learn how to use JSR packages with Deno.
 It has native support for JSR imports using either an import map or `jsr:`
 specifiers.
 
-## Using import maps
+## Using Import Maps
 
 Deno supports web standard
 [import maps](https://docs.deno.com/runtime/manual/basics/import_maps), the
@@ -40,7 +40,7 @@ import { printProgress } from "@luca/flag";
 printProgress();
 ```
 
-## Using JSR specifiers
+## Using JSR Specifiers
 
 In Deno, you can use packages without an install step by using `jsr:` specifiers
 directly within your source files. In this example, we import the `@luca/flag`
@@ -54,7 +54,7 @@ printProgress();
 
 [Learn more about using packages.](/docs/using-packages)
 
-## Additional tooling
+## Additional Tooling
 
 Deno provides a variety of additional tools to help manage JSR packages.
 
@@ -65,7 +65,7 @@ published from a local machine, or from CI.
 
 [Learn more about publishing packages.](/docs/publishing-packages)
 
-### Documentation linting and preview
+### Documentation Linting and Preview
 
 Deno provides a built-in lint rule to ensure that all exported functions and
 variables in a JSR package have JSDoc comments.
@@ -84,7 +84,7 @@ This is a good way to preview how a package's documentation will look on
 deno doc --html
 ```
 
-### Dependency analysis
+### Dependency Analysis
 
 The `deno info` command can be used to analyze the dependencies of a JSR
 package. This command will display a list of all dependencies, including their

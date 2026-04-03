@@ -8,7 +8,7 @@ Node.js, Bun, Cloudflare Workers, etc. You can also use JSR packages with
 bundlers that support ES modules, such as **Vite**, **esbuild**, **Webpack**,
 and **Rollup**.
 
-## Adding a package
+## Adding a Package
 
 You can add a JSR package to your project using any of the commands below - the
 example below will add the most recent version of
@@ -92,7 +92,7 @@ import { camelCase } from "@luca/cases";
 camelCase("hello world"); // "helloWorld"
 ```
 
-### Importing with `jsr:` specifiers
+### Importing with `jsr:` Specifiers
 
 In Deno, you can use packages without an install step by using `jsr:` specifiers
 directly within your source files. In this example, we import the `@luca/cases`
@@ -107,7 +107,7 @@ camelCase("hello world"); // "helloWorld"
 Here the `jsr:` specifier is followed by the package scope, the package name, a
 [semver constraint](#semver-resolution), and optionally an entrypoint.
 
-## Semver resolution
+## Semver Resolution
 
 JSR uses semantic versioning to resolve package versions. This means that you
 can use a semver range in your `jsr:` specifier, import map, or `package.json`

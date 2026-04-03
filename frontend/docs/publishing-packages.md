@@ -14,7 +14,7 @@ publishing TypeScript source code rather than pairs of `.js` + `.d.ts` files.
 This allows JSR to provide more helpful auto-generated documentation, and helps
 provide improved auto-completion in editors.
 
-## JSR package rules
+## JSR Package Rules
 
 All packages uploaded to JSR are automatically processed and verified during
 publishing to ensure that all code hosted on JSR abides by a consistent set of
@@ -28,7 +28,7 @@ code must follow these rules to be able to be published to JSR.
   specifying them in the `dependencies` of your `package.json`, or by
   referencing them in code using `npm:` specifiers such as
   `import { cloneDeep } from "npm:lodash@4";`.
-- **jsr packages are supported**: You can depend on JSR packages by specifying
+- **JSR packages are supported**: You can depend on JSR packages by specifying
   them in the `dependencies` of your `package.json`, or by referencing them in
   code using `jsr:` specifiers such as
   `import { encodeBase64 } from "jsr:@std/encoding@1/base64";`
@@ -49,7 +49,7 @@ code must follow these rules to be able to be published to JSR.
   your package must resolve at publish time. The format of supported specifiers
   depends on whether a `package.json` is in use, and is elaborated below.
 
-## Writing the code
+## Writing the Code
 
 ### ESM only
 
@@ -68,7 +68,7 @@ export function greet(name: string) {
 }
 ```
 
-### Relative imports
+### Relative Imports
 
 A package can consist of multiple modules. You can reference other modules in
 your package using relative imports. You _should_ use the correct extensions in
@@ -98,7 +98,7 @@ directory imports with `index.js` resolution.
 export * from "./greet.ts";
 ````
 
-### Importing npm packages
+### Importing npm Packages
 
 You may import npm packages specified in the `"dependencies"` of a
 `package.json`, ones specified in an import map or `deno.json(c)`, or ones
@@ -120,7 +120,7 @@ import * as chalk from "chalk";
 import * as express from "npm:express@4";
 ```
 
-### Importing JSR packages
+### Importing JSR Packages
 
 You may import JSR packages specified in the `"dependencies"` of a
 `package.json`, ones specified in an import map or `deno.json(c)`, or ones
@@ -143,7 +143,7 @@ import * as encoding from "@std/encoding";
 import { camelCase } from "jsr:@luca/cases@1";
 ```
 
-### Importing Node.js built-ins
+### Importing Node.js Built-ins
 
 You may import Node.js built-ins using the `node:` scheme. If a `package.json`
 is present in your package, you may also omit the `node:` scheme.
@@ -157,7 +157,7 @@ export function readJsonFile(path: string) {
 }
 ```
 
-### Dependency manifest
+### Dependency Manifest
 
 You may use a dependency manifest like a `package.json`, or an
 [import map](https://docs.deno.com/runtime/manual/basics/import_maps) (like the
@@ -182,7 +182,7 @@ export { greet } from "@luca/greet";
 export { join } from "@std/path";
 ```
 
-### Preventing slow types
+### Preventing Slow Types
 
 When writing TypeScript, you should ensure that your code does not use "slow
 types" that prevent JSR from generating documentation, generating type
@@ -196,7 +196,7 @@ consumers of your package.
 > compatibility will suffer. Consider fixing the slow types to avoid these
 > drawbacks rather than using this flag.
 
-## Package config file
+## Package Config File
 
 After you have written your code, you must add a config file to your package.
 This file contains package metadata like the name, version, and entrypoint(s).
@@ -214,7 +214,7 @@ JSR properties in their `deno.json(c)` to avoid having to create another file.
 
 Read more about the [configuring JSR packages.](/docs/package-configuration)
 
-## Creating a scope and package
+## Creating a Scope and Package
 
 JSR is organized into scopes. A scope is a collection of packages. Scopes are
 similar to npm organizations. Scopes are prefixed with an `@` symbol, and are
@@ -235,7 +235,7 @@ that are very similar to existing package names -- for example ones that only
 differ by a hyphen -- are prohibited.
 [Learn more about packages.](/docs/packages)
 
-## Verifying your package
+## Verifying Your Package
 
 To publish packages, including performing a dry run to confirm your package
 meets all JSR rules, involves using `jsr publish` or `deno publish`. The syntax
@@ -269,7 +269,7 @@ yarn dlx jsr publish --dry-run
 pnpm dlx jsr publish --dry-run
 ```
 
-## Publishing from your local machine
+## Publishing from Your Local Machine
 
 You can publish packages from your local machine using either `jsr publish` or
 `deno publish` command.
@@ -350,7 +350,7 @@ correct version number based on the version in your `jsr.json`/`deno.json(c)`
 file. `jsr publish` will not attempt to publish if the version specified in your
 `jsr.json`/`deno.json(c)` file is already published to JSR.
 
-## Filtering files
+## Filtering Files
 
 `jsr publish` will ignore files that are listed in a `.gitignore` file in the
 root of your package. Additionally, you can specify the `include` and `exclude`
@@ -416,7 +416,7 @@ for many other Deno subcommands as well, such as `deno test`, `deno lint` and
 }
 ```
 
-### Un-gitignoring files when not using "include"
+### Un-gitignoring Files When Not Using "include"
 
 You may have a package that has a `.gitignore` file with the following contents:
 

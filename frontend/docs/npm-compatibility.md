@@ -17,7 +17,7 @@ When using this compatibility layer, you can install JSR packages using
 `npm install` / `yarn add` / `pnpm install` as usual. The JSR packages will be
 downloaded from jsr.io and installed in your `node_modules` directory.
 
-## Installing and using JSR packages
+## Installing and Using JSR Packages
 
 If you are using a recent version of pnpm (10.9+), Yarn (4.9+) or vlt, you can
 install JSR packages using `pnpm install`, `yarn add` or `vlt install` without
@@ -84,11 +84,11 @@ support. There are some limitations:
   `npm publish`. You can only publish JSR packages using `jsr publish` or
   `deno publish`.
 
-## Advanced setup
+## Advanced Setup
 
 The JSR npm compatibility layer works by making all JSR packages available under
 the special `@jsr` npm scope. The `@jsr` npm scope is not a real npm scope, and
-you cannot publish packages to it. You can only use it to install jsr packages
+you cannot publish packages to it. You can only use it to install JSR packages
 from npm.
 
 The `@jsr` npm scope is served from the JSR registry at `https://npm.jsr.io`.
@@ -159,7 +159,7 @@ You can then import the package using the name defined in your `package.json`:
 import { camelCase } from "@luca/cases";
 ```
 
-## Technical details
+## Technical Details
 
 The `@jsr` npm scope is a special scope that is used to map JSR packages to npm
 packages for systems that do not natively support JSR. The `@jsr` npm scope is

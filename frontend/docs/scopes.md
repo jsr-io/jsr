@@ -40,7 +40,7 @@ The user that creates a scope is automatically an admin of that scope. Admins
 can invite other users to join the scope, and can change the role of other
 members. Admins can also delete the scope.
 
-### Inviting members
+### Inviting Members
 
 Admins can invite other users to join the scope. To invite a user, head to the
 "Members" tab of your scope, enter the GitHub username of the user you want to
@@ -55,7 +55,7 @@ accepts the invitation, they will be added to the scope as a member. The user
 can also see all pending invitations on their
 [account invitations page](/account/invites).
 
-### Changing member roles
+### Changing Member Roles
 
 Admins can change the role of other members. To change the role of a member,
 head to the "Members" tab of your scope, click the dropdown next to the member
@@ -65,7 +65,7 @@ member. If you want to demote the last admin of a scope to a member, you must
 first promote another member to an admin. A scope must always have at least one
 admin.
 
-### Removing members
+### Removing Members
 
 Admins can remove members from the scope. To remove a member, head to the
 "Members" tab of your scope, click the dropdown next to the member you want to
@@ -74,7 +74,7 @@ immediately. The user will no longer be able to administer or publish to the
 scope. If the member is the last admin of the scope, you must first promote
 another member to an admin before you can remove the last admin.
 
-### Leaving a scope
+### Leaving a Scope
 
 You can leave a scope at any time. To leave a scope, head to the "Members" tab
 of the scope, and click "Leave". You will be removed from the scope immediately.
@@ -85,7 +85,7 @@ admin before you can leave the scope.
 If you are the last member of a scope, you cannot leave the scope. You can
 [delete the scope](#deleting-a-scope) instead.
 
-## Deleting a scope
+## Deleting a Scope
 
 Scopes can only be deleted if they have no packages. If you want to delete a
 scope, you must first delete all packages in that scope.
@@ -93,7 +93,7 @@ scope, you must first delete all packages in that scope.
 
 Scopes can be deleted by scope admins from the scope settings page.
 
-## GitHub Actions publishing security
+## GitHub Actions Publishing Security
 
 If you link a package in your scope to a GitHub repository, you can publish
 packages from GitHub Actions without having to configure any secrets or
@@ -111,7 +111,7 @@ You can disable this option in the scope settings page to allow publishing from
 any GitHub Actions workflow in the linked GitHub repository, regardless of the
 user that triggered the workflow.
 
-## Requiring publishing from CI
+## Requiring Publishing from CI
 
 As a scope admin you can require that all package versions are published from a
 CI environment (GitHub Actions). Enabling this option will prevent users from

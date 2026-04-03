@@ -40,7 +40,7 @@ support means that the package author does not know if the package is compatible
 with the runtime. The compatibility can be updated from the "Settings" tab on
 the package page.
 
-## Linked GitHub repository
+## Linked GitHub Repository
 
 Packages can have a linked GitHub repository. This repository is shown to users
 of a package and can be used to link to the source code and issue tracker for
@@ -59,7 +59,7 @@ Linking a GitHub repository also enables tokenless publishing from GitHub
 Actions using OIDC.
 [Learn more about publishing from GitHub Actions.](/docs/publishing-packages#publishing-from-github-actions)
 
-## Archiving a package
+## Archiving a Package
 
 A package can be archived from the "Settings" tab on the package page. Only
 scope admins can archive a package.
@@ -80,7 +80,7 @@ Archived packages can be unarchived by clicking the "Unarchive" button on the
 package page. Only scope admins can unarchive a package. This restores the
 package back to its regular behaviour.
 
-## Deleting a package
+## Deleting a Package
 
 A package can be deleted from the "Settings" tab on the package page. Only scope
 admins can delete a package.
@@ -116,7 +116,7 @@ packages follow semantic versioning policies. These work as follows:
 To publish a new version of a package, you must bump the version in your config
 file before running `jsr publish` or `deno publish`.
 
-### Yanking versions
+### Yanking Versions
 
 Package versions cannot be deleted. However, sometimes you may want to prevent
 users from using a specific version of your package, for example because it

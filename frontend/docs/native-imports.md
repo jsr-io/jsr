@@ -15,7 +15,7 @@ packages.
 > Would you like to add native support for JSR to your tool? Check out
 > [the guide for implementing native `jsr:` support](#implementing-native-jsr-imports-in-tools).
 
-## Installing and importing JSR packages
+## Installing and Importing JSR Packages
 
 In tools with native JSR support, JSR packages do not need to be explicitly
 installed. Instead, you can import them using the `jsr:` scheme in your import
@@ -70,7 +70,7 @@ You can then import packages using the alias defined in the `deno.json(c)`:
 import { camelCase } from "@luca/cases";
 ```
 
-## Implementing native `jsr:` imports in tools
+## Implementing Native `jsr:` Imports in Tools
 
 > **Note**: This section is for tool maintainers who would like to add native
 > JSR support to their tool. Are you a user of JSR instead?

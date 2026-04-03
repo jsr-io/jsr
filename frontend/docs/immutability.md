@@ -7,7 +7,7 @@ JSR is immutable. This means that once you publish a package version, you can't
 change it. This is a core design principle of JSR, and is a key part of what
 makes JSR reliable and secure.
 
-## Why is JSR immutable?
+## Why Is JSR Immutable?
 
 JSR is immutable for a few reasons:
 
@@ -25,7 +25,7 @@ JSR is immutable for a few reasons:
   easier to maintain and more reliable. It simplifies caching, and makes it
   easier to reason about the registry.
 
-## What does immutability mean for me?
+## What Does Immutability Mean for Me?
 
 Immutability means that once you publish a package version, you can't change it.
 This means that you must be careful when publishing a package version. You
@@ -36,13 +36,13 @@ If you need to change a package version, you can publish a new version. You
 should bump the version number in your config file before publishing a new
 version.
 
-## What if I need to change a package version?
+## What If I Need to Change a Package Version?
 
 You can't change the contents a package version after it has been published.
 However, you can publish a new version of your package. You should bump the
 version number in your config file before publishing a new version.
 
-## What if I need to delete a package version?
+## What If I Need to Delete a Package Version?
 
 You can't delete a package version after it has been published. However, you can
 publish a new version of your package and yank the old version.
@@ -51,7 +51,7 @@ publish a new version of your package and yank the old version.
 Note that yanking does not remove the contents of the package version from the
 registry. It only superficially hides the version from users in some places.
 
-## What if I need to delete a package?
+## What If I Need to Delete a Package?
 
 You can't delete a package if it has published versions. However, you can
 archive a package.
@@ -63,7 +63,7 @@ download the package if they already know about it.
 
 Archiving does not remove the contents of the package from the registry.
 
-## I published a secret / personal info by accident, what do I do?
+## I Published a Secret / Personal Info by Accident, What Do I Do?
 
 If you accidentally published a secret, you should immediately revoke the
 secret.

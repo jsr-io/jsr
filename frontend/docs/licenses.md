@@ -36,7 +36,7 @@ JSR recognizes these license file names in your package root:
 }
 ```
 
-## Full list of supported licenses
+## Full List of Supported Licenses
 
 - BSD Zero Clause License (`0BSD`)
 - 3D Slicer License v1.0 (`3D-Slicer-1.0`)

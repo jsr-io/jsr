@@ -6,7 +6,7 @@ description: Troubleshooting common issues with JSR.
 When using JSR you may encounter an error. This page will help you to understand
 what the error means and how to fix it.
 
-## Publishing errors
+## Publishing Errors
 
 These errors may occur when publishing a package to JSR.
 
@@ -306,7 +306,7 @@ This error occurs when the license cannot be recognized:
 - If using a license file, ensure it contains recognizable license text with
   standard formatting
 
-## Excluded module error
+## Excluded Module Error
 
 After filtering files, you may encounter an `excluded-module` error saying that
 a module in the package's module graph was excluded from publishing.

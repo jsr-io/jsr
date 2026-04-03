@@ -14,7 +14,7 @@ JSR has three APIs that you can interact with:
 - The [management API](#management-api) which allows you to publish packages,
   manage your scopes, and retrieve account information.
 
-## JSR registry API
+## JSR Registry API
 
 The JSR registry API is used to download modules (individual JS/TS files in a
 package), package version metadata, and package metadata.
@@ -47,7 +47,7 @@ understands conditional requests, so will appropriately respond with
 `304 Not Modified` when `If-No-Match` or `If-Modified-Since` headers are
 provided.
 
-### Package metadata
+### Package Metadata
 
 Package metadata refers to the information about a package as a whole, such as
 the package scope, name and versions. Package metadata is served as JSON at the
@@ -87,7 +87,7 @@ For the above `@luca/flag` package, the metadata would look like this:
 }
 ```
 
-### Package version metadata
+### Package Version Metadata
 
 Package version metadata refers to the information about a specific version of a
 package.
@@ -146,7 +146,7 @@ The version metadata field is immutable, so it can be cached indefinitely.
 Because of this immutability, the `yanked` field is not included in the version
 metadata. Instead, retrieve yanked status from the package metadata.
 
-## npm compatibility registry API
+## npm Compatibility Registry API
 
 The npm compatibility registry API is used to download npm compatible tarballs
 for JSR packages, and to retrieve npm compatible package metadata.
@@ -204,7 +204,7 @@ API that uses JSON for serialization.
 Many requests to the management API require authentication. Authentication is
 done using an `Authorization` header with a `Bearer` or `githuboidc` token.
 
-### Authentication tokens
+### Authentication Tokens
 
 JSR supports authenticating with three types of tokens:
 
@@ -251,7 +251,7 @@ https://api.jsr.io/.well-known/openapi.
 A rendered version of the OpenAPI specification is available at
 [/docs/api-reference](/docs/api-reference).
 
-### Usage restrictions
+### Usage Restrictions
 
 The management API should not be used during registry operations. You should not
 retrieve the list of versions for a package, or the metadata for a package

@@ -28,7 +28,7 @@ on jsr.io. At the bottom of the overview tab, you will see a "Provenance"
 section. This section will contain a link to the Sigstore transparency log entry
 for the package.
 
-## Future support
+## Future Support
 
 In the future, JSR will additionally sign the uploaded package manifest and
 publish this signature to the Sigstore transparency log. This will provide a way
@@ -36,5 +36,5 @@ to verify that the package manifest was not tampered with after it was uploaded
 to JSR. This publish attestations feature is not yet implemented, but is planned
 for a future date.
 
-Additionally, JSR will provide publish attestations for NPM tarball provided by
+Additionally, JSR will provide publish attestations for npm tarball provided by
 JSR. This is also not yet implemented, but is planned for a future date.

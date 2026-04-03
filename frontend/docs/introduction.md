@@ -8,7 +8,7 @@ and TypeScript. JSR works with many runtimes (Node.js, Deno, Bun, browsers, and
 more) and is backwards compatible with npm.
 [Learn more about why we built JSR.](/docs/why)
 
-## Using JSR packages
+## Using JSR Packages
 
 Add a package to your project using one of the commands below. This will add the
 most recent version of [`@luca/cases`](https://jsr.io/@luca/cases) to your
@@ -49,7 +49,7 @@ You can find more packages on [jsr.io](https://jsr.io). Each package on the JSR
 site also displays documentation, which is automatically generated from the
 package's source code. [Learn more about using packages.](/docs/using-packages)
 
-## Publishing JSR packages
+## Publishing JSR Packages
 
 JSR packages are published using the `jsr publish` / `deno publish` command. You
 can publish packages from your local machine, or from CI.

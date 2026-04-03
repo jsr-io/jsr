@@ -3,7 +3,7 @@ title: Frequently Asked Questions
 description: Answers to frequently asked questions about JSR.
 ---
 
-## What is JSR?
+## What Is JSR?
 
 JSR is a new package registry for JavaScript. It is a free alternative to npm,
 that is designed to work well with all JavaScript tools and runtimes, like
@@ -11,7 +11,7 @@ Node.js, Deno, Bun, Vite, and more.
 
 [Learn more about why we built JSR.](/docs/why)
 
-## How do I use JSR?
+## How Do I Use JSR?
 
 If you want to consume packages, read the [Using packages](/docs/using-packages)
 guide.
@@ -19,7 +19,7 @@ guide.
 If you want to publish packages, read the
 [Publishing packages](/docs/publishing-packages) guide.
 
-## Is JSR a package manager like `npm`, `yarn`, or `pnpm`?
+## Is JSR a Package Manager Like `npm`, `yarn`, or `pnpm`?
 
 No. JSR is a package registry (the server storing the packages), not a package
 manager (the tool that installs packages). You can use existing package managers
@@ -28,12 +28,12 @@ like `npm`, `yarn`, or `pnpm` with JSR.
 A deeper discussion of this can be found
 [here](https://deno.com/blog/jsr-is-not-another-package-manager).
 
-## Is JSR open source?
+## Is JSR Open Source?
 
 Yes. JSR is open source and licensed under the MIT License. You can find the
 source code on [GitHub](https://github.com/jsr-io/jsr).
 
-## How is JSR different from npm?
+## How Is JSR Different from npm?
 
 JSR is designed to be a superset of npm, allowing existing tools that use npm to
 seamlessly work with JSR. JSR is designed to be better than npm:
@@ -46,7 +46,7 @@ seamlessly work with JSR. JSR is designed to be better than npm:
 - Secure, token-less publishing for resistance against supply chain attacks
 - and more... [Learn more about why we built JSR.](/docs/why)
 
-## How is JSR funded? / Do I have to pay for JSR?
+## How Is JSR Funded? / Do I Have to Pay for JSR?
 
 JSR is designed to be a public good for the JavaScript community, and will thus
 always be free to use.
@@ -57,7 +57,7 @@ alternative means, like sponsorships, donations, or a foundation. We expect that
 the Deno Company will be able to continue paying for JSR's hosting bills for the
 foreseeable future - JSR is designed to be very cheap to run.
 
-## Can I delete a package from JSR?
+## Can I Delete a Package from JSR?
 
 Source code published to JSR cannot be deleted.
 [Learn more about immutability.](/docs/immutability)
@@ -73,14 +73,14 @@ and hide the package from search results and the scope page.
 You may delete a package if it has no published versions.
 [Learn more about deleting empty packages.](/docs/packages#deleting-a-package)
 
-## Why are there quotas for scopes and package versions on JSR?
+## Why Are There Quotas for Scopes and Package Versions on JSR?
 
 To prevent abuse, JSR has quotas for scopes and package versions. These quotas
 are designed to be generous and should not affect your normal usage. If you need
 a quota increase, please reach out to us at quotas@jsr.io - we will happily
 increase your quota if you run into it.
 
-## What is JSR's policy on name squatting?
+## What Is JSR's Policy on Name Squatting?
 
 We disallow name squatting on JSR. We define name squatting as the act of
 registering a scope / package name with no intention of using it, or to prevent
@@ -88,7 +88,7 @@ someone with a legitimate use from using it (e.g. to sell it to them).
 
 [Learn more about the JSR usage policy](/docs/usage-policy).
 
-## How do I report a security vulnerability in JSR?
+## How Do I Report a Security Vulnerability in JSR?
 
 Please follow the Deno Company's
 [security policy](https://docs.deno.com/deploy/manual/security) to report
@@ -98,7 +98,7 @@ You may also report security vulnerabilities in individual packages to the
 package's scope owner. If the scope owner is unresponsive, please reach out to
 us at security@jsr.io.
 
-## How do I report a bug in JSR?
+## How Do I Report a Bug in JSR?
 
 > During the open beta, please email us at help@jsr.io, or chat in the
 > [JSR Discord](https://discord.gg/hMqvhAn9xG).
@@ -106,7 +106,7 @@ us at security@jsr.io.
 Please open an issue on the JSR GitHub repository at
 [jsr-io/jsr](https://github.com/jsr-io/jsr).
 
-## Why does JSR ask to "Act on your behalf" when I log in with GitHub?
+## Why Does JSR Ask to "Act on Your Behalf" When I Log in with GitHub?
 
 When signing in with GitHub, GitHub presents you with a screen that asks for
 your permission to authorize JSR. This screen includes a list of resources that
@@ -129,7 +129,7 @@ and in
 [this discussion thread](https://github.com/orgs/community/discussions/37117) on
 the official GitHub Discussions feedback forum.
 
-## Can I filter packages by compatible runtime in the search?
+## Can I Filter Packages by Compatible Runtime in the Search?
 
 Yes! You can filter the package search to only return packages that are
 compatible with one or more runtimes, by using the `runtime` filter in the
@@ -142,11 +142,11 @@ use the query `runtime:node`. You can also combine these filters, for example
 both Deno and web browsers. The possible values for the `runtime` filter are
 `deno`, `node`, `browsers`, `workerd` (Cloudflare Workers), and `bun`.
 
-## Can I filter packages by scope in the search?
+## Can I Filter Packages by Scope in the Search?
 
 Yes! You can specify `scope:` in the search query to filter packages by scope.
 To only return packages in the `std` scope, you can use the query `scope:std`.
 
-## Is "JSR" an initialism for "JavaScript Registry"?
+## Is "JSR" an Initialism for "JavaScript Registry"?
 
 Yes.

@@ -15,7 +15,7 @@ modules to JSR with minimal changes. In this guide, we'll describe changes in
 using HTTPS imports from Deno, comment on future support plans for deno.land/x,
 and describe the process for migration.
 
-## HTTPS modules supported in Deno; _NOT_ in JSR packages
+## HTTPS Modules Supported in Deno; _NOT_ in JSR Packages
 
 [HTTPS imports](https://docs.deno.com/runtime/manual/basics/modules) will
 continue to be supported in Deno. Any code that uses modules hosted on
@@ -26,19 +26,19 @@ performs deduplication of dependencies based on semantic versions, which is not
 possible with HTTPS-imported dependencies. If you attempt to publish code that
 contains HTTPS imports to JSR, you will receive an error.
 
-## Future support for deno.land/x
+## Future Support for deno.land/x
 
 **There are no plans to discontinue or shut down deno.land/x**. Module authors
 can continue to publish and update modules there, and Deno code using it will
 continue to function.
 
-## Migrating a package from /x to JSR
+## Migrating a Package from /x to JSR
 
 If you have already published a package on deno.land/x, there is a good chance
 it can be migrated to JSR with minimal hassle. Here are the high level steps to
 migrate.
 
-### Try using the /x to JSR migration tool
+### Try Using the /x to JSR Migration Tool
 
 In an attempt to help speed up the migration of existing /x packages to JSR, the
 Deno team has created [a utility](https://github.com/denoland/x-to-jsr) to
@@ -63,12 +63,12 @@ completed the tasks described by the migration tool,
 [follow these instructions](/docs/publishing-packages) to publish your package
 to JSR!
 
-### Manually refactor your package
+### Manually Refactor Your Package
 
 If you would rather migrate your project by hand, here are the high-level steps
 often required to do so.
 
-#### 1.) Refactor away from HTTPS imports
+#### 1.) Refactor Away from HTTPS Imports
 
 Your code may be using HTTPS imports for dependencies on deno.land/x or
 deno.land/std. You will need to change how you load these dependencies before
@@ -103,7 +103,7 @@ by adding `"vendor": true` to your `deno.json(c)` file. This will download local
 versions of your HTTPS dependencies to a `vendor` directory when the project is
 ran.
 
-#### 2.) Ensure your library does not contain slow types
+#### 2.) Ensure Your Library Does Not Contain Slow Types
 
 In your main package directory, run the following command:
 

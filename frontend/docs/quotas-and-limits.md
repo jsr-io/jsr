@@ -15,7 +15,7 @@ Don't see quotas as limits. If you need more than the default quota, please
 reach out to us and we'll be happy to increase it. Quotas are in place to
 prevent abuse, not to prevent you from using JSR to its fullest.
 
-## Quotas per account
+## Quotas per Account
 
 You can find the current usage of these quotas in your
 [account settings page](/account/settings).
@@ -25,9 +25,9 @@ at a time. The default quota is 3. This quota exists to prevent name squatting
 of scopes. This only applies to scopes that you own, not scopes that someone
 else owns that you are a member / admin of.
 
-These quotas can be increased by [contacting jsr support](mailto:quotas@jsr.io).
+These quotas can be increased by [contacting JSR support](mailto:quotas@jsr.io).
 
-## Quotas per scope
+## Quotas per Scope
 
 You can find the current usage of these quotas in the "Settings" tab of your
 scope.
@@ -45,12 +45,12 @@ you can attempt to publish with `jsr publish` / `deno publish` in a scope in a 7
 day rolling window. The default rate limit is 1000. This rate limit exists to
 prevent abuse.
 
-These quotas can be increased by [contacting jsr support](mailto:quotas@jsr.io).
+These quotas can be increased by [contacting JSR support](mailto:quotas@jsr.io).
 
-## Other limits
+## Other Limits
 
 - The gzipped tarball of an uploaded package must be less than 20MB.
 - The sum of all files in a given package version must be less than 20MB.
 - No individual file in a package can be larger than 20MB.
 
-These quotas can be increased by [contacting jsr support](mailto:quotas@jsr.io).
+These quotas can be increased by [contacting JSR support](mailto:quotas@jsr.io).
