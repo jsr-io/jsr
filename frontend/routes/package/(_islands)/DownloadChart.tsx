@@ -93,12 +93,15 @@ const getChartOptions = (
 });
 
 export function DownloadChart(props: Props) {
+  const hasData = props.downloads.some((v) => v.downloads.length > 0);
+
   const chartDivRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ApexCharts>(null);
   const stackedRef = useRef(true);
   const graphRendered = useSignal(false);
 
   useEffect(() => {
+    if (!hasData) return;
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
       const isDarkMode = document.documentElement.classList.contains("dark");
@@ -137,6 +140,14 @@ export function DownloadChart(props: Props) {
       };
     })();
   }, []);
+
+  if (!hasData) {
+    return (
+      <div class="h-[300px] flex items-center justify-center text-tertiary">
+        No download data available yet.
+      </div>
+    );
+  }
 
   return (
     <div class="relative">
