@@ -9,7 +9,7 @@ ALTER TABLE scopes ADD CONSTRAINT scopes_creator_fkey
 -- scope_members: remove memberships when user is deleted
 ALTER TABLE scope_members DROP CONSTRAINT IF EXISTS scope_members_user_id_fkey;
 ALTER TABLE scope_members DROP CONSTRAINT IF EXISTS scope_members_user_id2_fkey;
-ALTER TABLE scope_members ADD CONSTRAINT scope_members_user_id2_fkey
+ALTER TABLE scope_members ADD CONSTRAINT scope_members_user_id_fkey
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 -- scope_invites: remove invites when user is deleted

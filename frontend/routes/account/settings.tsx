@@ -33,7 +33,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
                 <QuotaCard
                   title="Created scopes"
                   description="The total number of scopes you have created."
-                  limit={data.user.scopeLimit}
+                  limit={data.user.scopeLimit ?? Infinity}
                   usage={data.user.scopeUsage}
                 />
               </div>

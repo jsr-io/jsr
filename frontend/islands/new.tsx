@@ -80,7 +80,7 @@ export function ScopeSelect(
   }
 
   if (explicitCreateScope.value) {
-    const scopesLeft = scopeLimit.value - scopeUsage.value;
+    const scopesLeft = (scopeLimit.value ?? Infinity) - scopeUsage.value;
 
     return (
       <>

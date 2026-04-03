@@ -67,7 +67,8 @@ export function DeleteAccount(
           open.value ? "opacity-100" : "opacity-0 pointer-events-none"
         } transition`}
         aria-labelledby={`${prefix}-delete-modal`}
-        role="region"
+        role="dialog"
+        aria-modal="true"
         style="--tw-shadow-color: rgba(156,163,175,0.2);"
       >
         <div
