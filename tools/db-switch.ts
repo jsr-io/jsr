@@ -344,8 +344,8 @@ function showHelp(): void {
 Usage: deno task db:switch [command] [options]
 
 Commands:
-  copy      - Copy main database for current branch (creates if needed)
-  empty     - Create an empty database for current branch
+  switch    - Switch to a branch database copied from main (creates if needed)
+  empty     - Switch to an empty branch database (creates if needed)
   main      - Switch back to main database
   current   - Show current database
   list      - List branch databases
@@ -363,7 +363,7 @@ if (import.meta.main) {
 
   try {
     switch (command) {
-      case "copy":
+      case "switch":
         await copyFromMain(method);
         break;
       case "empty":

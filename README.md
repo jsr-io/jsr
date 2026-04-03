@@ -240,8 +240,8 @@ The `db:switch` tool lets you work on multiple branches without clobbering your
 main development database. Each branch gets its own PostgreSQL database.
 
 ```sh
-deno task db:switch copy      # copy main db for current branch
-deno task db:switch empty     # create an empty db for current branch
+deno task db:switch switch     # switch to branch db copied from main
+deno task db:switch empty      # switch to an empty branch db
 deno task db:switch main      # switch back to the main database
 deno task db:switch current   # show which database is active
 deno task db:switch list      # list all branch databases
