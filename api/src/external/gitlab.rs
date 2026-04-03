@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 // Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
-use crate::util::USER_AGENT;
+use crate::util::shared_http_client;
 use hyper::StatusCode;
 use serde::Deserialize;
 use tracing::instrument;
@@ -19,9 +19,7 @@ impl GitLabUserClient {
     &self,
     path: &str,
   ) -> Result<reqwest::Response, anyhow::Error> {
-    let response = reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .build()?
+    let response = shared_http_client()
       .get(format!("https://gitlab.com/api/v4{}", path))
       .bearer_auth(&self.access_token)
       .send()

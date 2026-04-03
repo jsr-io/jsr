@@ -29,9 +29,24 @@ resource "google_cloud_scheduler_job" "clean_oauth_states" {
   }
 }
 
+resource "google_cloud_scheduler_job" "clean_download_counts_4h" {
+  name        = "clean-download-counts-4h"
+  description = "Delete version_download_counts_4h rows older than 7 days."
+  schedule    = "0 3 * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/clean_download_counts_4h"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
-  description = "Scrape download counts from BigQuery & Analytics Engine and insert them into Postgres."
+  description = "Scrape download counts from Analytics Engine and insert them into Postgres."
   schedule    = "15 * * * *"
   region      = "us-central1"
 

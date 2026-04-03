@@ -1,7 +1,7 @@
 {
   "tasks": {
     "dev": "deno run -A ./tools/dev.ts",
-    "prod:frontend": "deno run -A --watch ./tools/prod_proxy.ts & cd frontend && API_ROOT=https://api.jsr.io deno task dev",
+    "prod:frontend": "deno run -A --watch ./tools/prod_proxy.ts & cd frontend && PROD_PROXY=1 API_ROOT=https://api.jsr.io deno task dev",
 
     "db:prepare": "cd api && cargo sqlx prepare -- --all-targets",
     "db:migrate": "cd api && sqlx migrate run",

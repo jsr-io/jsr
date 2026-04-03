@@ -1,6 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use bytes::Bytes;
-use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
 use deno_semver::StackString;
@@ -17,7 +16,6 @@ use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 use std::collections::HashSet;
 use std::str::FromStr;
 use tracing::Span;
@@ -30,24 +28,24 @@ use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
 use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
-use crate::buckets::Buckets;
 use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
 use crate::external::cloudflare;
 use crate::gcp;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcp::GcsUploadOptions;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
 use crate::publish;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
+use crate::s3_paths;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::decode_json;
@@ -58,9 +56,6 @@ pub struct AnalyticsEngineConfig(
     cloudflare::AnalyticsEngineClient,
     /* dataset name */ String,
   )>,
-);
-pub struct LogsBigQueryTable(
-  pub Option<(gcp::BigQuery, /* logs table id */ String)>,
 );
 
 pub fn tasks_router() -> Router<Body, ApiError> {
@@ -78,6 +73,10 @@ pub fn tasks_router() -> Router<Body, ApiError> {
     .post(
       "/clean_oauth_states",
       util::json(clean_oauth_states_handler),
+    )
+    .post(
+      "/clean_download_counts_4h",
+      util::json(clean_download_counts_4h_handler),
     )
     .build()
     .unwrap()
@@ -175,7 +174,7 @@ pub async fn npm_tarball_build_handler(
       sha512: &npm_tarball.sha512,
     };
 
-    let npm_tarball_path = gcs_paths::npm_tarball_path(
+    let npm_tarball_path = s3_paths::npm_tarball_path(
       &job.scope,
       &job.name,
       &job.version,
@@ -186,7 +185,7 @@ pub async fn npm_tarball_build_handler(
       .upload(
         npm_tarball_path.into(),
         UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
-        GcsUploadOptions {
+        S3UploadOptions {
           content_type: Some("application/octet-stream".into()),
           cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
           gzip_encoded: false,
@@ -198,7 +197,7 @@ pub async fn npm_tarball_build_handler(
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&job.scope, &job.name);
+    crate::s3_paths::npm_version_manifest_path(&job.scope, &job.name);
   let npm_version_manifest =
     generate_npm_version_manifest(&db, &npm_url, &job.scope, &job.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -207,7 +206,7 @@ pub async fn npm_tarball_build_handler(
     .upload(
       npm_version_manifest_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
         gzip_encoded: false,
@@ -255,9 +254,8 @@ pub async fn scrape_download_counts_handler(
   req: Request<Body>,
 ) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
-  let bigquery = req.data::<LogsBigQueryTable>().unwrap();
 
-  let time_window = req
+  let time_window: i64 = req
     .query("intervalHrs")
     .ok_or_else(|| ApiError::MalformedRequest {
       msg: "intervalHrs query param is required".into(),
@@ -266,145 +264,6 @@ pub async fn scrape_download_counts_handler(
     .map_err(|_| ApiError::MalformedRequest {
       msg: "intervalHrs query param must be an integer".into(),
     })?;
-
-  if let Some((bigquery, logs_table_id)) = bigquery.0.as_ref() {
-    let current_timestamp = chrono::Utc::now();
-    let start_timestamp =
-      current_timestamp - chrono::Duration::hours(time_window);
-
-    fn bigquery_timestamp_serialization(timestamp: DateTime<Utc>) -> String {
-      timestamp.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
-    }
-
-    let params = vec![
-      json!({
-        "name": "start_timestamp",
-        "parameterType": {
-          "type": "TIMESTAMP"
-        },
-        "parameterValue": {
-          "value": bigquery_timestamp_serialization(start_timestamp)
-        }
-      }),
-      json!({
-        "name": "end_timestamp",
-        "parameterType": {
-          "type": "TIMESTAMP"
-        },
-        "parameterValue": {
-          "value": bigquery_timestamp_serialization(current_timestamp)
-        }
-      }),
-    ];
-
-    let registry_root = req.data::<RegistryUrl>().unwrap().0.to_string();
-    let jsr_meta_query = format!(
-      r#"
-SELECT
-  t1.time_bucket,
-  t1.scope,
-  t1.package,
-  t1.version,
-  COUNT(*) AS count
-FROM (
-  SELECT
-    TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@([^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') AS scope,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
-  FROM
-    `{logs_table_id}` AS t2
-  WHERE
-    t2.timestamp BETWEEN @start_timestamp
-    AND @end_timestamp
-    AND t2.log_id = "requests"
-    AND REGEXP_CONTAINS(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') ) AS t1
-GROUP BY
-  1,
-  2,
-  3,
-  4
-ORDER BY
-  time_bucket,
-  scope,
-  package,
-  version"#
-    );
-    let jsr_meta_res = bigquery.query(&jsr_meta_query, &params).await?;
-    if !jsr_meta_res.job_complete {
-      error!(
-        "BigQuery job did not complete, errors: {:?}",
-        jsr_meta_res.errors
-      );
-      return Err(ApiError::InternalServerError);
-    }
-    let mut jsr_meta_rows = jsr_meta_res.rows;
-    let mut page_token = jsr_meta_res.page_token;
-    while let Some(token) = page_token {
-      let res = bigquery
-        .get_query_results(&jsr_meta_res.job_reference.job_id, &token)
-        .await?;
-      jsr_meta_rows.extend(res.rows);
-      page_token = res.page_token;
-    }
-
-    insert_bigquery_download_entries(&db, jsr_meta_rows, DownloadKind::JsrMeta)
-      .await?;
-
-    let npm_root = req.data::<NpmUrl>().unwrap().0.to_string();
-    let npm_tgz_query = format!(
-      r#"
-SELECT
-  t1.time_bucket,
-  t1.scope,
-  t1.package,
-  t1.version,
-  COUNT(*) AS count
-FROM (
-  SELECT
-    TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/([^/]*?)__(?:[^/]*?)/(?:[^/]*?)\\.tgz') AS scope,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__([^/]*?)/(?:[^/]*?)\\.tgz') AS package,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__(?:[^/]*?)/([^/]*?)\\.tgz') AS version
-  FROM
-    `{logs_table_id}` AS t2
-  WHERE
-    t2.timestamp BETWEEN @start_timestamp
-    AND @end_timestamp
-    AND t2.log_id = "requests"
-    AND REGEXP_CONTAINS(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__(?:[^/]*?)/(?:[^/]*?)\\.tgz') ) AS t1
-GROUP BY
-  1,
-  2,
-  3,
-  4
-ORDER BY
-  time_bucket,
-  scope,
-  package,
-  version"#
-    );
-    let npm_tgz_res = bigquery.query(&npm_tgz_query, &params).await?;
-    if !npm_tgz_res.job_complete {
-      error!(
-        "BigQuery job did not complete, errors: {:?}",
-        npm_tgz_res.errors
-      );
-      return Err(ApiError::InternalServerError);
-    }
-    let mut npm_tgz_rows = npm_tgz_res.rows;
-    let mut page_token = npm_tgz_res.page_token;
-    while let Some(token) = page_token {
-      let res = bigquery
-        .get_query_results(&npm_tgz_res.job_reference.job_id, &token)
-        .await?;
-      npm_tgz_rows.extend(res.rows);
-      page_token = res.page_token;
-    }
-
-    insert_bigquery_download_entries(&db, npm_tgz_rows, DownloadKind::NpmTgz)
-      .await?;
-  }
 
   let analytics_engine = req.data::<AnalyticsEngineConfig>().unwrap();
   if let Some((analytics_client, dataset_name)) = analytics_engine.0.as_ref() {
@@ -489,6 +348,17 @@ pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
   Ok(())
 }
 
+#[instrument(name = "POST /tasks/clean_download_counts_4h", skip(req), err)]
+pub async fn clean_download_counts_4h_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::days(7);
+  let deleted = db.cleanup_download_counts_4h(cutoff).await?;
+  tracing::info!(deleted, "cleaned up old 4h download counts");
+  Ok(())
+}
+
 async fn insert_analytics_download_entries(
   db: &Database,
   records: Vec<cloudflare::DownloadRecord>,
@@ -532,310 +402,4 @@ fn deserialize_version_download_count_from_analytics(
     kind,
     count: i64::from_str(&record.count).unwrap(),
   })
-}
-
-async fn insert_bigquery_download_entries(
-  db: &Database,
-  rows: Vec<serde_json::Value>,
-  kind: DownloadKind,
-) -> Result<(), ApiError> {
-  let mut entries = Vec::with_capacity(rows.len());
-  for row in rows {
-    if let Some(entry) = deserialize_version_download_count_from_bigquery(
-      &row, kind,
-    )
-    .ok_or_else(|| {
-      error!("Failed to deserialize row: {:?}", row);
-      ApiError::InternalServerError
-    })? {
-      entries.push(entry);
-    }
-  }
-
-  db.insert_download_entries(entries).await?;
-
-  Ok(())
-}
-
-// Outer option: failed to deserialize because bigquery was invalid
-// Inner option: failed to deserialize because scope / package / version was not formatted correctly
-fn deserialize_version_download_count_from_bigquery(
-  row: &serde_json::Value,
-  kind: DownloadKind,
-) -> Option<Option<VersionDownloadCount>> {
-  let f = row.get("f")?;
-  let time_bucket_micros: i64 = f.get(0)?.get("v")?.as_str()?.parse().ok()?;
-  let time_bucket = DateTime::from_timestamp_micros(time_bucket_micros)?;
-  let Ok(scope) = ScopeName::new(f.get(1)?.get("v")?.as_str()?.to_owned())
-  else {
-    return Some(None);
-  };
-  let Ok(package) = PackageName::new(f.get(2)?.get("v")?.as_str()?.to_owned())
-  else {
-    return Some(None);
-  };
-  let Ok(version) = Version::new(f.get(3)?.get("v")?.as_str()?) else {
-    return Some(None);
-  };
-  let count = f.get(4)?.get("v")?.as_str()?.parse().ok()?;
-  Some(Some(VersionDownloadCount {
-    time_bucket,
-    scope,
-    package,
-    version,
-    kind,
-    count,
-  }))
-}
-
-#[cfg(test)]
-mod tests {
-  use chrono::DateTime;
-  use chrono::Utc;
-  use serde_json::json;
-  use uuid::Uuid;
-
-  use crate::db::DownloadKind;
-  use crate::db::EphemeralDatabase;
-  use crate::db::ExportsMap;
-  use crate::db::NewPackageVersion;
-  use crate::db::PackageVersionMeta;
-  use crate::gcp::BigQueryQueryResult;
-  use crate::ids::{PackageName, ScopeDescription, ScopeName, Version};
-
-  use super::deserialize_version_download_count_from_bigquery;
-
-  #[test]
-  fn test_deserialize_version_download_count_from_bigquery() {
-    let value = json!({
-      "f": [
-        {
-          "v": "1721131200000000"
-        },
-        {
-          "v": "luca"
-        },
-        {
-          "v": "flag"
-        },
-        {
-          "v": "1.0.0"
-        },
-        {
-          "v": "154"
-        }
-      ]
-    });
-    let res = deserialize_version_download_count_from_bigquery(
-      &value,
-      DownloadKind::JsrMeta,
-    );
-    let data = res.unwrap().unwrap();
-    assert_eq!(data.time_bucket.timestamp_micros(), 1721131200000000);
-    assert_eq!(data.scope.as_str(), "luca");
-    assert_eq!(data.package.as_str(), "flag");
-    assert_eq!(data.version.to_string(), "1.0.0");
-    assert_eq!(data.count, 154);
-  }
-
-  #[test]
-  fn test_deserialize_malformed_version_download_count_from_bigquery() {
-    let value = json!({
-      "f": [
-        {
-          "v": "1721131200000000"
-        },
-        {
-          "v": "luca"
-        },
-        {
-          "v": "flag"
-        },
-        {
-          "v": "  1.0.0"
-        },
-        {
-          "v": "154"
-        }
-      ]
-    });
-    let res = deserialize_version_download_count_from_bigquery(
-      &value,
-      DownloadKind::JsrMeta,
-    );
-    let data = res.unwrap();
-    assert!(data.is_none());
-  }
-
-  #[tokio::test]
-  async fn test_insert_bigquery_download_entries() {
-    let db = EphemeralDatabase::create().await;
-
-    let res: BigQueryQueryResult = serde_json::from_str(include_str!(
-      "../testdata/bigquery_query_results.json"
-    ))
-    .unwrap();
-
-    let std = ScopeName::new("std".to_owned()).unwrap();
-    let fs = PackageName::new("fs".to_owned()).unwrap();
-    let luca = ScopeName::new("luca".to_owned()).unwrap();
-    let flag = PackageName::new("flag".to_owned()).unwrap();
-    let v0_215_0 = Version::new("0.215.0").unwrap();
-    let v0_219_3 = Version::new("0.219.3").unwrap();
-    let v1_0_0 = Version::new("1.0.0").unwrap();
-
-    db.create_scope(
-      &Uuid::nil(),
-      false,
-      &std,
-      Uuid::nil(),
-      &ScopeDescription::default(),
-    )
-    .await
-    .unwrap();
-    db.create_scope(
-      &Uuid::nil(),
-      false,
-      &luca,
-      Uuid::nil(),
-      &ScopeDescription::default(),
-    )
-    .await
-    .unwrap();
-    db.create_package(&std, &fs).await.unwrap();
-    db.create_package(&luca, &flag).await.unwrap();
-    db.create_package_version_for_test(NewPackageVersion {
-      scope: &std,
-      name: &fs,
-      version: &v0_215_0,
-      exports: &ExportsMap::mock(),
-      user_id: None,
-      readme_path: None,
-      uses_npm: false,
-      meta: PackageVersionMeta::default(),
-      license: "MIT".to_string(),
-    })
-    .await
-    .unwrap();
-    db.create_package_version_for_test(NewPackageVersion {
-      scope: &luca,
-      name: &flag,
-      version: &v1_0_0,
-      exports: &ExportsMap::mock(),
-      user_id: None,
-      readme_path: None,
-      uses_npm: false,
-      meta: PackageVersionMeta::default(),
-      license: "MIT".to_string(),
-    })
-    .await
-    .unwrap();
-
-    let rows = res.rows;
-    super::insert_bigquery_download_entries(&db, rows, DownloadKind::JsrMeta)
-      .await
-      .unwrap();
-
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &std,
-        &fs,
-        &v0_215_0,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 1, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].count, 13);
-
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &luca,
-        &flag,
-        &v1_0_0,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 2, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].count, 196);
-    assert_eq!(
-      downloads[1].time_bucket,
-      "2024-07-16T16:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[1].count, 42);
-
-    // non existant version
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &std,
-        &fs,
-        &v0_219_3,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 0, "{:?}", downloads);
-
-    // time window with no data
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &std,
-        &fs,
-        &v0_215_0,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-06-30T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 0, "{:?}", downloads);
-
-    // 24 hour window
-    let downloads = db
-      .get_package_versions_downloads_24h(
-        &std,
-        &fs,
-        std::slice::from_ref(&v0_215_0),
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 1, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].version, v0_215_0);
-    assert_eq!(downloads[0].count, 13);
-
-    let downloads = db
-      .get_package_versions_downloads_24h(
-        &luca,
-        &flag,
-        std::slice::from_ref(&v1_0_0),
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 1, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].version, v1_0_0);
-    assert_eq!(downloads[0].count, 238);
-  }
 }

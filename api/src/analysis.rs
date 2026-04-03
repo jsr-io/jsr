@@ -13,7 +13,7 @@ use deno_ast::SourceRange;
 use deno_ast::SourceRangedForSpanned;
 use deno_ast::swc::common::Span;
 use deno_ast::swc::common::comments::CommentKind;
-use deno_doc::DocNodeDef;
+use deno_doc::ParseOutput;
 use deno_error::JsErrorBox;
 use deno_graph::BuildFastCheckTypeGraphOptions;
 use deno_graph::BuildOptions;
@@ -46,8 +46,6 @@ use url::Url;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::db::PackageVersionMeta;
-use crate::docs::DocNodesByUrl;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::ScopeName;
@@ -57,6 +55,7 @@ use crate::npm::NpmTarballFiles;
 use crate::npm::NpmTarballOptions;
 use crate::npm::create_npm_tarball;
 use crate::s3::BucketWithQueue;
+use crate::s3_paths;
 use crate::tarball::PublishError;
 
 pub struct PackageAnalysisData {
@@ -67,7 +66,7 @@ pub struct PackageAnalysisData {
 pub struct PackageAnalysisOutput {
   pub data: PackageAnalysisData,
   pub module_graph_2: HashMap<String, ModuleInfo>,
-  pub doc_nodes_json: Bytes,
+  pub doc_nodes_bytes: Bytes,
   pub doc_search_json: serde_json::Value,
   pub dependencies: HashSet<(DependencyKind, PackageReqReference)>,
   pub npm_tarball: NpmTarball,
@@ -248,7 +247,7 @@ async fn analyze_package_inner(
     )
   };
 
-  let doc_nodes_json = serde_json::to_vec(&doc_nodes).unwrap().into();
+  let doc_nodes_bytes = crate::docs::serialize_doc_nodes(&doc_nodes);
 
   let info = crate::docs::get_docs_info(&exports, None);
 
@@ -284,7 +283,7 @@ async fn analyze_package_inner(
   Ok(PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes_json,
+    doc_nodes_bytes,
     doc_search_json,
     dependencies,
     npm_tarball,
@@ -298,19 +297,13 @@ static INDENTED_CODE_BLOCK_RE: Lazy<BytesRegex> =
 
 fn generate_score(
   main_entrypoint: Option<ModuleSpecifier>,
-  doc_nodes_by_url: &DocNodesByUrl,
+  documents_by_url: &ParseOutput,
   readme: &Option<(&PackagePath, &Vec<u8>)>,
   all_fast_check: bool,
 ) -> PackageVersionMeta {
-  let main_entrypoint_doc =
-    main_entrypoint.as_ref().and_then(|main_entrypoint| {
-      doc_nodes_by_url
-        .get(main_entrypoint)
-        .unwrap()
-        .iter()
-        .find(|node| matches!(node.def, DocNodeDef::ModuleDoc))
-        .map(|node| &node.js_doc)
-    });
+  let main_entrypoint_doc = main_entrypoint.as_ref().map(|main_entrypoint| {
+    &documents_by_url.get(main_entrypoint).unwrap().module_doc
+  });
 
   let has_readme_examples = readme.is_some_and(|(_, readme)| {
     readme
@@ -334,12 +327,12 @@ fn generate_score(
         .is_some_and(|doc| doc.doc.as_ref().is_some_and(|doc| !doc.is_empty())),
     has_readme_examples,
     all_entrypoints_docs: all_entrypoints_have_module_doc(
-      doc_nodes_by_url,
+      documents_by_url,
       main_entrypoint,
       readme.is_some(),
     ),
     percentage_documented_symbols: percentage_of_symbols_with_docs(
-      doc_nodes_by_url,
+      documents_by_url,
     ),
     all_fast_check,
     has_provenance: false, // Provenance score is updated after version publish
@@ -347,19 +340,17 @@ fn generate_score(
 }
 
 fn all_entrypoints_have_module_doc(
-  doc_nodes_by_url: &DocNodesByUrl,
+  documents_by_url: &ParseOutput,
   main_entrypoint: Option<ModuleSpecifier>,
   has_readme: bool,
 ) -> bool {
-  'modules: for (specifier, nodes) in doc_nodes_by_url {
+  'modules: for (specifier, document) in documents_by_url {
     // Skip WASM modules as their docs are auto-generated from binary
     if specifier.path().ends_with(".wasm") {
       continue;
     }
-    for node in nodes {
-      if matches!(node.def, DocNodeDef::ModuleDoc) {
-        continue 'modules;
-      }
+    if !document.module_doc.is_empty() {
+      continue 'modules;
     }
 
     if main_entrypoint
@@ -376,27 +367,25 @@ fn all_entrypoints_have_module_doc(
   true
 }
 
-fn percentage_of_symbols_with_docs(doc_nodes_by_url: &DocNodesByUrl) -> f32 {
+fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
   let mut total_symbols = 0;
   let mut documented_symbols = 0;
 
-  for (specifier, nodes) in doc_nodes_by_url {
+  for (specifier, document) in documents_by_url {
     // Skip WASM modules as their docs are auto-generated from binary
     if specifier.path().ends_with(".wasm") {
       continue;
     }
 
-    for node in nodes {
-      if matches!(node.def, DocNodeDef::ModuleDoc | DocNodeDef::Import { .. })
-        || node.declaration_kind == deno_doc::node::DeclarationKind::Private
-      {
-        continue;
-      }
+    for symbol in &document.symbols {
+      for decl in &symbol.declarations {
+        if decl.declaration_kind != deno_doc::node::DeclarationKind::Private {
+          total_symbols += 1;
 
-      total_symbols += 1;
-
-      if !node.js_doc.is_empty() {
-        documented_symbols += 1;
+          if !decl.js_doc.is_empty() {
+            documented_symbols += 1;
+          }
+        }
       }
     }
   }
@@ -585,7 +574,7 @@ async fn rebuild_npm_tarball_inner(
     .build(
       roots.clone(),
       vec![],
-      &GcsLoader {
+      &S3Loader {
         files: &files,
         bucket: &modules_bucket,
         scope: &scope,
@@ -644,7 +633,7 @@ async fn rebuild_npm_tarball_inner(
   Ok(npm_tarball)
 }
 
-struct GcsLoader<'a> {
+struct S3Loader<'a> {
   files: &'a HashSet<PackagePath>,
   bucket: &'a BucketWithQueue,
   scope: &'a ScopeName,
@@ -652,7 +641,7 @@ struct GcsLoader<'a> {
   version: &'a Version,
 }
 
-impl GcsLoader<'_> {
+impl S3Loader<'_> {
   fn load_inner(
     &self,
     specifier: &ModuleSpecifier,
@@ -666,12 +655,12 @@ impl GcsLoader<'_> {
         if !self.files.contains(&path) {
           return async move { Ok(None) }.boxed();
         };
-        let gcs_path =
-          gcs_paths::file_path(self.scope, self.name, self.version, &path);
+        let s3_path =
+          s3_paths::file_path(self.scope, self.name, self.version, &path);
         let bucket = self.bucket.clone();
         async move {
           let Some(bytes) = bucket
-            .download(gcs_path.into())
+            .download(s3_path.into())
             .await
             .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
           else {
@@ -702,7 +691,7 @@ impl GcsLoader<'_> {
   }
 }
 
-impl deno_graph::source::Loader for GcsLoader<'_> {
+impl deno_graph::source::Loader for S3Loader<'_> {
   fn load(
     &self,
     specifier: &ModuleSpecifier,

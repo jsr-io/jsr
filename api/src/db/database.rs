@@ -1807,6 +1807,86 @@ gitlab_id: r.user_gitlab_id,
     .await
   }
 
+  #[allow(clippy::type_complexity)]
+  #[instrument(
+    name = "Database::list_package_versions_paginated",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_paginated(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    start: i64,
+    limit: i64,
+  ) -> Result<(usize, Vec<(PackageVersion, Option<UserPublic>)>)> {
+    let mut tx = self.pool.begin().await?;
+
+    let versions = query_concat!(
+      "SELECT ", PACKAGE_VERSION_SELECT_JOINED, ",
+      ", USER_PUBLIC_SELECT_JOINED, "
+      FROM package_versions
+      LEFT JOIN users ON package_versions.user_id = users.id
+      WHERE package_versions.scope = $1 AND package_versions.name = $2
+      ORDER BY package_versions.version DESC
+      OFFSET $3 LIMIT $4";
+      scope as _,
+      name as _,
+      start,
+      limit,
+    )
+    .map(|r| {
+      let package_version = PackageVersion {
+        scope: r.package_version_scope,
+        name: r.package_version_name,
+        version: r.package_version_version,
+        user_id: r.package_version_user_id,
+        exports: r.package_version_exports,
+        is_yanked: r.package_version_is_yanked,
+        readme_path: r.package_version_readme_path,
+        uses_npm: r.package_version_uses_npm,
+        meta: r.package_version_meta,
+        updated_at: r.package_version_updated_at,
+        created_at: r.package_version_created_at,
+        rekor_log_id: r.package_version_rekor_log_id,
+        license: r.package_version_license,
+      };
+
+      let user = if r.package_version_user_id.is_some() {
+        let user = UserPublic {
+          id: r.user_id.unwrap(),
+          name: r.user_name.unwrap(),
+          avatar_url: r.user_avatar_url.unwrap(),
+          github_id: r.user_github_id,
+          gitlab_id: r.user_gitlab_id,
+          updated_at: r.user_updated_at.unwrap(),
+          created_at: r.user_created_at.unwrap(),
+        };
+
+        Some(user)
+      } else {
+        None
+      };
+
+      (package_version, user)
+    })
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let total = sqlx::query!(
+      r#"SELECT COUNT(*) FROM package_versions WHERE scope = $1 AND name = $2"#,
+      scope as _,
+      name as _,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((total as usize, versions))
+  }
+
   #[instrument(
     name = "Database::list_package_versions_for_resolution",
     skip(self),
@@ -3299,6 +3379,20 @@ gitlab_id: r.user_gitlab_id,
     Ok(result.rows_affected())
   }
 
+  #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
+  pub async fn cleanup_download_counts_4h(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM version_download_counts_4h WHERE time_bucket < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
   #[instrument(name = "Database::insert_oauth_state", skip(
     self,
     new_oauth_state
@@ -3948,38 +4042,6 @@ gitlab_id: r.user_gitlab_id,
     tx.commit().await?;
 
     Ok(())
-  }
-
-  #[cfg(test)]
-  #[instrument(
-    name = "Database::get_package_version_downloads_4h",
-    skip(self),
-    err
-  )]
-  pub async fn get_package_version_downloads_4h(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-    start: DateTime<Utc>,
-    end: DateTime<Utc>,
-  ) -> Result<Vec<DownloadDataPoint>> {
-    sqlx::query_as!(
-      DownloadDataPoint,
-      r#"
-      SELECT time_bucket, kind as "kind: DownloadKind", count
-      FROM version_download_counts_4h
-      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
-      ORDER BY time_bucket ASC
-      "#,
-      scope as _,
-      name as _,
-      version as _,
-      start,
-      end,
-    )
-      .fetch_all(&self.pool)
-      .await
   }
 
   #[instrument(

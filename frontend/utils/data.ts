@@ -3,6 +3,7 @@ import { Docs, Source, State } from "../util.ts";
 import { APIResponse, assertOk, path } from "./api.ts";
 import {
   FullScope,
+  List,
   Package,
   type PackageDownloads,
   PackageVersionDocs,
@@ -198,8 +199,9 @@ export async function packageDataWithDiff(
         },
       )
       : Promise.resolve(null),
-    state.api.get<PackageVersionWithUser[]>(
+    state.api.get<List<PackageVersionWithUser>>(
       path`/scopes/${scope}/packages/${pkg}/versions`,
+      { limit: 100 },
     ),
   ]);
   if (data === null) return null;
@@ -235,7 +237,7 @@ export async function packageDataWithDiff(
       ...data,
       kind: "content",
       selectedVersion: null,
-      versions: versionsResp.data,
+      versions: versionsResp.data.items,
       docs: null,
     };
   } else if (pkgDiffResp.data.kind == "redirect") {
@@ -245,7 +247,7 @@ export async function packageDataWithDiff(
       ...data,
       kind: "content",
       selectedVersion: pkgDiffResp.data.version,
-      versions: versionsResp.data,
+      versions: versionsResp.data.items,
       docs: {
         comrakCss: pkgDiffResp.data.comrakCss,
         script: pkgDiffResp.data.script,

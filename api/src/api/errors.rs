@@ -5,7 +5,6 @@ use std::borrow::Cow;
 
 use super::ApiPublishingTask;
 use crate::errors;
-use crate::gcp::GcsError;
 use crate::s3::S3Error;
 
 errors!(
@@ -404,8 +403,8 @@ impl
   }
 }
 
-impl From<GcsError> for ApiError {
-  fn from(error: GcsError) -> ApiError {
+impl From<crate::docs::DocNodeCacheError> for ApiError {
+  fn from(error: crate::docs::DocNodeCacheError) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }
