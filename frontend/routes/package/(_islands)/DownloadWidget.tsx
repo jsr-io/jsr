@@ -157,12 +157,12 @@ export function DownloadWidget(props: Props) {
                   ).toISOString()
                     .split("T")[0]
                 }`
-                : "Weekly downloads"}
+                : "Weekly downloads (last week)"}
             </div>
             <div>
               {hoveredDataPoint.value
                 ? hoveredDataPoint.value.data.toLocaleString()
-                : data.at(-1)![1].toLocaleString()}
+                : (data.at(-2) ?? data.at(-1))![1].toLocaleString()}
             </div>
           </>
         )}

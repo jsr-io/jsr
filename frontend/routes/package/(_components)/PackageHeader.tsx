@@ -42,7 +42,11 @@ export function PackageHeader({
   if (downloads && downloads.total.length > 1) {
     const xValues = collectX(downloads.total, "weekly");
     const data = normalize(downloads.total, xValues, "weekly");
-    weeklyDownloads = data.length > 0 ? data[data.length - 1][1] : null;
+    weeklyDownloads = data.length > 1
+      ? data[data.length - 2][1]
+      : data.length > 0
+      ? data[data.length - 1][1]
+      : null;
   }
 
   return (
