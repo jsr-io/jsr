@@ -62,6 +62,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let webhook_dispatch_queue =
     req.data::<WebhookDispatchQueue>().unwrap().clone();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap().clone();
 
   publish_task(
     publishing_task_id,
@@ -71,6 +72,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     npm_url,
     db,
     webhook_dispatch_queue,
+    enc_key,
     orama_client,
   )
   .await?;
@@ -87,6 +89,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     license_store,
     registry_url,
     webhook_dispatch_queue,
+    enc_key,
     orama_client
   ),
   err
@@ -99,6 +102,7 @@ pub async fn publish_task(
   npm_url: Url,
   db: Database,
   webhook_dispatch_queue: WebhookDispatchQueue,
+  enc_key: crate::util::WebhookSecretEncryptionKey,
   orama_client: Option<OramaClient>,
 ) -> Result<(), ApiError> {
   let (mut publishing_task, _) = db
@@ -162,6 +166,7 @@ pub async fn publish_task(
           &webhook_dispatch_queue,
           &db,
           &RegistryUrl(registry_url.clone()),
+          &enc_key,
           webhook_deliveries,
         )
         .await?;

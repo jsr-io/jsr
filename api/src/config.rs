@@ -176,6 +176,13 @@ pub struct Config {
   /// The ID of the webhook dispatch queue.
   pub webhook_dispatch_queue_id: Option<String>,
 
+  #[clap(
+    long = "webhook_secret_encryption_key",
+    env = "WEBHOOK_SECRET_ENCRYPTION_KEY"
+  )]
+  /// Base64-encoded 256-bit key for encrypting webhook secrets at rest.
+  pub webhook_secret_encryption_key: String,
+
   #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
   /// The ID of the project.
   pub gcp_project_id: Option<String>,

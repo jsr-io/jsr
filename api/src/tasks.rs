@@ -238,10 +238,12 @@ pub async fn npm_tarball_build_handler(
 
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
   let full_registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
   enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     &db,
     full_registry_url,
+    enc_key,
     webhook_deliveries,
   )
   .await?;
@@ -504,6 +506,7 @@ pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
   let webhook_dispatch_id: Uuid = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   let retry_count = req
     .headers()
@@ -515,7 +518,7 @@ pub async fn webhook_dispatch_handler(mut req: Request<Body>) -> ApiResult<()> {
 
   // sync retry count value with terraform
   let retries_left = 3usize.saturating_sub(retry_count);
-  dispatch_webhook(db, registry_url, webhook_dispatch_id, retries_left)
+  dispatch_webhook(db, registry_url, enc_key, webhook_dispatch_id, retries_left)
     .await?;
 
   Ok(())
@@ -525,13 +528,14 @@ const WEBHOOK_DISPATCH_ENQUEUE_PARALLELISM: usize = 32;
 
 #[instrument(
   name = "enqueue_webhook_dispatches",
-  skip(queue, db, registry_url),
+  skip(queue, db, registry_url, enc_key),
   err
 )]
 pub async fn enqueue_webhook_dispatches(
   queue: &WebhookDispatchQueue,
   db: &Database,
   registry_url: &RegistryUrl,
+  enc_key: &crate::util::WebhookSecretEncryptionKey,
   webhook_dispatch_ids: Vec<Uuid>,
 ) -> ApiResult<()> {
   let mut futs = stream::iter(webhook_dispatch_ids)
@@ -541,7 +545,7 @@ pub async fn enqueue_webhook_dispatches(
         queue.task_buffer(None, Some(body.into())).boxed()
       } else {
         let span = Span::current();
-        let fut = dispatch_webhook(db, registry_url, webhook_dispatch_id, 0)
+        let fut = dispatch_webhook(db, registry_url, enc_key, webhook_dispatch_id, 0)
           .instrument(span)
           .map_err(anyhow::Error::from);
         fut.boxed()
@@ -556,10 +560,11 @@ pub async fn enqueue_webhook_dispatches(
   Ok(())
 }
 
-#[instrument(name = "dispatch_webhook", skip(db, registry_url), err)]
+#[instrument(name = "dispatch_webhook", skip(db, registry_url, enc_key), err)]
 async fn dispatch_webhook(
   db: &Database,
   registry_url: &RegistryUrl,
+  enc_key: &crate::util::WebhookSecretEncryptionKey,
   webhook_dispatch_id: Uuid,
   retries_left: usize,
 ) -> ApiResult<()> {
@@ -683,8 +688,10 @@ async fn dispatch_webhook(
     WebhookPayloadFormat::Json => {
       let json = serde_json::to_value(webhook.payload)?;
       let signature = if let Some(secret) = webhook.secret {
+        let decrypted = crate::util::decrypt_webhook_secret(enc_key, &secret)
+          .map_err(|e| ApiError::InternalServerError(e.into()))?;
         let mut hmac =
-          hmac::Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes())
+          hmac::Hmac::<sha2::Sha256>::new_from_slice(decrypted.as_bytes())
             .unwrap();
         hmac.update(&serde_json::to_vec(&json)?);
         let hash = hmac.finalize().into_bytes();

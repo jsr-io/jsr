@@ -137,6 +137,7 @@ pub async fn accept_invite_handler(
   let db = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   let (member, webhook_deliveries) = db
     .accept_scope_invite(&current_user.id, &scope)
@@ -147,6 +148,7 @@ pub async fn accept_invite_handler(
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     webhook_deliveries,
   )
   .await?;

@@ -4828,8 +4828,6 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    // TODO: secret is stored in plaintext. Consider encrypting at rest with
-    // application-level encryption (AES-256-GCM) once key management is in place.
     let res = sqlx::query_as!(
       WebhookEndpoint,
       r#"INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format, is_active)

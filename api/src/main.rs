@@ -51,6 +51,7 @@ use crate::tasks::tasks_router;
 use crate::traced_router::TracedRouterService;
 use crate::tracing::TracingExportTarget;
 use crate::tracing::setup_tracing;
+use crate::util::WebhookSecretEncryptionKey;
 
 use clap::Parser;
 use hyper::Body;
@@ -79,6 +80,7 @@ pub struct MainRouterOptions {
     external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
+  webhook_secret_encryption_key: WebhookSecretEncryptionKey,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -102,6 +104,7 @@ pub(crate) fn main_router(
     npm_tarball_build_queue,
     webhook_dispatch_queue,
     analytics_engine_config,
+    webhook_secret_encryption_key,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -121,6 +124,7 @@ pub(crate) fn main_router(
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(WebhookDispatchQueue(webhook_dispatch_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
+    .data(webhook_secret_encryption_key)
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
 
@@ -304,6 +308,12 @@ async fn main() {
     )
   });
 
+  let webhook_secret_encryption_key = WebhookSecretEncryptionKey({
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&config.webhook_secret_encryption_key).expect("WEBHOOK_SECRET_ENCRYPTION_KEY must be valid base64");
+    <[u8; 32]>::try_from(bytes.as_slice()).expect("WEBHOOK_SECRET_ENCRYPTION_KEY must be exactly 32 bytes")
+  });
+
   let license_store = util::license_store();
 
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
@@ -323,6 +333,7 @@ async fn main() {
     npm_tarball_build_queue,
     webhook_dispatch_queue,
     analytics_engine_config,
+    webhook_secret_encryption_key,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

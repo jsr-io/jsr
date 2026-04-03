@@ -471,6 +471,53 @@ fn is_link_local(ip: std::net::IpAddr) -> bool {
   }
 }
 
+/// AES-256-GCM encryption key for webhook secrets at rest.
+/// 32-byte key for AES-256-GCM encryption of webhook secrets at rest.
+#[derive(Clone)]
+pub struct WebhookSecretEncryptionKey(pub [u8; 32]);
+
+/// Encrypt a webhook secret using AES-256-GCM. Returns base64(nonce || ciphertext || tag).
+pub fn encrypt_webhook_secret(
+  key: &WebhookSecretEncryptionKey,
+  plaintext: &str,
+) -> String {
+  use aes_gcm::{Aes256Gcm, KeyInit, AeadCore, AeadInPlace};
+  use aes_gcm::aead::OsRng;
+  use base64::Engine;
+
+  let cipher = Aes256Gcm::new((&key.0).into());
+  let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+  let mut buffer = plaintext.as_bytes().to_vec();
+  cipher.encrypt_in_place(&nonce, b"", &mut buffer).unwrap();
+
+  let mut out = nonce.to_vec();
+  out.extend_from_slice(&buffer);
+  base64::engine::general_purpose::STANDARD.encode(&out)
+}
+
+/// Decrypt a webhook secret encrypted with `encrypt_webhook_secret`.
+pub fn decrypt_webhook_secret(
+  key: &WebhookSecretEncryptionKey,
+  stored: &str,
+) -> Result<String, anyhow::Error> {
+  use aes_gcm::{Aes256Gcm, KeyInit, AeadInPlace, Nonce};
+  use base64::Engine;
+
+  let data = base64::engine::general_purpose::STANDARD.decode(stored)?;
+  if data.len() < 12 {
+    anyhow::bail!("encrypted secret too short");
+  }
+
+  let (nonce_bytes, ciphertext) = data.split_at(12);
+  let nonce = Nonce::from_slice(nonce_bytes);
+  let cipher = Aes256Gcm::new((&key.0).into());
+  let mut buffer = ciphertext.to_vec();
+  cipher.decrypt_in_place(nonce, b"", &mut buffer)
+    .map_err(|_| anyhow::anyhow!("webhook secret decryption failed"))?;
+
+  Ok(String::from_utf8(buffer)?)
+}
+
 pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }

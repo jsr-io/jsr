@@ -393,6 +393,7 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let db = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   if db.check_is_bad_word(&package_name.to_string()).await? {
     return Err(ApiError::PackageNameNotAllowed);
@@ -419,6 +420,7 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     webhook_deliveries,
   )
   .await?;
@@ -590,11 +592,13 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
       let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
       let registry_url = req.data::<RegistryUrl>().unwrap();
+      let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
       crate::tasks::enqueue_webhook_dispatches(
         webhook_dispatch_queue,
         db,
         registry_url,
+        enc_key,
         webhook_deliveries,
       )
       .await?;
@@ -808,6 +812,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let db: &Database = req.data::<Database>().unwrap();
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   let _ = db
     .get_package(&scope, &package)
@@ -827,6 +832,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     webhook_deliveries,
   )
   .await?;
@@ -1129,6 +1135,7 @@ pub async fn version_update_handler(
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
@@ -1148,6 +1155,7 @@ pub async fn version_update_handler(
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     webhook_deliveries,
   )
   .await?;
@@ -1236,10 +1244,12 @@ pub async fn version_delete_handler(
 
   let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
   crate::tasks::enqueue_webhook_dispatches(
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     webhook_deliveries,
   )
   .await?;
@@ -2774,6 +2784,8 @@ pub async fn create_webhook_handler(
   crate::util::validate_webhook_url(&url)?;
 
   let db = req.data::<Database>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
+  let encrypted_secret = secret.as_deref().map(|s| crate::util::encrypt_webhook_secret(enc_key, s));
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
@@ -2785,7 +2797,7 @@ pub async fn create_webhook_handler(
         package: Some(&package),
         url: &url,
         description: &description,
-        secret: secret.as_deref(),
+        secret: encrypted_secret.as_deref(),
         events,
         payload_format,
         is_active,
@@ -2860,6 +2872,8 @@ pub async fn update_webhook_handler(
   }
 
   let db = req.data::<Database>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
+  let encrypted_secret = secret.map(|s| crate::util::encrypt_webhook_secret(enc_key, &s));
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
@@ -2872,7 +2886,7 @@ pub async fn update_webhook_handler(
       UpdateWebhookEndpoint {
         url,
         description,
-        secret,
+        secret: encrypted_secret,
         clear_secret,
         events,
         payload_format,
@@ -3016,6 +3030,7 @@ pub async fn test_webhook_handler(
   let webhook_dispatch_queue =
     req.data::<crate::tasks::WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<crate::RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   let iam = req.iam();
   iam.check_scope_admin_access(&scope).await?;
@@ -3046,6 +3061,7 @@ pub async fn test_webhook_handler(
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     vec![delivery_id],
   )
   .await?;
@@ -3076,6 +3092,7 @@ pub async fn redeliver_webhook_handler(
   let webhook_dispatch_queue =
     req.data::<crate::tasks::WebhookDispatchQueue>().unwrap();
   let registry_url = req.data::<crate::RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   let iam = req.iam();
   iam.check_scope_admin_access(&scope).await?;
@@ -3092,6 +3109,7 @@ pub async fn redeliver_webhook_handler(
     webhook_dispatch_queue,
     db,
     registry_url,
+    enc_key,
     vec![new_delivery_id],
   )
   .await?;
