@@ -116,6 +116,42 @@ packages follow semantic versioning policies. These work as follows:
 To publish a new version of a package, you must bump the version in your config
 file before running `jsr publish` or `deno publish`.
 
+### Pre-release versions
+
+JSR supports SemVer pre-release versions. A pre-release version is any version
+that contains a hyphen after the patch number, such as `1.0.0-alpha.1`,
+`2.0.0-beta.3`, or `3.0.0-rc.1`.
+
+Pre-release versions are treated specially by JSR:
+
+- Pre-release versions are **not** considered when determining the latest version
+  of a package. For example, if a package has versions `1.0.0` and
+  `2.0.0-beta.1`, the latest version shown on the package page will be `1.0.0`.
+- Semver resolution **excludes** pre-release versions by default. A version
+  range like `^2.0.0` will not match `2.0.0-beta.1`. Users must explicitly
+  specify the pre-release version to use it (e.g. `2.0.0-beta.1`).
+- Pre-release versions are visible in the version list on the package page, but
+  are not highlighted as the latest version.
+
+This makes pre-release versions useful for testing new features or breaking
+changes before a stable release. To publish a pre-release version, set the
+version in your config file to a pre-release version:
+
+```json
+{
+  "name": "@scope/my-package",
+  "version": "2.0.0-beta.1",
+  "exports": "./mod.ts"
+}
+```
+
+Then run `jsr publish` or `deno publish` as normal. Users can install the
+pre-release version by specifying it explicitly:
+
+```ts
+import { foo } from "jsr:@scope/my-package@2.0.0-beta.1";
+```
+
 ### Yanking versions
 
 Package versions cannot be deleted. However, sometimes you may want to prevent
@@ -179,10 +215,16 @@ locally. This will generate HTML files with very similar looking documentation
 to what is shown on the JSR site.
 
 The "Overview" tab on the package page shows the module doc of the default
-entrypoint of the package. If the package does not have a default entrypoint, or
-the default entrypoint does not have a module doc, then the "Overview" tab will
-show the README of the package instead. If no README is present, then the
+entrypoint (the `.` export) of the package. A module doc is a JSDoc comment at
+the top of the file that includes the `@module` tag. If the default entrypoint
+has a module doc, **the README will not be shown on the Overview tab** — the
+module doc takes precedence. If the package does not have a default entrypoint,
+or the default entrypoint does not have a module doc, then the "Overview" tab
+will show the README of the package instead. If no README is present, then the
 "Overview" tab will only show the package outline in the sidebar.
+
+If you want the README to be displayed on the Overview tab, ensure that your
+default entrypoint does not have a `@module` JSDoc comment.
 
 The sidebar at the base of the package page contains links to all exports from
 the default entrypoint of the package, and links to all other entrypoints in the

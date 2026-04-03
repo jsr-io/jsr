@@ -212,6 +212,31 @@ JSR properties in their `deno.json(c)` to avoid having to create another file.
 }
 ```
 
+If your package has multiple entrypoints, use the object syntax for `exports`.
+The `.` key is the default entrypoint (what users get when importing your package
+without a subpath), and other keys define named entrypoints:
+
+```json
+// jsr.json / deno.json(c)
+{
+  "name": "@luca/greet",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./greet": "./greet.ts",
+    "./farewell": "./farewell.ts"
+  }
+}
+```
+
+With this configuration, users can import your package as follows:
+
+```ts
+import { greet } from "@luca/greet"; // imports from ./mod.ts
+import { greet } from "@luca/greet/greet"; // imports from ./greet.ts
+import { farewell } from "@luca/greet/farewell"; // imports from ./farewell.ts
+```
+
 Read more about the [configuring JSR packages.](/docs/package-configuration)
 
 ## Creating a scope and package
@@ -349,6 +374,49 @@ repository. It will publish your package to JSR, and will automatically use the
 correct version number based on the version in your `jsr.json`/`deno.json(c)`
 file. `jsr publish` will not attempt to publish if the version specified in your
 `jsr.json`/`deno.json(c)` file is already published to JSR.
+
+## Publishing from other CI providers
+
+You can publish to JSR from any CI provider (GitLab CI, CircleCI, etc.) by using
+a personal access token for authentication. Tokenless OIDC publishing is only
+available from GitHub Actions, but token-based publishing works everywhere.
+
+### Creating an access token
+
+1. Go to your [account settings](https://jsr.io/account/tokens) on jsr.io.
+2. Create a new access token with the "Publish" permission for the appropriate
+   scope(s).
+3. Store the token as a secret in your CI provider (e.g. `JSR_TOKEN`).
+
+### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+
+publish:
+  image: denoland/deno:latest
+  stage: deploy
+  script:
+    - deno publish --token $JSR_TOKEN
+  only:
+    - main
+```
+
+### Other CI providers
+
+For any CI environment, pass the token using the `--token` flag:
+
+```shell
+# Using Deno
+deno publish --token $JSR_TOKEN
+
+# Using npx
+npx jsr publish --token $JSR_TOKEN
+```
+
+> Note: Token-based publishing does not generate
+> [provenance attestations](/docs/trust). Provenance is only available when
+> publishing from GitHub Actions using OIDC.
 
 ## Filtering files
 

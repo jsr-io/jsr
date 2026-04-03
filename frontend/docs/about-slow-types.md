@@ -102,6 +102,9 @@ imposes on TypeScript code:
 
 1. Types must not reference private fields of classes.
 
+1. Expando properties (dynamically assigned properties on objects or functions)
+   are not supported.
+
 ### Explicit types
 
 All symbols exported from a package must explicitly specify types. For example,
@@ -282,6 +285,12 @@ are two options:
    statement. This instructs JSR to use the types from the specified file,
    rather than using the file itself when generating types or documentation.
 
+> **Note:** Simply placing a `.d.ts` file alongside a `.js` file with the same
+> name (e.g. `mod.js` and `mod.d.ts`) is **not** sufficient. You must explicitly
+> reference the `.d.ts` file using one of the directives below. Without the
+> directive, JSR will attempt to infer types from the JavaScript file itself and
+> report slow type warnings.
+
 ```js
 // index.js
 /* @ts-self-types="./index.d.ts" */
@@ -310,6 +319,89 @@ export function foo() {
 
 // bar.d.ts
 export function foo(): string;
+```
+
+## Nested JavaScript modules
+
+If a TypeScript module in your package imports a JavaScript module that does not
+have type declarations, JSR will not be able to type-check the import. This is
+because fast check avoids type inference, so any JavaScript file referenced from
+TypeScript must have corresponding type declarations.
+
+To fix this, you have two options:
+
+1. Convert the JavaScript module to TypeScript.
+2. Add a `.d.ts` type declaration file for the JavaScript module and reference it
+   using a `/* @ts-types="..." */` directive at the import site:
+
+```diff
+  // main.ts
++ /* @ts-types="./utils.d.ts" */
+  import { helper } from "./utils.js";
+```
+
+```ts
+// utils.d.ts
+export function helper(): string;
+```
+
+If the JavaScript module is an external npm dependency, ensure it ships type
+declarations (a `.d.ts` file), or install a corresponding `@types/` package.
+
+## Export not found
+
+This error occurs when an export listed in the `exports` field of your
+`jsr.json` or `deno.json(c)` cannot be resolved. This is usually caused by a
+typo in the path, or by a mismatch between the `exports` field and the actual
+file structure of your package.
+
+To fix this, verify that all paths in your `exports` field point to files that
+actually exist in your package:
+
+```diff
+  // jsr.json
+  {
+    "name": "@scope/my-package",
+    "version": "1.0.0",
+    "exports": {
+-     ".": "./src/modes.ts",
++     ".": "./src/mod.ts",
+      "./utils": "./src/utils.ts"
+    }
+  }
+```
+
+## Expando properties
+
+Expando properties (dynamically assigned properties on objects or functions) are
+not supported by fast check because their types cannot be statically determined
+without running the code.
+
+For example, the following pattern is not supported:
+
+```ts
+const exports = {};
+exports.foo = "bar"; // Expando property - type cannot be statically determined
+export { exports };
+```
+
+To fix this, use a statically typed object declaration instead:
+
+```diff
+- const exports = {};
+- exports.foo = "bar";
+- export { exports };
++ export const exports: { foo: string } = { foo: "bar" };
+```
+
+Or use a typed interface:
+
+```ts
+interface MyExports {
+  foo: string;
+}
+
+export const exports: MyExports = { foo: "bar" };
 ```
 
 ## Simple inference
