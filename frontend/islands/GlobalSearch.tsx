@@ -33,6 +33,14 @@ const searchHints: JSX.Element[] = [
   </p>,
 ];
 
+const SCORE_OPTIONS = [
+  { label: "Any", value: null },
+  { label: "60+", value: 60 },
+  { label: "70+", value: 70 },
+  { label: "80+", value: 80 },
+  { label: "90+", value: 90 },
+] as const;
+
 // The maximum time between a query and the result for that query being
 // displayed, if there is a more recent pending query.
 const MAX_STALE_RESULT_MS = 200;
@@ -62,6 +70,7 @@ export function GlobalSearch(
   const inputOverlayContentRef = useRef<HTMLDivElement>(null);
   const inputOverlayContent2Ref = useRef<HTMLDivElement>(null);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
+  const showFilters = useSignal(false);
 
   const showSuggestions = computed(() =>
     isFocused.value && (search.value.length > 0 || kind !== "docs")
@@ -109,10 +118,8 @@ export function GlobalSearch(
       searchHints[Math.floor(Math.random() * searchHints.length)];
   }, []);
 
-  const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
-    const value = ev.currentTarget!.value as string;
+  function triggerSearch(value: string) {
     search.value = value;
-    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
 
     if (value.length >= 1) {
       const searchN = ++searchNRef.current.started;
@@ -192,6 +199,12 @@ export function GlobalSearch(
       abort.current = new AbortController();
       suggestions.value = null;
     }
+  }
+
+  const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
+    const value = ev.currentTarget!.value as string;
+    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
+    triggerSearch(value);
   };
 
   function onKeyUp(e: KeyboardEvent) {
@@ -263,11 +276,50 @@ export function GlobalSearch(
     }
   }
 
+  function toggleFilter(tokenRaw: string) {
+    const tokens = tokenizeFilter(search.value);
+    const existing = tokens.find((t) => t.raw === tokenRaw);
+    let newValue: string;
+    if (existing) {
+      newValue = tokens.filter((t) => t !== existing).map((t) => t.raw).join(
+        " ",
+      );
+    } else {
+      newValue = (search.value.trim() + " " + tokenRaw).trim();
+    }
+    triggerSearch(newValue);
+  }
+
+  function setScoreFilter(scoreValue: number | null) {
+    const tokens = tokenizeFilter(search.value);
+    const withoutScore = tokens.filter((t) => t.kind !== "score");
+    let newValue = withoutScore.map((t) => t.raw).join(" ");
+    if (scoreValue !== null) {
+      newValue = (newValue + " score:>=" + scoreValue).trim();
+    }
+    triggerSearch(newValue);
+  }
+
   const kindPlaceholder = kind === "packages"
     ? "Search for packages"
     : "Search for documentation";
   const placeholder = kindPlaceholder +
     (macLike !== undefined ? ` (${macLike ? "⌘K" : "Ctrl+K"})` : "");
+
+  // Compute active filter state from search text
+  const activeFilters = computed(() => {
+    const tokens = tokenizeFilter(search.value);
+    const runtimes = new Set<string>();
+    let scoreValue: number | null = null;
+    for (const t of tokens) {
+      if (t.kind.startsWith("runtimeCompat.")) {
+        runtimes.add(t.kind.slice("runtimeCompat.".length));
+      } else if (t.kind === "score") {
+        scoreValue = t.value;
+      }
+    }
+    return { runtimes, scoreValue };
+  });
 
   return (
     <div ref={ref} class="pointer-events-auto">
@@ -366,6 +418,10 @@ export function GlobalSearch(
           kind={kind}
           input={search}
           randomHint={randomHint}
+          showFilters={showFilters}
+          activeFilters={activeFilters}
+          toggleFilter={toggleFilter}
+          setScoreFilter={setScoreFilter}
         />
       </div>
     </div>
@@ -380,6 +436,10 @@ function SuggestionList(
     kind,
     input,
     randomHint,
+    showFilters,
+    activeFilters,
+    toggleFilter,
+    setScoreFilter,
   }: Readonly<{
     suggestions: Signal<
       (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
@@ -389,9 +449,19 @@ function SuggestionList(
     kind: SearchKind;
     input: Signal<string>;
     randomHint: Signal<JSX.Element | null>;
+    showFilters: Signal<boolean>;
+    activeFilters: Signal<{
+      runtimes: Set<string>;
+      scoreValue: number | null;
+    }>;
+    toggleFilter: (tokenRaw: string) => void;
+    setScoreFilter: (scoreValue: number | null) => void;
   }>,
 ) {
   if (!showSuggestions.value) return null;
+
+  const filtersActive = activeFilters.value.runtimes.size > 0 ||
+    activeFilters.value.scoreValue !== null;
 
   return (
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
@@ -429,16 +499,61 @@ function SuggestionList(
             })}
           </ul>
         )}
+      {kind === "packages" && showFilters.value && (
+        <FilterBar
+          activeFilters={activeFilters}
+          toggleFilter={toggleFilter}
+          setScoreFilter={setScoreFilter}
+        />
+      )}
       <div class="bg-jsr-gray-50 dark:bg-jsr-gray-900 flex items-center justify-between py-1 px-2 text-sm">
-        <div>
+        <div class="flex items-center gap-2">
           {kind === "packages" && (
-            <a
-              class="link"
-              href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
-              target="_blank"
-            >
-              Search syntax
-            </a>
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showFilters.value = !showFilters.value;
+                }}
+                class={`flex items-center gap-1 text-xs font-medium transition-colors ${
+                  showFilters.value || filtersActive
+                    ? "text-jsr-cyan-700 dark:text-jsr-cyan-400"
+                    : "text-tertiary hover:text-secondary"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width={2}
+                  stroke="currentColor"
+                  class="w-3.5 h-3.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"
+                  />
+                </svg>
+                Filters
+                {filtersActive && (
+                  <span class="bg-jsr-cyan-600 text-white text-[10px] leading-none px-1 py-0.5 rounded-full min-w-[14px] text-center">
+                    {activeFilters.value.runtimes.size +
+                      (activeFilters.value.scoreValue !== null ? 1 : 0)}
+                  </span>
+                )}
+              </button>
+              <span class="text-jsr-gray-300 dark:text-jsr-gray-700">|</span>
+              <a
+                class="link text-xs"
+                href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
+                target="_blank"
+              >
+                Search syntax
+              </a>
+            </>
           )}
         </div>
         <div class="flex items-center gap-1">
@@ -452,6 +567,77 @@ function SuggestionList(
             alt=""
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterBar(
+  { activeFilters, toggleFilter, setScoreFilter }: {
+    activeFilters: Signal<{
+      runtimes: Set<string>;
+      scoreValue: number | null;
+    }>;
+    toggleFilter: (tokenRaw: string) => void;
+    setScoreFilter: (scoreValue: number | null) => void;
+  },
+) {
+  return (
+    <div
+      class="px-3 py-2 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900 space-y-2"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-tertiary font-medium mr-0.5">Runtime:</span>
+        {RUNTIME_COMPAT_KEYS.map(([key, name]) => {
+          const active = activeFilters.value.runtimes.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleFilter(`runtime:${key}`);
+              }}
+              class={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                active
+                  ? "border-jsr-cyan-600 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 text-jsr-cyan-700 dark:text-jsr-cyan-300 font-medium"
+                  : "border-jsr-gray-200 dark:border-jsr-gray-700 text-secondary hover:border-jsr-cyan-400 dark:hover:border-jsr-cyan-600"
+              }`}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs text-tertiary font-medium mr-0.5">
+          Min score:
+        </span>
+        {SCORE_OPTIONS.map(({ label, value }) => {
+          const active =
+            (value === null && activeFilters.value.scoreValue === null) ||
+            (value !== null && activeFilters.value.scoreValue === value);
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setScoreFilter(value);
+              }}
+              class={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                active
+                  ? "border-jsr-cyan-600 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 text-jsr-cyan-700 dark:text-jsr-cyan-300 font-medium"
+                  : "border-jsr-gray-200 dark:border-jsr-gray-700 text-secondary hover:border-jsr-cyan-400 dark:hover:border-jsr-cyan-600"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -597,32 +783,4 @@ export function processFilter(
     query: query.trim(),
     where: hasFilters ? where : undefined,
   };
-}
-
-export interface SearchFilterValues {
-  runtimes: (keyof RuntimeCompat)[];
-  minScore: number | null;
-}
-
-export function buildWhereClause(
-  textWhere: WhereClause | undefined,
-  filters: SearchFilterValues,
-): WhereClause | undefined {
-  const where: WhereClause = { ...textWhere };
-  let hasFilters = textWhere !== undefined;
-
-  for (const runtime of filters.runtimes) {
-    where[`runtimeCompat.${runtime}`] = true;
-    hasFilters = true;
-  }
-
-  if (filters.minScore !== null && filters.minScore > 0) {
-    where["_omc:number"] = {
-      ...where["_omc:number"],
-      gte: filters.minScore,
-    };
-    hasFilters = true;
-  }
-
-  return hasFilters ? where : undefined;
 }

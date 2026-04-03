@@ -1,16 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
 import { OramaCloud } from "@orama/core";
-import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
+import type { List, Package } from "../utils/api_types.ts";
 import { assertOk, path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
-import {
-  buildWhereClause,
-  processFilter,
-  type SearchFilterValues,
-} from "../islands/GlobalSearch.tsx";
-import { SearchFilters } from "../islands/SearchFilters.tsx";
+import { processFilter } from "../islands/GlobalSearch.tsx";
 
 export default define.page<typeof handler>(function PackageListPage({
   data,
@@ -19,14 +14,6 @@ export default define.page<typeof handler>(function PackageListPage({
   return (
     <div class="mb-24 space-y-16">
       <div>
-        <div class="section-x-inset-xl">
-          <SearchFilters
-            runtimes={data.runtimes}
-            minScore={data.minScore}
-            search={data.query}
-          />
-        </div>
-
         <ListDisplay
           title={`${data.query ? "Search" : "Explore"} Packages`}
           pagination={data}
@@ -63,35 +50,11 @@ export default define.page<typeof handler>(function PackageListPage({
 const projectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
 const apiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
 
-const VALID_RUNTIMES = new Set<keyof RuntimeCompat>([
-  "browser",
-  "deno",
-  "node",
-  "workerd",
-  "bun",
-]);
-
 export const handler = define.handlers({
   async GET(ctx) {
     const search = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
-
-    const runtimeParams = ctx.url.searchParams.getAll("runtime");
-    const runtimes = runtimeParams.filter((r) =>
-      VALID_RUNTIMES.has(r as keyof RuntimeCompat)
-    ) as (keyof RuntimeCompat)[];
-
-    const minScoreParam = ctx.url.searchParams.get("minScore");
-    const minScore = minScoreParam ? parseInt(minScoreParam, 10) : null;
-    const validMinScore = minScore !== null && minScore > 0 && minScore <= 100
-      ? minScore
-      : null;
-
-    const filters: SearchFilterValues = {
-      runtimes,
-      minScore: validMinScore,
-    };
 
     let packages: Package[];
     let total;
@@ -101,8 +64,7 @@ export const handler = define.handlers({
         apiKey: apiKey!,
       });
 
-      const { query, where: textWhere } = processFilter(search);
-      const where = buildWhereClause(textWhere, filters);
+      const { query, where } = processFilter(search);
 
       const res = await orama.search({
         term: query,
@@ -149,8 +111,6 @@ export const handler = define.handlers({
         page,
         limit,
         total,
-        runtimes,
-        minScore: validMinScore,
       },
     };
   },
