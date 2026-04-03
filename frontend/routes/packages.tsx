@@ -71,7 +71,7 @@ export const handler = define.handlers({
         where,
         limit,
         offset: (page - 1) * limit,
-        ...(query ? { mode: "fulltext" as const } : {}),
+        mode: "fulltext",
         boost: {
           id: 3,
           scope: 2,
