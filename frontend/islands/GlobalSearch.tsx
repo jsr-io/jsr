@@ -498,20 +498,16 @@ function SuggestionList(
                   e.stopPropagation();
                   showFilters.value = !showFilters.value;
                 }}
-                class={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors duration-75 cursor-pointer ${
+                class={`inline-flex items-center gap-1 text-xs transition-colors cursor-pointer ${
                   showFilters.value || filtersActive
-                    ? ACTIVE_FILTER_CLASSES
-                    : INACTIVE_FILTER_CLASSES
+                    ? "text-jsr-cyan-700 dark:text-jsr-cyan-400 font-semibold"
+                    : "text-jsr-gray-400 dark:text-jsr-gray-500 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300"
                 }`}
               >
                 <TbAdjustmentsHorizontal class="size-3.5" />
-                Filters
-                {filtersActive && (
-                  <span class="bg-jsr-cyan-700 dark:bg-jsr-cyan-300 text-white dark:text-jsr-gray-950 text-[10px] leading-none px-1 py-0.5 rounded-full min-w-[14px] text-center font-bold">
-                    {activeFilters.value.runtimes.size +
-                      (activeFilters.value.scoreValue !== null ? 1 : 0)}
-                  </span>
-                )}
+                Filters{filtersActive
+                  ? ` (${activeFilters.value.runtimes.size + (activeFilters.value.scoreValue !== null ? 1 : 0)})`
+                  : ""}
               </button>
               <a
                 class="text-xs text-jsr-gray-400 dark:text-jsr-gray-500 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300 transition-colors"
