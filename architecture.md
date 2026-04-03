@@ -18,24 +18,22 @@ stored in Cloudflare R2 (S3-compatible object storage). The database is _not_
 used for serving registry requests — it only stores metadata and user data.
 
 ```mermaid
-graph TD
+graph LR
     Worker["Cloudflare Worker<br/>(Load Balancer)"]
 
-    Worker -- "/api/*" --> API["Cloud Run API<br/>(Rust)"]
-    Worker -- "modules, meta" --> R2["Cloudflare R2<br/>(modules, docs, npm)"]
-    Worker -- "everything else" --> Frontend["Cloud Run Frontend<br/>(Fresh / Preact)"]
+    Worker --> Frontend["Frontend<br/>(Fresh / Preact)"]
+    Worker --> API["API (Rust)"]
+    Worker --> R2["Cloudflare R2<br/>(modules, docs, npm)"]
 
-    API -- "read/write" --> R2
-    API --> Postgres["PostgreSQL<br/>(metadata & users)"]
-    API -- "index updates" --> Orama["Orama<br/>(search)"]
-    API -- "queue jobs" --> CloudTasks["Cloud Tasks<br/>(job queue)"]
-    API --> Postmark["Postmark<br/>(email)"]
-    API --> Trace["Cloud Trace<br/>(tracing)"]
+    Frontend --> API
+    Frontend -. "search" .-> Orama["Orama Search"]
 
-    CloudTasks -- "callbacks" --> API
-
-    Frontend -- "proxied through Worker" --> API
-    Frontend -. "browser search" .-> Orama
+    API --> R2
+    API --> Postgres["PostgreSQL"]
+    API --> Orama
+    API <-- "callbacks" --> CloudTasks["Cloud Tasks"]
+    API --> Postmark["Postmark"]
+    API --> Trace["Cloud Trace"]
 ```
 
 ## Request Routing
