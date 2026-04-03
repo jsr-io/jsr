@@ -237,6 +237,7 @@ function PackageToPanelEntry(
   return {
     value: `@${entry.scope}/${entry.name}`,
     href: `/@${entry.scope}/${entry.name}`,
+    description: entry.description,
   };
 }
 
@@ -247,6 +248,7 @@ function PackageVersionToPanelEntry(
     value: `@${entry.scope}/${entry.package}`,
     href: `/@${entry.scope}/${entry.package}@${entry.version}`,
     label: entry.version,
+    description: entry.description,
   };
 }
 

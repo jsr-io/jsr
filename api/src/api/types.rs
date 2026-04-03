@@ -815,6 +815,7 @@ pub struct ApiStats {
 pub struct ApiStatsPackage {
   pub scope: ScopeName,
   pub name: PackageName,
+  pub description: String,
 }
 
 impl From<StatsPackage> for ApiStatsPackage {
@@ -822,6 +823,7 @@ impl From<StatsPackage> for ApiStatsPackage {
     Self {
       scope: p.scope,
       name: p.name,
+      description: p.description,
     }
   }
 }
@@ -832,6 +834,7 @@ pub struct ApiStatsPackageVersion {
   pub scope: ScopeName,
   pub package: PackageName,
   pub version: Version,
+  pub description: String,
 }
 
 impl From<StatsPackageVersion> for ApiStatsPackageVersion {
@@ -840,6 +843,7 @@ impl From<StatsPackageVersion> for ApiStatsPackageVersion {
       scope: v.scope,
       package: v.name,
       version: v.version,
+      description: v.description,
     }
   }
 }
