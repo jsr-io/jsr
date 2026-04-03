@@ -28,6 +28,9 @@ const searchHints: JSX.Element[] = [
   <p key="runtime:">
     Hint: use <code>runtime:</code> to search for packages by compatible runtime
   </p>,
+  <p key="score:">
+    Hint: use <code>{"score:>N"}</code> to filter packages by minimum score
+  </p>,
 ];
 
 // The maximum time between a query and the result for that query being
@@ -127,7 +130,7 @@ export function GlobalSearch(
         try {
           if (orama) {
             let query = value;
-            let where: undefined | Record<string, boolean | string> = undefined;
+            let where: undefined | WhereClause = undefined;
             if (kind === "packages") ({ where, query } = processFilter(value));
             const res = await orama.search({
               term: query,
@@ -514,8 +517,15 @@ interface RuntimeToken {
   value: true;
   raw: string;
 }
+export type ScoreOp = "gt" | "gte" | "lt" | "lte";
+interface ScoreToken {
+  kind: "score";
+  op: ScoreOp;
+  value: number;
+  raw: string;
+}
 
-type Token = TextToken | ScopeToken | RuntimeToken;
+type Token = TextToken | ScopeToken | RuntimeToken | ScoreToken;
 
 function tokenizeFilter(search: string): Token[] {
   const tokens: Token[] = [];
@@ -534,6 +544,24 @@ function tokenizeFilter(search: string): Token[] {
         });
         continue;
       }
+    } else if (part.startsWith("score:")) {
+      const rest = part.slice(6);
+      const match = rest.match(/^(>=|<=|>|<)(\d+)$/);
+      if (match) {
+        const opMap: Record<string, ScoreOp> = {
+          ">": "gt",
+          ">=": "gte",
+          "<": "lt",
+          "<=": "lte",
+        };
+        tokens.push({
+          kind: "score",
+          op: opMap[match[1]],
+          value: parseInt(match[2], 10),
+          raw: part,
+        });
+        continue;
+      }
     }
 
     tokens.push({ kind: "text", value: part, raw: part });
@@ -542,21 +570,59 @@ function tokenizeFilter(search: string): Token[] {
   return tokens;
 }
 
+// deno-lint-ignore no-explicit-any
+export type WhereClause = Record<string, any>;
+
 export function processFilter(
   search: string,
-): { query: string; where: Record<string, boolean | string> | undefined } {
-  const filters: [string, boolean | string][] = [];
+): { query: string; where: WhereClause | undefined } {
+  const where: WhereClause = {};
   let query = "";
+  let hasFilters = false;
   for (const part of tokenizeFilter(search)) {
     if (part.kind === "text") {
       query += part.value + " ";
+    } else if (part.kind === "score") {
+      where["_omc:number"] = {
+        ...where["_omc:number"],
+        [part.op]: part.value,
+      };
+      hasFilters = true;
     } else {
-      filters.push([part.kind, part.value]);
+      where[part.kind] = part.value;
+      hasFilters = true;
     }
   }
-  const where = Object.fromEntries(filters);
   return {
     query: query.trim(),
-    where: filters.length === 0 ? undefined : where,
+    where: hasFilters ? where : undefined,
   };
+}
+
+export interface SearchFilterValues {
+  runtimes: (keyof RuntimeCompat)[];
+  minScore: number | null;
+}
+
+export function buildWhereClause(
+  textWhere: WhereClause | undefined,
+  filters: SearchFilterValues,
+): WhereClause | undefined {
+  const where: WhereClause = { ...textWhere };
+  let hasFilters = textWhere !== undefined;
+
+  for (const runtime of filters.runtimes) {
+    where[`runtimeCompat.${runtime}`] = true;
+    hasFilters = true;
+  }
+
+  if (filters.minScore !== null && filters.minScore > 0) {
+    where["_omc:number"] = {
+      ...where["_omc:number"],
+      gte: filters.minScore,
+    };
+    hasFilters = true;
+  }
+
+  return hasFilters ? where : undefined;
 }

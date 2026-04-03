@@ -147,6 +147,16 @@ both Deno and web browsers. The possible values for the `runtime` filter are
 Yes! You can specify `scope:` in the search query to filter packages by scope.
 To only return packages in the `std` scope, you can use the query `scope:std`.
 
+## Can I filter packages by score in the search?
+
+Yes! You can use the `score:` filter with comparison operators to filter packages
+by their JSR score. For example, `score:>80` will return packages with a score
+greater than 80. You can use `>`, `>=`, `<`, and `<=` operators, such as
+`score:>=90` for packages with a score of 90 or higher.
+
+You can also use the filter panel on the
+[package search page](/packages) to set a minimum score using the slider.
+
 ## Is "JSR" an initialism for "JavaScript Registry"?
 
 Yes.

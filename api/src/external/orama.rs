@@ -70,6 +70,12 @@ impl OramaClient {
       return;
     }
 
+    // Don't index packages where all versions are yanked
+    if package.latest_version.is_none() {
+      self.delete_package(&package.scope, &package.name);
+      return;
+    }
+
     if package.description.starts_with("INTERNAL") {
       self.delete_package(&package.scope, &package.name);
       return;
