@@ -78,7 +78,7 @@ another member to an admin before you can remove the last admin.
 
 You can leave a scope at any time. To leave a scope, head to the "Members" tab
 of the scope, and click "Leave". You will be removed from the scope immediately.
-You will no longer be able to access to administer or publish to the scope. If
+You will no longer be able to administer or publish to the scope. If
 you are the last admin of the scope, you must first promote another member to an
 admin before you can leave the scope.
 

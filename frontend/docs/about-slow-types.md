@@ -37,7 +37,7 @@ Because of this, these kinds of types are not supported in the public API.
 
 "Slow types" occur when a function, class, const declaration, or let declaration
 is exported from a package, and its type is not explicitly written or the type
-is more complex that what can [be simply inferred](#simple-inference).
+is more complex than what can [be simply inferred](#simple-inference).
 
 Some examples of "slow types":
 

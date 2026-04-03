@@ -63,7 +63,7 @@ In HTML documents, the following can be used:
 
 ## Weekly Downloads Badge
 
-The total downloads badge can be used to showcase the weekly amount of downloads
+The weekly downloads badge can be used to showcase the weekly amount of downloads
 of a package. It is available at the following URL:
 
 ```
