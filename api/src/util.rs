@@ -602,7 +602,8 @@ impl LicenseStore {
 }
 
 pub fn license_store() -> LicenseStore {
-  static CACHE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
+  static CACHE: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
   let store = askalono::Store::from_cache(CACHE).unwrap();
   LicenseStore(Arc::new(store))
 }
