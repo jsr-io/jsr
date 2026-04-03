@@ -3401,6 +3401,52 @@ gitlab_id: r.user_gitlab_id,
     Ok(result.rows_affected())
   }
 
+  #[instrument(
+    name = "Database::cleanup_old_webhook_data",
+    skip(self),
+    err
+  )]
+  pub async fn cleanup_old_webhook_data(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<(u64, u64)> {
+    // Delete old deliveries first (they reference events)
+    let deliveries = sqlx::query!(
+      "DELETE FROM webhook_deliveries WHERE created_at < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+
+    // Delete orphaned events (events with no remaining deliveries)
+    let events = sqlx::query!(
+      r#"DELETE FROM webhook_events WHERE created_at < $1
+         AND NOT EXISTS (SELECT 1 FROM webhook_deliveries WHERE webhook_deliveries.event_id = webhook_events.id)"#,
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+
+    Ok((deliveries.rows_affected(), events.rows_affected()))
+  }
+
+  #[instrument(name = "Database::redeliver_webhook", skip(self), err)]
+  pub async fn redeliver_webhook(
+    &self,
+    endpoint_id: Uuid,
+    event_id: Uuid,
+  ) -> Result<Uuid> {
+    let id = sqlx::query!(
+      r#"INSERT INTO webhook_deliveries (endpoint_id, event_id) VALUES ($1, $2) RETURNING id"#,
+      endpoint_id,
+      event_id,
+    )
+    .map(|r| r.id)
+    .fetch_one(&self.pool)
+    .await?;
+    Ok(id)
+  }
+
   #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
   pub async fn cleanup_download_counts_4h(
     &self,
@@ -5064,6 +5110,31 @@ gitlab_id: r.user_gitlab_id,
       })
       .fetch_all(&self.pool)
       .await
+  }
+
+  #[instrument(
+    name = "Database::insert_webhook_event_for_test",
+    skip(self, payload),
+    err
+  )]
+  pub async fn insert_webhook_event_for_test(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    event: WebhookEventKind,
+    payload: WebhookPayload,
+  ) -> Result<Uuid> {
+    let id = sqlx::query!(
+      r#"INSERT INTO webhook_events (scope, package, event, payload) VALUES ($1, $2, $3, $4) RETURNING id"#,
+      scope as _,
+      package as _,
+      event as _,
+      payload as _,
+    )
+    .map(|r| r.id)
+    .fetch_one(&self.pool)
+    .await?;
+    Ok(id)
   }
 
   #[instrument(name = "Database::get_webhook_deliveries", skip(self), err)]

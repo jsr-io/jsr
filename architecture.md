@@ -302,6 +302,7 @@ Local hostnames (`jsr.test`, `api.jsr.test`, `npm.jsr.test`) are configured in
 | `generate_web_symbols.ts`    | Generate web API type definitions                              |
 | `clone_dependency.ts`        | Clone dependencies for offline development                     |
 | `migrate_package_meta.ts`    | Database migration utilities                                   |
+| `db-switch.ts`               | Per-branch database management (copy, create empty, clean up)  |
 
 ## E2E Tests (`e2e/`)
 

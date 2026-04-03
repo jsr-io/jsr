@@ -92,6 +92,10 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/clean_download_counts_4h",
       util::json(clean_download_counts_4h_handler),
     )
+    .post(
+      "/clean_webhook_data",
+      util::json(clean_webhook_data_handler),
+    )
     .build()
     .unwrap()
 }
@@ -362,6 +366,15 @@ pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
   let cutoff = Utc::now() - Duration::hours(1);
   let deleted = db.delete_expired_oauth_states(cutoff).await?;
   tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
+#[instrument(name = "POST /tasks/clean_webhook_data", skip(req), err)]
+pub async fn clean_webhook_data_handler(req: Request<Body>) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - chrono::Duration::days(30);
+  let (deliveries, events) = db.cleanup_old_webhook_data(cutoff).await?;
+  tracing::info!(deliveries, events, "cleaned up old webhook data");
   Ok(())
 }
 

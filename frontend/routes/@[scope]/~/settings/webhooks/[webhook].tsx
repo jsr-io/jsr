@@ -15,6 +15,7 @@ import { scopeIAM } from "../../../../../utils/iam.ts";
 import {
   WebhookDeliveries,
 } from "../../../../../components/WebhookDeliveries.tsx";
+import { WebhookTestButton } from "../../../../../islands/WebhookTestButton.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data },
@@ -24,6 +25,21 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
       <WebhookEdit webhook={data.webhook} scope={data.scope.scope} />
+
+      <div class="border-t pt-8 mt-12">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg sm:text-xl font-semibold">Test</h2>
+          <WebhookTestButton
+            scope={data.scope.scope}
+            webhookId={data.webhook.id}
+          />
+        </div>
+        <p class="text-sm text-secondary mt-2">
+          Send a test event to this webhook endpoint to verify it is working
+          correctly.
+        </p>
+      </div>
+
       <WebhookDeliveries
         webhook={data.webhook}
         deliveries={data.webhookDeliveries}

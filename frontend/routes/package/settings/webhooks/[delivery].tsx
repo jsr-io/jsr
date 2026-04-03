@@ -11,6 +11,7 @@ import { packageData } from "../../../../utils/data.ts";
 import { path } from "../../../../utils/api.ts";
 import { scopeIAM } from "../../../../utils/iam.ts";
 import { WebhookDelivery } from "../../../../components/WebhookDelivery.tsx";
+import { WebhookRedeliverButton } from "../../../../islands/WebhookRedeliverButton.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, params },
@@ -31,6 +32,16 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
+
+      <div class="flex items-center justify-between mt-8">
+        <h2 class="text-lg sm:text-xl font-semibold">Delivery Details</h2>
+        <WebhookRedeliverButton
+          scope={data.package.scope}
+          package={data.package.name}
+          webhookId={data.webhook.id}
+          deliveryId={data.webhookDelivery.id}
+        />
+      </div>
 
       <WebhookDelivery delivery={data.webhookDelivery} />
     </div>

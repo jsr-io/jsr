@@ -68,3 +68,16 @@ CREATE TABLE webhook_deliveries (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 SELECT manage_updated_at('webhook_deliveries');
+
+-- Indexes for webhook_endpoints lookup during fan-out
+CREATE INDEX idx_webhook_endpoints_scope_active ON webhook_endpoints (scope, is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_webhook_endpoints_scope_package_active ON webhook_endpoints (scope, package, is_active) WHERE is_active = TRUE;
+
+-- Index for listing events by scope/package
+CREATE INDEX idx_webhook_events_scope ON webhook_events (scope, package, created_at DESC);
+
+-- Index for listing deliveries by endpoint
+CREATE INDEX idx_webhook_deliveries_endpoint ON webhook_deliveries (endpoint_id, created_at DESC);
+
+-- Index for finding pending deliveries to dispatch
+CREATE INDEX idx_webhook_deliveries_pending ON webhook_deliveries (status) WHERE status = 'pending';

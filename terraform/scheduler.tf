@@ -44,6 +44,21 @@ resource "google_cloud_scheduler_job" "clean_download_counts_4h" {
   }
 }
 
+resource "google_cloud_scheduler_job" "clean_webhook_data" {
+  name        = "clean-webhook-data"
+  description = "Delete webhook events and deliveries older than 30 days."
+  schedule    = "0 4 * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/clean_webhook_data"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
   description = "Scrape download counts from Analytics Engine and insert them into Postgres."

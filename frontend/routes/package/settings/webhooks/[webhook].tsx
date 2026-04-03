@@ -14,6 +14,7 @@ import { PackageNav, Params } from "../../(_components)/PackageNav.tsx";
 import {
   WebhookDeliveries,
 } from "../../../../components/WebhookDeliveries.tsx";
+import { WebhookTestButton } from "../../../../islands/WebhookTestButton.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data, params },
@@ -40,6 +41,21 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
         scope={data.package.scope}
         package={data.package.name}
       />
+
+      <div class="border-t pt-8 mt-12">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg sm:text-xl font-semibold">Test</h2>
+          <WebhookTestButton
+            scope={data.package.scope}
+            package={data.package.name}
+            webhookId={data.webhook.id}
+          />
+        </div>
+        <p class="text-sm text-secondary mt-2">
+          Send a test event to this webhook endpoint to verify it is working
+          correctly.
+        </p>
+      </div>
 
       <WebhookDeliveries
         webhook={data.webhook}

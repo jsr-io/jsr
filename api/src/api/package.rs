@@ -61,8 +61,8 @@ use crate::db::NewPublishingTask;
 use crate::db::NewWebhookEndpoint;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
-use crate::db::User;
 use crate::db::UpdateWebhookEndpoint;
+use crate::db::User;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
 use crate::external::orama::OramaClient;
@@ -273,6 +273,14 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/webhooks/:webhook/deliveries/:delivery",
       util::auth(util::json(get_webhook_delivery_handler)),
+    )
+    .post(
+      "/:package/webhooks/:webhook/test",
+      util::auth(util::json(test_webhook_handler)),
+    )
+    .post(
+      "/:package/webhooks/:webhook/deliveries/:delivery/redeliver",
+      util::auth(util::json(redeliver_webhook_handler)),
     )
     .build()
     .unwrap()
@@ -2758,6 +2766,12 @@ pub async fn create_webhook_handler(
     is_active,
   } = decode_json(&mut req).await?;
 
+  if events.is_empty() {
+    return Err(ApiError::MalformedRequest {
+      msg: "events must not be empty".into(),
+    });
+  }
+
   let db = req.data::<Database>().unwrap();
 
   let iam = req.iam();
@@ -2831,6 +2845,14 @@ pub async fn update_webhook_handler(
     payload_format,
     is_active,
   } = decode_json(&mut req).await?;
+
+  if let Some(ref events) = events {
+    if events.is_empty() {
+      return Err(ApiError::MalformedRequest {
+        msg: "events must not be empty".into(),
+      });
+    }
+  }
 
   let db = req.data::<Database>().unwrap();
 
@@ -2968,6 +2990,111 @@ pub async fn get_webhook_delivery_handler(
     .await?;
 
   Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/webhooks/:webhook/test",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn test_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue =
+    req.data::<crate::tasks::WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<crate::RegistryUrl>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook = db
+    .get_webhook_endpoint(&scope, Some(&package), webhook_id)
+    .await?;
+
+  let payload = WebhookPayload::PackageVersionPublished {
+    scope: scope.clone(),
+    package: package.clone(),
+    version: Version::new("0.0.0-test").unwrap(),
+    user_id: None,
+  };
+
+  let event_id = db
+    .insert_webhook_event_for_test(
+      &scope,
+      Some(&package),
+      WebhookEventKind::PackageVersionPublished,
+      payload,
+    )
+    .await?;
+
+  let delivery_id = db.redeliver_webhook(webhook.id, event_id).await?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    vec![delivery_id],
+  )
+  .await?;
+
+  let delivery = db
+    .get_webhook_delivery(&scope, Some(&package), webhook_id, delivery_id)
+    .await?;
+
+  Ok(delivery.into())
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/webhooks/:webhook/deliveries/:delivery/redeliver",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn redeliver_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  let delivery_id = req.param_uuid("delivery")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue =
+    req.data::<crate::tasks::WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<crate::RegistryUrl>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let (original_delivery, _event) = db
+    .get_webhook_delivery(&scope, Some(&package), webhook_id, delivery_id)
+    .await?;
+
+  let new_delivery_id = db
+    .redeliver_webhook(original_delivery.endpoint_id, original_delivery.event_id)
+    .await?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    vec![new_delivery_id],
+  )
+  .await?;
+
+  let delivery = db
+    .get_webhook_delivery(&scope, Some(&package), webhook_id, new_delivery_id)
+    .await?;
+
+  Ok(delivery.into())
 }
 
 #[cfg(test)]

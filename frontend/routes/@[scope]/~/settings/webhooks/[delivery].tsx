@@ -12,6 +12,7 @@ import { scopeDataWithMember } from "../../../../../utils/data.ts";
 import { path } from "../../../../../utils/api.ts";
 import { scopeIAM } from "../../../../../utils/iam.ts";
 import { WebhookDelivery } from "../../../../../components/WebhookDelivery.tsx";
+import { WebhookRedeliverButton } from "../../../../../islands/WebhookRedeliverButton.tsx";
 
 export default define.page<typeof handler>(function ScopeSettingsPage(
   { data },
@@ -20,6 +21,16 @@ export default define.page<typeof handler>(function ScopeSettingsPage(
     <div class="mb-20">
       <ScopeHeader scope={data.scope} />
       <ScopeNav active="Settings" iam={data.iam} scope={data.scope.scope} />
+
+      <div class="flex items-center justify-between mt-8">
+        <h2 class="text-lg sm:text-xl font-semibold">Delivery Details</h2>
+        <WebhookRedeliverButton
+          scope={data.scope.scope}
+          webhookId={data.webhook.id}
+          deliveryId={data.webhookDelivery.id}
+        />
+      </div>
+
       <WebhookDelivery delivery={data.webhookDelivery} />
     </div>
   );
