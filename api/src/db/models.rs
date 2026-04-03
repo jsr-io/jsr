@@ -482,6 +482,8 @@ pub struct PackageVersionMeta {
   pub has_readme: bool,
   pub has_readme_examples: bool,
   pub all_entrypoints_docs: bool,
+  #[serde(default)]
+  pub entrypoints_without_docs: Vec<String>,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool, // mean no slow types
   pub has_provenance: bool,
