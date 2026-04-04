@@ -31,6 +31,11 @@ resource "google_sql_database_instance" "main_pg15" {
       transaction_log_retention_days = 7
     }
 
+    database_flags {
+      name  = "max_connections"
+      value = "150"
+    }
+
     insights_config {
       query_insights_enabled = true
     }
