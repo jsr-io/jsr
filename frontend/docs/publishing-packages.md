@@ -213,8 +213,8 @@ JSR properties in their `deno.json(c)` to avoid having to create another file.
 ```
 
 If your package has multiple entrypoints, use the object syntax for `exports`.
-The `.` key is the default entrypoint (what users get when importing your package
-without a subpath), and other keys define named entrypoints:
+The `.` key is the default entrypoint (what users get when importing your
+package without a subpath), and other keys define named entrypoints:
 
 ```json
 // jsr.json / deno.json(c)

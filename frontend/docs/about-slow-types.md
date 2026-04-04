@@ -331,8 +331,8 @@ TypeScript must have corresponding type declarations.
 To fix this, you have two options:
 
 1. Convert the JavaScript module to TypeScript.
-2. Add a `.d.ts` type declaration file for the JavaScript module and reference it
-   using a `/* @ts-types="..." */` directive at the import site:
+2. Add a `.d.ts` type declaration file for the JavaScript module and reference
+   it using a `/* @ts-types="..." */` directive at the import site:
 
 ```diff
   // main.ts
