@@ -36,8 +36,11 @@ export async function proxyToCloudRun(
     request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 
+  const shouldCache = !ignoreCache &&
+    (request.method === "GET" || request.method === "HEAD");
+
   try {
-    const response = await cachedFetch(!ignoreCache, backendRequestUrl, {
+    const response = await cachedFetch(shouldCache, backendRequestUrl, {
       method: request.method,
       headers,
       body: request.body,
@@ -50,9 +53,8 @@ export async function proxyToCloudRun(
       headers: response.headers,
     });
 
-    res.headers.set("Vary", "Cookie,Authorization");
-
-    if (ignoreCache) {
+    if (!shouldCache) {
+      res.headers.set("Vary", "Cookie, Authorization");
       res.headers.set("Cache-Control", "private, no-store");
     }
 
@@ -142,15 +144,30 @@ async function cachedFetch(
   const req = new Request(input, init);
 
   if (shouldCache) {
-    const cache = await caches.default?.match(req);
-    if (cache) {
-      return cache;
+    const cacheKey = new Request(req.url, { method: "GET" });
+    const cached = await caches.default?.match(cacheKey);
+    if (cached) {
+      if (req.method === "HEAD") {
+        return new Response(null, {
+          headers: cached.headers,
+          status: cached.status,
+        });
+      }
+      return cached;
     }
   }
+
   const res = await fetch(req);
 
-  if (shouldCache) {
-    caches.default?.put(req, res.clone());
+  if (shouldCache && req.method === "GET" && res.ok) {
+    const cacheControl = res.headers.get("Cache-Control") ?? "";
+    if (
+      !cacheControl.includes("private") &&
+      !cacheControl.includes("no-store")
+    ) {
+      const cacheKey = new Request(req.url, { method: "GET" });
+      caches.default?.put(cacheKey, res.clone());
+    }
   }
 
   return res;
