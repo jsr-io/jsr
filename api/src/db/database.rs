@@ -1325,9 +1325,12 @@ gitlab_id: r.user_gitlab_id,
     let mut tx = self.pool.begin().await?;
 
     let packages = query_concat!(
-      "SELECT ", PACKAGE_SELECT_JOINED, ", ", GITHUB_REPOSITORY_SELECT_JOINED, "
+      "SELECT ", PACKAGE_BASE_SELECT_JOINED, ",
+      ", PACKAGE_VERSION_AGG_SELECT, ",
+      ", GITHUB_REPOSITORY_SELECT_JOINED, "
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+      ", PACKAGE_VERSION_LATERAL_JOINS, "
       WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
       ORDER BY packages.is_archived ASC, packages.name
       OFFSET $3 LIMIT $4";
@@ -1448,9 +1451,10 @@ gitlab_id: r.user_gitlab_id,
     } || "packages.name ASC, packages.scope ASC");
 
     let packages = sqlx::query(
-      &format!(r#"SELECT {}, {}
+      &format!(r#"SELECT {}, {}, {}
        FROM packages
        LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+       {}
        WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
        ORDER BY
          CASE
@@ -1460,8 +1464,10 @@ gitlab_id: r.user_gitlab_id,
         END,
         {sort}
        OFFSET $6 LIMIT $7"#,
-        crate::db::sql_fragments::PACKAGE_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_BASE_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_VERSION_AGG_SELECT_RT,
         crate::db::sql_fragments::GITHUB_REPOSITORY_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_VERSION_LATERAL_JOINS_RT,
       ),
     )
       .bind(&scope_ilike_query)
@@ -1683,6 +1689,29 @@ gitlab_id: r.user_gitlab_id,
 
       (package_version, user)
     })
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[instrument(
+    name = "Database::list_package_versions_for_metadata",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_metadata(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Vec<PackageVersionForMetadata>> {
+    sqlx::query_as!(
+      PackageVersionForMetadata,
+      r#"SELECT version as "version: Version", is_yanked, created_at
+      FROM package_versions
+      WHERE scope = $1 AND name = $2
+      ORDER BY version DESC"#,
+      scope as _,
+      name as _,
+    )
     .fetch_all(&self.pool)
     .await
   }
@@ -3890,6 +3919,23 @@ gitlab_id: r.user_gitlab_id,
       .execute(&mut *tx)
       .await?;
 
+    // Aggregate version-level 24h counts into package-level 24h counts.
+    // This eliminates the need for GROUP BY + SUM at read time.
+    sqlx::query!(
+      r#"
+      INSERT INTO package_download_counts_24h (scope, package, time_bucket, kind, count)
+      SELECT scope, package, date_trunc('day', time_bucket), kind, SUM(count)
+      FROM version_download_counts_4h
+      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
+      GROUP BY scope, package, date_trunc('day', time_bucket), kind
+      ON CONFLICT (scope, package, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      smallest_time_bucket,
+      largest_time_bucket,
+    )
+      .execute(&mut *tx)
+      .await?;
+
     tx.commit().await?;
 
     Ok(())
@@ -3937,10 +3983,9 @@ gitlab_id: r.user_gitlab_id,
     sqlx::query_as!(
       DownloadDataPoint,
       r#"
-    SELECT time_bucket, kind as "kind: DownloadKind", SUM(count) as "count!"
-    FROM version_download_counts_24h
+    SELECT time_bucket, kind as "kind: DownloadKind", count as "count!"
+    FROM package_download_counts_24h
     WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4
-    GROUP BY time_bucket, kind
     ORDER BY time_bucket ASC
     "#,
       scope as _,
