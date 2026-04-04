@@ -3871,14 +3871,15 @@ gitlab_id: r.user_gitlab_id,
       .await?;
 
     // Aggregate version-level 24h counts into package-level 24h counts.
-    // This eliminates the need for GROUP BY + SUM at read time.
+    // Derived from version_download_counts_24h (not 4h) so that the
+    // package-level rollup stays correct even after 4h rows are pruned.
     sqlx::query!(
       r#"
       INSERT INTO package_download_counts_24h (scope, package, time_bucket, kind, count)
-      SELECT scope, package, date_trunc('day', time_bucket), kind, SUM(count)
-      FROM version_download_counts_4h
+      SELECT scope, package, time_bucket, kind, SUM(count)
+      FROM version_download_counts_24h
       WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
-      GROUP BY scope, package, date_trunc('day', time_bucket), kind
+      GROUP BY scope, package, time_bucket, kind
       ON CONFLICT (scope, package, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
       "#,
       smallest_time_bucket,
