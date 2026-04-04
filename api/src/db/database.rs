@@ -3641,14 +3641,17 @@ gitlab_id: r.user_gitlab_id,
     .await?;
 
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&mut *tx)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -3662,14 +3665,17 @@ gitlab_id: r.user_gitlab_id,
     name: &str,
   ) -> Result<usize> {
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&self.pool)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&self.pool)
+    .await?;
 
     Ok(total_unique_package_dependents as usize)
   }
