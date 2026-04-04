@@ -1898,13 +1898,7 @@ pub async fn list_dependents_handler(
 
   let dep_name = format!("@{}/{}", scope, package);
 
-  let dependent_count_cache =
-    req.data::<crate::db::DependentCountCache>().unwrap();
-  let total = dependent_count_cache
-    .count_package_dependents(db, crate::db::DependencyKind::Jsr, &dep_name)
-    .await?;
-
-  let deps = db
+  let (total, deps) = db
     .list_package_dependents(
       crate::db::DependencyKind::Jsr,
       &dep_name,
