@@ -1349,7 +1349,7 @@ gitlab_id: r.user_gitlab_id,
           created_at: r.package_created_at,
           updated_at: r.package_updated_at,
           version_count: r.package_version_count,
-          latest_version: Some(r.package_latest_version),
+          latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
           readme_source: r.package_readme_source,
@@ -1366,7 +1366,7 @@ gitlab_id: r.user_gitlab_id,
           None
         };
 
-        let meta = r.package_version_meta;
+        let meta = r.package_version_meta.unwrap_or_default();
 
         (package, github_repository, meta)
       })

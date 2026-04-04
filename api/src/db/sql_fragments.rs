@@ -50,7 +50,7 @@ pub const PACKAGE_SELECT_JOINED: &str = r#"packages.scope "package_scope: ScopeN
 pub const PACKAGE_BASE_SELECT_JOINED: &str = r#"packages.scope "package_scope: ScopeName", packages.name "package_name: PackageName", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat "package_runtime_compat: RuntimeCompat", packages.readme_source "package_readme_source: ReadmeSource", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at""#;
 
 // Version aggregate columns from lateral join aliases (SELECT clause)
-pub const PACKAGE_VERSION_AGG_SELECT: &str = r#"COALESCE(pv_count.cnt, 0) as "package_version_count!", pv_latest.version as "package_latest_version", pv_latest.meta as "package_version_meta: PackageVersionMeta""#;
+pub const PACKAGE_VERSION_AGG_SELECT: &str = r#"COALESCE(pv_count.cnt, 0) as "package_version_count!", pv_latest.version as "package_latest_version?", pv_latest.meta as "package_version_meta?: PackageVersionMeta""#;
 
 // Lateral joins replacing correlated subqueries — combines latest version + meta into a single lookup
 pub const PACKAGE_VERSION_LATERAL_JOINS: &str = r#"LEFT JOIN LATERAL (SELECT COUNT(*) as cnt FROM package_versions WHERE scope = packages.scope AND name = packages.name) pv_count ON true LEFT JOIN LATERAL (SELECT version, meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) pv_latest ON true"#;
