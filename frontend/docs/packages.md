@@ -124,8 +124,8 @@ that contains a hyphen after the patch number, such as `1.0.0-alpha.1`,
 
 Pre-release versions are treated specially by JSR:
 
-- Pre-release versions are **not** considered when determining the latest version
-  of a package. For example, if a package has versions `1.0.0` and
+- Pre-release versions are **not** considered when determining the latest
+  version of a package. For example, if a package has versions `1.0.0` and
   `2.0.0-beta.1`, the latest version shown on the package page will be `1.0.0`.
 - Semver resolution **excludes** pre-release versions by default. A version
   range like `^2.0.0` will not match `2.0.0-beta.1`. Users must explicitly
@@ -214,17 +214,18 @@ how a package's documentation will look on JSR, by running `deno doc --html`
 locally. This will generate HTML files with very similar looking documentation
 to what is shown on the JSR site.
 
-The "Overview" tab on the package page shows the module doc of the default
-entrypoint (the `.` export) of the package. A module doc is a JSDoc comment at
-the top of the file that includes the `@module` tag. If the default entrypoint
-has a module doc, **the README will not be shown on the Overview tab** — the
-module doc takes precedence. If the package does not have a default entrypoint,
-or the default entrypoint does not have a module doc, then the "Overview" tab
-will show the README of the package instead. If no README is present, then the
-"Overview" tab will only show the package outline in the sidebar.
+The content shown on the "Overview" tab is controlled by the **Readme Source**
+setting on the package's "Settings" tab. There are two options:
 
-If you want the README to be displayed on the Overview tab, ensure that your
-default entrypoint does not have a `@module` JSDoc comment.
+- **JSDoc (with Readme fallback)** (default): Shows the module doc of the
+  default entrypoint (the `.` export). A module doc is a JSDoc comment at the
+  top of the file that includes the `@module` tag. If the default entrypoint
+  does not have a module doc, the README is shown instead.
+- **Readme**: Always shows the README file, ignoring any module doc on the
+  default entrypoint.
+
+If neither a module doc nor a README is present, the "Overview" tab will only
+show the package outline in the sidebar.
 
 The sidebar at the base of the package page contains links to all exports from
 the default entrypoint of the package, and links to all other entrypoints in the
