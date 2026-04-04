@@ -35,6 +35,12 @@ CREATE TABLE package_download_counts_24h (
   FOREIGN KEY (scope, package) REFERENCES packages (scope, name) ON DELETE CASCADE
 );
 
+-- Covering index for count_package_dependencies (350k calls/hr).
+-- INCLUDEs dependency_name so COUNT(DISTINCT dependency_name) is an index-only scan.
+DROP INDEX IF EXISTS package_version_dependencies_package_scope_package_name_package_version_idx;
+CREATE INDEX idx_pvd_scope_name_version ON package_version_dependencies (package_scope, package_name, package_version)
+  INCLUDE (dependency_name);
+
 -- Backfill from existing version-level data
 INSERT INTO package_download_counts_24h (scope, package, time_bucket, kind, count)
 SELECT scope, package, time_bucket, kind, SUM(count)
