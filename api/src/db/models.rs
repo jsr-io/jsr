@@ -467,6 +467,13 @@ pub struct PackageVersionForResolution {
 }
 
 #[derive(Debug)]
+pub struct PackageVersionForMetadata {
+  pub version: Version,
+  pub is_yanked: bool,
+  pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug)]
 pub struct PackageVersionForNpmVersionManifest {
   pub version: Version,
   pub is_yanked: bool,

@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT version as \"version: Version\", is_yanked, created_at\n      FROM package_versions\n      WHERE scope = $1 AND name = $2\n      ORDER BY version DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "is_yanked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "20282ff0a63e6ebdce5a8b0bc9785f92d220f7a7ed73868bf55b7fa21eab41bf"
+}
