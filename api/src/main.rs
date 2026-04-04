@@ -117,6 +117,7 @@ pub(crate) fn main_router(
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
+    .data(db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
 
@@ -153,6 +154,7 @@ pub(crate) fn main_router(
 
 #[tokio::main]
 async fn main() {
+  dotenvy::from_filename(".env.local").ok();
   dotenvy::dotenv().ok();
   let config = Config::parse();
   println!("{config:?}");

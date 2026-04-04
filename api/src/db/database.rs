@@ -3641,14 +3641,17 @@ gitlab_id: r.user_gitlab_id,
     .await?;
 
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&mut *tx)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -3662,14 +3665,17 @@ gitlab_id: r.user_gitlab_id,
     name: &str,
   ) -> Result<usize> {
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&self.pool)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&self.pool)
+    .await?;
 
     Ok(total_unique_package_dependents as usize)
   }
@@ -4712,4 +4718,39 @@ pub enum CreatePublishingTaskResult {
   Created((PublishingTask, Option<UserPublic>)),
   Exists((PublishingTask, Option<UserPublic>)),
   WeeklyPublishAttemptsLimitExceeded(i32),
+}
+
+/// In-memory cache for `count_package_dependents` results. The dependent count
+/// for a package only changes when someone publishes a new version of a
+/// depending package, so a 15-minute TTL is safe and drastically reduces
+/// database load on package page views.
+#[derive(Clone)]
+pub struct DependentCountCache {
+  cache: moka::future::Cache<String, usize>,
+}
+
+impl DependentCountCache {
+  pub fn new() -> Self {
+    Self {
+      cache: moka::future::Cache::builder()
+        .max_capacity(65536)
+        .time_to_live(std::time::Duration::from_secs(900))
+        .build(),
+    }
+  }
+
+  pub async fn count_package_dependents(
+    &self,
+    db: &Database,
+    kind: DependencyKind,
+    name: &str,
+  ) -> Result<usize> {
+    let key = format!("{kind:?}:{name}");
+    if let Some(count) = self.cache.get(&key).await {
+      return Ok(count);
+    }
+    let count = db.count_package_dependents(kind, name).await?;
+    self.cache.insert(key, count).await;
+    Ok(count)
+  }
 }
