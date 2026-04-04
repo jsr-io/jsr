@@ -35,6 +35,10 @@ errors!(
     status: BAD_REQUEST,
     "The service account cannot be deleted.",
   },
+  CannotModifyServiceAccount {
+    status: BAD_REQUEST,
+    "The service account cannot be modified.",
+  },
   ScopeNotFound {
     status: NOT_FOUND,
     "The requested scope was not found.",

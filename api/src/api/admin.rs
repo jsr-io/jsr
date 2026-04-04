@@ -93,6 +93,10 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
   let iam = req.iam();
   let staff = iam.check_admin_access()?;
 
+  if user_id == uuid::Uuid::nil() {
+    return Err(ApiError::CannotModifyServiceAccount);
+  }
+
   let mut updated_user = None;
 
   if let Some(is_staff) = is_staff {
@@ -624,6 +628,17 @@ mod tests {
       .await
       .unwrap()
       .expect_err_code(StatusCode::BAD_REQUEST, "cannotDeleteServiceAccount")
+      .await;
+
+    // Cannot modify service account
+    t.http()
+      .patch(&service_path)
+      .token(Some(&staff_token))
+      .body_json(json!({ "isStaff": false }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::BAD_REQUEST, "cannotModifyServiceAccount")
       .await;
   }
 }

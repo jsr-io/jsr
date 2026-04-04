@@ -97,8 +97,9 @@ export default define.page<typeof handler>(function AccountInvitesPage({
           <h2 class="text-xl mb-2 font-bold">Delete account</h2>
           <p class="mt-2 text-secondary max-w-xl">
             You may delete your account at any time. If you delete your account,
-            any scopes that you are the sole owner of will be orphaned. You will
-            not be able to recover your account after deletion.
+            any scopes that you are the sole owner of will be transferred to a
+            service account. You will not be able to recover your account after
+            deletion.
           </p>
           <DeleteAccount scopes={data.scopes} userName={data.user.name} />
         </div>

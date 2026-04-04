@@ -69,32 +69,37 @@ export default define.page<typeof handler>(function Users({ data, url }) {
             </TableData>
             <TableData align="right">
               <div class="flex gap-2 items-center">
-                <EditModal
-                  style="primary"
-                  path={path`/admin/users/${user.id}`}
-                  title={`Edit user '${user.name}'`}
-                  fields={[
-                    {
-                      name: "scopeLimit",
-                      label: "scope limit",
-                      type: "number",
-                      value: user.scopeLimit ?? undefined,
-                    },
-                    {
-                      name: "isStaff",
-                      label: "is staff",
-                      type: "boolean",
-                      value: user.isStaff,
-                    },
-                    {
-                      name: "isBlocked",
-                      label: "is blocked",
-                      type: "boolean",
-                      value: user.isBlocked,
-                    },
-                  ]}
-                />
-                <DeleteUser userId={user.id} userName={user.name} />
+                {user.id !==
+                    "00000000-0000-0000-0000-000000000000" && (
+                  <>
+                    <EditModal
+                      style="primary"
+                      path={path`/admin/users/${user.id}`}
+                      title={`Edit user '${user.name}'`}
+                      fields={[
+                        {
+                          name: "scopeLimit",
+                          label: "scope limit",
+                          type: "number",
+                          value: user.scopeLimit ?? undefined,
+                        },
+                        {
+                          name: "isStaff",
+                          label: "is staff",
+                          type: "boolean",
+                          value: user.isStaff,
+                        },
+                        {
+                          name: "isBlocked",
+                          label: "is blocked",
+                          type: "boolean",
+                          value: user.isBlocked,
+                        },
+                      ]}
+                    />
+                    <DeleteUser userId={user.id} userName={user.name} />
+                  </>
+                )}
               </div>
             </TableData>
           </TableRow>
