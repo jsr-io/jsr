@@ -41,8 +41,9 @@ impl PackageMetadata {
     scope: &ScopeName,
     package_name: &PackageName,
   ) -> anyhow::Result<Self> {
-    let mut versions =
-      db.list_package_versions_for_metadata(scope, package_name).await?;
+    let mut versions = db
+      .list_package_versions_for_metadata(scope, package_name)
+      .await?;
     versions.sort_by(|a, b| b.version.cmp(&a.version));
     let latest = versions
       .iter()
