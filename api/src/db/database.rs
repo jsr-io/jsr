@@ -1638,61 +1638,6 @@ gitlab_id: r.user_gitlab_id,
     })
   }
 
-  #[instrument(name = "Database::list_package_versions", skip(self), err)]
-  pub async fn list_package_versions(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-  ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
-    query_concat!(
-      "SELECT ", PACKAGE_VERSION_SELECT_JOINED, ",
-      ", USER_PUBLIC_SELECT_JOINED, "
-      FROM package_versions
-      LEFT JOIN users ON package_versions.user_id = users.id
-      WHERE package_versions.scope = $1 AND package_versions.name = $2
-      ORDER BY package_versions.version DESC";
-      scope as _,
-      name as _,
-    )
-    .map(|r| {
-      let package_version = PackageVersion {
-        scope: r.package_version_scope,
-        name: r.package_version_name,
-        version: r.package_version_version,
-        user_id: r.package_version_user_id,
-        exports: r.package_version_exports,
-        is_yanked: r.package_version_is_yanked,
-        readme_path: r.package_version_readme_path,
-        uses_npm: r.package_version_uses_npm,
-        meta: r.package_version_meta,
-        updated_at: r.package_version_updated_at,
-        created_at: r.package_version_created_at,
-        rekor_log_id: r.package_version_rekor_log_id,
-        license: r.package_version_license,
-      };
-
-      let user = if r.package_version_user_id.is_some() {
-        let user = UserPublic {
-          id: r.user_id.unwrap(),
-          name: r.user_name.unwrap(),
-          avatar_url: r.user_avatar_url.unwrap(),
-          github_id: r.user_github_id,
-          gitlab_id: r.user_gitlab_id,
-          updated_at: r.user_updated_at.unwrap(),
-          created_at: r.user_created_at.unwrap(),
-        };
-
-        Some(user)
-      } else {
-        None
-      };
-
-      (package_version, user)
-    })
-    .fetch_all(&self.pool)
-    .await
-  }
-
   #[instrument(
     name = "Database::list_package_versions_for_metadata",
     skip(self),

@@ -65,12 +65,6 @@ pub const SCOPE_USAGE_SELECT_RT: &str = r#"(SELECT COUNT(created_at) FROM packag
 (SELECT COUNT(created_at) FROM packages WHERE packages.scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_new_package_per_week",
 (SELECT COUNT(created_at) FROM publishing_tasks WHERE publishing_tasks.package_scope = scopes.scope AND created_at > now() - '1 week'::interval) AS "usage_publish_attempts_per_week""#;
 
-// Runtime-safe variant without sqlx type annotations, for use with sqlx::query() / format!().
-pub const PACKAGE_SELECT_JOINED_RT: &str = r#"packages.scope "package_scope", packages.name "package_name", packages.description "package_description", packages.github_repository_id "package_github_repository_id", packages.runtime_compat as "package_runtime_compat", packages.readme_source "package_readme_source", packages.when_featured "package_when_featured", packages.is_archived "package_is_archived", packages.updated_at "package_updated_at", packages.created_at "package_created_at",
-(SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "package_version_count",
-(SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_latest_version",
-(SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "package_version_meta""#;
-
 pub const GITHUB_REPOSITORY_SELECT_JOINED_RT: &str = r#"github_repositories.id "github_repository_id", github_repositories.owner "github_repository_owner", github_repositories.name "github_repository_name", github_repositories.updated_at "github_repository_updated_at", github_repositories.created_at "github_repository_created_at""#;
 
 // Runtime lateral join variants
