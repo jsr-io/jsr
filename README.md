@@ -234,6 +234,23 @@ locally work on it, please see the
 [HTML development section](https://github.com/denoland/deno_doc?tab=readme-ov-file#html-generation)
 of `deno_doc`.
 
+### Per-branch databases
+
+The `db:switch` tool lets you work on multiple branches without clobbering your
+main development database. Each branch gets its own PostgreSQL database.
+
+```sh
+deno task db:switch switch     # switch to branch db copied from main
+deno task db:switch empty      # switch to an empty branch db
+deno task db:switch main       # switch back to the main database
+deno task db:switch current    # show which database is active
+deno task db:switch list       # list all branch databases
+deno task db:switch clean      # drop all branch databases
+```
+
+The `switch` and `empty` commands write an `api/.env.local` override file. Use
+`--method=export` to print an `export` command instead.
+
 ### Other
 
 During local dev, traces are sent to Jaeger. You can view them at

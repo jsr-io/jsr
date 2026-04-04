@@ -406,8 +406,11 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
     api_package.dependency_count = dependency_count as u64;
   }
 
-  let dependent_count = db
+  let dependent_count_cache =
+    req.data::<crate::db::DependentCountCache>().unwrap();
+  let dependent_count = dependent_count_cache
     .count_package_dependents(
+      db,
       crate::db::DependencyKind::Jsr,
       &format!("@{}/{}", scope, package),
     )
@@ -1893,10 +1896,12 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  let dep_name = format!("@{}/{}", scope, package);
+
   let (total, deps) = db
     .list_package_dependents(
       crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
+      &dep_name,
       start,
       limit,
       versions_per_package_limit,
