@@ -4713,3 +4713,38 @@ pub enum CreatePublishingTaskResult {
   Exists((PublishingTask, Option<UserPublic>)),
   WeeklyPublishAttemptsLimitExceeded(i32),
 }
+
+/// In-memory cache for `count_package_dependents` results. The dependent count
+/// for a package only changes when someone publishes a new version of a
+/// depending package, so a 15-minute TTL is safe and drastically reduces
+/// database load on package page views.
+#[derive(Clone)]
+pub struct DependentCountCache {
+  cache: moka::future::Cache<String, usize>,
+}
+
+impl DependentCountCache {
+  pub fn new() -> Self {
+    Self {
+      cache: moka::future::Cache::builder()
+        .max_capacity(2048)
+        .time_to_live(std::time::Duration::from_secs(900))
+        .build(),
+    }
+  }
+
+  pub async fn count_package_dependents(
+    &self,
+    db: &Database,
+    kind: DependencyKind,
+    name: &str,
+  ) -> Result<usize> {
+    let key = format!("{kind:?}:{name}");
+    if let Some(count) = self.cache.get(&key).await {
+      return Ok(count);
+    }
+    let count = db.count_package_dependents(kind, name).await?;
+    self.cache.insert(key, count).await;
+    Ok(count)
+  }
+}
