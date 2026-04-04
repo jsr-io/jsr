@@ -3649,9 +3649,9 @@ gitlab_id: r.user_gitlab_id,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&mut *tx)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
