@@ -12,11 +12,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
 
   observability = {
     enabled            = true
-    head_sampling_rate = 1
     logs = {
       enabled            = true
       invocation_logs    = true
-      head_sampling_rate = 1
+      head_sampling_rate = 0.01
       persist            = false
     }
   }
