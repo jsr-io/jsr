@@ -3657,9 +3657,9 @@ gitlab_id: r.user_gitlab_id,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&self.pool)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&self.pool)
+    .await?;
 
     Ok(total_unique_package_dependents as usize)
   }
