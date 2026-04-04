@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM scopes WHERE scope = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9c620d32bb25f2b7f5259c3e62d1c00b1c6d0a871d53ad19ae3c2f925653d0d6"
+}

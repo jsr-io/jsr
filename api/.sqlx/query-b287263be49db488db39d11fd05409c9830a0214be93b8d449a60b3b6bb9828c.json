@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT gitlab_id, access_token, access_token_expires_at, refresh_token, updated_at, created_at\n      FROM gitlab_identities\n      WHERE gitlab_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "gitlab_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "access_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "access_token_expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "refresh_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "b287263be49db488db39d11fd05409c9830a0214be93b8d449a60b3b6bb9828c"
+}

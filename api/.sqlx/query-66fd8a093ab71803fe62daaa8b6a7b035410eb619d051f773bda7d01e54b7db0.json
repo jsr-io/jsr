@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n        scope as \"scope: ScopeName\", name as \"name: PackageName\", updated_at,\n        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version_updated_at!\"\n      FROM packages\n      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL\n      ORDER BY scope ASC, name ASC\n      LIMIT 50000",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "latest_version_updated_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "66fd8a093ab71803fe62daaa8b6a7b035410eb619d051f773bda7d01e54b7db0"
+}

@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO authorizations (exchange_token, code, challenge, permissions, expires_at)\n      VALUES ($1, $2, $3, $4, $5)\n      RETURNING exchange_token, code, challenge, permissions \"permissions: _\", approved, user_id, expires_at, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exchange_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "challenge",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "permissions: _",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "approved",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d5df552d3aeed083b384ca91c38629ea4b58af6711f6c7a334630a06e75b5ef6"
+}

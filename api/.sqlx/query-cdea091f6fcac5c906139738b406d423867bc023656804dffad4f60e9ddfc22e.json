@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n      SELECT\n        package_scope as \"scope: ScopeName\",\n        package_name as \"name: PackageName\",\n        (ARRAY_AGG(DISTINCT package_version))[:$5] as \"versions!: Vec<Version>\",\n        COUNT(DISTINCT package_version) as \"total_versions!\"\n      FROM\n        package_version_dependencies\n      WHERE\n        dependency_kind = $1 AND dependency_name = $2\n      GROUP BY package_scope, package_name\n      ORDER BY package_scope ASC, package_name ASC OFFSET $3 LIMIT $4;\n      ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "versions!: Vec<Version>",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_versions!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "dependency_kind",
+            "kind": {
+              "Enum": [
+                "jsr",
+                "npm"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Int8",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "cdea091f6fcac5c906139738b406d423867bc023656804dffad4f60e9ddfc22e"
+}

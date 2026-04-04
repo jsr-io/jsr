@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE package_versions\n      SET rekor_log_id = $1, meta = jsonb_set_lax(meta, '{hasProvenance}', 'true'::jsonb, true)\n      WHERE scope = $2 AND name = $3 AND version = $4 AND rekor_log_id IS NULL AND created_at > now() - '2 minute'::interval",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0f0d573741aa1a7b32d8a2b4a110c9cb56ff45bc6a9f1bc068e06536d291bd68"
+}

@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at FROM oauth_states WHERE csrf_token = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "csrf_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "pkce_code_verifier",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "redirect_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bcf0337411a25f562683585efd5ac1fcd66aa5c96a7cc0b7c60a02ed1393d55f"
+}

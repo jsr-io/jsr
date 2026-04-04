@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO npm_tarballs (scope, name, version, revision, sha1, sha512, size)\n      VALUES ($1, $2, $3, $4, $5, $6, $7)\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", version as \"version: Version\", revision, sha1, sha512, size, updated_at, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "revision",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "sha1",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "sha512",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "size",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Text",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3ed677742b83d29a0a2a15ca888fbf8d111ca1b8d856a9b642addfcb233c7053"
+}

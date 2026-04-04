@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(created_at) FROM publishing_tasks WHERE package_scope ILIKE $1 OR package_name ILIKE $1 OR package_version ILIKE $1;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2db3f0c9205bba825943429c92f53cdfa6a74d37bf27927640156c29245d0e5e"
+}
