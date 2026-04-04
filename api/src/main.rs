@@ -124,6 +124,7 @@ pub(crate) fn main_router(
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(WebhookDispatchQueue(webhook_dispatch_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
+    .data(db::DependentCountCache::new())
     .data(webhook_secret_encryption_key)
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);

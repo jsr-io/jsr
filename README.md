@@ -242,13 +242,13 @@ main development database. Each branch gets its own PostgreSQL database.
 ```sh
 deno task db:switch switch     # switch to branch db copied from main
 deno task db:switch empty      # switch to an empty branch db
-deno task db:switch main      # switch back to the main database
-deno task db:switch current   # show which database is active
-deno task db:switch list      # list all branch databases
-deno task db:switch clean     # drop all branch databases
+deno task db:switch main       # switch back to the main database
+deno task db:switch current    # show which database is active
+deno task db:switch list       # list all branch databases
+deno task db:switch clean      # drop all branch databases
 ```
 
-The `copy` and `empty` commands write an `api/.env.local` override file. Use
+The `switch` and `empty` commands write an `api/.env.local` override file. Use
 `--method=export` to print an `export` command instead.
 
 ### Other
