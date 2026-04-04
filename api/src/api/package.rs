@@ -369,28 +369,6 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
   };
 
-  let buckets = req.data::<Buckets>().unwrap();
-  let package_metadata = PackageMetadata {
-    scope: scope.clone(),
-    name: package_name.clone(),
-    latest: None,
-    versions: Default::default(),
-  };
-  let content = serde_json::to_vec(&package_metadata)?;
-  let s3_path = crate::s3_paths::package_metadata(&scope, &package_name);
-  buckets
-    .modules_bucket
-    .upload(
-      s3_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
   let orama_client = req.data::<Option<OramaClient>>().unwrap();
   if let Some(orama_client) = orama_client {
     orama_client.upsert_package(&package, &Default::default());
