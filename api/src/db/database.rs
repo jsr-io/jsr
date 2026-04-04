@@ -3614,8 +3614,7 @@ gitlab_id: r.user_gitlab_id,
     start: i64,
     limit: i64,
     versions_per_package_limit: i64,
-  ) -> Result<(usize, Vec<Dependent>)> {
-    let mut tx = self.pool.begin().await?;
+  ) -> Result<Vec<Dependent>> {
     let dependents = sqlx::query_as!(
       Dependent,
       r#"
@@ -3637,22 +3636,10 @@ gitlab_id: r.user_gitlab_id,
       limit,
       versions_per_package_limit as i32,
     )
-    .fetch_all(&mut *tx)
+    .fetch_all(&self.pool)
     .await?;
 
-    let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
-      kind as _,
-      name,
-    )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&mut *tx)
-      .await?;
-
-    tx.commit().await?;
-
-    Ok((total_unique_package_dependents as usize, dependents))
+    Ok(dependents)
   }
 
   #[instrument(name = "Database::count_package_dependents", skip(self), err)]
@@ -3662,8 +3649,11 @@ gitlab_id: r.user_gitlab_id,
     name: &str,
   ) -> Result<usize> {
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )

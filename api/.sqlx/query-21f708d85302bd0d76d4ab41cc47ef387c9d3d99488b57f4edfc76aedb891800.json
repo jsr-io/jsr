@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies\n      WHERE dependency_kind = $1 AND dependency_name = $2;",
+  "query": "SELECT COUNT(*) FROM (\n        SELECT DISTINCT package_scope, package_name\n        FROM package_version_dependencies\n        WHERE dependency_kind = $1 AND dependency_name = $2\n      ) t;",
   "describe": {
     "columns": [
       {
@@ -29,5 +29,5 @@
       null
     ]
   },
-  "hash": "1caa2a19721c68f296d92eb0ff8d4bd3caf6cb13da95e4e00e6eaa8329bb388d"
+  "hash": "21f708d85302bd0d76d4ab41cc47ef387c9d3d99488b57f4edfc76aedb891800"
 }

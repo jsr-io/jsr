@@ -1896,10 +1896,22 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let (total, deps) = db
+  let dep_name = format!("@{}/{}", scope, package);
+
+  let dependent_count_cache =
+    req.data::<crate::db::DependentCountCache>().unwrap();
+  let total = dependent_count_cache
+    .count_package_dependents(
+      db,
+      crate::db::DependencyKind::Jsr,
+      &dep_name,
+    )
+    .await?;
+
+  let deps = db
     .list_package_dependents(
       crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
+      &dep_name,
       start,
       limit,
       versions_per_package_limit,
