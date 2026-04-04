@@ -4727,7 +4727,7 @@ impl DependentCountCache {
   pub fn new() -> Self {
     Self {
       cache: moka::future::Cache::builder()
-        .max_capacity(2048)
+        .max_capacity(65536)
         .time_to_live(std::time::Duration::from_secs(900))
         .build(),
     }
