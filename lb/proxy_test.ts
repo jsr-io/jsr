@@ -200,7 +200,10 @@ function setupFetchStub(
 ): () => void {
   const original = globalThis.fetch;
   // deno-lint-ignore no-explicit-any
-  (globalThis as any).fetch = (_input: RequestInfo | URL, _init?: RequestInit) => {
+  (globalThis as any).fetch = (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => {
     return Promise.resolve(response.clone());
   };
   return () => {
@@ -246,7 +249,10 @@ Deno.test("proxyToCloudRun serves cached response on second GET", async () => {
   let fetchCount = 0;
   const original = globalThis.fetch;
   // deno-lint-ignore no-explicit-any
-  (globalThis as any).fetch = (_input: RequestInfo | URL, _init?: RequestInit) => {
+  (globalThis as any).fetch = (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => {
     fetchCount++;
     return Promise.resolve(
       new Response('{"ok":true}', {
@@ -407,7 +413,10 @@ Deno.test("proxyToCloudRun serves HEAD from cached GET response", async () => {
   let fetchCount = 0;
   const original = globalThis.fetch;
   // deno-lint-ignore no-explicit-any
-  (globalThis as any).fetch = (_input: RequestInfo | URL, _init?: RequestInit) => {
+  (globalThis as any).fetch = (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => {
     fetchCount++;
     return Promise.resolve(
       new Response('{"ok":true}', {
