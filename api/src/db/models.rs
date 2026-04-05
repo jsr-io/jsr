@@ -54,7 +54,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for User {
       scope_usage: try_get_row_or(row, "scope_usage", "user_scope_usage")?,
       scope_limit: try_get_row_or(row, "scope_limit", "user_scope_limit")?,
       invite_count: try_get_row_or(row, "invite_count", "user_invite_count")?,
-      updated_at: try_get_row_or(row, "created_at", "user_created_at")?,
+      updated_at: try_get_row_or(row, "updated_at", "user_updated_at")?,
       created_at: try_get_row_or(row, "created_at", "user_created_at")?,
       newer_ticket_messages_count: try_get_row_or(
         row,
@@ -99,7 +99,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for UserPublic {
       avatar_url: try_get_row_or(row, "avatar_url", "user_avatar_url")?,
       github_id: try_get_row_or(row, "github_id", "user_github_id")?,
       gitlab_id: try_get_row_or(row, "gitlab_id", "user_gitlab_id")?,
-      updated_at: try_get_row_or(row, "created_at", "user_created_at")?,
+      updated_at: try_get_row_or(row, "updated_at", "user_updated_at")?,
       created_at: try_get_row_or(row, "created_at", "user_created_at")?,
     })
   }
