@@ -34,7 +34,7 @@ resource "google_cloud_run_v2_service" "registry_frontend" {
 
     scaling {
       min_instance_count = var.production ? 1 : 0
-      max_instance_count = 10
+      max_instance_count = 20
     }
 
     containers {

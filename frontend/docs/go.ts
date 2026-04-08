@@ -57,6 +57,9 @@ const slowTypesRedirects = new Map([
   ["unsupported-ts-export-assignment", "#commonjs-features"],
   ["unsupported-ts-namespace-export", "#global-augmentation"],
   ["unsupported-javascript-entrypoint", "#javascript-entrypoints"],
+  ["unsupported-nested-javascript", "#nested-javascript-modules"],
+  ["export-not-found", "#export-not-found"],
+  ["unsupported-expando-property", "#expando-properties"],
 ]);
 
 export function go(id: string): string | null {
