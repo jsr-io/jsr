@@ -30,9 +30,10 @@ export async function proxyToCloudRun(
   headers.set("X-Forwarded-Proto", url.protocol.slice(0, -1));
   headers.set("X-Forwarded-Host", url.host);
 
-  const ignoreCache = path === "/login" ||
-    path.startsWith("/login/") ||
-    path === "/logout" ||
+  const originalPath = url.pathname;
+  const ignoreCache = originalPath === "/login" ||
+    originalPath.startsWith("/login/") ||
+    originalPath === "/logout" ||
     request.headers.has("Authorization") ||
     request.headers.get("Cookie")?.includes("token=");
 

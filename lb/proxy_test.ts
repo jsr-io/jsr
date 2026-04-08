@@ -1,9 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+// deno-lint-ignore-file require-await no-explicit-any
 
-import {
-  assertEquals,
-  assertNotEquals,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "@std/assert";
 import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
 import type { PartialBucket } from "./types.ts";
 
@@ -199,7 +197,6 @@ function setupFetchStub(
   response: Response,
 ): () => void {
   const original = globalThis.fetch;
-  // deno-lint-ignore no-explicit-any
   (globalThis as any).fetch = (
     _input: RequestInfo | URL,
     _init?: RequestInit,
@@ -248,7 +245,6 @@ Deno.test("proxyToCloudRun serves cached response on second GET", async () => {
 
   let fetchCount = 0;
   const original = globalThis.fetch;
-  // deno-lint-ignore no-explicit-any
   (globalThis as any).fetch = (
     _input: RequestInfo | URL,
     _init?: RequestInit,
@@ -412,7 +408,6 @@ Deno.test("proxyToCloudRun serves HEAD from cached GET response", async () => {
 
   let fetchCount = 0;
   const original = globalThis.fetch;
-  // deno-lint-ignore no-explicit-any
   (globalThis as any).fetch = (
     _input: RequestInfo | URL,
     _init?: RequestInit,
@@ -461,6 +456,34 @@ Deno.test("proxyToCloudRun skips cache for login paths", async () => {
       method: "GET",
     });
     const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(cache.putCalls.length, 0);
+    assertEquals(cache.matchCalls.length, 0);
+    assertEquals(response.headers.get("Cache-Control"), "private, no-store");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun skips cache for login paths even with pathRewrite", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response("", { status: 302, headers: { Location: "/callback" } }),
+  );
+
+  try {
+    // Simulates api.jsr.io/login where pathRewrite prepends /api
+    const request = new Request("https://api.jsr.io/login", {
+      method: "GET",
+    });
+    const response = await proxyToCloudRun(
+      request,
+      BACKEND_URL,
+      (path) => `/api${path}`,
+    );
 
     assertEquals(cache.putCalls.length, 0);
     assertEquals(cache.matchCalls.length, 0);
