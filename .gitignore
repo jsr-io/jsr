@@ -10,6 +10,7 @@ target/
 *.secret.tfvars
 
 **/.env
+**/.env.local
 
 frontend/coverage
 frontend/dist

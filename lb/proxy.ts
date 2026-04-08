@@ -53,8 +53,9 @@ export async function proxyToCloudRun(
       headers: response.headers,
     });
 
+    res.headers.set("Vary", "Cookie, Authorization");
+
     if (!shouldCache) {
-      res.headers.set("Vary", "Cookie, Authorization");
       res.headers.set("Cache-Control", "private, no-store");
     }
 

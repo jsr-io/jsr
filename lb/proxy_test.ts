@@ -234,8 +234,8 @@ Deno.test("proxyToCloudRun caches anonymous GET with URL-only key", async () => 
     assertEquals(cache.putCalls.length, 1);
     // Cache key should be the backend URL, not include client headers
     assertEquals(cache.putCalls[0], `${BACKEND_URL}/api/packages`);
-    // Cacheable responses should NOT have Vary: Cookie, Authorization
-    assertEquals(response.headers.has("Vary"), false);
+    // Vary is set on all responses so browsers re-fetch when auth changes
+    assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
   } finally {
     restore();
     (globalThis as any).caches = { default: undefined };
