@@ -74,11 +74,10 @@ impl Client {
       .build()
       .unwrap();
     let service_account_key = match &metadata_strategy {
-      MetadataStrategy::ServiceAccountKey(json) => {
-        Some(serde_json::from_str::<ServiceAccountKeyFile>(json).expect(
-          "Failed to parse GCP service account key JSON",
-        ))
-      }
+      MetadataStrategy::ServiceAccountKey(json) => Some(
+        serde_json::from_str::<ServiceAccountKeyFile>(json)
+          .expect("Failed to parse GCP service account key JSON"),
+      ),
       _ => None,
     };
     Self(Arc::new(ClientInner {
@@ -174,28 +173,21 @@ impl ClientInner {
           .as_secs();
         let claims = JwtClaims {
           iss: sa_key.client_email.clone(),
-          scope: "https://www.googleapis.com/auth/cloud-platform"
-            .to_owned(),
+          scope: "https://www.googleapis.com/auth/cloud-platform".to_owned(),
           aud: "https://oauth2.googleapis.com/token".to_owned(),
           iat: now,
           exp: now + 3600,
         };
-        let header =
-          jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
-        let encoding_key =
-          jsonwebtoken::EncodingKey::from_rsa_pem(
-            sa_key.private_key.as_bytes(),
-          )?;
-        let jwt =
-          jsonwebtoken::encode(&header, &claims, &encoding_key)?;
+        let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+        let encoding_key = jsonwebtoken::EncodingKey::from_rsa_pem(
+          sa_key.private_key.as_bytes(),
+        )?;
+        let jwt = jsonwebtoken::encode(&header, &claims, &encoding_key)?;
         let resp = self
           .http()
           .post("https://oauth2.googleapis.com/token")
           .form(&[
-            (
-              "grant_type",
-              "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            ),
+            ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
             ("assertion", &jwt),
           ])
           .send()
@@ -211,8 +203,7 @@ impl ClientInner {
         }
         let token: AccessTokenResponse = resp.json().await?;
         let mut guard = self.access_token.lock().unwrap();
-        let expires_at =
-          Instant::now() + Duration::from_secs(token.expires_in);
+        let expires_at = Instant::now() + Duration::from_secs(token.expires_in);
         *guard = Some((token.access_token.clone(), expires_at));
         Ok(token.access_token)
       }

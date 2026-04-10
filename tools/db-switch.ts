@@ -169,7 +169,9 @@ async function showCurrent(): Promise<void> {
 
   if (hasEnvLocal) {
     const envLocal = await load({ envPath: ENV_LOCAL_FILE });
-    console.log(`Override active via ${ENV_LOCAL_FILE}: ${envLocal.DATABASE_URL}`);
+    console.log(
+      `Override active via ${ENV_LOCAL_FILE}: ${envLocal.DATABASE_URL}`,
+    );
   } else if (config.name === mainDb) {
     console.log(`Using main database`);
   } else {
