@@ -159,9 +159,7 @@ async fn main() {
   let config = Config::parse();
   println!("{config:?}");
 
-  let export_target = if config.cloud_trace {
-    TracingExportTarget::CloudTrace
-  } else if let Some(otlp_endpoint) = config.otlp_endpoint {
+  let export_target = if let Some(otlp_endpoint) = config.otlp_endpoint {
     TracingExportTarget::Otlp(otlp_endpoint)
   } else {
     TracingExportTarget::None

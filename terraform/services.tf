@@ -82,3 +82,4 @@ resource "google_project_service" "service_bigquery" {
   service            = "bigquery.googleapis.com"
   disable_on_destroy = false
 }
+

@@ -115,13 +115,9 @@ pub struct Config {
   /// The Orama symbol data source
   pub orama_symbols_data_source: Option<String>,
 
-  #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
+  #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
   /// OTLP endpoint to send traces to.
   pub otlp_endpoint: Option<String>,
-
-  #[clap(long = "cloud_trace", group = "trace")]
-  /// Whether to enable cloud trace.
-  pub cloud_trace: bool,
 
   #[clap(long = "registry_url", env = "REGISTRY_URL")]
   /// The base URL of the registry, where module code and metadata can be
@@ -169,10 +165,6 @@ pub struct Config {
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
 
-  #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
-  /// The ID of the project.
-  pub gcp_project_id: Option<String>,
-
   #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
   /// The Cloudflare account ID for Analytics Engine.
   pub cloudflare_account_id: Option<String>,
@@ -216,7 +208,6 @@ impl std::fmt::Debug for Config {
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
       .field("otlp_endpoint", &self.otlp_endpoint)
-      .field("cloud_trace", &self.cloud_trace)
       .field("registry_url", &self.registry_url)
       .field("api", &self.api)
       .field("tasks", &self.tasks)

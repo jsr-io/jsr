@@ -1,7 +1,7 @@
 {
   "tasks": {
     "dev": "wrangler dev",
-    "build": "mkdir -p dist && deno bundle --output=dist/main.js --sourcemap main.ts"
+    "build": "mkdir -p dist && deno bundle --output=dist/main.js --sourcemap --external=cloudflare:workers main.ts"
   },
   "lint": {
     "rules": {
@@ -19,6 +19,7 @@
     ".wrangler/"
   ],
   "imports": {
-    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.990.0"
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.990.0",
+    "@cloudflare/containers": "npm:@cloudflare/containers@^0.1.0"
   }
 }
