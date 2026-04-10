@@ -261,6 +261,8 @@ jobs:
           token_format: access_token
           workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
+          create_credentials_file: false
+          export_environment_variables: false
 
       - name: Login to GCP Artifact Registry
         uses: docker/login-action@v3
@@ -355,6 +357,8 @@ jobs:
           token_format: access_token
           workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
+          create_credentials_file: false
+          export_environment_variables: false
 
       - name: Login to GCP Artifact Registry
         uses: docker/login-action@v3
