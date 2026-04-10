@@ -184,8 +184,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
   ]
 
   migrations = {
-    new_sqlite_classes = ["ApiContainer"]
-    tag                = "v1"
+    tag = "v1"
   }
 
   lifecycle {
