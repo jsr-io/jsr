@@ -6,9 +6,11 @@ FROM rust:bookworm AS build
 RUN USER=root cargo new --bin registry_api
 WORKDIR /registry_api
 
-# copy over your manifests
+# copy over your manifests and build script
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
+COPY ./build.rs ./build.rs
+COPY ./license-list-data ./license-list-data
 COPY ./macros/Cargo.toml ./macros/Cargo.toml
 RUN mkdir -p macros/src && touch macros/src/lib.rs
 
@@ -24,7 +26,6 @@ RUN rm src/*.rs
 # copy your source tree
 COPY ./src ./src
 COPY ./migrations ./migrations
-COPY ./license-list-data ./license-list-data
 COPY ./macros ./macros
 COPY ./.sqlx ./.sqlx
 
@@ -39,10 +40,8 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 
 # copy the build artifact from the build stage
 COPY --from=build /registry_api/target/release/registry_api ./registry_api
-COPY --from=build /registry_api/license-list-data ./license-list-data
 
 ENV RUST_BACKTRACE=1
-ENV LICENSE_LIST_DATA_PATH=/license-list-data
 
 # set the startup command to run your binary
 ENTRYPOINT ["./registry_api"]

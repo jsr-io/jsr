@@ -120,6 +120,9 @@ tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 registry_api_macros = { path = "macros" }
 
+[build-dependencies]
+askalono = "0.5.0"
+
 [dev-dependencies]
 flate2 = "1"
 deno_semver = "0.9.1"
