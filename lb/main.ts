@@ -11,6 +11,11 @@ import {
 } from "./headers.ts";
 import { isBot } from "./bots.ts";
 import { trackJSRDownload, trackNPMDownload } from "./analytics.ts";
+import { ApiContainer } from "./containers.ts";
+import { getRandom } from "@cloudflare/containers";
+
+// Re-export container class so wrangler can discover it as a Durable Object
+export { ApiContainer };
 
 export type Backend = "api" | "frontend" | "modules" | "npm";
 const MODULES = "modules";
@@ -71,19 +76,44 @@ export async function handleAPIRequest(
     return handleCORSPreflight(API);
   }
 
-  const response = await proxyToCloudRun(
-    request,
-    env.REGISTRY_API_URL,
-    rewritePath ? (path) => `/api${path}` : undefined,
-  );
+  const url = new URL(request.url);
+  let path = url.pathname;
 
-  setSecurityHeaders(response, API);
-  setCORSHeaders(response, API);
-  setDebugHeaders(response, {
-    backend: API,
+  if (rewritePath) {
+    path = `/api${path}`;
+  }
+
+  const container = await getRandom<ApiContainer>(env.API_CONTAINER, 3);
+  const containerUrl = new URL(path + url.search, "http://container");
+  const containerRequest = new Request(containerUrl, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    redirect: "manual",
   });
 
-  return response;
+  try {
+    const response = await container.fetch(containerRequest);
+    const res = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+
+    setSecurityHeaders(res, API);
+    setCORSHeaders(res, API);
+    setDebugHeaders(res, {
+      backend: API,
+    });
+
+    return res;
+  } catch (error) {
+    console.error("API container error:", error);
+    return new Response("Bad Gateway", {
+      status: 502,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
 }
 
 export async function handleNPMRequest(

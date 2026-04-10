@@ -59,12 +59,6 @@ resource "google_project_service" "service_secretmanager" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "service_cloudtrace" {
-  project            = var.gcp_project
-  service            = "cloudtrace.googleapis.com"
-  disable_on_destroy = false
-}
-
 resource "google_project_service" "service_cloudtasks" {
   project            = var.gcp_project
   service            = "cloudtasks.googleapis.com"
@@ -77,8 +71,3 @@ resource "google_project_service" "service_cloudscheduler" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "service_bigquery" {
-  project            = var.gcp_project
-  service            = "bigquery.googleapis.com"
-  disable_on_destroy = false
-}

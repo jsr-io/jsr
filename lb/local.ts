@@ -12,8 +12,6 @@ import {
 
 const REGISTRY_FRONTEND_URL = Deno.env.get("REGISTRY_FRONTEND_URL") ??
   "http://localhost:8000";
-const REGISTRY_API_URL = Deno.env.get("REGISTRY_API_URL") ??
-  "http://localhost:8001";
 const S3_ENDPOINT = Deno.env.get("S3_ENDPOINT") ?? "http://localhost:9000";
 const MODULES_BUCKET = Deno.env.get("MODULES_BUCKET") ?? "modules";
 const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
@@ -178,7 +176,6 @@ class R2BucketShim implements PartialBucket {
 
 function handler(req: Request): Promise<Response> {
   return main.fetch(req, {
-    REGISTRY_API_URL,
     REGISTRY_FRONTEND_URL,
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
     NPM_BUCKET: new R2BucketShim(NPM_BUCKET),

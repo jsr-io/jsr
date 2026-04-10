@@ -144,6 +144,9 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v6
 
+      - name: Install wrangler
+        run: npm install -g wrangler
+
       - name: Authenticate with GCP
         id: gcp_auth
         uses: google-github-actions/auth@v2
@@ -154,6 +157,7 @@ jobs:
           service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
 
       - uses: docker/login-action@v3
+        name: Login to GCP Artifact Registry
         with:
           registry: us-central1-docker.pkg.dev
           username: oauth2accesstoken
@@ -190,6 +194,12 @@ jobs:
           tags: ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}
           cache-from: type=gha,scope=docker-api
           cache-to: type=gha,mode=max,scope=docker-api
+
+      - name: Push api image to Cloudflare Container Registry
+        run: docker tag ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} jsr-api:${{ github.sha }} && wrangler containers push jsr-api:${{ github.sha }}
+        working-directory: lb
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Build and push frontend docker image
         if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'

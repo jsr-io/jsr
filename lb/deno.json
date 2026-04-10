@@ -19,6 +19,7 @@
     ".wrangler/"
   ],
   "imports": {
-    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.990.0"
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.990.0",
+    "@cloudflare/containers": "npm:@cloudflare/containers@^0.1.0"
   }
 }

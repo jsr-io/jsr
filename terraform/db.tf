@@ -73,3 +73,22 @@ resource "google_service_networking_connection" "db_private_vpc_connection" {
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.db.name]
 }
+
+resource "cloudflare_hyperdrive_config" "postgres" {
+  account_id = var.cloudflare_account_id
+  name       = "${var.gcp_project}-postgres"
+
+  origin = {
+    host     = google_sql_database_instance.main_pg15.public_ip_address
+    port     = 5432
+    database = google_sql_database.database.name
+    user     = google_sql_user.api.name
+    password = google_sql_user.api.password
+    scheme   = "postgres"
+  }
+
+  caching = {
+    disabled = true
+  }
+}
+

@@ -17,10 +17,12 @@ pub struct AccessTokenResponse {
   expires_in: u64,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MetadataStrategy {
   /// Get authentication information from the instance metadata server.
   InstanceMetadata,
+  /// Use a GCP service account key JSON to mint access tokens.
+  ServiceAccountKey(String),
   /// Returned fixed fake tokens for testing.
   Testing,
 }
@@ -31,9 +33,31 @@ impl FromStr for MetadataStrategy {
     match s {
       "instance_metadata" => Ok(Self::InstanceMetadata),
       "testing" => Ok(Self::Testing),
-      _ => Err(anyhow::anyhow!("Invalid metadata strategy '{}'", s)),
+      _ => {
+        // Try to parse as a JSON service account key
+        if s.starts_with('{') {
+          Ok(Self::ServiceAccountKey(s.to_owned()))
+        } else {
+          Err(anyhow::anyhow!("Invalid metadata strategy '{}'", s))
+        }
+      }
     }
   }
+}
+
+#[derive(Deserialize)]
+struct ServiceAccountKeyFile {
+  client_email: String,
+  private_key: String,
+}
+
+#[derive(serde::Serialize)]
+struct JwtClaims {
+  iss: String,
+  scope: String,
+  aud: String,
+  iat: u64,
+  exp: u64,
 }
 
 #[derive(Clone)]
@@ -49,10 +73,19 @@ impl Client {
       .no_brotli()
       .build()
       .unwrap();
+    let service_account_key = match &metadata_strategy {
+      MetadataStrategy::ServiceAccountKey(json) => {
+        Some(serde_json::from_str::<ServiceAccountKeyFile>(json).expect(
+          "Failed to parse GCP service account key JSON",
+        ))
+      }
+      _ => None,
+    };
     Self(Arc::new(ClientInner {
       http_without_compression,
       access_token: Mutex::new(None),
       metadata_strategy,
+      service_account_key,
     }))
   }
 }
@@ -70,6 +103,8 @@ pub struct ClientInner {
   http_without_compression: reqwest::Client,
   metadata_strategy: MetadataStrategy,
   access_token: Mutex<Option<(String, Instant)>>,
+  /// Parsed service account key, if using ServiceAccountKey strategy.
+  service_account_key: Option<ServiceAccountKeyFile>,
 }
 
 #[allow(dead_code)]
@@ -83,13 +118,11 @@ impl ClientInner {
   }
 
   pub async fn get_access_token(&self) -> Result<String, anyhow::Error> {
-    match self.metadata_strategy {
+    match &self.metadata_strategy {
       MetadataStrategy::InstanceMetadata => {
         {
           let mut guard = self.access_token.lock().unwrap();
           if let Some((token, expires_at)) = guard.clone() {
-            // If the is still valid (doesnt expire within next 5 seconds, or is
-            // already expired).
             if expires_at.checked_sub(Duration::from_secs(5)).unwrap()
               > Instant::now()
             {
@@ -117,6 +150,69 @@ impl ClientInner {
         let token: AccessTokenResponse = resp.json().await?;
         let mut guard = self.access_token.lock().unwrap();
         let expires_at = Instant::now() + Duration::from_secs(token.expires_in);
+        *guard = Some((token.access_token.clone(), expires_at));
+        Ok(token.access_token)
+      }
+      MetadataStrategy::ServiceAccountKey(_) => {
+        {
+          let guard = self.access_token.lock().unwrap();
+          if let Some((token, expires_at)) = guard.clone() {
+            if expires_at.checked_sub(Duration::from_secs(5)).unwrap()
+              > Instant::now()
+            {
+              return Ok(token);
+            }
+          }
+        }
+        let sa_key = self
+          .service_account_key
+          .as_ref()
+          .expect("service_account_key must be set");
+        let now = std::time::SystemTime::now()
+          .duration_since(std::time::UNIX_EPOCH)
+          .unwrap()
+          .as_secs();
+        let claims = JwtClaims {
+          iss: sa_key.client_email.clone(),
+          scope: "https://www.googleapis.com/auth/cloud-platform"
+            .to_owned(),
+          aud: "https://oauth2.googleapis.com/token".to_owned(),
+          iat: now,
+          exp: now + 3600,
+        };
+        let header =
+          jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+        let encoding_key =
+          jsonwebtoken::EncodingKey::from_rsa_pem(
+            sa_key.private_key.as_bytes(),
+          )?;
+        let jwt =
+          jsonwebtoken::encode(&header, &claims, &encoding_key)?;
+        let resp = self
+          .http()
+          .post("https://oauth2.googleapis.com/token")
+          .form(&[
+            (
+              "grant_type",
+              "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            ),
+            ("assertion", &jwt),
+          ])
+          .send()
+          .await?;
+        if resp.status() != StatusCode::OK {
+          let status = resp.status();
+          let text = resp.text().await?;
+          return Err(anyhow::anyhow!(
+            "failed to exchange JWT for access token: status={} text='{}'",
+            status,
+            text
+          ));
+        }
+        let token: AccessTokenResponse = resp.json().await?;
+        let mut guard = self.access_token.lock().unwrap();
+        let expires_at =
+          Instant::now() + Duration::from_secs(token.expires_in);
         *guard = Some((token.access_token.clone(), expires_at));
         Ok(token.access_token)
       }
