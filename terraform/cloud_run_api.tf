@@ -40,9 +40,6 @@ locals {
     "PUBLISH_QUEUE_ID"           = "projects/${var.gcp_project}/locations/us-central1/queues/${local.publishing_tasks_queue_name}"
     "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"
 
-    "LOGS_BIGQUERY_TABLE_ID" = "${data.google_bigquery_dataset.default.dataset_id}._Default"
-    "GCP_PROJECT_ID"         = var.gcp_project
-
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
   }
@@ -68,7 +65,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
     containers {
       image = var.api_image_id
       args = [
-        "--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"
+        "--api", "--tasks=false", "--database_pool_size=4"
       ]
 
       resources {
@@ -233,7 +230,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     containers {
       image = var.api_image_id
       args = [
-        "--cloud_trace", "--tasks", "--api=false", "--database_pool_size=1"
+        "--tasks", "--api=false", "--database_pool_size=1"
       ]
 
       dynamic "env" {
