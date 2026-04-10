@@ -253,12 +253,21 @@ jobs:
       - name: Install wrangler
         run: npm install -g wrangler
 
+      - name: Authenticate with GCP (infra)
+        id: gcp_auth_infra
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: deno-registry3-infra
+          token_format: access_token
+          workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
+
       - name: Login to GCP Artifact Registry
         uses: docker/login-action@v3
         with:
           registry: us-central1-docker.pkg.dev
           username: oauth2accesstoken
-          password: ${{ steps.gcp_auth.outputs.access_token }}
+          password: ${{ steps.gcp_auth_infra.outputs.access_token }}
 
       - name: Push api image to Cloudflare Container Registry
         run: docker pull ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} && docker tag ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} jsr-api:${{ github.sha }} && wrangler containers push jsr-api:${{ github.sha }}
@@ -337,12 +346,21 @@ jobs:
       - name: Install wrangler
         run: npm install -g wrangler
 
+      - name: Authenticate with GCP (infra)
+        id: gcp_auth_infra
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: deno-registry3-infra
+          token_format: access_token
+          workload_identity_provider: projects/289615555261/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          service_account: github-actions@deno-registry3-infra.iam.gserviceaccount.com
+
       - name: Login to GCP Artifact Registry
         uses: docker/login-action@v3
         with:
           registry: us-central1-docker.pkg.dev
           username: oauth2accesstoken
-          password: ${{ steps.gcp_auth.outputs.access_token }}
+          password: ${{ steps.gcp_auth_infra.outputs.access_token }}
 
       - name: Push api image to Cloudflare Container Registry
         run: docker pull ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} && docker tag ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} jsr-api:${{ github.sha }} && wrangler containers push jsr-api:${{ github.sha }}
