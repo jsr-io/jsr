@@ -77,15 +77,13 @@ export async function handleAPIRequest(
   }
 
   const url = new URL(request.url);
-  let path = url.pathname;
 
   if (rewritePath) {
-    path = `/api${path}`;
+    url.pathname = `/api${url.pathname}`;
   }
 
   // deno-lint-ignore no-explicit-any
   const container = await getRandom<ApiContainer>(env.API_CONTAINER as any, 3);
-  const containerUrl = new URL(path + url.search, "http://container");
   const containerRequest = new Request(containerUrl, {
     method: request.method,
     headers: request.headers,
