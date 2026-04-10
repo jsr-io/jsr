@@ -179,10 +179,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
     }
   ]
 
-  migrations = [{
+  migrations = {
     new_sqlite_classes = ["ApiContainer"]
     tag                = "v1"
-  }]
+  }
 
   lifecycle {
     create_before_destroy = true
