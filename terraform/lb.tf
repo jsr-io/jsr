@@ -47,6 +47,10 @@ resource "cloudflare_workers_script" "jsr_lb" {
       text = local.npm_domain
       }, {
       type = "secret_text"
+      name = "REGISTRY_API_URL"
+      text = google_cloud_run_v2_service.registry_api.uri
+      }, {
+      type = "secret_text"
       name = "REGISTRY_FRONTEND_URL"
       text = google_cloud_run_v2_service.registry_frontend["us-central1"].uri
       }, {
