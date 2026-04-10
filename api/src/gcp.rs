@@ -155,12 +155,11 @@ impl ClientInner {
       MetadataStrategy::ServiceAccountKey(_) => {
         {
           let guard = self.access_token.lock().unwrap();
-          if let Some((token, expires_at)) = guard.clone() {
-            if expires_at.checked_sub(Duration::from_secs(5)).unwrap()
+          if let Some((token, expires_at)) = guard.clone()
+            && expires_at.checked_sub(Duration::from_secs(5)).unwrap()
               > Instant::now()
-            {
-              return Ok(token);
-            }
+          {
+            return Ok(token);
           }
         }
         let sa_key = self
