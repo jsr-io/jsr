@@ -16,6 +16,7 @@ frontend/dist
 frontend/node_modules
 
 lb/dist
+lb/node_modules
 
 .gcs
 .minio
