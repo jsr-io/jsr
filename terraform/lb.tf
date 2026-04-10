@@ -67,19 +67,19 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }, {
         type = "plain_text"
         name = "PUBLISHING_BUCKET"
-        text = google_storage_bucket.publishing.name
+        text = cloudflare_r2_bucket.publishing.name
       }, {
         type = "plain_text"
         name = "MODULES_BUCKET_NAME"
-        text = google_storage_bucket.modules.name
+        text = cloudflare_r2_bucket.modules.name
       }, {
         type = "plain_text"
         name = "DOCS_BUCKET"
-        text = google_storage_bucket.docs.name
+        text = cloudflare_r2_bucket.docs.name
       }, {
         type = "plain_text"
         name = "NPM_BUCKET_NAME"
-        text = google_storage_bucket.npm.name
+        text = cloudflare_r2_bucket.npm.name
       }, {
         type = "plain_text"
         name = "S3_REGION"
