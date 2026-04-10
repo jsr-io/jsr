@@ -83,8 +83,9 @@ export async function handleAPIRequest(
     path = `/api${path}`;
   }
 
-  const container = await getRandom<ApiContainer>(env.API_CONTAINER, 3);
-  const containerUrl = new URL(path + url.search, "http://container");
+  // deno-lint-ignore no-explicit-any
+  const container = await getRandom<ApiContainer>(env.API_CONTAINER as any, 3);
+  const containerUrl = new URL(path + url.search);
   const containerRequest = new Request(containerUrl, {
     method: request.method,
     headers: request.headers,
@@ -226,7 +227,7 @@ export function canAccessModuleFile(request: Request): boolean {
   }
 }
 
-function isAPIRoute(path: string): boolean {
+export function isAPIRoute(path: string): boolean {
   return (
     path.startsWith("/api/") ||
     path === "/sitemap.xml" ||

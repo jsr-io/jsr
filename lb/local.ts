@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A --watch
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import main from "./main.ts";
-import type { PartialBucket } from "./types.ts";
+import main, { isAPIRoute } from "./main.ts";
+import type { PartialBucket, WorkerEnv } from "./types.ts";
 import {
   CreateBucketCommand,
   GetObjectCommand,
@@ -12,6 +12,8 @@ import {
 
 const REGISTRY_FRONTEND_URL = Deno.env.get("REGISTRY_FRONTEND_URL") ??
   "http://localhost:8000";
+const REGISTRY_API_URL = Deno.env.get("REGISTRY_API_URL") ??
+  "http://localhost:8001";
 const S3_ENDPOINT = Deno.env.get("S3_ENDPOINT") ?? "http://localhost:9000";
 const MODULES_BUCKET = Deno.env.get("MODULES_BUCKET") ?? "modules";
 const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
@@ -174,7 +176,42 @@ class R2BucketShim implements PartialBucket {
   }
 }
 
-function handler(req: Request): Promise<Response> {
+async function proxyToLocalApi(
+  request: Request,
+  rewritePath: boolean,
+): Promise<Response> {
+  const url = new URL(request.url);
+  let path = url.pathname;
+  if (rewritePath) {
+    path = `/api${path}`;
+  }
+  const backendUrl = new URL(path + url.search, REGISTRY_API_URL);
+  const resp = await fetch(backendUrl, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    redirect: "manual",
+  });
+  return new Response(resp.body, {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers: resp.headers,
+  });
+}
+
+async function handler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const hostname = url.hostname.toLowerCase();
+
+  // In local dev, proxy API requests directly to the local API server
+  // since Cloudflare Containers are not available
+  if (hostname === API_DOMAIN) {
+    return await proxyToLocalApi(req, true);
+  }
+  if (hostname === ROOT_DOMAIN && isAPIRoute(url.pathname)) {
+    return await proxyToLocalApi(req, false);
+  }
+
   return main.fetch(req, {
     REGISTRY_FRONTEND_URL,
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
@@ -182,7 +219,7 @@ function handler(req: Request): Promise<Response> {
     ROOT_DOMAIN,
     API_DOMAIN,
     NPM_DOMAIN,
-  });
+  } as unknown as WorkerEnv);
 }
 
 if (import.meta.main) {

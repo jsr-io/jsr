@@ -105,6 +105,14 @@ resource "cloudflare_workers_script" "jsr_lb" {
         name = "GITHUB_CLIENT_SECRET"
         text = var.github_client_secret
       }, {
+        type = "plain_text"
+        name = "GITLAB_CLIENT_ID"
+        text = var.gitlab_client_id
+      }, {
+        type = "secret_text"
+        name = "GITLAB_CLIENT_SECRET"
+        text = var.gitlab_client_secret
+      }, {
         type = "secret_text"
         name = "POSTMARK_TOKEN"
         text = var.postmark_token

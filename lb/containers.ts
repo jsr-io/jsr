@@ -3,13 +3,12 @@
 import { Container } from "@cloudflare/containers";
 import type { WorkerEnv } from "./types.ts";
 
-export function apiEnvVars(env: WorkerEnv): Record<string, string> {
+function apiEnvVars(env: WorkerEnv): Record<string, string> {
   return {
     PORT: "8001",
     NO_COLOR: "true",
     DATABASE_URL: env.DATABASE_URL,
     METADATA_STRATEGY: env.METADATA_STRATEGY,
-    GCS_ENDPOINT: env.GCS_ENDPOINT ?? "",
     PUBLISHING_BUCKET: env.PUBLISHING_BUCKET,
     MODULES_BUCKET: env.MODULES_BUCKET_NAME,
     DOCS_BUCKET: env.DOCS_BUCKET,
@@ -20,6 +19,8 @@ export function apiEnvVars(env: WorkerEnv): Record<string, string> {
     S3_SECRET_KEY: env.S3_SECRET_KEY,
     GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET,
+    GITLAB_CLIENT_ID: env.GITLAB_CLIENT_ID,
+    GITLAB_CLIENT_SECRET: env.GITLAB_CLIENT_SECRET,
     POSTMARK_TOKEN: env.POSTMARK_TOKEN ?? "",
     ORAMA_PACKAGES_PROJECT_ID: env.ORAMA_PACKAGES_PROJECT_ID ?? "",
     ORAMA_PACKAGES_PROJECT_KEY: env.ORAMA_PACKAGES_PROJECT_KEY ?? "",
@@ -39,8 +40,15 @@ export function apiEnvVars(env: WorkerEnv): Record<string, string> {
   };
 }
 
-export class ApiContainer extends Container {
+export class ApiContainer extends Container<WorkerEnv> {
   override defaultPort = 8001;
   override sleepAfter = "5m";
-  args = ["--api", "--tasks=false", "--database_pool_size=4"];
+  override entrypoint = [
+    "./registry_api",
+    "--api",
+    "--tasks=false",
+    "--database_pool_size=4",
+  ];
+  override enableInternet = true;
+  override envVars = apiEnvVars(this.env);
 }

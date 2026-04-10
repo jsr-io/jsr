@@ -24,7 +24,7 @@ export interface WorkerEnv {
   MODULES_BUCKET: PartialBucket;
 
   // Durable Object binding for Cloudflare Container
-  API_CONTAINER?: DurableObjectNamespace;
+  API_CONTAINER: DurableObjectNamespace;
 
   // API environment variables (passed through to containers)
   DATABASE_URL: string;
@@ -39,6 +39,8 @@ export interface WorkerEnv {
   S3_SECRET_KEY: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  GITLAB_CLIENT_ID: string;
+  GITLAB_CLIENT_SECRET: string;
   POSTMARK_TOKEN?: string;
   ORAMA_PACKAGES_PROJECT_ID?: string;
   ORAMA_PACKAGES_PROJECT_KEY?: string;
