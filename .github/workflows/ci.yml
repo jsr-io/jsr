@@ -195,6 +195,9 @@ jobs:
           cache-from: type=gha,scope=docker-api
           cache-to: type=gha,mode=max,scope=docker-api
 
+      - name: Pull api image for Cloudflare push
+        run: docker pull ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}
+
       - name: Push api image to Cloudflare Container Registry
         run: docker tag ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} jsr-api:${{ github.sha }} && wrangler containers push jsr-api:${{ github.sha }}
         working-directory: lb
