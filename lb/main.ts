@@ -84,7 +84,7 @@ export async function handleAPIRequest(
 
   // deno-lint-ignore no-explicit-any
   const container = await getRandom<ApiContainer>(env.API_CONTAINER as any, 3);
-  const containerRequest = new Request(containerUrl, {
+  const containerRequest = new Request(url, {
     method: request.method,
     headers: request.headers,
     body: request.body,
