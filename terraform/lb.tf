@@ -11,7 +11,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
   main_module = "worker.js"
 
   observability = {
-    enabled            = true
+    enabled = true
     logs = {
       enabled            = true
       invocation_logs    = true
@@ -29,7 +29,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type        = "r2_bucket"
       name        = "MODULES_BUCKET"
       bucket_name = cloudflare_r2_bucket.modules.name
-    }, {
+      }, {
       type        = "r2_bucket"
       name        = "NPM_BUCKET"
       bucket_name = cloudflare_r2_bucket.npm.name
@@ -83,4 +83,25 @@ resource "cloudflare_workers_route" "jsr_npm" {
   script  = cloudflare_workers_script.jsr_lb.script_name
 
   depends_on = [cloudflare_workers_script.jsr_lb]
+}
+
+# Managed challenge endpoint for bot protection.
+#
+# The Worker (lb/main.ts) uses exact isModuleFilePath() + canAccessModuleFile()
+# logic to determine which requests need a challenge. Non-module requests
+# without a cf_clearance cookie are redirected to /__challenge, which triggers
+# this WAF rule. After solving, CF sets cf_clearance and all subsequent
+# requests pass through.
+resource "cloudflare_ruleset" "jsr_waf" {
+  zone_id = var.cloudflare_zone_id
+  name    = "JSR managed challenge endpoint"
+  kind    = "zone"
+  phase   = "http_request_firewall_custom"
+
+  rules = [{
+    action      = "managed_challenge"
+    expression  = "http.host eq \"${var.domain_name}\" and http.request.uri.path eq \"/__challenge\""
+    description = "Managed challenge for bot protection"
+    enabled     = true
+  }]
 }

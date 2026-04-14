@@ -158,7 +158,15 @@ export async function handleRootRequest(
   const url = new URL(request.url);
   const path = url.pathname;
 
+  if (path === "/__challenge") {
+    const returnPath = url.searchParams.get("return") || "/";
+    const safeReturn = returnPath.startsWith("/") ? returnPath : "/";
+    return Response.redirect(new URL(safeReturn, url.origin).toString(), 302);
+  }
+
   if (isAPIRoute(path)) {
+    const challenge = requireChallenge(request);
+    if (challenge) return challenge;
     return await handleAPIRequest(request, env, false);
   } else if (isBot(request)) {
     return await handleFrontendRoute(request, env, true);
@@ -166,11 +174,31 @@ export async function handleRootRequest(
     if (canAccessModuleFile(request) && isModuleFilePath(path)) {
       return await handleModuleFileRoute(request, env);
     } else {
+      const challenge = requireChallenge(request);
+      if (challenge) return challenge;
       return await handleFrontendRoute(request, env, false);
     }
   } else {
+    const challenge = requireChallenge(request);
+    if (challenge) return challenge;
     return await handleFrontendRoute(request, env, false);
   }
+}
+
+function requireChallenge(request: Request): Response | null {
+  // Only require a challenge for requests that actually came through
+  // Cloudflare — otherwise (local dev, direct Cloud Run access) we'd create
+  // an infinite redirect loop because there's no WAF to serve the challenge.
+  if (!request.headers.get("CF-Ray")) {
+    return null;
+  }
+  if (request.headers.get("Cookie")?.includes("cf_clearance=")) {
+    return null;
+  }
+  const url = new URL(request.url);
+  const challengeUrl = new URL("/__challenge", url.origin);
+  challengeUrl.searchParams.set("return", url.pathname + url.search);
+  return Response.redirect(challengeUrl.toString(), 302);
 }
 
 export function canAccessModuleFile(request: Request): boolean {
