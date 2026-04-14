@@ -221,6 +221,9 @@ async function handleFrontendRoute(
   env: WorkerEnv,
   isBot: boolean,
 ): Promise<Response> {
+  const limited = await isRateLimited(request, env);
+  if (limited) return limited;
+
   const response = await proxyToCloudRun(request, env.REGISTRY_FRONTEND_URL);
 
   setSecurityHeaders(response, FRONTEND);
@@ -230,6 +233,30 @@ async function handleFrontendRoute(
   });
 
   return response;
+}
+
+/**
+ * Per-IP rate limit for the frontend only. Module files (R2), the API, and
+ * npm compat are never rate-limited here — only the Cloud Run frontend, which
+ * is the backend that scrapers actually generate cache-miss load on.
+ */
+async function isRateLimited(
+  request: Request,
+  env: WorkerEnv,
+): Promise<Response | null> {
+  const limiter = env.FRONTEND_RATELIMIT;
+  if (!limiter) return null;
+  const ip = request.headers.get("CF-Connecting-IP");
+  if (!ip) return null;
+  const { success } = await limiter.limit({ key: ip });
+  if (success) return null;
+  return new Response("Too Many Requests", {
+    status: 429,
+    headers: {
+      "Content-Type": "text/plain",
+      "Retry-After": "60",
+    },
+  });
 }
 
 async function handleModuleFileRoute(
