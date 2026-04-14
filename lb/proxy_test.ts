@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
+// deno-lint-ignore-file require-await no-explicit-any
 
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { proxyToR2 } from "./proxy.ts";
+import { assertEquals } from "@std/assert";
+import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
 import type { PartialBucket } from "./types.ts";
 
 /** Minimal in-memory R2 bucket stub for testing. */
@@ -145,4 +146,350 @@ Deno.test("proxyToR2 handles HEAD requests with URL-encoded path", async () => {
 
   assertEquals(response.status, 200);
   assertEquals(response.body, null);
+});
+
+// --- proxyToCloudRun tests ---
+
+/** In-memory Cache stub that records put/match calls for assertions. */
+function createFakeCache(): Cache & {
+  store: Map<string, Response>;
+  putCalls: string[];
+  matchCalls: string[];
+} {
+  const store = new Map<string, Response>();
+  const putCalls: string[] = [];
+  const matchCalls: string[] = [];
+
+  return {
+    store,
+    putCalls,
+    matchCalls,
+    async match(request: RequestInfo | URL): Promise<Response | undefined> {
+      const url = typeof request === "string"
+        ? request
+        : request instanceof URL
+        ? request.toString()
+        : request.url;
+      matchCalls.push(url);
+      const cached = store.get(url);
+      return cached ? cached.clone() : undefined;
+    },
+    async put(request: RequestInfo | URL, response: Response): Promise<void> {
+      const url = typeof request === "string"
+        ? request
+        : request instanceof URL
+        ? request.toString()
+        : request.url;
+      putCalls.push(url);
+      store.set(url, response.clone());
+    },
+    async delete(_request: RequestInfo | URL): Promise<boolean> {
+      return false;
+    },
+  } as Cache & {
+    store: Map<string, Response>;
+    putCalls: string[];
+    matchCalls: string[];
+  };
+}
+
+function setupFetchStub(
+  response: Response,
+): () => void {
+  const original = globalThis.fetch;
+  (globalThis as any).fetch = (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => {
+    return Promise.resolve(response.clone());
+  };
+  return () => {
+    globalThis.fetch = original;
+  };
+}
+
+const BACKEND_URL = "https://backend.example.com";
+
+Deno.test("proxyToCloudRun caches anonymous GET with URL-only key", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"ok":true}', {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=300" },
+    }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/packages", {
+      method: "GET",
+    });
+    const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(response.status, 200);
+    assertEquals(cache.putCalls.length, 1);
+    // Cache key should be the backend URL, not include client headers
+    assertEquals(cache.putCalls[0], `${BACKEND_URL}/api/packages`);
+    // Vary is set on all responses so browsers re-fetch when auth changes
+    assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun serves cached response on second GET", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  let fetchCount = 0;
+  const original = globalThis.fetch;
+  (globalThis as any).fetch = (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => {
+    fetchCount++;
+    return Promise.resolve(
+      new Response('{"ok":true}', {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=30, s-maxage=300" },
+      }),
+    );
+  };
+
+  try {
+    const req1 = new Request("https://jsr.io/api/packages", { method: "GET" });
+    await proxyToCloudRun(req1, BACKEND_URL);
+    assertEquals(fetchCount, 1);
+
+    const req2 = new Request("https://jsr.io/api/packages", {
+      method: "GET",
+      headers: { "Cookie": "other=value", "CF-Connecting-IP": "1.2.3.4" },
+    });
+    const res2 = await proxyToCloudRun(req2, BACKEND_URL);
+    // Should be served from cache — fetch not called again
+    assertEquals(fetchCount, 1);
+    assertEquals(res2.status, 200);
+  } finally {
+    globalThis.fetch = original;
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun skips cache for authenticated requests", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"user":"me"}', {
+      status: 200,
+      headers: { "Cache-Control": "private, max-age=300" },
+    }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/user", {
+      method: "GET",
+      headers: { "Authorization": "Bearer token123" },
+    });
+    const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(response.status, 200);
+    // Should not cache authenticated requests
+    assertEquals(cache.putCalls.length, 0);
+    assertEquals(cache.matchCalls.length, 0);
+    // Should set private headers
+    assertEquals(response.headers.get("Cache-Control"), "private, no-store");
+    assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun skips cache for cookie-authenticated requests", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"user":"me"}', { status: 200 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/user", {
+      method: "GET",
+      headers: { "Cookie": "token=abc123" },
+    });
+    const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(cache.putCalls.length, 0);
+    assertEquals(response.headers.get("Cache-Control"), "private, no-store");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun skips cache for POST requests", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"created":true}', { status: 201 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/packages", {
+      method: "POST",
+      body: "{}",
+    });
+    const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(response.status, 201);
+    assertEquals(cache.putCalls.length, 0);
+    assertEquals(cache.matchCalls.length, 0);
+    assertEquals(response.headers.get("Cache-Control"), "private, no-store");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun does not cache responses with private Cache-Control", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"ok":true}', {
+      status: 200,
+      headers: { "Cache-Control": "private, max-age=60" },
+    }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/data", { method: "GET" });
+    await proxyToCloudRun(request, BACKEND_URL);
+
+    // Cache was checked but response was not stored due to private directive
+    assertEquals(cache.matchCalls.length, 1);
+    assertEquals(cache.putCalls.length, 0);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun does not cache non-2xx responses", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response("Not Found", { status: 404 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/missing", {
+      method: "GET",
+    });
+    const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(response.status, 404);
+    assertEquals(cache.putCalls.length, 0);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun serves HEAD from cached GET response", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  let fetchCount = 0;
+  const original = globalThis.fetch;
+  (globalThis as any).fetch = (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => {
+    fetchCount++;
+    return Promise.resolve(
+      new Response('{"ok":true}', {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=30, s-maxage=300" },
+      }),
+    );
+  };
+
+  try {
+    // First, populate cache with a GET
+    const getReq = new Request("https://jsr.io/api/packages", {
+      method: "GET",
+    });
+    await proxyToCloudRun(getReq, BACKEND_URL);
+    assertEquals(fetchCount, 1);
+
+    // HEAD should be served from cache without hitting origin
+    const headReq = new Request("https://jsr.io/api/packages", {
+      method: "HEAD",
+    });
+    const headRes = await proxyToCloudRun(headReq, BACKEND_URL);
+    assertEquals(fetchCount, 1); // No additional fetch
+    assertEquals(headRes.status, 200);
+    assertEquals(headRes.body, null);
+  } finally {
+    globalThis.fetch = original;
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun skips cache for login paths", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response("", { status: 302, headers: { Location: "/callback" } }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/login/callback?code=abc", {
+      method: "GET",
+    });
+    const response = await proxyToCloudRun(request, BACKEND_URL);
+
+    assertEquals(cache.putCalls.length, 0);
+    assertEquals(cache.matchCalls.length, 0);
+    assertEquals(response.headers.get("Cache-Control"), "private, no-store");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToCloudRun skips cache for login paths even with pathRewrite", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response("", { status: 302, headers: { Location: "/callback" } }),
+  );
+
+  try {
+    // Simulates api.jsr.io/login where pathRewrite prepends /api
+    const request = new Request("https://api.jsr.io/login", {
+      method: "GET",
+    });
+    const response = await proxyToCloudRun(
+      request,
+      BACKEND_URL,
+      (path) => `/api${path}`,
+    );
+
+    assertEquals(cache.putCalls.length, 0);
+    assertEquals(cache.matchCalls.length, 0);
+    assertEquals(response.headers.get("Cache-Control"), "private, no-store");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
 });
