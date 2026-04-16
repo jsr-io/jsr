@@ -11,7 +11,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
   main_module = "worker.js"
 
   observability = {
-    enabled            = true
+    enabled = true
     logs = {
       enabled            = true
       invocation_logs    = true
@@ -29,7 +29,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type        = "r2_bucket"
       name        = "MODULES_BUCKET"
       bucket_name = cloudflare_r2_bucket.modules.name
-    }, {
+      }, {
       type        = "r2_bucket"
       name        = "NPM_BUCKET"
       bucket_name = cloudflare_r2_bucket.npm.name
@@ -53,6 +53,17 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type = "secret_text"
       name = "REGISTRY_FRONTEND_URL"
       text = google_cloud_run_v2_service.registry_frontend["us-central1"].uri
+      }, {
+      # Per-IP rate limit applied only on the frontend proxy path (see
+      # handleFrontendRoute in lb/main.ts). Keeps scrapers from generating
+      # cache-miss load on Cloud Run without touching modules, API, or npm.
+      type         = "ratelimit"
+      name         = "FRONTEND_RATELIMIT"
+      namespace_id = "1001"
+      simple = {
+        limit  = 60
+        period = 60
+      }
     }
   ]
 

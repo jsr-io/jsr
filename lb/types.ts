@@ -24,4 +24,8 @@ export interface WorkerEnv {
   DOWNLOADS?: AnalyticsEngineDataset;
   NPM_BUCKET: PartialBucket;
   MODULES_BUCKET: PartialBucket;
+
+  // Optional: omitted in local dev. Applied only to frontend HTML proxying so
+  // scrapers can't generate cache-miss load on the Cloud Run frontend.
+  FRONTEND_RATELIMIT?: RateLimit;
 }
