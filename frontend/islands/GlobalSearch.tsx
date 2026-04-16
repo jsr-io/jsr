@@ -12,6 +12,7 @@ import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
+import TbAdjustmentsHorizontal from "tb-icons/TbAdjustmentsHorizontal";
 
 interface GlobalSearchProps {
   query?: string;
@@ -21,14 +22,14 @@ interface GlobalSearchProps {
   kind?: SearchKind;
 }
 
-const searchHints: JSX.Element[] = [
-  <p key="scope:">
-    Hint: use <code>scope:</code> to search for packages by scope
-  </p>,
-  <p key="runtime:">
-    Hint: use <code>runtime:</code> to search for packages by compatible runtime
-  </p>,
-];
+
+const SCORE_OPTIONS = [
+  { label: "Any", value: null },
+  { label: "60+", value: 60 },
+  { label: "70+", value: 70 },
+  { label: "80+", value: 80 },
+  { label: "90+", value: 90 },
+] as const;
 
 // The maximum time between a query and the result for that query being
 // displayed, if there is a more recent pending query.
@@ -59,6 +60,7 @@ export function GlobalSearch(
   const inputOverlayContentRef = useRef<HTMLDivElement>(null);
   const inputOverlayContent2Ref = useRef<HTMLDivElement>(null);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
+  const showFilters = useSignal(false);
 
   const showSuggestions = computed(() =>
     isFocused.value && (search.value.length > 0 || kind !== "docs")
@@ -74,8 +76,7 @@ export function GlobalSearch(
     }
   }, [projectId, apiKey]);
 
-  const randomHint = useSignal<JSX.Element | null>(null);
-
+  
   useEffect(() => {
     const outsideClick = (e: Event) => {
       if (!ref.current) return;
@@ -100,16 +101,9 @@ export function GlobalSearch(
     };
   });
 
-  // Initialize random hint once on mount
-  useEffect(() => {
-    randomHint.value =
-      searchHints[Math.floor(Math.random() * searchHints.length)];
-  }, []);
-
-  const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
-    const value = ev.currentTarget!.value as string;
+  
+  function triggerSearch(value: string) {
     search.value = value;
-    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
 
     if (value.length >= 1) {
       const searchN = ++searchNRef.current.started;
@@ -127,7 +121,7 @@ export function GlobalSearch(
         try {
           if (orama) {
             let query = value;
-            let where: undefined | Record<string, boolean | string> = undefined;
+            let where: undefined | WhereClause = undefined;
             if (kind === "packages") ({ where, query } = processFilter(value));
             const res = await orama.search({
               term: query,
@@ -189,6 +183,12 @@ export function GlobalSearch(
       abort.current = new AbortController();
       suggestions.value = null;
     }
+  }
+
+  const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
+    const value = ev.currentTarget!.value as string;
+    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
+    triggerSearch(value);
   };
 
   function onKeyUp(e: KeyboardEvent) {
@@ -260,11 +260,50 @@ export function GlobalSearch(
     }
   }
 
+  function toggleFilter(tokenRaw: string) {
+    const tokens = tokenizeFilter(search.value);
+    const existing = tokens.find((t) => t.raw === tokenRaw);
+    let newValue: string;
+    if (existing) {
+      newValue = tokens.filter((t) => t !== existing).map((t) => t.raw).join(
+        " ",
+      );
+    } else {
+      newValue = (search.value.trim() + " " + tokenRaw).trim();
+    }
+    triggerSearch(newValue);
+  }
+
+  function setScoreFilter(scoreValue: number | null) {
+    const tokens = tokenizeFilter(search.value);
+    const withoutScore = tokens.filter((t) => t.kind !== "score");
+    let newValue = withoutScore.map((t) => t.raw).join(" ");
+    if (scoreValue !== null) {
+      newValue = (newValue + " score:>=" + scoreValue).trim();
+    }
+    triggerSearch(newValue);
+  }
+
   const kindPlaceholder = kind === "packages"
     ? "Search for packages"
     : "Search for documentation";
   const placeholder = kindPlaceholder +
     (macLike !== undefined ? ` (${macLike ? "⌘K" : "Ctrl+K"})` : "");
+
+  // Compute active filter state from search text
+  const activeFilters = computed(() => {
+    const tokens = tokenizeFilter(search.value);
+    const runtimes = new Set<string>();
+    let scoreValue: number | null = null;
+    for (const t of tokens) {
+      if (t.kind.startsWith("runtimeCompat.")) {
+        runtimes.add(t.kind.slice("runtimeCompat.".length));
+      } else if (t.kind === "score") {
+        scoreValue = t.value;
+      }
+    }
+    return { runtimes, scoreValue };
+  });
 
   return (
     <div ref={ref} class="pointer-events-auto">
@@ -362,7 +401,10 @@ export function GlobalSearch(
           selectionIdx={selectionIdx}
           kind={kind}
           input={search}
-          randomHint={randomHint}
+          showFilters={showFilters}
+          activeFilters={activeFilters}
+          toggleFilter={toggleFilter}
+          setScoreFilter={setScoreFilter}
         />
       </div>
     </div>
@@ -376,7 +418,10 @@ function SuggestionList(
     showSuggestions,
     kind,
     input,
-    randomHint,
+    showFilters,
+    activeFilters,
+    toggleFilter,
+    setScoreFilter,
   }: Readonly<{
     suggestions: Signal<
       (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
@@ -385,17 +430,31 @@ function SuggestionList(
     selectionIdx: Signal<number>;
     kind: SearchKind;
     input: Signal<string>;
-    randomHint: Signal<JSX.Element | null>;
+    showFilters: Signal<boolean>;
+    activeFilters: Signal<{
+      runtimes: Set<string>;
+      scoreValue: number | null;
+    }>;
+    toggleFilter: (tokenRaw: string) => void;
+    setScoreFilter: (scoreValue: number | null) => void;
   }>,
 ) {
   if (!showSuggestions.value) return null;
+
+  const filtersActive = activeFilters.value.runtimes.size > 0 ||
+    activeFilters.value.scoreValue !== null;
 
   return (
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
       {suggestions.value === null && kind === "packages"
         ? (
-          <div class="bg-white dark:bg-jsr-gray-950 text-tertiary px-4 py-2">
-            {randomHint.value || "Loading..."}
+          <div class="bg-white dark:bg-jsr-gray-950 text-jsr-gray-400 dark:text-jsr-gray-500 px-3 py-2 text-xs space-y-1">
+            <p>
+              Try <code class="search-input-tag">scope:std</code>{" "}
+              <code class="search-input-tag">runtime:deno</code>{" "}
+              <code class="search-input-tag">{"score:>80"}</code> or use
+              Filters below
+            </p>
           </div>
         )
         : suggestions.value === null || suggestions.value.length === 0
@@ -426,29 +485,142 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-50 dark:bg-jsr-gray-900 flex items-center justify-between py-1 px-2 text-sm">
-        <div>
+      {kind === "packages" && showFilters.value && (
+        <FilterBar
+          activeFilters={activeFilters}
+          toggleFilter={toggleFilter}
+          setScoreFilter={setScoreFilter}
+        />
+      )}
+      <div class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950/50 flex items-center justify-between py-1.5 px-3 text-sm border-t border-jsr-cyan-100 dark:border-jsr-cyan-900">
+        <div class="flex items-center gap-3">
           {kind === "packages" && (
-            <a
-              class="link"
-              href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
-              target="_blank"
-            >
-              Search syntax
-            </a>
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showFilters.value = !showFilters.value;
+                }}
+                class={`inline-flex items-center gap-1 text-xs transition-colors cursor-pointer ${
+                  showFilters.value || filtersActive
+                    ? "text-jsr-cyan-700 dark:text-jsr-cyan-400 font-semibold"
+                    : "text-jsr-gray-400 dark:text-jsr-gray-500 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300"
+                }`}
+              >
+                <TbAdjustmentsHorizontal class="size-3.5" />
+                Filters{filtersActive
+                  ? ` (${activeFilters.value.runtimes.size + (activeFilters.value.scoreValue !== null ? 1 : 0)})`
+                  : ""}
+              </button>
+              <a
+                class="text-xs text-jsr-gray-400 dark:text-jsr-gray-500 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300 transition-colors"
+                href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
+                target="_blank"
+              >
+                Search syntax
+              </a>
+            </>
           )}
         </div>
         <div class="flex items-center gap-1">
-          <span class="text-tertiary">
+          <span class="text-jsr-gray-400 dark:text-jsr-gray-500 text-xs">
             powered by <span class="sr-only">Orama</span>
           </span>
-          <img class="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
+          <img class="h-3.5 dark:hidden" src="/logos/orama-dark.svg" alt="" />
           <img
-            className="h-4 hidden dark:block"
+            className="h-3.5 hidden dark:block"
             src="/logos/orama-light.svg"
             alt=""
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+const ACTIVE_FILTER_CLASSES =
+  "border-jsr-cyan-300 dark:border-jsr-cyan-700 bg-jsr-cyan-100 dark:bg-jsr-cyan-900 text-jsr-cyan-800 dark:text-jsr-cyan-200";
+const INACTIVE_FILTER_CLASSES =
+  "border-jsr-gray-200 dark:border-jsr-gray-700 text-jsr-gray-600 dark:text-jsr-gray-300 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 hover:border-jsr-cyan-200 dark:hover:border-jsr-cyan-800";
+
+function FilterBar(
+  { activeFilters, toggleFilter, setScoreFilter }: {
+    activeFilters: Signal<{
+      runtimes: Set<string>;
+      scoreValue: number | null;
+    }>;
+    toggleFilter: (tokenRaw: string) => void;
+    setScoreFilter: (scoreValue: number | null) => void;
+  },
+) {
+  return (
+    <div
+      class="px-3 py-2.5 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900 space-y-2.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 font-semibold mr-0.5 select-none">
+          Runtime
+        </span>
+        {RUNTIME_COMPAT_KEYS.map(([key, name, icon, w, h]) => {
+          const active = activeFilters.value.runtimes.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleFilter(`runtime:${key}`);
+              }}
+              class={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer select-none transition-colors duration-75 ${
+                active ? ACTIVE_FILTER_CLASSES : INACTIVE_FILTER_CLASSES
+              }`}
+            >
+              <div
+                class="relative h-3 shrink-0"
+                style={`aspect-ratio: ${w} / ${h}`}
+              >
+                <img
+                  src={icon}
+                  width={w}
+                  height={h}
+                  alt=""
+                  class="h-3 select-none"
+                />
+              </div>
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 font-semibold mr-0.5 select-none">
+          Min score
+        </span>
+        {SCORE_OPTIONS.map(({ label, value }) => {
+          const active =
+            (value === null && activeFilters.value.scoreValue === null) ||
+            (value !== null && activeFilters.value.scoreValue === value);
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setScoreFilter(value);
+              }}
+              class={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer select-none transition-colors duration-75 ${
+                active ? ACTIVE_FILTER_CLASSES : INACTIVE_FILTER_CLASSES
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -514,8 +686,15 @@ interface RuntimeToken {
   value: true;
   raw: string;
 }
+export type ScoreOp = "gt" | "gte" | "lt" | "lte";
+interface ScoreToken {
+  kind: "score";
+  op: ScoreOp;
+  value: number;
+  raw: string;
+}
 
-type Token = TextToken | ScopeToken | RuntimeToken;
+type Token = TextToken | ScopeToken | RuntimeToken | ScoreToken;
 
 function tokenizeFilter(search: string): Token[] {
   const tokens: Token[] = [];
@@ -534,6 +713,24 @@ function tokenizeFilter(search: string): Token[] {
         });
         continue;
       }
+    } else if (part.startsWith("score:")) {
+      const rest = part.slice(6);
+      const match = rest.match(/^(>=|<=|>|<)(\d+)$/);
+      if (match) {
+        const opMap: Record<string, ScoreOp> = {
+          ">": "gt",
+          ">=": "gte",
+          "<": "lt",
+          "<=": "lte",
+        };
+        tokens.push({
+          kind: "score",
+          op: opMap[match[1]],
+          value: parseInt(match[2], 10),
+          raw: part,
+        });
+        continue;
+      }
     }
 
     tokens.push({ kind: "text", value: part, raw: part });
@@ -542,21 +739,31 @@ function tokenizeFilter(search: string): Token[] {
   return tokens;
 }
 
+// deno-lint-ignore no-explicit-any
+export type WhereClause = Record<string, any>;
+
 export function processFilter(
   search: string,
-): { query: string; where: Record<string, boolean | string> | undefined } {
-  const filters: [string, boolean | string][] = [];
+): { query: string; where: WhereClause | undefined } {
+  const where: WhereClause = {};
   let query = "";
+  let hasFilters = false;
   for (const part of tokenizeFilter(search)) {
     if (part.kind === "text") {
       query += part.value + " ";
+    } else if (part.kind === "score") {
+      where["_omc:number"] = {
+        ...where["_omc:number"],
+        [part.op]: part.value,
+      };
+      hasFilters = true;
     } else {
-      filters.push([part.kind, part.value]);
+      where[part.kind] = part.value;
+      hasFilters = true;
     }
   }
-  const where = Object.fromEntries(filters);
   return {
     query: query.trim(),
-    where: filters.length === 0 ? undefined : where,
+    where: hasFilters ? where : undefined,
   };
 }
