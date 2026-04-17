@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit,\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"newer_ticket_messages_count!\"  FROM users WHERE id = $1",
+  "query": "INSERT INTO users (name, email, avatar_url, gitlab_id, is_blocked, is_staff)\n      VALUES ($1, $2, $3, $4, $5, $6)\n      ON CONFLICT(gitlab_id) DO UPDATE\n      SET name = $1, email = $2, avatar_url = $3\n      RETURNING id, name, email, avatar_url, updated_at, created_at, github_id, gitlab_id, is_blocked, is_staff, scope_limit as \"scope_limit?\",\n(SELECT COUNT(created_at) FROM scope_invites WHERE target_user_id = id) as \"invite_count!\",\n(SELECT COUNT(created_at) FROM scopes WHERE creator = id) as \"scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"newer_ticket_messages_count!\" ",
   "describe": {
     "columns": [
       {
@@ -55,7 +55,7 @@
       },
       {
         "ordinal": 10,
-        "name": "scope_limit",
+        "name": "scope_limit?",
         "type_info": "Int4"
       },
       {
@@ -76,7 +76,12 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Varchar",
+        "Text",
+        "Int8",
+        "Bool",
+        "Bool"
       ]
     },
     "nullable": [
@@ -90,11 +95,11 @@
       true,
       false,
       false,
-      false,
+      true,
       null,
       null,
       null
     ]
   },
-  "hash": "dde3b6b2ab4a843ef4e8efa5da12fa73ce5d361c936a3256b124023f5471364f"
+  "hash": "4114827eefee3185260595c3b7fd66492309e8da906743f13e2afb5a1d9e7954"
 }
