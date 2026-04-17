@@ -6,20 +6,11 @@
   "licenseId": "MS-LPL",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://github.com/gabegundy/atlserver/blob/master/License.txt",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:55:05Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
       "match": "true",
       "url": "https://www.openhub.net/licenses/mslpl",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:05Z",
+      "timestamp": "2026-03-05T17:56:58Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -28,9 +19,18 @@
       "url": "https://en.wikipedia.org/wiki/Shared_Source_Initiative#Microsoft_Limited_Public_License_(Ms-LPL)",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:06Z",
+      "timestamp": "2026-03-05T17:56:59Z",
       "isWayBackLink": false,
       "order": 2
+    },
+    {
+      "match": "false",
+      "url": "https://github.com/gabegundy/atlserver/blob/master/License.txt",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-03-05T17:57:00Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

@@ -8,11 +8,11 @@
   "licenseId": "BSD-Inferno-Nettverk",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://www.inet.no/dante/LICENSE",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:03:00Z",
+      "isLive": false,
+      "timestamp": "2026-03-05T17:56:47Z",
       "isWayBackLink": false,
       "order": 0
     }

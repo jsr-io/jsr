@@ -6,11 +6,11 @@
   "licenseId": "InnoSetup",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/jrsoftware/issrc/blob/HEAD/license.txt",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:52:51Z",
+      "timestamp": "2026-03-05T17:58:36Z",
       "isWayBackLink": false,
       "order": 0
     }

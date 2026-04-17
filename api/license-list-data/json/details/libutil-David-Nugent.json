@@ -8,22 +8,22 @@
   "licenseId": "libutil-David-Nugent",
   "crossRef": [
     {
-      "match": "N/A",
-      "url": "https://cgit.freedesktop.org/libbsd/tree/man/setproctitle.3bsd",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-02-20T20:58:52Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
       "match": "true",
       "url": "http://web.mit.edu/freebsd/head/lib/libutil/login_ok.3",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:52Z",
+      "timestamp": "2026-03-05T17:56:57Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "N/A",
+      "url": "https://cgit.freedesktop.org/libbsd/tree/man/setproctitle.3bsd",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-03-05T17:56:58Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

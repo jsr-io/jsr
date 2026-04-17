@@ -6,11 +6,11 @@
   "licenseId": "metamail",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/Dual-Life/mime-base64/blob/master/Base64.xs#L12",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:54:28Z",
+      "timestamp": "2026-03-05T18:01:52Z",
       "isWayBackLink": false,
       "order": 0
     }

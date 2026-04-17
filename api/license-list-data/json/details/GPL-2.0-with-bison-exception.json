@@ -8,11 +8,11 @@
   "licenseId": "GPL-2.0-with-bison-exception",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "http://git.savannah.gnu.org/cgit/bison.git/tree/data/yacc.c?id\u003d193d7c7054ba7197b0789e14965b739162319b5e#n141",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:52:52Z",
+      "isLive": false,
+      "timestamp": "2026-03-05T17:58:02Z",
       "isWayBackLink": false,
       "order": 0
     }

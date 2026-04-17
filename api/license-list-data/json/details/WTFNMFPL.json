@@ -7,21 +7,21 @@
   "crossRef": [
     {
       "match": "true",
-      "url": "https://github.com/adversary-org/wtfnmf/raw/3f2cd8235a64350a57a51b9739715edaea63ec1a/COPYING.WTFNMFPL-utf8",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:03:00Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "true",
       "url": "https://github.com/adversary-org/wtfnmf/raw/refs/tags/1.0/COPYING.WTFNMFPL",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:03:00Z",
+      "timestamp": "2026-03-05T18:01:50Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "true",
+      "url": "https://github.com/adversary-org/wtfnmf/raw/3f2cd8235a64350a57a51b9739715edaea63ec1a/COPYING.WTFNMFPL-utf8",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-03-05T18:01:50Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [
