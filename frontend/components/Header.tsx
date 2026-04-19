@@ -91,7 +91,8 @@ export function Header({
                   href="/packages"
                   className="link-header"
                 >
-                  Browse packages
+                  <span class="sm:hidden">Packages</span>
+                  <span class="hidden sm:inline">Browse packages</span>
                 </a>
               )}
             {searchKind !== "docs" && (
