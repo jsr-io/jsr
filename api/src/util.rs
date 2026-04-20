@@ -405,6 +405,119 @@ where
   Ok(data)
 }
 
+/// Validate that a webhook URL is safe to send requests to.
+/// Rejects non-HTTPS schemes, private/loopback IPs, link-local addresses,
+/// and metadata service IPs.
+pub fn validate_webhook_url(raw: &str) -> ApiResult<()> {
+  let url = Url::parse(raw).map_err(|_| ApiError::MalformedRequest {
+    msg: "invalid URL".into(),
+  })?;
+
+  if url.scheme() != "https" {
+    return Err(ApiError::MalformedRequest {
+      msg: "webhook URL must use HTTPS".into(),
+    });
+  }
+
+  let host = url.host_str().ok_or(ApiError::MalformedRequest {
+    msg: "webhook URL must have a host".into(),
+  })?;
+
+  // Reject IP literals that resolve to private/loopback/link-local ranges
+  if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+    if ip.is_loopback()
+      || ip.is_unspecified()
+      || is_private_ip(ip)
+      || is_link_local(ip)
+    {
+      return Err(ApiError::MalformedRequest {
+        msg: "webhook URL must not target private or loopback addresses".into(),
+      });
+    }
+  }
+
+  // Block well-known dangerous hostnames
+  let lower = host.to_lowercase();
+  if lower == "localhost"
+    || lower.ends_with(".local")
+    || lower == "metadata.google.internal"
+  {
+    return Err(ApiError::MalformedRequest {
+      msg: "webhook URL must not target private or internal hosts".into(),
+    });
+  }
+
+  Ok(())
+}
+
+fn is_private_ip(ip: std::net::IpAddr) -> bool {
+  match ip {
+    std::net::IpAddr::V4(v4) => {
+      v4.is_private()                          // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+        || v4.octets()[0] == 100 && (v4.octets()[1] & 0xC0) == 64  // 100.64.0.0/10 (CGNAT)
+        || v4.octets()[0] == 169 && v4.octets()[1] == 254           // 169.254.0.0/16 (link-local / metadata)
+    }
+    std::net::IpAddr::V6(v6) => {
+      // fc00::/7 (unique local), ::1 (loopback already covered)
+      (v6.segments()[0] & 0xfe00) == 0xfc00
+    }
+  }
+}
+
+fn is_link_local(ip: std::net::IpAddr) -> bool {
+  match ip {
+    std::net::IpAddr::V4(v4) => v4.is_link_local(),
+    std::net::IpAddr::V6(v6) => (v6.segments()[0] & 0xffc0) == 0xfe80,
+  }
+}
+
+/// AES-256-GCM encryption key for webhook secrets at rest.
+/// 32-byte key for AES-256-GCM encryption of webhook secrets at rest.
+#[derive(Clone)]
+pub struct WebhookSecretEncryptionKey(pub [u8; 32]);
+
+/// Encrypt a webhook secret using AES-256-GCM. Returns base64(nonce || ciphertext || tag).
+pub fn encrypt_webhook_secret(
+  key: &WebhookSecretEncryptionKey,
+  plaintext: &str,
+) -> String {
+  use aes_gcm::{Aes256Gcm, KeyInit, AeadCore, AeadInPlace};
+  use aes_gcm::aead::OsRng;
+  use base64::Engine;
+
+  let cipher = Aes256Gcm::new((&key.0).into());
+  let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+  let mut buffer = plaintext.as_bytes().to_vec();
+  cipher.encrypt_in_place(&nonce, b"", &mut buffer).unwrap();
+
+  let mut out = nonce.to_vec();
+  out.extend_from_slice(&buffer);
+  base64::engine::general_purpose::STANDARD.encode(&out)
+}
+
+/// Decrypt a webhook secret encrypted with `encrypt_webhook_secret`.
+pub fn decrypt_webhook_secret(
+  key: &WebhookSecretEncryptionKey,
+  stored: &str,
+) -> Result<String, anyhow::Error> {
+  use aes_gcm::{Aes256Gcm, KeyInit, AeadInPlace, Nonce};
+  use base64::Engine;
+
+  let data = base64::engine::general_purpose::STANDARD.decode(stored)?;
+  if data.len() < 12 {
+    anyhow::bail!("encrypted secret too short");
+  }
+
+  let (nonce_bytes, ciphertext) = data.split_at(12);
+  let nonce = Nonce::from_slice(nonce_bytes);
+  let cipher = Aes256Gcm::new((&key.0).into());
+  let mut buffer = ciphertext.to_vec();
+  cipher.decrypt_in_place(nonce, b"", &mut buffer)
+    .map_err(|_| anyhow::anyhow!("webhook secret decryption failed"))?;
+
+  Ok(String::from_utf8(buffer)?)
+}
+
 pub fn search(req: &Request<Body>) -> Option<&str> {
   req.query("query").map(|q| q.as_str())
 }
@@ -814,7 +927,9 @@ pub mod test {
         npm_url: "http://npm.jsr-tests.test".parse().unwrap(),
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
+        webhook_dispatch_queue: None,  // no queue locally
         analytics_engine_config: None, // no analytics engine locally
+        webhook_secret_encryption_key: WebhookSecretEncryptionKey([0u8; 32]),
         expose_api: true,              // api enabled
         expose_tasks: true,            // task endpoints enabled
       });

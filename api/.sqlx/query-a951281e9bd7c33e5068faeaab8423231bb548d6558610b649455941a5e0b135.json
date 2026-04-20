@@ -1,0 +1,80 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n          webhook_endpoints.url as \"url\", webhook_events.event as \"event: _\", webhook_events.id as \"event_id\", webhook_endpoints.secret as \"secret\", webhook_endpoints.payload_format AS \"payload_format: _\", webhook_events.payload as \"payload: WebhookPayload\"\n        FROM webhook_endpoints\n        LEFT JOIN webhook_deliveries ON webhook_endpoints.id = webhook_deliveries.endpoint_id\n        LEFT JOIN webhook_events ON webhook_events.id = webhook_deliveries.event_id\n        WHERE webhook_deliveries.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "event: _",
+        "type_info": {
+          "Custom": {
+            "name": "webhook_event_kind",
+            "kind": {
+              "Enum": [
+                "package_version_npm_tarball_ready",
+                "package_version_published",
+                "package_version_yanked",
+                "package_version_deleted",
+                "scope_package_created",
+                "scope_package_deleted",
+                "scope_package_archived",
+                "scope_member_added",
+                "scope_member_removed"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "secret",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "payload_format: _",
+        "type_info": {
+          "Custom": {
+            "name": "webhook_payload_format",
+            "kind": {
+              "Enum": [
+                "json",
+                "discord",
+                "slack"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "payload: WebhookPayload",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "a951281e9bd7c33e5068faeaab8423231bb548d6558610b649455941a5e0b135"
+}

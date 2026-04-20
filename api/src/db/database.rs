@@ -504,11 +504,7 @@ impl Database {
       }
     };
 
-    if let Some(res) = finalize_package_creation(tx, scope).await? {
-      return Ok(res);
-    };
-
-    Ok(CreatePackageResult::Ok(package))
+    finalize_package_creation(tx, scope, package).await
   }
 
   #[instrument(
@@ -819,7 +815,7 @@ impl Database {
     scope: &ScopeName,
     name: &PackageName,
     is_archived: bool,
-  ) -> Result<Package> {
+  ) -> Result<(Package, Vec<Uuid>)> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -850,9 +846,22 @@ impl Database {
       .fetch_one(&mut *tx)
       .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      None,
+      WebhookEventKind::ScopePackageArchived,
+      WebhookPayload::ScopePackageArchived {
+        scope: scope.clone(),
+        package: name.clone(),
+        archived: is_archived,
+      },
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(package)
+    Ok((package, webhook_deliveries))
   }
 
   #[instrument(name = "Database::update_package_source", skip(self), err)]
@@ -1760,8 +1769,8 @@ gitlab_id: r.user_gitlab_id,
       scope as _,
       name as _,
     )
-    .fetch_all(&self.pool)
-    .await
+      .fetch_all(&self.pool)
+      .await
   }
 
   #[instrument(
@@ -2051,7 +2060,7 @@ gitlab_id: r.user_gitlab_id,
     name: &PackageName,
     version: &Version,
     yank: bool,
-  ) -> Result<PackageVersion> {
+  ) -> Result<(PackageVersion, Vec<Uuid>)> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -2082,9 +2091,23 @@ gitlab_id: r.user_gitlab_id,
     .fetch_one(&mut *tx)
     .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      Some(name),
+      WebhookEventKind::PackageVersionYanked,
+      WebhookPayload::PackageVersionYanked {
+        scope: scope.clone(),
+        package: name.clone(),
+        version: version.clone(),
+        yanked: yank,
+      },
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(package_version)
+    Ok((package_version, webhook_deliveries))
   }
 
   #[instrument(name = "Database::delete_package_version", skip(self), err)]
@@ -2094,7 +2117,7 @@ gitlab_id: r.user_gitlab_id,
     scope: &ScopeName,
     name: &PackageName,
     version: &Version,
-  ) -> Result<()> {
+  ) -> Result<Vec<Uuid>> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -2110,8 +2133,7 @@ gitlab_id: r.user_gitlab_id,
     )
     .await?;
 
-    sqlx::query_as!(
-      PackageVersion,
+    sqlx::query!(
       r#"DELETE FROM package_versions WHERE scope = $1 AND name = $2 AND version = $3"#,
       scope as _,
       name as _,
@@ -2120,9 +2142,22 @@ gitlab_id: r.user_gitlab_id,
       .execute(&mut *tx)
       .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      Some(name),
+      WebhookEventKind::PackageVersionDeleted,
+      WebhookPayload::PackageVersionDeleted {
+        scope: scope.clone(),
+        package: name.clone(),
+        version: version.clone(),
+      },
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(())
+    Ok(webhook_deliveries)
   }
 
   #[instrument(name = "Database::list_package_files", skip(self), err)]
@@ -2195,6 +2230,36 @@ gitlab_id: r.user_gitlab_id,
     )
       .fetch_one(&self.pool)
       .await
+  }
+  #[instrument(
+    name = "Database::process_webhooks_for_npm_tarball",
+    skip(self),
+    err
+  )]
+  pub async fn process_webhooks_for_npm_tarball(
+    &self,
+    package_scope: &ScopeName,
+    package_name: &PackageName,
+    package_version: &Version,
+  ) -> Result<Vec<Uuid>> {
+    let mut tx = self.pool.begin().await?;
+
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      package_scope,
+      Some(package_name),
+      WebhookEventKind::PackageVersionNpmTarballReady,
+      WebhookPayload::PackageVersionNpmTarballReady {
+        scope: package_scope.clone(),
+        package: package_name.clone(),
+        version: package_version.clone(),
+      },
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(webhook_deliveries)
   }
 
   #[instrument(name = "Database::get_scope_member", skip(self), err)]
@@ -2433,7 +2498,7 @@ gitlab_id: r.user_gitlab_id,
     &self,
     target_user_id: &Uuid,
     scope: &ScopeName,
-  ) -> Result<Option<ScopeMember>> {
+  ) -> Result<Option<(ScopeMember, Vec<Uuid>)>> {
     let mut tx = self.pool.begin().await?;
 
     let res = sqlx::query!(
@@ -2457,9 +2522,21 @@ gitlab_id: r.user_gitlab_id,
     .fetch_one(&mut *tx)
     .await?;
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      None,
+      WebhookEventKind::ScopeMemberAdded,
+      WebhookPayload::ScopeMemberAdded {
+        scope: scope.clone(),
+        user_id: *target_user_id,
+      },
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(Some(member))
+    Ok(Some((member, webhook_deliveries)))
   }
 
   #[instrument(name = "Database::delete_scope_invite", skip(self), err)]
@@ -2504,7 +2581,7 @@ gitlab_id: r.user_gitlab_id,
     is_sudo: bool,
     scope: &ScopeName,
     name: &PackageName,
-  ) -> Result<bool> {
+  ) -> Result<(bool, Vec<Uuid>)> {
     let mut tx = self.pool.begin().await?;
 
     audit_log(
@@ -2526,7 +2603,7 @@ gitlab_id: r.user_gitlab_id,
       .fetch_one(&mut *tx)
       .await?;
     if status.count.unwrap() > 0 {
-      return Ok(false);
+      return Ok((false, vec![]));
     }
 
     let res = sqlx::query!(
@@ -2540,16 +2617,33 @@ gitlab_id: r.user_gitlab_id,
     match res {
       Ok(res) => {
         let success = res.rows_affected() > 0;
-        if success {
+
+        let webhook_deliveries = if success {
+          let webhook_deliveries = insert_webhook_event(
+            &mut tx,
+            scope,
+            None,
+            WebhookEventKind::ScopePackageDeleted,
+            WebhookPayload::ScopePackageDeleted {
+              scope: scope.clone(),
+              package: name.clone(),
+            },
+          )
+          .await?;
+
           tx.commit().await?;
-        }
-        Ok(success)
+
+          webhook_deliveries
+        } else {
+          vec![]
+        };
+        Ok((success, webhook_deliveries))
       }
       Err(err) => {
         if let Some(dberr) = err.as_database_error()
           && dberr.is_foreign_key_violation()
         {
-          return Ok(false);
+          return Ok((false, vec![]));
         }
         Err(err)
       }
@@ -2720,7 +2814,10 @@ gitlab_id: r.user_gitlab_id,
 
     tx.commit().await?;
 
-    Ok(ScopeMemberUpdateResult::Ok(scope_member))
+    Ok(ScopeMemberUpdateResult::Ok {
+      scope_member,
+      webhook_deliveries: None,
+    })
   }
 
   #[instrument(name = "Database::delete_scope_member", skip(self), err)]
@@ -2762,9 +2859,24 @@ gitlab_id: r.user_gitlab_id,
       return Ok(result);
     }
 
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      scope,
+      None,
+      WebhookEventKind::ScopeMemberRemoved,
+      WebhookPayload::ScopeMemberRemoved {
+        scope: scope.clone(),
+        user_id,
+      },
+    )
+    .await?;
+
     tx.commit().await?;
 
-    Ok(ScopeMemberUpdateResult::Ok(scope_member))
+    Ok(ScopeMemberUpdateResult::Ok {
+      scope_member,
+      webhook_deliveries: Some(webhook_deliveries),
+    })
   }
 
   #[instrument(
@@ -3205,6 +3317,36 @@ gitlab_id: r.user_gitlab_id,
     Ok(task)
   }
 
+  #[instrument(
+    name = "Database::process_webhooks_for_publish",
+    skip(self),
+    err
+  )]
+  pub async fn process_webhooks_for_publish(
+    &self,
+    task: &PublishingTask,
+  ) -> Result<Vec<Uuid>> {
+    let mut tx = self.pool.begin().await?;
+
+    let webhook_deliveries = insert_webhook_event(
+      &mut tx,
+      &task.package_scope,
+      Some(&task.package_name),
+      WebhookEventKind::PackageVersionPublished,
+      WebhookPayload::PackageVersionPublished {
+        scope: task.package_scope.clone(),
+        package: task.package_name.clone(),
+        version: task.package_version.clone(),
+        user_id: task.user_id,
+      },
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(webhook_deliveries)
+  }
+
   #[instrument(name = "Database::get_oauth_state", skip(self), err)]
   pub async fn get_oauth_state(
     &self,
@@ -3231,6 +3373,52 @@ gitlab_id: r.user_gitlab_id,
     .execute(&self.pool)
     .await?;
     Ok(result.rows_affected())
+  }
+
+  #[instrument(
+    name = "Database::cleanup_old_webhook_data",
+    skip(self),
+    err
+  )]
+  pub async fn cleanup_old_webhook_data(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<(u64, u64)> {
+    // Delete old deliveries first (they reference events)
+    let deliveries = sqlx::query!(
+      "DELETE FROM webhook_deliveries WHERE created_at < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+
+    // Delete orphaned events (events with no remaining deliveries)
+    let events = sqlx::query!(
+      r#"DELETE FROM webhook_events WHERE created_at < $1
+         AND NOT EXISTS (SELECT 1 FROM webhook_deliveries WHERE webhook_deliveries.event_id = webhook_events.id)"#,
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+
+    Ok((deliveries.rows_affected(), events.rows_affected()))
+  }
+
+  #[instrument(name = "Database::redeliver_webhook", skip(self), err)]
+  pub async fn redeliver_webhook(
+    &self,
+    endpoint_id: Uuid,
+    event_id: Uuid,
+  ) -> Result<Uuid> {
+    let id = sqlx::query!(
+      r#"INSERT INTO webhook_deliveries (endpoint_id, event_id) VALUES ($1, $2) RETURNING id"#,
+      endpoint_id,
+      event_id,
+    )
+    .map(|r| r.id)
+    .fetch_one(&self.pool)
+    .await?;
+    Ok(id)
   }
 
   #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
@@ -4610,12 +4798,400 @@ gitlab_id: r.user_gitlab_id,
 
     Ok((total_scopes as usize, scopes))
   }
+
+  #[instrument(
+    name = "Database::create_webhook_endpoint",
+    skip(self, new_webhook),
+    err
+  )]
+  pub async fn create_webhook_endpoint(
+    &self,
+    new_webhook: NewWebhookEndpoint<'_>,
+    actor_id: &Uuid,
+    is_sudo: bool,
+  ) -> Result<WebhookEndpoint> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "create_webhook_endpoint",
+      json!({
+        "scope": new_webhook.scope,
+        "package": new_webhook.package,
+        "url": new_webhook.url
+      }),
+    )
+    .await?;
+
+    let res = sqlx::query_as!(
+      WebhookEndpoint,
+      r#"INSERT INTO webhook_endpoints (scope, package, url, description, secret, events, payload_format, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at"#,
+      new_webhook.scope,
+      new_webhook.package as _,
+      new_webhook.url,
+      new_webhook.description,
+      new_webhook.secret,
+      new_webhook.events as _,
+      new_webhook.payload_format as _,
+      new_webhook.is_active,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(res)
+  }
+
+  #[instrument(
+    name = "Database::update_webhook_endpoint",
+    skip(self, webhook),
+    err
+  )]
+  pub async fn update_webhook_endpoint(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    webhook_id: Uuid,
+    webhook: UpdateWebhookEndpoint,
+    actor_id: &Uuid,
+    is_sudo: bool,
+  ) -> Result<WebhookEndpoint> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "update_webhook_endpoint",
+      json!({
+        "scope": scope,
+        "package": package,
+        "webhook": webhook_id,
+        "url": webhook.url,
+        "description": webhook.description,
+        "secret_changed": webhook.secret.is_some(),
+        "secret_cleared": webhook.clear_secret,
+        "events": webhook.events,
+        "payload_format": webhook.payload_format,
+        "is_active": webhook.is_active,
+      }),
+    )
+    .await?;
+
+    let webhook_endpoint = sqlx::query_as!(
+      WebhookEndpoint,
+      r#"UPDATE webhook_endpoints SET url = COALESCE($4, url), description = COALESCE($5, description), secret = CASE WHEN $10 THEN NULL WHEN $6 IS NOT NULL THEN $6 ELSE secret END, events = COALESCE($7, events), payload_format = COALESCE($8, payload_format), is_active = COALESCE($9, is_active) WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3
+        RETURNING id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at"#,
+      scope as _,
+      package as _,
+      webhook_id,
+      webhook.url,
+      webhook.description,
+      webhook.secret,
+      webhook.events as _,
+      webhook.payload_format as _,
+      webhook.is_active,
+      webhook.clear_secret,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(webhook_endpoint)
+  }
+
+  #[instrument(name = "Database::get_webhook_endpoint", skip(self), err)]
+  pub async fn get_webhook_endpoint(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    id: Uuid,
+  ) -> Result<WebhookEndpoint> {
+    sqlx::query_as!(
+      WebhookEndpoint,
+      r#"SELECT id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at
+        FROM webhook_endpoints
+        WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3"#,
+      scope as _,
+      package as _,
+      id,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::list_webhook_endpoints", skip(self), err)]
+  pub async fn list_webhook_endpoints(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+  ) -> Result<Vec<WebhookEndpoint>> {
+    sqlx::query_as!(
+      WebhookEndpoint,
+      r#"SELECT id, scope AS "scope: ScopeName", package AS "package: PackageName", url, description, secret, events AS "events: _", payload_format AS "payload_format: _", is_active, updated_at, created_at
+        FROM webhook_endpoints
+        WHERE scope = $1 AND ($2::text IS NULL OR package = $2)  ORDER BY created_at DESC"#,
+      scope as _,
+      package as _,
+    )
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(name = "Database::delete_webhook_endpoint", skip(self), err)]
+  pub async fn delete_webhook_endpoint(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    id: Uuid,
+  ) -> Result<()> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "delete_webhook_endpoint",
+      json!({
+        "scope": scope,
+        "package": package,
+        "id": id
+      }),
+    )
+    .await?;
+
+    sqlx::query!(
+      r#"DELETE FROM webhook_endpoints WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3"#,
+      scope as _,
+      package as _,
+      id,
+    )
+      .execute(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(())
+  }
+
+  #[instrument(name = "Database::get_webhook_delivery", skip(self), err)]
+  pub async fn get_webhook_for_dispatch(
+    &self,
+    id: Uuid,
+  ) -> Result<WebhookForDispatch> {
+    sqlx::query_as!(
+      WebhookForDispatch,
+      r#"SELECT
+          webhook_endpoints.url as "url", webhook_events.event as "event: _", webhook_events.id as "event_id", webhook_endpoints.secret as "secret", webhook_endpoints.payload_format AS "payload_format: _", webhook_events.payload as "payload: WebhookPayload"
+        FROM webhook_endpoints
+        INNER JOIN webhook_deliveries ON webhook_endpoints.id = webhook_deliveries.endpoint_id
+        INNER JOIN webhook_events ON webhook_events.id = webhook_deliveries.event_id
+        WHERE webhook_deliveries.id = $1"#,
+      id,
+    )
+      .fetch_one(&self.pool)
+      .await
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  #[instrument(
+    name = "Database::update_webhook_delivery",
+    skip(self, request_headers, request_body, response_headers, response_body),
+    err
+  )]
+  pub async fn update_webhook_delivery(
+    &self,
+    id: Uuid,
+    status: WebhookDeliveryStatus,
+    request_headers: serde_json::Value,
+    request_body: serde_json::Value,
+    response_http_code: i32,
+    response_headers: serde_json::Value,
+    response_body: String,
+  ) -> Result<()> {
+    sqlx::query!(
+      r#"UPDATE webhook_deliveries
+        SET status = $2, request_headers = $3, request_body = $4, response_http_code = $5, response_headers = $6, response_body = $7, error = null
+        WHERE id = $1"#,
+      id,
+      status as _,
+      request_headers,
+      request_body,
+      response_http_code,
+      response_headers,
+      response_body,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  #[instrument(
+    name = "Database::update_webhook_delivery",
+    skip(self, error, request_headers, request_body),
+    err
+  )]
+  pub async fn update_webhook_delivery_for_error(
+    &self,
+    id: Uuid,
+    status: WebhookDeliveryStatus,
+    error: String,
+    request_headers: serde_json::Value,
+    request_body: serde_json::Value,
+  ) -> Result<()> {
+    sqlx::query!(
+      r#"UPDATE webhook_deliveries
+        SET status = $2, error = $3, request_headers = $4, request_body = $5, response_http_code = null, response_headers = null, response_body = null
+        WHERE id = $1"#,
+      id,
+      status as _,
+      error,
+      request_headers,
+      request_body,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
+
+  #[instrument(name = "Database::list_webhook_deliveries", skip(self), err)]
+  pub async fn list_webhook_deliveries(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    webhook_endpoint_id: Uuid,
+  ) -> Result<Vec<(WebhookDelivery, WebhookEvent)>> {
+    sqlx::query!(
+      r#"SELECT
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.error as "webhook_delivery_error", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
+      FROM webhook_deliveries
+      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
+      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND endpoint_id = $3 ORDER BY webhook_deliveries.created_at DESC LIMIT 100"#,
+      scope as _,
+      package as _,
+      webhook_endpoint_id,
+    )
+      .try_map(|r| {
+        let delivery = WebhookDelivery {
+          id: r.webhook_delivery_id,
+          endpoint_id: r.webhook_delivery_endpoint_id,
+          event_id: r.webhook_delivery_event_id,
+          status: r.webhook_delivery_status,
+          request_headers: r.webhook_delivery_request_headers,
+          request_body: r.webhook_delivery_request_body,
+          response_http_code: r.webhook_delivery_response_http_code,
+          response_headers: r.webhook_delivery_response_headers,
+          response_body: r.webhook_delivery_response_body,
+          error: r.webhook_delivery_error,
+          updated_at: r.webhook_delivery_updated_at,
+          created_at: r.webhook_delivery_created_at,
+        };
+        let event = WebhookEvent {
+          id: r.webhook_event_id,
+          scope: r.webhook_event_scope,
+          package: r.webhook_event_package,
+          event: r.webhook_event_event,
+          payload: r.webhook_event_payload,
+          created_at: r.webhook_event_created_at,
+        };
+
+        Ok((delivery, event))
+      })
+      .fetch_all(&self.pool)
+      .await
+  }
+
+  #[instrument(
+    name = "Database::insert_webhook_event_for_test",
+    skip(self, payload),
+    err
+  )]
+  pub async fn insert_webhook_event_for_test(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    event: WebhookEventKind,
+    payload: WebhookPayload,
+  ) -> Result<Uuid> {
+    let id = sqlx::query!(
+      r#"INSERT INTO webhook_events (scope, package, event, payload) VALUES ($1, $2, $3, $4) RETURNING id"#,
+      scope as _,
+      package as _,
+      event as _,
+      payload as _,
+    )
+    .map(|r| r.id)
+    .fetch_one(&self.pool)
+    .await?;
+    Ok(id)
+  }
+
+  #[instrument(name = "Database::get_webhook_deliveries", skip(self), err)]
+  pub async fn get_webhook_delivery(
+    &self,
+    scope: &ScopeName,
+    package: Option<&PackageName>,
+    webhook_endpoint_id: Uuid,
+    webhook_delivery_id: Uuid,
+  ) -> Result<(WebhookDelivery, WebhookEvent)> {
+    sqlx::query!(
+      r#"SELECT
+        webhook_deliveries.id as "webhook_delivery_id", webhook_deliveries.endpoint_id as "webhook_delivery_endpoint_id", webhook_deliveries.event_id as "webhook_delivery_event_id", webhook_deliveries.status as "webhook_delivery_status: WebhookDeliveryStatus", webhook_deliveries.request_headers as "webhook_delivery_request_headers", webhook_deliveries.request_body as "webhook_delivery_request_body", webhook_deliveries.response_http_code as "webhook_delivery_response_http_code", webhook_deliveries.response_headers as "webhook_delivery_response_headers", webhook_deliveries.response_body as "webhook_delivery_response_body", webhook_deliveries.error as "webhook_delivery_error", webhook_deliveries.updated_at as "webhook_delivery_updated_at", webhook_deliveries.created_at as "webhook_delivery_created_at",
+        webhook_events.id as "webhook_event_id", webhook_events.scope as "webhook_event_scope: ScopeName", webhook_events.package as "webhook_event_package: PackageName", webhook_events.event as "webhook_event_event: WebhookEventKind", webhook_events.payload as "webhook_event_payload: WebhookPayload", webhook_events.created_at as "webhook_event_created_at"
+      FROM webhook_deliveries
+      INNER JOIN webhook_events ON webhook_deliveries.event_id = webhook_events.id
+      WHERE webhook_events.scope = $1 AND ($2::text IS NULL OR webhook_events.package = $2) AND webhook_deliveries.endpoint_id = $3 AND webhook_deliveries.id = $4"#,
+      scope as _,
+      package as _,
+      webhook_endpoint_id,
+      webhook_delivery_id,
+    )
+      .try_map(|r| {
+        let delivery = WebhookDelivery {
+          id: r.webhook_delivery_id,
+          endpoint_id: r.webhook_delivery_endpoint_id,
+          event_id: r.webhook_delivery_event_id,
+          status: r.webhook_delivery_status,
+          request_headers: r.webhook_delivery_request_headers,
+          request_body: r.webhook_delivery_request_body,
+          response_http_code: r.webhook_delivery_response_http_code,
+          response_headers: r.webhook_delivery_response_headers,
+          response_body: r.webhook_delivery_response_body,
+          error: r.webhook_delivery_error,
+          updated_at: r.webhook_delivery_updated_at,
+          created_at: r.webhook_delivery_created_at,
+        };
+        let event = WebhookEvent {
+          id: r.webhook_event_id,
+          scope: r.webhook_event_scope,
+          package: r.webhook_event_package,
+          event: r.webhook_event_event,
+          payload: r.webhook_event_payload,
+          created_at: r.webhook_event_created_at,
+        };
+
+        Ok((delivery, event))
+      })
+      .fetch_one(&self.pool)
+      .await
+  }
 }
 
 async fn finalize_package_creation(
   mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
   scope: &ScopeName,
-) -> Result<Option<CreatePackageResult>, sqlx::Error> {
+  package: Package,
+) -> Result<CreatePackageResult, sqlx::Error> {
   let (package_limit, new_package_per_week_limit) = sqlx::query!(
     r#"
     SELECT package_limit, new_package_per_week_limit FROM scopes WHERE scope = $1;
@@ -4642,9 +5218,9 @@ async fn finalize_package_creation(
 
   if packages_from_last_week > new_package_per_week_limit as i64 {
     tx.rollback().await?;
-    return Ok(Some(CreatePackageResult::WeeklyPackageLimitExceeded(
+    return Ok(CreatePackageResult::WeeklyPackageLimitExceeded(
       new_package_per_week_limit,
-    )));
+    ));
   }
 
   let total_packages = sqlx::query!(
@@ -4659,13 +5235,26 @@ async fn finalize_package_creation(
 
   if total_packages > package_limit as i64 {
     tx.rollback().await?;
-    return Ok(Some(CreatePackageResult::PackageLimitExceeded(
-      package_limit,
-    )));
+    return Ok(CreatePackageResult::PackageLimitExceeded(package_limit));
   }
 
+  let webhook_deliveries = insert_webhook_event(
+    &mut tx,
+    scope,
+    None,
+    WebhookEventKind::ScopePackageCreated,
+    WebhookPayload::ScopePackageCreated {
+      scope: scope.clone(),
+      package: package.name.clone(),
+    },
+  )
+  .await?;
+
   tx.commit().await?;
-  Ok(None)
+  Ok(CreatePackageResult::Ok {
+    package,
+    webhook_deliveries,
+  })
 }
 
 async fn audit_log(
@@ -4688,9 +5277,47 @@ async fn audit_log(
   Ok(())
 }
 
+async fn insert_webhook_event(
+  tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+  scope: &ScopeName,
+  package: Option<&PackageName>,
+  event: WebhookEventKind,
+  payload: WebhookPayload,
+) -> Result<Vec<Uuid>> {
+  let event_id = sqlx::query!(
+    r#"INSERT INTO webhook_events (scope, package, event, payload) VALUES ($1, $2, $3, $4) RETURNING id"#,
+    scope as _,
+    package as _,
+    event as _,
+    payload as _,
+  )
+    .map(|r| r.id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+  let webhook_deliveries = sqlx::query!(
+    r#"INSERT INTO webhook_deliveries (endpoint_id, event_id)
+     SELECT webhook_endpoints.id, $1 FROM webhook_endpoints
+     WHERE webhook_endpoints.scope = $2 AND (webhook_endpoints.package IS NULL OR webhook_endpoints.package = $3) AND $4 = ANY(webhook_endpoints.events) AND webhook_endpoints.is_active = TRUE
+     RETURNING id"#,
+    event_id,
+    scope as _,
+    package as _,
+    event as _,
+  )
+    .map(|r| r.id)
+    .fetch_all(&mut **tx)
+    .await?;
+
+  Ok(webhook_deliveries)
+}
+
 #[derive(Debug)]
 pub enum ScopeMemberUpdateResult {
-  Ok(ScopeMember),
+  Ok {
+    scope_member: ScopeMember,
+    webhook_deliveries: Option<Vec<Uuid>>,
+  },
   TargetIsLastAdmin,
   TargetIsLastTransferableAdmin,
   TargetNotMember,
@@ -4698,7 +5325,10 @@ pub enum ScopeMemberUpdateResult {
 
 #[derive(Debug)]
 pub enum CreatePackageResult {
-  Ok(Package),
+  Ok {
+    package: Package,
+    webhook_deliveries: Vec<Uuid>,
+  },
   AlreadyExists,
   WeeklyPackageLimitExceeded(i32),
   PackageLimitExceeded(i32),

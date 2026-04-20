@@ -268,6 +268,11 @@ errors!(
     status: BAD_REQUEST,
     "You cannot disconnect the last connected service.",
   },
+  WebhookResponseFailure {
+    status: BAD_REQUEST,
+    fields: { status: reqwest::StatusCode },
+    ({ status }) => "The webhook target responded with status {status}.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
