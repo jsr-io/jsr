@@ -368,7 +368,7 @@ body .ddoc {
     }
 
     /* Styles the first H1 in a readme a little differently */
-    h1:first-of-type {
+    h1:first-child {
       @apply mt-0! border-none! mb-6!;
     }
 
