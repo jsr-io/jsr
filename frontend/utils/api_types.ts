@@ -105,6 +105,7 @@ export interface PackageScore {
   hasReadme: boolean;
   hasReadmeExamples: boolean;
   allEntrypointsDocs: boolean;
+  entrypointsWithoutDocs: string[];
   percentageDocumentedSymbols: number;
   allFastCheck: boolean;
   hasProvenance: boolean;
