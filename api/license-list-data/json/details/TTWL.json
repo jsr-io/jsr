@@ -6,22 +6,22 @@
   "licenseId": "TTWL",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://github.com/ap/Text-Tabs/blob/master/lib.modern/Text/Tabs.pm#L148",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:59:24Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
       "match": "true",
       "url": "https://fedoraproject.org/wiki/Licensing/TTWL",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:59:24Z",
+      "timestamp": "2026-04-28T22:41:02Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "true",
+      "url": "https://github.com/ap/Text-Tabs/blob/master/lib.modern/Text/Tabs.pm#L148",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:41:03Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

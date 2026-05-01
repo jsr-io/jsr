@@ -12,16 +12,16 @@
       "url": "https://github.com/aws/mit-0",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:11Z",
+      "timestamp": "2026-04-28T22:38:43Z",
       "isWayBackLink": false,
       "order": 0
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/awsdocs/aws-cloud9-user-guide/blob/master/LICENSE-SAMPLECODE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:12Z",
+      "timestamp": "2026-04-28T22:38:44Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -30,7 +30,7 @@
       "url": "https://romanrm.net/mit-zero",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:12Z",
+      "timestamp": "2026-04-28T22:38:44Z",
       "isWayBackLink": false,
       "order": 1
     }

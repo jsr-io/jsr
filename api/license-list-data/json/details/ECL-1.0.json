@@ -9,16 +9,16 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://opensource.org/licenses/ECL-1.0",
+      "url": "https://opensource.org/license/ECL-1.0",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:54:27Z",
+      "timestamp": "2026-04-28T22:38:43Z",
       "isWayBackLink": false,
       "order": 0
     }
   ],
   "seeAlso": [
-    "https://opensource.org/licenses/ECL-1.0"
+    "https://opensource.org/license/ECL-1.0"
   ],
   "isOsiApproved": true,
   "licenseTextHtml": "\n      \u003cdiv class\u003d\"optional-license-text\"\u003e \n         \u003cp\u003eThe Educational Community License\u003c/p\u003e\n\n      \u003c/div\u003e\n      \u003cp\u003eThis Educational Community License (the \u0026quot;License\u0026quot;) applies to any original work of authorship (the\n         \u0026quot;Original Work\u0026quot;) whose owner (the \u0026quot;Licensor\u0026quot;) has placed the following notice immediately following\n         the copyright notice for the Original Work:\u003c/p\u003e\n\n      \u003cp\u003eCopyright (c)\n        \u003cvar class\u003d\"replaceable-license-text\"\u003e\u003cspan title\u003d\"can be replaced with the pattern .+\"\u003e \u0026lt;year\u0026gt; \u0026lt;copyright holders\u0026gt;\u003c/span\u003e\u003c/var\u003e\n      \u003c/p\u003e\n\n      \u003cp\u003eLicensed under the Educational Community License version 1.0\u003c/p\u003e\n\n      \u003cp\u003eThis Original Work, including software, source code, documents, or other related items, is being provided\n         by the copyright holder(s) subject to the terms of the Educational Community License. By obtaining,\n         using and/or copying this Original Work, you agree that you have read, understand, and will comply\n         with the following terms and conditions of the Educational Community License:\u003c/p\u003e\n\n      \u003cp\u003ePermission to use, copy, modify, merge, publish, distribute, and sublicense this Original Work and its\n         documentation, with or without modification, for any purpose, and without fee or royalty to the\n         copyright holder(s) is hereby granted, provided that you include the following on ALL copies of the\n         Original Work or portions thereof, including modifications or derivatives, that you make:\u003c/p\u003e\n\n      \u003cp\u003eThe full text of the Educational Community License in a location viewable to users of the redistributed\n         or derivative work.\u003c/p\u003e\n\n      \u003cp\u003eAny pre-existing intellectual property disclaimers, notices, or terms and conditions.\u003c/p\u003e\n\n      \u003cp\u003eNotice of any changes or modifications to the Original Work, including the date the changes were made.\u003c/p\u003e\n\n      \u003cp\u003eAny modifications of the Original Work must be distributed in such a manner as to avoid any confusion\n         with the Original Work of the copyright holders.\u003c/p\u003e\n\n      \u003cp\u003eTHE SOFTWARE IS PROVIDED \u0026quot;AS IS\u0026quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT\n         LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN\n         NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\n         WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE\n         SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\u003c/p\u003e\n\n      \u003cp\u003eThe name and trademarks of copyright holder(s) may NOT be used in advertising or publicity pertaining to\n         the Original or Derivative Works without specific, written prior permission. Title to copyright in the\n         Original Work and any associated documentation will at all times remain with the copyright\n         holders.\u003c/p\u003e\n\n    ",

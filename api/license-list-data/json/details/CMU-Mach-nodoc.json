@@ -12,16 +12,16 @@
       "url": "https://web.mit.edu/kerberos/krb5-1.21/doc/mitK5license.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:52:51Z",
+      "timestamp": "2026-04-28T22:40:14Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/krb5/krb5/blob/krb5-1.21.2-final/NOTICE#L718-L728",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:52:52Z",
+      "timestamp": "2026-04-28T22:40:15Z",
       "isWayBackLink": false,
       "order": 0
     }

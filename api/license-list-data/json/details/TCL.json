@@ -7,21 +7,21 @@
   "crossRef": [
     {
       "match": "true",
-      "url": "https://fedoraproject.org/wiki/Licensing/TCL",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:53:22Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "true",
       "url": "http://www.tcl.tk/software/tcltk/license.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:53:23Z",
+      "timestamp": "2026-04-28T22:39:28Z",
       "isWayBackLink": false,
       "order": 0
+    },
+    {
+      "match": "true",
+      "url": "https://fedoraproject.org/wiki/Licensing/TCL",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:39:29Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

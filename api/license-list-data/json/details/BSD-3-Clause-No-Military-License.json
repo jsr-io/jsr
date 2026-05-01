@@ -8,22 +8,22 @@
   "licenseId": "BSD-3-Clause-No-Military-License",
   "crossRef": [
     {
+      "match": "true",
+      "url": "https://github.com/greymass/swift-eosio/blob/master/LICENSE",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:41:38Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
       "match": "false",
       "url": "https://gitlab.syncad.com/hive/dhive/-/blob/master/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-04-28T22:41:38Z",
       "isWayBackLink": false,
       "order": 0
-    },
-    {
-      "match": "false",
-      "url": "https://github.com/greymass/swift-eosio/blob/master/LICENSE",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
-      "isWayBackLink": false,
-      "order": 1
     }
   ],
   "seeAlso": [

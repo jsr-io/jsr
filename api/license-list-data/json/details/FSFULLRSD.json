@@ -8,11 +8,11 @@
   "licenseId": "FSFULLRSD",
   "crossRef": [
     {
-      "match": "true",
+      "match": "N/A",
       "url": "https://git.savannah.gnu.org/cgit/gnulib.git/tree/modules/COPYING?id\u003d7b08932179d0d6b017f7df01a2ddf6e096b038e3",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:56:44Z",
+      "isLive": false,
+      "timestamp": "2026-04-28T22:40:44Z",
       "isWayBackLink": false,
       "order": 0
     }

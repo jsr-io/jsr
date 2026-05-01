@@ -8,11 +8,11 @@
   "licenseId": "Unlicense-libwhirlpool",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/dfateyev/libwhirlpool/blob/master/README#L27",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:52:52Z",
+      "timestamp": "2026-04-28T22:42:41Z",
       "isWayBackLink": false,
       "order": 0
     }

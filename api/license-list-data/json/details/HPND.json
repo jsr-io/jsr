@@ -13,22 +13,22 @@
       "url": "http://lists.opensource.org/pipermail/license-discuss_lists.opensource.org/2002-November/006304.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:44Z",
+      "timestamp": "2026-04-28T22:39:43Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
       "match": "N/A",
-      "url": "https://opensource.org/licenses/HPND",
+      "url": "https://opensource.org/license/HPND",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-02-20T20:56:44Z",
+      "isLive": true,
+      "timestamp": "2026-04-28T22:39:43Z",
       "isWayBackLink": false,
       "order": 0
     }
   ],
   "seeAlso": [
-    "https://opensource.org/licenses/HPND",
+    "https://opensource.org/license/HPND",
     "http://lists.opensource.org/pipermail/license-discuss_lists.opensource.org/2002-November/006304.html"
   ],
   "isOsiApproved": true,

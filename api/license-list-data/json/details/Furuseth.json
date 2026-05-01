@@ -6,11 +6,11 @@
   "licenseId": "Furuseth",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://git.openldap.org/openldap/openldap/-/blob/master/COPYRIGHT?ref_type\u003dheads#L39-51",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:04:37Z",
+      "isLive": false,
+      "timestamp": "2026-04-28T22:40:46Z",
       "isWayBackLink": false,
       "order": 0
     }

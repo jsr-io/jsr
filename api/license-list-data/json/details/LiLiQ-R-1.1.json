@@ -12,7 +12,7 @@
       "url": "https://www.forge.gouv.qc.ca/participez/licence-logicielle/licence-libre-du-quebec-liliq-en-francais/licence-libre-du-quebec-reciprocite-liliq-r-v1-1/",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T21:03:34Z",
+      "timestamp": "2026-04-28T22:38:42Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -21,23 +21,23 @@
       "url": "https://forge.gouv.qc.ca/licence/liliq-p",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:03:34Z",
+      "timestamp": "2026-04-28T22:38:42Z",
       "isWayBackLink": false,
       "order": 2
     },
     {
       "match": "true",
-      "url": "http://opensource.org/licenses/LiLiQ-R-1.1",
+      "url": "http://opensource.org/license/LiLiQ-R-1.1",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:03:34Z",
+      "timestamp": "2026-04-28T22:38:42Z",
       "isWayBackLink": false,
       "order": 1
     }
   ],
   "seeAlso": [
     "https://www.forge.gouv.qc.ca/participez/licence-logicielle/licence-libre-du-quebec-liliq-en-francais/licence-libre-du-quebec-reciprocite-liliq-r-v1-1/",
-    "http://opensource.org/licenses/LiLiQ-R-1.1",
+    "http://opensource.org/license/LiLiQ-R-1.1",
     "https://forge.gouv.qc.ca/licence/liliq-p"
   ],
   "isOsiApproved": true,

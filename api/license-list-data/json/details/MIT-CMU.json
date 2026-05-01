@@ -10,16 +10,16 @@
       "url": "https://fedoraproject.org/wiki/Licensing:MIT?rd\u003dLicensing/MIT#CMU_Style",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:57:49Z",
+      "timestamp": "2026-04-28T22:37:55Z",
       "isWayBackLink": false,
       "order": 0
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/python-pillow/Pillow/blob/fffb426092c8db24a5f4b6df243a8a3c01fb63cd/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:57:50Z",
+      "timestamp": "2026-04-28T22:37:57Z",
       "isWayBackLink": false,
       "order": 1
     }

@@ -9,22 +9,22 @@
   "licenseId": "PPL",
   "crossRef": [
     {
-      "match": "true",
-      "url": "https://wiki.p2pfoundation.net/Peer_Production_License",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:04:05Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "false",
       "url": "http://www.networkcultures.org/_uploads/%233notebook_telekommunist.pdf",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:04:07Z",
+      "timestamp": "2026-04-28T22:38:45Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "N/A",
+      "url": "https://wiki.p2pfoundation.net/Peer_Production_License",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-04-28T22:38:46Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

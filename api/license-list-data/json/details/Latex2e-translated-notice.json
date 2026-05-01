@@ -8,11 +8,11 @@
   "licenseId": "Latex2e-translated-notice",
   "crossRef": [
     {
-      "match": "false",
+      "match": "N/A",
       "url": "https://git.savannah.gnu.org/cgit/indent.git/tree/doc/indent.texi?id\u003da74c6b4ee49397cf330b333da1042bffa60ed14f#n74",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:53:25Z",
+      "isLive": false,
+      "timestamp": "2026-04-28T22:43:13Z",
       "isWayBackLink": false,
       "order": 0
     }
