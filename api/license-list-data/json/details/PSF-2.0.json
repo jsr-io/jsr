@@ -8,26 +8,26 @@
   "licenseId": "PSF-2.0",
   "crossRef": [
     {
+      "match": "N/A",
+      "url": "https://opensource.org/license/PSF-2-0",
+      "isValid": true,
+      "isLive": false,
+      "timestamp": "2026-04-28T22:42:42Z",
+      "isWayBackLink": false,
+      "order": 0
+    },
+    {
       "match": "false",
       "url": "https://matplotlib.org/stable/project/license.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:01:25Z",
+      "timestamp": "2026-04-28T22:42:43Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "N/A",
-      "url": "https://opensource.org/licenses/Python-2.0",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:01:25Z",
-      "isWayBackLink": false,
-      "order": 0
     }
   ],
   "seeAlso": [
-    "https://opensource.org/licenses/Python-2.0",
+    "https://opensource.org/license/PSF-2-0",
     "https://matplotlib.org/stable/project/license.html"
   ],
   "isOsiApproved": false,

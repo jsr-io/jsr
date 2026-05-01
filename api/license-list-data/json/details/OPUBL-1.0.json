@@ -12,7 +12,7 @@
       "url": "https://www.ctan.org/license/opl",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:53Z",
+      "timestamp": "2026-04-28T22:42:44Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -21,16 +21,16 @@
       "url": "https://www.debian.org/opl",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:53Z",
+      "timestamp": "2026-04-28T22:42:44Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "true",
+      "match": "false",
       "url": "http://opencontent.org/openpub/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:53Z",
+      "timestamp": "2026-04-28T22:42:44Z",
       "isWayBackLink": false,
       "order": 0
     }

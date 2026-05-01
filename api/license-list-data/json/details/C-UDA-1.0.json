@@ -10,16 +10,16 @@
       "url": "https://cdla.dev/computational-use-of-data-agreement-v1-0/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:21Z",
+      "timestamp": "2026-04-28T22:41:05Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/microsoft/Computational-Use-of-Data-Agreement/blob/master/C-UDA-1.0.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:58:22Z",
+      "timestamp": "2026-04-28T22:41:06Z",
       "isWayBackLink": false,
       "order": 0
     }

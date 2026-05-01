@@ -6,16 +6,26 @@
   "licenseId": "NIST-Software",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/open-quantum-safe/liboqs/blob/40b01fdbb270f8614fde30e65d30e9da18c02393/src/common/rand/rand_nist.c#L1-L15",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:52:51Z",
+      "timestamp": "2026-04-28T22:40:45Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
+      "match": "true",
+      "url": "https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:40:46Z",
       "isWayBackLink": false,
       "order": 0
     }
   ],
   "seeAlso": [
+    "https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications",
     "https://github.com/open-quantum-safe/liboqs/blob/40b01fdbb270f8614fde30e65d30e9da18c02393/src/common/rand/rand_nist.c#L1-L15"
   ],
   "isOsiApproved": false,

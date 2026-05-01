@@ -8,11 +8,11 @@
   "licenseId": "BSD-3-Clause-HP",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/zdohnal/hplip/blob/master/COPYING#L939",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:49Z",
+      "timestamp": "2026-04-28T22:39:30Z",
       "isWayBackLink": false,
       "order": 0
     }

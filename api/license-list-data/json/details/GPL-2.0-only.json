@@ -12,10 +12,10 @@
   "crossRef": [
     {
       "match": "N/A",
-      "url": "https://opensource.org/licenses/GPL-2.0",
+      "url": "https://opensource.org/license/GPL-2.0-only",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T20:56:11Z",
+      "timestamp": "2026-04-28T22:38:02Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -24,16 +24,16 @@
       "url": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T20:56:41Z",
+      "timestamp": "2026-04-28T22:38:02Z",
       "isWayBackLink": false,
       "order": 1
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/openjdk/jdk/blob/6162e2c5213c5dd7c1127fd9616b543efa898962/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:42Z",
+      "timestamp": "2026-04-28T22:38:02Z",
       "isWayBackLink": false,
       "order": 3
     },
@@ -42,7 +42,7 @@
       "url": "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T20:57:12Z",
+      "timestamp": "2026-04-28T22:38:02Z",
       "isWayBackLink": false,
       "order": 0
     }
@@ -50,7 +50,7 @@
   "seeAlso": [
     "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
     "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
-    "https://opensource.org/licenses/GPL-2.0",
+    "https://opensource.org/license/GPL-2.0-only",
     "https://github.com/openjdk/jdk/blob/6162e2c5213c5dd7c1127fd9616b543efa898962/LICENSE"
   ],
   "isOsiApproved": true,

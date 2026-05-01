@@ -6,11 +6,11 @@
   "licenseId": "GCR-docs",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/GNOME/gcr/blob/master/docs/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-04-28T22:39:37Z",
       "isWayBackLink": false,
       "order": 0
     }

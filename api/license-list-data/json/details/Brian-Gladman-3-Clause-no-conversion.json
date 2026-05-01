@@ -1,0 +1,25 @@
+{
+  "isDeprecatedLicenseId": false,
+  "licenseText": "Copyright (c) 2001, Dr Brian Gladman \u003cbrg@gladman.uk.net\u003e, Worcester, UK.\nAll rights reserved.\n\nLICENSE TERMS\n\nThe free distribution and use of this software in both source and binary\nform is allowed (with or without changes) provided that:\n\n  1. distributions of this source code include the above copyright\n     notice, this list of conditions and the following disclaimer;\n  2. distributions in binary form include the above copyright\n     notice, this list of conditions and the following disclaimer\n     in the documentation and/or other associated materials;\n  3. the copyright holder\u0027s name is not used to endorse products\n     built using this software without specific written permission.\n\nDISCLAIMER\nThis software is provided \u0027as is\u0027 with no explcit or implied warranties\nin respect of any properties, including, but not limited to, correctness\nand fitness for purpose.\n",
+  "standardLicenseTemplate": "\u003c\u003cvar;name\u003d\"copyright\";original\u003d\"Copyright (c) 2001, Dr Brian Gladman \u003cbrg@gladman.uk.net\u003e, Worcester, UK. All rights reserved.\";match\u003d\".{0,5000}\"\u003e\u003e\nLICENSE TERMS\n\nThe free distribution and use of this software in both source and binary form is allowed (with or without changes) provided that:\n\n   \u003c\u003cvar;name\u003d\"bullet\";original\u003d\"1.\";match\u003d\".{0,20}\"\u003e\u003e distributions of this source code include the above copyright notice, this list of conditions and the following disclaimer;\n   \u003c\u003cvar;name\u003d\"bullet\";original\u003d\"2.\";match\u003d\".{0,20}\"\u003e\u003e distributions in binary form include the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other associated materials;\n   \u003c\u003cvar;name\u003d\"bullet\";original\u003d\"3.\";match\u003d\".{0,20}\"\u003e\u003e the copyright holder\u0027s name is not used to endorse products built using this software without specific written permission.\nDISCLAIMER\n\nThis software is provided \u0027as is\u0027 with no explcit or implied warranties in respect of any properties, including, but not limited to, correctness and fitness for purpose.\n\n",
+  "name": "Brian Gladman 3-Clause License (no conversion clause)",
+  "licenseComments": "This license is similar to Brian-Gladman-3-Clause but omits the clause about alternative licensing.",
+  "comment": "This license is similar to Brian-Gladman-3-Clause but omits the clause about alternative licensing.",
+  "licenseId": "Brian-Gladman-3-Clause-no-conversion",
+  "crossRef": [
+    {
+      "match": "false",
+      "url": "https://github.com/krb5/krb5/blob/kfw-4.0.1-beta1/src/lib/crypto/builtin/aes/aesopt.h",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:39:31Z",
+      "isWayBackLink": false,
+      "order": 0
+    }
+  ],
+  "seeAlso": [
+    "https://github.com/krb5/krb5/blob/kfw-4.0.1-beta1/src/lib/crypto/builtin/aes/aesopt.h"
+  ],
+  "isOsiApproved": false,
+  "licenseTextHtml": "\n    \u003cvar class\u003d\"replaceable-license-text\"\u003e\u003cspan title\u003d\"can be replaced with the pattern .{0,5000}\"\u003e Copyright (c) 2001, Dr Brian Gladman \u0026lt;brg@gladman.uk.net\u0026gt;, Worcester, UK.\n All rights reserved.\u003c/span\u003e\u003c/var\u003e\n  \u003cp\u003eLICENSE TERMS\u003c/p\u003e\n\n\u003cp\u003eThe free distribution and use of this software in both source and binary\n        form is allowed (with or without changes) provided that:\u003c/p\u003e\n\n\u003cul style\u003d\"list-style:none\"\u003e\n        \n\u003cli\u003e\u003cvar class\u003d\"replaceable-license-text\"\u003e\u003cspan title\u003d\"can be replaced with the pattern .{0,20}\"\u003e 1.\u003c/span\u003e\u003c/var\u003e distributions of this source code include the above copyright\n       notice, this list of conditions and the following disclaimer;\u003c/li\u003e\n        \n\u003cli\u003e\u003cvar class\u003d\"replaceable-license-text\"\u003e\u003cspan title\u003d\"can be replaced with the pattern .{0,20}\"\u003e 2.\u003c/span\u003e\u003c/var\u003e distributions in binary form include the above copyright\n      notice, this list of conditions and the following disclaimer\n      in the documentation and/or other associated materials;\u003c/li\u003e\n        \n\u003cli\u003e\u003cvar class\u003d\"replaceable-license-text\"\u003e\u003cspan title\u003d\"can be replaced with the pattern .{0,20}\"\u003e 3.\u003c/span\u003e\u003c/var\u003ethe copyright holder\u0026apos;s name is not used to endorse products\n      built using this software without specific written permission.\u003c/li\u003e\n\n\u003c/ul\u003e\n\u003cp\u003eDISCLAIMER\u003c/p\u003e\n\n\u003cp\u003eThis software is provided \u0026apos;as is\u0026apos; with no explcit or implied warranties\n  in respect of any properties, including, but not limited to, correctness\n and fitness for purpose.\u003c/p\u003e\n\n       "
+}

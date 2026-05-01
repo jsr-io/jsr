@@ -6,11 +6,11 @@
   "licenseId": "HPND-INRIA-IMAG",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/ppp-project/ppp/blob/master/pppd/ipv6cp.c#L75-L83",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:06Z",
+      "timestamp": "2026-04-28T22:41:03Z",
       "isWayBackLink": false,
       "order": 0
     }

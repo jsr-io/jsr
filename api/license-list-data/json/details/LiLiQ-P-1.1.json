@@ -9,10 +9,10 @@
   "crossRef": [
     {
       "match": "false",
-      "url": "http://opensource.org/licenses/LiLiQ-P-1.1",
+      "url": "http://opensource.org/license/LiLiQ-P-1.1",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-04-28T22:39:28Z",
       "isWayBackLink": false,
       "order": 1
     },
@@ -21,7 +21,7 @@
       "url": "https://forge.gouv.qc.ca/licence/fr/liliq-v1-1/",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-04-28T22:39:28Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -30,14 +30,14 @@
       "url": "https://forge.gouv.qc.ca/licence/liliq-p/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:36Z",
+      "timestamp": "2026-04-28T22:39:28Z",
       "isWayBackLink": false,
       "order": 2
     }
   ],
   "seeAlso": [
     "https://forge.gouv.qc.ca/licence/fr/liliq-v1-1/",
-    "http://opensource.org/licenses/LiLiQ-P-1.1",
+    "http://opensource.org/license/LiLiQ-P-1.1",
     "https://forge.gouv.qc.ca/licence/liliq-p/"
   ],
   "isOsiApproved": true,

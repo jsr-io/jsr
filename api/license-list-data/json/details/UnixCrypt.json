@@ -6,20 +6,11 @@
   "licenseId": "UnixCrypt",
   "crossRef": [
     {
-      "match": "false",
-      "url": "https://foss.heptapod.net/python-libs/passlib/-/blob/branch/stable/LICENSE#L70",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:58:54Z",
-      "isWayBackLink": false,
-      "order": 0
-    },
-    {
       "match": "N/A",
       "url": "https://archive.eclipse.org/jetty/8.0.1.v20110908/xref/org/eclipse/jetty/http/security/UnixCrypt.html",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T20:58:55Z",
+      "timestamp": "2026-04-28T22:39:29Z",
       "isWayBackLink": false,
       "order": 2
     },
@@ -28,9 +19,18 @@
       "url": "https://opensource.apple.com/source/JBoss/JBoss-737/jboss-all/jetty/src/main/org/mortbay/util/UnixCrypt.java.auto.html",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2026-02-20T20:58:55Z",
+      "timestamp": "2026-04-28T22:39:29Z",
       "isWayBackLink": false,
       "order": 1
+    },
+    {
+      "match": "false",
+      "url": "https://foss.heptapod.net/python-libs/passlib/-/blob/branch/stable/LICENSE#L70",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:39:30Z",
+      "isWayBackLink": false,
+      "order": 0
     }
   ],
   "seeAlso": [

@@ -8,11 +8,11 @@
   "licenseId": "QPL-1.0-INRIA-2004",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/maranget/hevea/blob/master/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:50Z",
+      "timestamp": "2026-04-28T22:38:40Z",
       "isWayBackLink": false,
       "order": 0
     }

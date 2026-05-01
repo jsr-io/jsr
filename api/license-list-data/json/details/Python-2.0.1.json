@@ -9,19 +9,10 @@
   "crossRef": [
     {
       "match": "false",
-      "url": "https://docs.python.org/3/license.html",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:55:04Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
-      "match": "false",
       "url": "https://www.python.org/download/releases/2.0.1/license/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:05Z",
+      "timestamp": "2026-04-28T22:38:47Z",
       "isWayBackLink": false,
       "order": 0
     },
@@ -30,9 +21,18 @@
       "url": "https://github.com/python/cpython/blob/main/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:05Z",
+      "timestamp": "2026-04-28T22:38:48Z",
       "isWayBackLink": false,
       "order": 2
+    },
+    {
+      "match": "false",
+      "url": "https://docs.python.org/3/license.html",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-04-28T22:38:48Z",
+      "isWayBackLink": false,
+      "order": 1
     }
   ],
   "seeAlso": [

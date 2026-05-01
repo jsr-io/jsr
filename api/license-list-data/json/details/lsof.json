@@ -6,11 +6,11 @@
   "licenseId": "lsof",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/lsof-org/lsof/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:04:05Z",
+      "timestamp": "2026-04-28T22:38:46Z",
       "isWayBackLink": false,
       "order": 0
     }
