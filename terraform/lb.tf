@@ -57,6 +57,8 @@ resource "cloudflare_workers_script" "jsr_lb" {
       # Per-IP rate limit applied only on the frontend proxy path (see
       # handleFrontendRoute in lb/main.ts). Keeps scrapers from generating
       # cache-miss load on Cloud Run without touching modules, API, or npm.
+      # namespace_id is a per-account identifier for this rate-limit binding;
+      # any unused value works (no Cloudflare-reserved meaning for "1001").
       type         = "ratelimit"
       name         = "FRONTEND_RATELIMIT"
       namespace_id = "1001"

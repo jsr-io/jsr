@@ -25,7 +25,8 @@ export interface WorkerEnv {
   NPM_BUCKET: PartialBucket;
   MODULES_BUCKET: PartialBucket;
 
-  // Optional: omitted in local dev. Applied only to frontend HTML proxying so
-  // scrapers can't generate cache-miss load on the Cloud Run frontend.
+  // Optional: omitted in local dev. Applied only to the Cloud Run frontend
+  // route — not modules (R2), the API server, or npm compat. Keeps scrapers
+  // from generating cache-miss load on Cloud Run.
   FRONTEND_RATELIMIT?: RateLimit;
 }
