@@ -352,12 +352,15 @@ fn entrypoints_missing_module_doc(
   has_readme: bool,
   exports: &ExportsMap,
 ) -> Vec<String> {
-  // Build a reverse map from file URL path to export key
+  // Build a reverse map from file URL to export key. Keys must go through
+  // Url::parse so they match the percent-encoded specifiers in documents_by_url
+  // (see analyze_package_inner above).
   let url_to_export: HashMap<String, String> = exports
     .iter()
     .map(|(key, path)| {
-      let path = path.strip_prefix('.').unwrap();
-      (format!("file://{}", path), key.clone())
+      let path = path.strip_prefix('.').unwrap_or(path.as_str());
+      let url = Url::parse(&format!("file://{}", path)).unwrap();
+      (url.to_string(), key.clone())
     })
     .collect();
 
@@ -418,6 +421,9 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
 
       // For function overloads, skip the implementation signature (has_body: true)
       // as it is not user-facing and its docs don't appear in generated documentation.
+      // We require *all* non-private decls to be Function variants so that
+      // declaration-merging cases (e.g. `function foo() {}` + `namespace foo {}`)
+      // are not treated as overloads.
       let has_overloads = non_private_decls.len() > 1
         && non_private_decls.iter().all(|decl| {
           matches!(&decl.def, deno_doc::node::DeclarationDef::Function(_))
@@ -1244,9 +1250,7 @@ mod tests {
     }
   }
 
-  fn make_fn_decl(
-    has_body: bool,
-  ) -> deno_doc::node::DeclarationDef {
+  fn make_fn_decl(has_body: bool) -> deno_doc::node::DeclarationDef {
     deno_doc::node::DeclarationDef::Function(deno_doc::function::FunctionDef {
       def_name: None,
       params: vec![],
@@ -1303,11 +1307,20 @@ mod tests {
   #[test]
   fn percentage_docs_skips_overload_implementation() {
     // Overloaded function: two overload signatures (documented) + one implementation (undocumented)
-    let symbol = make_symbol("func", vec![
-      make_declaration(make_js_doc(Some("String variant.")), make_fn_decl(false)),
-      make_declaration(make_js_doc(Some("Number variant.")), make_fn_decl(false)),
-      make_declaration(make_js_doc(None), make_fn_decl(true)),
-    ]);
+    let symbol = make_symbol(
+      "func",
+      vec![
+        make_declaration(
+          make_js_doc(Some("String variant.")),
+          make_fn_decl(false),
+        ),
+        make_declaration(
+          make_js_doc(Some("Number variant.")),
+          make_fn_decl(false),
+        ),
+        make_declaration(make_js_doc(None), make_fn_decl(true)),
+      ],
+    );
     let doc = make_document(make_js_doc(None), vec![symbol]);
 
     let mut output = indexmap::IndexMap::new();
@@ -1328,9 +1341,10 @@ mod tests {
   #[test]
   fn percentage_docs_counts_single_function_normally() {
     // A single function (no overloads): implementation counts normally
-    let symbol = make_symbol("func", vec![
-      make_declaration(make_js_doc(None), make_fn_decl(true)),
-    ]);
+    let symbol = make_symbol(
+      "func",
+      vec![make_declaration(make_js_doc(None), make_fn_decl(true))],
+    );
     let doc = make_document(make_js_doc(None), vec![symbol]);
 
     let mut output = indexmap::IndexMap::new();
@@ -1349,9 +1363,10 @@ mod tests {
 
   #[test]
   fn percentage_docs_skips_json_modules() {
-    let symbol = make_symbol("data", vec![
-      make_declaration(make_js_doc(None), make_var_decl()),
-    ]);
+    let symbol = make_symbol(
+      "data",
+      vec![make_declaration(make_js_doc(None), make_var_decl())],
+    );
     let doc = make_document(make_js_doc(None), vec![symbol]);
 
     let mut output = indexmap::IndexMap::new();
@@ -1413,12 +1428,8 @@ mod tests {
       "./data".to_string() => "./data.json".to_string(),
     });
 
-    let missing = super::entrypoints_missing_module_doc(
-      &output,
-      None,
-      false,
-      &exports,
-    );
+    let missing =
+      super::entrypoints_missing_module_doc(&output, None, false, &exports);
 
     assert!(missing.is_empty(), "JSON modules should be skipped");
   }
