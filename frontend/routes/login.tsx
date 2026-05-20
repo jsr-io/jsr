@@ -1,10 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { asset } from "fresh/runtime";
 import { DevelopmentLogin } from "../islands/DevelopmentLogin.tsx";
-
-const PROD_PROXY = !!Deno.env.get("PROD_PROXY");
+import { env } from "../utils/env.ts";
 
 export default function Login({ url }: { url: URL }) {
+  const PROD_PROXY = !!env("PROD_PROXY");
   if (PROD_PROXY) {
     return (
       <div class="m-4 space-y-4">

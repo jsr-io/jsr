@@ -10,6 +10,7 @@
     "jsr:@deno/loader@~0.3.3": "0.3.12",
     "jsr:@denosaurs/emoji@~0.3.1": "0.3.1",
     "jsr:@fresh/build-id@1": "1.0.1",
+    "jsr:@fresh/core@*": "2.2.2",
     "jsr:@fresh/core@2": "2.2.2",
     "jsr:@fresh/core@^2.2.2": "2.2.2",
     "jsr:@fresh/plugin-tailwind@1": "1.0.0",
@@ -25,6 +26,7 @@
     "jsr:@std/fmt@^1.0.8": "1.0.9",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
     "jsr:@std/front-matter@1": "1.0.9",
+    "jsr:@std/fs@1": "1.0.23",
     "jsr:@std/fs@^1.0.19": "1.0.23",
     "jsr:@std/fs@^1.0.22": "1.0.23",
     "jsr:@std/fs@^1.0.6": "1.0.23",
@@ -48,6 +50,7 @@
     "jsr:@std/toml@^1.0.3": "1.0.11",
     "jsr:@std/uuid@^1.0.9": "1.0.9",
     "jsr:@std/yaml@^1.0.5": "1.0.11",
+    "npm:@cloudflare/workers-types@4": "4.20260520.1",
     "npm:@opentelemetry/api@^1.9.0": "1.9.0",
     "npm:@orama/core@^1.2.17": "1.2.17",
     "npm:@orama/highlight@~0.1.8": "0.1.9",
@@ -219,6 +222,7 @@
     "@std/fs@1.0.23": {
       "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37",
       "dependencies": [
+        "jsr:@std/internal",
         "jsr:@std/path@^1.1.4"
       ]
     },
@@ -294,6 +298,9 @@
   "npm": {
     "@alloc/quick-lru@5.2.0": {
       "integrity": "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="
+    },
+    "@cloudflare/workers-types@4.20260520.1": {
+      "integrity": "sha512-wdmf9Fwabp06OgK9ZyCl8Q77GZ94k9J7OA9qA65FbgxZ/hd3hYRkVNiY7Bvsx4tKim+sWmKqGOblecZInAvoRg=="
     },
     "@esbuild/aix-ppc64@0.25.7": {
       "integrity": "sha512-uD0kKFHh6ETr8TqEtaAcV+dn/2qnYbH/+8wGEdY70Qf7l1l/jmBUbrmQqwiPKAQE6cOQ7dTj6Xr0HzQDGHyceQ==",
@@ -1452,6 +1459,7 @@
       "jsr:@std/http@1",
       "jsr:@std/path@1",
       "jsr:@std/semver@1",
+      "npm:@cloudflare/workers-types@4",
       "npm:@orama/core@^1.2.17",
       "npm:@orama/highlight@~0.1.8",
       "npm:@orama/orama@2",

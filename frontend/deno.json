@@ -4,8 +4,11 @@
     "check": "deno fmt --check && deno lint && deno check **/*.ts && deno check **/*.tsx",
     "dev": "deno run --env-file -A --watch=static/,routes/ dev.ts",
     "test": "deno test",
-    "build": "deno run -A dev.ts build",
+    "build": "deno run -A build.ts",
+    "build:fresh": "deno run -A dev.ts build",
     "start": "deno serve -A _fresh/server.js",
+    "wrangler:dev": "deno task build && deno run -A npm:wrangler@^4 dev",
+    "wrangler:deploy": "deno task build && deno run -A npm:wrangler@^4 deploy",
     "update": "deno run -A -r jsr:@fresh/update ."
   },
   "lint": {
@@ -44,7 +47,9 @@
     "tailwindcss": "npm:tailwindcss@4.2",
     "postcss": "npm:postcss@8.4",
 
-    "@viz-js/viz": "npm:@viz-js/viz@^3.11.0"
+    "@viz-js/viz": "npm:@viz-js/viz@^3.11.0",
+
+    "@cloudflare/workers-types": "npm:@cloudflare/workers-types@^4"
   },
   "compilerOptions": {
     "lib": [
@@ -72,5 +77,10 @@
       "template"
     ]
   },
-  "exclude": ["_fresh/", "**/_fresh/*"]
+  "exclude": [
+    "_fresh/",
+    "**/_fresh/*",
+    ".wrangler/",
+    "node_modules/"
+  ]
 }

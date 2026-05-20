@@ -15,7 +15,13 @@ const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
   "score-text-red": Image.rgbToColor(239, 68, 68),
 };
 
-const jsrLogo = await Image.decode(await Deno.readFile("./static/logo.png"));
+let jsrLogo: Image | null = null;
+async function getJsrLogo(): Promise<Image> {
+  if (!jsrLogo) {
+    jsrLogo = await Image.decode(await Deno.readFile("./static/logo.png"));
+  }
+  return jsrLogo;
+}
 
 let dmmonoFont: Uint8Array | null = null;
 
@@ -386,9 +392,10 @@ export const handler = define.handlers({
       );
 
     // JSR Brand
-    const logoWidth = jsrLogo.width * JSR_LOGO_HEIGHT / jsrLogo.height;
+    const logo = await getJsrLogo();
+    const logoWidth = logo.width * JSR_LOGO_HEIGHT / logo.height;
     ogpImage.composite(
-      jsrLogo.resize(logoWidth, JSR_LOGO_HEIGHT),
+      logo.resize(logoWidth, JSR_LOGO_HEIGHT),
       WIDTH - logoWidth - PADDING,
       HEIGHT - JSR_LOGO_HEIGHT - PADDING,
     );

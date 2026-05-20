@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jsr-frontend",
+  "main": "./server.entry.ts",
+  "compatibility_date": "2026-05-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./_fresh/static",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "FRONTEND_ROOT": "https://jsr.io",
+    "API_ROOT": "https://api.jsr.io",
+    "NO_COLOR": "true",
+    // Orama public keys are public by design (they are shipped to the
+    // browser by `routes/index.tsx`, `routes/packages.tsx`, and
+    // `components/Header.tsx`) so they live alongside the wrangler config.
+    // Each value must still be supplied by the operator before deploy.
+    "ORAMA_PACKAGES_PUBLIC_API_KEY": "",
+    "ORAMA_PACKAGES_PROJECT_ID": "",
+    "ORAMA_SYMBOLS_PUBLIC_API_KEY": "",
+    "ORAMA_SYMBOLS_PROJECT_ID": "",
+    "ORAMA_DOCS_PUBLIC_API_KEY": "",
+    "ORAMA_DOCS_PROJECT_ID": ""
+  },
+  "observability": {
+    "enabled": true
+  }
+}
