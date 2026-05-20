@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jsr-frontend",
-  "main": "./server.entry.ts",
+  "main": "./_fresh/worker.js",
   "compatibility_date": "2026-05-19",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {

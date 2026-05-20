@@ -69,7 +69,10 @@ export class Tracer {
     if (this.#spans.length >= BATCH_SPAN_IMMEDIATE_FLUSH_LEN) {
       this.flush();
     } else if (this.#timerId === null) {
-      this.#timerId = setTimeout(() => this.flush(), FLUSH_INTERVAL) as unknown as number;
+      this.#timerId = setTimeout(
+        () => this.flush(),
+        FLUSH_INTERVAL,
+      ) as unknown as number;
     }
   }
 

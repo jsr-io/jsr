@@ -12,50 +12,50 @@ import { assets } from "../utils/env.ts";
 // deno-lint-ignore no-explicit-any
 const g = globalThis as any;
 
+function assetPath(p: string | URL): string {
+  if (p instanceof URL) {
+    if (p.protocol === "file:") {
+      // file:///…/frontend/docs/<id>.md  ->  /_jsr_docs/<id>.md
+      // (build copies the docs/ tree to _fresh/static/_jsr_docs/)
+      const docsMatch = p.pathname.match(/\/docs\/(.+\.md)$/);
+      if (docsMatch) return "/_jsr_docs/" + docsMatch[1];
+      // file:///…/frontend/static/<path>  ->  /<path>
+      const staticMatch = p.pathname.match(/\/static\/(.+)$/);
+      if (staticMatch) return "/" + staticMatch[1];
+    }
+    return p.pathname;
+  }
+  let s = String(p).replace(/^\.\//, "/");
+  if (!s.startsWith("/")) s = "/" + s;
+  // ./static/foo -> /foo  (the assets binding root is _fresh/static, which
+  // contains the original static/ tree merged in)
+  s = s.replace(/^\/static\//, "/");
+  return s;
+}
+
+function notFound(p: string | URL): Error {
+  const err = new Error(`No such file or directory: ${String(p)}`);
+  (err as { name: string }).name = "NotFound";
+  return err;
+}
+
+async function readAsset(path: string | URL): Promise<Response> {
+  const bind = assets();
+  if (!bind) {
+    throw new Error(
+      `Workers ASSETS binding is not available; cannot read ${String(path)}`,
+    );
+  }
+  const url = "https://assets.invalid" + assetPath(path);
+  const resp = await bind.fetch(url);
+  if (resp.status === 404) throw notFound(url);
+  if (!resp.ok) {
+    throw new Error(`Failed to read asset ${url}: ${resp.status}`);
+  }
+  return resp;
+}
+
 if (typeof g.Deno === "undefined") {
-  function assetPath(p: string | URL): string {
-    if (p instanceof URL) {
-      if (p.protocol === "file:") {
-        // file:///…/frontend/docs/<id>.md  ->  /_jsr_docs/<id>.md
-        // (build copies the docs/ tree to _fresh/static/_jsr_docs/)
-        const docsMatch = p.pathname.match(/\/docs\/(.+\.md)$/);
-        if (docsMatch) return "/_jsr_docs/" + docsMatch[1];
-        // file:///…/frontend/static/<path>  ->  /<path>
-        const staticMatch = p.pathname.match(/\/static\/(.+)$/);
-        if (staticMatch) return "/" + staticMatch[1];
-      }
-      return p.pathname;
-    }
-    let s = String(p).replace(/^\.\//, "/");
-    if (!s.startsWith("/")) s = "/" + s;
-    // ./static/foo -> /foo  (the assets binding root is _fresh/static, which
-    // contains the original static/ tree merged in)
-    s = s.replace(/^\/static\//, "/");
-    return s;
-  }
-
-  function notFound(p: string | URL): Error {
-    const err = new Error(`No such file or directory: ${String(p)}`);
-    (err as { name: string }).name = "NotFound";
-    return err;
-  }
-
-  async function readAsset(path: string | URL): Promise<Response> {
-    const bind = assets();
-    if (!bind) {
-      throw new Error(
-        `Workers ASSETS binding is not available; cannot read ${String(path)}`,
-      );
-    }
-    const url = "https://assets.invalid" + assetPath(path);
-    const resp = await bind.fetch(url);
-    if (resp.status === 404) throw notFound(url);
-    if (!resp.ok) {
-      throw new Error(`Failed to read asset ${url}: ${resp.status}`);
-    }
-    return resp;
-  }
-
   g.Deno = {
     env: {
       get(name: string): string | undefined {
@@ -82,11 +82,15 @@ if (typeof g.Deno === "undefined") {
     // ASSETS binding before reaching the Worker, so this only fires if a
     // static URL slips through. Throwing a NotFound here is fine because
     // Fresh treats it as "no static file at this path."
-    async stat(path: string | URL): Promise<{ size: number; isFile: boolean }> {
+    async stat(
+      path: string | URL,
+    ): Promise<{ size: number; isFile: boolean }> {
       const bind = assets();
       if (!bind) throw notFound(path);
       const resp = await bind.fetch(
-        new Request("https://assets.invalid" + assetPath(path), { method: "HEAD" }),
+        new Request("https://assets.invalid" + assetPath(path), {
+          method: "HEAD",
+        }),
       );
       if (!resp.ok) throw notFound(path);
       const len = resp.headers.get("content-length");
@@ -99,7 +103,6 @@ if (typeof g.Deno === "undefined") {
       const resp = await readAsset(path);
       return { readable: resp.body!, close() {} };
     },
-    // Surface a useful error message for anything else we haven't shimmed.
     args: [] as string[],
     build: { os: "linux", arch: "x86_64" } as { os: string; arch: string },
     inspect(value: unknown): string {

@@ -7,7 +7,6 @@
 // on globalThis so lazy `env(...)` reads find it, then hand off to Fresh.
 
 import "./shim/deno.ts";
-// deno-lint-ignore no-import-prefix-missing
 import server from "./_fresh/server.js";
 
 export interface FrontendEnv {
@@ -35,7 +34,10 @@ export default {
   fetch(
     request: Request,
     env: FrontendEnv,
-    ctx: { waitUntil(p: Promise<unknown>): void; passThroughOnException(): void },
+    ctx: {
+      waitUntil(p: Promise<unknown>): void;
+      passThroughOnException(): void;
+    },
   ): Response | Promise<Response> {
     // Stash the env binding once per isolate. Re-assigning each request is
     // cheap and keeps the binding fresh if the runtime swaps it.

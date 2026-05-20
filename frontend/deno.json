@@ -16,6 +16,9 @@
       "tags": ["fresh", "recommended"]
     }
   },
+  "fmt": {
+    "exclude": ["static/"]
+  },
   "imports": {
     "@deno/doc": "jsr:@deno/doc@^0.194.0",
     "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^1.0.0",

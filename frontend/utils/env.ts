@@ -12,7 +12,9 @@ declare global {
   // eslint-disable-next-line no-var
   var __JSR_FRONTEND_ENV: Record<string, string | undefined> | undefined;
   // eslint-disable-next-line no-var
-  var __JSR_FRONTEND_ASSETS: { fetch: (req: Request | string) => Promise<Response> } | undefined;
+  var __JSR_FRONTEND_ASSETS: {
+    fetch: (req: Request | string) => Promise<Response>;
+  } | undefined;
 }
 
 export function env(name: string): string | undefined {
@@ -28,6 +30,8 @@ export function envBool(name: string): boolean {
   return env(name) === "true" || env(name) === "1";
 }
 
-export function assets(): { fetch: (req: Request | string) => Promise<Response> } | undefined {
+export function assets(): {
+  fetch: (req: Request | string) => Promise<Response>;
+} | undefined {
   return globalThis.__JSR_FRONTEND_ASSETS;
 }

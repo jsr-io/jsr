@@ -2,7 +2,9 @@
 
 import type { PartialBucket } from "./types.ts";
 
-export async function proxyToCloudRun(
+// Proxies an inbound request to an HTTP backend (API on Cloud Run, frontend
+// on a Cloudflare Worker). The backend URL is opaque — both speak HTTPS.
+export async function proxyToBackend(
   request: Request,
   backendUrl: string,
   pathRewrite?: (path: string) => string,
@@ -62,7 +64,7 @@ export async function proxyToCloudRun(
 
     return res;
   } catch (error) {
-    console.error("Cloud Run proxy error:", error);
+    console.error("Backend proxy error:", error);
     return new Response("Bad Gateway", {
       status: 502,
       headers: {

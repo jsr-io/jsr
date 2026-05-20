@@ -12,8 +12,8 @@ variable "api_image_id" {
   type        = string
 }
 
-variable "frontend_image_id" {
-  description = "the Docker image ID for the frontend"
+variable "frontend_worker_url" {
+  description = "URL of the deployed frontend Cloudflare Worker (e.g. https://jsr-frontend.<account>.workers.dev). The frontend Worker is deployed separately via `wrangler deploy` in frontend/."
   type        = string
 }
 

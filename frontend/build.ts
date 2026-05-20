@@ -19,14 +19,50 @@ const here = new URL(".", import.meta.url).pathname;
 const fresh = join(here, "_fresh");
 const freshStatic = join(fresh, "static");
 
-async function freshBuild() {
+async function run(args: string[]) {
   const cmd = new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", join(here, "dev.ts"), "build"],
+    args,
     stdout: "inherit",
     stderr: "inherit",
   });
   const { code } = await cmd.output();
   if (code !== 0) Deno.exit(code);
+}
+
+async function freshBuild() {
+  await run(["run", "-A", join(here, "dev.ts"), "build"]);
+}
+
+async function bundleWorker() {
+  await run([
+    "bundle",
+    "--platform=browser",
+    "-o",
+    join(fresh, "worker.js"),
+    join(here, "server.entry.ts"),
+  ]);
+  await patchBuildIdTopLevelAwait();
+}
+
+// @fresh/build-id's module init calls `await crypto.subtle.digest(...)` at
+// the top level, which workerd rejects ("Disallowed operation called within
+// global scope"). The real BUILD_ID is overwritten later by `setBuildId()`
+// in _fresh/server.js, so the top-level computation is wasted — strip it.
+async function patchBuildIdTopLevelAwait() {
+  const file = join(fresh, "worker.js");
+  let src = await Deno.readTextFile(file);
+  const re =
+    /async "deno:https:\/\/jsr\.io\/@fresh\/build-id\/[^"]+"\(\) \{\s*init_hex\(\);[\s\S]*?BUILD_ID = encodeHex\(buildIdHash\);\s*\}/;
+  const placeholder =
+    `"deno:https://jsr.io/@fresh/build-id/stub"() {\n    init_hex();\n    DENO_DEPLOYMENT_ID = void 0;\n    deploymentId = "ws";\n    BUILD_ID = "0000000000000000000000000000000000000000";\n  }`;
+  if (!re.test(src)) {
+    console.warn(
+      "[build] build-id top-level await pattern not found; bundle may already be patched or Fresh has changed shape",
+    );
+    return;
+  }
+  src = src.replace(re, placeholder);
+  await Deno.writeTextFile(file, src);
 }
 
 async function mirrorStatic() {
@@ -53,4 +89,5 @@ async function mirrorDocs() {
 await freshBuild();
 await mirrorStatic();
 await mirrorDocs();
+await bundleWorker();
 console.log("Workers build ready at", relative(here, freshStatic));

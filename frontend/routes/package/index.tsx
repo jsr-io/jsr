@@ -11,7 +11,6 @@ import { env } from "../../utils/env.ts";
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
 ) {
-  const FRONTEND_ROOT = env("FRONTEND_ROOT") ?? "http://jsr.test";
   const iam = scopeIAM(state, data.member);
 
   return (
