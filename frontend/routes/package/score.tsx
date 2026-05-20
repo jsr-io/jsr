@@ -129,7 +129,7 @@ function ScoreInfo(props: {
           summarizing what is defined in that module.
           {score.entrypointsWithoutDocs.length > 0 && (
             <span>
-              {" "}Entrypoints missing module docs:{" "}
+              Entrypoints missing module docs:{" "}
               {score.entrypointsWithoutDocs.map((ep, i) => (
                 <span key={ep}>
                   {i > 0 && ", "}
