@@ -429,12 +429,11 @@ fn percentage_of_symbols_with_docs(documents_by_url: &ParseOutput) -> f32 {
         });
 
       for decl in &non_private_decls {
-        if has_overloads {
-          if let deno_doc::node::DeclarationDef::Function(fn_def) = &decl.def {
-            if fn_def.has_body {
-              continue;
-            }
-          }
+        if has_overloads
+          && let deno_doc::node::DeclarationDef::Function(fn_def) = &decl.def
+          && fn_def.has_body
+        {
+          continue;
         }
 
         total_symbols += 1;
