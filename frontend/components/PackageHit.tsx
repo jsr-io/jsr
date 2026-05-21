@@ -68,6 +68,7 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
       <a
         href={`/@${pkg.scope}/${pkg.name}/doc`}
         class="flex items-center gap-1 text-sm text-secondary hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-400 px-2 py-1 rounded hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 transition-colors"
+        aria-label="Documentation"
         title="Documentation"
       >
         <TbFileDescription class="size-5" />

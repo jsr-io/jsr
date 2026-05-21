@@ -5,6 +5,7 @@ import type { DownloadDataPoint } from "../../../utils/api_types.ts";
 import {
   type AggregationPeriod,
   collectX,
+  hasCompletedWeekData,
   normalize,
 } from "./DownloadChart.tsx";
 import { useSignal } from "@preact/signals";
@@ -20,6 +21,7 @@ const AGGREGATION_PERIOD: AggregationPeriod = "weekly";
 export function DownloadWidget(props: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
 
+  const hasData = hasCompletedWeekData(props.downloads);
   const xValues = collectX(props.downloads, AGGREGATION_PERIOD);
   // Drop the last (current, incomplete) week so the chart only shows full weeks
   const data = normalize(props.downloads, xValues, AGGREGATION_PERIOD)
@@ -42,6 +44,7 @@ export function DownloadWidget(props: Props) {
   const graphRendered = useSignal(false);
 
   useEffect(() => {
+    if (!hasData) return;
     // deno-lint-ignore no-explicit-any
     let chart: any;
     (async () => {
@@ -136,9 +139,11 @@ export function DownloadWidget(props: Props) {
       graphRendered.value = true;
     })();
     return () => {
-      chart.destroy();
+      chart?.destroy();
     };
   }, []);
+
+  if (!hasData) return null;
 
   return (
     <a

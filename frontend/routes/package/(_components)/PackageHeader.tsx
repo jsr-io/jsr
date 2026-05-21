@@ -16,7 +16,11 @@ import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
 import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
-import { collectX, normalize } from "../(_islands)/DownloadChart.tsx";
+import {
+  collectX,
+  hasCompletedWeekData,
+  normalize,
+} from "../(_islands)/DownloadChart.tsx";
 
 interface PackageHeaderProps {
   package: Package;
@@ -38,8 +42,10 @@ export function PackageHeader({
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
 
   // Calculate weekly downloads for mobile display (drop incomplete current week)
+  const hasDownloads = downloads !== null &&
+    hasCompletedWeekData(downloads.total);
   let weeklyDownloads: number | null = null;
-  if (downloads && downloads.total.length > 1) {
+  if (downloads !== null && hasDownloads) {
     const xValues = collectX(downloads.total, "weekly");
     const data = normalize(downloads.total, xValues, "weekly").slice(0, -1);
     weeklyDownloads = data.length > 0 ? data[data.length - 1][1] : null;
@@ -255,7 +261,7 @@ export function PackageHeader({
 
         {/* Right column - Downloads only */}
         <div class="hidden md:flex flex-none md:items-end flex-col text-right md:ml-auto">
-          {downloads && downloads.total.length > 1 && (
+          {hasDownloads && downloads !== null && (
             <DownloadWidget
               downloads={downloads.total}
               scope={pkg.scope}
