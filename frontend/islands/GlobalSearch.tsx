@@ -22,7 +22,6 @@ interface GlobalSearchProps {
   kind?: SearchKind;
 }
 
-
 const SCORE_OPTIONS = [
   { label: "Any", value: null },
   { label: "60+", value: 60 },
@@ -76,7 +75,6 @@ export function GlobalSearch(
     }
   }, [projectId, apiKey]);
 
-  
   useEffect(() => {
     const outsideClick = (e: Event) => {
       if (!ref.current) return;
@@ -101,7 +99,6 @@ export function GlobalSearch(
     };
   });
 
-  
   function triggerSearch(value: string) {
     search.value = value;
 
@@ -452,8 +449,8 @@ function SuggestionList(
             <p>
               Try <code class="search-input-tag">scope:std</code>{" "}
               <code class="search-input-tag">runtime:deno</code>{" "}
-              <code class="search-input-tag">{"score:>80"}</code> or use
-              Filters below
+              <code class="search-input-tag">{"score:>80"}</code>{" "}
+              or use Filters below
             </p>
           </div>
         )
@@ -511,7 +508,10 @@ function SuggestionList(
               >
                 <TbAdjustmentsHorizontal class="size-3.5" />
                 Filters{filtersActive
-                  ? ` (${activeFilters.value.runtimes.size + (activeFilters.value.scoreValue !== null ? 1 : 0)})`
+                  ? ` (${
+                    activeFilters.value.runtimes.size +
+                    (activeFilters.value.scoreValue !== null ? 1 : 0)
+                  })`
                   : ""}
               </button>
               <a
@@ -704,12 +704,12 @@ function tokenizeFilter(search: string): Token[] {
       tokens.push({ kind: "scope", value: part.slice(6), raw: part });
       continue;
     } else if (part.startsWith("runtime:")) {
-      const runtime = part.slice(8);
+      const runtime = part.slice(8).toLowerCase();
       if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
         tokens.push({
           kind: `runtimeCompat.${runtime as keyof RuntimeCompat}`,
           value: true,
-          raw: part,
+          raw: `runtime:${runtime}`,
         });
         continue;
       }

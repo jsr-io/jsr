@@ -66,7 +66,11 @@ impl OramaClient {
 
   #[instrument(name = "OramaClient::upsert_package", skip(self))]
   pub fn upsert_package(&self, package: &Package, meta: &PackageVersionMeta) {
-    if package.version_count == 0 || package.is_archived {
+    if package.is_archived {
+      self.delete_package(&package.scope, &package.name);
+      return;
+    }
+    if package.version_count == 0 {
       return;
     }
 
