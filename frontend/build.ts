@@ -115,7 +115,6 @@ async function patchTopLevelAwait() {
 
   // 5. Build the output.
   const prefix = lines.slice(0, firstTLA).join("\n");
-  const suffix = lines.slice(exportLine).join("\n");
 
   const preDecl = varNames.length > 0 ? "var " + varNames.join(", ") + ";" : "";
 
