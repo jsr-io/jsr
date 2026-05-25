@@ -94,7 +94,7 @@
 
     --pct: 0;
 
-    @apply opsize-normal transition-colors duration-200;
+    @apply opsize-normal;
   }
 
   @media (prefers-reduced-motion: reduce) {
