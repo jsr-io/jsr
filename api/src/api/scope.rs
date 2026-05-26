@@ -24,6 +24,8 @@ use super::types::*;
 
 use crate::auth;
 use crate::db::*;
+use crate::ids::PackageName;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::CacheDuration;
@@ -63,6 +65,42 @@ pub fn scope_router() -> Router<Body, ApiError> {
     .delete(
       "/:scope/invites/:user_id",
       util::auth(delete_invite_handler),
+    )
+    .post(
+      "/:scope/webhooks",
+      util::auth(util::json(create_webhook_handler)),
+    )
+    .get(
+      "/:scope/webhooks",
+      util::auth(util::json(list_webhooks_handler)),
+    )
+    .get(
+      "/:scope/webhooks/:webhook",
+      util::auth(util::json(get_webhook_handler)),
+    )
+    .patch(
+      "/:scope/webhooks/:webhook",
+      util::auth(util::json(update_webhook_handler)),
+    )
+    .delete(
+      "/:scope/webhooks/:webhook",
+      util::auth(delete_webhook_handler),
+    )
+    .get(
+      "/:scope/webhooks/:webhook/deliveries",
+      util::auth(util::json(list_webhook_deliveries_handler)),
+    )
+    .get(
+      "/:scope/webhooks/:webhook/deliveries/:delivery",
+      util::auth(util::json(get_webhook_delivery_handler)),
+    )
+    .post(
+      "/:scope/webhooks/:webhook/test",
+      util::auth(util::json(test_webhook_handler)),
+    )
+    .post(
+      "/:scope/webhooks/:webhook/deliveries/:delivery/redeliver",
+      util::auth(util::json(redeliver_webhook_handler)),
     )
     .build()
     .unwrap()
@@ -370,7 +408,7 @@ async fn update_member_handler(
     .await?;
 
   let scope_member = match res {
-    ScopeMemberUpdateResult::Ok(scope_member) => scope_member,
+    ScopeMemberUpdateResult::Ok { scope_member, .. } => scope_member,
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
       return Err(ApiError::NoScopeOwnerAvailable);
     }
@@ -408,6 +446,9 @@ pub async fn delete_member_handler(
   Span::current().record("member", field::display(&member_id));
 
   let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
 
   db.get_scope(&scope).await?.ok_or(ApiError::ScopeNotFound)?;
 
@@ -418,7 +459,18 @@ pub async fn delete_member_handler(
 
   let res = db.delete_scope_member(&scope, member_id).await?;
   match res {
-    ScopeMemberUpdateResult::Ok(_) => {}
+    ScopeMemberUpdateResult::Ok {
+      webhook_deliveries, ..
+    } => {
+      crate::tasks::enqueue_webhook_dispatches(
+        webhook_dispatch_queue,
+        db,
+        registry_url,
+        enc_key,
+        webhook_deliveries.unwrap_or_default(),
+      )
+      .await?;
+    }
     ScopeMemberUpdateResult::TargetIsLastTransferableAdmin => {
       return Err(ApiError::NoScopeOwnerAvailable);
     }
@@ -495,6 +547,344 @@ pub async fn delete_invite_handler(
     .body(Body::empty())
     .unwrap();
   Ok(resp)
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn create_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiCreateWebhookEndpointRequest {
+    url,
+    description,
+    secret,
+    events,
+    payload_format,
+    is_active,
+  } = decode_json(&mut req).await?;
+
+  if events.is_empty() {
+    return Err(ApiError::MalformedRequest {
+      msg: "events must not be empty".into(),
+    });
+  }
+  crate::util::validate_webhook_url(&url)?;
+
+  let db = req.data::<Database>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
+  let encrypted_secret = secret.as_deref().map(|s| crate::util::encrypt_webhook_secret(enc_key, s));
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .create_webhook_endpoint(
+      NewWebhookEndpoint {
+        scope: &scope,
+        package: None,
+        url: &url,
+        description: &description,
+        secret: encrypted_secret.as_deref(),
+        events,
+        payload_format,
+        is_active,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint =
+    db.get_webhook_endpoint(&scope, None, webhook_id).await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "PATCH /api/scopes/:scope/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn update_webhook_handler(
+  mut req: Request<Body>,
+) -> ApiResult<ApiWebhookEndpoint> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let ApiUpdateWebhookEndpointRequest {
+    url,
+    description,
+    secret,
+    clear_secret,
+    events,
+    payload_format,
+    is_active,
+  } = decode_json(&mut req).await?;
+
+  if let Some(ref events) = events {
+    if events.is_empty() {
+      return Err(ApiError::MalformedRequest {
+        msg: "events must not be empty".into(),
+      });
+    }
+  }
+  if let Some(ref url) = url {
+    crate::util::validate_webhook_url(url)?;
+  }
+
+  let db = req.data::<Database>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
+  let encrypted_secret = secret.map(|s| crate::util::encrypt_webhook_secret(enc_key, &s));
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .update_webhook_endpoint(
+      &scope,
+      None,
+      webhook_id,
+      UpdateWebhookEndpoint {
+        url,
+        description,
+        secret: encrypted_secret,
+        clear_secret,
+        events,
+        payload_format,
+        is_active,
+      },
+      &user.id,
+      sudo,
+    )
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhooks_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookEndpoint>> {
+  let scope = req.param_scope()?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints = db.list_webhook_endpoints(&scope, None).await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "DELETE /api/scopes/:scope/webhooks/:webhook",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn delete_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
+
+  db.delete_webhook_endpoint(&user.id, sudo, &scope, None, webhook_id)
+    .await?;
+
+  let res = Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(res)
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks/:webhook/deliveries",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn list_webhook_deliveries_handler(
+  req: Request<Body>,
+) -> ApiResult<Vec<ApiWebhookDelivery>> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoints =
+    db.list_webhook_deliveries(&scope, None, webhook_id).await?;
+
+  Ok(webhook_endpoints.into_iter().map(Into::into).collect())
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/webhooks/:webhook/deliveries/:delivery",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn get_webhook_delivery_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  let delivery_id = req.param_uuid("delivery")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook_endpoint = db
+    .get_webhook_delivery(&scope, None, webhook_id, delivery_id)
+    .await?;
+
+  Ok(webhook_endpoint.into())
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/webhooks/:webhook/test",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn test_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<crate::RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let webhook = db.get_webhook_endpoint(&scope, None, webhook_id).await?;
+
+  let payload = WebhookPayload::ScopePackageCreated {
+    scope: scope.clone(),
+    package: PackageName::try_from("test").unwrap(),
+  };
+
+  let event_id = db
+    .insert_webhook_event_for_test(&scope, None, WebhookEventKind::ScopePackageCreated, payload)
+    .await?;
+
+  let delivery_id = db.redeliver_webhook(webhook.id, event_id).await?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    enc_key,
+    vec![delivery_id],
+  )
+  .await?;
+
+  let delivery = db
+    .get_webhook_delivery(&scope, None, webhook_id, delivery_id)
+    .await?;
+
+  Ok(delivery.into())
+}
+
+#[instrument(
+  name = "POST /api/scopes/:scope/webhooks/:webhook/deliveries/:delivery/redeliver",
+  skip(req),
+  err,
+  fields(scope)
+)]
+pub async fn redeliver_webhook_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiWebhookDelivery> {
+  let scope = req.param_scope()?;
+  let webhook_id = req.param_uuid("webhook")?;
+  let delivery_id = req.param_uuid("delivery")?;
+  Span::current().record("scope", field::display(&scope));
+
+  let db = req.data::<Database>().unwrap();
+  let webhook_dispatch_queue = req.data::<WebhookDispatchQueue>().unwrap();
+  let registry_url = req.data::<crate::RegistryUrl>().unwrap();
+  let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap();
+
+  let iam = req.iam();
+  iam.check_scope_admin_access(&scope).await?;
+
+  let (original_delivery, _event) = db
+    .get_webhook_delivery(&scope, None, webhook_id, delivery_id)
+    .await?;
+
+  let new_delivery_id = db
+    .redeliver_webhook(original_delivery.endpoint_id, original_delivery.event_id)
+    .await?;
+
+  crate::tasks::enqueue_webhook_dispatches(
+    webhook_dispatch_queue,
+    db,
+    registry_url,
+    enc_key,
+    vec![new_delivery_id],
+  )
+  .await?;
+
+  let delivery = db
+    .get_webhook_delivery(&scope, None, webhook_id, new_delivery_id)
+    .await?;
+
+  Ok(delivery.into())
 }
 
 #[cfg(test)]
@@ -2317,6 +2707,240 @@ pub mod tests {
     remove_member(&mut t, token, false, user_id)
       .await
       .expect_err_code(StatusCode::BAD_REQUEST, "noScopeOwnerAvailable")
+      .await;
+  }
+
+  // --- Webhook Tests ---
+
+  use crate::api::ApiWebhookEndpoint;
+
+  #[tokio::test]
+  async fn webhook_crud() {
+    let mut t = TestSetup::new().await;
+
+    let scope_name = ScopeName::try_from("scope1").unwrap();
+    t.db()
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
+
+    // Create webhook
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope1/webhooks")
+      .body_json(json!({
+        "url": "https://example.com/webhook",
+        "description": "Test webhook",
+        "secret": "my-secret-key",
+        "events": ["package_version_published", "scope_member_added"],
+        "payloadFormat": "json",
+        "isActive": true
+      }))
+      .call()
+      .await
+      .unwrap();
+    let webhook: ApiWebhookEndpoint = resp.expect_ok().await;
+    assert_eq!(webhook.url, "https://example.com/webhook");
+    assert_eq!(webhook.description, "Test webhook");
+    assert!(webhook.has_secret);
+    assert!(webhook.is_active);
+    assert_eq!(webhook.events.len(), 2);
+    let webhook_id = webhook.id;
+
+    // Get webhook
+    let mut resp = t
+      .http()
+      .get(&format!("/api/scopes/scope1/webhooks/{}", webhook_id))
+      .call()
+      .await
+      .unwrap();
+    let webhook: ApiWebhookEndpoint = resp.expect_ok().await;
+    assert_eq!(webhook.id, webhook_id);
+    assert_eq!(webhook.url, "https://example.com/webhook");
+
+    // List webhooks
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope1/webhooks")
+      .call()
+      .await
+      .unwrap();
+    let webhooks: Vec<ApiWebhookEndpoint> = resp.expect_ok().await;
+    assert_eq!(webhooks.len(), 1);
+    assert_eq!(webhooks[0].id, webhook_id);
+
+    // Update webhook
+    let mut resp = t
+      .http()
+      .patch(&format!("/api/scopes/scope1/webhooks/{}", webhook_id))
+      .body_json(json!({
+        "url": "https://example.com/webhook-updated",
+        "isActive": false
+      }))
+      .call()
+      .await
+      .unwrap();
+    let webhook: ApiWebhookEndpoint = resp.expect_ok().await;
+    assert_eq!(webhook.url, "https://example.com/webhook-updated");
+    assert!(!webhook.is_active);
+    assert!(webhook.has_secret); // secret unchanged
+
+    // Delete webhook
+    t.http()
+      .delete(&format!("/api/scopes/scope1/webhooks/{}", webhook_id))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok_no_content()
+      .await;
+
+    // Verify deleted
+    t.http()
+      .get(&format!("/api/scopes/scope1/webhooks/{}", webhook_id))
+      .call()
+      .await
+      .unwrap()
+      .expect_err(StatusCode::NOT_FOUND)
+      .await;
+
+    // List should be empty
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope1/webhooks")
+      .call()
+      .await
+      .unwrap();
+    let webhooks: Vec<ApiWebhookEndpoint> = resp.expect_ok().await;
+    assert_eq!(webhooks.len(), 0);
+  }
+
+  #[tokio::test]
+  async fn webhook_empty_events_rejected() {
+    let mut t = TestSetup::new().await;
+
+    let scope_name = ScopeName::try_from("scope1").unwrap();
+    t.db()
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
+
+    // Create with empty events should fail
+    t.http()
+      .post("/api/scopes/scope1/webhooks")
+      .body_json(json!({
+        "url": "https://example.com/webhook",
+        "description": "",
+        "events": [],
+        "payloadFormat": "json",
+        "isActive": true
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::BAD_REQUEST, "malformedRequest")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn webhook_auth_required() {
+    let mut t = TestSetup::new().await;
+
+    let scope_name = ScopeName::try_from("scope1").unwrap();
+    t.db()
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
+
+    // Unauthenticated access should fail
+    t.unauthed_http()
+      .get("/api/scopes/scope1/webhooks")
+      .call()
+      .await
+      .unwrap()
+      .expect_err(StatusCode::UNAUTHORIZED)
+      .await;
+
+    // Non-admin access should fail
+    t.db()
+      .add_user_to_scope(NewScopeMember {
+        scope: &scope_name,
+        user_id: t.user2.user.id,
+        is_admin: false,
+      })
+      .await
+      .unwrap();
+
+    let token = t.user2.token.clone();
+    t.http()
+      .get("/api/scopes/scope1/webhooks")
+      .token(Some(&token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "actorNotScopeAdmin")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn webhook_update_empty_events_rejected() {
+    let mut t = TestSetup::new().await;
+
+    let scope_name = ScopeName::try_from("scope1").unwrap();
+    t.db()
+      .create_scope(
+        &t.user1.user.id,
+        false,
+        &scope_name,
+        t.user1.user.id,
+        &ScopeDescription::default(),
+      )
+      .await
+      .unwrap();
+
+    // Create valid webhook first
+    let mut resp = t
+      .http()
+      .post("/api/scopes/scope1/webhooks")
+      .body_json(json!({
+        "url": "https://example.com/webhook",
+        "description": "",
+        "events": ["scope_member_added"],
+        "payloadFormat": "json",
+        "isActive": true
+      }))
+      .call()
+      .await
+      .unwrap();
+    let webhook: ApiWebhookEndpoint = resp.expect_ok().await;
+
+    // Update with empty events should fail
+    t.http()
+      .patch(&format!("/api/scopes/scope1/webhooks/{}", webhook.id))
+      .body_json(json!({
+        "events": []
+      }))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::BAD_REQUEST, "malformedRequest")
       .await;
   }
 }

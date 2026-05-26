@@ -17,6 +17,7 @@ use crate::db::*;
 use crate::iam::ReqIamExt;
 use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
+use crate::tasks::WebhookDispatchQueue;
 use crate::util;
 use crate::util::ApiResult;
 use crate::util::LicenseStore;
@@ -297,6 +298,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let webhook_dispatch_queue =
+    req.data::<WebhookDispatchQueue>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
@@ -307,6 +310,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let license_store = req.data::<LicenseStore>().unwrap().clone();
     let registry = req.data::<RegistryUrl>().unwrap().0.clone();
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+    let enc_key = req.data::<crate::util::WebhookSecretEncryptionKey>().unwrap().clone();
 
     let span = Span::current();
     let fut = publish_task(
@@ -316,6 +320,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       registry,
       npm_url,
       db,
+      webhook_dispatch_queue,
+      enc_key,
       orama_client,
     )
     .instrument(span);

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM webhook_endpoints WHERE scope = $1 AND ($2::text IS NULL OR package = $2) AND id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bed5298f4d6221999e4ff4b6a06f8338ccd5d8ce730eb0d0fc6ec1a9e2aa71ec"
+}
