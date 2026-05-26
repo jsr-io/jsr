@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect } from "preact/hooks";
-import { TbBrightnessUpFilled, TbMoonFilled } from "tb-icons";
+import TbBrightnessUpFilled from "tb-icons/TbBrightnessUpFilled";
+import TbMoonFilled from "tb-icons/TbMoonFilled";
 import { useSignal } from "@preact/signals";
 
 export default function DarkModeToggle() {

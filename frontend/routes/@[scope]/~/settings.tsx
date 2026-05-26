@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { ComponentChildren } from "preact";
-import { TbCheck, TbTrash } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbTrash from "tb-icons/TbTrash";
 import { define } from "../../../util.ts";
 import { ScopeHeader } from "../(_components)/ScopeHeader.tsx";
 import { ScopeNav } from "../(_components)/ScopeNav.tsx";

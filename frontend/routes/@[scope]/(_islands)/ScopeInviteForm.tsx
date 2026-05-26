@@ -4,7 +4,7 @@ import { useCallback, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 import type { FullUser, ScopeInvite } from "../../../utils/api_types.ts";
 import { api, path } from "../../../utils/api.ts";
-import { TbUsersPlus } from "tb-icons";
+import TbUsersPlus from "tb-icons/TbUsersPlus";
 
 interface ScopeInviteFormProps {
   currentUser: FullUser;

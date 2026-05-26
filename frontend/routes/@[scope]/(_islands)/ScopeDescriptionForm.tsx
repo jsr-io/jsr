@@ -1,7 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useState } from "preact/hooks";
-import { TbCheck, TbPencil, TbX } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbPencil from "tb-icons/TbPencil";
+import TbX from "tb-icons/TbX";
 import { api, path } from "../../../utils/api.ts";
 import { validateScopeDescription } from "../../../utils/ids.ts";
 import type { FullScope } from "../../../utils/api_types.ts";

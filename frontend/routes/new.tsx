@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { asset } from "fresh/runtime";
-import { TbFolder, TbPackage } from "tb-icons";
+import TbFolder from "tb-icons/TbFolder";
+import TbPackage from "tb-icons/TbPackage";
 import {
   CreatePackage,
   IconCircle,

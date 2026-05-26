@@ -85,7 +85,8 @@
     "npm:marked@12": "12.0.2",
     "npm:postcss@8.4": "8.4.49",
     "npm:postcss@8.5.6": "8.5.6",
-    "npm:preact-render-to-string@^6.6.3": "6.6.7_preact@10.29.1",
+    "npm:preact-render-to-string@6.7.0": "6.7.0_preact@10.29.1",
+    "npm:preact-render-to-string@^6.6.3": "6.7.0_preact@10.29.1",
     "npm:preact@^10.22.1": "10.29.1",
     "npm:preact@^10.28.2": "10.29.1",
     "npm:preact@^10.29.1": "10.29.1",
@@ -180,7 +181,7 @@
         "npm:@preact/signals@^2.5.1",
         "npm:esbuild-wasm",
         "npm:esbuild@0.25.7",
-        "npm:preact-render-to-string",
+        "npm:preact-render-to-string@^6.6.3",
         "npm:preact@^10.28.2",
         "npm:preact@^10.29.1"
       ]
@@ -2165,8 +2166,8 @@
         "source-map-js"
       ]
     },
-    "preact-render-to-string@6.6.7_preact@10.29.1": {
-      "integrity": "sha512-3XdbsX3+vn9dQW+jJI/FsI9rlkgl6dbeUpqLsChak6jp3j3auFqBCkno7VChbMFs5Q8ylBj6DrUkKRwtVN3nvw==",
+    "preact-render-to-string@6.7.0_preact@10.29.1": {
+      "integrity": "sha512-Z4WR8fmLMRpdYqJ9i7vrlXSsSrxVJydwrkEXHapexfARbWfGb7vGcnvNQnIzN0cXciMVOlz/XLoiMCi9gUsy9Q==",
       "dependencies": [
         "preact"
       ]
@@ -2579,6 +2580,7 @@
       "npm:apexcharts@^4.5.0",
       "npm:marked-smartypants@1.1.6",
       "npm:postcss@8.4",
+      "npm:preact-render-to-string@6.7.0",
       "npm:preact@^10.29.1",
       "npm:prismjs@^1.29.0",
       "npm:tailwindcss@4.2",

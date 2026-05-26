@@ -1,7 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
+import TbArrowRight from "tb-icons/TbArrowRight";
+import TbLogout from "tb-icons/TbLogout";
+import TbPlus from "tb-icons/TbPlus";
+import TbUser from "tb-icons/TbUser";
+import TbUserCog from "tb-icons/TbUserCog";
 import { useSignal } from "@preact/signals";
 
 const SHARED_ITEM_CLASSES =

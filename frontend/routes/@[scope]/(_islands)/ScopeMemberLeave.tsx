@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
-import { TbArrowRightFromArc } from "tb-icons";
+import TbArrowRightFromArc from "tb-icons/TbArrowRightFromArc";
 
 export function ScopeMemberLeave({
   userId,
