@@ -15,7 +15,8 @@ export function scopeIAM(
   scopeMember: ScopeMember | null,
   user?: FullUser | null,
 ): ScopeIAM {
-  const isStaff = !!(user ?? state.user)?.isStaff;
+  const effectiveUser = user === undefined ? state.user : user;
+  const isStaff = !!effectiveUser?.isStaff;
   const hasSudo = isStaff && state.sudo;
   const canWrite = scopeMember !== null || hasSudo;
   const canAdmin = !!scopeMember?.isAdmin || hasSudo;
