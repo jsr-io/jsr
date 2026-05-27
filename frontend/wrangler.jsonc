@@ -1,0 +1,44 @@
+{
+  // Used by `wrangler deploy` (run from CI after `deno task build`) to
+  // bundle and upload the frontend worker. Multi-module upload — needed
+  // for the `.wasm` parts imported by `workers-og` — isn't supported by
+  // the terraform-provider-cloudflare's `cloudflare_workers_script`
+  // resource (as of v5.19.1), so wrangler handles this one worker.
+  // Everything else (LB worker, R2 buckets, secrets, DNS) stays on
+  // terraform; see `terraform/lb.tf` for the service binding that points
+  // at this worker by name.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jsr-frontend",
+  "main": "./server.ts",
+  "compatibility_date": "2026-05-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./_fresh/client",
+    "binding": "ASSETS"
+  },
+  "rules": [
+    { "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": true }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "head_sampling_rate": 0.01
+    }
+  },
+  "vars": {
+    "FRONTEND_ROOT": "https://jsr.io",
+    "API_ROOT": "https://api.jsr.io",
+    "NO_COLOR": "true",
+    // Orama keys are public by design — they're shipped to the browser
+    // by routes/index.tsx, routes/packages.tsx, components/Header.tsx.
+    // CI overrides these per-environment via `wrangler deploy --var`.
+    "ORAMA_PACKAGES_PUBLIC_API_KEY": "",
+    "ORAMA_PACKAGES_PROJECT_ID": "",
+    "ORAMA_SYMBOLS_PUBLIC_API_KEY": "",
+    "ORAMA_SYMBOLS_PROJECT_ID": "",
+    "ORAMA_DOCS_PUBLIC_API_KEY": "",
+    "ORAMA_DOCS_PROJECT_ID": ""
+  }
+}

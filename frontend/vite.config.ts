@@ -9,29 +9,13 @@ import { dirname, join, relative } from "jsr:@std/path@^1";
 const MARKER =
   "/*! During the build process, the @deno/gfm CSS file is injected here. */";
 
-function imagescriptUrl(): Plugin {
-  return {
-    name: "imagescript-url",
-    enforce: "pre",
-    transform(code, id) {
-      const m = id.match(/jsr\.io\/(@matmen\/imagescript\/[^?]+)/);
-      if (!m || !code.includes("import.meta.url")) return null;
-      const realUrl = `https://jsr.io/${m[1]}`;
-      return {
-        code: code.replaceAll("import.meta.url", JSON.stringify(realUrl)),
-        map: null,
-      };
-    },
-  };
-}
-
 function gfmCss(): Plugin {
   return {
     name: "gfm-css",
     enforce: "pre",
     transform(code, id) {
       if (!/\/gfm\.css(?:$|\?)/.test(id)) return null;
-      if (!code.includes(MARKER)) return null; // cheap guard
+      if (!code.includes(MARKER)) return null;
       const injected = CSS.replaceAll("font-size:16px;", "");
       return { code: code.replace(MARKER, injected), map: null };
     },
@@ -55,86 +39,53 @@ function copyDocs(): Plugin {
   };
 }
 
-// Bundles `server.ts` (the Cloudflare Worker entry that imports the Fresh
-// `_fresh/server.js`) into a single ESM file at `_fresh/worker.js`. Runs
-// after Fresh's SSR environment writes `_fresh/server.js`.
-//
-// We use esbuild rather than rollup here: when rollup re-bundles Fresh's
-// pre-chunked SSR output, it re-orders the route modules ahead of the
-// util module that exports `define`, producing a TDZ error at startup
-// (`Cannot access 'define$1' before initialization`). esbuild wraps each
-// module in a lazy `__esm` initializer so the order doesn't matter.
-function workerBundle(): Plugin {
-  let isBuild = false;
-  let done = false;
+// `workers-og`'s static `.wasm` imports trip Vite's wasm-fallback during
+// SSR build. Mark every `.wasm` resolution external so the literal
+// `import x from "./foo.wasm"` passes through Vite untouched, then copy
+// the real files into `_fresh/server/` (next to server-entry.mjs)
+// where wrangler looks for them at deploy time.
+function wasmExternal(): Plugin {
+  const wasmSources = new Map<string, string>();
   return {
-    name: "jsr-worker-bundle",
-    enforce: "post",
-    configResolved(config) {
-      isBuild = config.command === "build";
+    name: "jsr-wasm-external",
+    enforce: "pre",
+    async resolveId(id, importer) {
+      if (!id.endsWith(".wasm")) return;
+      if (importer) {
+        const abs = join(dirname(importer), id);
+        try {
+          await Deno.stat(abs);
+          wasmSources.set(id, abs);
+        } catch { /* leave for later resolution */ }
+      }
+      return { id, external: true };
     },
     async closeBundle() {
-      if (!isBuild || done) return;
+      // Only run after Fresh's SSR build has emitted server-entry.mjs.
       try {
-        await Deno.stat("_fresh/server.js");
+        await Deno.stat("_fresh/server");
       } catch {
-        return; // Fresh's SSR env hasn't written server.js yet
+        return;
       }
-      done = true;
-      const esbuild = await import("esbuild");
-      await esbuild.build({
-        entryPoints: ["./server.ts"],
-        bundle: true,
-        format: "esm",
-        platform: "neutral",
-        target: "esnext",
-        outfile: "_fresh/worker.js",
-        // node: imports are provided by the runtime (Workers
-        // nodejs_compat or Deno's node compat) — keep external.
-        external: ["node:*"],
-        // apexcharts (pulled into Fresh's SSR bundle via the
-        // DownloadChart island) has a top-level
-        // `window.TreemapSquared = {}` write. Workers don't have a
-        // `window` global — point it at globalThis so the assignment is
-        // a no-op and module init succeeds. The chart-rendering code
-        // that reads `window.X` only runs in the browser, so the
-        // polyfill never has to do real work.
-        banner: { js: "globalThis.window ??= globalThis;" },
-        logLevel: "info",
-      });
-      await esbuild.stop();
-      await deferServerInit("_fresh/worker.js");
+      // Each Fresh route chunk (in `_fresh/server/assets/`) and the
+      // main `_fresh/server/server-entry.mjs` independently emit the
+      // `import "./foo.wasm"` line, so wrangler needs to find the
+      // .wasm next to each importer. Copy into every dir under
+      // `_fresh/server/` that holds a .mjs file.
+      const dests = new Set<string>();
+      for await (
+        const entry of walk("_fresh/server", { exts: [".mjs"] })
+      ) {
+        dests.add(dirname(entry.path));
+      }
+      for (const [rel, src] of wasmSources) {
+        const filename = rel.replace(/^\.\//, "");
+        for (const d of dests) {
+          await copy(src, join(d, filename), { overwrite: true });
+        }
+      }
     },
   };
-}
-
-// Cloudflare workerd rejects async I/O (fetch, setTimeout, getRandomValues)
-// at module init. esbuild's bundle has a top-level
-// `await init_server_entry()` that pulls Fresh's entire server module
-// — including imagescript's WASM `fetch()` calls — into startup.
-// Rewrite the trailing 4 lines of the bundle to defer that init to the
-// first request (inside the fetch handler, where async I/O is allowed).
-async function deferServerInit(file: string) {
-  let src = await Deno.readTextFile(file);
-  const pattern =
-    /await init_server_entry\(\);\s*var (\w+) = \{\s*fetch: (\w+)\.fetch\s*\};/;
-  const m = src.match(pattern);
-  if (!m) {
-    throw new Error(`[workerBundle] could not find init pattern in ${file}`);
-  }
-  const [, serverDefault, entry] = m;
-  const replacement = [
-    "var __jsrInitPromise;",
-    `var ${serverDefault} = {`,
-    "  async fetch(req) {",
-    "    if (!__jsrInitPromise) __jsrInitPromise = init_server_entry();",
-    "    await __jsrInitPromise;",
-    `    return ${entry}.fetch(req);`,
-    "  }",
-    "};",
-  ].join("\n");
-  src = src.replace(pattern, replacement);
-  await Deno.writeTextFile(file, src);
 }
 
 export default defineConfig({
@@ -143,10 +94,9 @@ export default defineConfig({
   },
   plugins: [
     fresh(),
+    wasmExternal(),
     gfmCss(),
-    imagescriptUrl(),
     tailwindcss(),
     copyDocs(),
-    workerBundle(),
   ],
 });

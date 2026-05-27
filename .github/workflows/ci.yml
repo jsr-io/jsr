@@ -257,9 +257,29 @@ jobs:
         run: deno task build
         working-directory: lb
 
-      - name: Build Frontend Cloudflare Worker
+      - name: Build Frontend
         run: deno task build
         working-directory: frontend
+
+      # The frontend worker has WASM dependencies (workers-og) that need
+      # multi-module upload — not supported by the terraform-provider-
+      # cloudflare `cloudflare_workers_script` resource. Wrangler handles
+      # this one worker; the LB worker (terraform-managed) binds to it by
+      # name, so wrangler must run before terraform apply.
+      - name: Deploy Frontend Worker (wrangler)
+        run: |
+          deno run -A npm:wrangler@^4 deploy \
+            --name deno-registry3-staging-jsr-frontend \
+            --var ORAMA_PACKAGES_PUBLIC_API_KEY:${{ vars.ORAMA_PACKAGES_PUBLIC_API_KEY }} \
+            --var ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }} \
+            --var ORAMA_SYMBOLS_PUBLIC_API_KEY:${{ vars.ORAMA_SYMBOLS_PUBLIC_API_KEY }} \
+            --var ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }} \
+            --var ORAMA_DOCS_PUBLIC_API_KEY:${{ vars.ORAMA_DOCS_PUBLIC_API_KEY }} \
+            --var ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }}
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: terraform plan
         run: |
@@ -329,9 +349,24 @@ jobs:
         run: deno task build
         working-directory: lb
 
-      - name: Build Frontend Cloudflare Worker
+      - name: Build Frontend
         run: deno task build
         working-directory: frontend
+
+      - name: Deploy Frontend Worker (wrangler)
+        run: |
+          deno run -A npm:wrangler@^4 deploy \
+            --name deno-registry3-prod-jsr-frontend \
+            --var ORAMA_PACKAGES_PUBLIC_API_KEY:${{ vars.ORAMA_PACKAGES_PUBLIC_API_KEY }} \
+            --var ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }} \
+            --var ORAMA_SYMBOLS_PUBLIC_API_KEY:${{ vars.ORAMA_SYMBOLS_PUBLIC_API_KEY }} \
+            --var ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }} \
+            --var ORAMA_DOCS_PUBLIC_API_KEY:${{ vars.ORAMA_DOCS_PUBLIC_API_KEY }} \
+            --var ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }}
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: terraform plan
         run: |

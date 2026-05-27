@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { HttpError, RouteConfig } from "fresh";
-import { Image } from "@matmen/imagescript";
+import { ImageResponse } from "workers-og";
 import twas from "twas";
 
 import { packageDataWithVersion } from "../../utils/data.ts";
@@ -10,52 +10,61 @@ import { getScoreTextColorClass } from "../../utils/score_ring_color.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
 import { readAsset, readAssetText } from "../../utils/assets.ts";
 
-// Local copy of `Image.rgbToColor` so the constants below can be evaluated
-// at module init without triggering imagescript's lazy module body —
-// which fetches WASM via `fetch()` at the top level and would trip
-// Cloudflare's "no async I/O at global scope" check.
-function rgbToColor(r: number, g: number, b: number): number {
-  return ((r & 255) << 24 | (g & 255) << 16 | (b & 255) << 8 | 255) >>> 0;
-}
-
-const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
-  "score-text-green": rgbToColor(34, 197, 94),
-  "score-text-yellow": rgbToColor(234, 178, 8),
-  "score-text-red": rgbToColor(239, 68, 68),
-};
-
-let jsrLogo: Image | null = null;
-async function getJsrLogo(): Promise<Image> {
-  if (!jsrLogo) {
-    jsrLogo = await Image.decode(await readAsset("/logo.png"));
-  }
-  return jsrLogo;
-}
-
-let dmmonoFont: Uint8Array | null = null;
-
-const COLOR_BLACK = rgbToColor(0, 0, 0);
-const COLOR_WHITE = rgbToColor(255, 255, 255);
-const COLOR_GRAY = rgbToColor(70, 70, 70);
-
-const PADDING = 30;
-
 const WIDTH = 1200;
 const HEIGHT = 630;
+const PADDING = 30;
 
-const LATEST_BADGE_WIDTH = 100;
-const LATEST_BADGE_HEIGHT = 40;
-const LATEST_BADGE_COLOR = rgbToColor(247, 222, 30);
+const SCORE_HEX: Record<string, string> = {
+  "score-text-green": "#22c55e",
+  "score-text-yellow": "#eab208",
+  "score-text-red": "#ef4444",
+};
 
-const JSR_LOGO_HEIGHT = 100;
+let dmmonoFont: Promise<Uint8Array> | null = null;
+function getFont(): Promise<Uint8Array> {
+  return dmmonoFont ??= readAsset("/fonts/DMMono/DMMono-Medium.ttf");
+}
 
-const DESCRIPTION_MAX_BREAK_POINT = 60;
+let jsrLogoDataUrl: Promise<string> | null = null;
+function getJsrLogoDataUrl(): Promise<string> {
+  return jsrLogoDataUrl ??= (async () => {
+    const bytes = await readAsset("/logo.png");
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return `data:image/png;base64,${btoa(bin)}`;
+  })();
+}
+
+function escape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function renderRuntimeIcons(
+  // deno-lint-ignore no-explicit-any
+  compat: Record<string, any>,
+): Promise<string> {
+  const cells: string[] = [];
+  for (
+    const [key, _name, icon, width, height] of RUNTIME_COMPAT_KEYS.toReversed()
+  ) {
+    const c = compat[key];
+    if (c === false) continue;
+    const svg = await readAssetText(icon);
+    const dataUrl = `data:image/svg+xml;base64,${
+      btoa(unescape(encodeURIComponent(svg)))
+    }`;
+    const scaledW = (width / height) * 50;
+    const opacity = c ? 1 : 0.4;
+    cells.push(
+      `<img src="${dataUrl}" width="${scaledW}" height="50" style="opacity:${opacity};margin-right:8px;" />`,
+    );
+  }
+  return cells.join("");
+}
 
 export const handler = define.handlers({
   async GET(ctx) {
-    if (!dmmonoFont) {
-      dmmonoFont = await readAsset("/fonts/DMMono/DMMono-Medium.ttf");
-    }
     const pkgData = await packageDataWithVersion(
       ctx.state,
       ctx.params.scope,
@@ -70,351 +79,74 @@ export const handler = define.handlers({
     }
     const { pkg, selectedVersion } = pkgData;
 
-    const packageScope = pkg.scope;
-    const packageName = pkg.name;
-
-    const ogpImage = new Image(WIDTH, HEIGHT).drawBox(
-      0,
-      0,
-      WIDTH,
-      HEIGHT,
-      COLOR_WHITE,
-    );
-
-    let packageNamePosition: {
-      x: number;
-      y: number;
-      height: number;
-      isSplited: boolean;
-    };
-    if (packageScope.length + packageName.length > 23) {
-      // new line  | @package
-      // example:  |  /name
-      const scopeText = Image.renderText(
-        dmmonoFont,
-        50,
-        `@${packageScope}`,
-        COLOR_GRAY,
-      );
-      ogpImage.composite(scopeText, PADDING, PADDING);
-
-      const packageNameText = Image.renderText(
-        dmmonoFont,
-        50,
-        `/${packageName}`,
-        COLOR_BLACK,
-      );
-      ogpImage.composite(packageNameText, PADDING, scopeText.height + 20);
-
-      packageNamePosition = {
-        x: PADDING + packageNameText.width,
-        y: PADDING + scopeText.height + 20 + packageNameText.height,
-        height: packageNameText.height,
-        isSplited: true,
-      };
-    } else {
-      // one line
-      // example: @package/name
-      const scopeText = Image.renderText(
-        dmmonoFont,
-        50,
-        `@${packageScope}`,
-        COLOR_GRAY,
-      );
-      ogpImage.composite(scopeText, PADDING, PADDING);
-
-      const packageNameText = Image.renderText(
-        dmmonoFont,
-        50,
-        `/${packageName}`,
-        COLOR_BLACK,
-      );
-      ogpImage.composite(
-        packageNameText,
-        PADDING + scopeText.width + 10,
-        PADDING,
-      );
-
-      packageNamePosition = {
-        x: PADDING + scopeText.width + 10 + packageNameText.width,
-        y: PADDING + packageNameText.height,
-        height: packageNameText.height,
-        isSplited: false,
-      };
-    }
     const isLatest = selectedVersion.version === pkg.latestVersion;
+    const scoreColor = SCORE_HEX[getScoreTextColorClass(pkg.score ?? 0)] ??
+      "#000";
 
-    const versionText = Image.renderText(
-      dmmonoFont,
-      30,
-      `@${selectedVersion.version}`,
-      Image.rgbToColor(50, 50, 50),
-    );
-    const versionAndLatestBadgeImage = new Image(
-      versionText.width + (isLatest ? LATEST_BADGE_WIDTH + 10 : 0),
-      Math.max(versionText.height, LATEST_BADGE_HEIGHT),
-    );
-    versionAndLatestBadgeImage.composite(versionText, 0, 0);
+    const [fontData, logoUrl, runtimeIconsHtml] = await Promise.all([
+      getFont(),
+      getJsrLogoDataUrl(),
+      renderRuntimeIcons(pkg.runtimeCompat),
+    ]);
 
-    if (isLatest) {
-      // This version is latest
-      const latestText = Image.renderText(
-        dmmonoFont,
-        20,
-        "latest",
-        COLOR_BLACK,
-      );
-      const latestBadge = new Image(LATEST_BADGE_WIDTH, LATEST_BADGE_HEIGHT)
-        .drawCircle(
-          LATEST_BADGE_HEIGHT / 2,
-          LATEST_BADGE_HEIGHT / 2 + 1,
-          LATEST_BADGE_HEIGHT / 2,
-          LATEST_BADGE_COLOR,
-        ).drawBox(
-          LATEST_BADGE_HEIGHT / 2,
-          0,
-          LATEST_BADGE_WIDTH - LATEST_BADGE_HEIGHT,
-          LATEST_BADGE_HEIGHT,
-          LATEST_BADGE_COLOR,
-        ).drawCircle(
-          LATEST_BADGE_WIDTH - LATEST_BADGE_HEIGHT / 2,
-          LATEST_BADGE_HEIGHT / 2 + 1,
-          LATEST_BADGE_HEIGHT / 2,
-          LATEST_BADGE_COLOR,
-        ).composite(
-          latestText,
-          (LATEST_BADGE_WIDTH - latestText.width) / 2,
-          (LATEST_BADGE_HEIGHT - latestText.height) / 2,
-        );
-      versionAndLatestBadgeImage.composite(
-        latestBadge,
-        versionText.width + 10,
-        0,
-      );
-    }
+    const description = pkg.description?.trim() || "No description";
+    const publishedRel = twas(new Date(selectedVersion.createdAt).getTime());
 
-    let descriptionY: number;
-    const isVersionAndLatestBadgeNextLine = packageNamePosition.x > 900;
-    if (isVersionAndLatestBadgeNextLine) {
-      // Version/Latest will be new line
-      const yPos = packageNamePosition.y;
-      ogpImage.composite(
-        versionAndLatestBadgeImage,
-        WIDTH - PADDING - versionAndLatestBadgeImage.width,
-        yPos,
-      );
-      descriptionY = yPos;
-    } else {
-      // Version/Latest will be current line
-      const versionAndLatestBadgeYPadding =
-        (packageNamePosition.height - versionAndLatestBadgeImage.height) / 2;
-      ogpImage.composite(
-        versionAndLatestBadgeImage,
-        packageNamePosition.x + 10,
-        packageNamePosition.y - packageNamePosition.height +
-          (packageNamePosition.isSplited
-            ? -versionAndLatestBadgeYPadding
-            : versionAndLatestBadgeYPadding),
-      );
-      descriptionY = packageNamePosition.y + 10;
-    }
-    const descriptionBreakPoint = isVersionAndLatestBadgeNextLine
-      ? 45
-      : DESCRIPTION_MAX_BREAK_POINT;
+    const latestBadge = isLatest
+      ? `<div style="display:flex;align-items:center;background:#f7de1e;color:#000;border-radius:9999px;padding:4px 18px;margin-left:14px;font-size:20px;">latest</div>`
+      : "";
 
-    const descriptionString: string = (() => {
-      if (pkg.description.length <= descriptionBreakPoint) {
-        // Don't cut
-        return pkg.description;
-      }
-      const firstLine: string[] = [];
-
-      const splittedBySpace = pkg.description.split(/(?<=\,?) /g);
-
-      for (const word of splittedBySpace) {
-        firstLine.push(word);
-        const { width } = Image.renderText(dmmonoFont, 30, firstLine.join(" "));
-        if (width > WIDTH - 2 * PADDING) {
-          firstLine.pop();
-          break;
-        }
-      }
-      const firstLineText = firstLine.join(" ");
-      const secondLine = pkg.description.slice(firstLineText.length).replace(
-        /^ +/,
-        "",
-      );
-
-      return firstLineText + "\n" +
-        (secondLine.length >= DESCRIPTION_MAX_BREAK_POINT
-          ? secondLine.slice(0, DESCRIPTION_MAX_BREAK_POINT - 3) + "..."
-          : secondLine);
-    })() || "No description";
-
-    const descriptionText = Image.renderText(
-      dmmonoFont,
-      30,
-      descriptionString,
-      COLOR_GRAY,
-    );
-    ogpImage.composite(
-      descriptionText,
-      PADDING,
-      descriptionY,
-    );
-
-    // Package Infomations such as Runtime compats, JSR Score and Published
-
-    // Published
-    const publishedImage = (() => {
-      const publishedText = Image.renderText(
-        dmmonoFont,
-        32,
-        "Published",
-        COLOR_BLACK,
-      );
-      const publishDateText = Image.renderText(
-        dmmonoFont,
-        25,
-        twas(new Date(selectedVersion.createdAt).getTime()),
-        COLOR_GRAY,
-      );
-      const result = new Image(
-        Math.max(publishedText.width, publishDateText.width),
-        publishedText.height + 10 + publishDateText.height,
-      );
-      result.composite(publishedText, 0, 0);
-      result.composite(publishDateText, 0, publishedText.height + 10);
-
-      return result;
-    })();
-
-    // JSR Score
-    const jsrScore = (() => {
-      const jsrScoreLabel = Image.renderText(
-        dmmonoFont,
-        32,
-        "JSR Score",
-        COLOR_BLACK,
-      );
-      const scoreColor =
-        SCORE_CLASSNAME_TO_COLOR_MAP[getScoreTextColorClass(pkg.score ?? 0)];
-      const jsrScoreText = Image.renderText(
-        dmmonoFont,
-        60,
-        `${pkg.score}%`,
-        scoreColor,
-      );
-
-      const result = new Image(
-        Math.max(jsrScoreLabel.width, jsrScoreText.width),
-        jsrScoreLabel.height + 10 + jsrScoreText.height,
-      );
-      result.composite(jsrScoreLabel, 0, 0);
-      result.composite(jsrScoreText, 0, jsrScoreLabel.height + 10);
-      return result;
-    })();
-
-    // Runtime compats
-    const runtimeCompats = await (async () => {
-      const runtimeCompatsText = Image.renderText(
-        dmmonoFont,
-        32,
-        "Works with",
-        COLOR_BLACK,
-      );
-      const questionMark = Image.renderText(
-        dmmonoFont,
-        50,
-        "?",
-        Image.rgbToColor(29, 78, 216),
-      );
-      let runtimeCompatsImageWidth = 0;
-      let runtimeCompatsImageHeight = 0;
-      const runtimeKeyImages: Image[] = [];
-      for (const runtimeKey of RUNTIME_COMPAT_KEYS.toReversed()) {
-        const [key, _name, icon, width, height] = runtimeKey;
-        const compat = pkg.runtimeCompat[key];
-        if (compat === false) {
-          // Not supported
-          continue;
-        }
-        const iconData = await readAssetText(icon);
-        const iconImage = Image.renderSVG(iconData, 50 / height);
-
-        const supportedIcon = compat
-          ? iconImage
-          : iconImage.saturation(0).opacity(0.4).composite(
-            questionMark,
-            (width / 2) * 50 / height - questionMark.width / 2,
-          );
-        runtimeKeyImages.push(supportedIcon);
-        runtimeCompatsImageWidth += supportedIcon.width;
-        runtimeCompatsImageHeight = Math.max(
-          runtimeCompatsImageHeight,
-          supportedIcon.height,
-        );
-      }
-
-      const result = new Image(
-        Math.max(runtimeCompatsText.width, runtimeCompatsImageWidth),
-        runtimeCompatsText.height + 10 + runtimeCompatsImageHeight,
-      );
-
-      result.composite(runtimeCompatsText, 0, 0);
-
-      let x = 0;
-      for (const runtimeKeyImage of runtimeKeyImages) {
-        result.composite(runtimeKeyImage, x, runtimeCompatsText.height + 10);
-        x += runtimeKeyImage.width;
-      }
-      return result;
-    })();
-
-    const packageInfomationDefaultY = ((
-          (HEIGHT - JSR_LOGO_HEIGHT - PADDING) - // JSR Logo y position
-          (descriptionY + descriptionText.height) // Description underline y position
-        ) -
-          Math.max(
-            publishedImage.height,
-            jsrScore.height,
-            runtimeCompats.height,
-          )) / 2 + descriptionY + descriptionText.height;
-
-    const packageInfomationPadding =
-      (WIDTH - PADDING * 2 - publishedImage.width - jsrScore.width -
-        runtimeCompats.width) / 2;
-
-    ogpImage.composite(publishedImage, PADDING, packageInfomationDefaultY)
-      .composite(
-        jsrScore,
-        PADDING + publishedImage.width + packageInfomationPadding,
-        packageInfomationDefaultY,
-      )
-      .composite(
-        runtimeCompats,
-        PADDING + publishedImage.width + packageInfomationPadding * 2 +
-          jsrScore.width,
-        packageInfomationDefaultY,
-      );
-
-    // JSR Brand
-    const logo = await getJsrLogo();
-    const logoWidth = logo.width * JSR_LOGO_HEIGHT / logo.height;
-    ogpImage.composite(
-      logo.resize(logoWidth, JSR_LOGO_HEIGHT),
-      WIDTH - logoWidth - PADDING,
-      HEIGHT - JSR_LOGO_HEIGHT - PADDING,
-    );
+    const html = `
+      <div style="display:flex;flex-direction:column;width:${WIDTH}px;height:${HEIGHT}px;background:#fff;padding:${PADDING}px;font-family:DMMono;color:#000;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="display:flex;font-size:50px;line-height:1;flex-wrap:wrap;max-width:900px;">
+            <span style="color:#464646;">@${escape(pkg.scope)}</span><span>/${
+      escape(pkg.name)
+    }</span>
+          </div>
+          <div style="display:flex;align-items:center;font-size:30px;color:#323232;">
+            @${escape(selectedVersion.version)}${latestBadge}
+          </div>
+        </div>
+        <div style="display:flex;font-size:30px;color:#464646;margin-top:36px;flex:1;">${
+      escape(description)
+    }</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:24px;">
+          <div style="display:flex;flex-direction:column;">
+            <div style="font-size:32px;color:#000;">Published</div>
+            <div style="font-size:25px;color:#464646;margin-top:10px;">${
+      escape(publishedRel)
+    }</div>
+          </div>
+          <div style="display:flex;flex-direction:column;">
+            <div style="font-size:32px;color:#000;">JSR Score</div>
+            <div style="font-size:60px;color:${scoreColor};line-height:1;margin-top:6px;">${
+      escape(String(pkg.score ?? 0))
+    }%</div>
+          </div>
+          <div style="display:flex;flex-direction:column;">
+            <div style="font-size:32px;color:#000;">Works with</div>
+            <div style="display:flex;margin-top:10px;">${runtimeIconsHtml}</div>
+          </div>
+        </div>
+        <img src="${logoUrl}" height="80" style="position:absolute;right:${PADDING}px;bottom:${PADDING}px;" />
+      </div>
+    `;
 
     ctx.state.cacheControl =
       "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400";
 
-    return new Response((await ogpImage.encode()) as BufferSource, {
-      headers: {
-        "access-control-allow-origin": "*",
-        "Content-Type": "image/png",
-      },
+    return new ImageResponse(html, {
+      width: WIDTH,
+      height: HEIGHT,
+      fonts: [
+        {
+          name: "DMMono",
+          data: fontData.buffer as ArrayBuffer,
+          weight: 500,
+          style: "normal",
+        },
+      ],
     });
   },
 });

@@ -50,11 +50,15 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name = "REGISTRY_API_URL"
       text = google_cloud_run_v2_service.registry_api.uri
       }, {
-      # Service binding to the frontend Worker. This avoids an HTTP hop —
-      # traffic stays within Cloudflare and no public URL is needed.
+      # Service binding to the frontend Worker. The frontend worker is
+      # deployed by wrangler (see `frontend/wrangler.jsonc` + CI) because
+      # it needs multi-module upload for its WASM dependencies, which the
+      # terraform `cloudflare_workers_script` resource doesn't support.
+      # We bind by name; the worker must already exist before this script
+      # is applied (CI runs `wrangler deploy` before `terraform apply`).
       type    = "service"
       name    = "FRONTEND"
-      service = cloudflare_workers_script.jsr_frontend.script_name
+      service = "${var.gcp_project}-jsr-frontend"
       }, {
       # Per-IP rate limit applied only on the frontend proxy path (see
       # handleFrontendRoute in lb/main.ts). Keeps scrapers from generating
@@ -71,8 +75,6 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }
     }
   ]
-
-  depends_on = [cloudflare_workers_script.jsr_frontend]
 
   lifecycle {
     create_before_destroy = true
