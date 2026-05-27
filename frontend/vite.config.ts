@@ -103,8 +103,38 @@ function workerBundle(): Plugin {
         logLevel: "info",
       });
       await esbuild.stop();
+      await deferServerInit("_fresh/worker.js");
     },
   };
+}
+
+// Cloudflare workerd rejects async I/O (fetch, setTimeout, getRandomValues)
+// at module init. esbuild's bundle has a top-level
+// `await init_server_entry()` that pulls Fresh's entire server module
+// — including imagescript's WASM `fetch()` calls — into startup.
+// Rewrite the trailing 4 lines of the bundle to defer that init to the
+// first request (inside the fetch handler, where async I/O is allowed).
+async function deferServerInit(file: string) {
+  let src = await Deno.readTextFile(file);
+  const pattern =
+    /await init_server_entry\(\);\s*var (\w+) = \{\s*fetch: (\w+)\.fetch\s*\};/;
+  const m = src.match(pattern);
+  if (!m) {
+    throw new Error(`[workerBundle] could not find init pattern in ${file}`);
+  }
+  const [, serverDefault, entry] = m;
+  const replacement = [
+    "var __jsrInitPromise;",
+    `var ${serverDefault} = {`,
+    "  async fetch(req) {",
+    "    if (!__jsrInitPromise) __jsrInitPromise = init_server_entry();",
+    "    await __jsrInitPromise;",
+    `    return ${entry}.fetch(req);`,
+    "  }",
+    "};",
+  ].join("\n");
+  src = src.replace(pattern, replacement);
+  await Deno.writeTextFile(file, src);
 }
 
 export default defineConfig({

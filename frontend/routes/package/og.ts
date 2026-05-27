@@ -10,10 +10,18 @@ import { getScoreTextColorClass } from "../../utils/score_ring_color.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
 import { readAsset, readAssetText } from "../../utils/assets.ts";
 
+// Local copy of `Image.rgbToColor` so the constants below can be evaluated
+// at module init without triggering imagescript's lazy module body —
+// which fetches WASM via `fetch()` at the top level and would trip
+// Cloudflare's "no async I/O at global scope" check.
+function rgbToColor(r: number, g: number, b: number): number {
+  return ((r & 255) << 24 | (g & 255) << 16 | (b & 255) << 8 | 255) >>> 0;
+}
+
 const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
-  "score-text-green": Image.rgbToColor(34, 197, 94),
-  "score-text-yellow": Image.rgbToColor(234, 178, 8),
-  "score-text-red": Image.rgbToColor(239, 68, 68),
+  "score-text-green": rgbToColor(34, 197, 94),
+  "score-text-yellow": rgbToColor(234, 178, 8),
+  "score-text-red": rgbToColor(239, 68, 68),
 };
 
 let jsrLogo: Image | null = null;
@@ -26,9 +34,9 @@ async function getJsrLogo(): Promise<Image> {
 
 let dmmonoFont: Uint8Array | null = null;
 
-const COLOR_BLACK = Image.rgbToColor(0, 0, 0);
-const COLOR_WHITE = Image.rgbToColor(255, 255, 255);
-const COLOR_GRAY = Image.rgbToColor(70, 70, 70);
+const COLOR_BLACK = rgbToColor(0, 0, 0);
+const COLOR_WHITE = rgbToColor(255, 255, 255);
+const COLOR_GRAY = rgbToColor(70, 70, 70);
 
 const PADDING = 30;
 
@@ -37,7 +45,7 @@ const HEIGHT = 630;
 
 const LATEST_BADGE_WIDTH = 100;
 const LATEST_BADGE_HEIGHT = 40;
-const LATEST_BADGE_COLOR = Image.rgbToColor(247, 222, 30);
+const LATEST_BADGE_COLOR = rgbToColor(247, 222, 30);
 
 const JSR_LOGO_HEIGHT = 100;
 
