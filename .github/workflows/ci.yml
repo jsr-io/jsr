@@ -266,17 +266,28 @@ jobs:
       # (see terraform/cloudflare_frontend.tf). If terraform fails
       # downstream, the new version sits unpromoted and the previous
       # one keeps serving.
+      #
+      # The Orama public API keys live in staging.tfvars (same source
+      # terraform reads); project IDs come from github vars. They're
+      # all public by design (the frontend ships them to the browser).
       - name: Upload Frontend Worker version
         id: frontend_upload
         run: |
+          set -e
+          tfvar() {
+            awk -v key="$1" -F' *= *' '$1 == key { gsub(/^"|"$/, "", $2); print $2 }' "$2"
+          }
+          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key ../terraform/staging.tfvars)
+          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  ../terraform/staging.tfvars)
+          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     ../terraform/staging.tfvars)
           OUTPUT=$(deno run -A npm:wrangler@^4 versions upload \
             --name deno-registry3-staging-jsr-frontend \
-            --var ORAMA_PACKAGES_PUBLIC_API_KEY:${{ vars.ORAMA_PACKAGES_PUBLIC_API_KEY }} \
-            --var ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }} \
-            --var ORAMA_SYMBOLS_PUBLIC_API_KEY:${{ vars.ORAMA_SYMBOLS_PUBLIC_API_KEY }} \
-            --var ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }} \
-            --var ORAMA_DOCS_PUBLIC_API_KEY:${{ vars.ORAMA_DOCS_PUBLIC_API_KEY }} \
-            --var ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }})
+            --var "ORAMA_PACKAGES_PUBLIC_API_KEY:$ORAMA_PKG_KEY" \
+            --var "ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }}" \
+            --var "ORAMA_SYMBOLS_PUBLIC_API_KEY:$ORAMA_SYM_KEY" \
+            --var "ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}" \
+            --var "ORAMA_DOCS_PUBLIC_API_KEY:$ORAMA_DOC_KEY" \
+            --var "ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }}")
           echo "$OUTPUT"
           VERSION_ID=$(echo "$OUTPUT" | grep -oE 'Worker Version ID:[[:space:]]+[a-f0-9-]+' | awk '{print $NF}')
           if [ -z "$VERSION_ID" ]; then
@@ -365,14 +376,21 @@ jobs:
       - name: Upload Frontend Worker version
         id: frontend_upload
         run: |
+          set -e
+          tfvar() {
+            awk -v key="$1" -F' *= *' '$1 == key { gsub(/^"|"$/, "", $2); print $2 }' "$2"
+          }
+          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key ../terraform/prod.tfvars)
+          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  ../terraform/prod.tfvars)
+          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     ../terraform/prod.tfvars)
           OUTPUT=$(deno run -A npm:wrangler@^4 versions upload \
             --name deno-registry3-prod-jsr-frontend \
-            --var ORAMA_PACKAGES_PUBLIC_API_KEY:${{ vars.ORAMA_PACKAGES_PUBLIC_API_KEY }} \
-            --var ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }} \
-            --var ORAMA_SYMBOLS_PUBLIC_API_KEY:${{ vars.ORAMA_SYMBOLS_PUBLIC_API_KEY }} \
-            --var ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }} \
-            --var ORAMA_DOCS_PUBLIC_API_KEY:${{ vars.ORAMA_DOCS_PUBLIC_API_KEY }} \
-            --var ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }})
+            --var "ORAMA_PACKAGES_PUBLIC_API_KEY:$ORAMA_PKG_KEY" \
+            --var "ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }}" \
+            --var "ORAMA_SYMBOLS_PUBLIC_API_KEY:$ORAMA_SYM_KEY" \
+            --var "ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}" \
+            --var "ORAMA_DOCS_PUBLIC_API_KEY:$ORAMA_DOC_KEY" \
+            --var "ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }}")
           echo "$OUTPUT"
           VERSION_ID=$(echo "$OUTPUT" | grep -oE 'Worker Version ID:[[:space:]]+[a-f0-9-]+' | awk '{print $NF}')
           if [ -z "$VERSION_ID" ]; then
