@@ -3,11 +3,11 @@
 // The frontend is bundled by `frontend/build.ts` (vite Fresh build + a
 // `deno bundle` of `frontend/server.entry.ts`) into:
 //   - frontend/_fresh/worker.js  — the script content
-//   - frontend/_fresh/assets/    — the static-asset tree served by the
-//                                  Workers Assets binding (merged from
-//                                  frontend/static, _fresh/{client,static},
-//                                  and frontend/docs/*.md under
-//                                  _jsr_docs/).
+//   - frontend/_fresh/client/    — the static-asset tree served by the
+//                                  Workers Assets binding (vite's client
+//                                  output, plus Fresh-generated CSS from
+//                                  _fresh/static/ and frontend/docs/*.md
+//                                  under _jsr_docs/).
 
 resource "cloudflare_workers_script" "jsr_frontend" {
   account_id  = var.cloudflare_account_id
@@ -29,7 +29,7 @@ resource "cloudflare_workers_script" "jsr_frontend" {
   }
 
   assets = {
-    directory = "${path.module}/../frontend/_fresh/assets"
+    directory = "${path.module}/../frontend/_fresh/client"
     config = {
       html_handling      = "none"
       not_found_handling = "none"

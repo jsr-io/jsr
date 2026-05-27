@@ -3,6 +3,8 @@ import { defineConfig, type Plugin } from "vite";
 import { fresh } from "@fresh/plugin-vite";
 import tailwindcss from "@tailwindcss/vite";
 import { CSS } from "@deno/gfm";
+import { copy, ensureDir, walk } from "jsr:@std/fs@^1";
+import { dirname, join, relative } from "jsr:@std/path@^1";
 
 const MARKER =
   "/*! During the build process, the @deno/gfm CSS file is injected here. */";
@@ -36,6 +38,69 @@ function gfmCss(): Plugin {
   };
 }
 
+// Mirror `frontend/docs/*.md` into the assets output so the docs route can
+// read them via the Workers ASSETS binding at runtime.
+function copyDocs(): Plugin {
+  return {
+    name: "jsr-copy-docs",
+    async closeBundle() {
+      const src = "docs";
+      const dest = "_fresh/client/_jsr_docs";
+      for await (const entry of walk(src, { exts: [".md"] })) {
+        const out = join(dest, relative(src, entry.path));
+        await ensureDir(dirname(out));
+        await copy(entry.path, out, { overwrite: true });
+      }
+    },
+  };
+}
+
+// After Fresh's SSR build writes `_fresh/server.js`, bundle `server.ts`
+// (the Cloudflare Worker entry that imports it) into a single-file ESM
+// worker at `_fresh/worker.js` — by invoking vite programmatically with
+// the worker-specific rollup options.
+function workerBundle(): Plugin {
+  let isBuild = false;
+  let done = false;
+  return {
+    name: "jsr-worker-bundle",
+    enforce: "post",
+    configResolved(config) {
+      isBuild = config.command === "build";
+    },
+    async closeBundle() {
+      if (!isBuild || done) return;
+      try {
+        await Deno.stat("_fresh/server.js");
+      } catch {
+        return; // Fresh's SSR hasn't written server.js yet
+      }
+      done = true;
+      const { build } = await import("vite");
+      await build({
+        configFile: false,
+        build: {
+          ssr: "./server.ts",
+          outDir: "_fresh",
+          emptyOutDir: false,
+          minify: false,
+          target: "esnext",
+          rollupOptions: {
+            // node: imports are provided by the runtime (Workers
+            // nodejs_compat or Deno's node compat) — keep external.
+            external: [/^node:/],
+            output: {
+              entryFileNames: "worker.js",
+              format: "es",
+              inlineDynamicImports: true,
+            },
+          },
+        },
+      });
+    },
+  };
+}
+
 export default defineConfig({
   server: {
     port: 8000,
@@ -45,5 +110,7 @@ export default defineConfig({
     gfmCss(),
     imagescriptUrl(),
     tailwindcss(),
+    copyDocs(),
+    workerBundle(),
   ],
 });
