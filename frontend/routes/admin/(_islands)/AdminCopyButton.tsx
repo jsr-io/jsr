@@ -12,7 +12,7 @@ interface CopyButtonProps {
 }
 
 export function AdminCopyButton(props: CopyButtonProps) {
-  const timer = useRef<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checked = useSignal(false);
 
   return (

@@ -11,7 +11,7 @@ interface CopyButtonProps {
 }
 
 export function CopyButton(props: CopyButtonProps) {
-  const timer = useRef<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copied = useSignal(false);
 
   const text = props.text;
