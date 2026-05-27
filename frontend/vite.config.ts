@@ -99,6 +99,14 @@ function workerBundle(): Plugin {
               entryFileNames: "worker.js",
               format: "es",
               inlineDynamicImports: true,
+              // apexcharts (pulled into Fresh's SSR bundle via the
+              // DownloadChart island) has a top-level
+              // `window.TreemapSquared = {}` write. Workers don't have a
+              // `window` global — point it at globalThis so the
+              // assignment is a no-op and module init succeeds. The
+              // chart-rendering code that reads `window.X` only runs in
+              // the browser, so the polyfill never has to do real work.
+              banner: "globalThis.window ??= globalThis;",
             },
           },
         },
