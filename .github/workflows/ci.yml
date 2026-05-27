@@ -277,11 +277,15 @@ jobs:
           tfvar() {
             awk -v key="$1" -F' *= *' '$1 == key { gsub(/^"|"$/, "", $2); print $2 }' "$2"
           }
-          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key ../terraform/staging.tfvars)
-          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  ../terraform/staging.tfvars)
-          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     ../terraform/staging.tfvars)
+          TFVARS=../terraform/staging.tfvars
+          DOMAIN=$(tfvar       domain_name                   "$TFVARS")
+          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key "$TFVARS")
+          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  "$TFVARS")
+          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     "$TFVARS")
           OUTPUT=$(deno run -A npm:wrangler@^4 versions upload \
             --name deno-registry3-staging-jsr-frontend \
+            --var "FRONTEND_ROOT:https://$DOMAIN" \
+            --var "API_ROOT:https://api.$DOMAIN" \
             --var "ORAMA_PACKAGES_PUBLIC_API_KEY:$ORAMA_PKG_KEY" \
             --var "ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }}" \
             --var "ORAMA_SYMBOLS_PUBLIC_API_KEY:$ORAMA_SYM_KEY" \
@@ -380,11 +384,15 @@ jobs:
           tfvar() {
             awk -v key="$1" -F' *= *' '$1 == key { gsub(/^"|"$/, "", $2); print $2 }' "$2"
           }
-          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key ../terraform/prod.tfvars)
-          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  ../terraform/prod.tfvars)
-          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     ../terraform/prod.tfvars)
+          TFVARS=../terraform/prod.tfvars
+          DOMAIN=$(tfvar       domain_name                   "$TFVARS")
+          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key "$TFVARS")
+          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  "$TFVARS")
+          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     "$TFVARS")
           OUTPUT=$(deno run -A npm:wrangler@^4 versions upload \
             --name deno-registry3-prod-jsr-frontend \
+            --var "FRONTEND_ROOT:https://$DOMAIN" \
+            --var "API_ROOT:https://api.$DOMAIN" \
             --var "ORAMA_PACKAGES_PUBLIC_API_KEY:$ORAMA_PKG_KEY" \
             --var "ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }}" \
             --var "ORAMA_SYMBOLS_PUBLIC_API_KEY:$ORAMA_SYM_KEY" \

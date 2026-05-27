@@ -27,13 +27,14 @@
       "head_sampling_rate": 0.01
     }
   },
+  // All per-env vars are passed by CI via `wrangler versions upload --var`
+  // (see .github/workflows/ci.yml). Public Orama keys + the domain come
+  // from terraform/{staging,prod}.tfvars (same source terraform reads);
+  // project IDs come from github actions `vars.*`.
   "vars": {
-    "FRONTEND_ROOT": "https://jsr.io",
-    "API_ROOT": "https://api.jsr.io",
+    "FRONTEND_ROOT": "",
+    "API_ROOT": "",
     "NO_COLOR": "true",
-    // Orama keys are public by design — they're shipped to the browser
-    // by routes/index.tsx, routes/packages.tsx, components/Header.tsx.
-    // CI overrides these per-environment via `wrangler deploy --var`.
     "ORAMA_PACKAGES_PUBLIC_API_KEY": "",
     "ORAMA_PACKAGES_PROJECT_ID": "",
     "ORAMA_SYMBOLS_PUBLIC_API_KEY": "",
