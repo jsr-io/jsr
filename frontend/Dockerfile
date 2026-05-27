@@ -4,17 +4,18 @@ WORKDIR /app
 
 COPY . .
 
-RUN deno task build
-RUN deno install
+# Swap in the Cloud-Run-safe stub for the /og route. The real og.ts
+# uses `workers-og`, whose static `.wasm` imports break Deno's
+# graph analysis at server startup. The LB routes `/og` to the
+# Cloudflare Worker frontend, so this code path never runs in
+# production — the stub just keeps Fresh's route discovery happy.
+RUN cp routes/package/og.cloud-run-stub.ts routes/package/og.ts
 
-# Eager-analyze and cache the server graph so the runtime container can
-# run with `--cached-only`. workers-og's `.wasm` static imports are
-# fine for Deno at runtime (it imports them as WebAssembly modules),
-# but Deno's static-graph analyzer treats their internal wasm imports
-# as missing JS deps and aborts — `|| true` lets the cache populate
-# everything it could resolve and skips the unreachable wasm graph.
-RUN deno install --allow-import -e _fresh/server.js || true
+RUN deno task build
+RUN rm -rf $DENO_DIR
+RUN deno install
+RUN deno install --allow-import -e _fresh/server.js
 
 ENV PORT=8000
 
-CMD deno serve -A --port=$PORT _fresh/server.js
+CMD deno serve -A --cached-only --port=$PORT _fresh/server.js
