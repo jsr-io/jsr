@@ -12,11 +12,6 @@ variable "api_image_id" {
   type        = string
 }
 
-variable "frontend_image_id" {
-  description = "the Docker image ID for the frontend"
-  type        = string
-}
-
 variable "github_client_id" {
   type = string
 }

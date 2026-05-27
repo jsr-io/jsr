@@ -8,6 +8,7 @@ import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
 import { SignInMenu } from "../islands/SignInMenu.tsx";
 import TbLogin2 from "tb-icons/TbLogin2";
+import { env } from "../utils/env.ts";
 
 export function Header({
   user,
@@ -23,11 +24,11 @@ export function Header({
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
-  const oramaPackageProjectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
+  const oramaPackageApiKey = env("ORAMA_PACKAGES_PUBLIC_API_KEY");
+  const oramaPackageProjectId = env("ORAMA_PACKAGES_PROJECT_ID");
 
-  const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
-  const oramaDocsProjectId = Deno.env.get("ORAMA_DOCS_PROJECT_ID");
+  const oramaDocsApiKey = env("ORAMA_DOCS_PUBLIC_API_KEY");
+  const oramaDocsProjectId = env("ORAMA_DOCS_PROJECT_ID");
 
   const oramaApiKey = searchKind === "packages"
     ? oramaPackageApiKey
@@ -36,7 +37,7 @@ export function Header({
     ? oramaPackageProjectId
     : oramaDocsProjectId;
 
-  const prodProxy = !!Deno.env.get("PROD_PROXY");
+  const prodProxy = !!env("PROD_PROXY");
 
   const isHomepage = url.pathname === "/";
 

@@ -3,7 +3,8 @@
   "tasks": {
     "check": "deno fmt --check && deno lint && deno check",
     "dev": "vite",
-    "build": "vite build",
+    "build": "deno run -A build.ts",
+    "build:fresh": "vite build",
     "test": "deno test",
     "start": "deno serve -A _fresh/server.js",
     "update": "deno run -A -r jsr:@fresh/update ."
@@ -77,5 +78,9 @@
       "template"
     ]
   },
-  "exclude": ["_fresh/", "**/_fresh/*"]
+  "exclude": [
+    "_fresh/",
+    "**/_fresh/*",
+    "node_modules/"
+  ]
 }

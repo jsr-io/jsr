@@ -2,14 +2,14 @@
 import { PageProps } from "fresh";
 import { asset } from "fresh/runtime";
 import { State } from "../util.ts";
-
-const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
+import { env } from "../utils/env.ts";
 
 export default async function App({
   Component,
   state,
   url,
 }: PageProps<undefined, State>) {
+  const FRONTEND_ROOT = env("FRONTEND_ROOT") ?? "http://jsr.test";
   const user = await state.userPromise;
   if (user instanceof Response) return user;
   Object.defineProperty(state, "user", { value: user });

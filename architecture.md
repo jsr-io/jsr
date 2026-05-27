@@ -9,7 +9,8 @@ codebase and users curious about how the system works.
 jsr.io is composed of four main components:
 
 1. **API** — a Rust backend that handles all business logic
-2. **Frontend** — a Fresh (Deno + Preact) server-rendered web application
+2. **Frontend** — a Fresh (Deno + Preact) server-rendered web application,
+   bundled and deployed as a Cloudflare Worker
 3. **Load Balancer** — a Cloudflare Worker that routes requests
 4. **Database** — PostgreSQL for metadata storage
 
@@ -21,8 +22,8 @@ used for serving registry requests — it only stores metadata and user data.
 graph LR
     Worker["Cloudflare Worker<br/>(Load Balancer)"]
 
-    Worker --> Frontend["Frontend<br/>(Fresh / Preact)"]
-    Worker --> API["API (Rust)"]
+    Worker --> Frontend["Frontend Worker<br/>(Fresh / Preact)"]
+    Worker --> API["API (Rust, Cloud Run)"]
     Worker --> R2["Cloudflare R2<br/>(modules, docs, npm)"]
 
     Frontend --> API
@@ -41,13 +42,13 @@ graph LR
 The Cloudflare Worker in `lb/` is the entry point for all traffic. It inspects
 the hostname and path to route each request:
 
-| Request                                                      | Routed to          |
-| ------------------------------------------------------------ | ------------------ |
-| `api.jsr.io/*`                                               | Cloud Run API      |
-| `jsr.io/api/*`                                               | Cloud Run API      |
-| `npm.jsr.io/*`                                               | R2 npm bucket      |
-| `jsr.io/@scope/pkg/meta.json`, `jsr.io/@scope/pkg/version/*` | R2 modules bucket  |
-| Everything else on `jsr.io`                                  | Cloud Run Frontend |
+| Request                                                      | Routed to         |
+| ------------------------------------------------------------ | ----------------- |
+| `api.jsr.io/*`                                               | Cloud Run API     |
+| `jsr.io/api/*`                                               | Cloud Run API     |
+| `npm.jsr.io/*`                                               | R2 npm bucket     |
+| `jsr.io/@scope/pkg/meta.json`, `jsr.io/@scope/pkg/version/*` | R2 modules bucket |
+| Everything else on `jsr.io`                                  | Frontend Worker   |
 
 The worker also handles CORS, security headers (including a strict Content
 Security Policy for module files), bot detection for SEO, and download analytics
@@ -128,6 +129,22 @@ Tailwind CSS. It uses Fresh's
 server-rendered by default, and only interactive components ("islands") ship
 JavaScript to the browser.
 
+In production the frontend ships as its own Cloudflare Worker:
+
+- `frontend/build.ts` runs the Fresh vite build, mirrors the merged static
+  tree (`frontend/static/`, `_fresh/{client,static}/`, and `frontend/docs/*.md`
+  under `_jsr_docs/`) into `_fresh/assets/`, then bundles
+  `frontend/server.entry.ts` into `_fresh/worker.js` via `deno bundle`.
+- `frontend/shim/deno.ts` polyfills the subset of `Deno.*` (env, file
+  reads, inspect, stat/open) needed by the Fresh server at runtime, with
+  file reads forwarded to the Workers ASSETS binding.
+- Static files are served by the Workers Assets binding (asset-first
+  routing). Dynamic routes fall through to the worker.
+
+Environment variables (`API_ROOT`, `FRONTEND_ROOT`, the `ORAMA_*` keys, etc.)
+are configured as `plain_text` bindings on the worker by Terraform; no
+`wrangler` interaction is needed.
+
 ### Directory Structure
 
 ```
@@ -177,7 +194,8 @@ A Cloudflare Worker that acts as the edge router. See
 Key files:
 
 - `main.ts` — request routing logic
-- `proxy.ts` — proxy to Cloud Run and R2 backends
+- `proxy.ts` — proxy to backends (Cloud Run for API, service binding for
+  the frontend Worker) and R2
 - `headers.ts` — security headers, CORS, CSP
 - `bots.ts` — bot/crawler detection
 - `analytics.ts` — download tracking
@@ -266,7 +284,7 @@ Infrastructure is managed with Terraform across two configurations:
 ### Production Deployment
 
 - **API**: Google Cloud Run, `us-central1`
-- **Frontend**: Google Cloud Run, `us-central1`
+- **Frontend**: Cloudflare Worker (Fresh build, Workers Assets binding)
 - **Database**: Google Cloud SQL (PostgreSQL, high availability)
 - **Job queues**: Google Cloud Tasks (publishing, npm tarball builds)
 - **Analytics**: BigQuery (download metrics)

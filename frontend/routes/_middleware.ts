@@ -4,15 +4,16 @@ import { deleteCookie, getCookies } from "@std/http/cookie";
 import { State } from "../util.ts";
 import { API, APIError, path } from "../utils/api.ts";
 import { FullUser } from "../utils/api_types.ts";
-import { Tracer } from "../utils/tracing.ts";
+import { getTracer } from "../utils/tracing.ts";
+import { env } from "../utils/env.ts";
 import { define } from "../util.ts";
 
-export const API_ROOT = Deno.env.get("API_ROOT") ?? "http://api.jsr.test";
-
-export const tracer = new Tracer();
+export function apiRoot(): string {
+  return env("API_ROOT") ?? "http://api.jsr.test";
+}
 
 const tracing = define.middleware(async (ctx) => {
-  ctx.state.span = tracer.spanForRequest(ctx.req);
+  ctx.state.span = getTracer().spanForRequest(ctx.req);
   const attributes: Record<string, string | bigint> = {
     "http.url": ctx.url.href,
     "http.method": ctx.req.method,
@@ -38,7 +39,7 @@ const auth = define.middleware(async (ctx) => {
   const { token, sudo } = getCookies(ctx.req.headers);
   if (interactive) {
     ctx.state.sudo = sudo === "1";
-    ctx.state.api = new API(API_ROOT, {
+    ctx.state.api = new API(apiRoot(), {
       token,
       sudo: ctx.state.sudo,
       span: ctx.state.span,
@@ -50,7 +51,7 @@ const auth = define.middleware(async (ctx) => {
           return userResp.data;
         } else if (!userResp.ok && userResp.code === "invalidBearerToken") {
           // The token is invalid, so delete it.
-          ctx.state.api = new API(API_ROOT, {
+          ctx.state.api = new API(apiRoot(), {
             span: ctx.state.span,
             token: null,
           });

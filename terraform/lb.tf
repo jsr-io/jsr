@@ -50,13 +50,16 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name = "REGISTRY_API_URL"
       text = google_cloud_run_v2_service.registry_api.uri
       }, {
-      type = "secret_text"
-      name = "REGISTRY_FRONTEND_URL"
-      text = google_cloud_run_v2_service.registry_frontend["us-central1"].uri
+      # Service binding to the frontend Worker. This avoids an HTTP hop —
+      # traffic stays within Cloudflare and no public URL is needed.
+      type    = "service"
+      name    = "FRONTEND"
+      service = cloudflare_workers_script.jsr_frontend.script_name
       }, {
       # Per-IP rate limit applied only on the frontend proxy path (see
       # handleFrontendRoute in lb/main.ts). Keeps scrapers from generating
-      # cache-miss load on Cloud Run without touching modules, API, or npm.
+      # cache-miss load on the frontend Worker without touching modules,
+      # API, or npm.
       # namespace_id is a per-account identifier for this rate-limit binding;
       # any unused value works (no Cloudflare-reserved meaning for "1001").
       type         = "ratelimit"
@@ -68,6 +71,8 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }
     }
   ]
+
+  depends_on = [cloudflare_workers_script.jsr_frontend]
 
   lifecycle {
     create_before_destroy = true
