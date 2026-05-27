@@ -7,11 +7,9 @@ import type {
 import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
-import {
-  TbAlertTriangleFilled,
-  TbExternalLink,
-  TbRosetteDiscountCheck,
-} from "tb-icons";
+import TbAlertTriangleFilled from "tb-icons/TbAlertTriangleFilled";
+import TbExternalLink from "tb-icons/TbExternalLink";
+import TbRosetteDiscountCheck from "tb-icons/TbRosetteDiscountCheck";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";

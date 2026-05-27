@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { HttpError, RouteConfig } from "fresh";
-import { Image } from "$imagescript";
+import { Image } from "@matmen/imagescript";
 import twas from "twas";
 
 import { packageDataWithVersion } from "../../utils/data.ts";

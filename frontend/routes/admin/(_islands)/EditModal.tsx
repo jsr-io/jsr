@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef } from "preact/hooks";
-import { TbLoader2 } from "tb-icons";
+import TbLoader2 from "tb-icons/TbLoader2";
 import { api, APIPath } from "../../../utils/api.ts";
 import { useSignal } from "@preact/signals";
 

@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef } from "preact/hooks";
 import { ApiTicket, NewTicket, TicketKind, User } from "../utils/api_types.ts";
 import type { ComponentChildren } from "preact";
-import { TbLoader2 } from "tb-icons";
+import TbLoader2 from "tb-icons/TbLoader2";
 import { api, path } from "../utils/api.ts";
 import { useSignal } from "@preact/signals";
 

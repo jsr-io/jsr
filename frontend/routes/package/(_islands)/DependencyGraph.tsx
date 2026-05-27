@@ -3,15 +3,13 @@ import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { instance, type Viz } from "@viz-js/viz";
-import {
-  TbChevronDown,
-  TbChevronLeft,
-  TbChevronRight,
-  TbChevronUp,
-  TbMinus,
-  TbPlus,
-  TbRefresh,
-} from "tb-icons";
+import TbChevronDown from "tb-icons/TbChevronDown";
+import TbChevronLeft from "tb-icons/TbChevronLeft";
+import TbChevronRight from "tb-icons/TbChevronRight";
+import TbChevronUp from "tb-icons/TbChevronUp";
+import TbMinus from "tb-icons/TbMinus";
+import TbPlus from "tb-icons/TbPlus";
+import TbRefresh from "tb-icons/TbRefresh";
 
 import type {
   DependencyGraphItem,

@@ -6,7 +6,8 @@ import { assertOk, path } from "../../utils/api.ts";
 import type { ApiTicket, List } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import twas from "twas";
-import { TbCheck, TbClock } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 
 export default define.page<typeof handler>(function Tickets({
   data,

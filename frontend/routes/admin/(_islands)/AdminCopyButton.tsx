@@ -2,7 +2,8 @@
 import { useRef } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { useSignal } from "@preact/signals";
-import { TbCheck, TbCopy } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbCopy from "tb-icons/TbCopy";
 
 interface CopyButtonProps {
   value: string;

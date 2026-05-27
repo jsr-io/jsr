@@ -7,6 +7,7 @@
     "jsr:@deno/graph@0.100": "0.100.1",
     "jsr:@deno/graph@0.86": "0.86.9",
     "jsr:@denosaurs/emoji@0.3": "0.3.1",
+    "jsr:@matmen/imagescript@^1.3.1": "1.3.1",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/async@^1.0.8": "1.0.9",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
@@ -83,6 +84,9 @@
     },
     "@denosaurs/emoji@0.3.1": {
       "integrity": "b0aed5f55dec99e83da7c9637fe0a36d1d6252b7c99deaaa3fc5dea3fcf3da8b"
+    },
+    "@matmen/imagescript@1.3.1": {
+      "integrity": "8b3d4fc6a4597259ede419497c7dce9cc523bfdc0fa25f95a33dfab2135cc59b"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",

@@ -51,8 +51,6 @@ export default async function App({
           type="font/woff2"
           crossOrigin="anonymous"
         />
-        <link rel="stylesheet" href={asset("/styles.css")} />
-        <link rel="stylesheet" href={asset("/gfm.css")} />
         <link
           rel="icon"
           type="image/svg+xml"
