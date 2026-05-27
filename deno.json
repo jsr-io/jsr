@@ -24,10 +24,10 @@
     "tf:infra:plan": "cd terraform_infra && terraform plan -var-file=infra.tfvars -out=infra.tfplan -input=false",
     "tf:infra:apply": "cd terraform_infra && terraform apply -input=false infra.tfplan",
     "tf:staging:init": "gcloud config set project deno-registry3-staging && cd terraform && terraform init -backend-config bucket=deno-registry3-staging-terraform",
-    "tf:staging:plan": "cd terraform && terraform plan -var-file=staging.tfvars -var-file=staging.secret.tfvars -out=staging.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" ",
+    "tf:staging:plan": "cd terraform && terraform plan -var-file=staging.tfvars -var-file=staging.secret.tfvars -out=staging.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" -var \"frontend_image_id=$FRONTEND_IMAGE_ID\"",
     "tf:staging:apply": "cd terraform && terraform apply -input=false staging.tfplan",
     "tf:prod:init": "gcloud config set project deno-registry3-prod && cd terraform && terraform init -backend-config bucket=deno-registry3-prod-terraform",
-    "tf:prod:plan": "cd terraform && terraform plan -var-file=prod.tfvars -var-file=prod.secret.tfvars -out=prod.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" ",
+    "tf:prod:plan": "cd terraform && terraform plan -var-file=prod.tfvars -var-file=prod.secret.tfvars -out=prod.tfplan -input=false -var \"api_image_id=$API_IMAGE_ID\" -var \"frontend_image_id=$FRONTEND_IMAGE_ID\"",
     "tf:prod:apply": "cd terraform && terraform apply -input=false prod.tfplan",
 
     "e2e:staging": "cd e2e && JSR_URL=https://deno-registry-staging.net/ JSR_API_URL=https://api.deno-registry-staging.net/ deno test -A",

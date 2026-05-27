@@ -136,8 +136,10 @@ jobs:
       id-token: write
     env:
       API_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/api
+      FRONTEND_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/frontend
     outputs:
       api_image_id: ${{ steps.api_image_id.outputs.image_id }}
+      frontend_image_id: ${{ steps.frontend_image_id.outputs.image_id }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
@@ -163,7 +165,8 @@ jobs:
         if: github.event_name == 'push'
         id: check_existing
         run: |
-          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
+          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1 &&
+             docker manifest inspect ${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
@@ -188,6 +191,20 @@ jobs:
           cache-from: type=gha,scope=docker-api
           cache-to: type=gha,mode=max,scope=docker-api
 
+      # The legacy Cloud Run frontend lives alongside the new Cloudflare
+      # Worker frontend while traffic is cut over; tear this and the
+      # corresponding terraform resources down in a follow-up.
+      - name: Build and push frontend docker image
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v5
+        id: frontend_push
+        with:
+          context: frontend
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }}
+          cache-from: type=gha,scope=docker-frontend
+          cache-to: type=gha,mode=max,scope=docker-frontend
+
       - name: Set api_image_id output
         id: api_image_id
         run: |
@@ -195,6 +212,15 @@ jobs:
             echo "image_id=${{ env.API_IMAGE_ID_BASE }}@${{ steps.api_push.outputs.imageid }}" >> $GITHUB_OUTPUT
           else
             echo "image_id=${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set frontend_image_id output
+        id: frontend_image_id
+        run: |
+          if [ -n "${{ steps.frontend_push.outputs.imageid }}" ]; then
+            echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}@${{ steps.frontend_push.outputs.imageid }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_id=${{ env.FRONTEND_IMAGE_ID_BASE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
   staging:
@@ -243,6 +269,7 @@ jobs:
           deno task tf:staging:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
@@ -314,6 +341,7 @@ jobs:
           deno task tf:prod:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
