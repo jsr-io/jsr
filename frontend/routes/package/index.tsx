@@ -6,7 +6,8 @@ import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
-import { env } from "../../utils/env.ts";
+
+const FRONTEND_ROOT = process.env.FRONTEND_ROOT ?? "http://jsr.test";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },
@@ -55,7 +56,6 @@ export default define.page<typeof handler>(function PackagePage(
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const FRONTEND_ROOT = env("FRONTEND_ROOT") ?? "http://jsr.test";
     const res = await packageDataWithDocs(
       ctx.state,
       ctx.params.scope,

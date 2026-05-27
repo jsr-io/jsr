@@ -12,7 +12,6 @@ import { ComponentChildren } from "preact";
 import { HomepageHero } from "../components/HomepageHero.tsx";
 import { Logo } from "../components/Logo.tsx";
 import { NewsCard } from "../components/NewsCard.tsx";
-import { env } from "../utils/env.ts";
 
 interface Post {
   title: string;
@@ -25,8 +24,8 @@ export default define.page<typeof handler>(function Home({ data }) {
   return (
     <div class="flex flex-col">
       <HomepageHero
-        projectId={env("ORAMA_PACKAGES_PROJECT_ID")}
-        apiKey={env("ORAMA_PACKAGES_PUBLIC_API_KEY")}
+        projectId={process.env.ORAMA_PACKAGES_PROJECT_ID}
+        apiKey={process.env.ORAMA_PACKAGES_PUBLIC_API_KEY}
       />
       {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">

@@ -8,6 +8,7 @@ import { packageDataWithVersion } from "../../utils/data.ts";
 import { define } from "../../util.ts";
 import { getScoreTextColorClass } from "../../utils/score_ring_color.ts";
 import { RUNTIME_COMPAT_KEYS } from "../../components/RuntimeCompatIndicator.tsx";
+import { readAsset, readAssetText } from "../../utils/assets.ts";
 
 const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
   "score-text-green": Image.rgbToColor(34, 197, 94),
@@ -18,7 +19,7 @@ const SCORE_CLASSNAME_TO_COLOR_MAP: Record<string, number> = {
 let jsrLogo: Image | null = null;
 async function getJsrLogo(): Promise<Image> {
   if (!jsrLogo) {
-    jsrLogo = await Image.decode(await Deno.readFile("./static/logo.png"));
+    jsrLogo = await Image.decode(await readAsset("/logo.png"));
   }
   return jsrLogo;
 }
@@ -45,9 +46,7 @@ const DESCRIPTION_MAX_BREAK_POINT = 60;
 export const handler = define.handlers({
   async GET(ctx) {
     if (!dmmonoFont) {
-      dmmonoFont = await Deno.readFile(
-        "./static/fonts/DMMono/DMMono-Medium.ttf",
-      );
+      dmmonoFont = await readAsset("/fonts/DMMono/DMMono-Medium.ttf");
     }
     const pkgData = await packageDataWithVersion(
       ctx.state,
@@ -332,7 +331,7 @@ export const handler = define.handlers({
           // Not supported
           continue;
         }
-        const iconData = await Deno.readTextFile(`./static${icon}`);
+        const iconData = await readAssetText(icon);
         const iconImage = Image.renderSVG(iconData, 50 / height);
 
         const supportedIcon = compat

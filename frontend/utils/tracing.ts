@@ -1,10 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { env } from "./env.ts";
 
 // Cloud Trace requires the GCE metadata service, which is only reachable
 // from Google Cloud workloads. On Cloudflare Workers we rely on the OTLP
 // exporter (set `OTLP_ENDPOINT`) or — by default — no exporter at all, in
 // which case spans are silently dropped.
+
+const OTLP_ENDPOINT = process.env.OTLP_ENDPOINT;
 
 const FLUSH_INTERVAL = 1000;
 
@@ -39,7 +40,7 @@ export class Tracer {
   #otlpEndpoint: string | null;
 
   constructor() {
-    this.#otlpEndpoint = env("OTLP_ENDPOINT") ?? null;
+    this.#otlpEndpoint = OTLP_ENDPOINT ?? null;
   }
 
   spanForRequest(req: Request) {
@@ -159,12 +160,6 @@ export class Tracer {
     }
     this.flush();
   }
-}
-
-let _tracer: Tracer | null = null;
-export function getTracer(): Tracer {
-  if (_tracer === null) _tracer = new Tracer();
-  return _tracer;
 }
 
 function parseTraceParent(

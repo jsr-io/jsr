@@ -2,46 +2,55 @@
 
 // Cloudflare Workers entrypoint for the JSR frontend.
 //
-// The Fresh build emits `_fresh/server.js`, which expects `Deno.*` APIs at
-// import time. We install a minimal Deno shim first, stash the worker env
-// on globalThis so lazy `env(...)` reads find it, then hand off to Fresh.
+// Fresh's bundled server defensively references `Deno.stat`, `Deno.open`,
+// and `Deno.readTextFileSync`. They only fire from Fresh's
+// `ProdBuildCache.readFile` (when its `staticFiles` Map has an entry) and
+// from its dev-only `getCodeFrame` — Workers Assets serves the matching
+// paths upstream before the worker runs, so in practice these never
+// execute. But the bundle still needs `Deno` to be a defined identifier;
+// we install a tiny stub that throws `NotFound` so those defensive paths
+// degrade to "no static file" if they ever do fire.
 
-import "./shim/deno.ts";
+const g = globalThis as {
+  Deno?: unknown;
+  __JSR_FRONTEND_ASSETS?: unknown;
+};
+
+if (typeof g.Deno === "undefined") {
+  const notFound = () =>
+    Object.assign(new Error("file system unavailable in Workers"), {
+      name: "NotFound",
+    });
+  g.Deno = {
+    stat: () => {
+      throw notFound();
+    },
+    open: () => {
+      throw notFound();
+    },
+    readTextFileSync: () => {
+      throw notFound();
+    },
+    build: { os: "linux", arch: "x86_64" },
+  };
+}
+
 import server from "./_fresh/server.js";
 
 export interface FrontendEnv {
-  FRONTEND_ROOT?: string;
-  API_ROOT?: string;
-  NO_COLOR?: string;
-  OTLP_ENDPOINT?: string;
-
-  ORAMA_PACKAGES_PUBLIC_API_KEY?: string;
-  ORAMA_PACKAGES_PROJECT_ID?: string;
-  ORAMA_SYMBOLS_PUBLIC_API_KEY?: string;
-  ORAMA_SYMBOLS_PROJECT_ID?: string;
-  ORAMA_DOCS_PUBLIC_API_KEY?: string;
-  ORAMA_DOCS_PROJECT_ID?: string;
-
-  PROD_PROXY?: string;
-
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
 }
-
-// deno-lint-ignore no-explicit-any
-const g = globalThis as any;
 
 export default {
   fetch(
     request: Request,
     env: FrontendEnv,
-    ctx: {
+    _ctx: {
       waitUntil(p: Promise<unknown>): void;
       passThroughOnException(): void;
     },
   ): Response | Promise<Response> {
-    g.__JSR_FRONTEND_ENV = env as unknown as Record<string, string | undefined>;
     g.__JSR_FRONTEND_ASSETS = env.ASSETS;
-    g.__JSR_WORKER_CTX = ctx;
     // deno-lint-ignore no-explicit-any
     return (server as any).fetch(request);
   },

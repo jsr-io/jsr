@@ -8,7 +8,12 @@ import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
 import { SignInMenu } from "../islands/SignInMenu.tsx";
 import TbLogin2 from "tb-icons/TbLogin2";
-import { env } from "../utils/env.ts";
+
+const oramaPackageApiKey = process.env.ORAMA_PACKAGES_PUBLIC_API_KEY;
+const oramaPackageProjectId = process.env.ORAMA_PACKAGES_PROJECT_ID;
+const oramaDocsApiKey = process.env.ORAMA_DOCS_PUBLIC_API_KEY;
+const oramaDocsProjectId = process.env.ORAMA_DOCS_PROJECT_ID;
+const prodProxy = !!process.env.PROD_PROXY;
 
 export function Header({
   user,
@@ -24,20 +29,12 @@ export function Header({
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaPackageApiKey = env("ORAMA_PACKAGES_PUBLIC_API_KEY");
-  const oramaPackageProjectId = env("ORAMA_PACKAGES_PROJECT_ID");
-
-  const oramaDocsApiKey = env("ORAMA_DOCS_PUBLIC_API_KEY");
-  const oramaDocsProjectId = env("ORAMA_DOCS_PROJECT_ID");
-
   const oramaApiKey = searchKind === "packages"
     ? oramaPackageApiKey
     : oramaDocsApiKey;
   const oramaProjectId = searchKind === "packages"
     ? oramaPackageProjectId
     : oramaDocsProjectId;
-
-  const prodProxy = !!env("PROD_PROXY");
 
   const isHomepage = url.pathname === "/";
 

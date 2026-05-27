@@ -7,6 +7,7 @@ import { extract } from "@std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
 import TbBrandGithub from "tb-icons/TbBrandGithub";
+import { readAssetText } from "../../utils/assets.ts";
 
 const groups = new Map<string, { id: string; title: string }[]>();
 for (const group of groupsNames) {
@@ -84,8 +85,7 @@ export const handler = define.handlers({
       throw new HttpError(404, "This docs page was not found.");
     }
 
-    const path = new URL(`../../docs/${id}.md`, import.meta.url);
-    const markdown = await Deno.readTextFile(path);
+    const markdown = await readAssetText(`/_jsr_docs/${id}.md`);
 
     const { body, attrs } = extract<{ title: string; description: string }>(
       markdown,

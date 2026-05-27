@@ -6,7 +6,6 @@ import { assertOk, path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { processFilter } from "../islands/GlobalSearch.tsx";
-import { env } from "../utils/env.ts";
 
 export default define.page<typeof handler>(function PackageListPage({
   data,
@@ -48,10 +47,11 @@ export default define.page<typeof handler>(function PackageListPage({
   );
 });
 
+const projectId = process.env.ORAMA_PACKAGES_PROJECT_ID;
+const apiKey = process.env.ORAMA_PACKAGES_PUBLIC_API_KEY;
+
 export const handler = define.handlers({
   async GET(ctx) {
-    const projectId = env("ORAMA_PACKAGES_PROJECT_ID");
-    const apiKey = env("ORAMA_PACKAGES_PUBLIC_API_KEY");
     const search = ctx.url.searchParams.get("search") || "";
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);

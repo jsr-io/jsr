@@ -2,14 +2,14 @@
 import { PageProps } from "fresh";
 import { asset } from "fresh/runtime";
 import { State } from "../util.ts";
-import { env } from "../utils/env.ts";
+
+const FRONTEND_ROOT = process.env.FRONTEND_ROOT ?? "http://jsr.test";
 
 export default async function App({
   Component,
   state,
   url,
 }: PageProps<undefined, State>) {
-  const FRONTEND_ROOT = env("FRONTEND_ROOT") ?? "http://jsr.test";
   const user = await state.userPromise;
   if (user instanceof Response) return user;
   Object.defineProperty(state, "user", { value: user });
