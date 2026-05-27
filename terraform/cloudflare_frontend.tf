@@ -3,53 +3,28 @@
 // The frontend Cloudflare Worker has WASM dependencies (workers-og →
 // satori + resvg-wasm) that need multi-module upload. The
 // `cloudflare_workers_script` resource in terraform-provider-cloudflare
-// (v5.19.1, the pinned version) only supports single-content uploads,
-// so we shell out to `wrangler deploy` from a `null_resource`.
+// (v5.19.1) only supports single-content uploads, so the *upload* of
+// each new immutable version is done by CI via
+// `wrangler versions upload` (see .github/workflows/ci.yml).
 //
-// Folding wrangler into the terraform graph (rather than running it as
-// a separate CI step) means:
-//   * one `terraform apply` runs both, so partial-state windows are
-//     bounded by terraform's normal resource ordering;
-//   * the LB worker's `service` binding to the frontend can declare a
-//     `depends_on` on this resource — wrangler runs before any
-//     resource that references the frontend by name;
-//   * the trigger hash on the built bundle skips the deploy when
-//     nothing changed.
+// What terraform owns here is the *promotion*: the worker's deployment
+// resource pins 100% of traffic to a specific version id, passed in
+// via `var.frontend_version_id`. Splitting upload from promotion means:
+//
+//   * the new version is already live on Cloudflare's edge before
+//     terraform touches anything — if `terraform apply` fails at this
+//     resource or any downstream resource, the old version keeps
+//     serving traffic. No partial state where the worker is half-
+//     deployed.
+//   * rolling back is just `terraform apply` with the previous version
+//     id; the immutable artifact is still on Cloudflare.
 
-// Hashes of the inputs wrangler bundles. If any of these change, the
-// `null_resource` re-runs `wrangler deploy`. Wrangler is idempotent for
-// matching content, so an over-trigger is a no-op; an under-trigger
-// would silently ship stale code, so prefer the broader hash.
-data "archive_file" "frontend_bundle_hash" {
-  type        = "zip"
-  output_path = "${path.module}/.terraform-cache/frontend-bundle.zip"
-  source_dir  = "${path.module}/../frontend/_fresh"
-}
-
-resource "null_resource" "jsr_frontend_deploy" {
-  triggers = {
-    bundle_sha   = data.archive_file.frontend_bundle_hash.output_sha256
-    wrangler_sha = filesha256("${path.module}/../frontend/wrangler.jsonc")
-    server_ts    = filesha256("${path.module}/../frontend/server.ts")
-  }
-
-  provisioner "local-exec" {
-    working_dir = "${path.module}/../frontend"
-    command     = <<-EOT
-      deno run -A npm:wrangler@^4 deploy \
-        --name ${var.gcp_project}-jsr-frontend \
-        --var ORAMA_PACKAGES_PUBLIC_API_KEY:${var.orama_packages_public_api_key} \
-        --var ORAMA_PACKAGES_PROJECT_ID:${var.orama_packages_project_id} \
-        --var ORAMA_SYMBOLS_PUBLIC_API_KEY:${var.orama_symbols_public_api_key} \
-        --var ORAMA_SYMBOLS_PROJECT_ID:${var.orama_symbols_project_id} \
-        --var ORAMA_DOCS_PUBLIC_API_KEY:${var.orama_docs_public_api_key} \
-        --var ORAMA_DOCS_PROJECT_ID:${var.orama_docs_project_id} \
-        --var FRONTEND_ROOT:https://${var.domain_name} \
-        --var API_ROOT:https://${local.api_domain}
-    EOT
-    environment = {
-      CLOUDFLARE_API_TOKEN  = var.cloudflare_api_token
-      CLOUDFLARE_ACCOUNT_ID = var.cloudflare_account_id
-    }
-  }
+resource "cloudflare_workers_deployment" "jsr_frontend" {
+  account_id  = var.cloudflare_account_id
+  script_name = "${var.gcp_project}-jsr-frontend"
+  strategy    = "percentage"
+  versions = [{
+    percentage = 100
+    version_id = var.frontend_version_id
+  }]
 }
