@@ -51,11 +51,12 @@ resource "cloudflare_workers_script" "jsr_lb" {
       text = google_cloud_run_v2_service.registry_api.uri
       }, {
       # Service binding to the frontend Worker. The frontend worker is
-      # deployed by wrangler (see `frontend/wrangler.jsonc` + CI) because
-      # it needs multi-module upload for its WASM dependencies, which the
-      # terraform `cloudflare_workers_script` resource doesn't support.
-      # We bind by name; the worker must already exist before this script
-      # is applied (CI runs `wrangler deploy` before `terraform apply`).
+      # deployed by wrangler (see `cloudflare_frontend.tf` for the
+      # `null_resource` that drives it) because it needs multi-module
+      # upload for its WASM dependencies, which the terraform
+      # `cloudflare_workers_script` resource doesn't support. The
+      # `depends_on` below ensures wrangler has run before this binding
+      # is created.
       type    = "service"
       name    = "FRONTEND"
       service = "${var.gcp_project}-jsr-frontend"
@@ -75,6 +76,8 @@ resource "cloudflare_workers_script" "jsr_lb" {
       }
     }
   ]
+
+  depends_on = [null_resource.jsr_frontend_deploy]
 
   lifecycle {
     create_before_destroy = true
