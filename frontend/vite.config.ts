@@ -59,12 +59,11 @@ function copyDocs(): Plugin {
 // `_fresh/server.js`) into a single ESM file at `_fresh/worker.js`. Runs
 // after Fresh's SSR environment writes `_fresh/server.js`.
 //
-// Why not `@cloudflare/vite-plugin`? Its worker environment tries to
-// resolve `_fresh/server.js` in parallel with Fresh's SSR build, so the
-// file doesn't exist yet at transform time. Vite's `builder.buildApp`
-// sequencing is overridden internally by the CF plugin, so user config
-// can't fix the order. Building the worker via a programmatic vite
-// invocation from `closeBundle` sidesteps the race entirely.
+// We use esbuild rather than rollup here: when rollup re-bundles Fresh's
+// pre-chunked SSR output, it re-orders the route modules ahead of the
+// util module that exports `define`, producing a TDZ error at startup
+// (`Cannot access 'define$1' before initialization`). esbuild wraps each
+// module in a lazy `__esm` initializer so the order doesn't matter.
 function workerBundle(): Plugin {
   let isBuild = false;
   let done = false;
@@ -82,35 +81,28 @@ function workerBundle(): Plugin {
         return; // Fresh's SSR env hasn't written server.js yet
       }
       done = true;
-      const { build } = await import("vite");
-      await build({
-        configFile: false,
-        build: {
-          ssr: "./server.ts",
-          outDir: "_fresh",
-          emptyOutDir: false,
-          minify: false,
-          target: "esnext",
-          rollupOptions: {
-            // node: imports are provided by the runtime (Workers
-            // nodejs_compat or Deno's node compat) — keep external.
-            external: [/^node:/],
-            output: {
-              entryFileNames: "worker.js",
-              format: "es",
-              inlineDynamicImports: true,
-              // apexcharts (pulled into Fresh's SSR bundle via the
-              // DownloadChart island) has a top-level
-              // `window.TreemapSquared = {}` write. Workers don't have a
-              // `window` global — point it at globalThis so the
-              // assignment is a no-op and module init succeeds. The
-              // chart-rendering code that reads `window.X` only runs in
-              // the browser, so the polyfill never has to do real work.
-              banner: "globalThis.window ??= globalThis;",
-            },
-          },
-        },
+      const esbuild = await import("esbuild");
+      await esbuild.build({
+        entryPoints: ["./server.ts"],
+        bundle: true,
+        format: "esm",
+        platform: "neutral",
+        target: "esnext",
+        outfile: "_fresh/worker.js",
+        // node: imports are provided by the runtime (Workers
+        // nodejs_compat or Deno's node compat) — keep external.
+        external: ["node:*"],
+        // apexcharts (pulled into Fresh's SSR bundle via the
+        // DownloadChart island) has a top-level
+        // `window.TreemapSquared = {}` write. Workers don't have a
+        // `window` global — point it at globalThis so the assignment is
+        // a no-op and module init succeeds. The chart-rendering code
+        // that reads `window.X` only runs in the browser, so the
+        // polyfill never has to do real work.
+        banner: { js: "globalThis.window ??= globalThis;" },
+        logLevel: "info",
       });
+      await esbuild.stop();
     },
   };
 }
