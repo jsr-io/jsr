@@ -55,10 +55,16 @@ function copyDocs(): Plugin {
   };
 }
 
-// After Fresh's SSR build writes `_fresh/server.js`, bundle `server.ts`
-// (the Cloudflare Worker entry that imports it) into a single-file ESM
-// worker at `_fresh/worker.js` — by invoking vite programmatically with
-// the worker-specific rollup options.
+// Bundles `server.ts` (the Cloudflare Worker entry that imports the Fresh
+// `_fresh/server.js`) into a single ESM file at `_fresh/worker.js`. Runs
+// after Fresh's SSR environment writes `_fresh/server.js`.
+//
+// Why not `@cloudflare/vite-plugin`? Its worker environment tries to
+// resolve `_fresh/server.js` in parallel with Fresh's SSR build, so the
+// file doesn't exist yet at transform time. Vite's `builder.buildApp`
+// sequencing is overridden internally by the CF plugin, so user config
+// can't fix the order. Building the worker via a programmatic vite
+// invocation from `closeBundle` sidesteps the race entirely.
 function workerBundle(): Plugin {
   let isBuild = false;
   let done = false;
@@ -73,7 +79,7 @@ function workerBundle(): Plugin {
       try {
         await Deno.stat("_fresh/server.js");
       } catch {
-        return; // Fresh's SSR hasn't written server.js yet
+        return; // Fresh's SSR env hasn't written server.js yet
       }
       done = true;
       const { build } = await import("vite");
