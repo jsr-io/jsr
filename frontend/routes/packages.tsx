@@ -47,8 +47,8 @@ export default define.page<typeof handler>(function PackageListPage({
   );
 });
 
-const projectId = Deno.env.get("ORAMA_PACKAGES_PROJECT_ID");
-const apiKey = Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY");
+const projectId = process.env.ORAMA_PACKAGES_PROJECT_ID;
+const apiKey = process.env.ORAMA_PACKAGES_PUBLIC_API_KEY;
 
 export const handler = define.handlers({
   async GET(ctx) {

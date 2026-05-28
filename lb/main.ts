@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
+import { proxyToBackend, proxyToR2 } from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -71,7 +71,7 @@ export async function handleAPIRequest(
     return handleCORSPreflight(API);
   }
 
-  const response = await proxyToCloudRun(
+  const response = await proxyToBackend(
     request,
     env.REGISTRY_API_URL,
     rewritePath ? (path) => `/api${path}` : undefined,
@@ -120,8 +120,9 @@ export async function handleNPMRequest(
 }
 
 /**
- * By default, requests to jsr.io are proxied to the frontend hosted on Cloud
- * Run.
+ * By default, requests to jsr.io are proxied to the frontend, which runs
+ * as its own Cloudflare Worker bound here via the `FRONTEND` service
+ * binding.
  *
  * GET or HEAD requests to jsr.io/@* are routed to the modules bucket if they
  * do no have an 'Accept' header that starts with 'text/html' and either:
@@ -224,7 +225,7 @@ async function handleFrontendRoute(
   const limited = await rateLimitGuard(request, env);
   if (limited) return limited;
 
-  const response = await proxyToCloudRun(request, env.REGISTRY_FRONTEND_URL);
+  const response = await proxyToBackend(request, env.FRONTEND);
 
   setSecurityHeaders(response, FRONTEND);
   setDebugHeaders(response, {

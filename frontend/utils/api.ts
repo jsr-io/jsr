@@ -2,6 +2,7 @@
 import { HttpError, IS_BROWSER } from "fresh/runtime";
 import type { TraceSpan } from "./tracing.ts";
 import type { ErrorStatus } from "@std/http";
+import { workerLb } from "./worker_env.ts";
 
 export type QueryParams = Record<string, string | number | null>;
 
@@ -195,7 +196,15 @@ export class API {
       headers.set("traceparent", span.traceparent);
     }
     try {
-      const resp = await fetch(url.href, {
+      // On Cloudflare Workers, route API subrequests through the LB
+      // service binding rather than a plain `fetch()` — same-zone
+      // subrequests from a Worker bypass Workers Routes, so a plain
+      // `fetch("https://api.<zone>/…")` skips the LB and 525s on
+      // direct TLS to origin. Elsewhere (client, Deno dev, Cloud Run)
+      // workerLb() is undefined and we fall back to global fetch.
+      const lb = workerLb();
+      const doFetch: typeof fetch = lb ? lb.fetch.bind(lb) : fetch;
+      const resp = await doFetch(url.href, {
         method: req.method,
         headers,
         body: req.body ? JSON.stringify(req.body) : undefined,

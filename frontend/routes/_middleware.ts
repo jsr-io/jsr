@@ -7,7 +7,7 @@ import { FullUser } from "../utils/api_types.ts";
 import { Tracer } from "../utils/tracing.ts";
 import { define } from "../util.ts";
 
-export const API_ROOT = Deno.env.get("API_ROOT") ?? "http://api.jsr.test";
+export const API_ROOT = process.env.API_ROOT ?? "http://api.jsr.test";
 
 export const tracer = new Tracer();
 

@@ -15,7 +15,9 @@ export type PartialBucket = Pick<R2Bucket, "get" | "head">;
 export interface WorkerEnv {
   REGISTRY_API_URL: string;
 
-  REGISTRY_FRONTEND_URL: string;
+  // The frontend is a sibling Cloudflare Worker, wired up via a service
+  // binding rather than an HTTP URL so traffic stays inside Cloudflare.
+  FRONTEND: Fetcher;
 
   ROOT_DOMAIN: string;
   API_DOMAIN: string;
@@ -25,8 +27,8 @@ export interface WorkerEnv {
   NPM_BUCKET: PartialBucket;
   MODULES_BUCKET: PartialBucket;
 
-  // Optional: omitted in local dev. Applied only to the Cloud Run frontend
-  // route — not modules (R2), the API server, or npm compat. Keeps scrapers
-  // from generating cache-miss load on Cloud Run.
+  // Optional: omitted in local dev. Applied only to the frontend route —
+  // not modules (R2), the API server, or npm compat. Keeps scrapers from
+  // generating cache-miss load on the frontend Worker.
   FRONTEND_RATELIMIT?: RateLimit;
 }

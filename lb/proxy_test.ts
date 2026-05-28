@@ -2,7 +2,7 @@
 // deno-lint-ignore-file require-await no-explicit-any
 
 import { assertEquals } from "@std/assert";
-import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
+import { proxyToBackend, proxyToR2 } from "./proxy.ts";
 import type { PartialBucket } from "./types.ts";
 
 /** Minimal in-memory R2 bucket stub for testing. */
@@ -148,7 +148,7 @@ Deno.test("proxyToR2 handles HEAD requests with URL-encoded path", async () => {
   assertEquals(response.body, null);
 });
 
-// --- proxyToCloudRun tests ---
+// --- proxyToBackend tests ---
 
 /** In-memory Cache stub that records put/match calls for assertions. */
 function createFakeCache(): Cache & {
@@ -210,7 +210,7 @@ function setupFetchStub(
 
 const BACKEND_URL = "https://backend.example.com";
 
-Deno.test("proxyToCloudRun caches anonymous GET with URL-only key", async () => {
+Deno.test("proxyToBackend caches anonymous GET with URL-only key", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -225,7 +225,7 @@ Deno.test("proxyToCloudRun caches anonymous GET with URL-only key", async () => 
     const request = new Request("https://jsr.io/api/packages", {
       method: "GET",
     });
-    const response = await proxyToCloudRun(request, BACKEND_URL);
+    const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(response.status, 200);
     assertEquals(cache.putCalls.length, 1);
@@ -239,7 +239,7 @@ Deno.test("proxyToCloudRun caches anonymous GET with URL-only key", async () => 
   }
 });
 
-Deno.test("proxyToCloudRun serves cached response on second GET", async () => {
+Deno.test("proxyToBackend serves cached response on second GET", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -260,14 +260,14 @@ Deno.test("proxyToCloudRun serves cached response on second GET", async () => {
 
   try {
     const req1 = new Request("https://jsr.io/api/packages", { method: "GET" });
-    await proxyToCloudRun(req1, BACKEND_URL);
+    await proxyToBackend(req1, BACKEND_URL);
     assertEquals(fetchCount, 1);
 
     const req2 = new Request("https://jsr.io/api/packages", {
       method: "GET",
       headers: { "Cookie": "other=value", "CF-Connecting-IP": "1.2.3.4" },
     });
-    const res2 = await proxyToCloudRun(req2, BACKEND_URL);
+    const res2 = await proxyToBackend(req2, BACKEND_URL);
     // Should be served from cache — fetch not called again
     assertEquals(fetchCount, 1);
     assertEquals(res2.status, 200);
@@ -277,7 +277,7 @@ Deno.test("proxyToCloudRun serves cached response on second GET", async () => {
   }
 });
 
-Deno.test("proxyToCloudRun skips cache for authenticated requests", async () => {
+Deno.test("proxyToBackend skips cache for authenticated requests", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -293,7 +293,7 @@ Deno.test("proxyToCloudRun skips cache for authenticated requests", async () => 
       method: "GET",
       headers: { "Authorization": "Bearer token123" },
     });
-    const response = await proxyToCloudRun(request, BACKEND_URL);
+    const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(response.status, 200);
     // Should not cache authenticated requests
@@ -308,7 +308,7 @@ Deno.test("proxyToCloudRun skips cache for authenticated requests", async () => 
   }
 });
 
-Deno.test("proxyToCloudRun skips cache for cookie-authenticated requests", async () => {
+Deno.test("proxyToBackend skips cache for cookie-authenticated requests", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -321,7 +321,7 @@ Deno.test("proxyToCloudRun skips cache for cookie-authenticated requests", async
       method: "GET",
       headers: { "Cookie": "token=abc123" },
     });
-    const response = await proxyToCloudRun(request, BACKEND_URL);
+    const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(cache.putCalls.length, 0);
     assertEquals(response.headers.get("Cache-Control"), "private, no-store");
@@ -331,7 +331,7 @@ Deno.test("proxyToCloudRun skips cache for cookie-authenticated requests", async
   }
 });
 
-Deno.test("proxyToCloudRun skips cache for POST requests", async () => {
+Deno.test("proxyToBackend skips cache for POST requests", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -344,7 +344,7 @@ Deno.test("proxyToCloudRun skips cache for POST requests", async () => {
       method: "POST",
       body: "{}",
     });
-    const response = await proxyToCloudRun(request, BACKEND_URL);
+    const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(response.status, 201);
     assertEquals(cache.putCalls.length, 0);
@@ -356,7 +356,7 @@ Deno.test("proxyToCloudRun skips cache for POST requests", async () => {
   }
 });
 
-Deno.test("proxyToCloudRun does not cache responses with private Cache-Control", async () => {
+Deno.test("proxyToBackend does not cache responses with private Cache-Control", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -369,7 +369,7 @@ Deno.test("proxyToCloudRun does not cache responses with private Cache-Control",
 
   try {
     const request = new Request("https://jsr.io/api/data", { method: "GET" });
-    await proxyToCloudRun(request, BACKEND_URL);
+    await proxyToBackend(request, BACKEND_URL);
 
     // Cache was checked but response was not stored due to private directive
     assertEquals(cache.matchCalls.length, 1);
@@ -380,7 +380,7 @@ Deno.test("proxyToCloudRun does not cache responses with private Cache-Control",
   }
 });
 
-Deno.test("proxyToCloudRun does not cache non-2xx responses", async () => {
+Deno.test("proxyToBackend does not cache non-2xx responses", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -392,7 +392,7 @@ Deno.test("proxyToCloudRun does not cache non-2xx responses", async () => {
     const request = new Request("https://jsr.io/api/missing", {
       method: "GET",
     });
-    const response = await proxyToCloudRun(request, BACKEND_URL);
+    const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(response.status, 404);
     assertEquals(cache.putCalls.length, 0);
@@ -402,7 +402,7 @@ Deno.test("proxyToCloudRun does not cache non-2xx responses", async () => {
   }
 });
 
-Deno.test("proxyToCloudRun serves HEAD from cached GET response", async () => {
+Deno.test("proxyToBackend serves HEAD from cached GET response", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -426,14 +426,14 @@ Deno.test("proxyToCloudRun serves HEAD from cached GET response", async () => {
     const getReq = new Request("https://jsr.io/api/packages", {
       method: "GET",
     });
-    await proxyToCloudRun(getReq, BACKEND_URL);
+    await proxyToBackend(getReq, BACKEND_URL);
     assertEquals(fetchCount, 1);
 
     // HEAD should be served from cache without hitting origin
     const headReq = new Request("https://jsr.io/api/packages", {
       method: "HEAD",
     });
-    const headRes = await proxyToCloudRun(headReq, BACKEND_URL);
+    const headRes = await proxyToBackend(headReq, BACKEND_URL);
     assertEquals(fetchCount, 1); // No additional fetch
     assertEquals(headRes.status, 200);
     assertEquals(headRes.body, null);
@@ -443,7 +443,7 @@ Deno.test("proxyToCloudRun serves HEAD from cached GET response", async () => {
   }
 });
 
-Deno.test("proxyToCloudRun skips cache for login paths", async () => {
+Deno.test("proxyToBackend skips cache for login paths", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -455,7 +455,7 @@ Deno.test("proxyToCloudRun skips cache for login paths", async () => {
     const request = new Request("https://jsr.io/login/callback?code=abc", {
       method: "GET",
     });
-    const response = await proxyToCloudRun(request, BACKEND_URL);
+    const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(cache.putCalls.length, 0);
     assertEquals(cache.matchCalls.length, 0);
@@ -466,7 +466,7 @@ Deno.test("proxyToCloudRun skips cache for login paths", async () => {
   }
 });
 
-Deno.test("proxyToCloudRun skips cache for login paths even with pathRewrite", async () => {
+Deno.test("proxyToBackend skips cache for login paths even with pathRewrite", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
@@ -479,7 +479,7 @@ Deno.test("proxyToCloudRun skips cache for login paths even with pathRewrite", a
     const request = new Request("https://api.jsr.io/login", {
       method: "GET",
     });
-    const response = await proxyToCloudRun(
+    const response = await proxyToBackend(
       request,
       BACKEND_URL,
       (path) => `/api${path}`,

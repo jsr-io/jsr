@@ -2,7 +2,7 @@
 import { asset } from "fresh/runtime";
 import { DevelopmentLogin } from "../islands/DevelopmentLogin.tsx";
 
-const PROD_PROXY = !!Deno.env.get("PROD_PROXY");
+const PROD_PROXY = !!process.env.PROD_PROXY;
 
 export default function Login({ url }: { url: URL }) {
   if (PROD_PROXY) {

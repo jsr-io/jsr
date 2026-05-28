@@ -39,7 +39,7 @@ jobs:
         run: deno task test
         working-directory: frontend
 
-      - name: Build Fresh
+      - name: Build Frontend Worker
         run: deno task build
         working-directory: frontend
 
@@ -191,6 +191,9 @@ jobs:
           cache-from: type=gha,scope=docker-api
           cache-to: type=gha,mode=max,scope=docker-api
 
+      # The legacy Cloud Run frontend lives alongside the new Cloudflare
+      # Worker frontend while traffic is cut over; tear this and the
+      # corresponding terraform resources down in a follow-up.
       - name: Build and push frontend docker image
         if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         uses: docker/build-push-action@v5
@@ -250,9 +253,13 @@ jobs:
           workload_identity_provider: projects/1067420915575/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-staging.iam.gserviceaccount.com
 
-      - name: Build Cloudflare Worker
+      - name: Build LB Cloudflare Worker
         run: deno task build
         working-directory: lb
+
+      - name: Build Frontend
+        run: deno task build
+        working-directory: frontend
 
       - name: terraform plan
         run: |
@@ -318,9 +325,13 @@ jobs:
           workload_identity_provider: projects/614736529383/locations/global/workloadIdentityPools/github-actions/providers/github-actions
           service_account: github-actions@deno-registry3-prod.iam.gserviceaccount.com
 
-      - name: Build Cloudflare Worker
+      - name: Build LB Cloudflare Worker
         run: deno task build
         working-directory: lb
+
+      - name: Build Frontend
+        run: deno task build
+        working-directory: frontend
 
       - name: terraform plan
         run: |

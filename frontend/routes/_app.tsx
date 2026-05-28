@@ -3,7 +3,7 @@ import { PageProps } from "fresh";
 import { asset } from "fresh/runtime";
 import { State } from "../util.ts";
 
-const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
+const FRONTEND_ROOT = process.env.FRONTEND_ROOT ?? "http://jsr.test";
 
 export default async function App({
   Component,

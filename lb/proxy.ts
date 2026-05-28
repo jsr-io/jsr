@@ -2,9 +2,12 @@
 
 import type { PartialBucket } from "./types.ts";
 
-export async function proxyToCloudRun(
+// Proxies an inbound request to a backend. The backend can be either an
+// HTTP URL (Cloud Run API) or a service-binding Fetcher (frontend Worker).
+// In both cases the caller receives the same cache + header semantics.
+export async function proxyToBackend(
   request: Request,
-  backendUrl: string,
+  backend: string | { fetch: (req: Request) => Promise<Response> },
   pathRewrite?: (path: string) => string,
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -13,10 +16,15 @@ export async function proxyToCloudRun(
     path = pathRewrite(path);
   }
 
-  const backendRequestUrl = new URL(path + url.search, backendUrl);
+  const isUrlBackend = typeof backend === "string";
+  const backendRequestUrl = isUrlBackend
+    ? new URL(path + url.search, backend)
+    : new URL(path + url.search, url.origin);
 
   const headers = new Headers(request.headers);
-  headers.set("Host", new URL(backendUrl).host);
+  if (isUrlBackend) {
+    headers.set("Host", new URL(backend).host);
+  }
 
   const clientIP = request.headers.get("CF-Connecting-IP");
   if (clientIP) {
@@ -41,12 +49,20 @@ export async function proxyToCloudRun(
     (request.method === "GET" || request.method === "HEAD");
 
   try {
-    const response = await cachedFetch(shouldCache, backendRequestUrl, {
-      method: request.method,
-      headers,
-      body: request.body,
-      redirect: "manual",
-    });
+    const fetcher = isUrlBackend
+      ? (req: Request) => fetch(req)
+      : (req: Request) => backend.fetch(req);
+    const response = await cachedFetch(
+      shouldCache,
+      fetcher,
+      backendRequestUrl,
+      {
+        method: request.method,
+        headers,
+        body: request.body,
+        redirect: "manual",
+      },
+    );
 
     const res = new Response(response.body, {
       status: response.status,
@@ -62,7 +78,7 @@ export async function proxyToCloudRun(
 
     return res;
   } catch (error) {
-    console.error("Cloud Run proxy error:", error);
+    console.error("Backend proxy error:", error);
     return new Response("Bad Gateway", {
       status: 502,
       headers: {
@@ -140,6 +156,7 @@ export async function proxyToR2(
 
 async function cachedFetch(
   shouldCache: boolean,
+  fetcher: (req: Request) => Promise<Response>,
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
@@ -159,7 +176,7 @@ async function cachedFetch(
     }
   }
 
-  const res = await fetch(req);
+  const res = await fetcher(req);
 
   if (shouldCache && req.method === "GET" && res.ok) {
     const cacheControl = res.headers.get("Cache-Control") ?? "";

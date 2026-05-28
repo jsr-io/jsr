@@ -7,7 +7,7 @@ import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { DocsView } from "./(_components)/Docs.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 
-const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
+const FRONTEND_ROOT = process.env.FRONTEND_ROOT ?? "http://jsr.test";
 
 export default define.page<typeof handler>(function PackagePage(
   { data, params, state },

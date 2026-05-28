@@ -1,5 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, PageProps } from "fresh";
+import { inspect } from "node:util";
 import { APIError } from "../utils/api.ts";
 import {
   ErrorDisplay,
@@ -53,7 +54,7 @@ export default function Error({ url, error }: PageProps) {
     );
   }
 
-  const formatted = Deno.inspect(error);
+  const formatted = inspect(error);
   return (
     <>
       <style

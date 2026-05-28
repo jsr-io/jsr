@@ -7,6 +7,7 @@ import { extract } from "@std/front-matter/yaml";
 
 import TOC, { groupsNames } from "../../docs/toc.ts";
 import TbBrandGithub from "tb-icons/TbBrandGithub";
+import { readAssetText } from "../../utils/assets.ts";
 
 const groups = new Map<string, { id: string; title: string }[]>();
 for (const group of groupsNames) {
@@ -84,11 +85,7 @@ export const handler = define.handlers({
       throw new HttpError(404, "This docs page was not found.");
     }
 
-    // Resolve relative to cwd rather than `import.meta.url`: under Vite,
-    // the compiled route lives in `_fresh/server/assets/`, so a URL built
-    // from `import.meta.url` no longer points at the source `docs/` dir.
-    // See https://github.com/jsr-io/jsr/issues/1403.
-    const markdown = await Deno.readTextFile(`./docs/${id}.md`);
+    const markdown = await readAssetText(`/_jsr_docs/${id}.md`);
 
     const { body, attrs } = extract<{ title: string; description: string }>(
       markdown,
