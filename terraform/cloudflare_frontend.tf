@@ -74,6 +74,15 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       type = "assets"
       name = "ASSETS"
       }, {
+      # Service binding to the LB worker. The frontend's API requests
+      # are routed through this binding (see utils/api.ts) instead of
+      # `fetch("https://api.<zone>/…")`, which Cloudflare bypasses for
+      # same-zone subrequests from a Worker — that path skips the LB
+      # entirely and 525s on direct TLS to origin.
+      type    = "service"
+      name    = "LB"
+      service = "${var.gcp_project}-jsr-lb"
+      }, {
       type = "plain_text"
       name = "FRONTEND_ROOT"
       text = "https://${var.domain_name}"
