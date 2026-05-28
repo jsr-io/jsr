@@ -24,6 +24,16 @@
 resource "cloudflare_worker" "jsr_frontend" {
   account_id = var.cloudflare_account_id
   name       = "${var.gcp_project}-jsr-frontend"
+
+  observability = {
+    enabled            = true
+    head_sampling_rate = 0.01
+    logs = {
+      enabled         = true
+      invocation_logs = true
+      persist         = true
+    }
+  }
 }
 
 resource "cloudflare_worker_version" "jsr_frontend" {
