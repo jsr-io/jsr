@@ -261,49 +261,6 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      # Upload a new immutable version of the frontend worker. This
-      # does NOT route traffic to it — promotion is terraform's job
-      # (see terraform/cloudflare_frontend.tf). If terraform fails
-      # downstream, the new version sits unpromoted and the previous
-      # one keeps serving.
-      #
-      # The Orama public API keys live in staging.tfvars (same source
-      # terraform reads); project IDs come from github vars. They're
-      # all public by design (the frontend ships them to the browser).
-      - name: Upload Frontend Worker version
-        id: frontend_upload
-        run: |
-          set -e
-          tfvar() {
-            awk -v key="$1" -F' *= *' '$1 == key { gsub(/^"|"$/, "", $2); print $2 }' "$2"
-          }
-          TFVARS=../terraform/staging.tfvars
-          DOMAIN=$(tfvar       domain_name                   "$TFVARS")
-          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key "$TFVARS")
-          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  "$TFVARS")
-          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     "$TFVARS")
-          OUTPUT=$(deno run -A npm:wrangler@^4 versions upload \
-            --name deno-registry3-staging-jsr-frontend \
-            --var "FRONTEND_ROOT:https://$DOMAIN" \
-            --var "API_ROOT:https://api.$DOMAIN" \
-            --var "ORAMA_PACKAGES_PUBLIC_API_KEY:$ORAMA_PKG_KEY" \
-            --var "ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }}" \
-            --var "ORAMA_SYMBOLS_PUBLIC_API_KEY:$ORAMA_SYM_KEY" \
-            --var "ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}" \
-            --var "ORAMA_DOCS_PUBLIC_API_KEY:$ORAMA_DOC_KEY" \
-            --var "ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }}")
-          echo "$OUTPUT"
-          VERSION_ID=$(echo "$OUTPUT" | grep -oE 'Worker Version ID:[[:space:]]+[a-f0-9-]+' | awk '{print $NF}')
-          if [ -z "$VERSION_ID" ]; then
-            echo "Failed to parse version id from wrangler output" >&2
-            exit 1
-          fi
-          echo "version_id=$VERSION_ID" >> "$GITHUB_OUTPUT"
-        working-directory: frontend
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
@@ -313,7 +270,6 @@ jobs:
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
-          FRONTEND_VERSION_ID: ${{ steps.frontend_upload.outputs.version_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
@@ -377,40 +333,6 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: Upload Frontend Worker version
-        id: frontend_upload
-        run: |
-          set -e
-          tfvar() {
-            awk -v key="$1" -F' *= *' '$1 == key { gsub(/^"|"$/, "", $2); print $2 }' "$2"
-          }
-          TFVARS=../terraform/prod.tfvars
-          DOMAIN=$(tfvar       domain_name                   "$TFVARS")
-          ORAMA_PKG_KEY=$(tfvar orama_packages_public_api_key "$TFVARS")
-          ORAMA_SYM_KEY=$(tfvar orama_symbols_public_api_key  "$TFVARS")
-          ORAMA_DOC_KEY=$(tfvar orama_docs_public_api_key     "$TFVARS")
-          OUTPUT=$(deno run -A npm:wrangler@^4 versions upload \
-            --name deno-registry3-prod-jsr-frontend \
-            --var "FRONTEND_ROOT:https://$DOMAIN" \
-            --var "API_ROOT:https://api.$DOMAIN" \
-            --var "ORAMA_PACKAGES_PUBLIC_API_KEY:$ORAMA_PKG_KEY" \
-            --var "ORAMA_PACKAGES_PROJECT_ID:${{ vars.ORAMA_PACKAGES_PROJECT_ID }}" \
-            --var "ORAMA_SYMBOLS_PUBLIC_API_KEY:$ORAMA_SYM_KEY" \
-            --var "ORAMA_SYMBOLS_PROJECT_ID:${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}" \
-            --var "ORAMA_DOCS_PUBLIC_API_KEY:$ORAMA_DOC_KEY" \
-            --var "ORAMA_DOCS_PROJECT_ID:${{ vars.ORAMA_DOCS_PROJECT_ID }}")
-          echo "$OUTPUT"
-          VERSION_ID=$(echo "$OUTPUT" | grep -oE 'Worker Version ID:[[:space:]]+[a-f0-9-]+' | awk '{print $NF}')
-          if [ -z "$VERSION_ID" ]; then
-            echo "Failed to parse version id from wrangler output" >&2
-            exit 1
-          fi
-          echo "version_id=$VERSION_ID" >> "$GITHUB_OUTPUT"
-        working-directory: frontend
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: terraform plan
         run: |
           touch terraform/prod.secret.tfvars
@@ -420,7 +342,6 @@ jobs:
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
-          FRONTEND_VERSION_ID: ${{ steps.frontend_upload.outputs.version_id }}
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}

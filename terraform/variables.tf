@@ -17,11 +17,6 @@ variable "frontend_image_id" {
   type        = string
 }
 
-variable "frontend_version_id" {
-  description = "Cloudflare Worker version ID emitted by `wrangler versions upload` (run from CI before `terraform apply`). The `cloudflare_workers_deployment.jsr_frontend` resource pins 100% of traffic to this version; an apply with a new ID is what promotes a new build."
-  type        = string
-}
-
 variable "github_client_id" {
   type = string
 }
