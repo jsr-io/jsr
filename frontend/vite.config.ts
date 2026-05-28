@@ -39,16 +39,16 @@ function copyDocs(): Plugin {
   };
 }
 
-// `workers-og`'s static `.wasm` imports trip Vite's wasm-fallback during
-// SSR build. Mark every `.wasm` resolution external so the literal
-// `import x from "./foo.wasm"` passes through Vite untouched, then copy
-// the real files into `_fresh/server/` (next to server-entry.mjs)
-// where wrangler looks for them at deploy time.
-function wasmExternal(): Plugin {
+// `workers-og`'s static `.wasm` imports trip Vite's wasm-fallback
+// during SSR build. Mark every `.wasm` resolution external so the
+// literal `import x from "./foo.wasm"` passes through Vite untouched,
+// remember where the original file is so esbuild can pick it up later.
+function wasmExternal(): Plugin & { wasmSources: Map<string, string> } {
   const wasmSources = new Map<string, string>();
   return {
     name: "jsr-wasm-external",
     enforce: "pre",
+    wasmSources,
     async resolveId(id, importer) {
       if (!id.endsWith(".wasm")) return;
       if (importer) {
@@ -60,33 +60,68 @@ function wasmExternal(): Plugin {
       }
       return { id, external: true };
     },
+  };
+}
+
+// Bundles `server.ts` (the Cloudflare Worker entry that wraps Fresh's
+// `_fresh/server.js`) into a single ESM file at `_fresh/worker.js`,
+// plus copies the workers-og `.wasm` files into `_fresh/server/` next
+// to the bundled output. The terraform `cloudflare_worker_version`
+// resource uploads worker.js + the two .wasm parts as one multi-module
+// worker version.
+function workerBundle(
+  wasm: { wasmSources: Map<string, string> },
+): Plugin {
+  let isBuild = false;
+  let done = false;
+  return {
+    name: "jsr-worker-bundle",
+    enforce: "post",
+    configResolved(config) {
+      isBuild = config.command === "build";
+    },
     async closeBundle() {
-      // Only run after Fresh's SSR build has emitted server-entry.mjs.
+      if (!isBuild || done) return;
       try {
-        await Deno.stat("_fresh/server");
+        await Deno.stat("_fresh/server.js");
       } catch {
-        return;
+        return; // Fresh's SSR env hasn't emitted server.js yet
       }
-      // Each Fresh route chunk (in `_fresh/server/assets/`) and the
-      // main `_fresh/server/server-entry.mjs` independently emit the
-      // `import "./foo.wasm"` line, so wrangler needs to find the
-      // .wasm next to each importer. Copy into every dir under
-      // `_fresh/server/` that holds a .mjs file.
-      const dests = new Set<string>();
-      for await (
-        const entry of walk("_fresh/server", { exts: [".mjs"] })
-      ) {
-        dests.add(dirname(entry.path));
-      }
-      for (const [rel, src] of wasmSources) {
+      done = true;
+
+      // Place .wasm files in `_fresh/server/` so esbuild's resolver
+      // finds them at the relative paths server-entry.mjs imports.
+      await ensureDir("_fresh/server");
+      for (const [rel, src] of wasm.wasmSources) {
         const filename = rel.replace(/^\.\//, "");
-        for (const d of dests) {
-          await copy(src, join(d, filename), { overwrite: true });
-        }
+        await copy(src, join("_fresh/server", filename), {
+          overwrite: true,
+        });
       }
+
+      const esbuild = await import("esbuild");
+      await esbuild.build({
+        entryPoints: ["./server.ts"],
+        bundle: true,
+        format: "esm",
+        platform: "neutral",
+        target: "esnext",
+        outfile: "_fresh/worker.js",
+        // node: imports are provided by the Workers nodejs_compat
+        // runtime — keep external.
+        external: ["node:*", "*.wasm"],
+        // apexcharts (pulled in via the DownloadChart island) has a
+        // top-level `window.TreemapSquared = {}` write; aliasing
+        // window to globalThis makes that a no-op in the worker.
+        banner: { js: "globalThis.window ??= globalThis;" },
+        logLevel: "info",
+      });
+      await esbuild.stop();
     },
   };
 }
+
+const wasm = wasmExternal();
 
 export default defineConfig({
   server: {
@@ -94,9 +129,10 @@ export default defineConfig({
   },
   plugins: [
     fresh(),
-    wasmExternal(),
+    wasm,
     gfmCss(),
     tailwindcss(),
     copyDocs(),
+    workerBundle(wasm),
   ],
 });
