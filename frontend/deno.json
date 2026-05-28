@@ -18,7 +18,7 @@
     "@fresh/plugin-tailwind": "jsr:@fresh/plugin-tailwind@^1.0.0",
     "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.1.2",
     "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.3.0",
-    "esbuild": "npm:esbuild@^0.27.7",
+
     "apexcharts": "npm:apexcharts@^4.5.0",
     "tb-icons": "jsr:@preact-icons/tb@^1.0.14",
     "@std/fmt": "jsr:@std/fmt@^1.0.6",
