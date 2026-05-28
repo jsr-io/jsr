@@ -64,16 +64,6 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       type = "assets"
       name = "ASSETS"
       }, {
-      # Service binding to the LB worker for subrequests to api.* and
-      # npm.* — Cloudflare's `workers_route` is bypassed for same-zone
-      # subrequests from a Worker, so a plain `fetch("https://api.…/…")`
-      # would skip the LB and 525 on direct TLS to Google's LB. The
-      # frontend's `server.ts` intercepts those URLs and routes through
-      # this binding.
-      type    = "service"
-      name    = "LB"
-      service = "${var.gcp_project}-jsr-lb"
-      }, {
       type = "plain_text"
       name = "FRONTEND_ROOT"
       text = "https://${var.domain_name}"
