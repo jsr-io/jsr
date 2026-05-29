@@ -76,7 +76,8 @@ use crate::npm::generate_npm_version_manifest;
 use crate::provenance;
 use crate::publish::publish_task;
 use crate::s3::Buckets;
-use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
+use crate::external::cloudflare::CachePurge;
+use crate::s3::CACHE_CONTROL_MANIFEST;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::tarball::bucket_tarball_path;
@@ -464,10 +465,12 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
       let buckets = req.data::<Buckets>().unwrap().clone();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let package = update_description(
         db,
         npm_url,
         &buckets,
+        cache_purge,
         orama_client,
         &user.id,
         sudo,
@@ -569,6 +572,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     db,
     npm_url,
     buckets,
+    cache_purge,
     orama_client,
     actor_id,
     is_sudo,
@@ -582,6 +586,7 @@ async fn update_description(
   db: &Database,
   npm_url: &Url,
   buckets: &Buckets,
+  cache_purge: &CachePurge,
   orama_client: &Option<OramaClient>,
   actor_id: &Uuid,
   is_sudo: bool,
@@ -629,11 +634,19 @@ async fn update_description(
       crate::s3::UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      npm_url,
+      scope,
+      &package.name,
+    )])
+    .await;
 
   Ok(package)
 }
@@ -864,6 +877,7 @@ pub async fn version_publish_handler(
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
   let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
 
   let iam = req.iam();
@@ -973,6 +987,7 @@ pub async fn version_publish_handler(
       npm_url,
       db,
       orama_client,
+      cache_purge,
     )
     .instrument(span);
     tokio::spawn(fut);
@@ -1050,7 +1065,9 @@ pub async fn version_update_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
@@ -1077,7 +1094,7 @@ pub async fn version_update_handler(
       UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
@@ -1095,11 +1112,18 @@ pub async fn version_update_handler(
       crate::s3::UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![
+      crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
+      crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
+    ])
+    .await;
 
   Ok(
     Response::builder()
@@ -1127,7 +1151,9 @@ pub async fn version_delete_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
 
   let iam = req.iam();
   let staff = iam.check_admin_access()?;
@@ -1170,7 +1196,7 @@ pub async fn version_delete_handler(
       UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
@@ -1188,11 +1214,18 @@ pub async fn version_delete_handler(
       crate::s3::UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![
+      crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
+      crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
+    ])
+    .await;
 
   Ok(
     Response::builder()

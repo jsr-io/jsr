@@ -70,6 +70,32 @@ pub fn npm_version_manifest_path(
   format!("{npm_mapped_package_name}")
 }
 
+/// Public URL of the package-level `meta.json` that the registry serves
+/// to `deno install` / browser module resolution. Pass `registry_url`
+/// as `https://jsr.io/` (must end with a slash).
+pub fn package_metadata_url(
+  registry_url: &url::Url,
+  scope: &ScopeName,
+  package_name: &PackageName,
+) -> String {
+  format!("{registry_url}@{scope}/{package_name}/meta.json")
+}
+
+/// Public URL of the npm version manifest the registry serves to
+/// `npm install` / `pnpm install` / etc. Pass `npm_url` as
+/// `https://npm.jsr.io/` (must end with a slash).
+pub fn npm_version_manifest_url(
+  npm_url: &url::Url,
+  scope: &ScopeName,
+  package_name: &PackageName,
+) -> String {
+  let npm_mapped_package_name = NpmMappedJsrPackageName {
+    scope,
+    package: package_name,
+  };
+  format!("{npm_url}{npm_mapped_package_name}")
+}
+
 pub fn npm_tarball_path(
   scope: &ScopeName,
   package_name: &PackageName,

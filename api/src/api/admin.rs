@@ -307,6 +307,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let license_store = req.data::<LicenseStore>().unwrap().clone();
     let registry = req.data::<RegistryUrl>().unwrap().0.clone();
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+    let cache_purge =
+      req.data::<crate::external::cloudflare::CachePurge>().unwrap().clone();
 
     let span = Span::current();
     let fut = publish_task(
@@ -317,6 +319,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       npm_url,
       db,
       orama_client,
+      cache_purge,
     )
     .instrument(span);
     tokio::spawn(fut);
