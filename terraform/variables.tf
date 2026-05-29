@@ -12,6 +12,12 @@ variable "api_image_id" {
   type        = string
 }
 
+variable "migrations_version" {
+  description = "Durable Object migration tag for the LB worker. Cloudflare tracks the applied tag per worker and no-ops a tag it has already applied, so re-sending the migration on every deploy does nothing. Bump this ONLY when adding or renaming Durable Object classes (e.g. ApiContainer)."
+  type        = string
+  default     = "v1"
+}
+
 variable "frontend_image_id" {
   description = "the Docker image ID for the (legacy Cloud Run) frontend; kept while the new Cloudflare Worker frontend is in trial. Tear down `cloud_run_frontend.tf` and this variable in a follow-up once traffic has been fully cut over."
   type        = string

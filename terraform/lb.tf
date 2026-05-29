@@ -51,8 +51,19 @@ resource "cloudflare_worker_version" "jsr_lb" {
   ]
 
   # The ApiContainer DO class must be SQLite-backed (required for containers).
+  #
+  # Cloudflare tracks the applied migration tag per worker, so re-sending this
+  # block with an unchanged `new_tag` on every deploy is a no-op — it does NOT
+  # re-run. Bump var.migrations_version only when adding/renaming DO classes.
+  #
+  # First-time bootstrap (once per environment): the versions API validates the
+  # API_CONTAINER binding before the migration is applied, so the very first
+  # creation of the class fails (error 100123) if the binding and migration land
+  # in the same version. Bootstrap once by deploying a migration-only version
+  # before the binding exists — temporarily comment out the API_CONTAINER
+  # binding + the `containers` block, apply, then restore them and apply again.
   migrations = {
-    new_tag            = "v1"
+    new_tag            = var.migrations_version
     new_sqlite_classes = ["ApiContainer"]
   }
 
