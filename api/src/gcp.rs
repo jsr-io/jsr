@@ -17,12 +17,14 @@ pub struct AccessTokenResponse {
   expires_in: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MetadataStrategy {
   /// Get authentication information from the instance metadata server.
   InstanceMetadata,
-  /// Use a GCP service account key JSON to mint access tokens.
-  ServiceAccountKey(String),
+  /// Mint access tokens from a GCP service account key (provided separately
+  /// via `--gcp_service_account_key`). Used when running off-GCP, e.g. in a
+  /// Cloudflare Container where the instance metadata server is unavailable.
+  ServiceAccountKey,
   /// Returned fixed fake tokens for testing.
   Testing,
 }
@@ -32,15 +34,9 @@ impl FromStr for MetadataStrategy {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match s {
       "instance_metadata" => Ok(Self::InstanceMetadata),
+      "service_account_key" => Ok(Self::ServiceAccountKey),
       "testing" => Ok(Self::Testing),
-      _ => {
-        // Try to parse as a JSON service account key
-        if s.starts_with('{') {
-          Ok(Self::ServiceAccountKey(s.to_owned()))
-        } else {
-          Err(anyhow::anyhow!("Invalid metadata strategy '{}'", s))
-        }
-      }
+      _ => Err(anyhow::anyhow!("Invalid metadata strategy '{}'", s)),
     }
   }
 }
@@ -49,6 +45,13 @@ impl FromStr for MetadataStrategy {
 struct ServiceAccountKeyFile {
   client_email: String,
   private_key: String,
+}
+
+/// A parsed GCP service account, with the RSA signing key pre-parsed so token
+/// refreshes don't re-parse the PEM on every call.
+struct ServiceAccount {
+  client_email: String,
+  encoding_key: jsonwebtoken::EncodingKey,
 }
 
 #[derive(serde::Serialize)]
@@ -64,7 +67,10 @@ struct JwtClaims {
 pub struct Client(Arc<ClientInner>);
 
 impl Client {
-  pub fn new(metadata_strategy: MetadataStrategy) -> Self {
+  pub fn new(
+    metadata_strategy: MetadataStrategy,
+    service_account_key: Option<String>,
+  ) -> Result<Self, anyhow::Error> {
     let http_without_compression = reqwest::ClientBuilder::new()
       .user_agent(crate::util::USER_AGENT)
       .connect_timeout(HTTP_CONNECT_TIMEOUT)
@@ -73,19 +79,38 @@ impl Client {
       .no_brotli()
       .build()
       .unwrap();
-    let service_account_key = match &metadata_strategy {
-      MetadataStrategy::ServiceAccountKey(json) => Some(
-        serde_json::from_str::<ServiceAccountKeyFile>(json)
-          .expect("Failed to parse GCP service account key JSON"),
-      ),
+    // Parse the service account key once at startup (rather than on every token
+    // refresh), surfacing a malformed key as a clear boot-time error.
+    let service_account = match metadata_strategy {
+      MetadataStrategy::ServiceAccountKey => {
+        let json = service_account_key.ok_or_else(|| {
+          anyhow::anyhow!(
+            "metadata_strategy is 'service_account_key' but no \
+             --gcp_service_account_key was provided"
+          )
+        })?;
+        let key: ServiceAccountKeyFile = serde_json::from_str(json.trim())
+          .map_err(|e| {
+            anyhow::anyhow!("failed to parse GCP service account key JSON: {e}")
+          })?;
+        let encoding_key =
+          jsonwebtoken::EncodingKey::from_rsa_pem(key.private_key.as_bytes())
+            .map_err(|e| {
+            anyhow::anyhow!("failed to parse GCP service account RSA key: {e}")
+          })?;
+        Some(ServiceAccount {
+          client_email: key.client_email,
+          encoding_key,
+        })
+      }
       _ => None,
     };
-    Self(Arc::new(ClientInner {
+    Ok(Self(Arc::new(ClientInner {
       http_without_compression,
       access_token: Mutex::new(None),
       metadata_strategy,
-      service_account_key,
-    }))
+      service_account,
+    })))
   }
 }
 
@@ -102,8 +127,8 @@ pub struct ClientInner {
   http_without_compression: reqwest::Client,
   metadata_strategy: MetadataStrategy,
   access_token: Mutex<Option<(String, Instant)>>,
-  /// Parsed service account key, if using ServiceAccountKey strategy.
-  service_account_key: Option<ServiceAccountKeyFile>,
+  /// Parsed service account, if using the ServiceAccountKey strategy.
+  service_account: Option<ServiceAccount>,
 }
 
 #[allow(dead_code)]
@@ -154,7 +179,7 @@ impl ClientInner {
         *guard = Some((token.access_token.clone(), expires_at));
         Ok(token.access_token)
       }
-      MetadataStrategy::ServiceAccountKey(_) => {
+      MetadataStrategy::ServiceAccountKey => {
         {
           let guard = self.access_token.lock().unwrap();
           if let Some((token, expires_at)) = guard.clone()
@@ -164,26 +189,23 @@ impl ClientInner {
             return Ok(token);
           }
         }
-        let sa_key = self
-          .service_account_key
+        let sa = self
+          .service_account
           .as_ref()
-          .expect("service_account_key must be set");
+          .expect("service_account must be set");
         let now = std::time::SystemTime::now()
           .duration_since(std::time::UNIX_EPOCH)
           .unwrap()
           .as_secs();
         let claims = JwtClaims {
-          iss: sa_key.client_email.clone(),
+          iss: sa.client_email.clone(),
           scope: "https://www.googleapis.com/auth/cloud-platform".to_owned(),
           aud: "https://oauth2.googleapis.com/token".to_owned(),
           iat: now,
           exp: now + 3600,
         };
         let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
-        let encoding_key = jsonwebtoken::EncodingKey::from_rsa_pem(
-          sa_key.private_key.as_bytes(),
-        )?;
-        let jwt = jsonwebtoken::encode(&header, &claims, &encoding_key)?;
+        let jwt = jsonwebtoken::encode(&header, &claims, &sa.encoding_key)?;
         let resp = self
           .http()
           .post("https://oauth2.googleapis.com/token")

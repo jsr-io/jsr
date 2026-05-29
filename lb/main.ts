@@ -18,6 +18,15 @@ import { ApiContainer } from "./containers.ts";
 // `cloudflare_worker_version` Durable Object binding) can discover it.
 export { ApiContainer };
 
+// Number of API container instances to load-balance across (via getRandom).
+// This is a FIXED fleet, not autoscaling: capacity ≈ API_CONTAINER_INSTANCES ×
+// the container's `--database_pool_size` (4) DB connections held steady-state
+// (containers stay warm for `sleepAfter`). Sizing must stay under the Cloud SQL
+// connection budget shared with the Cloud Run tasks service. Revisit against
+// peak traffic — Cloud Run currently autoscales the serving path, so this fixed
+// number is a deliberate ceiling.
+const API_CONTAINER_INSTANCES = 3;
+
 export type Backend = "api" | "frontend" | "modules" | "npm";
 const MODULES = "modules";
 const FRONTEND = "frontend";
@@ -81,7 +90,10 @@ export async function handleAPIRequest(
   // fixed set of instances; the returned stub is a Fetcher, so it flows
   // through the same proxy path (caching, header rewriting) as the other
   // backends.
-  const container = await getRandom<ApiContainer>(env.API_CONTAINER, 3);
+  const container = await getRandom<ApiContainer>(
+    env.API_CONTAINER,
+    API_CONTAINER_INSTANCES,
+  );
   const response = await proxyToBackend(
     request,
     container,

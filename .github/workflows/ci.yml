@@ -171,12 +171,12 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
+      # buildx + Cargo.lock are prerequisites for both the GCP build (below) and
+      # the Cloudflare load (further below), so they always run.
       - name: Set up docker buildx
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Copy Cargo.lock
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         run: cp Cargo.lock api/Cargo.lock
 
       - name: Build and push api docker image
@@ -195,8 +195,13 @@ jobs:
       # the build cache (no recompile) and push it straight to Cloudflare —
       # both environments share one Cloudflare account, so a single push here
       # covers staging and prod, and the deploy jobs never touch the image.
+      #
+      # This runs unconditionally (NOT gated on the GCP reuse check), because
+      # that check only inspects the GCP registry: an image present in GCP but
+      # missing from Cloudflare must still be pushed. `wrangler containers push`
+      # is idempotent — pushing by digest is a no-op when the layers already
+      # exist — so re-running it on the reuse path is cheap.
       - name: Load api image for Cloudflare push
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         uses: docker/build-push-action@v5
         with:
           context: api
@@ -205,11 +210,9 @@ jobs:
           cache-from: type=gha,scope=docker-api
 
       - name: Install wrangler
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         run: npm install -g wrangler
 
       - name: Push api image to Cloudflare container registry
-        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
         run: wrangler containers push jsr-api:${{ github.sha }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

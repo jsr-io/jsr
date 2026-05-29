@@ -52,6 +52,12 @@ pub struct Config {
   /// The strategy to use to retrieve metadata from the GCP environment.
   pub metadata_strategy: MetadataStrategy,
 
+  #[clap(long = "gcp_service_account_key", env = "GCP_SERVICE_ACCOUNT_KEY")]
+  /// A GCP service account key JSON, used only when `metadata_strategy` is
+  /// `service_account_key` (i.e. when running off-GCP, such as in a Cloudflare
+  /// Container, where the instance metadata server is unavailable).
+  pub gcp_service_account_key: Option<String>,
+
   #[clap(
     long = "database_url",
     env = "DATABASE_URL",
@@ -204,6 +210,10 @@ impl std::fmt::Debug for Config {
       .field("publishing_bucket", &self.publishing_bucket)
       .field("modules_bucket", &self.modules_bucket)
       .field("metadata_strategy", &self.metadata_strategy)
+      .field(
+        "gcp_service_account_key",
+        &self.gcp_service_account_key.as_ref().map(|_| "***"),
+      )
       .field("database_url", &"***")
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")

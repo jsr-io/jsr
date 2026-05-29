@@ -42,6 +42,7 @@ export interface WorkerEnv {
   // them, it only forwards them into the container's process env.
   DATABASE_URL: string;
   METADATA_STRATEGY: string;
+  GCP_SERVICE_ACCOUNT_KEY?: string;
   PUBLISHING_BUCKET: string;
   MODULES_BUCKET_NAME: string;
   DOCS_BUCKET: string;

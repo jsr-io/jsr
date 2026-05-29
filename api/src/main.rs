@@ -186,7 +186,9 @@ async fn main() {
     expiration: None,
   };
 
-  let gcp_client = gcp::Client::new(config.metadata_strategy);
+  let gcp_client =
+    gcp::Client::new(config.metadata_strategy, config.gcp_service_account_key)
+      .expect("failed to initialize GCP client");
   let publishing_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.publishing_bucket,

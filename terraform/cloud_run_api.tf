@@ -358,12 +358,6 @@ resource "google_secret_manager_secret_iam_member" "cloudflare_api_token" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_project_iam_member" "api_cloud_trace" {
-  project = google_cloud_run_v2_service.registry_api.project
-  role    = "roles/cloudtrace.agent"
-  member  = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
 resource "google_cloud_tasks_queue_iam_member" "publishing_tasks" {
   name   = google_cloud_tasks_queue.publishing_tasks.id
   role   = "roles/cloudtasks.enqueuer"

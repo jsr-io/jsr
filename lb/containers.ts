@@ -9,6 +9,7 @@ function apiEnvVars(env: WorkerEnv): Record<string, string> {
     NO_COLOR: "true",
     DATABASE_URL: env.DATABASE_URL,
     METADATA_STRATEGY: env.METADATA_STRATEGY,
+    GCP_SERVICE_ACCOUNT_KEY: env.GCP_SERVICE_ACCOUNT_KEY ?? "",
     PUBLISHING_BUCKET: env.PUBLISHING_BUCKET,
     MODULES_BUCKET: env.MODULES_BUCKET_NAME,
     DOCS_BUCKET: env.DOCS_BUCKET,
@@ -53,5 +54,8 @@ export class ApiContainer extends Container<WorkerEnv> {
     "--database_pool_size=4",
   ];
   override enableInternet = true;
+  // `this.env` is populated by Container's constructor before this field
+  // initializer runs (a @cloudflare/containers convention), so it's safe to
+  // read here.
   override envVars = apiEnvVars(this.env);
 }

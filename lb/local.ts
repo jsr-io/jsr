@@ -233,6 +233,9 @@ function handler(req: Request): Promise<Response> {
     return proxyToLocalApi(req, false);
   }
 
+  // The cast omits API_CONTAINER and all the container-only env vars. That's
+  // safe because proxyToLocalApi above short-circuits every API request before
+  // main.fetch is reached, so those fields are never read on the local path.
   return main.fetch(req, {
     FRONTEND: frontendShim,
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),

@@ -139,10 +139,14 @@ resource "cloudflare_worker_version" "jsr_lb" {
       name = "DATABASE_URL"
       text = "postgres://${google_sql_user.api.name}:${google_sql_user.api.password}@${google_sql_database_instance.main_pg15.public_ip_address}/${google_sql_database.database.name}?sslmode=require"
       }, {
-      # GCP service account key JSON — the container is on Cloudflare and can't
-      # use the GCP metadata server, so it signs a JWT with this key instead.
-      type = "secret_text"
+      # The container runs on Cloudflare, not GCP, so it mints GCP tokens from
+      # a service account key (below) instead of the instance metadata server.
+      type = "plain_text"
       name = "METADATA_STRATEGY"
+      text = "service_account_key"
+      }, {
+      type = "secret_text"
+      name = "GCP_SERVICE_ACCOUNT_KEY"
       text = base64decode(google_service_account_key.registry_api.private_key)
       }, {
       type = "plain_text"

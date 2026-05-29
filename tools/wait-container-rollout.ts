@@ -70,7 +70,11 @@ async function cf<T>(path: string): Promise<T> {
       "Content-Type": "application/json",
     },
   });
-  const body = await resp.json();
+  const body = await resp.json() as {
+    success?: boolean;
+    errors?: unknown;
+    result?: unknown;
+  };
   if (!resp.ok || body.success === false) {
     throw new Error(
       `Cloudflare API ${path} failed: ${resp.status} ${
@@ -132,22 +136,30 @@ function isRolledOut(app: ContainerApplication): boolean {
   return true;
 }
 
+// Stop promptly if CI cancels the job, instead of polling until --timeout.
+Deno.addSignalListener("SIGTERM", () => Deno.exit(143));
+
 const deadline = Date.now() + timeoutSecs * 1000;
 console.log(
   `Waiting for container rollout of "${appQuery}" ` +
     `(timeout ${timeoutSecs}s, poll every ${intervalSecs}s)...`,
 );
 
-let app = await findApplication();
-console.log(`Found application "${app.name}" (${app.id}).`);
-
 while (true) {
-  app = await cf<ContainerApplication>(
-    `/accounts/${accountId}/containers/applications/${app.id}`,
-  );
-  if (isRolledOut(app)) {
-    console.log("Container rollout complete.");
-    Deno.exit(0);
+  try {
+    // Re-resolve each poll: on a brand-new deploy the application may not exist
+    // yet (findApplication throws / the API 404s), so we tolerate that and keep
+    // polling until it appears or we time out.
+    const found = await findApplication();
+    const app = await cf<ContainerApplication>(
+      `/accounts/${accountId}/containers/applications/${found.id}`,
+    );
+    if (isRolledOut(app)) {
+      console.log("Container rollout complete.");
+      Deno.exit(0);
+    }
+  } catch (err) {
+    console.log(`  application not ready yet: ${(err as Error).message}`);
   }
   if (Date.now() >= deadline) {
     console.error(`Timed out after ${timeoutSecs}s waiting for rollout.`);
