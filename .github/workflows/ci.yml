@@ -10,6 +10,8 @@ on:
 
 env:
   TERRAFORM_VERSION: "1.4.2"
+  API_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/api
+  FRONTEND_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/frontend
 
 jobs:
   frontend:
@@ -134,9 +136,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      API_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/api
-      FRONTEND_IMAGE_ID_BASE: us-central1-docker.pkg.dev/deno-registry3-infra/registry/frontend
     outputs:
       api_image_id: ${{ steps.api_image_id.outputs.image_id }}
       frontend_image_id: ${{ steps.frontend_image_id.outputs.image_id }}
@@ -190,6 +189,31 @@ jobs:
           tags: ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }}
           cache-from: type=gha,scope=docker-api
           cache-to: type=gha,mode=max,scope=docker-api
+
+      # The API server also runs as a Cloudflare Container, so the same image
+      # has to live in the Cloudflare registry. Re-materialise it locally from
+      # the build cache (no recompile) and push it straight to Cloudflare —
+      # both environments share one Cloudflare account, so a single push here
+      # covers staging and prod, and the deploy jobs never touch the image.
+      - name: Load api image for Cloudflare push
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: api
+          load: true
+          tags: jsr-api:${{ github.sha }}
+          cache-from: type=gha,scope=docker-api
+
+      - name: Install wrangler
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
+        run: npm install -g wrangler
+
+      - name: Push api image to Cloudflare container registry
+        if: github.event_name != 'push' || steps.check_existing.outputs.exists != 'true'
+        run: wrangler containers push jsr-api:${{ github.sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       # The legacy Cloud Run frontend lives alongside the new Cloudflare
       # Worker frontend while traffic is cut over; tear this and the
@@ -261,12 +285,17 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: terraform plan
+      - name: terraform init
         run: |
           touch terraform/staging.secret.tfvars
           deno task tf:staging:init
           terraform version
-          deno task tf:staging:plan
+
+      # Create the new LB worker version (which carries the ApiContainer). This
+      # starts the container image rollout but does NOT promote the deployment,
+      # so the currently-live version keeps serving until the rollout is done.
+      - name: terraform apply (LB worker version)
+        run: deno task tf:staging:apply:lb-version
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
@@ -282,6 +311,31 @@ jobs:
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Wait for container rollout
+        run: deno task wait:container-rollout
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: terraform plan
+        run: deno task tf:staging:plan
+        env:
+          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
+          TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+          TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
+          TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # Promotes the LB deployment to the rolled-out version and applies the
+      # rest of the infrastructure.
       - name: terraform apply
         run: deno task tf:staging:apply
 
@@ -333,12 +387,17 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: terraform plan
+      - name: terraform init
         run: |
           touch terraform/prod.secret.tfvars
           deno task tf:prod:init
           terraform version
-          deno task tf:prod:plan
+
+      # Create the new LB worker version (which carries the ApiContainer). This
+      # starts the container image rollout but does NOT promote the deployment,
+      # so the currently-live version keeps serving until the rollout is done.
+      - name: terraform apply (LB worker version)
+        run: deno task tf:prod:apply:lb-version
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
@@ -354,6 +413,31 @@ jobs:
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Wait for container rollout
+        run: deno task wait:container-rollout
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: terraform plan
+        run: deno task tf:prod:plan
+        env:
+          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
+          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
+          TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+          TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
+          TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
+          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # Promotes the LB deployment to the rolled-out version and applies the
+      # rest of the infrastructure.
       - name: terraform apply
         run: deno task tf:prod:apply
 

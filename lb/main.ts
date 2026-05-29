@@ -11,6 +11,12 @@ import {
 } from "./headers.ts";
 import { isBot } from "./bots.ts";
 import { trackJSRDownload, trackNPMDownload } from "./analytics.ts";
+import { getRandom } from "@cloudflare/containers";
+import { ApiContainer } from "./containers.ts";
+
+// Re-export the container class so the Worker runtime (and the
+// `cloudflare_worker_version` Durable Object binding) can discover it.
+export { ApiContainer };
 
 export type Backend = "api" | "frontend" | "modules" | "npm";
 const MODULES = "modules";
@@ -71,9 +77,14 @@ export async function handleAPIRequest(
     return handleCORSPreflight(API);
   }
 
+  // The API server runs as a Cloudflare Container. Load-balance across a
+  // fixed set of instances; the returned stub is a Fetcher, so it flows
+  // through the same proxy path (caching, header rewriting) as the other
+  // backends.
+  const container = await getRandom<ApiContainer>(env.API_CONTAINER, 3);
   const response = await proxyToBackend(
     request,
-    env.REGISTRY_API_URL,
+    container,
     rewritePath ? (path) => `/api${path}` : undefined,
   );
 
@@ -197,7 +208,7 @@ export function canAccessModuleFile(request: Request): boolean {
   }
 }
 
-function isAPIRoute(path: string): boolean {
+export function isAPIRoute(path: string): boolean {
   return (
     path.startsWith("/api/") ||
     path === "/sitemap.xml" ||

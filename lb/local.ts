@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A --watch
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import main from "./main.ts";
-import type { PartialBucket } from "./types.ts";
+import main, { isAPIRoute } from "./main.ts";
+import type { PartialBucket, WorkerEnv } from "./types.ts";
 import {
   CreateBucketCommand,
   GetObjectCommand,
@@ -196,16 +196,51 @@ const frontendShim: Fetcher = {
   // deno-lint-ignore no-explicit-any
 } as any;
 
+// Cloudflare Containers aren't available in local dev, so API requests are
+// proxied straight to the local Rust API server (REGISTRY_API_URL) instead
+// of going through the ApiContainer binding.
+async function proxyToLocalApi(
+  request: Request,
+  rewritePath: boolean,
+): Promise<Response> {
+  const url = new URL(request.url);
+  let path = url.pathname;
+  if (rewritePath) {
+    path = `/api${path}`;
+  }
+  const backendUrl = new URL(path + url.search, REGISTRY_API_URL);
+  const resp = await fetch(backendUrl, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    redirect: "manual",
+  });
+  return new Response(resp.body, {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers: resp.headers,
+  });
+}
+
 function handler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const hostname = url.hostname.toLowerCase();
+
+  if (hostname === API_DOMAIN) {
+    return proxyToLocalApi(req, true);
+  }
+  if (hostname === ROOT_DOMAIN && isAPIRoute(url.pathname)) {
+    return proxyToLocalApi(req, false);
+  }
+
   return main.fetch(req, {
-    REGISTRY_API_URL,
     FRONTEND: frontendShim,
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
     NPM_BUCKET: new R2BucketShim(NPM_BUCKET),
     ROOT_DOMAIN,
     API_DOMAIN,
     NPM_DOMAIN,
-  });
+  } as unknown as WorkerEnv);
 }
 
 if (import.meta.main) {

@@ -22,7 +22,6 @@ use tracing_subscriber::reload;
 
 pub enum TracingExportTarget {
   Otlp(String),
-  CloudTrace,
   None,
 }
 
@@ -56,16 +55,6 @@ pub async fn setup_tracing(
         .with_trace_config(trace_config)
         .with_exporter(exporter)
         .install_batch(opentelemetry::runtime::Tokio)
-        .unwrap();
-      Some(tracer)
-    }
-    TracingExportTarget::CloudTrace => {
-      let tracer = opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder::for_default_project_id()
-        .await
-        .unwrap()
-        .with_trace_config(trace_config)
-        .install_batch(opentelemetry::runtime::Tokio)
-        .await
         .unwrap();
       Some(tracer)
     }

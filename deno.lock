@@ -29,6 +29,7 @@
     "jsr:@std/semver@^1.0.8": "1.0.8",
     "jsr:@std/streams@^1.0.17": "1.0.17",
     "jsr:@std/toml@^1.0.1": "1.0.2",
+    "jsr:@std/yaml@1": "1.0.5",
     "jsr:@std/yaml@^1.0.5": "1.0.5",
     "npm:@cloudflare/workers-types@*": "4.20260301.1",
     "npm:@mdn/browser-compat-data@^7.1.6": "7.1.6",
@@ -128,7 +129,7 @@
       "integrity": "abddc64030a33eb5bc524b8c73e7c417cea09177aaeb4abf75a56b540c4b6e60",
       "dependencies": [
         "jsr:@std/toml",
-        "jsr:@std/yaml"
+        "jsr:@std/yaml@^1.0.5"
       ]
     },
     "@std/fs@1.0.23": {

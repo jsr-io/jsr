@@ -18,6 +18,7 @@ frontend/node_modules
 frontend/_fresh
 
 lb/dist
+lb/node_modules
 
 .gcs
 .minio
