@@ -25,6 +25,8 @@ export const handler = define.handlers({
       if (packageResp.data.score === null) {
         return new Response(null, { status: 404 });
       }
+      ctx.state.cacheControl =
+        "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
       return Response.json({
         schemaVersion: 1,
         label: "",

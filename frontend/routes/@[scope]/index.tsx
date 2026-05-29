@@ -54,6 +54,9 @@ export const handler = define.handlers({
     assertOk(packagesResp);
     if (userInvitesResp) assertOk(userInvitesResp);
 
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
+
     return {
       data: {
         scope: data.scope,

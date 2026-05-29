@@ -70,6 +70,8 @@ export const handler = define.handlers({
     ctx.state.meta = {
       title: `${user.name} - JSR`,
     };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
     return {
       data: {
         user,

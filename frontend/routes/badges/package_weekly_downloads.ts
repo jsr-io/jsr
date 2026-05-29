@@ -34,6 +34,8 @@ export const handler = define.handlers({
       const now = new Date();
       const timeDifference = now.getTime() - firstDate.getTime();
       const weeksDifference = (timeDifference / timeInAWeek) || 1; // If there is only one data point, we assume it's a week
+      ctx.state.cacheControl =
+        "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
       return Response.json({
         schemaVersion: 1,
         label: "downloads",

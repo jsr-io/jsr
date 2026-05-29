@@ -27,6 +27,8 @@ export const handler = define.handlers({
         (acc, curr) => acc + curr.count,
         0,
       );
+      ctx.state.cacheControl =
+        "public, max-age=30, s-maxage=300, stale-while-revalidate=900";
       return Response.json({
         schemaVersion: 1,
         label: "downloads",

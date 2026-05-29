@@ -104,6 +104,8 @@ export const handler = define.handlers({
       description:
         "JSR is the open-source package registry for modern JavaScript. JSR natively supports TypeScript, and works with all JS runtimes and package managers.",
     };
+    ctx.state.cacheControl =
+      "public, max-age=30, s-maxage=120, stale-while-revalidate=600";
     return {
       data: {
         packages,
