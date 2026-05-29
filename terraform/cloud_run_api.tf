@@ -44,6 +44,7 @@ locals {
     "GCP_PROJECT_ID"         = var.gcp_project
 
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
+    "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
   }
 }

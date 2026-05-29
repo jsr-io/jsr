@@ -39,6 +39,7 @@ use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
+use crate::external::cloudflare::CachePurge;
 use crate::external::orama::OramaClient;
 use crate::gcp::Queue;
 use crate::s3::Buckets;
@@ -77,6 +78,7 @@ pub struct MainRouterOptions {
     external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
+  cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -99,6 +101,7 @@ pub(crate) fn main_router(
     publish_queue,
     npm_tarball_build_queue,
     analytics_engine_config,
+    cache_purge_client,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -117,6 +120,7 @@ pub(crate) fn main_router(
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
+    .data(CachePurge(cache_purge_client))
     .data(db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
@@ -231,6 +235,16 @@ async fn main() {
     .npm_tarball_build_queue_id
     .map(|id: String| Queue::new(gcp_client.clone(), id, None));
 
+  let cache_purge_client = match (
+    config.cloudflare_zone_id.clone(),
+    config.cloudflare_api_token.clone(),
+  ) {
+    (Some(zone_id), Some(api_token)) => Some(
+      external::cloudflare::CachePurgeClient::new(zone_id, api_token),
+    ),
+    _ => None,
+  };
+
   let analytics_engine_config = match (
     config.cloudflare_account_id,
     config.cloudflare_api_token,
@@ -315,6 +329,7 @@ async fn main() {
     publish_queue,
     npm_tarball_build_queue,
     analytics_engine_config,
+    cache_purge_client,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });
