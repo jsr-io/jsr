@@ -125,7 +125,10 @@ pub struct PublishQueue(pub Option<gcp::Queue>);
 
 pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/", util::json(list_handler))
+    .get(
+      "/",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(list_handler)),
+    )
     .post("/", util::json(create_handler))
     .get(
       "/:package",

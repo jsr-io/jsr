@@ -10,6 +10,7 @@ use tracing::instrument;
 use crate::db::Database;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 
 use super::ApiError;
@@ -18,8 +19,14 @@ use super::ApiUser;
 
 pub fn users_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/:id", util::json(get_handler))
-    .get("/:id/scopes", util::json(get_scopes_handler))
+    .get(
+      "/:id",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
+    .get(
+      "/:id/scopes",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_scopes_handler)),
+    )
     .build()
     .unwrap()
 }
