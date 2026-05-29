@@ -19,6 +19,7 @@ frontend/_fresh
 
 lb/dist
 lb/node_modules
+lb/wrangler.json
 
 .gcs
 .minio

@@ -8,14 +8,13 @@ variable "domain_name" {
 }
 
 variable "api_image_id" {
-  description = "the Docker image ID for the API service"
+  description = "the Docker image ID for the API service (Cloud Run tasks)"
   type        = string
 }
 
-variable "migrations_version" {
-  description = "Durable Object migration tag for the LB worker. Cloudflare tracks the applied tag per worker and no-ops a tag it has already applied, so re-sending the migration on every deploy does nothing. Bump this ONLY when adding or renaming Durable Object classes (e.g. ApiContainer)."
+variable "api_image_tag" {
+  description = "the tag of the API image pushed to the Cloudflare container registry (the git SHA), referenced by the generated lb/wrangler.json"
   type        = string
-  default     = "v1"
 }
 
 variable "frontend_image_id" {

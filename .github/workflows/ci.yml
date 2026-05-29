@@ -288,17 +288,12 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: terraform init
+      - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
           deno task tf:staging:init
           terraform version
-
-      # Create the new LB worker version (which carries the ApiContainer). This
-      # starts the container image rollout but does NOT promote the deployment,
-      # so the currently-live version keeps serving until the rollout is done.
-      - name: terraform apply (LB worker version)
-        run: deno task tf:staging:apply:lb-version
+          deno task tf:staging:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
@@ -313,34 +308,45 @@ jobs:
           TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # Applies all infra EXCEPT the LB worker (R2, GCP, DNS, the frontend
+      # worker) and generates the secret values the LB worker consumes.
+      - name: terraform apply
+        run: deno task tf:staging:apply
+
+      - name: Install wrangler
+        run: npm install -g wrangler
+
+      # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
+      # above), creates/updates the worker, applies the DO migration (idempotent
+      # by tag), and rolls out the container. Secrets are delivered right after
+      # (they persist on the worker); the rollout becomes healthy once set.
+      - name: Deploy LB worker
+        run: deno task lb:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Set LB worker secrets
+        run: deno task lb:secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          GITLAB_CLIENT_SECRET: ${{ secrets.GITLAB_CLIENT_SECRET }}
+          POSTMARK_TOKEN: ${{ secrets.POSTMARK_TOKEN }}
+          ORAMA_PACKAGES_PROJECT_KEY: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          ORAMA_PACKAGES_PROJECT_ID: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          ORAMA_PACKAGES_DATA_SOURCE: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          ORAMA_SYMBOLS_PROJECT_KEY: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          ORAMA_SYMBOLS_PROJECT_ID: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          ORAMA_SYMBOLS_DATA_SOURCE: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
 
       - name: Wait for container rollout
         run: deno task wait:container-rollout
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: terraform plan
-        run: deno task tf:staging:plan
-        env:
-          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
-          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
-          TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
-          TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
-          TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
-          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
-          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
-          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
-          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
-          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
-          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
-          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-      # Promotes the LB deployment to the rolled-out version and applies the
-      # rest of the infrastructure.
-      - name: terraform apply
-        run: deno task tf:staging:apply
 
       - name: Run e2e tests
         run: deno task e2e:staging
@@ -390,17 +396,12 @@ jobs:
         run: deno task build
         working-directory: frontend
 
-      - name: terraform init
+      - name: terraform plan
         run: |
           touch terraform/prod.secret.tfvars
           deno task tf:prod:init
           terraform version
-
-      # Create the new LB worker version (which carries the ApiContainer). This
-      # starts the container image rollout but does NOT promote the deployment,
-      # so the currently-live version keeps serving until the rollout is done.
-      - name: terraform apply (LB worker version)
-        run: deno task tf:prod:apply:lb-version
+          deno task tf:prod:plan
         env:
           API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
           FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
@@ -415,34 +416,45 @@ jobs:
           TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # Applies all infra EXCEPT the LB worker (R2, GCP, DNS, the frontend
+      # worker) and generates the secret values the LB worker consumes.
+      - name: terraform apply
+        run: deno task tf:prod:apply
+
+      - name: Install wrangler
+        run: npm install -g wrangler
+
+      # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
+      # above), creates/updates the worker, applies the DO migration (idempotent
+      # by tag), and rolls out the container. Secrets are delivered right after
+      # (they persist on the worker); the rollout becomes healthy once set.
+      - name: Deploy LB worker
+        run: deno task lb:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Set LB worker secrets
+        run: deno task lb:secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          GITLAB_CLIENT_SECRET: ${{ secrets.GITLAB_CLIENT_SECRET }}
+          POSTMARK_TOKEN: ${{ secrets.POSTMARK_TOKEN }}
+          ORAMA_PACKAGES_PROJECT_KEY: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
+          ORAMA_PACKAGES_PROJECT_ID: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
+          ORAMA_PACKAGES_DATA_SOURCE: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
+          ORAMA_SYMBOLS_PROJECT_KEY: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
+          ORAMA_SYMBOLS_PROJECT_ID: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
+          ORAMA_SYMBOLS_DATA_SOURCE: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
 
       - name: Wait for container rollout
         run: deno task wait:container-rollout
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: terraform plan
-        run: deno task tf:prod:plan
-        env:
-          API_IMAGE_ID: ${{ needs.docker-images.outputs.api_image_id }}
-          FRONTEND_IMAGE_ID: ${{ needs.docker-images.outputs.frontend_image_id }}
-          TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
-          TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
-          TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
-          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
-          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
-          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
-          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
-          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
-          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
-          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-      # Promotes the LB deployment to the rolled-out version and applies the
-      # rest of the infrastructure.
-      - name: terraform apply
-        run: deno task tf:prod:apply
 
       - name: Run e2e tests
         run: deno task e2e:prod
