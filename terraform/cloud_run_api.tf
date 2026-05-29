@@ -41,6 +41,7 @@ locals {
     "NPM_TARBALL_BUILD_QUEUE_ID" = "projects/${var.gcp_project}/locations/us-central1/queues/${local.npm_tarball_build_tasks_queue_name}"
 
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
+    "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
   }
 }

@@ -179,6 +179,12 @@ pub struct Config {
   /// The Cloudflare API token.
   pub cloudflare_api_token: Option<String>,
 
+  #[clap(long = "cloudflare_zone_id", env = "CLOUDFLARE_ZONE_ID")]
+  /// The Cloudflare zone ID for the registry domain, used to purge cached
+  /// package and npm version manifests when a package is published or
+  /// mutated. Cache purge is skipped if unset.
+  pub cloudflare_zone_id: Option<String>,
+
   #[clap(
     long = "cloudflare_analytics_dataset",
     env = "CLOUDFLARE_ANALYTICS_DATASET"

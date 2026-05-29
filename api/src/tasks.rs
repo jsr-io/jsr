@@ -33,6 +33,7 @@ use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::VersionDownloadCount;
 use crate::external::cloudflare;
+use crate::external::cloudflare::CachePurge;
 use crate::gcp;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
@@ -41,8 +42,8 @@ use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
 use crate::publish;
 use crate::s3::Buckets;
-use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::CACHE_CONTROL_MANIFEST;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::s3_paths;
@@ -105,6 +106,7 @@ pub async fn npm_tarball_build_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
   let is_already_built = db
     .get_npm_tarball(
@@ -208,11 +210,17 @@ pub async fn npm_tarball_build_handler(
       UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      &npm_url, &job.scope, &job.name,
+    )])
+    .await;
 
   Ok(())
 }
