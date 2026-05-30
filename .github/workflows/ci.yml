@@ -190,12 +190,17 @@ jobs:
           cache-from: type=gha,scope=docker-api
           cache-to: type=gha,mode=max,scope=docker-api
 
-      # The API also runs as a Cloudflare Container, so the same image is pushed
-      # once to the shared Cloudflare registry here (re-materialised from the
-      # build cache, no recompile). This is the shared build job with no
-      # `environment:`, so the push uses a repo-level token that only needs
-      # account-level Containers: Edit (no zone). The deploy jobs reference this
-      # image; they never build or push it.
+      # The API server also runs as a Cloudflare Container, so the same image
+      # has to live in the Cloudflare registry. Re-materialise it locally from
+      # the build cache (no recompile) and push it straight to Cloudflare —
+      # both environments share one Cloudflare account, so a single push here
+      # covers staging and prod, and the deploy jobs never touch the image.
+      #
+      # This runs unconditionally (NOT gated on the GCP reuse check), because
+      # that check only inspects the GCP registry: an image present in GCP but
+      # missing from Cloudflare must still be pushed. `wrangler containers push`
+      # is idempotent — pushing by digest is a no-op when the layers already
+      # exist — so re-running it on the reuse path is cheap.
       - name: Load api image for Cloudflare push
         uses: docker/build-push-action@v5
         with:
@@ -210,7 +215,7 @@ jobs:
       - name: Push api image to Cloudflare container registry
         run: wrangler containers push jsr-api:${{ github.sha }}
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_CONTAINER_PUSH_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       # The legacy Cloud Run frontend lives alongside the new Cloudflare
