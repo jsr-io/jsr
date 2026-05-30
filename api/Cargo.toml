@@ -75,6 +75,10 @@ opentelemetry = { version = "0.19", features = [
 ] }
 opentelemetry-otlp = "0.12"
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
+# Both aws-lc-rs and ring end up in the tree (via the rustls-tls features of
+# sqlx/rust-s3/reqwest/postmark), so rustls 0.23 can't auto-pick a CryptoProvider
+# and panics on the first TLS connection. Pin one explicitly (see main.rs).
+rustls = "0.23"
 deno_semver = "0.9.1"
 flate2 = "1"
 thiserror = "2"
