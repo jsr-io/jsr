@@ -29,6 +29,9 @@ async function run(
   return new TextDecoder().decode(stdout);
 }
 
+// Precondition: terraform must already be initialized against the target
+// environment's state (CI does this in the preceding `terraform init`/apply
+// steps). Running this outside that flow will fail to read the outputs.
 const tfOutput = (name: string) =>
   run("terraform", ["-chdir=terraform", "output", "-raw", name]);
 

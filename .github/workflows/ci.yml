@@ -319,8 +319,15 @@ jobs:
 
       # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
       # above), creates/updates the worker, applies the DO migration (idempotent
-      # by tag), and rolls out the container. Secrets are delivered right after
-      # (they persist on the worker); the rollout becomes healthy once set.
+      # by tag), and rolls out the container.
+      #
+      # Deploy order is deliberate: worker secrets PERSIST across deploys, so on
+      # every steady-state deploy the new container rolls out with the secrets
+      # already set by a previous run — no missing-secret window. `secret bulk`
+      # runs right after only to push rotations (which take effect on the next
+      # deploy). The sole exception is the very first deploy to a brand-new
+      # worker, where the container boots once without secrets until the bulk
+      # step lands; see the PR notes on first-environment bootstrap.
       - name: Deploy LB worker
         run: deno task lb:deploy
         env:
@@ -427,8 +434,15 @@ jobs:
 
       # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
       # above), creates/updates the worker, applies the DO migration (idempotent
-      # by tag), and rolls out the container. Secrets are delivered right after
-      # (they persist on the worker); the rollout becomes healthy once set.
+      # by tag), and rolls out the container.
+      #
+      # Deploy order is deliberate: worker secrets PERSIST across deploys, so on
+      # every steady-state deploy the new container rolls out with the secrets
+      # already set by a previous run — no missing-secret window. `secret bulk`
+      # runs right after only to push rotations (which take effect on the next
+      # deploy). The sole exception is the very first deploy to a brand-new
+      # worker, where the container boots once without secrets until the bulk
+      # step lands; see the PR notes on first-environment bootstrap.
       - name: Deploy LB worker
         run: deno task lb:deploy
         env:

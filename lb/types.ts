@@ -69,6 +69,7 @@ export interface WorkerEnv {
   PUBLISH_QUEUE_ID?: string;
   NPM_TARBALL_BUILD_QUEUE_ID?: string;
   CLOUDFLARE_ACCOUNT_ID: string;
+  CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ANALYTICS_DATASET?: string;
 }

@@ -14,8 +14,8 @@ import { trackJSRDownload, trackNPMDownload } from "./analytics.ts";
 import { getRandom } from "@cloudflare/containers";
 import { ApiContainer } from "./containers.ts";
 
-// Re-export the container class so the Worker runtime (and the
-// `cloudflare_worker_version` Durable Object binding) can discover it.
+// Re-export the container class so the Worker runtime (and the Durable Object
+// binding in the generated lb/wrangler.json) can discover it.
 export { ApiContainer };
 
 // Number of API container instances to load-balance across (via getRandom).
