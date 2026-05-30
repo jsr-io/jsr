@@ -19,13 +19,12 @@ import { ApiContainer } from "./containers.ts";
 export { ApiContainer };
 
 // Number of API container instances to load-balance across (via getRandom).
-// This is a FIXED fleet, not autoscaling: capacity ≈ API_CONTAINER_INSTANCES ×
-// the container's `--database_pool_size` (4) DB connections held steady-state
-// (containers stay warm for `sleepAfter`). Sizing must stay under the Cloud SQL
-// connection budget shared with the Cloud Run tasks service. Revisit against
-// peak traffic — Cloud Run currently autoscales the serving path, so this fixed
-// number is a deliberate ceiling.
-const API_CONTAINER_INSTANCES = 3;
+// Must match `max_instances` in the container config (terraform/lb.tf). Each
+// instance holds up to `--database_pool_size` (4) DB connections while warm
+// (sleepAfter), so the steady-state ceiling is API_CONTAINER_INSTANCES × 4
+// connections against the Cloud SQL budget shared with the Cloud Run tasks
+// service.
+const API_CONTAINER_INSTANCES = 30;
 
 export type Backend = "api" | "frontend" | "modules" | "npm";
 const MODULES = "modules";

@@ -43,14 +43,20 @@ resource "local_file" "lb_wrangler_config" {
       ]
     }
 
-    # max_instances matches API_CONTAINER_INSTANCES in lb/main.ts (getRandom
-    # picks one of that many stable DO IDs, each capped at one container), so
-    # the effective fleet is 3. Bump both together when raising capacity.
+    # max_instances must match API_CONTAINER_INSTANCES in lb/main.ts (getRandom
+    # spreads requests across that many stable DO IDs, each capped at one
+    # container). instance_type mirrors the Cloud Run serving resources
+    # (1 vCPU / 1 GiB) — the default "lite" type (256 MiB) OOMs the API server.
     containers = [
       {
         class_name    = "ApiContainer"
         image         = "registry.cloudflare.com/${var.cloudflare_account_id}/jsr-api:${var.api_image_tag}"
-        max_instances = 3
+        max_instances = 30
+        instance_type = {
+          vcpu       = 1
+          memory_mib = 1024
+          disk_mb    = 2048
+        }
       }
     ]
 
