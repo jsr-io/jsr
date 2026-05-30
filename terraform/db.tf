@@ -1,20 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
   postgres_url = "postgres://${google_sql_user.api.name}:${google_sql_user.api.password}@${google_sql_database_instance.main_pg15.private_ip_address}/${google_sql_database.database.name}"
-
-  # Cloudflare's published egress IPv4 ranges, fetched live so the list stays
-  # current. The API container connects to Cloud SQL over the public IP from
-  # Cloudflare's network (Cloud Run uses the private IP via the VPC connector
-  # instead). Allowlisting these — rather than 0.0.0.0/0 — limits inbound to
-  # Cloudflare's network; the real boundary is still TLS + the DB password
-  # (and, to follow, a client certificate).
-  cloudflare_ipv4 = toset(
-    split("\n", trimspace(data.http.cloudflare_ipv4.response_body))
-  )
-}
-
-data "http" "cloudflare_ipv4" {
-  url = "https://www.cloudflare.com/ips-v4"
 }
 
 resource "google_sql_database_instance" "main_pg15" {
@@ -38,13 +24,15 @@ resource "google_sql_database_instance" "main_pg15" {
       private_network = google_compute_network.main.self_link
       ssl_mode        = "ENCRYPTED_ONLY"
 
-      # Staging only for now: allow the API container to reach the public IP
-      # from Cloudflare's network. Not enabled on prod until connectivity is
-      # confirmed and a client certificate is in place.
+      # Staging diagnostic ONLY: Cloudflare's published ranges didn't admit the
+      # container (its egress isn't pinnable without a Zero Trust dedicated-
+      # egress add-on), so temporarily open the public IP to confirm the
+      # container can open a raw 5432 connection at all. If it connects, this is
+      # replaced by a client-certificate requirement (mTLS) as the real boundary.
       dynamic "authorized_networks" {
-        for_each = var.production ? toset([]) : local.cloudflare_ipv4
+        for_each = var.production ? toset([]) : toset(["0.0.0.0/0"])
         content {
-          name  = "cloudflare-${replace(replace(authorized_networks.value, ".", "-"), "/", "_")}"
+          name  = "diagnostic-open"
           value = authorized_networks.value
         }
       }
