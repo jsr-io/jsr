@@ -56,10 +56,7 @@ const secrets: Record<string, string> = {
   ORAMA_SYMBOLS_PROJECT_KEY: envVar("ORAMA_SYMBOLS_PROJECT_KEY"),
   ORAMA_SYMBOLS_PROJECT_ID: envVar("ORAMA_SYMBOLS_PROJECT_ID"),
   ORAMA_SYMBOLS_DATA_SOURCE: envVar("ORAMA_SYMBOLS_DATA_SOURCE"),
-  // The container's runtime CF token (cache purge + analytics) — read from a
-  // distinct env var so it isn't confused with the deploy token wrangler
-  // authenticates with (CLOUDFLARE_API_TOKEN).
-  CLOUDFLARE_API_TOKEN: envVar("CONTAINER_CLOUDFLARE_API_TOKEN"),
+  CLOUDFLARE_API_TOKEN: envVar("CLOUDFLARE_API_TOKEN"),
 };
 
 const file = await Deno.makeTempFile({ suffix: ".json" });
