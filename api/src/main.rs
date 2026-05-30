@@ -158,11 +158,11 @@ pub(crate) fn main_router(
 
 #[tokio::main]
 async fn main() {
-  // rustls 0.23 can't auto-select a CryptoProvider when both aws-lc-rs and ring
-  // are in the dependency tree, and panics on the first TLS connection. Install
-  // ring explicitly before anything (the DB, S3, HTTP clients) uses TLS — ring
-  // runs reliably in the Cloudflare Container's firecracker VM, aws-lc-rs does
-  // not.
+  // sqlx builds its TLS verifier with `WebPkiServerVerifier::builder()`, which
+  // needs a process-level rustls CryptoProvider. Both aws-lc-rs and ring are in
+  // the tree (via sqlx/rust-s3/reqwest/postmark), so rustls 0.23 can't auto-pick
+  // one and panics on the first TLS connection. Install ring explicitly — it runs
+  // reliably in the Cloudflare Container's firecracker VM, aws-lc-rs does not.
   let _ = rustls::crypto::ring::default_provider().install_default();
 
   dotenvy::from_filename(".env.local").ok();

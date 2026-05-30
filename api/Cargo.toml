@@ -75,11 +75,18 @@ opentelemetry = { version = "0.19", features = [
 ] }
 opentelemetry-otlp = "0.12"
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
-# Both aws-lc-rs and ring end up in the tree (via the rustls-tls features of
-# sqlx/rust-s3/reqwest/postmark), so rustls 0.23 can't auto-pick a CryptoProvider
-# and panics on the first TLS connection. Pin ring explicitly (see main.rs) —
-# aws-lc-rs doesn't run reliably in the Cloudflare Container's firecracker VM.
-rustls = { version = "0.23", features = ["ring"] }
+# We talk to Cloud SQL over its public IP, whose server cert SAN is an internal
+# `*.sql.goog` name that never matches the IP, so the DB connection must use
+# `sslmode=verify-ca` (verify the CA chain, skip the hostname). sqlx 0.8.6's
+# `NoHostnameTlsVerifier` only swallows rustls' old `NotValidForName` error; rustls
+# >= 0.23.24 returns `NotValidForNameContext` instead, which sqlx 0.8.6 does not
+# catch, so verify-ca aborts the handshake with a `bad_certificate` alert. Pin to
+# the last rustls that still returns the old variant. (Fixed on sqlx main; drop the
+# pin once a sqlx > 0.8.6 with the fix is released.)
+#
+# We depend on rustls directly to install a process-level CryptoProvider at startup
+# (see main.rs); ring because aws-lc-rs doesn't run in the CF Container firecracker VM.
+rustls = { version = "=0.23.23", features = ["ring"] }
 deno_semver = "0.9.1"
 flate2 = "1"
 thiserror = "2"
