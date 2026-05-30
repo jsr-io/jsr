@@ -22,17 +22,19 @@ resource "google_sql_database_instance" "main_pg15" {
     ip_configuration {
       ipv4_enabled    = true
       private_network = google_compute_network.main.self_link
-      ssl_mode        = "ENCRYPTED_ONLY"
 
-      # Staging diagnostic ONLY: Cloudflare's published ranges didn't admit the
-      # container (its egress isn't pinnable without a Zero Trust dedicated-
-      # egress add-on), so temporarily open the public IP to confirm the
-      # container can open a raw 5432 connection at all. If it connects, this is
-      # replaced by a client-certificate requirement (mTLS) as the real boundary.
+      # The Cloudflare Container reaches Cloud SQL over the public IP (its egress
+      # isn't pinnable without a Zero Trust dedicated-egress add-on, so the
+      # published ranges can't be used as an allowlist). On staging the public IP
+      # is therefore left open, and a valid client certificate (mTLS) is the real
+      # access boundary instead of a network ACL. Prod keeps the private VPC only
+      # and stays on ENCRYPTED_ONLY.
+      ssl_mode = var.production ? "ENCRYPTED_ONLY" : "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
+
       dynamic "authorized_networks" {
         for_each = var.production ? toset([]) : toset(["0.0.0.0/0"])
         content {
-          name  = "diagnostic-open"
+          name  = "container-public-egress"
           value = authorized_networks.value
         }
       }

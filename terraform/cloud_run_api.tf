@@ -1,13 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
-  api_envs = {
+  api_envs = merge({
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
-    # NOTE: the DB client cert is intentionally NOT given to Cloud Run yet — it
-    # connects over the private VPC IP and adding the cert broke its startup.
-    # The cert goes only to the container for now (see lb.tf); Cloud Run keeps
-    # using ENCRYPTED_ONLY over the private IP. Revisit before requiring certs
-    # globally (TRUSTED_CLIENT_CERTIFICATE_REQUIRED).
 
     "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
     "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
@@ -48,7 +43,17 @@ locals {
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
     "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
-  }
+    },
+    # On staging the DB requires a client certificate
+    # (ssl_mode = TRUSTED_CLIENT_CERTIFICATE_REQUIRED, see db.tf), so both Cloud
+    # Run services must present it over the private VPC IP. The same cert is also
+    # delivered to the container (worker secrets, see lb.tf). Prod stays on
+    # ENCRYPTED_ONLY and doesn't need it. Plain env, like DATABASE_URL/S3_SECRET_KEY.
+    var.production ? {} : {
+      "DB_CLIENT_CERT" = google_sql_ssl_cert.api.cert
+      "DB_CLIENT_KEY"  = google_sql_ssl_cert.api.private_key
+      "DB_ROOT_CERT"   = google_sql_ssl_cert.api.server_ca_cert
+  })
 }
 
 ### API service
