@@ -41,6 +41,9 @@ export interface WorkerEnv {
   // ApiContainer (see containers.ts) — the LB worker itself doesn't read
   // them, it only forwards them into the container's process env.
   DATABASE_URL: string;
+  DB_CLIENT_CERT?: string;
+  DB_CLIENT_KEY?: string;
+  DB_ROOT_CERT?: string;
   METADATA_STRATEGY: string;
   GCP_SERVICE_ACCOUNT_KEY?: string;
   PUBLISHING_BUCKET: string;

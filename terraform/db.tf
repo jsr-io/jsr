@@ -62,6 +62,16 @@ resource "google_sql_database" "database" {
   instance = google_sql_database_instance.main_pg15.name
 }
 
+# Client certificate the API presents when connecting over TLS. The Cloudflare
+# Container reaches Cloud SQL over the public IP where, once ssl_mode is flipped
+# to TRUSTED_CLIENT_CERTIFICATE_REQUIRED, this cert is the access boundary (the
+# IP is open but a valid client cert is required). Delivered to both Cloud Run
+# (env, see cloud_run_api.tf) and the container (worker secrets, see lb.tf).
+resource "google_sql_ssl_cert" "api" {
+  common_name = "api-client"
+  instance    = google_sql_database_instance.main_pg15.name
+}
+
 resource "google_sql_user" "api" {
   name     = "api"
   instance = google_sql_database_instance.main_pg15.name

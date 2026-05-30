@@ -66,6 +66,20 @@ pub struct Config {
   /// The URL to use to connect to the database.
   pub database_url: String,
 
+  #[clap(long = "db_client_cert", env = "DB_CLIENT_CERT")]
+  /// PEM client certificate for connecting to the database over TLS. Used
+  /// off-GCP (the Cloudflare Container) where a client cert is required; all
+  /// three of cert/key/root must be set together to take effect.
+  pub db_client_cert: Option<String>,
+
+  #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
+  /// PEM private key matching `db_client_cert`.
+  pub db_client_key: Option<String>,
+
+  #[clap(long = "db_root_cert", env = "DB_ROOT_CERT")]
+  /// PEM server CA certificate used to verify the database server.
+  pub db_root_cert: Option<String>,
+
   #[clap(long = "github_client_id", env = "GITHUB_CLIENT_ID")]
   /// The GitHub Client ID
   pub github_client_id: String,
@@ -221,6 +235,12 @@ impl std::fmt::Debug for Config {
         &self.gcp_service_account_key.as_ref().map(|_| "***"),
       )
       .field("database_url", &"***")
+      .field(
+        "db_client_cert",
+        &self.db_client_cert.as_ref().map(|_| "***"),
+      )
+      .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
+      .field("db_root_cert", &self.db_root_cert.as_ref().map(|_| "***"))
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
       .field("otlp_endpoint", &self.otlp_endpoint)

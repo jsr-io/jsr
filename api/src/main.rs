@@ -170,10 +170,25 @@ async fn main() {
   };
   setup_tracing("api", export_target).await;
 
+  let db_tls = match (
+    config.db_client_cert,
+    config.db_client_key,
+    config.db_root_cert,
+  ) {
+    (Some(client_cert), Some(client_key), Some(root_cert)) => {
+      Some(crate::db::DbTls {
+        client_cert,
+        client_key,
+        root_cert,
+      })
+    }
+    _ => None,
+  };
   let database = Database::connect(
     &config.database_url,
     config.database_pool_size,
     Duration::from_secs(15),
+    db_tls,
   )
   .await
   .unwrap();

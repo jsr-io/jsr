@@ -4,6 +4,13 @@ locals {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 
+    # Client cert presented to Cloud SQL (see google_sql_ssl_cert.api). Cloud Run
+    # connects over the private IP, but it carries the cert too so it keeps
+    # working once ssl_mode requires client certificates.
+    "DB_CLIENT_CERT" = google_sql_ssl_cert.api.cert
+    "DB_CLIENT_KEY"  = google_sql_ssl_cert.api.private_key
+    "DB_ROOT_CERT"   = google_sql_ssl_cert.api.server_ca_cert
+
     "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
     "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
     "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name

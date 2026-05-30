@@ -137,3 +137,18 @@ output "lb_s3_secret_key" {
   sensitive = true
   value     = local.r2_secret_access_key
 }
+
+output "lb_db_client_cert" {
+  sensitive = true
+  value     = google_sql_ssl_cert.api.cert
+}
+
+output "lb_db_client_key" {
+  sensitive = true
+  value     = google_sql_ssl_cert.api.private_key
+}
+
+output "lb_db_root_cert" {
+  sensitive = true
+  value     = google_sql_ssl_cert.api.server_ca_cert
+}
