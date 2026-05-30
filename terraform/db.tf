@@ -25,18 +25,16 @@ resource "google_sql_database_instance" "main_pg15" {
 
       # The Cloudflare Container reaches Cloud SQL over the public IP (its egress
       # isn't pinnable without a Zero Trust dedicated-egress add-on, so the
-      # published ranges can't be used as an allowlist). On staging the public IP
-      # is therefore left open, and a valid client certificate (mTLS) is the real
-      # access boundary instead of a network ACL. Prod keeps the private VPC only
-      # and stays on ENCRYPTED_ONLY.
-      ssl_mode = var.production ? "ENCRYPTED_ONLY" : "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
+      # published ranges can't be used as an allowlist). The public IP is left
+      # open and a required client certificate (mTLS) is the access boundary
+      # instead of a network ACL: the client key is secret, so only cert holders
+      # can connect. Cloud Run reaches the DB over the private VPC and presents
+      # the same cert.
+      ssl_mode = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
 
-      dynamic "authorized_networks" {
-        for_each = var.production ? toset([]) : toset(["0.0.0.0/0"])
-        content {
-          name  = "container-public-egress"
-          value = authorized_networks.value
-        }
+      authorized_networks {
+        name  = "container-public-egress"
+        value = "0.0.0.0/0"
       }
     }
 
