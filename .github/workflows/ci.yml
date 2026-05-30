@@ -317,23 +317,12 @@ jobs:
       - name: Install wrangler
         run: npm install -g wrangler
 
-      # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
-      # above), creates/updates the worker, applies the DO migration (idempotent
-      # by tag), and rolls out the container.
-      #
-      # Deploy order is deliberate: worker secrets PERSIST across deploys, so on
-      # every steady-state deploy the new container rolls out with the secrets
-      # already set by a previous run — no missing-secret window. `secret bulk`
-      # runs right after only to push rotations (which take effect on the next
-      # deploy). The sole exception is the very first deploy to a brand-new
-      # worker, where the container boots once without secrets until the bulk
-      # step lands; see the PR notes on first-environment bootstrap.
-      - name: Deploy LB worker
-        run: deno task lb:deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
+      # Set secrets BEFORE deploying so the container boots with them already in
+      # place (an empty DATABASE_URL / GCP_SERVICE_ACCOUNT_KEY makes the API
+      # process panic on startup). wrangler secrets persist on the worker, so
+      # this is a no-op when unchanged. The worker must already exist for
+      # `secret bulk`; the first deploy to a brand-new environment is a one-time
+      # bootstrap (deploy once to create the worker, then this lands).
       - name: Set LB worker secrets
         run: deno task lb:secrets
         env:
@@ -348,6 +337,16 @@ jobs:
           ORAMA_SYMBOLS_PROJECT_KEY: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
           ORAMA_SYMBOLS_PROJECT_ID: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
           ORAMA_SYMBOLS_DATA_SOURCE: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+
+      # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
+      # above), creates/updates the worker, applies the DO migration (idempotent
+      # by tag), and rolls out the container — which now boots with the secrets
+      # set above.
+      - name: Deploy LB worker
+        run: deno task lb:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Wait for container rollout
         run: deno task wait:container-rollout
@@ -432,23 +431,12 @@ jobs:
       - name: Install wrangler
         run: npm install -g wrangler
 
-      # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
-      # above), creates/updates the worker, applies the DO migration (idempotent
-      # by tag), and rolls out the container.
-      #
-      # Deploy order is deliberate: worker secrets PERSIST across deploys, so on
-      # every steady-state deploy the new container rolls out with the secrets
-      # already set by a previous run — no missing-secret window. `secret bulk`
-      # runs right after only to push rotations (which take effect on the next
-      # deploy). The sole exception is the very first deploy to a brand-new
-      # worker, where the container boots once without secrets until the bulk
-      # step lands; see the PR notes on first-environment bootstrap.
-      - name: Deploy LB worker
-        run: deno task lb:deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
+      # Set secrets BEFORE deploying so the container boots with them already in
+      # place (an empty DATABASE_URL / GCP_SERVICE_ACCOUNT_KEY makes the API
+      # process panic on startup). wrangler secrets persist on the worker, so
+      # this is a no-op when unchanged. The worker must already exist for
+      # `secret bulk`; the first deploy to a brand-new environment is a one-time
+      # bootstrap (deploy once to create the worker, then this lands).
       - name: Set LB worker secrets
         run: deno task lb:secrets
         env:
@@ -463,6 +451,16 @@ jobs:
           ORAMA_SYMBOLS_PROJECT_KEY: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
           ORAMA_SYMBOLS_PROJECT_ID: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
           ORAMA_SYMBOLS_DATA_SOURCE: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+
+      # `wrangler deploy` reads lb/wrangler.json (rendered by terraform apply
+      # above), creates/updates the worker, applies the DO migration (idempotent
+      # by tag), and rolls out the container — which now boots with the secrets
+      # set above.
+      - name: Deploy LB worker
+        run: deno task lb:deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Wait for container rollout
         run: deno task wait:container-rollout
