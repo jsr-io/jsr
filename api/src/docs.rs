@@ -604,12 +604,12 @@ fn get_url_rewriter(
   is_readme: bool,
 ) -> URLRewriter {
   Arc::new(move |current_file, url| {
-    if url.starts_with('#') || url.starts_with('/') {
+    if url.starts_with('#') {
       return url.to_string();
     }
 
-    let base = if let Some(github_repository) = &github_repository {
-      if url.rsplit_once('.').is_some_and(|(_path, extension)| {
+    let is_media_url = |url: &str| {
+      url.rsplit_once('.').is_some_and(|(_path, extension)| {
         matches!(
           extension,
           "png"
@@ -624,7 +624,11 @@ fn get_url_rewriter(
             | "gif"
             | "ico"
         )
-      }) {
+      })
+    };
+
+    let base = if let Some(github_repository) = &github_repository {
+      if is_media_url(url) {
         format!(
           "https://raw.githubusercontent.com/{}/{}/HEAD",
           github_repository.owner, github_repository.name
@@ -638,6 +642,13 @@ fn get_url_rewriter(
     } else {
       base.clone()
     };
+
+    if url.starts_with('/') {
+      if github_repository.is_some() {
+        return format!("{base}{}", url);
+      }
+      return url.to_string();
+    }
 
     if !is_readme && let Some(current_file) = current_file {
       let (path, _file) = current_file
@@ -1737,5 +1748,20 @@ mod tests {
       ),
       "https://raw.githubusercontent.com/foo/bar/HEAD/./src/assets/logo.svg"
     );
+
+    assert_eq!(
+      rewriter(None, "/docs/getting-started.md"),
+      "https://github.com/foo/bar/blob/HEAD/docs/getting-started.md"
+    );
+
+    assert_eq!(
+      rewriter(None, "/assets/logo.png"),
+      "https://raw.githubusercontent.com/foo/bar/HEAD/assets/logo.png"
+    );
+
+    let rewriter =
+      get_url_rewriter(String::from("/@foo/bar/1.2.3"), None, true);
+
+    assert_eq!(rewriter(None, "/docs/foo.md"), "/docs/foo.md");
   }
 }
