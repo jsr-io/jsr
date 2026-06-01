@@ -238,7 +238,7 @@ async function handleFrontendRoute(
 
 /**
  * Per-IP rate limit for the frontend only. Module files (R2), the API, and
- * npm compat are never rate-limited here — only the Cloud Run frontend, which
+ * npm compat are never rate-limited here — only the frontend Worker, which
  * is the backend that scrapers actually generate cache-miss load on.
  */
 async function rateLimitGuard(
