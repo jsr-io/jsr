@@ -73,7 +73,15 @@ opentelemetry = { version = "0.19", features = [
     "rt-tokio-current-thread",
     "trace",
 ] }
-opentelemetry-otlp = "0.12"
+# OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
+# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest, the same HTTP
+# stack every other outbound call in this crate already uses. Default
+# `grpc-tonic` is off.
+opentelemetry-otlp = { version = "0.12", default-features = false, features = [
+    "trace",
+    "http-proto",
+    "reqwest-client",
+] }
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 # We talk to Cloud SQL over its public IP, whose server cert SAN is an internal
 # `*.sql.goog` name that never matches the IP, so the DB connection must use

@@ -170,8 +170,13 @@ async fn main() {
   let config = Config::parse();
   println!("{config:?}");
 
-  let export_target = if let Some(otlp_endpoint) = config.otlp_endpoint {
-    TracingExportTarget::Otlp(otlp_endpoint)
+  let export_target = if let Some(endpoint) = config.otlp_endpoint {
+    TracingExportTarget::Otlp {
+      endpoint,
+      headers: crate::tracing::parse_otlp_headers(
+        config.otlp_headers.as_deref(),
+      ),
+    }
   } else {
     TracingExportTarget::None
   };

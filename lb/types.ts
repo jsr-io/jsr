@@ -75,4 +75,9 @@ export interface WorkerEnv {
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ANALYTICS_DATASET?: string;
+  // Telemetry: OTLP/HTTP endpoint (non-secret, from wrangler vars) and the auth
+  // header (secret, delivered via `wrangler secret bulk`). Both optional —
+  // omitted when telemetry isn't configured for the environment.
+  OTLP_ENDPOINT?: string;
+  OTLP_HEADERS?: string;
 }

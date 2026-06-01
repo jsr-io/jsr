@@ -136,8 +136,17 @@ pub struct Config {
   pub orama_symbols_data_source: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
-  /// OTLP endpoint to send traces to.
+  /// OTLP/HTTP endpoint to send traces to, including the path (e.g. Grafana
+  /// Cloud's `https://otlp-gateway-<zone>.grafana.net/otlp/v1/traces`). Tracing
+  /// export is disabled when unset.
   pub otlp_endpoint: Option<String>,
+
+  #[clap(long = "otlp_headers", env = "OTLP_HEADERS")]
+  /// Extra headers sent with every OTLP request, as a comma-separated list of
+  /// `key=value` pairs (the OpenTelemetry `OTEL_EXPORTER_OTLP_HEADERS` format).
+  /// Used to carry the backend's auth, e.g. `Authorization=Basic <base64>` for
+  /// Grafana Cloud. Only the first `=` in each pair separates key from value.
+  pub otlp_headers: Option<String>,
 
   #[clap(long = "registry_url", env = "REGISTRY_URL")]
   /// The base URL of the registry, where module code and metadata can be
@@ -244,6 +253,7 @@ impl std::fmt::Debug for Config {
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
       .field("otlp_endpoint", &self.otlp_endpoint)
+      .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
       .field("registry_url", &self.registry_url)
       .field("api", &self.api)
       .field("tasks", &self.tasks)

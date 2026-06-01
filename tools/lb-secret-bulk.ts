@@ -50,6 +50,9 @@ const secrets: Record<string, string> = {
   DB_CLIENT_CERT: await tfOutput("lb_db_client_cert"),
   DB_CLIENT_KEY: await tfOutput("lb_db_client_key"),
   DB_ROOT_CERT: await tfOutput("lb_db_root_cert"),
+  // Empty when telemetry isn't configured for this environment; filtered out
+  // below so we don't push an empty OTLP_HEADERS secret.
+  OTLP_HEADERS: await tfOutput("lb_otlp_headers"),
   GITHUB_CLIENT_SECRET: envVar("GITHUB_CLIENT_SECRET"),
   GITLAB_CLIENT_SECRET: envVar("GITLAB_CLIENT_SECRET"),
   POSTMARK_TOKEN: envVar("POSTMARK_TOKEN"),
@@ -62,9 +65,15 @@ const secrets: Record<string, string> = {
   CLOUDFLARE_API_TOKEN: envVar("CLOUDFLARE_API_TOKEN"),
 };
 
+// Drop empty values so optional secrets (e.g. OTLP_HEADERS when telemetry is
+// disabled) aren't pushed as blank secrets.
+const nonEmptySecrets = Object.fromEntries(
+  Object.entries(secrets).filter(([, v]) => v !== ""),
+);
+
 const file = await Deno.makeTempFile({ suffix: ".json" });
 try {
-  await Deno.writeTextFile(file, JSON.stringify(secrets));
+  await Deno.writeTextFile(file, JSON.stringify(nonEmptySecrets));
   const { success } = await new Deno.Command("wrangler", {
     args: ["secret", "bulk", file],
     cwd: "lb",

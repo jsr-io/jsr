@@ -308,6 +308,10 @@ jobs:
           TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # API telemetry: non-secret endpoint URL + the auth header (secret).
+          # Empty when unset, which disables trace export.
+          TF_VAR_otlp_endpoint: ${{ vars.OTLP_ENDPOINT }}
+          TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
 
       # Applies all infra EXCEPT the LB worker (R2, GCP, DNS, the frontend
       # worker) and generates the secret values the LB worker consumes.
@@ -422,6 +426,10 @@ jobs:
           TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # API telemetry: non-secret endpoint URL + the auth header (secret).
+          # Empty when unset, which disables trace export.
+          TF_VAR_otlp_endpoint: ${{ vars.OTLP_ENDPOINT }}
+          TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
 
       # Applies all infra EXCEPT the LB worker (R2, GCP, DNS, the frontend
       # worker) and generates the secret values the LB worker consumes.

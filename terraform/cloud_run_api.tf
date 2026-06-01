@@ -1,6 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
-  api_envs = {
+  # OTLP traces export, only wired when an endpoint is configured (see
+  # variables.tf). The header value carries the backend auth, passed as a plain
+  # env like DATABASE_URL / S3_SECRET_KEY below.
+  otlp_envs = merge(
+    var.otlp_endpoint != "" ? { "OTLP_ENDPOINT" = var.otlp_endpoint } : {},
+    var.otlp_headers != "" ? { "OTLP_HEADERS" = var.otlp_headers } : {},
+  )
+
+  api_envs = merge(local.otlp_envs, {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 
@@ -51,7 +59,7 @@ locals {
     "DB_CLIENT_CERT" = google_sql_ssl_cert.api.cert
     "DB_CLIENT_KEY"  = google_sql_ssl_cert.api.private_key
     "DB_ROOT_CERT"   = google_sql_ssl_cert.api.server_ca_cert
-  }
+  })
 }
 
 ### API service

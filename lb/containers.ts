@@ -42,6 +42,8 @@ function apiEnvVars(env: WorkerEnv): Record<string, string> {
     CLOUDFLARE_ZONE_ID: env.CLOUDFLARE_ZONE_ID ?? "",
     CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN ?? "",
     CLOUDFLARE_ANALYTICS_DATASET: env.CLOUDFLARE_ANALYTICS_DATASET ?? "",
+    OTLP_ENDPOINT: env.OTLP_ENDPOINT ?? "",
+    OTLP_HEADERS: env.OTLP_HEADERS ?? "",
   };
 }
 

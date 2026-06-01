@@ -89,8 +89,10 @@ resource "local_file" "lb_wrangler_config" {
     ]
 
     // Non-secret config the LB worker reads or forwards to the API container
-    // (see lb/containers.ts). Secrets are delivered separately.
-    vars = {
+    // (see lb/containers.ts). Secrets are delivered separately. OTLP_ENDPOINT is
+    // a non-secret URL added only when telemetry is configured; the matching
+    // OTLP_HEADERS (auth) is delivered as a secret via lb_otlp_headers below.
+    vars = merge(var.otlp_endpoint != "" ? { OTLP_ENDPOINT = var.otlp_endpoint } : {}, {
       ROOT_DOMAIN                  = var.domain_name
       API_DOMAIN                   = local.api_domain
       NPM_DOMAIN                   = local.npm_domain
@@ -112,7 +114,7 @@ resource "local_file" "lb_wrangler_config" {
       CLOUDFLARE_ACCOUNT_ID        = var.cloudflare_account_id
       CLOUDFLARE_ZONE_ID           = var.cloudflare_zone_id
       CLOUDFLARE_ANALYTICS_DATASET = local.worker_download_analytics_dataset
-    }
+    })
   })
 }
 
@@ -151,4 +153,12 @@ output "lb_db_client_key" {
 output "lb_db_root_cert" {
   sensitive = true
   value     = google_sql_ssl_cert.api.server_ca_cert
+}
+
+# OTLP auth header for the API container's telemetry. Non-secret endpoint is in
+# wrangler vars; this (the auth) is delivered as a worker secret. Empty when
+# telemetry is disabled — the secret-bulk tool skips empty values.
+output "lb_otlp_headers" {
+  sensitive = true
+  value     = var.otlp_headers
 }
