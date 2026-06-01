@@ -136,9 +136,11 @@ pub struct Config {
   pub orama_symbols_data_source: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
-  /// OTLP/HTTP endpoint to send traces to, including the path (e.g. Grafana
-  /// Cloud's `https://otlp-gateway-<zone>.grafana.net/otlp/v1/traces`). Tracing
-  /// export is disabled when unset.
+  /// Base OTLP/HTTP endpoint (e.g. Grafana Cloud's
+  /// `https://otlp-gateway-<zone>.grafana.net/otlp`), OTEL
+  /// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the per-signal path (`/v1/traces`,
+  /// and `/v1/logs` in the future) is appended automatically. A full
+  /// signal URL is also accepted. Export is disabled when unset.
   pub otlp_endpoint: Option<String>,
 
   #[clap(long = "otlp_headers", env = "OTLP_HEADERS")]

@@ -28,6 +28,22 @@ pub enum TracingExportTarget {
   None,
 }
 
+/// Append an OTLP signal subpath to the configured base endpoint, OTEL
+/// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the endpoint is the base (e.g. Grafana
+/// Cloud's `.../otlp`) and each signal posts to its own path (`/v1/traces`,
+/// later `/v1/logs`). The opentelemetry-otlp 0.12 HTTP exporter uses the
+/// endpoint verbatim and does NOT do this itself, so posting to the bare base
+/// 404s. Tolerates a trailing slash and an endpoint that already carries the
+/// signal path.
+fn otlp_signal_endpoint(base: &str, signal_path: &str) -> String {
+  let base = base.trim_end_matches('/');
+  if base.ends_with(signal_path) {
+    base.to_string()
+  } else {
+    format!("{base}{signal_path}")
+  }
+}
+
 /// Parse the `OTLP_HEADERS` value (`key1=value1,key2=value2`, the OpenTelemetry
 /// `OTEL_EXPORTER_OTLP_HEADERS` format) into a header map. Splits each pair on
 /// its first `=` only, so values containing `=` (e.g. base64 padding in a
@@ -66,12 +82,12 @@ pub async fn setup_tracing(
     TracingExportTarget::Otlp { endpoint, headers } => {
       // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
       // accepts HTTP, and it also works directly from the Cloudflare Container.
-      // The endpoint is used verbatim (no `/v1/traces` is appended), so it must
-      // already include the path. `headers` carries the backend auth, e.g.
-      // `Authorization: Basic <base64>` for Grafana Cloud.
+      // `endpoint` is the base; the `/v1/traces` signal path is appended here.
+      // `headers` carries the backend auth, e.g. `Authorization: Basic <base64>`
+      // for Grafana Cloud.
       let exporter = opentelemetry_otlp::new_exporter()
         .http()
-        .with_endpoint(endpoint)
+        .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
         .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
         .with_headers(headers);
       let tracer = opentelemetry_otlp::new_pipeline()
@@ -161,7 +177,31 @@ where
 
 #[cfg(test)]
 mod tests {
+  use super::otlp_signal_endpoint;
   use super::parse_otlp_headers;
+
+  #[test]
+  fn appends_signal_path_to_base() {
+    assert_eq!(
+      otlp_signal_endpoint("https://x.grafana.net/otlp", "/v1/traces"),
+      "https://x.grafana.net/otlp/v1/traces"
+    );
+  }
+
+  #[test]
+  fn tolerates_trailing_slash_and_existing_path() {
+    assert_eq!(
+      otlp_signal_endpoint("https://x.grafana.net/otlp/", "/v1/traces"),
+      "https://x.grafana.net/otlp/v1/traces"
+    );
+    assert_eq!(
+      otlp_signal_endpoint(
+        "https://x.grafana.net/otlp/v1/traces",
+        "/v1/traces"
+      ),
+      "https://x.grafana.net/otlp/v1/traces"
+    );
+  }
 
   #[test]
   fn none_is_empty() {
