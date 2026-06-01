@@ -173,7 +173,8 @@ mod tests {
   fn keeps_equals_in_value() {
     // A `Basic` auth header's base64 value can contain `=` padding; only the
     // first `=` of each pair separates key from value.
-    let headers = parse_otlp_headers(Some("Authorization=Basic dXNlcjpwYXNz=="));
+    let headers =
+      parse_otlp_headers(Some("Authorization=Basic dXNlcjpwYXNz=="));
     assert_eq!(headers.len(), 1);
     assert_eq!(headers["Authorization"], "Basic dXNlcjpwYXNz==");
   }
