@@ -1,6 +1,8 @@
 # Design: split the API server into a Workers-rs front + a Cloud Run compute service
 
-Status: **Draft / RFC** — seeking approval before any code is carved.
+Status: **Approved** — boundary, DB approach, and migration sequence signed off
+in review (see "Resolved decisions"). Landing the sequence one small PR at a
+time, starting with the `jsr_types` extraction (step 1, no behavior change).
 
 ## Motivation
 
@@ -251,9 +253,10 @@ Model the new Worker on `terraform/cloudflare_frontend.tf` (the
   URL / service binding, and the OAuth + Orama config the moved handlers need; a
   deployment pinning 100%.
 - **New `cloudflare_hyperdrive_config`** pointing at the Cloud SQL Postgres
-  (origin host/port/db/user, password from secret). Decide
-  public-IP-with-allowlist vs. Hyperdrive-over-Tunnel for the private VPC IP
-  (open question Q4).
+  (origin host/port/db/user, password from secret). Per the resolved decision
+  (Q4) connectivity uses the **public IP + required client certificate (mTLS)**
+  model from #1406 — Hyperdrive carries the client cert/key + instance CA; no
+  authorized-networks allowlist and no Cloudflare Tunnel.
 - **`lb`**: change the `api` backend from the Cloud Run URL var to a service
   binding to the new `api` Worker (mirrors the existing `frontend`/`LB` binding
   wiring).
@@ -301,20 +304,26 @@ Steps 1–3 are infrastructure with no traffic impact and should land first. Ste
 only one that changes prod routing and can be rolled back by repointing the `lb`
 binding.
 
-## Open questions
+## Resolved decisions
 
-- **Q1.** Does `POST /api/scopes/:scope/packages` (package create) actually
-  touch a heavy crate, or only validate names/config? If the latter, it moves to
-  workers-rs.
-- **Q2.** sqlx compile-time checking is lost on the Worker side. Acceptable, or
-  do we want a codegen/parity-test guard? (Proposed: parity tests + keep
-  compute's checked queries as the source of truth.)
-- **Q3.** Confirm the three cron `/tasks/*` handlers have no reason to move;
-  they stay on compute/tasks.
-- **Q4.** Hyperdrive → Cloud SQL connectivity: public IP + authorized
-  networks/allowlist, or Hyperdrive over a Cloudflare Tunnel to the private VPC
-  IP? Affects `db.tf` / `net.tf`.
-- **Q5.** Compute invocation from the Worker: service binding is not available
-  Cloud Run → use an authenticated `fetch` to the Cloud Run URL (the Worker
-  holds an invoker credential), or keep the compute service public behind `lb`
-  only. Prefer authenticated `fetch`.
+These were open questions during review; resolved in the PR discussion.
+
+- **Q1 — package create.** `POST /api/scopes/:scope/packages` only validates
+  names/config and touches **no heavy crate**, so it lives on the **workers-rs**
+  side. (It moves with the scope/package CRUD group in step 6.)
+- **Q2 — lost sqlx compile-time checking.** Accepted as proposed: **parity
+  tests** plus keeping compute's compile-time-checked queries as the source of
+  truth. No separate codegen guard.
+- **Q3 — cron `/tasks/*` handlers.** Stay on compute/tasks **as-is for now**;
+  not in scope for this split.
+- **Q4 — Hyperdrive → Cloud SQL connectivity.** Use the same model as the
+  Cloudflare Container migration (#1406): the DB stays reachable on its
+  **public IP** with a **required client certificate (mTLS,
+  `TRUSTED_CLIENT_CERTIFICATE_REQUIRED` / `verify-ca`)** as the access boundary,
+  rather than an authorized-networks allowlist or a Cloudflare Tunnel.
+  Hyperdrive is configured with the client cert/key + instance CA. No `net.tf`
+  VPC-tunnel work.
+- **Q5 — Worker → compute invocation.** Keep the **compute service public
+  behind `lb`** for now (it is already public today); do **not** add a
+  Worker-held invoker credential / authenticated `fetch` in this iteration.
+  Revisit hardening separately if/when desired.
