@@ -43,16 +43,23 @@ resource "local_file" "lb_wrangler_config" {
       ]
     }
 
-    # max_instances must match API_CONTAINER_INSTANCES in lb/main.ts (getRandom
-    # spreads requests across that many stable DO IDs, each capped at one
-    # container). standard-1 is 1/2 vCPU / 4 GiB / 8 GB disk. Custom instance
-    # types must be >= 1 vCPU, so dropping below a full vCPU means a predefined
-    # type; the API only uses ~512 MiB, so 4 GiB is ample.
+    # The worker load-balances across API_CONTAINER_INSTANCES (12) stable DO IDs
+    # (lb/main.ts); steady state is therefore ~12 running containers (~48 DB
+    # conns). max_instances is the hard cap on concurrently running containers
+    # and is set ABOVE that fan-out on purpose: whenever the DO IDs change — the
+    # region rename (DB_REGION), or any rolling deploy — the previous generation
+    # drains while the new one starts, so both briefly exist. Without headroom a
+    # new container can't start ("Maximum number of running container instances
+    # exceeded") and requests 500 until the old generation dies. 24 = two
+    # generations of 12; worst-case ~96 DB conns, well under the 150 budget.
+    # standard-1 is 1/2 vCPU / 4 GiB / 8 GB disk; custom instance types must be
+    # >= 1 vCPU, so going below a full vCPU needs a predefined type (the API
+    # uses only ~512 MiB, so 4 GiB is ample).
     containers = [
       {
         class_name    = "ApiContainer"
         image         = "registry.cloudflare.com/${var.cloudflare_account_id}/jsr-api:${var.api_image_tag}"
-        max_instances = 12
+        max_instances = 24
         instance_type = "standard-1"
       }
     ]
