@@ -179,6 +179,10 @@ impl ScopeDescription {
     Ok(ScopeDescription(description))
   }
 
+  // Inherent `default()` kept (rather than a `Default` impl) to preserve the
+  // existing call sites; this lint only surfaces now that the type lives in a
+  // library crate.
+  #[allow(clippy::should_implement_trait)]
   pub fn default() -> Self {
     ScopeDescription("".to_owned())
   }
