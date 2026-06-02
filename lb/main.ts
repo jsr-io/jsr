@@ -24,7 +24,7 @@ export { ApiContainer };
 // (sleepAfter), so the steady-state ceiling is API_CONTAINER_INSTANCES × 4
 // connections against the Cloud SQL budget shared with the Cloud Run tasks
 // service.
-const API_CONTAINER_INSTANCES = 30;
+const API_CONTAINER_INSTANCES = 12;
 
 export type Backend = "api" | "frontend" | "modules" | "npm";
 const MODULES = "modules";

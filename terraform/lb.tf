@@ -45,19 +45,15 @@ resource "local_file" "lb_wrangler_config" {
 
     # max_instances must match API_CONTAINER_INSTANCES in lb/main.ts (getRandom
     # spreads requests across that many stable DO IDs, each capped at one
-    # container). The API server runs near a full CPU (Cloud Run sits at ~90% of
-    # 1 vCPU), so 1 vCPU; Cloudflare requires >= 3 GiB per vCPU for custom
-    # instance types, so memory is 3 GiB (only ~512 MiB is actually used).
+    # container). standard-1 is 1/2 vCPU / 4 GiB / 8 GB disk. Custom instance
+    # types must be >= 1 vCPU, so dropping below a full vCPU means a predefined
+    # type; the API only uses ~512 MiB, so 4 GiB is ample.
     containers = [
       {
         class_name    = "ApiContainer"
         image         = "registry.cloudflare.com/${var.cloudflare_account_id}/jsr-api:${var.api_image_tag}"
-        max_instances = 30
-        instance_type = {
-          vcpu       = 1
-          memory_mib = 3072
-          disk_mb    = 2048
-        }
+        max_instances = 12
+        instance_type = "standard-1"
       }
     ]
 
