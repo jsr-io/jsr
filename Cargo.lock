@@ -2551,6 +2551,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsr_types"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "deno_semver",
+ "indexmap 2.13.0",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.12",
+ "uuid",
+]
+
+[[package]]
 name = "kv-log-macro"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3794,6 +3808,7 @@ dependencies = [
  "jsonc-parser",
  "jsonwebkey",
  "jsonwebtoken",
+ "jsr_types",
  "lazy_static",
  "moka",
  "oauth2",

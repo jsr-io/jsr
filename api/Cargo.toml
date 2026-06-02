@@ -127,6 +127,7 @@ lazy_static = "1.5.0"
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 registry_api_macros = { path = "macros" }
+jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
 
 [build-dependencies]
 askalono = "0.5.0"
@@ -135,3 +136,4 @@ askalono = "0.5.0"
 flate2 = "1"
 deno_semver = "0.9.1"
 pretty_assertions = "1.4.0"
+jsr_types = { path = "../crates/jsr_types", features = ["sqlx", "testing"] }

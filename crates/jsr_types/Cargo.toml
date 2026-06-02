@@ -1,0 +1,38 @@
+# Copyright 2024 the JSR authors. All rights reserved. MIT license.
+[package]
+name = "jsr_types"
+version = "0.1.0"
+edition = "2024"
+resolver = "2"
+
+[features]
+default = []
+# Enables the sqlx `FromRow`/`Type`/`Encode`/`Decode` impls on the model and id
+# types. Off by default so the crate builds for `wasm32-unknown-unknown` (sqlx
+# does not compile for wasm). The Cloud Run API server enables this; the
+# upcoming workers-rs front does not.
+sqlx = ["dep:sqlx"]
+# Exposes test-only constructors (e.g. `ExportsMap::mock()`) to downstream
+# crates' test builds.
+testing = []
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Only the `Uuid` type + serde are needed here; v4 generation (which pulls
+# `getrandom`, not wasm-safe by default) stays in the consuming crates.
+uuid = { version = "1", features = ["serde"] }
+deno_semver = "0.9.1"
+thiserror = "2"
+indexmap = { version = "2.13.0", features = ["serde"] }
+sqlx = { version = "0.8.6", default-features = false, optional = true, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+    "uuid",
+    "chrono",
+    "json",
+    "ipnetwork",
+] }
