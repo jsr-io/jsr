@@ -11,20 +11,40 @@ import {
 } from "./headers.ts";
 import { isBot } from "./bots.ts";
 import { trackJSRDownload, trackNPMDownload } from "./analytics.ts";
-import { getRandom } from "@cloudflare/containers";
 import { ApiContainer } from "./containers.ts";
 
 // Re-export the container class so the Worker runtime (and the Durable Object
 // binding in the generated lb/wrangler.json) can discover it.
 export { ApiContainer };
 
-// Number of API container instances to load-balance across (via getRandom).
-// Must match `max_instances` in the container config (terraform/lb.tf). Each
-// instance holds up to `--database_pool_size` (4) DB connections while warm
+// Number of API container instances to load-balance across. Must match
+// `max_instances` in the container config (terraform/lb.tf). Each instance
+// holds up to `--database_pool_size` (4) DB connections while warm
 // (sleepAfter), so the steady-state ceiling is API_CONTAINER_INSTANCES × 4
 // connections against the Cloud SQL budget shared with the Cloud Run tasks
 // service.
 const API_CONTAINER_INSTANCES = 12;
+
+// Cloudflare Durable Object location hint for the region the API containers are
+// placed in. The API is DB-bound and the Cloud SQL primary is single-region
+// (us-central1), so we pin the containers next to the DB rather than near the
+// user — co-locating container and DB minimizes per-query latency, which
+// dominates for this workload. `enam` (eastern North America) is the closest
+// hint to us-central1. The instance name is region-prefixed so the DOs are
+// (re)created with this hint in effect.
+const DB_REGION = "enam" as const;
+
+// Pick one of the fixed set of API containers, pinned to DB_REGION. Mirrors
+// `getRandom` from @cloudflare/containers but adds the location hint (which it
+// does not support), keeping a stable per-index DO identity so warm instances
+// are reused.
+function getApiContainer(
+  env: WorkerEnv,
+): DurableObjectStub<ApiContainer> {
+  const index = Math.floor(Math.random() * API_CONTAINER_INSTANCES);
+  const id = env.API_CONTAINER.idFromName(`${DB_REGION}-instance-${index}`);
+  return env.API_CONTAINER.get(id, { locationHint: DB_REGION });
+}
 
 export type Backend = "api" | "frontend" | "modules" | "npm";
 const MODULES = "modules";
@@ -85,14 +105,11 @@ export async function handleAPIRequest(
     return handleCORSPreflight(API);
   }
 
-  // The API server runs as a Cloudflare Container. Load-balance across a
-  // fixed set of instances; the returned stub is a Fetcher, so it flows
-  // through the same proxy path (caching, header rewriting) as the other
-  // backends.
-  const container = await getRandom<ApiContainer>(
-    env.API_CONTAINER,
-    API_CONTAINER_INSTANCES,
-  );
+  // The API server runs as a Cloudflare Container, pinned near the DB (see
+  // getApiContainer / DB_REGION). Load-balance across a fixed set of instances;
+  // the returned stub is a Fetcher, so it flows through the same proxy path
+  // (caching, header rewriting) as the other backends.
+  const container = getApiContainer(env);
   const response = await proxyToBackend(
     request,
     container,
