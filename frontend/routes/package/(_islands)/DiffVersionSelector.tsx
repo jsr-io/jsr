@@ -25,6 +25,7 @@ export default function DiffVersionSelector(
     <div class="flex justify-center items-center gap-3.5">
       <select
         class={SELECT_CLASSES}
+        aria-label="Old version"
         onChange={(e) => {
           location.href = `/@${props.scope}/${props.pkg}/diff/${
             e.currentTarget.value || ""
@@ -44,12 +45,15 @@ export default function DiffVersionSelector(
         href={`/@${props.scope}/${props.pkg}/diff/${props.newVersion || ""}...${
           props.oldVersion || ""
         }${props.docsRequest}`}
+        aria-label="Swap versions"
+        title="Swap versions"
       >
         <TbArrowRight class="size-6" />
       </a>
 
       <select
         class={SELECT_CLASSES}
+        aria-label="New version"
         onChange={(e) => {
           location.href = `/@${props.scope}/${props.pkg}/diff/${
             props.oldVersion || ""
