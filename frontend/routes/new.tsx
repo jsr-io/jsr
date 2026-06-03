@@ -74,7 +74,11 @@ export default define.page<typeof handler>(function New(props) {
                         }`}
                         class="button-primary"
                       >
-                        <img class="size-5" src={asset("/logos/github.svg")} />
+                        <img
+                          class="size-5"
+                          src={asset("/logos/github.svg")}
+                          alt=""
+                        />
                         Sign in with GitHub
                       </a>
                       <a
@@ -83,7 +87,11 @@ export default define.page<typeof handler>(function New(props) {
                         }`}
                         class="button-primary"
                       >
-                        <img class="size-5" src={asset("/logos/gitlab.svg")} />
+                        <img
+                          class="size-5"
+                          src={asset("/logos/gitlab.svg")}
+                          alt=""
+                        />
                         Sign in with GitLab
                       </a>
                     </div>

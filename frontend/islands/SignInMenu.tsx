@@ -51,7 +51,7 @@ export function SignInMenu({ redirect }: { redirect: string }) {
             tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black text-jsr-gray-950`}
           >
-            <img class="size-5" src={asset(`/logos/github.svg`)} />
+            <img class="size-5" src={asset(`/logos/github.svg`)} alt="" />
             Sign In with GitHub
           </a>
           <a
@@ -59,7 +59,7 @@ export function SignInMenu({ redirect }: { redirect: string }) {
             tabIndex={open.value ? undefined : -1}
             class={`${SHARED_ITEM_CLASSES} font-bold bg-jsr-yellow border-jsr-yellow hover:bg-jsr-yellow-300 hover:border-jsr-cyan-500 focus-visible:bg-jsr-yellow-300 focus-visible:border-jsr-yellow-300 ring-black text-jsr-gray-950`}
           >
-            <img class="size-5" src={asset(`/logos/gitlab.svg`)} />
+            <img class="size-5" src={asset(`/logos/gitlab.svg`)} alt="" />
             Sign In with GitLab
           </a>
         </div>
