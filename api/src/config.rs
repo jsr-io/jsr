@@ -115,13 +115,20 @@ pub struct Config {
   /// The Orama symbol data source
   pub orama_symbols_data_source: Option<String>,
 
-  #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
-  /// OTLP endpoint to send traces to.
+  #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
+  /// Base OTLP/HTTP endpoint (e.g. Grafana Cloud's
+  /// `https://otlp-gateway-<zone>.grafana.net/otlp`), OTEL
+  /// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the per-signal path (`/v1/traces`,
+  /// and `/v1/logs` in the future) is appended automatically. A full
+  /// signal URL is also accepted. Export is disabled when unset.
   pub otlp_endpoint: Option<String>,
 
-  #[clap(long = "cloud_trace", group = "trace")]
-  /// Whether to enable cloud trace.
-  pub cloud_trace: bool,
+  #[clap(long = "otlp_headers", env = "OTLP_HEADERS")]
+  /// Extra headers sent with every OTLP request, as a comma-separated list of
+  /// `key=value` pairs (the OpenTelemetry `OTEL_EXPORTER_OTLP_HEADERS` format).
+  /// Used to carry the backend's auth, e.g. `Authorization=Basic <base64>` for
+  /// Grafana Cloud. Only the first `=` in each pair separates key from value.
+  pub otlp_headers: Option<String>,
 
   #[clap(long = "registry_url", env = "REGISTRY_URL")]
   /// The base URL of the registry, where module code and metadata can be
@@ -168,10 +175,6 @@ pub struct Config {
   )]
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
-
-  #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
-  /// The ID of the project.
-  pub gcp_project_id: Option<String>,
 
   #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
   /// The Cloudflare account ID for Analytics Engine.
@@ -222,7 +225,7 @@ impl std::fmt::Debug for Config {
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
       .field("otlp_endpoint", &self.otlp_endpoint)
-      .field("cloud_trace", &self.cloud_trace)
+      .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
       .field("registry_url", &self.registry_url)
       .field("api", &self.api)
       .field("tasks", &self.tasks)
