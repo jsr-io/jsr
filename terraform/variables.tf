@@ -103,3 +103,19 @@ variable "cloudflare_account_id" {
 variable "cloudflare_zone_id" {
   type = string
 }
+
+# OTLP/HTTP trace export (wired into the API Cloud Run services). Leave empty to
+# disable; set both to point traces at an OTLP/HTTP backend such as Grafana
+# Cloud.
+variable "otlp_endpoint" {
+  description = "OTLP/HTTP traces endpoint, full URL including the path (e.g. Grafana Cloud's https://otlp-gateway-<zone>.grafana.net/otlp/v1/traces). Empty disables trace export."
+  type        = string
+  default     = ""
+}
+
+variable "otlp_headers" {
+  description = "Headers sent with every OTLP request, OTEL `key=value,key2=value2` format, carrying the backend auth (e.g. `Authorization=Basic <base64>` for Grafana Cloud)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

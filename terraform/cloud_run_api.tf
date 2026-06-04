@@ -1,6 +1,14 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
-  api_envs = {
+  # OTLP/HTTP trace export. Only wired when an endpoint is configured (see
+  # variables.tf); the header value carries the backend auth and is passed as a
+  # plain env like DATABASE_URL / S3_SECRET_KEY below.
+  otlp_envs = merge(
+    var.otlp_endpoint != "" ? { "OTLP_ENDPOINT" = var.otlp_endpoint } : {},
+    var.otlp_headers != "" ? { "OTLP_HEADERS" = var.otlp_headers } : {},
+  )
+
+  api_envs = merge(local.otlp_envs, {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 
@@ -46,7 +54,7 @@ locals {
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
     "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
-  }
+  })
 }
 
 ### API service
@@ -69,7 +77,7 @@ resource "google_cloud_run_v2_service" "registry_api" {
     containers {
       image = var.api_image_id
       args = [
-        "--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"
+        "--api", "--tasks=false", "--database_pool_size=4"
       ]
 
       resources {
@@ -234,7 +242,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     containers {
       image = var.api_image_id
       args = [
-        "--cloud_trace", "--tasks", "--api=false", "--database_pool_size=1"
+        "--tasks", "--api=false", "--database_pool_size=1"
       ]
 
       dynamic "env" {
@@ -352,12 +360,6 @@ resource "google_secret_manager_secret_iam_member" "cloudflare_api_token" {
   secret_id = google_secret_manager_secret.cloudflare_api_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_project_iam_member" "api_cloud_trace" {
-  project = google_cloud_run_v2_service.registry_api.project
-  role    = "roles/cloudtrace.agent"
-  member  = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
 resource "google_cloud_tasks_queue_iam_member" "publishing_tasks" {
