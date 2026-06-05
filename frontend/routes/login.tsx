@@ -31,11 +31,11 @@ export default function Login({ url }: { url: URL }) {
         </p>
         <div class="flex gap-4 flex-col pt-4">
           <a class="button-primary" href={"/login/github" + search}>
-            <img class="size-5" src={asset("/logos/github.svg")} />
+            <img class="size-5" src={asset("/logos/github.svg")} alt="" />
             Sign in with GitHub
           </a>
           <a class="button-primary" href={"/login/gitlab" + search}>
-            <img class="size-5" src={asset("/logos/gitlab.svg")} />
+            <img class="size-5" src={asset("/logos/gitlab.svg")} alt="" />
             Sign in with GitLab
           </a>
         </div>
