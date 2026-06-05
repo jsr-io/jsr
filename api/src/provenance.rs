@@ -2,6 +2,7 @@
 use anyhow::{Result, bail};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use base64::prelude::BASE64_URL_SAFE;
 use serde::Deserialize;
 use serde::Serialize;
 use x509_parser::parse_x509_certificate;
@@ -117,14 +118,23 @@ pub enum ProvenanceAttestationSubject {
   Subject(Subject),
 }
 
+/// Decode a DSSE envelope payload. The payload is base64-encoded, but some
+/// clients emit it using the URL-safe alphabet (`-`/`_` instead of `+`/`/`),
+/// so fall back to URL-safe decoding when standard decoding fails.
+fn decode_payload(payload: &str) -> Result<Vec<u8>> {
+  match BASE64_STANDARD.decode(payload) {
+    Ok(bytes) => Ok(bytes),
+    Err(_) => Ok(BASE64_URL_SAFE.decode(payload)?),
+  }
+}
+
 pub fn verify(
   subject_name: String,
   bundle: ProvenanceBundle,
 ) -> Result<String> {
   // Extract subject from the DSSE envelope
   let subject = {
-    let payload =
-      BASE64_STANDARD.decode(&bundle.content.dsse_envelope.payload)?;
+    let payload = decode_payload(&bundle.content.dsse_envelope.payload)?;
     serde_json::from_slice::<ProvenanceAttestation>(&payload)?.subject
   };
 
@@ -161,4 +171,30 @@ pub fn verify(
 
   let tls = &bundle.verification_material.tlog_entries[0];
   Ok(tls.log_index.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::decode_payload;
+  use base64::Engine as _;
+  use base64::prelude::BASE64_STANDARD;
+  use base64::prelude::BASE64_URL_SAFE;
+
+  #[test]
+  fn decode_payload_accepts_standard_and_url_safe() {
+    // These bytes encode to "+/8=" in standard base64 and "-_8=" in URL-safe
+    // base64, exercising both alphabet-specific characters (`+`/`/` vs `-`/`_`).
+    let raw = [0xfb_u8, 0xff];
+
+    let standard = BASE64_STANDARD.encode(raw);
+    assert!(standard.contains('+') && standard.contains('/'));
+    assert_eq!(decode_payload(&standard).unwrap(), raw);
+
+    // Regression test for jsr-io/jsr#1312: some clients emit the DSSE payload
+    // using the URL-safe alphabet, which the standard decoder rejected with
+    // "Invalid symbol 45, offset ..." (45 being `-`).
+    let url_safe = BASE64_URL_SAFE.encode(raw);
+    assert!(url_safe.contains('-') && url_safe.contains('_'));
+    assert_eq!(decode_payload(&url_safe).unwrap(), raw);
+  }
 }
