@@ -163,7 +163,12 @@ async fn main() {
   let config = Config::parse();
   println!("{config:?}");
 
-  let export_target = if let Some(endpoint) = config.otlp_endpoint {
+  // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
+  // var as Some(""), which would otherwise build a schemeless endpoint and
+  // panic the exporter at boot. Filtering here means empty == export disabled.
+  let export_target = if let Some(endpoint) =
+    config.otlp_endpoint.filter(|s| !s.trim().is_empty())
+  {
     TracingExportTarget::Otlp {
       endpoint,
       headers: crate::tracing::parse_otlp_headers(
