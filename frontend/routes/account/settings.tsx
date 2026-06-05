@@ -118,7 +118,7 @@ function Connection(
   if (connectionsCount === 1 && id !== null) {
     return (
       <button disabled class="button-primary" type="button">
-        <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} />
+        <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} alt="" />
         Disconnect {name}
       </button>
     );
@@ -129,7 +129,7 @@ function Connection(
       href={`/${id === null ? "" : "dis"}connect/${serviceId}`}
       class="button-primary"
     >
-      <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} />
+      <img class="size-5" src={asset(`/logos/${serviceId}.svg`)} alt="" />
       {id === null ? "Connect" : "Disconnect"} {name}
     </a>
   );
