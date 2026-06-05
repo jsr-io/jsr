@@ -79,7 +79,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name         = "FRONTEND_RATELIMIT"
       namespace_id = "1001"
       simple = {
-        limit  = 120
+        limit  = 240
         period = 60
       }
     }
