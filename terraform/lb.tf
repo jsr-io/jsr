@@ -14,21 +14,17 @@ resource "cloudflare_workers_script" "jsr_lb" {
     enabled = true
     logs = {
       enabled            = true
-      invocation_logs    = true
+      invocation_logs    = false
       head_sampling_rate = 0.01
-      persist            = true
-      # Export logs (console output + invocation logs) to the named dashboard
-      # destination. null = keep them in Cloudflare's dashboard only.
-      destinations = var.otlp_logs_destination != "" ? [var.otlp_logs_destination] : null
+      persist            = false
+      destinations       = [var.cloudflare_otlp_logs_destination]
     }
-    # Cloudflare's automatic request tracing, exported to the named dashboard
-    # destination (OTLP endpoint + auth). null = no external trace export.
-    traces = var.otlp_traces_destination != "" ? {
+    traces = {
       enabled            = true
       head_sampling_rate = 0.01
-      persist            = true
-      destinations       = [var.otlp_traces_destination]
-    } : null
+      persist            = false
+      destinations       = [var.cloudflare_otlp_traces_destination]
+    }
   }
 
   bindings = [

@@ -128,13 +128,13 @@ variable "otlp_headers" {
 # cloudflare#7127), so the destination is dashboard-managed and we only
 # reference it by name here. Leave empty to keep export disabled (Cloudflare
 # still stores traces/logs in its own dashboard).
-variable "otlp_traces_destination" {
+variable "cloudflare_otlp_traces_destination" {
   description = "Name of the Workers Observability destination to export traces to. Empty disables trace export."
   type        = string
   default     = ""
 }
 
-variable "otlp_logs_destination" {
+variable "cloudflare_otlp_logs_destination" {
   description = "Name of the Workers Observability destination to export logs to. Empty disables log export."
   type        = string
   default     = ""

@@ -282,8 +282,6 @@ jobs:
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
-          TF_VAR_otlp_traces_destination: ${{ vars.OTLP_TRACES_DESTINATION }}
-          TF_VAR_otlp_logs_destination: ${{ vars.OTLP_LOGS_DESTINATION }}
 
       - name: terraform apply
         run: deno task tf:staging:apply
@@ -357,8 +355,6 @@ jobs:
           TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
-          TF_VAR_otlp_traces_destination: ${{ vars.OTLP_TRACES_DESTINATION }}
-          TF_VAR_otlp_logs_destination: ${{ vars.OTLP_LOGS_DESTINATION }}
 
       - name: terraform apply
         run: deno task tf:prod:apply
