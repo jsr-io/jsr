@@ -119,3 +119,23 @@ variable "otlp_headers" {
   default     = ""
   sensitive   = true
 }
+
+# Cloudflare Workers Observability exports traces and logs to a "destination"
+# (the OTLP endpoint + auth headers) that is created once per account in the
+# Cloudflare dashboard (Workers & Pages > Observability > Telemetry). The
+# `cloudflare_workers_observability_destination` resource is advertised but not
+# yet implemented in the pinned provider (see cloudflare/terraform-provider-
+# cloudflare#7127), so the destination is dashboard-managed and we only
+# reference it by name here. Leave empty to keep export disabled (Cloudflare
+# still stores traces/logs in its own dashboard).
+variable "cloudflare_otlp_traces_destination" {
+  description = "Name of the Workers Observability destination to export traces to. Empty disables trace export."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_otlp_logs_destination" {
+  description = "Name of the Workers Observability destination to export logs to. Empty disables log export."
+  type        = string
+  default     = ""
+}

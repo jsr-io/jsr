@@ -27,11 +27,18 @@ resource "cloudflare_worker" "jsr_frontend" {
 
   observability = {
     enabled            = true
-    head_sampling_rate = 0.01
     logs = {
-      enabled         = true
-      invocation_logs = true
-      persist         = true
+      enabled            = true
+      invocation_logs    = false
+      head_sampling_rate = 0.01
+      persist            = false
+      destinations       = [var.cloudflare_otlp_logs_destination]
+    }
+    traces = {
+      enabled            = true
+      head_sampling_rate = 0.01
+      persist            = false
+      destinations       = [var.cloudflare_otlp_traces_destination]
     }
   }
 }
