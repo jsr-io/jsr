@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
 use opentelemetry::KeyValue;
 use opentelemetry::global;
