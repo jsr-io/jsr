@@ -12,11 +12,6 @@ variable "api_image_id" {
   type        = string
 }
 
-variable "frontend_image_id" {
-  description = "the Docker image ID for the (legacy Cloud Run) frontend; kept while the new Cloudflare Worker frontend is in trial. Tear down `cloud_run_frontend.tf` and this variable in a follow-up once traffic has been fully cut over."
-  type        = string
-}
-
 variable "github_client_id" {
   type = string
 }
