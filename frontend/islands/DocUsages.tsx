@@ -15,9 +15,13 @@ export default function DocUsages(
     const preferredUsage = localStorage.getItem("preferredUsage");
 
     if (preferredUsage) {
-      activeUsageIdx.value = usages.findIndex((usage) =>
-        usage.name === preferredUsage
-      );
+      const idx = usages.findIndex((usage) => usage.name === preferredUsage);
+      // Guard against a stored preference for a runtime this package does not
+      // support (e.g. switching packages, or a runtime that was removed): a
+      // -1 index would make `activeUsage` undefined and crash the island.
+      if (idx !== -1) {
+        activeUsageIdx.value = idx;
+      }
     }
   }, []);
 
