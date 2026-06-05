@@ -1,0 +1,22 @@
+[package]
+name = "jsr_types"
+version = "0.1.0"
+edition = "2024"
+
+# Shared, wasm-safe data types for the JSR API services (compute + workers-rs).
+# This crate MUST NOT pull in heavy/native crates. `sqlx` is an optional,
+# default-off dependency: the Postgres `Encode`/`Decode`/`Type` impls are gated
+# behind the `sqlx` feature so the Worker (wasm32) can depend on the types
+# without compiling sqlx.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+deno_semver = "0.9.1"
+thiserror = "2"
+sqlx = { version = "0.8.6", default-features = false, features = [
+    "postgres",
+], optional = true }
+
+[features]
+default = []
+sqlx = ["dep:sqlx"]

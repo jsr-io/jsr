@@ -5,6 +5,7 @@ edition = "2024"
 resolver = "2"
 
 [dependencies]
+jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
 sqlx = { version = "0.8.6", default-features = false, features = [
     "runtime-tokio",
     "tls-rustls",
