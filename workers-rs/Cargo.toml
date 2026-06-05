@@ -1,0 +1,30 @@
+# Copyright 2024 the JSR authors. All rights reserved. MIT license.
+[package]
+name = "jsr_api_worker"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# This crate is its own workspace root, detached from the repo-root workspace
+# (which builds the native `registry_api` compute service). Keeping it separate
+# means the Cloud Run `api/` build never tries to compile this `wasm32`-only
+# crate, and this crate gets its own `Cargo.lock` resolved for the wasm target.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# The Cloudflare workers-rs runtime. Targets `wasm32-unknown-unknown`.
+worker = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Small release wasm. workers-rs bundles run through `worker-build`, but these
+# also keep plain `cargo build --target wasm32-unknown-unknown` artifacts lean.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
