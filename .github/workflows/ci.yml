@@ -66,6 +66,37 @@ jobs:
         run: deno task build
         working-directory: lb
 
+  api-worker:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: workers-rs
+
+      - name: Format
+        run: cargo fmt --check
+        working-directory: workers-rs
+
+      - name: Lint
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+        working-directory: workers-rs
+
+      - name: Build worker (wasm)
+        run: cargo build --target wasm32-unknown-unknown --release
+        working-directory: workers-rs
+
   check:
     runs-on: ubuntu-22.04
     if: github.event_name != 'push'
