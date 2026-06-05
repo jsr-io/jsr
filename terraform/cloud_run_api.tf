@@ -12,6 +12,10 @@ locals {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 
+    # Tags telemetry with the environment so staging and prod traces can be told
+    # apart when they export to the same OTLP backend (see otlp_envs above).
+    "DEPLOYMENT_ENVIRONMENT" = var.production ? "production" : "staging"
+
     "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
     "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
     "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name

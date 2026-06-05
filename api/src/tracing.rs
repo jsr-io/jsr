@@ -72,11 +72,18 @@ pub fn parse_otlp_headers(
 pub async fn setup_tracing(
   name: &'static str,
   export_target: TracingExportTarget,
+  deployment_environment: Option<String>,
 ) -> (LogFilterHandle, String) {
-  let trace_config = trace::config().with_resource(Resource::new(vec![
+  let mut resource = vec![
     KeyValue::new("service.name", name),
     KeyValue::new("service.namespace", "registry"),
-  ]));
+  ];
+  // Distinguishes staging from prod telemetry when both export to the same
+  // backend. Empty/unset omits it rather than reporting a blank environment.
+  if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
+    resource.push(KeyValue::new("deployment.environment", env));
+  }
+  let trace_config = trace::config().with_resource(Resource::new(resource));
 
   let tracer = match export_target {
     TracingExportTarget::Otlp { endpoint, headers } => {

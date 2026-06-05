@@ -130,6 +130,12 @@ pub struct Config {
   /// Grafana Cloud. Only the first `=` in each pair separates key from value.
   pub otlp_headers: Option<String>,
 
+  #[clap(long = "deployment_environment", env = "DEPLOYMENT_ENVIRONMENT")]
+  /// Deployment environment name (e.g. `staging`, `production`), exported as the
+  /// `deployment.environment` OTLP resource attribute so telemetry from each
+  /// environment can be told apart in the backend. Unset omits the attribute.
+  pub deployment_environment: Option<String>,
+
   #[clap(long = "registry_url", env = "REGISTRY_URL")]
   /// The base URL of the registry, where module code and metadata can be
   /// downloaded from.
@@ -226,6 +232,7 @@ impl std::fmt::Debug for Config {
       .field("github_client_secret", &"***")
       .field("otlp_endpoint", &self.otlp_endpoint)
       .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
+      .field("deployment_environment", &self.deployment_environment)
       .field("registry_url", &self.registry_url)
       .field("api", &self.api)
       .field("tasks", &self.tasks)

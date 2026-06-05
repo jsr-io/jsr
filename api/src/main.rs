@@ -178,7 +178,7 @@ async fn main() {
   } else {
     TracingExportTarget::None
   };
-  setup_tracing("api", export_target).await;
+  setup_tracing("api", export_target, config.deployment_environment).await;
 
   let database = Database::connect(
     &config.database_url,
