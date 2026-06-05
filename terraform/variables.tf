@@ -108,7 +108,7 @@ variable "cloudflare_zone_id" {
 # disable; set both to point traces at an OTLP/HTTP backend such as Grafana
 # Cloud.
 variable "otlp_endpoint" {
-  description = "OTLP/HTTP traces endpoint, full URL including the path (e.g. Grafana Cloud's https://otlp-gateway-<zone>.grafana.net/otlp/v1/traces). Empty disables trace export."
+  description = "Base OTLP/HTTP endpoint, no per-signal path (e.g. Grafana Cloud's https://otlp-gateway-<zone>.grafana.net/otlp). The API appends the signal path itself (/v1/traces, and /v1/logs etc. later). Empty disables export."
   type        = string
   default     = ""
 }
