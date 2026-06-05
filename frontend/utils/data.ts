@@ -133,7 +133,7 @@ export async function packageDataWithDocs(
             headers: {
               Location: `/@${scope}/${pkg}${
                 version ? `@${version}` : ""
-              }/doc/all_symbols`,
+              }/doc/all_symbols?no_default_entrypoint`,
             },
             status: 302,
           });
