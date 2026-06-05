@@ -194,7 +194,7 @@ jobs:
         if: github.event_name == 'push'
         id: check_existing
         run: |
-          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1 then
+          if docker manifest inspect ${{ env.API_IMAGE_ID_BASE }}:${{ github.sha }} > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
