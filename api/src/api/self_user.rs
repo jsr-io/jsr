@@ -11,6 +11,8 @@ use tracing::instrument;
 
 use std::borrow::Cow;
 
+use uuid::Uuid;
+
 use crate::RegistryUrl;
 use crate::db::Database;
 use crate::db::PackagePublishPermission;
@@ -38,6 +40,7 @@ use super::ApiToken;
 pub fn self_user_router() -> Router<Body, ApiError> {
   Router::builder()
     .get("/", util::auth(util::json(get_handler)))
+    .delete("/", util::auth(delete_account))
     .get("/scopes", util::auth(util::json(list_scopes_handler)))
     .get("/member/:scope", util::auth(util::json(get_member_handler)))
     .get("/invites", util::auth(util::json(list_invites_handler)))
@@ -59,6 +62,30 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiFullUser> {
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?.to_owned();
   Ok(current_user.into())
+}
+
+#[instrument(name = "DELETE /api/user", skip(req), err)]
+async fn delete_account(req: Request<Body>) -> ApiResult<Response<Body>> {
+  let iam = req.iam();
+  let current_user = iam.check_current_user_access()?;
+
+  if current_user.id == Uuid::nil() {
+    return Err(ApiError::CannotDeleteServiceAccount);
+  }
+
+  let db = req.data::<Database>().unwrap();
+  let user_id = current_user.id;
+
+  let deleted = db.delete_user(&user_id, false, user_id).await?;
+  if deleted.is_none() {
+    return Err(ApiError::UserNotFound);
+  }
+
+  let resp = Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .body(Body::empty())
+    .unwrap();
+  Ok(resp)
 }
 
 #[instrument(name = "GET /api/user/scopes", skip(req), err)]
@@ -478,5 +505,57 @@ mod tests {
       .unwrap()
       .expect_err_code(StatusCode::UNAUTHORIZED, "invalidBearerToken")
       .await;
+  }
+
+  #[tokio::test]
+  async fn delete_own_account() {
+    let mut t = TestSetup::new().await;
+
+    let user2_token = t.user2.token.clone();
+
+    // Create a scope owned solely by user2
+    let scope_name = "user2scope";
+    t.http()
+      .post("/api/scopes")
+      .body_json(json!({ "scope": scope_name, "description": "" }))
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<crate::api::ApiScope>()
+      .await;
+
+    // Delete user2's account
+    t.http()
+      .delete("/api/user")
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok_no_content()
+      .await;
+
+    // User2 no longer exists
+    t.http()
+      .get("/api/user")
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::UNAUTHORIZED, "invalidBearerToken")
+      .await;
+
+    // user2's orphaned scope is now owned by the service account
+    let members: Vec<crate::api::ApiScopeMember> = t
+      .http()
+      .get(format!("/api/scopes/{scope_name}/members"))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].user.id, uuid::Uuid::nil());
+    assert!(members[0].is_admin);
   }
 }

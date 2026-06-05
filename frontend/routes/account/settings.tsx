@@ -4,6 +4,9 @@ import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { QuotaCard } from "../../components/QuotaCard.tsx";
 import { define } from "../../util.ts";
 import { TicketModal } from "../../islands/TicketModal.tsx";
+import { DeleteAccount } from "./(_islands)/DeleteAccount.tsx";
+import { assertOk, path } from "../../utils/api.ts";
+import type { Scope, ScopeMember } from "../../utils/api_types.ts";
 import { asset } from "fresh/runtime";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
@@ -30,7 +33,7 @@ export default define.page<typeof handler>(function AccountInvitesPage({
                 <QuotaCard
                   title="Created scopes"
                   description="The total number of scopes you have created."
-                  limit={data.user.scopeLimit}
+                  limit={data.user.scopeLimit ?? Infinity}
                   usage={data.user.scopeUsage}
                 />
               </div>
@@ -94,18 +97,21 @@ export default define.page<typeof handler>(function AccountInvitesPage({
           <h2 class="text-xl mb-2 font-bold">Delete account</h2>
           <p class="mt-2 text-secondary max-w-xl">
             You may delete your account at any time. If you delete your account,
-            any scopes that you are the sole owner of will be orphaned. You will
-            not be able to recover your account after deletion.
+            any scopes that you are the sole owner of will be transferred to a
+            service account. You will not be able to recover your account after
+            deletion.
           </p>
-          {/* removing delete button until we offer that functionality */}
-          <p class="mt-4 text-red-600">
-            Please contact help@jsr.io to delete your account.
-          </p>
+          <DeleteAccount scopes={data.scopes} userName={data.user.name} />
         </div>
       </div>
     </AccountLayout>
   );
 });
+
+export interface ScopeWithMemberCount {
+  scope: string;
+  memberCount: number;
+}
 
 function Connection(
   { name, serviceId, id, connectionsCount }: {
@@ -137,16 +143,30 @@ function Connection(
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const [currentUser] = await Promise.all([
+    const [currentUser, scopesResp] = await Promise.all([
       ctx.state.userPromise,
+      ctx.state.api.get<Scope[]>(path`/user/scopes`),
     ]);
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
+    assertOk(scopesResp);
+
+    const memberResponses = await Promise.all(
+      scopesResp.data.map((s) =>
+        ctx.state.api.get<ScopeMember[]>(path`/scopes/${s.scope}/members`)
+      ),
+    );
+
+    const scopes: ScopeWithMemberCount[] = scopesResp.data.map((s, i) => ({
+      scope: s.scope,
+      memberCount: memberResponses[i].ok ? memberResponses[i].data.length : 0,
+    }));
 
     ctx.state.meta = { title: "Account Settings - JSR" };
     return {
       data: {
         user: currentUser,
+        scopes,
       },
     };
   },

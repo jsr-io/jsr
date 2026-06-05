@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE ticket_messages SET author = $1 WHERE author = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8091f9a45574a283282a353b32e9b16496fc77e221c21e693f21b6662a211ec8"
+}

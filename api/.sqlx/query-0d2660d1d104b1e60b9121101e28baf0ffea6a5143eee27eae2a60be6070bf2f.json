@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH ticket AS (\n          UPDATE tickets SET closed = $1 WHERE id = $2\n          RETURNING id, kind, creator, meta, closed, updated_at, created_at\n        )\n        SELECT\n            ticket.id as \"ticket_id\",\n            ticket.kind as \"ticket_kind: TicketKind\",\n            ticket.creator as \"ticket_creator\",\n            ticket.meta as \"ticket_meta\",\n            ticket.closed as \"ticket_closed\",\n            ticket.updated_at as \"ticket_updated_at\",\n            ticket.created_at as \"ticket_created_at\",\n            users.id as \"user_id\", users.name as \"user_name\", users.email as \"user_email\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.gitlab_id as \"user_gitlab_id\", users.is_blocked as \"user_is_blocked\", users.is_staff as \"user_is_staff\", users.scope_limit as \"user_scope_limit\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n(SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as \"user_invite_count!\",\n(SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as \"user_scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"user_newer_ticket_messages_count!\"\n        FROM ticket\n        INNER JOIN users ON users.id = ticket.creator\n    ",
+  "query": "WITH ticket AS (\n          INSERT INTO tickets (kind, creator, meta)\n          VALUES ($1, $2, $3)\n          RETURNING id, kind, creator, meta, closed, updated_at, created_at\n        )\n        SELECT\n            ticket.id as \"ticket_id\",\n            ticket.kind as \"ticket_kind: TicketKind\",\n            ticket.creator as \"ticket_creator\",\n            ticket.meta as \"ticket_meta\",\n            ticket.closed as \"ticket_closed\",\n            ticket.updated_at as \"ticket_updated_at\",\n            ticket.created_at as \"ticket_created_at\",\n            users.id as \"user_id\", users.name as \"user_name\", users.email as \"user_email\", users.avatar_url as \"user_avatar_url\", users.github_id as \"user_github_id\", users.gitlab_id as \"user_gitlab_id\", users.is_blocked as \"user_is_blocked\", users.is_staff as \"user_is_staff\", users.scope_limit as \"user_scope_limit?\", users.updated_at as \"user_updated_at\", users.created_at as \"user_created_at\",\n(SELECT COUNT(scope_invites.created_at) FROM scope_invites WHERE scope_invites.target_user_id = users.id) as \"user_invite_count!\",\n(SELECT COUNT(scopes.created_at) FROM scopes WHERE scopes.creator = users.id) as \"user_scope_usage!\",\n(CASE WHEN users.is_staff THEN (\n  SELECT count(tickets.created_at) FROM tickets WHERE closed = false AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id  = tickets.id AND tm.author = tickets.creator AND tm.created_at = (\n      SELECT MAX(ticket_messages.created_at) FROM ticket_messages WHERE ticket_messages.ticket_id = tickets.id\n    )\n  )\n) ELSE (\n  SELECT COUNT(created_at) FROM tickets WHERE closed = false AND tickets.creator = users.id AND EXISTS (\n    SELECT 1 FROM ticket_messages as tm WHERE tm.ticket_id = tickets.id AND tm.author != users.id AND tm.created_at > (\n      SELECT MAX(tm2.created_at) FROM ticket_messages as tm2 WHERE tm2.ticket_id = tm.ticket_id AND tm2.author = users.id\n    )\n  )\n) END) as \"user_newer_ticket_messages_count!\"\n        FROM ticket\n        INNER JOIN users ON users.id = ticket.creator\n    ",
   "describe": {
     "columns": [
       {
@@ -93,7 +93,7 @@
       },
       {
         "ordinal": 15,
-        "name": "user_scope_limit",
+        "name": "user_scope_limit?",
         "type_info": "Int4"
       },
       {
@@ -124,8 +124,22 @@
     ],
     "parameters": {
       "Left": [
-        "Bool",
-        "Uuid"
+        {
+          "Custom": {
+            "name": "ticket_kind",
+            "kind": {
+              "Enum": [
+                "user_scope_quota_increase",
+                "scope_quota_increase",
+                "scope_claim",
+                "package_report",
+                "other"
+              ]
+            }
+          }
+        },
+        "Uuid",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -144,7 +158,7 @@
       true,
       false,
       false,
-      false,
+      true,
       false,
       false,
       null,
@@ -152,5 +166,5 @@
       null
     ]
   },
-  "hash": "e368d10f7f6e2b2cab77ad1bc59425cf1a7630f055535df9ceab322c3642039d"
+  "hash": "0d2660d1d104b1e60b9121101e28baf0ffea6a5143eee27eae2a60be6070bf2f"
 }

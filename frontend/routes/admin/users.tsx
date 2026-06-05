@@ -8,6 +8,7 @@ import { define } from "../../util.ts";
 import twas from "twas";
 import { AdminCopyButton } from "./(_islands)/AdminCopyButton.tsx";
 import { EditModal } from "./(_islands)/EditModal.tsx";
+import { DeleteUser } from "./(_islands)/DeleteUser.tsx";
 
 export default define.page<typeof handler>(function Users({ data, url }) {
   return (
@@ -67,31 +68,39 @@ export default define.page<typeof handler>(function Users({ data, url }) {
               {twas(new Date(user.createdAt).getTime())}
             </TableData>
             <TableData align="right">
-              <EditModal
-                style="primary"
-                path={path`/admin/users/${user.id}`}
-                title={`Edit user '${user.name}'`}
-                fields={[
-                  {
-                    name: "scopeLimit",
-                    label: "scope limit",
-                    type: "number",
-                    value: user.scopeLimit,
-                  },
-                  {
-                    name: "isStaff",
-                    label: "is staff",
-                    type: "boolean",
-                    value: user.isStaff,
-                  },
-                  {
-                    name: "isBlocked",
-                    label: "is blocked",
-                    type: "boolean",
-                    value: user.isBlocked,
-                  },
-                ]}
-              />
+              <div class="flex gap-2 items-center">
+                {user.id !==
+                    "00000000-0000-0000-0000-000000000000" && (
+                  <>
+                    <EditModal
+                      style="primary"
+                      path={path`/admin/users/${user.id}`}
+                      title={`Edit user '${user.name}'`}
+                      fields={[
+                        {
+                          name: "scopeLimit",
+                          label: "scope limit",
+                          type: "number",
+                          value: user.scopeLimit ?? undefined,
+                        },
+                        {
+                          name: "isStaff",
+                          label: "is staff",
+                          type: "boolean",
+                          value: user.isStaff,
+                        },
+                        {
+                          name: "isBlocked",
+                          label: "is blocked",
+                          type: "boolean",
+                          value: user.isBlocked,
+                        },
+                      ]}
+                    />
+                    <DeleteUser userId={user.id} userName={user.name} />
+                  </>
+                )}
+              </div>
             </TableData>
           </TableRow>
         ))}
