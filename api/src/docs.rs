@@ -604,7 +604,8 @@ fn get_url_rewriter(
   is_readme: bool,
 ) -> URLRewriter {
   Arc::new(move |current_file, url| {
-    if url.starts_with('#') || url.starts_with('/') {
+    // Anchors and protocol-relative URLs (`//host/...`) are left untouched.
+    if url.starts_with('#') || url.starts_with("//") {
       return url.to_string();
     }
 
@@ -638,6 +639,13 @@ fn get_url_rewriter(
     } else {
       base.clone()
     };
+
+    // Root-relative URLs (a single leading `/`) resolve against the
+    // repository root rather than the current file's directory. Without this
+    // they would be served relative to jsr.io and 404 (see #768).
+    if let Some(path) = url.strip_prefix('/') {
+      return format!("{base}/{path}");
+    }
 
     if !is_readme && let Some(current_file) = current_file {
       let (path, _file) = current_file
@@ -1688,6 +1696,9 @@ mod tests {
       "/@foo/bar/1.2.3/src/assets/logo.svg"
     );
 
+    // Root-relative links resolve against the package root (see #768).
+    assert_eq!(rewriter(None, "/LICENSE"), "/@foo/bar/1.2.3/LICENSE");
+
     assert_eq!(
       rewriter(
         Some(&ShortPath::new(
@@ -1737,5 +1748,18 @@ mod tests {
       ),
       "https://raw.githubusercontent.com/foo/bar/HEAD/./src/assets/logo.svg"
     );
+
+    // Regression for #768: root-relative links resolve against the repository
+    // root rather than being left to 404 against jsr.io.
+    assert_eq!(
+      rewriter(None, "/LICENSE"),
+      "https://github.com/foo/bar/blob/HEAD/LICENSE"
+    );
+    assert_eq!(
+      rewriter(None, "/assets/logo.svg"),
+      "https://raw.githubusercontent.com/foo/bar/HEAD/assets/logo.svg"
+    );
+    // Protocol-relative URLs are left untouched.
+    assert_eq!(rewriter(None, "//example.com/x"), "//example.com/x");
   }
 }
