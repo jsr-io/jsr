@@ -163,14 +163,22 @@ async fn main() {
   let config = Config::parse();
   println!("{config:?}");
 
-  let export_target = if config.cloud_trace {
-    TracingExportTarget::CloudTrace
-  } else if let Some(otlp_endpoint) = config.otlp_endpoint {
-    TracingExportTarget::Otlp(otlp_endpoint)
+  // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
+  // var as Some(""), which would otherwise build a schemeless endpoint and
+  // panic the exporter at boot. Filtering here means empty == export disabled.
+  let export_target = if let Some(endpoint) =
+    config.otlp_endpoint.filter(|s| !s.trim().is_empty())
+  {
+    TracingExportTarget::Otlp {
+      endpoint,
+      headers: crate::tracing::parse_otlp_headers(
+        config.otlp_headers.as_deref(),
+      ),
+    }
   } else {
     TracingExportTarget::None
   };
-  setup_tracing("api", export_target).await;
+  setup_tracing("api", export_target, config.deployment_environment).await;
 
   let database = Database::connect(
     &config.database_url,
