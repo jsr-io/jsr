@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
 use opentelemetry::KeyValue;
 use opentelemetry::global;
@@ -21,9 +20,42 @@ use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::reload;
 
 pub enum TracingExportTarget {
-  Otlp(String),
-  CloudTrace,
+  Otlp {
+    endpoint: String,
+    headers: std::collections::HashMap<String, String>,
+  },
   None,
+}
+
+/// Append an OTLP signal subpath to the configured base endpoint, OTEL
+/// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the endpoint is the base (e.g. Grafana
+/// Cloud's `.../otlp`) and each signal posts to its own path (`/v1/traces`,
+/// later `/v1/logs`). The opentelemetry-otlp 0.12 HTTP exporter uses the
+/// endpoint verbatim and does NOT do this itself, so posting to the bare base
+/// 404s. Tolerates a trailing slash and an endpoint that already carries the
+/// signal path.
+fn otlp_signal_endpoint(base: &str, signal_path: &str) -> String {
+  let base = base.trim_end_matches('/');
+  if base.ends_with(signal_path) {
+    base.to_string()
+  } else {
+    format!("{base}{signal_path}")
+  }
+}
+
+/// Parse the `OTLP_HEADERS` value (`key1=value1,key2=value2`, the OpenTelemetry
+/// `OTEL_EXPORTER_OTLP_HEADERS` format) into a header map. Splits each pair on
+/// its first `=` only, so values containing `=` (e.g. base64 padding in a
+/// `Basic` auth header) survive intact.
+pub fn parse_otlp_headers(
+  raw: Option<&str>,
+) -> std::collections::HashMap<String, String> {
+  raw
+    .into_iter()
+    .flat_map(|s| s.split(','))
+    .filter_map(|pair| pair.split_once('='))
+    .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+    .collect()
 }
 
 /// Initialize tracing infrastructure.
@@ -39,33 +71,36 @@ pub enum TracingExportTarget {
 pub async fn setup_tracing(
   name: &'static str,
   export_target: TracingExportTarget,
+  deployment_environment: Option<String>,
 ) -> (LogFilterHandle, String) {
-  let trace_config = trace::config().with_resource(Resource::new(vec![
+  let mut resource = vec![
     KeyValue::new("service.name", name),
     KeyValue::new("service.namespace", "registry"),
-  ]));
+  ];
+  // Distinguishes staging from prod telemetry when both export to the same
+  // backend. Empty/unset omits it rather than reporting a blank environment.
+  if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
+    resource.push(KeyValue::new("deployment.environment", env));
+  }
+  let trace_config = trace::config().with_resource(Resource::new(resource));
 
   let tracer = match export_target {
-    TracingExportTarget::Otlp(otlp_endpoint) => {
+    TracingExportTarget::Otlp { endpoint, headers } => {
+      // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
+      // accepts HTTP, and it also works directly from the Cloudflare Container.
+      // `endpoint` is the base; the `/v1/traces` signal path is appended here.
+      // `headers` carries the backend auth, e.g. `Authorization: Basic <base64>`
+      // for Grafana Cloud.
       let exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
-        .with_endpoint(otlp_endpoint)
-        .with_protocol(opentelemetry_otlp::Protocol::Grpc);
+        .http()
+        .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
+        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
+        .with_headers(headers);
       let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(trace_config)
         .with_exporter(exporter)
         .install_batch(opentelemetry::runtime::Tokio)
-        .unwrap();
-      Some(tracer)
-    }
-    TracingExportTarget::CloudTrace => {
-      let tracer = opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder::for_default_project_id()
-        .await
-        .unwrap()
-        .with_trace_config(trace_config)
-        .install_batch(opentelemetry::runtime::Tokio)
-        .await
         .unwrap();
       Some(tracer)
     }
@@ -144,4 +179,56 @@ where
   let extensions = current_span.extensions();
   let otel_data = extensions.get::<OtelData>()?;
   Some(otel_data.parent_cx.span().span_context().trace_id())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::otlp_signal_endpoint;
+  use super::parse_otlp_headers;
+
+  #[test]
+  fn appends_signal_path_to_base() {
+    assert_eq!(
+      otlp_signal_endpoint("https://x.grafana.net/otlp", "/v1/traces"),
+      "https://x.grafana.net/otlp/v1/traces"
+    );
+  }
+
+  #[test]
+  fn tolerates_trailing_slash_and_existing_path() {
+    assert_eq!(
+      otlp_signal_endpoint("https://x.grafana.net/otlp/", "/v1/traces"),
+      "https://x.grafana.net/otlp/v1/traces"
+    );
+    assert_eq!(
+      otlp_signal_endpoint(
+        "https://x.grafana.net/otlp/v1/traces",
+        "/v1/traces"
+      ),
+      "https://x.grafana.net/otlp/v1/traces"
+    );
+  }
+
+  #[test]
+  fn none_is_empty() {
+    assert!(parse_otlp_headers(None).is_empty());
+    assert!(parse_otlp_headers(Some("")).is_empty());
+  }
+
+  #[test]
+  fn keeps_equals_in_value() {
+    // A `Basic` auth header's base64 value can contain `=` padding; only the
+    // first `=` of each pair separates key from value.
+    let headers =
+      parse_otlp_headers(Some("Authorization=Basic dXNlcjpwYXNz=="));
+    assert_eq!(headers.len(), 1);
+    assert_eq!(headers["Authorization"], "Basic dXNlcjpwYXNz==");
+  }
+
+  #[test]
+  fn multiple_pairs_are_trimmed() {
+    let headers = parse_otlp_headers(Some("a=1, b=2"));
+    assert_eq!(headers["a"], "1");
+    assert_eq!(headers["b"], "2");
+  }
 }

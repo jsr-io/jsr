@@ -73,8 +73,15 @@ opentelemetry = { version = "0.19", features = [
     "rt-tokio-current-thread",
     "trace",
 ] }
-opentelemetry-otlp = "0.12"
-opentelemetry-gcloud-trace = "0.5.0"
+# OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
+# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest, the same HTTP
+# stack every other outbound call in this crate already uses. Default
+# `grpc-tonic` is off.
+opentelemetry-otlp = { version = "0.12", default-features = false, features = [
+    "trace",
+    "http-proto",
+    "reqwest-client",
+] }
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 deno_semver = "0.9.1"
 flate2 = "1"
