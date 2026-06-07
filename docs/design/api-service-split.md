@@ -285,24 +285,34 @@ sequence, behind the existing two-service Cloud Run setup.
 3. **Hyperdrive + DB connectivity spike.** `tokio-postgres` over the Hyperdrive
    `Socket`; one trivial read (e.g. `GET /api/stats` or a `SELECT 1`). Land the
    Hyperdrive terraform + local dev wiring. Proves the DB story end-to-end.
-4. **Move read-only metadata GETs.** `GET /api/packages`, `/api/stats`,
-   `/api/metrics`, `/api/users/:id`, package/scope/version metadata GETs. Port
-   their queries; proxy everything else to compute. Worker still behind a flag /
-   not yet fronting prod.
-5. **Move sitemaps + downloads + dependents + dependency listing.**
-6. **Move scope/package/version CRUD (writes).** auth middleware on the Worker
+4. **Move read-only metadata GETs + the compute proxy.** `GET /api/stats`,
+   `/api/metrics`, `/api/packages`, `/api/users/:id`, package/scope/version
+   metadata GETs. Port their queries; the Worker's fallback **proxies everything
+   else to compute** so it can front 100% of the surface while only a few routes
+   are served locally. Worker still not yet fronting prod.
+5. **Routing cutover (early, incremental).** Point `lb`'s `api` backend at the
+   new Worker (service binding); the Worker serves its migrated routes and
+   proxies the compute-only paths (and not-yet-migrated routes) to Cloud Run.
+   Ship behind a **percentage rollout** via the deployment resource, starting
+   low and ramping. This goes **before** the remaining endpoint migrations
+   (per review): doing the one prod-routing change early — while the Worker is
+   almost entirely a transparent proxy — keeps the blast radius minimal and
+   avoids a big-bang cutover after everything has moved. Rolled back by dialing
+   the rollout to 0% / repointing the `lb` binding.
+6. **Move sitemaps + downloads + dependents + dependency listing.**
+7. **Move scope/package/version CRUD (writes).** auth middleware on the Worker
    side; token + session validation.
-7. **Move user/authorization/tickets/admin + OAuth `/login/*` flows.**
-8. **Routing cutover.** Point `lb`'s `api` backend at the new Worker (service
-   binding); the Worker proxies the compute-only paths to Cloud Run. Ship behind
-   a percentage rollout via the deployment resource.
+8. **Move user/authorization/tickets/admin + OAuth `/login/*` flows.**
 9. **Cleanup.** Trim compute to only the routes it still serves; remove dead
    edge config; docs.
 
-Steps 1–3 are infrastructure with no traffic impact and should land first. Steps
-4–7 each move one endpoint group and are individually revertable. Step 8 is the
-only one that changes prod routing and can be rolled back by repointing the `lb`
-binding.
+Steps 1–3 are infrastructure with no traffic impact and land first. Step 4
+stands up the Worker as a transparent proxy with a couple of routes served
+locally. Step 5 is the single prod-routing change and is done **early**, behind
+a percentage rollout, so the risky cutover happens once with a near-empty Worker
+rather than as a big-bang at the end. Steps 6–8 then move one endpoint group at
+a time **behind the already-live Worker**, each individually revertable (the
+proxy keeps serving any route until it is moved).
 
 ## Resolved decisions
 
@@ -310,7 +320,7 @@ These were open questions during review; resolved in the PR discussion.
 
 - **Q1 — package create.** `POST /api/scopes/:scope/packages` only validates
   names/config and touches **no heavy crate**, so it lives on the **workers-rs**
-  side. (It moves with the scope/package CRUD group in step 6.)
+  side. (It moves with the scope/package CRUD group in step 7.)
 - **Q2 — lost sqlx compile-time checking.** Accepted as proposed: **parity
   tests** plus keeping compute's compile-time-checked queries as the source of
   truth. No separate codegen guard.
