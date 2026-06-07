@@ -11,5 +11,6 @@
 //! too, but are gated behind the default-off `sqlx` feature so wasm builds
 //! never compile them.
 
+pub mod api;
 pub mod ids;
 pub mod models;

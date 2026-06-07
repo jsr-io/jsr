@@ -16,10 +16,22 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-# The Cloudflare workers-rs runtime. Targets `wasm32-unknown-unknown`.
-worker = "0.8"
+# The Cloudflare workers-rs runtime. Targets `wasm32-unknown-unknown`. The
+# `http`/`axum` features let us route with axum (over `http` crate types), to
+# match the compute service's router-based structure.
+worker = { version = "0.8", features = ["http", "axum"] }
+# axum as the router. `default-features = false` drops the tokio/hyper server
+# features (not wasm-compatible); `json` keeps `Json` responses.
+axum = { version = "0.8", default-features = false, features = ["json"] }
+tower-service = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Shared, wasm-safe JSR types (id newtypes, model structs, API wire types).
+# `default-features = false` keeps the `sqlx` feature off so this stays
+# wasm-compatible; the Worker only needs the plain structs to build
+# byte-identical JSON responses (parity with the compute service).
+jsr_types = { path = "../crates/jsr_types", default-features = false }
 
 # Postgres access from the Worker. We reach the existing Cloud SQL Postgres
 # through Cloudflare Hyperdrive: `env.hyperdrive(..).connect()` hands back a
