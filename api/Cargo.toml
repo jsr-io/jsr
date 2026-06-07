@@ -37,6 +37,11 @@ sha2 = "0.10.7"
 crc32fast = "1.3.2"
 routerify = "3"
 routerify-query = "3"
+# Direct dep only to install the ring CryptoProvider as the process default
+# before the first DB TLS connection (see main.rs). Both ring and aws-lc-rs are
+# in the tree, so rustls 0.23 needs an explicit pick for sqlx's client-cert
+# verifier. The `ring` feature is already enabled transitively.
+rustls = { version = "0.23", features = ["ring"] }
 reqwest = { version = "0.11.18", default-features = false, features = [
     "rustls-tls",
     "stream",

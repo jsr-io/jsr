@@ -49,6 +49,16 @@ resource "google_sql_database" "database" {
   instance = google_sql_database_instance.main_pg15.name
 }
 
+# Client certificate the API presents when connecting to Cloud SQL over TLS.
+# Delivered to both Cloud Run services as env (see cloud_run_api.tf) and, later,
+# to the Hyperdrive config that fronts the `api` Worker. It is presented now
+# (harmless under the current ssl_mode) so it is already in place before the DB
+# is flipped to TRUSTED_CLIENT_CERTIFICATE_REQUIRED in a follow-up.
+resource "google_sql_ssl_cert" "api" {
+  common_name = "api-client"
+  instance    = google_sql_database_instance.main_pg15.name
+}
+
 resource "google_sql_user" "api" {
   name     = "api"
   instance = google_sql_database_instance.main_pg15.name

@@ -180,10 +180,31 @@ async fn main() {
   };
   setup_tracing("api", export_target, config.deployment_environment).await;
 
+  let db_tls = match (
+    config.db_client_cert,
+    config.db_client_key,
+    config.db_root_cert,
+  ) {
+    (Some(client_cert), Some(client_key), Some(root_cert)) => {
+      // sqlx builds its TLS verifier with `WebPkiServerVerifier::builder()`,
+      // which needs a process-level rustls CryptoProvider. Both aws-lc-rs and
+      // ring are in the tree (via reqwest/rust-s3/postmark), so rustls 0.23
+      // can't auto-pick one; install ring explicitly before the first connect.
+      let _ = rustls::crypto::ring::default_provider().install_default();
+      Some(crate::db::DbTls {
+        client_cert,
+        client_key,
+        root_cert,
+      })
+    }
+    _ => None,
+  };
+
   let database = Database::connect(
     &config.database_url,
     config.database_pool_size,
     Duration::from_secs(15),
+    db_tls,
   )
   .await
   .unwrap();

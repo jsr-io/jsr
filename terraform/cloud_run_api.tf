@@ -58,6 +58,15 @@ locals {
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
     "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
+
+    # Client certificate for the DB connection. Presented now (harmless under the
+    # current ssl_mode) so it is in place before the DB is flipped to require it
+    # (TRUSTED_CLIENT_CERTIFICATE_REQUIRED, see db.tf). The same cert is later
+    # handed to the Hyperdrive config that fronts the `api` Worker. Plain env,
+    # like DATABASE_URL / S3_SECRET_KEY above.
+    "DB_CLIENT_CERT" = google_sql_ssl_cert.api.cert
+    "DB_CLIENT_KEY"  = google_sql_ssl_cert.api.private_key
+    "DB_ROOT_CERT"   = google_sql_ssl_cert.api.server_ca_cert
   })
 }
 

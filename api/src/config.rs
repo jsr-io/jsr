@@ -218,6 +218,20 @@ pub struct Config {
   #[clap(long = "database_pool_size", default_value = "3")]
   /// The size of the database connection pool.
   pub database_pool_size: u32,
+
+  #[clap(long = "db_client_cert", env = "DB_CLIENT_CERT")]
+  /// PEM client certificate presented when connecting to the database over
+  /// TLS. Required once the DB enforces `TRUSTED_CLIENT_CERTIFICATE_REQUIRED`;
+  /// all three of cert/key/root must be set together to take effect.
+  pub db_client_cert: Option<String>,
+
+  #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
+  /// PEM private key matching `db_client_cert`.
+  pub db_client_key: Option<String>,
+
+  #[clap(long = "db_root_cert", env = "DB_ROOT_CERT")]
+  /// PEM server CA certificate used to verify the database server.
+  pub db_root_cert: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -247,6 +261,12 @@ impl std::fmt::Debug for Config {
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)
+      .field(
+        "db_client_cert",
+        &self.db_client_cert.as_ref().map(|_| "***"),
+      )
+      .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
+      .field("db_root_cert", &self.db_root_cert.as_ref().map(|_| "***"))
       .finish()
   }
 }
