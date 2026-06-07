@@ -15,10 +15,20 @@ the migration sequence completes, this Worker will:
 
 ## Status
 
-**Step 2 of the migration: scaffold only.** This crate currently exposes a
-`GET /health` check and returns `501 Not Implemented` for everything else. No
-database and no real endpoints are wired up yet; those land one endpoint group
-per PR per the design doc's sequence.
+**Step 4 of the migration: first read-only metadata GETs.** This crate exposes:
+
+- `GET /health` — liveness check.
+- `GET /api/db_health` — Hyperdrive connectivity check (`SELECT 1`).
+- `GET /api/stats` — front-page newest/updated/featured package lists.
+- `GET /api/metrics` — registry-wide package/version/user counts.
+
+Everything else still returns `501 Not Implemented`; the remaining endpoint
+groups land one PR at a time per the design doc's sequence. The Worker is not
+yet fronting prod traffic.
+
+The `/api/stats` and `/api/metrics` handlers reach Postgres through Hyperdrive
+(`tokio-postgres`, no `sqlx`) and serialize the **same** `jsr_types::api` wire
+structs the compute service uses, so the JSON is byte-identical by construction.
 
 ## Layout
 

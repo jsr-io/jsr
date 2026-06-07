@@ -19,6 +19,13 @@ fn router() -> Router<'static, ()> {
     .get_async("/api/db_health", |_req, ctx| async move {
       db_health(&ctx.env).await
     })
+    .get_async(
+      "/api/stats",
+      |_req, ctx| async move { stats(&ctx.env).await },
+    )
+    .get_async("/api/metrics", |_req, ctx| async move {
+      metrics(&ctx.env).await
+    })
     // Not-yet-migrated paths are explicitly unimplemented rather than 404.
     .or_else_any_method("/*catchall", |_req, _ctx| {
       Response::error("Not Implemented", 501)
@@ -40,4 +47,16 @@ async fn db_health(env: &Env) -> Result<Response> {
     "database": "ok",
     "select_1": value,
   }))
+}
+
+// `GET /api/stats` — front-page newest/updated/featured package lists.
+async fn stats(env: &Env) -> Result<Response> {
+  let client = db::connect(env).await?;
+  Response::from_json(&db::stats(&client).await?)
+}
+
+// `GET /api/metrics` — registry-wide package/version/user counts.
+async fn metrics(env: &Env) -> Result<Response> {
+  let client = db::connect(env).await?;
+  Response::from_json(&db::metrics(&client).await?)
 }
