@@ -6,6 +6,13 @@ compatibility_flags = ["nodejs_compat"]
 [build]
 command = "worker-build --release"
 
+[vars]
+# Base URL of the Cloud Run compute service (`registry-api`). The Worker proxies
+# compute-only paths (publish, docs, source, diff, graph, `/tasks/*`) here. In
+# prod this is set by Terraform; this default targets the local compute server
+# from `docker-compose` for `wrangler dev` (matches `lb`'s REGISTRY_API_URL).
+COMPUTE_API_URL = "http://localhost:8001"
+
 # Production bindings (the Hyperdrive config, compute-service URL, OAuth/Orama
 # config) are managed by Terraform, like the frontend/lb Workers. For local
 # `wrangler dev`, the Hyperdrive binding's connection string comes from the

@@ -38,8 +38,11 @@ fn router(env: Env) -> Router {
     .route("/api/db_health", get(db_health))
     .route("/api/stats", get(stats))
     .route("/api/metrics", get(metrics))
-    // Not-yet-migrated paths are explicitly unimplemented rather than 404.
-    .fallback(|| async { (StatusCode::NOT_IMPLEMENTED, "Not Implemented") })
+    // Anything not handled locally is a compute-only path (publish, docs,
+    // source, diff, graph, `/tasks/*`) — proxy it to the Cloud Run compute
+    // service. Worker-owned routes not yet migrated also fall through here and
+    // are still served correctly by compute until they move.
+    .fallback(proxy_to_compute)
     .layer(Extension(SendWrapper::new(env)))
 }
 
@@ -75,6 +78,35 @@ async fn metrics(
 ) -> Result<Json<ApiMetrics>, AppError> {
   let client = db::connect(&env).await?;
   Ok(Json(db::metrics(&client).await?))
+}
+
+// Proxies a request the Worker doesn't serve locally to the Cloud Run compute
+// service, preserving method, path, query, headers, and body, and streaming the
+// response straight back. The compute service stays public and is reached over
+// its base URL (`COMPUTE_API_URL`); see `docs/design/api-service-split.md` (Q5).
+#[worker::send]
+async fn proxy_to_compute(
+  Extension(env): Extension<SendWrapper<Env>>,
+  req: axum::extract::Request,
+) -> Result<axum::response::Response, AppError> {
+  let base = env.var("COMPUTE_API_URL")?.to_string();
+  let path_and_query = req
+    .uri()
+    .path_and_query()
+    .map(|pq| pq.as_str())
+    .unwrap_or("/");
+  let target = format!("{}{}", base.trim_end_matches('/'), path_and_query);
+
+  // Re-point the request at the compute service; everything else is untouched.
+  let (mut parts, body) = req.into_parts();
+  parts.uri = target
+    .parse()
+    .map_err(|_| Error::RustError(format!("invalid compute URL: {target}")))?;
+  let worker_req =
+    Request::try_from(axum::http::Request::from_parts(parts, body))?;
+
+  let resp = Fetch::Request(worker_req).send().await?;
+  Ok(resp.into())
 }
 
 // Wraps a `worker::Error` as a 500 response (the error is logged, not exposed).
