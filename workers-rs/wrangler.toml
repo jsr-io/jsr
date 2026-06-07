@@ -3,13 +3,12 @@ main = "build/worker/shim.mjs"
 compatibility_date = "2026-05-19"
 compatibility_flags = ["nodejs_compat"]
 
-# workers-rs bundles are produced by `worker-build`, which compiles this crate
-# to `wasm32-unknown-unknown` and emits the JS shim + `.wasm` under `build/`.
 [build]
 command = "worker-build --release"
 
-# NOTE: this file exists for local development (`wrangler dev`) only. Production
-# bindings (Hyperdrive, the compute-service URL/service binding, OAuth + Orama
-# config) and the deployment itself are managed by Terraform in a later infra
-# PR, mirroring `terraform/cloudflare_frontend.tf`. Hyperdrive and the rest are
-# intentionally NOT declared here yet — this is the step-2 scaffold.
+# Production bindings (the Hyperdrive config, compute-service URL, OAuth/Orama
+# config) are managed by Terraform, like the frontend/lb Workers. For local
+# `wrangler dev`, the Hyperdrive binding's connection string comes from the
+# WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE environment variable.
+[[hyperdrive]]
+binding = "HYPERDRIVE"

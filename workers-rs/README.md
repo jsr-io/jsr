@@ -38,9 +38,12 @@ rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown --release
 ```
 
-Run locally with the full Worker bundle (requires `worker-build` + `wrangler`):
+Run locally with the full Worker bundle (requires `worker-build` + `wrangler`).
+The Hyperdrive binding's local connection string comes from an environment
+variable (no values are committed):
 
 ```sh
 cargo install worker-build
+export WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgres://user:password@localhost:5432/registry"
 npx wrangler dev
 ```
