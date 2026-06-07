@@ -16,8 +16,6 @@ use worker::Env;
 use worker::Error;
 use worker::Result;
 
-// Values read back from the DB are already valid (they were validated on the way
-// in), so a parse failure here means data corruption — surface it as an error.
 fn map_err<E: std::fmt::Display>(e: E) -> Error {
   Error::RustError(format!("postgres query failed: {e}"))
 }
@@ -60,8 +58,7 @@ pub async fn ping(client: &Client) -> Result<i32> {
   Ok(row.get::<_, i32>(0))
 }
 
-/// Front-page stats: `GET /api/stats`. Ports `Database::package_stats` — the
-/// queries are kept verbatim with the compute side so the JSON is identical.
+/// `GET /api/stats`. Queries kept verbatim with `Database::package_stats`.
 pub async fn stats(client: &Client) -> Result<ApiStats> {
   let newest_rows = client
     .query(
@@ -136,9 +133,7 @@ pub async fn stats(client: &Client) -> Result<ApiStats> {
   })
 }
 
-/// Registry-wide counts: `GET /api/metrics`. Ports `Database::metrics`. `COUNT`
-/// returns a non-null `bigint` (`i64`); counts are non-negative so the
-/// `i64 -> usize` conversion never fails in practice.
+/// `GET /api/metrics`. Queries kept verbatim with `Database::metrics`.
 pub async fn metrics(client: &Client) -> Result<ApiMetrics> {
   let packages = client
     .query_one(

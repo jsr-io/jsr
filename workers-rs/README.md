@@ -32,7 +32,9 @@ structs the compute service uses, so the JSON is byte-identical by construction.
 
 ## Layout
 
-- `src/lib.rs` — the Worker entrypoint (`#[event(fetch)]`) and route table.
+- `src/lib.rs` — the Worker entrypoint (`#[event(fetch)]`) and the `axum` router
+  (via the workers-rs `http` feature), matching the compute service's
+  router-based structure.
 - `Cargo.toml` — a **detached** workspace (its own `[workspace]` + `Cargo.lock`)
   so the repo-root `registry_api` native build never tries to compile this
   `wasm32`-only crate.
