@@ -8,8 +8,18 @@ compatibility_flags = ["nodejs_compat"]
 [build]
 command = "worker-build --release"
 
-# NOTE: this file exists for local development (`wrangler dev`) only. Production
-# bindings (Hyperdrive, the compute-service URL/service binding, OAuth + Orama
-# config) and the deployment itself are managed by Terraform in a later infra
-# PR, mirroring `terraform/cloudflare_frontend.tf`. Hyperdrive and the rest are
-# intentionally NOT declared here yet — this is the step-2 scaffold.
+# NOTE: this file exists for local development (`wrangler dev`) only. The
+# production deployment and its real bindings (the Hyperdrive config id, the
+# compute-service URL/service binding, OAuth + Orama config) are managed by
+# Terraform in a later infra PR, mirroring `terraform/cloudflare_frontend.tf`.
+
+# Hyperdrive binding (DB access). In production this points at a Terraform-
+# managed `cloudflare_hyperdrive_config` fronting the Cloud SQL Postgres; the
+# `id` below is a dev placeholder. `localConnectionString` makes `wrangler dev`
+# bypass Hyperdrive and talk straight to the local Postgres from
+# `docker-compose.yml` (see `api/.env.example`), so the Worker's DB path can be
+# exercised without any Cloudflare account.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "00000000000000000000000000000000"
+localConnectionString = "postgres://user:password@localhost:5432/registry"

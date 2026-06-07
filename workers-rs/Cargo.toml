@@ -21,6 +21,23 @@ worker = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Postgres access from the Worker. We reach the existing Cloud SQL Postgres
+# through Cloudflare Hyperdrive: `env.hyperdrive(..).connect()` hands back a
+# `worker::Socket` (a TCP stream to the Hyperdrive endpoint, TLS terminated by
+# Hyperdrive), which `tokio-postgres` drives over `connect_raw`. We turn
+# `default-features` OFF so the `runtime` feature (tokio `net`/`time`, `socket2`)
+# is excluded — that code does not build for `wasm32`; only the wire-protocol
+# codec we use over our own socket remains.
+tokio-postgres = { version = "0.7", default-features = false }
+# Drives the `tokio-postgres` connection future on the Worker's single-threaded
+# event loop (no tokio runtime exists in wasm).
+wasm-bindgen-futures = "0.4"
+# tokio-postgres' SCRAM auth needs an RNG for its client nonce (via `rand` ->
+# `getrandom` 0.4). On `wasm32-unknown-unknown` getrandom has no default
+# backend, so we enable `wasm_js` to route it through the JS crypto API. This is
+# a direct dep purely to turn that feature on for the transitive copy.
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
 # Small release wasm. workers-rs bundles run through `worker-build`, but these
 # also keep plain `cargo build --target wasm32-unknown-unknown` artifacts lean.
 [profile.release]
