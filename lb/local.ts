@@ -196,9 +196,28 @@ const frontendShim: Fetcher = {
   // deno-lint-ignore no-explicit-any
 } as any;
 
+// Local-dev shim for the API service binding: forwards to the API server's
+// HTTP URL on localhost. In prod this binding points at the `api` Worker; for
+// local dev we forward straight to the compute server so the harness keeps
+// working without running the Worker separately.
+const apiShim: Fetcher = {
+  fetch(req: Request | string | URL, init?: RequestInit) {
+    if (typeof req === "string" || req instanceof URL) {
+      return fetch(
+        new URL(new URL(req).pathname + new URL(req).search, REGISTRY_API_URL),
+        init,
+      );
+    }
+    const url = new URL(req.url);
+    const target = new URL(url.pathname + url.search, REGISTRY_API_URL);
+    return fetch(new Request(target, req));
+  },
+  // deno-lint-ignore no-explicit-any
+} as any;
+
 function handler(req: Request): Promise<Response> {
   return main.fetch(req, {
-    REGISTRY_API_URL,
+    API: apiShim,
     FRONTEND: frontendShim,
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
     NPM_BUCKET: new R2BucketShim(NPM_BUCKET),

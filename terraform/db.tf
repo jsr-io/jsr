@@ -22,7 +22,20 @@ resource "google_sql_database_instance" "main_pg15" {
     ip_configuration {
       ipv4_enabled    = true
       private_network = google_compute_network.main.self_link
-      ssl_mode        = "ENCRYPTED_ONLY"
+
+      # Cloudflare Hyperdrive (fronting the `api` Worker) reaches Cloud SQL over
+      # the public IP — Hyperdrive's egress isn't a pinnable range, so it can't
+      # be an allowlist entry. The public IP is left open and a required client
+      # certificate (mTLS) is the access boundary instead of a network ACL: the
+      # client key is secret, so only cert holders connect. Cloud Run still
+      # reaches the DB over the private VPC and presents the same cert (see
+      # google_sql_ssl_cert.api + cloud_run_api.tf).
+      ssl_mode = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
+
+      authorized_networks {
+        name  = "hyperdrive-public-egress"
+        value = "0.0.0.0/0"
+      }
     }
 
     backup_configuration {

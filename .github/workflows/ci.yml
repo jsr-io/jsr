@@ -263,6 +263,18 @@ jobs:
         run: deno task build
         working-directory: frontend
 
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build API Cloudflare Worker
+        run: |
+          cargo install worker-build --locked
+          worker-build --release
+        working-directory: workers-rs
+
       - name: terraform plan
         run: |
           touch terraform/staging.secret.tfvars
@@ -334,6 +346,18 @@ jobs:
       - name: Build Frontend
         run: deno task build
         working-directory: frontend
+
+      - name: Install Rust
+        uses: dsherret/rust-toolchain-file@v1
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build API Cloudflare Worker
+        run: |
+          cargo install worker-build --locked
+          worker-build --release
+        working-directory: workers-rs
 
       - name: terraform plan
         run: |
