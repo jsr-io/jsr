@@ -126,20 +126,27 @@ pub struct PublishQueue(pub Option<gcp::Queue>);
 
 pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/", util::json(list_handler))
+    .get(
+      // Cache-busted on publish/create/delete via `package_api_cache_urls` /
+      // `scope_api_cache_urls`.
+      "/",
+      util::cache(CacheDuration::ONE_DAY, util::json(list_handler)),
+    )
     .post("/", util::json(create_handler))
     .get(
+      // Cached aggressively; cache-busted on publish/yank/update/delete via
+      // `package_api_cache_urls` (this endpoint has no query params, so the
+      // canonical URL purge is exact).
       "/:package",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+      util::cache(CacheDuration::THIRTY_DAYS, util::json(get_handler)),
     )
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
+      // Cache-busted on publish/yank/delete. The canonical (unpaginated) URL is
+      // purged exactly; paginated variants fall back to a 1-day bound.
       "/:package/versions",
-      util::cache(
-        CacheDuration::FIVE_MINUTES,
-        util::json(list_versions_handler),
-      ),
+      util::cache(CacheDuration::ONE_DAY, util::json(list_versions_handler)),
     )
     .get(
       "/:package/dependents",
@@ -149,17 +156,16 @@ pub fn package_router() -> Router<Body, ApiError> {
       ),
     )
     .get(
+      // Refreshed by the daily download-count scrape, not by publish; a 1-day
+      // TTL matches that cadence.
       "/:package/downloads",
-      util::cache(
-        CacheDuration::FIVE_MINUTES,
-        util::json(get_downloads_handler),
-      ),
+      util::cache(CacheDuration::ONE_DAY, util::json(get_downloads_handler)),
     )
     .get(
       "/:package/versions/:version",
       util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        CacheDuration::ONE_HOUR,
+        CacheDuration::THIRTY_DAYS,
         util::json(get_version_handler),
       ),
     )
@@ -184,10 +190,13 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::cache(CacheDuration::FOREVER, version_tarball_handler),
     )
     .get(
+      // For a specific (non-"latest") version the content is immutable, so the
+      // versioned arm is cached for 30 days; the "latest" arm stays short since
+      // it moves on publish and can carry query params (symbol/entrypoint).
       "/:package/versions/:version/docs",
       util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        CacheDuration::ONE_HOUR,
+        CacheDuration::THIRTY_DAYS,
         util::json(get_docs_handler),
       ),
     )
@@ -195,7 +204,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/versions/:version/docs/search",
       util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        CacheDuration::ONE_HOUR,
+        CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
       ),
     )
@@ -203,7 +212,7 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/versions/:version/docs/search_structured",
       util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        CacheDuration::ONE_HOUR,
+        CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
       ),
     )
@@ -211,19 +220,20 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/versions/:version/source",
       util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        CacheDuration::ONE_HOUR,
+        CacheDuration::THIRTY_DAYS,
         util::json(get_source_handler),
       ),
     )
     .get(
+      // Both versions are immutable, so the diff between them never changes.
       "/:package/diff/:old_version/:new_version",
-      util::cache(CacheDuration::ONE_DAY, util::json(get_diff_handler)),
+      util::cache(CacheDuration::THIRTY_DAYS, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
       util::cache_versioned(
         CacheDuration::ONE_MINUTE,
-        CacheDuration::ONE_HOUR,
+        CacheDuration::THIRTY_DAYS,
         util::json(list_dependencies_handler),
       ),
     )
@@ -375,6 +385,13 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     orama_client.upsert_package(&package, &Default::default());
   }
 
+  // The new package changes the scope's package list and scope info.
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
+  cache_purge
+    .purge(crate::s3_paths::scope_api_cache_urls(registry_url, &scope))
+    .await;
+
   Ok(ApiPackage::from((package, None, Default::default())))
 }
 
@@ -461,7 +478,17 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     return Err(ApiError::PackageArchived);
   }
 
-  match body {
+  // Every update variant mutates the aggressively-cached `:package` response,
+  // so cache-bust it (and the scope aggregates) afterwards. Built before the
+  // match because the GitHub-repository arm consumes `scope`/`package_name`.
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let purge_urls = crate::s3_paths::package_api_cache_urls(
+    &registry_url,
+    &scope,
+    &package_name,
+  );
+
+  let result = match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
       let buckets = req.data::<Buckets>().unwrap().clone();
@@ -563,7 +590,13 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
       Ok(ApiPackage::from((package, repo, meta)))
     }
-  }
+  };
+
+  let result = result?;
+  let cache_purge = req.data::<CachePurge>().unwrap();
+  cache_purge.purge(purge_urls).await;
+
+  Ok(result)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -775,6 +808,16 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   if let Some(orama_client) = orama_client {
     orama_client.delete_package(&scope, &package);
   }
+
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   let res = Response::builder()
     .status(StatusCode::NO_CONTENT)
@@ -1118,12 +1161,16 @@ pub async fn version_update_handler(
     )
     .await?;
 
-  cache_purge
-    .purge(vec![
-      crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-      crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-    ])
-    .await;
+  let mut purge_urls = vec![
+    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
+    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
+  ];
+  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+    registry_url,
+    &scope,
+    &package,
+  ));
+  cache_purge.purge(purge_urls).await;
 
   Ok(
     Response::builder()
@@ -1220,12 +1267,16 @@ pub async fn version_delete_handler(
     )
     .await?;
 
-  cache_purge
-    .purge(vec![
-      crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-      crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-    ])
-    .await;
+  let mut purge_urls = vec![
+    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
+    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
+  ];
+  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+    registry_url,
+    &scope,
+    &package,
+  ));
+  cache_purge.purge(purge_urls).await;
 
   Ok(
     Response::builder()

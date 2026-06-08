@@ -54,7 +54,7 @@ pub fn api_router() -> Router<Body, ApiError> {
     )
     .get(
       "/stats",
-      util::cache(CacheDuration::TEN_MINUTES, util::json(global_stats_handler)),
+      util::cache(CacheDuration::ONE_HOUR, util::json(global_stats_handler)),
     )
     .get(
       // todo: remove once CLI uses the new endpoint
