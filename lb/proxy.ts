@@ -135,7 +135,13 @@ export async function proxyToR2(
         status: cached.status,
       });
     }
-    return cached;
+    // Re-wrap: responses from `caches.default.match` have immutable headers,
+    // and callers (e.g. setSecurityHeaders) mutate the returned response's
+    // headers — mutating the cached response directly throws.
+    return new Response(cached.body, {
+      headers: cached.headers,
+      status: cached.status,
+    });
   }
 
   try {
