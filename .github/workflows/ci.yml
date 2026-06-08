@@ -272,6 +272,10 @@ jobs:
       - name: Build API Cloudflare Worker
         run: |
           cargo install worker-build --locked
+          # NOTE: `--panic-unwind` is omitted: wasm-bindgen 0.2.122 emits
+          # UnwindSafe bounds under `-Cpanic=unwind` that wasm-streams 0.5.0
+          # (a `worker` dep) does not satisfy, so it fails to compile. Panics
+          # are surfaced via console_error_panic_hook instead (see src/lib.rs).
           worker-build --release
         working-directory: workers-rs
 
@@ -356,6 +360,10 @@ jobs:
       - name: Build API Cloudflare Worker
         run: |
           cargo install worker-build --locked
+          # NOTE: `--panic-unwind` is omitted: wasm-bindgen 0.2.122 emits
+          # UnwindSafe bounds under `-Cpanic=unwind` that wasm-streams 0.5.0
+          # (a `worker` dep) does not satisfy, so it fails to compile. Panics
+          # are surfaced via console_error_panic_hook instead (see src/lib.rs).
           worker-build --release
         working-directory: workers-rs
 

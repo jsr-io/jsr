@@ -14,7 +14,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
     enabled = true
     logs = {
       enabled            = true
-      invocation_logs    = false
+      invocation_logs    = true
       head_sampling_rate = 0.01
       persist            = false
       destinations       = [var.cloudflare_otlp_logs_destination]
