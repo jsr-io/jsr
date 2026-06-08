@@ -129,9 +129,11 @@ pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
   pub const FIVE_MINUTES: CacheDuration = CacheDuration(60 * 5);
+  #[allow(dead_code)]
   pub const TEN_MINUTES: CacheDuration = CacheDuration(60 * 10);
   pub const ONE_HOUR: CacheDuration = CacheDuration(60 * 60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
+  pub const THIRTY_DAYS: CacheDuration = CacheDuration(60 * 60 * 24 * 30);
   pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
 

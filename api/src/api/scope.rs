@@ -35,17 +35,16 @@ pub fn scope_router() -> Router<Body, ApiError> {
     .scope("/:scope/packages", package_router())
     .post("/", util::auth(util::json(create_handler)))
     .get(
+      // Cache-busted on package publish/create/delete via the scope aggregates
+      // in `package_api_cache_urls` / `scope_api_cache_urls`.
       "/:scope",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+      util::cache(CacheDuration::ONE_DAY, util::json(get_handler)),
     )
     .patch("/:scope", util::auth(util::json(update_handler)))
     .delete("/:scope", util::auth(delete_handler))
     .get(
       "/:scope/members",
-      util::cache(
-        CacheDuration::FIVE_MINUTES,
-        util::json(list_members_handler),
-      ),
+      util::cache(CacheDuration::ONE_HOUR, util::json(list_members_handler)),
     )
     .post(
       "/:scope/members",

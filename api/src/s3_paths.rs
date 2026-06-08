@@ -96,6 +96,70 @@ pub fn npm_version_manifest_url(
   format!("{npm_url}{npm_mapped_package_name}")
 }
 
+/// Base URL of the public API host (`https://api.jsr.io/`), derived from the
+/// registry URL (`https://jsr.io/`) by prefixing the host with `api.` — the two
+/// always share a domain (see terraform `dns.tf`). Returns `None` if the host
+/// can't be determined (e.g. a non-domain registry URL in local dev, where
+/// cache purging is a no-op anyway).
+fn api_base_url(registry_url: &url::Url) -> Option<String> {
+  let host = registry_url.host_str()?;
+  Some(format!("{}://api.{host}/", registry_url.scheme()))
+}
+
+/// Expand `paths` (each relative to the registry root, e.g.
+/// `api/scopes/std/packages/foo`) into the set of fully-qualified URLs the lb
+/// Worker caches them under. The lb keys its cache on the full request URL, and
+/// the same endpoint is reachable — and separately cached — under both
+/// `jsr.io/api/...` and `api.jsr.io/api/...`, so both are returned.
+fn api_cache_urls(registry_url: &url::Url, paths: &[String]) -> Vec<String> {
+  let api_base = api_base_url(registry_url);
+  let mut urls = Vec::with_capacity(paths.len() * 2);
+  for path in paths {
+    urls.push(format!("{registry_url}{path}"));
+    if let Some(api_base) = &api_base {
+      urls.push(format!("{api_base}{path}"));
+    }
+  }
+  urls
+}
+
+/// API endpoint URLs whose cached responses change when a version of
+/// `@scope/name` is published, yanked, updated, or deleted. Pass `registry_url`
+/// as `https://jsr.io/` (must end with a slash). Used to cache-bust the
+/// aggressively-cached package endpoints (see `package_router`).
+pub fn package_api_cache_urls(
+  registry_url: &url::Url,
+  scope: &ScopeName,
+  package_name: &PackageName,
+) -> Vec<String> {
+  let pkg = format!("api/scopes/{scope}/packages/{package_name}");
+  let paths = [
+    pkg.clone(),
+    format!("{pkg}/versions"),
+    format!("{pkg}/versions/latest"),
+    format!("{pkg}/versions/latest/docs"),
+    format!("{pkg}/versions/latest/source"),
+    format!("{pkg}/versions/latest/dependencies"),
+    // Scope-level aggregates that surface this package and its latest version.
+    format!("api/scopes/{scope}"),
+    format!("api/scopes/{scope}/packages"),
+  ];
+  api_cache_urls(registry_url, &paths)
+}
+
+/// API endpoint URLs whose cached responses change when a package is created or
+/// deleted within `scope`. Pass `registry_url` as `https://jsr.io/`.
+pub fn scope_api_cache_urls(
+  registry_url: &url::Url,
+  scope: &ScopeName,
+) -> Vec<String> {
+  let paths = [
+    format!("api/scopes/{scope}"),
+    format!("api/scopes/{scope}/packages"),
+  ];
+  api_cache_urls(registry_url, &paths)
+}
+
 pub fn npm_tarball_path(
   scope: &ScopeName,
   package_name: &PackageName,
@@ -111,6 +175,27 @@ pub fn npm_tarball_path(
 
 #[cfg(test)]
 mod tests {
+  use crate::ids::PackageName;
+  use crate::ids::ScopeName;
+
+  #[test]
+  fn package_api_cache_urls_covers_both_hosts() {
+    let registry_url = url::Url::parse("https://jsr.io/").unwrap();
+    let scope = ScopeName::try_from("std").unwrap();
+    let package = PackageName::try_from("fs").unwrap();
+    let urls = super::package_api_cache_urls(&registry_url, &scope, &package);
+
+    // Every path is purged under both jsr.io/api and api.jsr.io.
+    assert!(urls.contains(&"https://jsr.io/api/scopes/std/packages/fs".into()));
+    assert!(
+      urls.contains(&"https://api.jsr.io/api/scopes/std/packages/fs".into())
+    );
+    assert!(urls.contains(
+      &"https://jsr.io/api/scopes/std/packages/fs/versions/latest/docs".into()
+    ));
+    assert!(urls.contains(&"https://jsr.io/api/scopes/std".into()));
+    assert!(urls.contains(&"https://api.jsr.io/api/scopes/std".into()));
+  }
 
   #[test]
   fn version_metadata_is_correct() {
