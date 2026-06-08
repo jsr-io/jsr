@@ -79,22 +79,23 @@ resource "cloudflare_worker" "jsr_api" {
 resource "cloudflare_worker_version" "jsr_api" {
   account_id          = var.cloudflare_account_id
   worker_id           = cloudflare_worker.jsr_api.id
-  main_module         = "shim.mjs"
+  main_module         = "index.js"
   compatibility_date  = "2026-05-19"
   compatibility_flags = ["nodejs_compat"]
 
-  # `worker-build --release` (run in CI before terraform) emits the two-file
-  # bundle into workers-rs/build/worker: the JS shim entrypoint and the wasm it
-  # imports as `./index.wasm`.
+  # `worker-build --release` (run in CI before terraform) emits the bundle into
+  # workers-rs/build: the esbuild entrypoint `index.js` and the wasm it imports
+  # as `./index_bg.wasm` (build/worker/shim.mjs is only a back-compat re-export
+  # of ../index.js, used by `wrangler dev`).
   modules = [
     {
-      name         = "shim.mjs"
-      content_file = "${path.module}/../workers-rs/build/worker/shim.mjs"
+      name         = "index.js"
+      content_file = "${path.module}/../workers-rs/build/index.js"
       content_type = "application/javascript+module"
     },
     {
-      name         = "index.wasm"
-      content_file = "${path.module}/../workers-rs/build/worker/index.wasm"
+      name         = "index_bg.wasm"
+      content_file = "${path.module}/../workers-rs/build/index_bg.wasm"
       content_type = "application/wasm"
     },
   ]
