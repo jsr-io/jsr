@@ -4,7 +4,7 @@ compatibility_date = "2026-05-19"
 compatibility_flags = ["nodejs_compat"]
 
 [build]
-command = "worker-build --release"
+command = "worker-build --release --panic-unwind"
 
 [vars]
 # Base URL of the Cloud Run compute service (`registry-api`). The Worker proxies

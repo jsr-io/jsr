@@ -272,7 +272,7 @@ jobs:
       - name: Build API Cloudflare Worker
         run: |
           cargo install worker-build --locked
-          worker-build --release
+          worker-build --release --panic-unwind
         working-directory: workers-rs
 
       - name: terraform plan
@@ -356,7 +356,7 @@ jobs:
       - name: Build API Cloudflare Worker
         run: |
           cargo install worker-build --locked
-          worker-build --release
+          worker-build --release --panic-unwind
         working-directory: workers-rs
 
       - name: terraform plan
