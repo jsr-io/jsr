@@ -73,7 +73,7 @@ export async function handleAPIRequest(
 
   const response = await proxyToBackend(
     request,
-    env.API,
+    env.REGISTRY_API_URL,
     rewritePath ? (path) => `/api${path}` : undefined,
   );
 
