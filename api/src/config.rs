@@ -228,10 +228,6 @@ pub struct Config {
   #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
   /// PEM private key matching `db_client_cert`.
   pub db_client_key: Option<String>,
-
-  #[clap(long = "db_root_cert", env = "DB_ROOT_CERT")]
-  /// PEM server CA certificate used to verify the database server.
-  pub db_root_cert: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -266,7 +262,6 @@ impl std::fmt::Debug for Config {
         &self.db_client_cert.as_ref().map(|_| "***"),
       )
       .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
-      .field("db_root_cert", &self.db_root_cert.as_ref().map(|_| "***"))
       .finish()
   }
 }

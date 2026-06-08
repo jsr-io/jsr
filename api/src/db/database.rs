@@ -64,7 +64,6 @@ pub struct Database {
 pub struct DbTls {
   pub client_cert: String,
   pub client_key: String,
-  pub root_cert: String,
 }
 
 impl Database {
@@ -76,11 +75,17 @@ impl Database {
   ) -> anyhow::Result<Self> {
     let mut opts = PgConnectOptions::from_str(database_url)?;
     if let Some(tls) = tls {
-      // Present our client cert and verify the server against Cloud SQL's CA.
-      // verify-ca (not verify-full) because we connect by IP, not hostname.
+      // Present our client cert (the DB requires one) and encrypt, but don't
+      // verify the server cert. We use `Require`, not `VerifyCa`: Cloud Run
+      // connects to Cloud SQL by private IP, yet the server cert is only valid
+      // for the instance's `*.sql.goog` DNS name. `VerifyCa` is meant to skip
+      // that hostname check, but sqlx 0.8's `NoHostnameTlsVerifier` only
+      // swallows rustls's legacy `NotValidForName` error, not 0.23's
+      // `NotValidForNameContext`, so verification fails and the connection is
+      // refused. The client certificate (mTLS) is the access boundary and the
+      // link stays inside the VPC.
       opts = opts
-        .ssl_mode(PgSslMode::VerifyCa)
-        .ssl_root_cert_from_pem(tls.root_cert.into_bytes())
+        .ssl_mode(PgSslMode::Require)
         .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
         .ssl_client_key_from_pem(tls.client_key.into_bytes());
     }

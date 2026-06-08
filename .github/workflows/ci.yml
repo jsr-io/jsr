@@ -305,9 +305,9 @@ jobs:
         if: always()
         run: |
           gcloud logging read \
-            'resource.type="cloud_run_revision" resource.labels.service_name="registry-api" severity>=WARNING' \
-            --project deno-registry3-staging --limit 80 --freshness 6h \
-            --format 'value(severity, textPayload, jsonPayload.message)' || true
+            'resource.type="cloud_run_revision" resource.labels.service_name="registry-api" (textPayload:"panic" OR textPayload:"rror" OR textPayload:"Database" OR textPayload:"Tls" OR textPayload:"ssl" OR textPayload:"cert" OR textPayload:"Connection" OR textPayload:"provider")' \
+            --project deno-registry3-staging --limit 40 --freshness 6h \
+            --format 'value(timestamp, textPayload)' || true
 
       - name: Run e2e tests
         run: deno task e2e:staging
