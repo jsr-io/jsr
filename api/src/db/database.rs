@@ -14,7 +14,10 @@ use sqlx::FromRow;
 use sqlx::Result;
 use sqlx::Row;
 use sqlx::migrate;
+use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::PgSslMode;
+use std::str::FromStr;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -54,16 +57,42 @@ pub struct Database {
   pool: sqlx::PgPool,
 }
 
+/// Client-certificate TLS material for connecting to the database. Supplied
+/// when the database requires a client certificate (`ssl_mode =
+/// TRUSTED_CLIENT_CERTIFICATE_REQUIRED`); the same cert is also presented by
+/// the Hyperdrive-backed `api` Worker so both reach Cloud SQL over mTLS.
+pub struct DbTls {
+  pub client_cert: String,
+  pub client_key: String,
+}
+
 impl Database {
   pub async fn connect(
     database_url: &str,
     pool_size: u32,
     acquire_timeout: std::time::Duration,
+    tls: Option<DbTls>,
   ) -> anyhow::Result<Self> {
+    let mut opts = PgConnectOptions::from_str(database_url)?;
+    if let Some(tls) = tls {
+      // Present our client cert (the DB requires one) and encrypt, but don't
+      // verify the server cert. We use `Require`, not `VerifyCa`: Cloud Run
+      // connects to Cloud SQL by private IP, yet the server cert is only valid
+      // for the instance's `*.sql.goog` DNS name. `VerifyCa` is meant to skip
+      // that hostname check, but sqlx 0.8's `NoHostnameTlsVerifier` only
+      // swallows rustls's legacy `NotValidForName` error, not 0.23's
+      // `NotValidForNameContext`, so verification fails and the connection is
+      // refused. The client certificate (mTLS) is the access boundary and the
+      // link stays inside the VPC.
+      opts = opts
+        .ssl_mode(PgSslMode::Require)
+        .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
+        .ssl_client_key_from_pem(tls.client_key.into_bytes());
+    }
     let pool = PgPoolOptions::new()
       .max_connections(pool_size)
       .acquire_timeout(acquire_timeout)
-      .connect(database_url)
+      .connect_with(opts)
       .await?;
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       migrate!("./migrations")
