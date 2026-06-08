@@ -13,16 +13,45 @@ export interface ExecutionCtx {
 
 // Persist a cache write so it survives past the response. With an execution
 // context we hand it to `waitUntil`; without one (unit tests) we await it so
-// the write still completes deterministically.
+// the write still completes deterministically. A failed write (sync throw or
+// async rejection) is logged and swallowed — caching is best-effort and must
+// never break serving the response.
 async function persistCacheWrite(
   ctx: ExecutionCtx | undefined,
-  write: Promise<unknown>,
+  cache: Cache,
+  key: Request,
+  response: Response,
 ): Promise<void> {
-  if (ctx) {
-    ctx.waitUntil(write);
-  } else {
-    await write;
+  let write: Promise<unknown>;
+  try {
+    write = cache.put(key, response);
+  } catch (error) {
+    console.error("cache write failed:", error);
+    return;
   }
+  const guarded = write.catch((error) => {
+    console.error("cache write failed:", error);
+  });
+  if (ctx) {
+    ctx.waitUntil(guarded);
+  } else {
+    await guarded;
+  }
+}
+
+// Cache key for a bucket (R2) response. `caches.default` is shared across all
+// backends, and a `/@scope/...` URL is served as EITHER a module file (bucket,
+// JSON) or an HTML page (frontend) depending on request headers — keying both
+// on the raw URL cross-serves HTML for module files (and vice versa). Bucket
+// entries are namespaced under a synthetic, non-routable host (which no real
+// request can ever target, so it can't be poisoned) keyed by the original host
+// + path so module and npm buckets also stay distinct.
+function bucketCacheKey(rawUrl: string): Request {
+  const u = new URL(rawUrl);
+  return new Request(
+    `https://bucket-cache.jsr.internal/${u.host}${u.pathname}${u.search}`,
+    { method: "GET" },
+  );
 }
 
 // Proxies an inbound request to a backend. The backend can be either an
@@ -126,8 +155,14 @@ export async function proxyToR2(
   }
   const key = decodeURIComponent(path.slice(1));
 
-  const cacheKey = new Request(request.url, { method: "GET" });
-  const cached = await caches.default?.match(cacheKey);
+  const cacheKey = bucketCacheKey(request.url);
+  let cached: Response | undefined;
+  try {
+    cached = await caches.default?.match(cacheKey);
+  } catch (error) {
+    // A corrupt/unreadable cache entry must never break the request.
+    console.error("R2 cache match error:", error);
+  }
   if (cached) {
     if (request.method === "HEAD") {
       return new Response(null, {
@@ -176,7 +211,7 @@ export async function proxyToR2(
       const response = new Response(object.body, { headers });
       const cache = caches.default;
       if (cache) {
-        await persistCacheWrite(ctx, cache.put(cacheKey, response.clone()));
+        await persistCacheWrite(ctx, cache, cacheKey, response.clone());
       }
       return response;
     }
@@ -224,7 +259,7 @@ async function cachedFetch(
       const cacheKey = new Request(req.url, { method: "GET" });
       // `waitUntil` (or await in tests) so the write isn't dropped when the
       // invocation ends — the cause of the lb caching nothing in production.
-      await persistCacheWrite(ctx, cache.put(cacheKey, res.clone()));
+      await persistCacheWrite(ctx, cache, cacheKey, res.clone());
     }
   }
 

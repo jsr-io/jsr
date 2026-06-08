@@ -176,6 +176,44 @@ Deno.test("proxyToR2 cache hit returns a fresh, mutable response", async () => {
   }
 });
 
+Deno.test("proxyToR2 namespaces cache keys away from the raw URL", async () => {
+  // The frontend caches `/@scope/...` navigations under the raw URL; bucket
+  // responses for the same URL must use a distinct key to avoid cross-serving.
+  const matchKeys: string[] = [];
+  const putKeys: string[] = [];
+  (globalThis as any).caches = {
+    default: {
+      match: (req: Request) => {
+        matchKeys.push(req.url);
+        return Promise.resolve(undefined);
+      },
+      put: (req: Request) => {
+        putKeys.push(req.url);
+        return Promise.resolve();
+      },
+    },
+  };
+
+  try {
+    const bucket = createFakeBucket({
+      "@jsr/std__yaml": { body: "{}", contentType: "application/json" },
+    });
+    const res = await proxyToR2(
+      new Request("https://npm.jsr.io/@jsr/std__yaml"),
+      bucket,
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(
+      matchKeys[0],
+      "https://bucket-cache.jsr.internal/npm.jsr.io/@jsr/std__yaml",
+    );
+    assertEquals(putKeys[0], matchKeys[0]); // match and put use the same key
+  } finally {
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
 // --- proxyToBackend tests ---
 
 /** In-memory Cache stub that records put/match calls for assertions. */
