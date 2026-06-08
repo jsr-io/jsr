@@ -131,15 +131,15 @@ JavaScript to the browser.
 
 In production the frontend ships as its own Cloudflare Worker:
 
-- `frontend/build.ts` runs the Fresh vite build, mirrors the merged static
-  tree (`frontend/static/`, `_fresh/{client,static}/`, and `frontend/docs/*.md`
-  under `_jsr_docs/`) into `_fresh/assets/`, then bundles
-  `frontend/server.entry.ts` into `_fresh/worker.js` via `deno bundle`.
-- `frontend/shim/deno.ts` polyfills the subset of `Deno.*` (env, file
-  reads, inspect, stat/open) needed by the Fresh server at runtime, with
-  file reads forwarded to the Workers ASSETS binding.
-- Static files are served by the Workers Assets binding (asset-first
-  routing). Dynamic routes fall through to the worker.
+- `frontend/build.ts` runs the Fresh vite build, mirrors the merged static tree
+  (`frontend/static/`, `_fresh/{client,static}/`, and `frontend/docs/*.md` under
+  `_jsr_docs/`) into `_fresh/assets/`, then bundles `frontend/server.entry.ts`
+  into `_fresh/worker.js` via `deno bundle`.
+- `frontend/shim/deno.ts` polyfills the subset of `Deno.*` (env, file reads,
+  inspect, stat/open) needed by the Fresh server at runtime, with file reads
+  forwarded to the Workers ASSETS binding.
+- Static files are served by the Workers Assets binding (asset-first routing).
+  Dynamic routes fall through to the worker.
 
 Environment variables (`API_ROOT`, `FRONTEND_ROOT`, the `ORAMA_*` keys, etc.)
 are configured as `plain_text` bindings on the worker by Terraform; no
@@ -194,8 +194,8 @@ A Cloudflare Worker that acts as the edge router. See
 Key files:
 
 - `main.ts` — request routing logic
-- `proxy.ts` — proxy to backends (Cloud Run for API, service binding for
-  the frontend Worker) and R2
+- `proxy.ts` — proxy to backends (Cloud Run for API, service binding for the
+  frontend Worker) and R2
 - `headers.ts` — security headers, CORS, CSP
 - `bots.ts` — bot/crawler detection
 - `analytics.ts` — download tracking

@@ -32,8 +32,8 @@ This is the source code for https://jsr.io, the new JavaScript registry.
   Cloudflare Workers worker (the LB)
   - Module, package metadata, and npm tarballs are served directly from R2
   - /api requests are proxied to the management API
-  - All other requests are proxied to the frontend Worker via a service
-    binding (no public URL hop)
+  - All other requests are proxied to the frontend Worker via a service binding
+    (no public URL hop)
 - Data is stored in PostgreSQL (using Google Cloud SQL)
   - The database is highly available
   - Not used for serving registry requests

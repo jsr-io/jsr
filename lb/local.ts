@@ -208,7 +208,7 @@ function handler(req: Request): Promise<Response> {
   }, {
     waitUntil(_promise: Promise<unknown>) {
       // do nothing
-    }
+    },
   });
 }
 
