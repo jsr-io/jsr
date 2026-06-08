@@ -299,16 +299,6 @@ jobs:
       - name: terraform apply
         run: deno task tf:staging:apply
 
-      # TEMP (remove before merge): dump registry-api startup logs to diagnose
-      # the mTLS DB-connection failure on the new revision (api-split cutover).
-      - name: Dump registry-api logs (diagnostic)
-        if: always()
-        run: |
-          gcloud logging read \
-            'resource.type="cloud_run_revision" resource.labels.service_name="registry-api" (textPayload:"panic" OR textPayload:"rror" OR textPayload:"Database" OR textPayload:"Tls" OR textPayload:"ssl" OR textPayload:"cert" OR textPayload:"Connection" OR textPayload:"provider")' \
-            --project deno-registry3-staging --limit 40 --freshness 6h \
-            --format 'value(timestamp, textPayload)' || true
-
       - name: Run e2e tests
         run: deno task e2e:staging
 
