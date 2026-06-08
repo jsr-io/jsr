@@ -22,7 +22,6 @@ resource "google_sql_database_instance" "main_pg15" {
     ip_configuration {
       ipv4_enabled    = true
       private_network = google_compute_network.main.self_link
-
       # Cloudflare Hyperdrive (fronting the `api` Worker) reaches Cloud SQL over
       # the public IP — Hyperdrive's egress isn't a pinnable range, so it can't
       # be an allowlist entry. The public IP is left open and a required client

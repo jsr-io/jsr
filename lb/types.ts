@@ -13,11 +13,7 @@ declare global {
 export type PartialBucket = Pick<R2Bucket, "get" | "head">;
 
 export interface WorkerEnv {
-  // The API server is a sibling Cloudflare Worker (workers-rs), bound via a
-  // service binding rather than an HTTP URL so traffic stays inside Cloudflare.
-  // It serves the lightweight CRUD/DB/auth surface and itself proxies the
-  // compute-only paths to the Cloud Run compute service.
-  API: Fetcher;
+  REGISTRY_API_URL: string;
 
   // The frontend is a sibling Cloudflare Worker, wired up via a service
   // binding rather than an HTTP URL so traffic stays inside Cloudflare.

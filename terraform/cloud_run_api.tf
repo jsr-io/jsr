@@ -58,7 +58,6 @@ locals {
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
     "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
-
     # Client certificate for the DB connection. The DB requires a client cert
     # (ssl_mode = TRUSTED_CLIENT_CERTIFICATE_REQUIRED, see db.tf), so both Cloud
     # Run services present it over the private VPC IP; the same cert is handed to
