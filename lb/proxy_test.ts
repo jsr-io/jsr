@@ -239,6 +239,38 @@ Deno.test("proxyToBackend caches anonymous GET with URL-only key", async () => {
   }
 });
 
+Deno.test("proxyToBackend registers the cache write with ctx.waitUntil", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // Without this, the Workers runtime tears the invocation down before the
+  // async Cache.put completes and the write is silently dropped — the bug that
+  // left the lb caching nothing in production.
+  const waited: Promise<unknown>[] = [];
+  const ctx = { waitUntil: (p: Promise<unknown>) => waited.push(p) };
+
+  const restore = setupFetchStub(
+    new Response('{"ok":true}', {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=300" },
+    }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/packages", {
+      method: "GET",
+    });
+    await proxyToBackend(request, BACKEND_URL, undefined, ctx);
+
+    assertEquals(waited.length, 1);
+    await Promise.all(waited);
+    assertEquals(cache.putCalls.length, 1);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
 Deno.test("proxyToBackend serves cached response on second GET", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };

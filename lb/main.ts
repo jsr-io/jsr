@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { proxyToBackend, proxyToR2 } from "./proxy.ts";
+import { type ExecutionCtx, proxyToBackend, proxyToR2 } from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -22,9 +22,10 @@ export default {
   async fetch(
     request: Request,
     env: WorkerEnv,
+    ctx: ExecutionCtx,
   ): Promise<Response> {
     try {
-      const response = await route(request, env);
+      const response = await route(request, env, ctx);
       return response;
     } catch (error) {
       console.error("LB error:", error);
@@ -42,16 +43,17 @@ export default {
 export async function route(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
   const hostname = url.hostname.toLowerCase();
 
   if (hostname === env.API_DOMAIN) {
-    return await handleAPIRequest(request, env);
+    return await handleAPIRequest(request, env, true, ctx);
   } else if (hostname === env.NPM_DOMAIN) {
-    return await handleNPMRequest(request, env);
+    return await handleNPMRequest(request, env, ctx);
   } else if (hostname === env.ROOT_DOMAIN) {
-    return await handleRootRequest(request, env);
+    return await handleRootRequest(request, env, ctx);
   } else {
     return new Response(`Unknown hostname: ${hostname}`, {
       status: 404,
@@ -66,6 +68,7 @@ export async function handleAPIRequest(
   request: Request,
   env: WorkerEnv,
   rewritePath: boolean = true,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   if (isCORSPreflight(request)) {
     return handleCORSPreflight(API);
@@ -75,6 +78,7 @@ export async function handleAPIRequest(
     request,
     env.REGISTRY_API_URL,
     rewritePath ? (path) => `/api${path}` : undefined,
+    ctx,
   );
 
   setSecurityHeaders(response, API);
@@ -89,6 +93,7 @@ export async function handleAPIRequest(
 export async function handleNPMRequest(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   if (isCORSPreflight(request)) {
     return handleCORSPreflight(NPM);
@@ -104,6 +109,7 @@ export async function handleNPMRequest(
       }
       return path;
     },
+    ctx,
   );
 
   setSecurityHeaders(response, NPM);
@@ -155,22 +161,23 @@ export async function handleNPMRequest(
 export async function handleRootRequest(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
 
   if (isAPIRoute(path)) {
-    return await handleAPIRequest(request, env, false);
+    return await handleAPIRequest(request, env, false, ctx);
   } else if (isBot(request)) {
-    return await handleFrontendRoute(request, env, true);
+    return await handleFrontendRoute(request, env, true, ctx);
   } else if (path.startsWith("/@")) {
     if (canAccessModuleFile(request) && isModuleFilePath(path)) {
-      return await handleModuleFileRoute(request, env);
+      return await handleModuleFileRoute(request, env, ctx);
     } else {
-      return await handleFrontendRoute(request, env, false);
+      return await handleFrontendRoute(request, env, false, ctx);
     }
   } else {
-    return await handleFrontendRoute(request, env, false);
+    return await handleFrontendRoute(request, env, false, ctx);
   }
 }
 
@@ -221,11 +228,12 @@ async function handleFrontendRoute(
   request: Request,
   env: WorkerEnv,
   isBot: boolean,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const limited = await rateLimitGuard(request, env);
   if (limited) return limited;
 
-  const response = await proxyToBackend(request, env.FRONTEND);
+  const response = await proxyToBackend(request, env.FRONTEND, undefined, ctx);
 
   setSecurityHeaders(response, FRONTEND);
   setDebugHeaders(response, {
@@ -265,11 +273,14 @@ async function rateLimitGuard(
 async function handleModuleFileRoute(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
   const response = await proxyToR2(
     request,
     env.MODULES_BUCKET,
+    undefined,
+    ctx,
   );
 
   setSecurityHeaders(response, MODULES);
