@@ -22,9 +22,11 @@ the migration sequence completes, this Worker will:
 - `GET /api/stats` — front-page newest/updated/featured package lists.
 - `GET /api/metrics` — registry-wide package/version/user counts.
 
-Everything else still returns `501 Not Implemented`; the remaining endpoint
-groups land one PR at a time per the design doc's sequence. The Worker is not
-yet fronting prod traffic.
+Everything else is reverse-proxied to the Cloud Run compute service by the
+axum fallback (`COMPUTE_API_URL`); the remaining endpoint groups are migrated to
+run locally one PR at a time per the design doc's sequence. The Worker fronts
+`api.jsr.io` (the `lb` Worker service-binds it as the `API` backend), reaching
+Postgres through Hyperdrive over mTLS.
 
 The `/api/stats` and `/api/metrics` handlers reach Postgres through Hyperdrive
 (`tokio-postgres`, no `sqlx`) and serialize the **same** `jsr_types::api` wire
