@@ -29,6 +29,9 @@ async fn fetch(
   env: Env,
   _ctx: Context,
 ) -> Result<axum::http::Response<axum::body::Body>> {
+  // Surface panics in `wrangler tail`/the dashboard instead of aborting the
+  // isolate silently. Idempotent, so calling it per-request is fine.
+  console_error_panic_hook::set_once();
   Ok(router(env).call(req).await?)
 }
 

@@ -27,6 +27,11 @@ tower-service = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Routes Rust panics to `console.error` so they show up in `wrangler tail` and
+# the Cloudflare dashboard. Without it, a panic on `wasm32-unknown-unknown`
+# aborts the isolate silently (the default handler's stderr goes nowhere).
+console_error_panic_hook = "0.1"
+
 # Shared, wasm-safe JSR types (id newtypes, model structs, API wire types).
 # `default-features = false` keeps the `sqlx` feature off so this stays
 # wasm-compatible; the Worker only needs the plain structs to build
