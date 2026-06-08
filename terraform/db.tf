@@ -22,7 +22,19 @@ resource "google_sql_database_instance" "main_pg15" {
     ip_configuration {
       ipv4_enabled    = true
       private_network = google_compute_network.main.self_link
-      ssl_mode        = "ENCRYPTED_ONLY"
+      # Cloudflare Hyperdrive (fronting the `api` Worker) reaches Cloud SQL over
+      # the public IP — Hyperdrive's egress isn't a pinnable range, so it can't
+      # be an allowlist entry. The public IP is left open and a required client
+      # certificate (mTLS) is the access boundary instead of a network ACL: the
+      # client key is secret, so only cert holders connect. Cloud Run still
+      # reaches the DB over the private VPC and presents the same cert (see
+      # google_sql_ssl_cert.api + cloud_run_api.tf).
+      ssl_mode = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
+
+      authorized_networks {
+        name  = "hyperdrive-public-egress"
+        value = "0.0.0.0/0"
+      }
     }
 
     backup_configuration {
@@ -47,6 +59,16 @@ resource "google_sql_database_instance" "main_pg15" {
 resource "google_sql_database" "database" {
   name     = "registry"
   instance = google_sql_database_instance.main_pg15.name
+}
+
+# Client certificate the API presents when connecting to Cloud SQL over TLS.
+# Delivered to both Cloud Run services as env (see cloud_run_api.tf) and, later,
+# to the Hyperdrive config that fronts the `api` Worker. It is presented now
+# (harmless under the current ssl_mode) so it is already in place before the DB
+# is flipped to TRUSTED_CLIENT_CERTIFICATE_REQUIRED in a follow-up.
+resource "google_sql_ssl_cert" "api" {
+  common_name = "api-client"
+  instance    = google_sql_database_instance.main_pg15.name
 }
 
 resource "google_sql_user" "api" {

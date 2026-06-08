@@ -58,6 +58,14 @@ locals {
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
     "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
+    # Client certificate for the DB connection. The DB requires a client cert
+    # (ssl_mode = TRUSTED_CLIENT_CERTIFICATE_REQUIRED, see db.tf), so both Cloud
+    # Run services present it over the private VPC IP; the same cert is handed to
+    # the Hyperdrive config fronting the `api` Worker. The connection uses
+    # sslmode=require (encrypt + client auth, no server verification — we connect
+    # by IP), so no server CA is needed here. Plain env, like DATABASE_URL.
+    "DB_CLIENT_CERT" = google_sql_ssl_cert.api.cert
+    "DB_CLIENT_KEY"  = google_sql_ssl_cert.api.private_key
   })
 }
 
