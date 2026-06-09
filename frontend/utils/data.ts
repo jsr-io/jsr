@@ -107,11 +107,17 @@ export async function packageDataWithDocs(
 ): Promise<PackageVersionDocsRedirect | DocsData | Response | null> {
   let [data, pkgDocsResp] = await Promise.all([
     packageData(state, scope, pkg),
+    // Fetched anonymously so it shares the cache across all viewers: the docs
+    // response does not depend on the requesting user (no permission/member/
+    // sudo branch in the handler), and forwarding a logged-in user's token
+    // would otherwise bypass the lb cache and re-render at the origin on every
+    // page view.
     state.api.get<PackageVersionDocs>(
       path`/scopes/${scope}/packages/${pkg}/versions/${
         version || "latest"
       }/docs`,
       docs,
+      { anonymous: true },
     ) as Promise<APIResponse<PackageVersionDocs> | null>,
   ]);
   if (data === null) return null;
@@ -191,12 +197,16 @@ export async function packageDataWithDiff(
   const [data, pkgDiffResp, versionsResp] = await Promise.all([
     packageData(state, scope, pkg),
     (oldVersion && newVersion)
+      // Anonymous for the same reason as docs above: the diff response is
+      // viewer-independent, so sharing the cache avoids a per-user origin
+      // re-render. Both versions are pinned, so it caches for the full window.
       ? state.api.get<PackageVersionDocs>(
         path`/scopes/${scope}/packages/${pkg}/diff/${oldVersion}/${newVersion}`,
         {
           ...docs,
           full,
         },
+        { anonymous: true },
       )
       : Promise.resolve(null),
     state.api.get<List<PackageVersionWithUser>>(
