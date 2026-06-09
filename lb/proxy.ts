@@ -249,18 +249,26 @@ async function cachedFetch(
 
   const res = await fetcher(req);
 
+  // Cache 200s and (negatively) 404s. 200s keep the prior behaviour: cached
+  // unless explicitly `private`/`no-store` (even with no `Cache-Control`).
+  // 404s are only cached when the origin opted in with an explicit cacheable
+  // directive — the API stamps a short `public` TTL on 404s from cached routes
+  // (docs/diff for a missing symbol/version etc.); without storing them every
+  // repeat miss falls through to the origin. A 404 with no `Cache-Control`
+  // (uncached routes) is never stored.
+  const cacheControl = res.headers.get("Cache-Control") ?? "";
+  const explicitlyUncacheable = cacheControl.includes("private") ||
+    cacheControl.includes("no-store");
+  const cacheable = res.ok
+    ? !explicitlyUncacheable
+    : res.status === 404 && !explicitlyUncacheable &&
+      (cacheControl.includes("max-age") || cacheControl.includes("s-maxage"));
   const cache = caches.default;
-  if (cache && shouldCache && req.method === "GET" && res.ok) {
-    const cacheControl = res.headers.get("Cache-Control") ?? "";
-    if (
-      !cacheControl.includes("private") &&
-      !cacheControl.includes("no-store")
-    ) {
-      const cacheKey = new Request(req.url, { method: "GET" });
-      // `waitUntil` (or await in tests) so the write isn't dropped when the
-      // invocation ends — the cause of the lb caching nothing in production.
-      await persistCacheWrite(ctx, cache, cacheKey, res.clone());
-    }
+  if (cache && shouldCache && req.method === "GET" && cacheable) {
+    const cacheKey = new Request(req.url, { method: "GET" });
+    // `waitUntil` (or await in tests) so the write isn't dropped when the
+    // invocation ends — the cause of the lb caching nothing in production.
+    await persistCacheWrite(ctx, cache, cacheKey, res.clone());
   }
 
   return res;

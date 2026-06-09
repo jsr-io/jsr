@@ -478,12 +478,68 @@ Deno.test("proxyToBackend does not cache responses with private Cache-Control", 
   }
 });
 
-Deno.test("proxyToBackend does not cache non-2xx responses", async () => {
+Deno.test("proxyToBackend does not cache 404s without a cacheable directive", async () => {
   const cache = createFakeCache();
   (globalThis as any).caches = { default: cache };
 
   const restore = setupFetchStub(
     new Response("Not Found", { status: 404 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/missing", {
+      method: "GET",
+    });
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 404);
+    assertEquals(cache.putCalls.length, 0);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend negatively caches 404s with a public TTL", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // The API stamps a short public TTL on 404s from cached routes (docs/diff for
+  // a missing symbol/version), so repeated misses are served from cache instead
+  // of hammering the origin.
+  const restore = setupFetchStub(
+    new Response("Not Found", {
+      status: 404,
+      headers: {
+        "Cache-Control": "public, max-age=30, s-maxage=60",
+      },
+    }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/missing", {
+      method: "GET",
+    });
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 404);
+    assertEquals(cache.putCalls.length, 1);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend does not cache 404s with no-store", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // Authenticated 404s carry `private, no-store` and must never be stored.
+  const restore = setupFetchStub(
+    new Response("Not Found", {
+      status: 404,
+      headers: { "Cache-Control": "private, no-store" },
+    }),
   );
 
   try {

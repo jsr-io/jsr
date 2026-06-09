@@ -191,11 +191,14 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       // For a specific (non-"latest") version the content is immutable, so the
-      // versioned arm is cached for 30 days; the "latest" arm stays short since
-      // it moves on publish and can carry query params (symbol/entrypoint).
+      // versioned arm is cached for 30 days. The "latest" arm moves on publish
+      // and can carry query params (symbol/entrypoint), so it stays short — but
+      // this is the default package-page render, by far the hottest docs call,
+      // so 5 minutes (vs 60s) cuts its origin rate ~5x while staying fresh
+      // enough that a new publish appears promptly.
       "/:package/versions/:version/docs",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_handler),
       ),

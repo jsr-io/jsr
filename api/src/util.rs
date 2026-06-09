@@ -137,6 +137,56 @@ impl CacheDuration {
   pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
 
+/// Brief negative-cache window (seconds) for `404 Not Found` responses on
+/// cached routes. Misses (e.g. docs/diff for a symbol, entrypoint or version
+/// that doesn't exist) carry no `Cache-Control` from the error path, so every
+/// repeat hits the origin — these are the dominant uncacheable load on the
+/// docs/diff handlers. Caching them for a short window collapses the repeats
+/// while keeping a newly-published version visible quickly.
+const NOT_FOUND_CACHE_SECS: usize = 60;
+
+/// Render an `ApiError` to its JSON response with an explicit `Cache-Control`.
+fn error_response(
+  err: &ApiError,
+  cache_control: header::HeaderValue,
+) -> Response<Body> {
+  let mut res = err.json_response();
+  res
+    .headers_mut()
+    .insert(header::CACHE_CONTROL, cache_control);
+  res
+}
+
+/// Short negative-cache `Cache-Control` for a `404` on a cached route. Anonymous
+/// requests get a brief `public` window; authenticated requests are never cached
+/// (the lb skips its shared cache when an `Authorization` header or `token=`
+/// cookie is present, so a `public` 404 can't leak across viewers, but we still
+/// mark them `no-store` for defence in depth).
+fn short_negative_cache_control(is_anonymous: bool) -> header::HeaderValue {
+  header::HeaderValue::from_str(&if is_anonymous {
+    format!(
+      "public, max-age=30, s-maxage={NOT_FOUND_CACHE_SECS}, stale-while-revalidate={NOT_FOUND_CACHE_SECS}"
+    )
+  } else {
+    "private, no-store".to_string()
+  })
+  .unwrap()
+}
+
+/// A missing entrypoint/symbol on an immutable (non-"latest") version can never
+/// appear later, so it is as cacheable as a normal `200` for that version —
+/// unlike other 404s (package/version not found, or anything on "latest"), which
+/// only get the brief negative-cache window. Returns the long-lived value to use
+/// for such an error, or `None` to fall back to short negative caching.
+fn immutable_miss_cache_control(
+  err: &ApiError,
+  is_latest: bool,
+  long_lived: impl FnOnce() -> header::HeaderValue,
+) -> Option<header::HeaderValue> {
+  (matches!(err, ApiError::EntrypointOrSymbolNotFound) && !is_latest)
+    .then(long_lived)
+}
+
 pub fn cache<H, HF>(
   duration: CacheDuration,
   handler: H,
@@ -170,7 +220,20 @@ where
     let private_value = private_value.clone();
     async move {
       let is_anonymous = req.iam().is_anonymous();
-      let mut res = handler(req).await?;
+      // No `:version` param (e.g. the diff route's old/new versions are both
+      // pinned) ⇒ never "latest" ⇒ a missing entrypoint/symbol is immutable.
+      let is_latest =
+        req.param("version").map(|v| v == "latest").unwrap_or(false);
+      let mut res = match handler(req).await {
+        Ok(res) => res,
+        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+          let long_lived = || if is_anonymous { value } else { private_value };
+          let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
+            .unwrap_or_else(|| short_negative_cache_control(is_anonymous));
+          return Ok(error_response(&err, cc));
+        }
+        Err(err) => return Err(err),
+      };
       let value = if is_anonymous { value } else { private_value };
       res
         .headers_mut()
@@ -243,7 +306,22 @@ where
       let is_anonymous = req.iam().is_anonymous();
       let is_latest =
         req.param("version").map(|v| v == "latest").unwrap_or(true);
-      let mut res = handler(req).await?;
+      let mut res = match handler(req).await {
+        Ok(res) => res,
+        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+          let long_lived = || {
+            if is_anonymous {
+              versioned_value
+            } else {
+              private_versioned_value
+            }
+          };
+          let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
+            .unwrap_or_else(|| short_negative_cache_control(is_anonymous));
+          return Ok(error_response(&err, cc));
+        }
+        Err(err) => return Err(err),
+      };
       let value = match (is_anonymous, is_latest) {
         (true, true) => latest_value,
         (true, false) => versioned_value,
