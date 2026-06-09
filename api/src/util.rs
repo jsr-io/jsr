@@ -24,8 +24,8 @@ use uuid::Uuid;
 
 use crate::api::ApiError;
 use crate::db::Database;
-use crate::db::Permissions;
-use crate::external::github::verify_oidc_token;
+use crate::external::github;
+use crate::external::oidc::OidcProviderKind;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
@@ -432,51 +432,40 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
 
   let span = Span::current();
 
-  let iam_info =
-    match token {
-      Some((AuthorizationToken::Bearer(token), sudo)) => {
-        span.record("token.kind", field::display("bearer"));
-        if let Some(token) =
-          db.get_token_by_hash(&crate::token::hash(token)).await?
+  let iam_info = match token {
+    Some((AuthorizationToken::Bearer(token), sudo)) => {
+      span.record("token.kind", field::display("bearer"));
+      if let Some(token) =
+        db.get_token_by_hash(&crate::token::hash(token)).await?
+      {
+        if let Some(expires_at) = token.expires_at
+          && expires_at < chrono::Utc::now()
         {
-          if let Some(expires_at) = token.expires_at
-            && expires_at < chrono::Utc::now()
-          {
-            return Err(ApiError::InvalidBearerToken);
-          }
-
-          let user = db.get_user(token.user_id).await?.unwrap();
-          span.record("user.id", field::display(user.id));
-
-          if user.is_blocked {
-            return Err(ApiError::Blocked);
-          }
-
-          IamInfo::from((token, user, sudo))
-        } else {
           return Err(ApiError::InvalidBearerToken);
         }
-      }
-      Some((AuthorizationToken::GithubOIDC(token), _)) => {
-        span.record("token.kind", field::display("githuboidc"));
 
-        let claims = verify_oidc_token(token).await?;
-        span.record("repo.id", field::display(claims.repository_id));
+        let user = db.get_user(token.user_id).await?.unwrap();
+        span.record("user.id", field::display(user.id));
 
-        let aud: GithubOidcTokenAud = serde_json::from_str(&claims.aud)
-          .map_err(|err| ApiError::InvalidOidcToken {
-            msg: format!("failed to parse 'aud': {err}").into(),
-          })?;
-
-        let user = db.get_user_by_github_id(claims.actor_id).await?;
-        if let Some(user) = &user {
-          span.record("user.id", field::display(user.id));
+        if user.is_blocked {
+          return Err(ApiError::Blocked);
         }
 
-        IamInfo::from((claims.repository_id, aud, user))
+        IamInfo::from((token, user, sudo))
+      } else {
+        return Err(ApiError::InvalidBearerToken);
       }
-      None => IamInfo::anonymous(),
-    };
+    }
+    Some((AuthorizationToken::Oidc { kind, token }, _)) => {
+      span.record("token.kind", field::display(kind.span_kind()));
+      match kind {
+        OidcProviderKind::GitHub => {
+          github::build_iam_info(db, token, &span).await?
+        }
+      }
+    }
+    None => IamInfo::anonymous(),
+  };
 
   req.set_context(iam_info);
 
@@ -506,7 +495,10 @@ where
 
 enum AuthorizationToken<'s> {
   Bearer(&'s str),
-  GithubOIDC(&'s str),
+  Oidc {
+    kind: OidcProviderKind,
+    token: &'s str,
+  },
 }
 
 static X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
@@ -544,17 +536,14 @@ fn extract_token_and_sudo(
     if let Some(token) = auth.strip_prefix("Bearer ") {
       return Some((AuthorizationToken::Bearer(token), sudo));
     }
-    if let Some(token) = auth.strip_prefix("githuboidc ") {
-      return Some((AuthorizationToken::GithubOIDC(token), sudo));
+    for kind in OidcProviderKind::all() {
+      if let Some(token) = auth.strip_prefix(kind.auth_prefix()) {
+        return Some((AuthorizationToken::Oidc { kind: *kind, token }, sudo));
+      }
     }
   }
 
   None
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct GithubOidcTokenAud {
-  pub permissions: Permissions,
 }
 
 pub async fn decode_json<T>(req: &mut Request<Body>) -> ApiResult<T>
