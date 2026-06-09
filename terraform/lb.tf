@@ -93,7 +93,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name         = "DOCS_RATELIMIT"
       namespace_id = "1002"
       simple = {
-        limit  = 60
+        limit  = 30
         period = 60
       }
     }
