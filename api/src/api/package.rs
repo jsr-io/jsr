@@ -191,11 +191,17 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       // For a specific (non-"latest") version the content is immutable, so the
-      // versioned arm is cached for 30 days; the "latest" arm stays short since
-      // it moves on publish and can carry query params (symbol/entrypoint).
+      // versioned arm is cached for 30 days. The "latest" arm moves on publish
+      // and can carry query params (symbol/entrypoint), so it stays short — but
+      // this is the default package-page render, by far the hottest docs call,
+      // so 5 minutes (vs 60s) cuts its origin rate ~5x while staying fresh
+      // enough that a new publish appears promptly.
       "/:package/versions/:version/docs",
-      util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+      // `_shared`: the docs response is identity-independent (no permission/
+      // member/sudo branch), so the lb may serve it from its shared cache to
+      // authenticated callers too, rather than bypassing cache on auth.
+      util::cache_versioned_shared(
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_handler),
       ),
@@ -203,7 +209,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/docs/search",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
       ),
@@ -211,7 +217,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/docs/search_structured",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
       ),
@@ -219,15 +225,20 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/source",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_source_handler),
       ),
     )
     .get(
       // Both versions are immutable, so the diff between them never changes.
+      // `_shared`: identity-independent (see docs above), so the lb shares it
+      // across authenticated callers.
       "/:package/diff/:old_version/:new_version",
-      util::cache(CacheDuration::THIRTY_DAYS, util::json(get_diff_handler)),
+      util::cache_shared(
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_diff_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies",
