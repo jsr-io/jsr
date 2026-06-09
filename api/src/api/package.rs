@@ -206,7 +206,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/docs/search",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
       ),
@@ -214,7 +214,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/docs/search_structured",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_structured_handler),
       ),
@@ -222,7 +222,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .get(
       "/:package/versions/:version/source",
       util::cache_versioned(
-        CacheDuration::ONE_MINUTE,
+        CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_source_handler),
       ),
