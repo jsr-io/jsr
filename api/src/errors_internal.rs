@@ -7,6 +7,7 @@ use routerify::RequestInfo;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::Span;
+use tracing::error;
 
 use crate::api::ApiError;
 
@@ -133,14 +134,20 @@ pub async fn error_handler(
   // Because `routerify::RouteError` is a boxed error, it must be downcast
   // first. Unwrap for simplicity.
   let api_err = err.downcast::<ApiError>().unwrap();
+  let is_server_error = api_err.status_code().is_server_error();
   let span = Span::current();
   span.record(
     "otel.status_code",
-    if api_err.status_code().is_server_error() {
-      "error"
-    } else {
-      "ok"
-    },
+    if is_server_error { "error" } else { "ok" },
   );
+  // Only server errors (5xx) are logged. Client errors (4xx, e.g. 404s) are
+  // expected and would otherwise pollute error logs and trace error rates. The
+  // route handlers no longer carry `err` on their `#[instrument]`, so this is
+  // the single place a directly-constructed 5xx `ApiError` gets surfaced;
+  // anyhow-backed 5xx are additionally logged at their origin (leaf spans keep
+  // `err`).
+  if is_server_error {
+    error!(error = %api_err, status = api_err.status_code().as_u16());
+  }
   api_err.json_response()
 }
