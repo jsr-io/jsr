@@ -394,9 +394,11 @@ Deno.test("proxyToBackend skips cache for authenticated requests", async () => {
     const response = await proxyToBackend(request, BACKEND_URL);
 
     assertEquals(response.status, 200);
-    // Should not cache authenticated requests
+    // The cache is consulted (it may hold an identity-independent entry), but a
+    // viewer-specific (non-shared) response is neither served nor stored for an
+    // authenticated caller.
+    assertEquals(cache.matchCalls.length, 1);
     assertEquals(cache.putCalls.length, 0);
-    assertEquals(cache.matchCalls.length, 0);
     // Should set private headers
     assertEquals(response.headers.get("Cache-Control"), "private, no-store");
     assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
@@ -644,6 +646,140 @@ Deno.test("proxyToBackend skips cache for login paths even with pathRewrite", as
     assertEquals(response.headers.get("Cache-Control"), "private, no-store");
   } finally {
     restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+const DOCS_URL = "https://jsr.io/api/scopes/std/packages/x/versions/1.0.0/docs";
+
+Deno.test("proxyToBackend caches an identity-independent response for an authenticated caller", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // The API marks docs/diff (viewer-independent) responses as shared and keeps
+  // them `public` even when authenticated.
+  const restore = setupFetchStub(
+    new Response('{"docs":true}', {
+      status: 200,
+      headers: {
+        "Cache-Control": "public, max-age=30, s-maxage=300",
+        "x-jsr-cache-shared": "1",
+      },
+    }),
+  );
+
+  try {
+    const request = new Request(DOCS_URL, {
+      method: "GET",
+      headers: { "Authorization": "Bearer token123" },
+    });
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 200);
+    // Stored despite the request being authenticated.
+    assertEquals(cache.putCalls.length, 1);
+    // Public Cache-Control preserved; not auth-varying; internal marker stripped.
+    assertEquals(
+      response.headers.get("Cache-Control"),
+      "public, max-age=30, s-maxage=300",
+    );
+    assertEquals(response.headers.get("Vary"), "Accept-Encoding");
+    assertEquals(response.headers.get("x-jsr-cache-shared"), null);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend serves an authenticated caller from a cached shared entry", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  let fetchCount = 0;
+  const original = globalThis.fetch;
+  (globalThis as any).fetch = () => {
+    fetchCount++;
+    return Promise.resolve(
+      new Response('{"docs":true}', {
+        status: 200,
+        headers: {
+          "Cache-Control": "public, max-age=30, s-maxage=300",
+          "x-jsr-cache-shared": "1",
+        },
+      }),
+    );
+  };
+
+  try {
+    // Anonymous request fills the shared cache.
+    await proxyToBackend(new Request(DOCS_URL, { method: "GET" }), BACKEND_URL);
+    assertEquals(fetchCount, 1);
+
+    // Authenticated request is served from that shared entry — no origin hit.
+    const res = await proxyToBackend(
+      new Request(DOCS_URL, {
+        method: "GET",
+        headers: { "Authorization": "Bearer token123" },
+      }),
+      BACKEND_URL,
+    );
+    assertEquals(fetchCount, 1);
+    assertEquals(res.status, 200);
+    assertEquals(res.headers.get("x-jsr-cache-shared"), null);
+  } finally {
+    globalThis.fetch = original;
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend never serves an authenticated caller a viewer-specific cached entry", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // Origin returns a per-viewer (private) response to the authenticated caller,
+  // and a cacheable anonymous (public, unmarked) response otherwise — modelling
+  // a viewer-dependent endpoint like scope `get`.
+  let fetchCount = 0;
+  const original = globalThis.fetch;
+  (globalThis as any).fetch = (input: RequestInfo | URL) => {
+    fetchCount++;
+    const authed = input instanceof Request &&
+      input.headers.has("Authorization");
+    return Promise.resolve(
+      authed
+        ? new Response('{"full":true}', {
+          status: 200,
+          headers: { "Cache-Control": "private, max-age=300" },
+        })
+        : new Response('{"partial":true}', {
+          status: 200,
+          headers: { "Cache-Control": "public, max-age=300" },
+        }),
+    );
+  };
+
+  const url = "https://jsr.io/api/scopes/std";
+  try {
+    // Anonymous request caches the viewer-dependent (unmarked) entry.
+    await proxyToBackend(new Request(url, { method: "GET" }), BACKEND_URL);
+    assertEquals(fetchCount, 1);
+    assertEquals(cache.putCalls.length, 1);
+
+    // Authenticated request must NOT be served that entry — it goes to origin
+    // and gets its own private view, which is never stored.
+    const res = await proxyToBackend(
+      new Request(url, {
+        method: "GET",
+        headers: { "Authorization": "Bearer token123" },
+      }),
+      BACKEND_URL,
+    );
+    assertEquals(fetchCount, 2);
+    assertEquals(await res.text(), '{"full":true}');
+    assertEquals(res.headers.get("Cache-Control"), "private, no-store");
+    assertEquals(cache.putCalls.length, 1);
+  } finally {
+    globalThis.fetch = original;
     (globalThis as any).caches = { default: undefined };
   }
 });

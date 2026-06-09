@@ -145,25 +145,47 @@ impl CacheDuration {
 /// while keeping a newly-published version visible quickly.
 const NOT_FOUND_CACHE_SECS: usize = 60;
 
+/// Response header marking a response as identity-independent: its body does not
+/// depend on the requesting user, so the lb may serve it from its shared
+/// (URL-keyed) cache even to authenticated callers, instead of bypassing the
+/// cache whenever auth is present. Only set by the `*_shared` cache wrappers, on
+/// routes whose handler provably ignores identity (e.g. docs/diff). The lb
+/// strips it before returning to the client. A `Cache-Control` of `public` is
+/// also required by the lb, so an accidentally-`private` response can never be
+/// shared even if this header leaks onto it.
+static X_JSR_CACHE_SHARED: HeaderName =
+  HeaderName::from_static("x-jsr-cache-shared");
+
+fn mark_shared(res: &mut Response<Body>, shared: bool) {
+  if shared {
+    res
+      .headers_mut()
+      .insert(&X_JSR_CACHE_SHARED, header::HeaderValue::from_static("1"));
+  }
+}
+
 /// Render an `ApiError` to its JSON response with an explicit `Cache-Control`.
 fn error_response(
   err: &ApiError,
   cache_control: header::HeaderValue,
+  shared: bool,
 ) -> Response<Body> {
   let mut res = err.json_response();
   res
     .headers_mut()
     .insert(header::CACHE_CONTROL, cache_control);
+  mark_shared(&mut res, shared);
   res
 }
 
 /// Short negative-cache `Cache-Control` for a `404` on a cached route. Anonymous
-/// requests get a brief `public` window; authenticated requests are never cached
-/// (the lb skips its shared cache when an `Authorization` header or `token=`
-/// cookie is present, so a `public` 404 can't leak across viewers, but we still
-/// mark them `no-store` for defence in depth).
-fn short_negative_cache_control(is_anonymous: bool) -> header::HeaderValue {
-  header::HeaderValue::from_str(&if is_anonymous {
+/// (and identity-independent `shared`) requests get a brief `public` window;
+/// other authenticated requests are never cached (the lb skips its shared cache
+/// when an `Authorization` header or `token=` cookie is present, so a `public`
+/// 404 can't leak across viewers, but we still mark them `no-store` for defence
+/// in depth).
+fn short_negative_cache_control(public: bool) -> header::HeaderValue {
+  header::HeaderValue::from_str(&if public {
     format!(
       "public, max-age=30, s-maxage={NOT_FOUND_CACHE_SECS}, stale-while-revalidate={NOT_FOUND_CACHE_SECS}"
     )
@@ -187,8 +209,39 @@ fn immutable_miss_cache_control(
     .then(long_lived)
 }
 
+/// Cache an immutable-ish response for `duration`. See [`cache_shared`] for the
+/// identity-independent variant.
 pub fn cache<H, HF>(
   duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_impl(duration, false, handler)
+}
+
+/// Like [`cache`], but for routes whose response does **not** depend on the
+/// requesting identity (no permission/member/sudo branch — e.g. `diff`). Such
+/// responses stay `public` even when authenticated and are marked
+/// [`X_JSR_CACHE_SHARED`], so the lb serves them from its shared cache to every
+/// caller instead of bypassing on auth. Only use this when the handler is
+/// genuinely viewer-independent; auditing that is the safety contract.
+pub fn cache_shared<H, HF>(
+  duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_impl(duration, true, handler)
+}
+
+fn cache_impl<H, HF>(
+  duration: CacheDuration,
+  shared: bool,
   handler: H,
 ) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
 where
@@ -219,7 +272,9 @@ where
     let value = value.clone();
     let private_value = private_value.clone();
     async move {
-      let is_anonymous = req.iam().is_anonymous();
+      // A shared route is identity-independent, so it stays `public` for every
+      // caller; otherwise authenticated callers get the `private` value.
+      let public = shared || req.iam().is_anonymous();
       // No `:version` param (e.g. the diff route's old/new versions are both
       // pinned) ⇒ never "latest" ⇒ a missing entrypoint/symbol is immutable.
       let is_latest =
@@ -227,18 +282,19 @@ where
       let mut res = match handler(req).await {
         Ok(res) => res,
         Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
-          let long_lived = || if is_anonymous { value } else { private_value };
+          let long_lived = || if public { value } else { private_value };
           let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
-            .unwrap_or_else(|| short_negative_cache_control(is_anonymous));
-          return Ok(error_response(&err, cc));
+            .unwrap_or_else(|| short_negative_cache_control(public));
+          return Ok(error_response(&err, cc, shared));
         }
         Err(err) => return Err(err),
       };
-      let value = if is_anonymous { value } else { private_value };
+      let value = if public { value } else { private_value };
       res
         .headers_mut()
         .entry(header::CACHE_CONTROL)
         .or_insert_with(|| value);
+      mark_shared(&mut res, shared);
       Ok(res)
     }
     .boxed()
@@ -252,6 +308,35 @@ where
 pub fn cache_versioned<H, HF>(
   latest_duration: CacheDuration,
   versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_versioned_impl(latest_duration, versioned_duration, false, handler)
+}
+
+/// Identity-independent variant of [`cache_versioned`] (see [`cache_shared`]):
+/// the response stays `public` for every caller and is marked
+/// [`X_JSR_CACHE_SHARED`] so the lb shares it across authenticated callers. Used
+/// by `docs`, whose handler has no permission/member/sudo branch.
+pub fn cache_versioned_shared<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_versioned_impl(latest_duration, versioned_duration, true, handler)
+}
+
+fn cache_versioned_impl<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  shared: bool,
   handler: H,
 ) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
 where
@@ -303,26 +388,27 @@ where
     let private_latest_value = private_latest_value.clone();
     let private_versioned_value = private_versioned_value.clone();
     async move {
-      let is_anonymous = req.iam().is_anonymous();
+      // Shared routes are identity-independent ⇒ `public` for every caller.
+      let public = shared || req.iam().is_anonymous();
       let is_latest =
         req.param("version").map(|v| v == "latest").unwrap_or(true);
       let mut res = match handler(req).await {
         Ok(res) => res,
         Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
           let long_lived = || {
-            if is_anonymous {
+            if public {
               versioned_value
             } else {
               private_versioned_value
             }
           };
           let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
-            .unwrap_or_else(|| short_negative_cache_control(is_anonymous));
-          return Ok(error_response(&err, cc));
+            .unwrap_or_else(|| short_negative_cache_control(public));
+          return Ok(error_response(&err, cc, shared));
         }
         Err(err) => return Err(err),
       };
-      let value = match (is_anonymous, is_latest) {
+      let value = match (public, is_latest) {
         (true, true) => latest_value,
         (true, false) => versioned_value,
         (false, true) => private_latest_value,
@@ -332,6 +418,7 @@ where
         .headers_mut()
         .entry(header::CACHE_CONTROL)
         .or_insert(value);
+      mark_shared(&mut res, shared);
       Ok(res)
     }
     .boxed()

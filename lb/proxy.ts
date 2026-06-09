@@ -54,6 +54,22 @@ function bucketCacheKey(rawUrl: string): Request {
   );
 }
 
+// Response header the API sets on routes whose body does not depend on the
+// requesting identity (no permission/member/sudo branch — e.g. docs/diff). It
+// lets the lb serve such responses from its shared (URL-keyed) cache even to
+// authenticated callers, instead of bypassing the cache whenever auth is
+// present. Stripped from client responses in proxyToBackend.
+const SHARED_CACHE_HEADER = "x-jsr-cache-shared";
+
+// True when a response may be served from the shared cache to any caller
+// regardless of auth. Requires the API's explicit marker AND a `public`
+// Cache-Control, so an accidentally-`private` response can never be shared even
+// if the marker leaks onto it.
+function isIdentityIndependent(res: Response): boolean {
+  if (res.headers.get(SHARED_CACHE_HEADER) !== "1") return false;
+  return (res.headers.get("Cache-Control") ?? "").includes("public");
+}
+
 // Proxies an inbound request to a backend. The backend can be either an
 // HTTP URL (Cloud Run API) or a service-binding Fetcher (frontend Worker).
 // In both cases the caller receives the same cache + header semantics.
@@ -92,13 +108,18 @@ export async function proxyToBackend(
   headers.set("X-Forwarded-Host", url.host);
 
   const originalPath = url.pathname;
-  const ignoreCache = originalPath === "/login" ||
+  const isLoginPath = originalPath === "/login" ||
     originalPath.startsWith("/login/") ||
-    originalPath === "/logout" ||
-    request.headers.has("Authorization") ||
-    request.headers.get("Cookie")?.includes("token=");
+    originalPath === "/logout";
+  const isAuthenticated = request.headers.has("Authorization") ||
+    (request.headers.get("Cookie")?.includes("token=") ?? false);
 
-  const shouldCache = !ignoreCache &&
+  // Caching is allowed for safe methods outside the login flow. Authenticated
+  // requests are additionally *restricted to identity-independent responses*
+  // (see cachedFetch): they may only read/write cache entries the API marked as
+  // viewer-independent (docs/diff), so a viewer-specific response is never
+  // shared across users, while those endpoints still get cached for everyone.
+  const allowCache = !isLoginPath &&
     (request.method === "GET" || request.method === "HEAD");
 
   try {
@@ -106,7 +127,8 @@ export async function proxyToBackend(
       ? (req: Request) => fetch(req)
       : (req: Request) => backend.fetch(req);
     const response = await cachedFetch(
-      shouldCache,
+      allowCache,
+      isAuthenticated,
       fetcher,
       backendRequestUrl,
       {
@@ -118,15 +140,31 @@ export async function proxyToBackend(
       ctx,
     );
 
+    const shared = isIdentityIndependent(response);
+
     const res = new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
     });
 
-    res.headers.set("Vary", "Cookie, Authorization");
+    // The shared marker is internal to lb↔API; never expose it to clients.
+    res.headers.delete(SHARED_CACHE_HEADER);
 
-    if (!shouldCache) {
+    // Identity-independent responses don't vary by auth (so downstream may share
+    // them); everything else does. Don't clobber a Vary the backend set.
+    if (shared) {
+      if (!res.headers.has("Vary")) res.headers.set("Vary", "Accept-Encoding");
+    } else {
+      res.headers.set("Vary", "Cookie, Authorization");
+    }
+
+    // Mark uncacheable responses `private, no-store` so nothing downstream
+    // stores them: anything not a cacheable safe method (POST, login flow), and
+    // any authenticated request to a viewer-specific (non-shared) response.
+    // Identity-independent responses keep their public Cache-Control so they
+    // stay cacheable for everyone.
+    if (!allowCache || (isAuthenticated && !shared)) {
       res.headers.set("Cache-Control", "private, no-store");
     }
 
@@ -225,7 +263,11 @@ export async function proxyToR2(
 }
 
 async function cachedFetch(
-  shouldCache: boolean,
+  allowCache: boolean,
+  // When true (authenticated request), the cache may only be read from / written
+  // to for identity-independent responses, so a viewer-specific response is
+  // never served to, or stored by, an authenticated caller.
+  restrictToShared: boolean,
   fetcher: (req: Request) => Promise<Response>,
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -233,10 +275,10 @@ async function cachedFetch(
 ): Promise<Response> {
   const req = new Request(input, init);
 
-  if (shouldCache) {
+  if (allowCache) {
     const cacheKey = new Request(req.url, { method: "GET" });
     const cached = await caches.default?.match(cacheKey);
-    if (cached) {
+    if (cached && (!restrictToShared || isIdentityIndependent(cached))) {
       if (req.method === "HEAD") {
         return new Response(null, {
           headers: cached.headers,
@@ -263,8 +305,12 @@ async function cachedFetch(
     ? !explicitlyUncacheable
     : res.status === 404 && !explicitlyUncacheable &&
       (cacheControl.includes("max-age") || cacheControl.includes("s-maxage"));
+  // An authenticated request may only write an identity-independent response —
+  // a viewer-specific authed response must never land in the shared cache.
+  const writable = cacheable &&
+    (!restrictToShared || isIdentityIndependent(res));
   const cache = caches.default;
-  if (cache && shouldCache && req.method === "GET" && cacheable) {
+  if (cache && allowCache && req.method === "GET" && writable) {
     const cacheKey = new Request(req.url, { method: "GET" });
     // `waitUntil` (or await in tests) so the write isn't dropped when the
     // invocation ends — the cause of the lb caching nothing in production.
