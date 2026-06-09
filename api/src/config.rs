@@ -118,8 +118,8 @@ pub struct Config {
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
   /// Base OTLP/HTTP endpoint (e.g. Grafana Cloud's
   /// `https://otlp-gateway-<zone>.grafana.net/otlp`), OTEL
-  /// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the per-signal path (`/v1/traces`,
-  /// and `/v1/logs` in the future) is appended automatically. A full
+  /// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the per-signal path (`/v1/traces`
+  /// for spans, `/v1/logs` for logs) is appended automatically. A full
   /// signal URL is also accepted. Export is disabled when unset.
   pub otlp_endpoint: Option<String>,
 

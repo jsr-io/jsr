@@ -66,19 +66,25 @@ const_format = { version = "0.2", features = ["const_generics"] }
 tar = "0.4"
 tracing = "0.1"
 tracing-futures = "0.2"
-tracing-opentelemetry = "0.19"
+tracing-opentelemetry = "0.28"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = { version = "0.19", features = [
+opentelemetry = { version = "0.27", features = ["trace", "logs"] }
+opentelemetry_sdk = { version = "0.27", features = [
     "rt-tokio",
-    "rt-tokio-current-thread",
     "trace",
+    "logs",
 ] }
+# Bridges `tracing` events into OpenTelemetry log records so the same logs we
+# print to stdout are also exported over OTLP (to Grafana Cloud Loki).
+opentelemetry-appender-tracing = "0.27"
 # OTLP over HTTP/protobuf (not gRPC): the managed Grafana Cloud OTLP gateway only
-# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest, the same HTTP
-# stack every other outbound call in this crate already uses. Default
-# `grpc-tonic` is off.
-opentelemetry-otlp = { version = "0.12", default-features = false, features = [
+# speaks OTLP/HTTP. `reqwest-client` routes export through reqwest (its own
+# reqwest 0.12, separate from the app's reqwest 0.11). Default `grpc-tonic` is
+# off. `http-proto` enables trace+metrics; `logs` is listed explicitly because
+# it does not.
+opentelemetry-otlp = { version = "0.27", default-features = false, features = [
     "trace",
+    "logs",
     "http-proto",
     "reqwest-client",
 ] }
