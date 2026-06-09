@@ -134,6 +134,13 @@ pub async fn error_handler(
   // first. Unwrap for simplicity.
   let api_err = err.downcast::<ApiError>().unwrap();
   let span = Span::current();
-  span.record("otel.status_code", "error");
+  span.record(
+    "otel.status_code",
+    if api_err.status_code().is_server_error() {
+      "error"
+    } else {
+      "ok"
+    },
+  );
   api_err.json_response()
 }
