@@ -267,7 +267,7 @@ pub fn package_router() -> Router<Body, ApiError> {
     .unwrap()
 }
 
-#[instrument(name = "GET /api/packages", skip(req), err, fields(query))]
+#[instrument(name = "GET /api/packages", skip(req), fields(query))]
 pub async fn global_list_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiPackage>> {
@@ -299,7 +299,7 @@ pub async fn global_list_handler(
   })
 }
 
-#[instrument(name = "GET /api/stats", skip(req), err)]
+#[instrument(name = "GET /api/stats", skip(req))]
 pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
   let db = req.data::<Database>().unwrap();
 
@@ -315,7 +315,7 @@ pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
   })
 }
 
-#[instrument(name = "GET /api/metrics", skip(req), err)]
+#[instrument(name = "GET /api/metrics", skip(req))]
 pub async fn global_metrics_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiMetrics> {
@@ -327,7 +327,6 @@ pub async fn global_metrics_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages",
   skip(req),
-  err,
   fields(scope)
 )]
 pub async fn list_handler(
@@ -356,7 +355,6 @@ pub async fn list_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
@@ -409,7 +407,6 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
@@ -452,7 +449,6 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
 #[instrument(
   name = "PATCH /api/scopes/:scope/packages/:package",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
@@ -757,7 +753,6 @@ async fn update_github_repository(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn list_versions_handler(
@@ -793,7 +788,6 @@ pub async fn list_versions_handler(
 #[instrument(
   name = "DELETE /api/scopes/:scope/packages/:package",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
@@ -840,7 +834,6 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn get_version_handler(
@@ -882,7 +875,6 @@ pub async fn get_version_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_publish_handler(
@@ -1053,7 +1045,6 @@ pub async fn version_publish_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages/:package/versions/:version/provenance",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_provenance_statements_handler(
@@ -1101,7 +1092,6 @@ pub async fn version_provenance_statements_handler(
 #[instrument(
   name = "PATCH /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_update_handler(
@@ -1194,7 +1184,6 @@ pub async fn version_update_handler(
 #[instrument(
   name = "DELETE /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_delete_handler(
@@ -1300,7 +1289,6 @@ pub async fn version_delete_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages/:package/versions/:version/tarball",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_tarball_handler(
@@ -1345,7 +1333,6 @@ pub async fn version_tarball_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
 pub async fn get_docs_handler(
@@ -1489,7 +1476,6 @@ pub async fn get_docs_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
 pub async fn get_docs_search_handler(
@@ -1556,7 +1542,6 @@ pub async fn get_docs_search_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_structured",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
 pub async fn get_docs_search_structured_handler(
@@ -1641,7 +1626,6 @@ pub async fn get_docs_search_structured_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/source",
   skip(req),
-  err,
   fields(scope, package, version, path)
 )]
 pub async fn get_source_handler(
@@ -1805,7 +1789,6 @@ pub async fn get_source_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/diff/:old_version/:new_version",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
 pub async fn get_diff_handler(
@@ -1968,7 +1951,6 @@ pub async fn get_diff_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/dependents",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn list_dependents_handler(
@@ -2013,7 +1995,6 @@ pub async fn list_dependents_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/downloads",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn get_downloads_handler(
@@ -2087,7 +2068,6 @@ pub async fn get_downloads_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn list_dependencies_handler(
@@ -2642,7 +2622,6 @@ pub struct DependencyInfo {
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies/graph",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn get_dependencies_graph_handler(
@@ -2692,7 +2671,6 @@ pub async fn get_dependencies_graph_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/publishing_tasks",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn list_publishing_tasks_handler(
@@ -2723,7 +2701,6 @@ pub async fn list_publishing_tasks_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/score",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn get_score_handler(
