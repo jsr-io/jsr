@@ -205,6 +205,10 @@ function handler(req: Request): Promise<Response> {
     ROOT_DOMAIN,
     API_DOMAIN,
     NPM_DOMAIN,
+  }, {
+    waitUntil(_promise: Promise<unknown>) {
+      // do nothing
+    },
   });
 }
 

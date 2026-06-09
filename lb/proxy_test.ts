@@ -148,6 +148,72 @@ Deno.test("proxyToR2 handles HEAD requests with URL-encoded path", async () => {
   assertEquals(response.body, null);
 });
 
+Deno.test("proxyToR2 cache hit returns a fresh, mutable response", async () => {
+  // caches.default.match returns responses with immutable headers; callers
+  // (setSecurityHeaders etc.) mutate the returned response, so proxyToR2 must
+  // re-wrap rather than return the cached object directly.
+  const stored = new Response("cached-body", {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+  (globalThis as any).caches = {
+    default: {
+      match: () => Promise.resolve(stored),
+      put: () => Promise.resolve(),
+    },
+  };
+
+  try {
+    const req = new Request("https://npm.jsr.io/@jsr/whatever");
+    const res = await proxyToR2(req, createFakeBucket({}));
+
+    assertEquals(res !== stored, true); // not the cached object
+    res.headers.set("x-test", "1"); // must not throw
+    assertEquals(res.headers.get("x-test"), "1");
+    assertEquals(await res.text(), "cached-body");
+  } finally {
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToR2 namespaces cache keys away from the raw URL", async () => {
+  // The frontend caches `/@scope/...` navigations under the raw URL; bucket
+  // responses for the same URL must use a distinct key to avoid cross-serving.
+  const matchKeys: string[] = [];
+  const putKeys: string[] = [];
+  (globalThis as any).caches = {
+    default: {
+      match: (req: Request) => {
+        matchKeys.push(req.url);
+        return Promise.resolve(undefined);
+      },
+      put: (req: Request) => {
+        putKeys.push(req.url);
+        return Promise.resolve();
+      },
+    },
+  };
+
+  try {
+    const bucket = createFakeBucket({
+      "@jsr/std__yaml": { body: "{}", contentType: "application/json" },
+    });
+    const res = await proxyToR2(
+      new Request("https://npm.jsr.io/@jsr/std__yaml"),
+      bucket,
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(
+      matchKeys[0],
+      "https://bucket-cache.jsr.internal/npm.jsr.io/@jsr/std__yaml",
+    );
+    assertEquals(putKeys[0], matchKeys[0]); // match and put use the same key
+  } finally {
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
 // --- proxyToBackend tests ---
 
 /** In-memory Cache stub that records put/match calls for assertions. */
@@ -233,6 +299,38 @@ Deno.test("proxyToBackend caches anonymous GET with URL-only key", async () => {
     assertEquals(cache.putCalls[0], `${BACKEND_URL}/api/packages`);
     // Vary is set on all responses so browsers re-fetch when auth changes
     assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend registers the cache write with ctx.waitUntil", async () => {
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  // Without this, the Workers runtime tears the invocation down before the
+  // async Cache.put completes and the write is silently dropped — the bug that
+  // left the lb caching nothing in production.
+  const waited: Promise<unknown>[] = [];
+  const ctx = { waitUntil: (p: Promise<unknown>) => waited.push(p) };
+
+  const restore = setupFetchStub(
+    new Response('{"ok":true}', {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=300" },
+    }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/packages", {
+      method: "GET",
+    });
+    await proxyToBackend(request, BACKEND_URL, undefined, ctx);
+
+    assertEquals(waited.length, 1);
+    await Promise.all(waited);
+    assertEquals(cache.putCalls.length, 1);
   } finally {
     restore();
     (globalThis as any).caches = { default: undefined };
