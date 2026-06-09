@@ -2,14 +2,20 @@
 
 use opentelemetry::KeyValue;
 use opentelemetry::global;
-use opentelemetry::sdk::Resource;
-use opentelemetry::sdk::propagation::TraceContextPropagator;
-use opentelemetry::sdk::trace;
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry::trace::TraceId;
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
+use opentelemetry_otlp::Protocol;
 use opentelemetry_otlp::WithExportConfig;
-use tracing_opentelemetry::OpenTelemetryLayer;
+use opentelemetry_otlp::WithHttpConfig;
+use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::logs::LoggerProvider;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::runtime;
+use opentelemetry_sdk::trace::TracerProvider;
 use tracing_opentelemetry::OtelData;
+use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
@@ -29,8 +35,8 @@ pub enum TracingExportTarget {
 
 /// Append an OTLP signal subpath to the configured base endpoint, OTEL
 /// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the endpoint is the base (e.g. Grafana
-/// Cloud's `.../otlp`) and each signal posts to its own path (`/v1/traces`,
-/// later `/v1/logs`). The opentelemetry-otlp 0.12 HTTP exporter uses the
+/// Cloud's `.../otlp`) and each signal posts to its own path (`/v1/traces` for
+/// spans, `/v1/logs` for logs). The opentelemetry-otlp HTTP exporter uses the
 /// endpoint verbatim and does NOT do this itself, so posting to the bare base
 /// 404s. Tolerates a trailing slash and an endpoint that already carries the
 /// signal path.
@@ -82,33 +88,56 @@ pub async fn setup_tracing(
   if let Some(env) = deployment_environment.filter(|s| !s.trim().is_empty()) {
     resource.push(KeyValue::new("deployment.environment", env));
   }
-  let trace_config = trace::config().with_resource(Resource::new(resource));
+  let resource = Resource::new(resource);
 
-  let tracer = match export_target {
+  // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
+  // accepts HTTP, and it also works directly from the Cloudflare Container.
+  // `endpoint` is the base; each signal's subpath is appended here. `headers`
+  // carries the backend auth, e.g. `Authorization: Basic <base64>` for Grafana
+  // Cloud. Traces export as spans (`/v1/traces`) and `tracing` events are
+  // bridged into OpenTelemetry log records and exported alongside them
+  // (`/v1/logs`), so the same logs we print to stdout also land in Grafana.
+  //
+  // Each exporter's provider is kept alive past this function: the tracer
+  // provider by the global registration below, and the logger provider by the
+  // appender layer (its `Logger` holds an `Arc` to the provider's batch
+  // processor), so dropping the local handles here does not stop export.
+  let mut export_layers: Vec<Box<dyn Layer<Registry> + Send + Sync>> =
+    Vec::new();
+  match export_target {
     TracingExportTarget::Otlp { endpoint, headers } => {
-      // OTLP/HTTP (protobuf), not gRPC: the managed Grafana Cloud gateway only
-      // accepts HTTP, and it also works directly from the Cloudflare Container.
-      // `endpoint` is the base; the `/v1/traces` signal path is appended here.
-      // `headers` carries the backend auth, e.g. `Authorization: Basic <base64>`
-      // for Grafana Cloud.
-      let exporter = opentelemetry_otlp::new_exporter()
-        .http()
+      let span_exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_http()
         .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/traces"))
-        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
-        .with_headers(headers);
-      let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_trace_config(trace_config)
-        .with_exporter(exporter)
-        .install_batch(opentelemetry::runtime::Tokio)
+        .with_protocol(Protocol::HttpBinary)
+        .with_headers(headers.clone())
+        .build()
         .unwrap();
-      Some(tracer)
-    }
-    TracingExportTarget::None => None,
-  };
+      let tracer_provider = TracerProvider::builder()
+        .with_batch_exporter(span_exporter, runtime::Tokio)
+        .with_resource(resource.clone())
+        .build();
+      let tracer = tracer_provider.tracer(name);
+      global::set_tracer_provider(tracer_provider);
+      export_layers
+        .push(tracing_opentelemetry::layer().with_tracer(tracer).boxed());
 
-  let telemetry =
-    tracer.map(|tracer| tracing_opentelemetry::layer().with_tracer(tracer));
+      let log_exporter = opentelemetry_otlp::LogExporter::builder()
+        .with_http()
+        .with_endpoint(otlp_signal_endpoint(&endpoint, "/v1/logs"))
+        .with_protocol(Protocol::HttpBinary)
+        .with_headers(headers)
+        .build()
+        .unwrap();
+      let logger_provider = LoggerProvider::builder()
+        .with_batch_exporter(log_exporter, runtime::Tokio)
+        .with_resource(resource)
+        .build();
+      export_layers
+        .push(OpenTelemetryTracingBridge::new(&logger_provider).boxed());
+    }
+    TracingExportTarget::None => {}
+  };
 
   let base_filter = EnvFilter::builder()
     .with_default_directive(DEFAULT_LOG_LEVEL_FILTER.into())
@@ -119,7 +148,10 @@ pub async fn setup_tracing(
   let fmt = tracing_subscriber::fmt::layer()
     .with_ansi(false)
     .event_format(FullOutputWithTraceId);
-  let subscriber = Registry::default().with(telemetry).with(filter).with(fmt);
+  let subscriber = Registry::default()
+    .with(export_layers)
+    .with(filter)
+    .with(fmt);
   tracing::subscriber::set_global_default(subscriber).unwrap();
 
   global::set_text_map_propagator(TraceContextPropagator::new());
@@ -129,7 +161,7 @@ pub async fn setup_tracing(
 /// Handle to the log-level filter within tracing infrastructure.
 pub type LogFilterHandle = reload::Handle<
   EnvFilter,
-  Layered<Option<OpenTelemetryLayer<Registry, trace::Tracer>>, Registry>,
+  Layered<Vec<Box<dyn Layer<Registry> + Send + Sync>>, Registry>,
 >;
 
 /// Default log level filter, used if `RUST_LOG` is missing or invalid.
@@ -191,6 +223,10 @@ mod tests {
     assert_eq!(
       otlp_signal_endpoint("https://x.grafana.net/otlp", "/v1/traces"),
       "https://x.grafana.net/otlp/v1/traces"
+    );
+    assert_eq!(
+      otlp_signal_endpoint("https://x.grafana.net/otlp", "/v1/logs"),
+      "https://x.grafana.net/otlp/v1/logs"
     );
   }
 
