@@ -36,12 +36,17 @@ const auth = define.middleware(async (ctx) => {
     !pathname.startsWith("/api") &&
     !ctx.url.searchParams.has("__frsh_c");
   const { token, sudo } = getCookies(ctx.req.headers);
+  // Forward the originating client's user-agent so the api server records it
+  // on its HTTP span instead of an empty `http.user_agent`. Identify ourselves
+  // when the inbound request carries none.
+  const userAgent = ctx.req.headers.get("user-agent") ?? "jsr-frontend";
   if (interactive) {
     ctx.state.sudo = sudo === "1";
     ctx.state.api = new API(API_ROOT, {
       token,
       sudo: ctx.state.sudo,
       span: ctx.state.span,
+      userAgent,
     });
     if (ctx.state.api.hasToken()) {
       ctx.state.userPromise = (async () => {
@@ -53,6 +58,7 @@ const auth = define.middleware(async (ctx) => {
           ctx.state.api = new API(API_ROOT, {
             span: ctx.state.span,
             token: null,
+            userAgent,
           });
           const redirectTarget = `${ctx.url.pathname}${ctx.url.search}`;
           const loginUrl = `/login?redirect=${
