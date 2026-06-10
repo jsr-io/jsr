@@ -22,12 +22,20 @@ pub const CACHE_CONTROL_IMMUTABLE: &str = "public, max-age=31536000, immutable";
 /// Cache-control used for package and npm version manifests. These change
 /// only on publish / yank / delete / description edit, and we explicitly
 /// purge the Cloudflare cache for the affected URLs from those code paths
-/// (see `CachePurge`). `s-maxage` is the steady-state hit window; `max-age`
-/// caps how stale a `deno publish && deno install` on the same machine can
-/// see, and `stale-while-revalidate` is the safety net if a purge call ever
-/// fails.
+/// (see `CachePurge`). Purging is best-effort — `CachePurge::purge` swallows
+/// errors — so the cache-control must be the durability net on its own.
+///
+/// `s-maxage` is the window during which the edge treats a cached manifest as
+/// *fresh* and will not revalidate. It must stay short, because a freshly
+/// published version only becomes visible to Deno's resolver once the edge
+/// re-fetches the regenerated `meta.json`; if the explicit purge call fails,
+/// `s-maxage` is the longest a just-published version can stay invisible to
+/// the resolver while the version page and immutable `_meta.json` already
+/// exist. `stale-while-revalidate` then lets the edge keep serving instantly
+/// while it refreshes in the background, so a short `s-maxage` does not add
+/// latency to resolver requests. `max-age` caps client-side staleness.
 pub const CACHE_CONTROL_MANIFEST: &str =
-  "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400";
+  "public, max-age=60, s-maxage=60, stale-while-revalidate=86400";
 
 const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
