@@ -119,6 +119,106 @@ async fn publishing_tasks() {
 }
 
 #[tokio::test]
+async fn list_stale_publishing_tasks() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "package".try_into().unwrap();
+  let config_file: PackagePath = "/jsr.json".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  db.create_package(&scope_name, &package_name).await.unwrap();
+
+  // Create one task per terminal/non-terminal status (each on its own version,
+  // since `create_publishing_task` only allows one non-failure task per
+  // version) and drive it to the desired status via direct transitions.
+  let mut ids = std::collections::HashMap::new();
+  for (version_str, target) in [
+    ("1.0.0", PublishingTaskStatus::Pending),
+    ("2.0.0", PublishingTaskStatus::Processing),
+    ("3.0.0", PublishingTaskStatus::Processed),
+    ("4.0.0", PublishingTaskStatus::Success),
+    ("5.0.0", PublishingTaskStatus::Failure),
+  ] {
+    let version: Version = version_str.try_into().unwrap();
+    let CreatePublishingTaskResult::Created((pt, _)) = db
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(user_id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &config_file,
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+
+    // Walk the status machine from `pending` up to the target status.
+    let path: &[PublishingTaskStatus] = match target {
+      PublishingTaskStatus::Pending => &[],
+      PublishingTaskStatus::Processing => &[PublishingTaskStatus::Processing],
+      PublishingTaskStatus::Processed => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+      ],
+      PublishingTaskStatus::Success => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+        PublishingTaskStatus::Success,
+      ],
+      PublishingTaskStatus::Failure => &[PublishingTaskStatus::Failure],
+    };
+    let mut prev = PublishingTaskStatus::Pending;
+    for next in path {
+      let error =
+        (*next == PublishingTaskStatus::Failure).then(|| PublishingTaskError {
+          code: "x".to_string(),
+          message: "x".to_string(),
+        });
+      db.update_publishing_task_status(None, pt.id, prev, next.clone(), error)
+        .await
+        .unwrap();
+      prev = next.clone();
+    }
+    ids.insert(version_str, pt.id);
+  }
+
+  // With a zero threshold every already-updated task qualifies on time, so the
+  // result is governed purely by the status filter: only the non-terminal
+  // `processing` and `processed` tasks should be returned.
+  let stale = db.list_stale_publishing_tasks(0).await.unwrap();
+  let stale_ids: std::collections::HashSet<_> =
+    stale.iter().map(|(id, _)| *id).collect();
+  assert_eq!(stale.len(), 2, "{stale:?}");
+  assert!(
+    stale_ids.contains(&ids["2.0.0"]),
+    "processing must be listed"
+  );
+  assert!(
+    stale_ids.contains(&ids["3.0.0"]),
+    "processed must be listed"
+  );
+  assert!(!stale_ids.contains(&ids["1.0.0"]), "pending excluded");
+  assert!(!stale_ids.contains(&ids["4.0.0"]), "success excluded");
+  assert!(!stale_ids.contains(&ids["5.0.0"]), "failure excluded");
+
+  // With a long threshold the freshly-updated tasks are not yet stale.
+  let none_stale = db.list_stale_publishing_tasks(3600).await.unwrap();
+  assert!(none_stale.is_empty(), "{none_stale:?}");
+}
+
+#[tokio::test]
 async fn users() {
   let db = EphemeralDatabase::create().await;
 
