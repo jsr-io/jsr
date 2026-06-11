@@ -219,6 +219,128 @@ async fn list_stale_publishing_tasks() {
 }
 
 #[tokio::test]
+async fn create_publishing_task_auto_fails_stranded_processing() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "package".try_into().unwrap();
+  let config_file: PackagePath = "/jsr.json".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  db.create_package(&scope_name, &package_name).await.unwrap();
+
+  // Helper: create a task on `version_str` and walk it up to `target`.
+  let make_task = async |version_str: &str, target: PublishingTaskStatus| {
+    let version: Version = version_str.try_into().unwrap();
+    let CreatePublishingTaskResult::Created((pt, _)) = db
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(user_id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &config_file,
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+    let path: &[PublishingTaskStatus] = match target {
+      PublishingTaskStatus::Pending => &[],
+      PublishingTaskStatus::Processing => &[PublishingTaskStatus::Processing],
+      PublishingTaskStatus::Processed => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+      ],
+      _ => unreachable!(),
+    };
+    let mut prev = PublishingTaskStatus::Pending;
+    for next in path {
+      db.update_publishing_task_status(None, pt.id, prev, next.clone(), None)
+        .await
+        .unwrap();
+      prev = next.clone();
+    }
+    pt.id
+  };
+
+  // 1. Fresh `processing` task: a duplicate publish gets the existing task back.
+  let fresh_id = make_task("1.0.0", PublishingTaskStatus::Processing).await;
+  let v1: Version = "1.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v1,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Exists((reused, _)) = res else {
+    panic!("fresh processing task should return Exists")
+  };
+  assert_eq!(reused.id, fresh_id);
+  assert_eq!(reused.status, PublishingTaskStatus::Processing);
+
+  // 2. Stranded `processing` task (>30 min old): inline auto-fail, new task created.
+  let stranded_id = make_task("2.0.0", PublishingTaskStatus::Processing).await;
+  db.backdate_publishing_task_updated_at(stranded_id, 31 * 60)
+    .await
+    .unwrap();
+  let v2: Version = "2.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v2,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Created((new_task, _)) = res else {
+    panic!("stranded processing task should be auto-failed and new task created")
+  };
+  assert_ne!(new_task.id, stranded_id);
+  assert_eq!(new_task.status, PublishingTaskStatus::Pending);
+  let (old, _) = db.get_publishing_task(stranded_id).await.unwrap().unwrap();
+  assert_eq!(old.status, PublishingTaskStatus::Failure);
+  assert_eq!(old.error.unwrap().code, "stale");
+
+  // 3. Stranded `processed` task: still returns Exists (left to the reaper).
+  let processed_id = make_task("3.0.0", PublishingTaskStatus::Processed).await;
+  db.backdate_publishing_task_updated_at(processed_id, 31 * 60)
+    .await
+    .unwrap();
+  let v3: Version = "3.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v3,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Exists((reused, _)) = res else {
+    panic!("stranded processed task is the reaper's responsibility, not this path")
+  };
+  assert_eq!(reused.id, processed_id);
+  assert_eq!(reused.status, PublishingTaskStatus::Processed);
+}
+
+#[tokio::test]
 async fn users() {
   let db = EphemeralDatabase::create().await;
 

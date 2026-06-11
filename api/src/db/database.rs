@@ -6,6 +6,7 @@ use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use chrono::DateTime;
+use chrono::Duration;
 use chrono::Utc;
 use registry_api_macros::query_concat;
 use registry_api_macros::query_concat_as;
@@ -2852,8 +2853,38 @@ gitlab_id: r.user_gitlab_id,
 
       .fetch_optional(&mut *tx)
       .await?;
-    if let Some(already_processing) = already_processing {
-      return Ok(CreatePublishingTaskResult::Exists(already_processing));
+    if let Some((existing_task, existing_user)) = already_processing {
+      let stale_threshold = Utc::now()
+        - Duration::seconds(crate::tasks::STALE_PUBLISHING_TASK_SECS);
+      let is_stale_processing = existing_task.status
+        == PublishingTaskStatus::Processing
+        && existing_task.updated_at < stale_threshold;
+
+      if !is_stale_processing {
+        return Ok(CreatePublishingTaskResult::Exists((
+          existing_task,
+          existing_user,
+        )));
+      }
+
+      // Failing a stranded `processing` task is safe: its version row never
+      // committed (the finalize transaction is atomic). `processed` tasks
+      // have committed data and are left for the requeue reaper.
+      let stale_error = PublishingTaskError {
+        code: "stale".to_string(),
+        message: "task stranded in processing".to_string(),
+      };
+      sqlx::query!(
+        "UPDATE publishing_tasks
+         SET status = $1, error = $2
+         WHERE id = $3 AND status = $4",
+        PublishingTaskStatus::Failure as _,
+        stale_error as _,
+        existing_task.id,
+        PublishingTaskStatus::Processing as _,
+      )
+      .execute(&mut *tx)
+      .await?;
     }
 
     let task = query_concat!(
@@ -2959,6 +2990,24 @@ gitlab_id: r.user_gitlab_id,
     tx.commit().await?;
 
     Ok(CreatePublishingTaskResult::Created(task))
+  }
+
+  #[cfg(test)]
+  pub async fn backdate_publishing_task_updated_at(
+    &self,
+    id: Uuid,
+    secs_ago: i64,
+  ) -> Result<()> {
+    sqlx::query!(
+      "UPDATE publishing_tasks
+       SET updated_at = now() - ($1::bigint * interval '1 second')
+       WHERE id = $2",
+      secs_ago,
+      id,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
   }
 
   #[instrument(name = "Database::get_publishing_task", skip(self), err)]
