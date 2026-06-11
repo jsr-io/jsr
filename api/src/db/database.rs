@@ -3182,6 +3182,63 @@ gitlab_id: r.user_gitlab_id,
   }
 
   #[instrument(
+    name = "Database::get_publishing_task_for_version_optional",
+    skip(self),
+    err
+  )]
+  pub async fn get_publishing_task_for_version_optional(
+    &self,
+    scope_name: &ScopeName,
+    package_name: &PackageName,
+    version: &Version,
+  ) -> Result<Option<(PublishingTask, Option<UserPublic>)>> {
+    query_concat!(
+      "SELECT
+        ", PUBLISHING_TASK_SELECT_JOINED, ",
+        ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
+      FROM publishing_tasks
+      LEFT JOIN users on publishing_tasks.user_id = users.id
+      JOIN packages ON publishing_tasks.package_scope = packages.scope AND publishing_tasks.package_name = packages.name
+      WHERE publishing_tasks.package_scope = $1 AND publishing_tasks.package_name = $2 AND publishing_tasks.package_version = $3 AND publishing_tasks.created_at >= packages.created_at
+      ORDER BY publishing_tasks.created_at DESC
+      LIMIT 1";
+      scope_name as _,
+      package_name as _,
+      version as _,
+    )
+      .map(|r| {
+        let task = PublishingTask {
+          id: r.task_id,
+          status: r.task_status,
+          error: r.task_error,
+          package_scope: r.task_package_scope,
+          package_name: r.task_package_name,
+          package_version: r.task_package_version,
+          config_file: r.task_config_file,
+          user_id: r.task_user_id,
+          created_at: r.task_created_at,
+          updated_at: r.task_updated_at,
+        };
+
+        let user = task.user_id.map(|_| {
+          UserPublic {
+            id: r.user_id.unwrap(),
+            name: r.user_name.unwrap(),
+            avatar_url: r.user_avatar_url.unwrap(),
+            github_id: r.user_github_id,
+            gitlab_id: r.user_gitlab_id,
+            updated_at: r.user_updated_at.unwrap(),
+            created_at: r.user_created_at.unwrap(),
+          }
+        });
+
+        (task, user)
+      })
+      .fetch_optional(&self.pool)
+      .await
+  }
+
+  #[instrument(
     name = "Database::update_publishing_task_status",
     skip(self),
     err

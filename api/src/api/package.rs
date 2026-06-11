@@ -901,7 +901,7 @@ pub async fn get_version_visibility_handler(
     .ok_or(ApiError::PackageNotFound)?;
 
   let task = db
-    .get_publishing_task_for_version(&scope, &package, &version)
+    .get_publishing_task_for_version_optional(&scope, &package, &version)
     .await?;
   let db_version = db
     .get_package_version(&scope, &package, &version)
@@ -930,7 +930,7 @@ pub async fn get_version_visibility_handler(
       let package_metadata =
         serde_json::from_slice::<PackageMetadata>(&package_metadata_bytes)?;
       let has_version = package_metadata.versions.contains_key(&version);
-      (true, Some(package_metadata.latest), has_version)
+      (true, package_metadata.latest, has_version)
     } else {
       (false, None, false)
     };
@@ -4799,7 +4799,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
   #[tokio::test]
   async fn package_version_visibility() {
-    let t = TestSetup::new().await;
+    let mut t = TestSetup::new().await;
 
     let mut resp = t
       .http()
