@@ -309,7 +309,9 @@ async fn create_publishing_task_auto_fails_stranded_processing() {
     .await
     .unwrap();
   let CreatePublishingTaskResult::Created((new_task, _)) = res else {
-    panic!("stranded processing task should be auto-failed and new task created")
+    panic!(
+      "stranded processing task should be auto-failed and new task created"
+    )
   };
   assert_ne!(new_task.id, stranded_id);
   assert_eq!(new_task.status, PublishingTaskStatus::Pending);
@@ -334,7 +336,9 @@ async fn create_publishing_task_auto_fails_stranded_processing() {
     .await
     .unwrap();
   let CreatePublishingTaskResult::Exists((reused, _)) = res else {
-    panic!("stranded processed task is the reaper's responsibility, not this path")
+    panic!(
+      "stranded processed task is the reaper's responsibility, not this path"
+    )
   };
   assert_eq!(reused.id, processed_id);
   assert_eq!(reused.status, PublishingTaskStatus::Processed);
