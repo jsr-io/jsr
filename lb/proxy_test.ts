@@ -295,10 +295,37 @@ Deno.test("proxyToBackend caches anonymous GET with URL-only key", async () => {
 
     assertEquals(response.status, 200);
     assertEquals(cache.putCalls.length, 1);
-    // Cache key should be the backend URL, not include client headers
-    assertEquals(cache.putCalls[0], `${BACKEND_URL}/api/packages`);
+    // Cache key is the PUBLIC URL, not the backend URL — otherwise CDN purges
+    // (which target public URLs) could never evict it. See proxyToBackend.
+    assertEquals(cache.putCalls[0], "https://jsr.io/api/packages");
     // Vary is set on all responses so browsers re-fetch when auth changes
     assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend does not cache a 200 without a cacheable directive", async () => {
+  // A 200 with no Cache-Control must not be cached: dynamic endpoints like the
+  // publish-status poll (`util::json`, no Cache-Control) were being cached by
+  // default, pinning a stale status so `deno publish` hung until the entry
+  // expired. Only responses the origin explicitly marked cacheable are stored.
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"status":"processing"}', { status: 200 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/publishing_tasks/abc", {
+      method: "GET",
+    });
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 200);
+    assertEquals(cache.putCalls.length, 0);
   } finally {
     restore();
     (globalThis as any).caches = { default: undefined };
