@@ -295,10 +295,73 @@ Deno.test("proxyToBackend caches anonymous GET with URL-only key", async () => {
 
     assertEquals(response.status, 200);
     assertEquals(cache.putCalls.length, 1);
-    // Cache key should be the backend URL, not include client headers
-    assertEquals(cache.putCalls[0], `${BACKEND_URL}/api/packages`);
+    // Cache key is the PUBLIC URL, not the backend URL — otherwise CDN purges
+    // (which target public URLs) could never evict it. See proxyToBackend.
+    assertEquals(cache.putCalls[0], "https://jsr.io/api/packages");
     // Vary is set on all responses so browsers re-fetch when auth changes
     assertEquals(response.headers.get("Vary"), "Cookie, Authorization");
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend caches a path-rewritten API request under the public URL package_api_cache_urls purges", async () => {
+  // api.jsr.io serves the API without the `/api` prefix; the lb re-adds it via
+  // pathRewrite before hitting the backend. The cache key must be the PUBLIC,
+  // rewritten URL — byte-for-byte the URL the API purges on publish via
+  // `package_api_cache_urls` (its api.jsr.io form is
+  // `https://api.jsr.io/api/scopes/<scope>/packages/<pkg>`). If the two diverge,
+  // publish purges silently miss and package metadata freezes (#1453). Uses the
+  // same std/fs example as that fn's Rust test so both ends stay pinned.
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"latestVersion":"1.0.0"}', {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=2592000" },
+    }),
+  );
+
+  try {
+    // Inbound to api.jsr.io carries no `/api` prefix; the lb adds it.
+    const request = new Request("https://api.jsr.io/scopes/std/packages/fs", {
+      method: "GET",
+    });
+    await proxyToBackend(request, BACKEND_URL, (path) => `/api${path}`);
+
+    assertEquals(cache.putCalls.length, 1);
+    assertEquals(
+      cache.putCalls[0],
+      "https://api.jsr.io/api/scopes/std/packages/fs",
+    );
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToBackend does not cache a 200 without a cacheable directive", async () => {
+  // A 200 with no Cache-Control must not be cached: dynamic endpoints like the
+  // publish-status poll (`util::json`, no Cache-Control) were being cached by
+  // default, pinning a stale status so `deno publish` hung until the entry
+  // expired. Only responses the origin explicitly marked cacheable are stored.
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"status":"processing"}', { status: 200 }),
+  );
+
+  try {
+    const request = new Request("https://jsr.io/api/publishing_tasks/abc", {
+      method: "GET",
+    });
+    const response = await proxyToBackend(request, BACKEND_URL);
+
+    assertEquals(response.status, 200);
+    assertEquals(cache.putCalls.length, 0);
   } finally {
     restore();
     (globalThis as any).caches = { default: undefined };
