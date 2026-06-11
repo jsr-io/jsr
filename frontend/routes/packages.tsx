@@ -116,15 +116,6 @@ export const handler = define.handlers({
           limit,
         ));
       }
-
-      if (search && packages.length === 0) {
-        ({ packages, total } = await searchApiPackages(
-          ctx,
-          search,
-          page,
-          limit,
-        ));
-      }
     } else {
       ({ packages, total } = await searchApiPackages(ctx, search, page, limit));
     }
