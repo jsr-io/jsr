@@ -632,6 +632,19 @@ pub struct ApiPackageVersion {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiPackageVersionVisibility {
+  pub task: Option<ApiPublishingTaskStatus>,
+  pub db_version: bool,
+  pub version_metadata: bool,
+  pub package_metadata: bool,
+  pub package_metadata_latest: Option<Version>,
+  pub package_metadata_has_version: bool,
+  pub npm_manifest: bool,
+  pub npm_manifest_has_version: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiPackageVersionDocs {
