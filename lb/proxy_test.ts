@@ -306,6 +306,42 @@ Deno.test("proxyToBackend caches anonymous GET with URL-only key", async () => {
   }
 });
 
+Deno.test("proxyToBackend caches a path-rewritten API request under the public URL package_api_cache_urls purges", async () => {
+  // api.jsr.io serves the API without the `/api` prefix; the lb re-adds it via
+  // pathRewrite before hitting the backend. The cache key must be the PUBLIC,
+  // rewritten URL — byte-for-byte the URL the API purges on publish via
+  // `package_api_cache_urls` (its api.jsr.io form is
+  // `https://api.jsr.io/api/scopes/<scope>/packages/<pkg>`). If the two diverge,
+  // publish purges silently miss and package metadata freezes (#1453). Uses the
+  // same std/fs example as that fn's Rust test so both ends stay pinned.
+  const cache = createFakeCache();
+  (globalThis as any).caches = { default: cache };
+
+  const restore = setupFetchStub(
+    new Response('{"latestVersion":"1.0.0"}', {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=2592000" },
+    }),
+  );
+
+  try {
+    // Inbound to api.jsr.io carries no `/api` prefix; the lb adds it.
+    const request = new Request("https://api.jsr.io/scopes/std/packages/fs", {
+      method: "GET",
+    });
+    await proxyToBackend(request, BACKEND_URL, (path) => `/api${path}`);
+
+    assertEquals(cache.putCalls.length, 1);
+    assertEquals(
+      cache.putCalls[0],
+      "https://api.jsr.io/api/scopes/std/packages/fs",
+    );
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
 Deno.test("proxyToBackend does not cache a 200 without a cacheable directive", async () => {
   // A 200 with no Cache-Control must not be cached: dynamic endpoints like the
   // publish-status poll (`util::json`, no Cache-Control) were being cached by
