@@ -48,7 +48,7 @@ while (true) {
 
 const entries = packages
   .filter((entry) =>
-    entry.versionCount > 0 || !entry.isArchived ||
+    entry.versionCount > 0 && !entry.isArchived &&
     !entry.description.startsWith("INTERNAL")
   )
   .map((entry) => ({

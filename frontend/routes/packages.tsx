@@ -84,11 +84,24 @@ export const handler = define.handlers({
         // deno-lint-ignore no-explicit-any
         .map((hit) => hit.document).filter((document) => document) as any ?? [];
       total = res?.count ?? 0;
+
+      if (total === 0 && search !== "") {
+        const fallback = await getPackagesFromApiFallback(
+          ctx,
+          search,
+          page,
+          limit,
+        );
+        if (fallback !== null) {
+          packages = fallback.packages;
+          total = fallback.total;
+        }
+      }
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(
         path`/packages`,
         {
-          search,
+          query: search,
           page,
           limit,
         },
@@ -115,3 +128,56 @@ export const handler = define.handlers({
     };
   },
 });
+
+async function getPackagesFromApiFallback(
+  ctx: Parameters<typeof handler.GET>[0],
+  search: string,
+  page: number,
+  limit: number,
+): Promise<{ packages: Package[]; total: number } | null> {
+  const { query, where } = processFilter(search);
+
+  if (
+    where && Object.keys(where).length === 1 && typeof where.scope === "string"
+  ) {
+    const packagesResp = await ctx.state.api.get<List<Package>>(
+      path`/scopes/${where.scope}/packages`,
+      { limit: 100 },
+    );
+    assertOk(packagesResp);
+
+    const packages = packagesResp.data.items.filter(isSearchablePackage);
+    return paginatePackages(packages, page, limit);
+  }
+
+  if (where) return null;
+
+  const packagesResp = await ctx.state.api.get<List<Package>>(
+    path`/packages`,
+    {
+      query,
+      limit: 100,
+    },
+  );
+  assertOk(packagesResp);
+
+  const packages = packagesResp.data.items.filter(isSearchablePackage);
+  return paginatePackages(packages, page, limit);
+}
+
+function isSearchablePackage(pkg: Package): boolean {
+  return pkg.versionCount > 0 && !pkg.isArchived &&
+    !pkg.description.startsWith("INTERNAL");
+}
+
+function paginatePackages(
+  packages: Package[],
+  page: number,
+  limit: number,
+): { packages: Package[]; total: number } {
+  const offset = (page - 1) * limit;
+  return {
+    packages: packages.slice(offset, offset + limit),
+    total: packages.length,
+  };
+}
