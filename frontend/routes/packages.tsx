@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import { define } from "../util.ts";
+import { define, type State } from "../util.ts";
 import { OramaCloud } from "@orama/core";
 import type { List, Package } from "../utils/api_types.ts";
 import { assertOk, path } from "../utils/api.ts";
@@ -50,6 +50,28 @@ export default define.page<typeof handler>(function PackageListPage({
 const projectId = process.env.ORAMA_PACKAGES_PROJECT_ID;
 const apiKey = process.env.ORAMA_PACKAGES_PUBLIC_API_KEY;
 
+async function searchApiPackages(
+  ctx: { state: Pick<State, "api"> },
+  search: string,
+  page: number,
+  limit: number,
+): Promise<{ packages: Package[]; total: number }> {
+  const packagesResp = await ctx.state.api.get<List<Package>>(
+    path`/packages`,
+    {
+      search,
+      page,
+      limit,
+    },
+  );
+  assertOk(packagesResp);
+
+  return {
+    packages: packagesResp.data.items,
+    total: packagesResp.data.total,
+  };
+}
+
 export const handler = define.handlers({
   async GET(ctx) {
     const search = ctx.url.searchParams.get("search") || "";
@@ -65,38 +87,46 @@ export const handler = define.handlers({
       });
 
       const { query, where } = processFilter(search);
+      try {
+        const res = await orama.search({
+          term: query,
+          where,
+          limit,
+          offset: (page - 1) * limit,
+          mode: "fulltext",
+          boost: {
+            id: 3,
+            scope: 2,
+            name: 1,
+            description: 0.5,
+          },
+        });
 
-      const res = await orama.search({
-        term: query,
-        where,
-        limit,
-        offset: (page - 1) * limit,
-        mode: "fulltext",
-        boost: {
-          id: 3,
-          scope: 2,
-          name: 1,
-          description: 0.5,
-        },
-      });
-
-      packages = res?.hits
-        // deno-lint-ignore no-explicit-any
-        .map((hit) => hit.document).filter((document) => document) as any ?? [];
-      total = res?.count ?? 0;
-    } else {
-      const packagesResp = await ctx.state.api.get<List<Package>>(
-        path`/packages`,
-        {
+        packages = res?.hits
+          // deno-lint-ignore no-explicit-any
+          .map((hit) => hit.document).filter((document) => document) as any ??
+          [];
+        total = res?.count ?? 0;
+      } catch (err) {
+        console.error("Orama package search failed", err);
+        ({ packages, total } = await searchApiPackages(
+          ctx,
           search,
           page,
           limit,
-        },
-      );
-      assertOk(packagesResp);
+        ));
+      }
 
-      packages = packagesResp.data.items;
-      total = packagesResp.data.total;
+      if (search && packages.length === 0) {
+        ({ packages, total } = await searchApiPackages(
+          ctx,
+          search,
+          page,
+          limit,
+        ));
+      }
+    } else {
+      ({ packages, total } = await searchApiPackages(ctx, search, page, limit));
     }
 
     ctx.state.meta = {
