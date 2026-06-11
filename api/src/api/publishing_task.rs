@@ -19,7 +19,10 @@ pub fn publishing_task_router() -> Router<Body, ApiError> {
   Router::builder()
     // Never cache: `deno publish` polls this for live status, and a cached
     // non-terminal status would make it hang until the entry expired.
-    .get("/:publishing_task_id", util::no_store(util::json(get_handler)))
+    .get(
+      "/:publishing_task_id",
+      util::no_store(util::json(get_handler)),
+    )
     .build()
     .unwrap()
 }
