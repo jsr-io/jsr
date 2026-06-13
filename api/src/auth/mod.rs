@@ -78,6 +78,8 @@ pub async fn login_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     csrf_token: csrf_token.secret(),
     pkce_code_verifier: pkce_code_verifier.secret(),
     redirect_url: &redirect_url,
+    // The login flow has no authenticated user yet.
+    user_id: None,
   };
   db.insert_oauth_state(new_oauth_state).await?;
 
@@ -201,6 +203,12 @@ pub async fn logout_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 pub async fn connect_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let service = service_param(&req)?;
 
+  // Bind the oauth_state to the user that initiated the link, so the callback
+  // can reject a forged request that tries to link an identity to a different
+  // (victim) account.
+  let iam = req.iam();
+  let user = iam.check_current_user_access()?;
+
   let (pkce_code_challenge, pkce_code_verifier) =
     oauth2::PkceCodeChallenge::new_random_sha256();
 
@@ -253,6 +261,7 @@ pub async fn connect_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     csrf_token: csrf_token.secret(),
     pkce_code_verifier: pkce_code_verifier.secret(),
     redirect_url: &redirect_url,
+    user_id: Some(user.id),
   };
   db.insert_oauth_state(new_oauth_state).await?;
 
@@ -297,6 +306,14 @@ pub async fn connect_callback_handler(
     .get_oauth_state(state)
     .await?
     .ok_or(ApiError::InvalidOauthState)?;
+
+  // The state must have been initiated by this same user via `connect_handler`.
+  // This prevents an OAuth CSRF where a victim is lured to the callback URL and
+  // ends up linking the attacker's identity to their account. A `None` user_id
+  // means the state came from the login flow, which must not be usable here.
+  if oauth_state.user_id != Some(user.id) {
+    return Err(ApiError::InvalidOauthState);
+  }
 
   match service {
     OauthService::GitHub => {

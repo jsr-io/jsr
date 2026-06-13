@@ -566,11 +566,13 @@ async fn oauth_state() {
     csrf_token: "a",
     pkce_code_verifier: "b",
     redirect_url: "c",
+    user_id: None,
   };
   let oauth_state = db.insert_oauth_state(new_oauth_state).await.unwrap();
   assert_eq!(oauth_state.csrf_token, "a");
   assert_eq!(oauth_state.pkce_code_verifier, "b");
   assert_eq!(oauth_state.redirect_url, "c");
+  assert_eq!(oauth_state.user_id, None);
 
   let oauth_state2 = db
     .get_oauth_state(&oauth_state.csrf_token)
@@ -580,6 +582,25 @@ async fn oauth_state() {
   assert_eq!(oauth_state2.csrf_token, "a");
   assert_eq!(oauth_state2.pkce_code_verifier, "b");
   assert_eq!(oauth_state2.redirect_url, "c");
+
+  // A state from the "connect" (account-linking) flow is bound to the user that
+  // initiated it; the binding must round-trip so the callback can enforce it.
+  let user_id: uuid::Uuid =
+    "00000000-0000-0000-0000-000000000000".try_into().unwrap();
+  let bound = db
+    .insert_oauth_state(NewOauthState {
+      csrf_token: "d",
+      pkce_code_verifier: "e",
+      redirect_url: "f",
+      user_id: Some(user_id),
+    })
+    .await
+    .unwrap();
+  assert_eq!(bound.user_id, Some(user_id));
+  assert_eq!(
+    db.get_oauth_state("d").await.unwrap().unwrap().user_id,
+    Some(user_id)
+  );
 
   let oauth_state3 = db
     .delete_oauth_state(&oauth_state.csrf_token)
