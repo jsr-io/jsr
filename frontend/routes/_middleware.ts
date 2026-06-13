@@ -98,4 +98,38 @@ const cache = define.middleware(async (ctx) => {
   return resp;
 });
 
-export const handler: Middleware<State>[] = [tracing, auth, cache];
+// Content-Security-Policy applied to interactive (HTML) responses.
+//
+// Package documentation embeds HTML rendered from package-controlled symbol
+// names. deno_doc does not escape every name, so a malicious package can inject
+// markup such as `<img src=x onerror=...>` that is rendered same-origin on
+// jsr.io. `script-src-attr 'none'` blocks all inline event-handler attributes
+// (onerror/onclick/...), which is the execution vector for that payload. This
+// is the right tool for a Preact/Fresh app: event handlers are attached from
+// JS via addEventListener, never as inline HTML attributes, and legitimate
+// inline <script> elements (dark-mode bootstrap, island hydration) are governed
+// by script-src, not script-src-attr, so they keep working.
+const CSP = [
+  "script-src-attr 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+].join("; ");
+
+const securityHeaders = define.middleware(async (ctx) => {
+  const resp = await ctx.next();
+  const contentType = resp.headers.get("content-type") ?? "";
+  if (contentType.includes("text/html")) {
+    resp.headers.set("content-security-policy", CSP);
+    resp.headers.set("x-content-type-options", "nosniff");
+    resp.headers.set("x-frame-options", "SAMEORIGIN");
+  }
+  return resp;
+});
+
+export const handler: Middleware<State>[] = [
+  tracing,
+  auth,
+  cache,
+  securityHeaders,
+];
