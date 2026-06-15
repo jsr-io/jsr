@@ -3710,6 +3710,7 @@ dependencies = [
  "regex",
  "registry_api_macros",
  "reqwest 0.11.27",
+ "ring 0.17.8",
  "rmp-serde",
  "routerify",
  "routerify-query",

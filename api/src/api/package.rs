@@ -1066,19 +1066,23 @@ pub async fn version_provenance_statements_handler(
   let iam = req.iam();
   iam.check_publish_access(&scope, &package, &version).await?;
 
+  // The signing certificate's identity must match the repository linked to the
+  // package, if any.
+  let (db_package, github_repository, meta) =
+    db.get_package(&scope, &package).await?.ok_or_else(|| {
+      error!("package not found when inserting provenance statement");
+      ApiError::InternalServerError
+    })?;
+  let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
+
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
-  let rekor_log_id = provenance::verify(name, body.bundle)?;
+  let rekor_log_id = provenance::verify(name, expected_repo, body.bundle)?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
 
   if let Some(orama_client) = orama_client {
-    let (package, _, meta) =
-      db.get_package(&scope, &package).await?.ok_or_else(|| {
-        error!("package not found after inserting provenance statement");
-        ApiError::InternalServerError
-      })?;
-    orama_client.upsert_package(&package, &meta);
+    orama_client.upsert_package(&db_package, &meta);
   }
 
   Ok(
@@ -3247,7 +3251,12 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       },
     };
 
-    // Valid subject.
+    // Security regression test (gist forgery): the certificate above is a real
+    // GitHub Actions Fulcio certificate, so it chains to Fulcio and has a valid
+    // GitHub Actions identity — but the DSSE envelope is signed with a bogus
+    // signature ("sig") that the attacker fabricated. This used to be accepted
+    // (provenance verification skipped the DSSE signature entirely); it must now
+    // be rejected, and the package must not gain a provenance badge.
     update_bundle_subject(
       &mut bundle,
       Subject {
@@ -3264,7 +3273,9 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .call()
       .await
       .unwrap();
-    resp.expect_ok_no_content().await;
+    resp
+      .expect_err_code(StatusCode::INTERNAL_SERVER_ERROR, "internalServerError")
+      .await;
 
     let mut resp = t
       .http()
@@ -3273,7 +3284,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let score: ApiPackageScore = resp.expect_ok().await;
-    assert!(score.has_provenance);
+    assert!(!score.has_provenance);
 
     // Invalid subject.
     update_bundle_subject(
