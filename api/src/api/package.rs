@@ -2362,6 +2362,8 @@ async fn analyze_deps_tree(
         unstable_bytes_imports: false,
         unstable_text_imports: false,
         jsr_metadata_store: None,
+
+        unstable_css_imports: false,
       },
     )
     .await;

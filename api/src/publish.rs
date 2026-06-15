@@ -1365,7 +1365,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:27\n\n  const invalidTypeScript = ;\n                            ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidTypeScript = ;\n  |                           ~\n    at file:///mod.ts:1:27"
     );
   }
 
@@ -1379,7 +1379,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:2\n\n  +\n   ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | +\n  |  ~\n    at file:///mod.ts:1:2"
     );
   }
 
@@ -1401,7 +1401,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///other.js:1:27\n\n  const invalidJavaScript = ;\n                            ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidJavaScript = ;\n  |                           ~\n    at file:///other.js:1:27"
     );
   }
 
@@ -1415,7 +1415,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~"
+      "failed to build module graph: SyntaxError: Unexpected character '�'\n  |\n2 | ��\n  | ~\n    at file:///mod.ts:2:1"
     );
   }
 
