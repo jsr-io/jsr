@@ -97,8 +97,7 @@ pub const TOKEN_SELECT: &str = r#"id, hash, user_id, type "type: _", description
 
 pub const PUBLISHING_TASK_SELECT: &str = r#"id, status as "status: PublishingTaskStatus", error as "error: PublishingTaskError", user_id, package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", config_file as "config_file: PackagePath", created_at, updated_at"#;
 
-pub const OAUTH_STATE_SELECT: &str =
-  "csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at";
+pub const OAUTH_STATE_SELECT: &str = "csrf_token, pkce_code_verifier, redirect_url, user_id, updated_at, created_at";
 
 pub const AUTHORIZATION_SELECT: &str = r#"exchange_token, code, challenge, permissions "permissions: _", approved, user_id, expires_at, created_at, updated_at"#;
 

@@ -606,6 +606,10 @@ pub struct OauthState {
   pub csrf_token: String,
   pub pkce_code_verifier: String,
   pub redirect_url: String,
+  /// The user that initiated this flow, if any. `None` for the login flow (no
+  /// authenticated user yet); `Some` for the account-linking ("connect") flow,
+  /// where the callback must match the authenticated user.
+  pub user_id: Option<Uuid>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -615,6 +619,7 @@ pub struct NewOauthState<'a> {
   pub csrf_token: &'a str,
   pub pkce_code_verifier: &'a str,
   pub redirect_url: &'a str,
+  pub user_id: Option<Uuid>,
 }
 
 #[derive(Debug)]

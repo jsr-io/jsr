@@ -3318,12 +3318,13 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<OauthState> {
     query_concat_as!(
       OauthState,
-      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url)
-      VALUES ($1, $2, $3)
+      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url, user_id)
+      VALUES ($1, $2, $3, $4)
       RETURNING ", OAUTH_STATE_SELECT;
       new_oauth_state.csrf_token,
       new_oauth_state.pkce_code_verifier,
       new_oauth_state.redirect_url,
+      new_oauth_state.user_id,
     )
     .fetch_one(&self.pool)
     .await
