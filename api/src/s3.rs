@@ -31,11 +31,14 @@ pub const CACHE_CONTROL_IMMUTABLE: &str = "public, max-age=31536000, immutable";
 /// re-fetches the regenerated `meta.json`; if the explicit purge call fails,
 /// `s-maxage` is the longest a just-published version can stay invisible to
 /// the resolver while the version page and immutable `_meta.json` already
-/// exist. `stale-while-revalidate` then lets the edge keep serving instantly
-/// while it refreshes in the background, so a short `s-maxage` does not add
-/// latency to resolver requests. `max-age` caps client-side staleness.
-pub const CACHE_CONTROL_MANIFEST: &str =
-  "public, max-age=60, s-maxage=60, stale-while-revalidate=86400";
+/// exist. We deliberately omit `stale-while-revalidate`: the lb serves a
+/// cached entry on a hit without re-fetching it (see `proxyToR2`), so SWR
+/// would only let the edge keep serving the *stale* manifest without ever
+/// producing fresh content until the entry fully expires — pure added
+/// staleness with no upside. Without it, a request past `s-maxage` is an
+/// unambiguous miss that forces an R2 re-fetch, capping resolver staleness at
+/// `s-maxage`. `max-age` caps client-side staleness.
+pub const CACHE_CONTROL_MANIFEST: &str = "public, max-age=60, s-maxage=60";
 
 const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
