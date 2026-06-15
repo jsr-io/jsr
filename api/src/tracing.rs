@@ -259,6 +259,14 @@ where
     event: &tracing::Event<'_>,
     cx: &Context<'_, S>,
   ) -> bool {
+    // Always export problem logs regardless of sampling: these are the lines
+    // you want during an incident, and head sampling cannot keep error traces
+    // (the decision is made before the request runs). Keeping the log even when
+    // its trace was dropped means the message, fields, and trace_id survive
+    // even if the spans don't.
+    if event.metadata().level() <= &tracing::Level::WARN {
+      return true;
+    }
     match event_trace_id(event, cx) {
       // In a trace: keep the log iff the trace's `TraceIdRatioBased` decision
       // sampled it in. The decision is a pure function of the trace id, so
