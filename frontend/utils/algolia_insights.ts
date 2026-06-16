@@ -1,28 +1,59 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import aa from "search-insights";
 
+// Algolia Insights is called directly over its REST API (no SDK) so nothing
+// Node-specific ends up in the Cloudflare Worker bundle. All calls are
+// best-effort and only run in the browser.
+const INSIGHTS_ENDPOINT = "https://insights.algolia.io/1/events";
+
+// Anonymous, stable-per-browser id tying a click to a later conversion.
+const USER_TOKEN_KEY = "algolia:userToken";
 // A search result click is remembered here so that a later page view on the
-// same object (typically the package page) can be attributed back to the query
-// as a conversion.
+// same object (typically the package page) can be attributed as a conversion.
 const PENDING_CONVERSION_KEY = "algolia:pendingConversion";
 // Only attribute a conversion if it happens within this window of the click.
 const PENDING_CONVERSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-let initialized = false;
+let appId: string | undefined;
+let apiKey: string | undefined;
 
-/** Initialize search-insights once. Returns whether insights is usable. */
-export function initInsights(appId: string, apiKey: string): boolean {
-  if (initialized) return true;
+/** Store the credentials used to send events. Returns whether insights is
+ * usable. */
+export function initInsights(id: string, key: string): boolean {
+  appId = id;
+  apiKey = key;
+  return true;
+}
+
+function userToken(): string {
   try {
-    // `useCookie` persists an anonymous user token so a click and a later
-    // conversion on another page share the same token (required for
-    // attribution). The token is a random id, not personal data.
-    aa("init", { appId, apiKey, useCookie: true });
-    initialized = true;
+    let token = localStorage.getItem(USER_TOKEN_KEY);
+    if (!token) {
+      token = crypto.randomUUID();
+      localStorage.setItem(USER_TOKEN_KEY, token);
+    }
+    return token;
   } catch {
-    // search-insights unavailable or blocked; analytics is best-effort.
+    return "anonymous";
   }
-  return initialized;
+}
+
+function sendEvents(events: Record<string, unknown>[]): void {
+  if (!appId || !apiKey) return;
+  try {
+    // keepalive lets the request outlive the navigation a click triggers.
+    void fetch(INSIGHTS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Algolia-Application-Id": appId,
+        "X-Algolia-API-Key": apiKey,
+      },
+      body: JSON.stringify({ events }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // best-effort
+  }
 }
 
 interface PendingConversion {
@@ -47,14 +78,16 @@ export function trackResultClick(
   },
 ) {
   if (!queryID || !objectID) return;
+  sendEvents([{
+    eventType: "click",
+    eventName,
+    index,
+    userToken: userToken(),
+    queryID,
+    objectIDs: [objectID],
+    positions: [position],
+  }]);
   try {
-    aa("clickedObjectIDsAfterSearch", {
-      eventName,
-      index,
-      queryID,
-      objectIDs: [objectID],
-      positions: [position],
-    });
     const pending: PendingConversion = {
       index,
       queryID,
@@ -86,14 +119,12 @@ export function trackConversionFor(
   if (pending.objectID !== objectID) return;
   sessionStorage.removeItem(PENDING_CONVERSION_KEY);
   if (Date.now() - pending.ts > PENDING_CONVERSION_TTL_MS) return;
-  try {
-    aa("convertedObjectIDsAfterSearch", {
-      eventName,
-      index: pending.index,
-      queryID: pending.queryID,
-      objectIDs: [objectID],
-    });
-  } catch {
-    // ignore
-  }
+  sendEvents([{
+    eventType: "conversion",
+    eventName,
+    index: pending.index,
+    userToken: userToken(),
+    queryID: pending.queryID,
+    objectIDs: [objectID],
+  }]);
 }
