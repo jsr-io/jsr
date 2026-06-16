@@ -94,6 +94,7 @@
     "npm:prismjs@^1.29.0": "1.30.0",
     "npm:rollup@^4.55.1": "4.60.0",
     "npm:sanitize-html@^2.13.0": "2.17.0",
+    "npm:search-insights@2": "2.17.3",
     "npm:tailwindcss@3.4.3": "3.4.3_postcss@8.5.6",
     "npm:tailwindcss@4.2": "4.2.2",
     "npm:twas@^2.1.3": "2.1.3",
@@ -2796,6 +2797,9 @@
         "yoga-wasm-web"
       ]
     },
+    "search-insights@2.17.3": {
+      "integrity": "sha512-RQPdCYTa8A68uM2jwxoY842xDhvx3E5LFL1LxvxCNMev4o5mLuokczhzjAgGwUZBAmOKZknArSxLKmXtIi2AxQ=="
+    },
     "semver@6.3.1": {
       "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",
       "bin": true
@@ -3204,6 +3208,7 @@
       "npm:preact-render-to-string@6.7.0",
       "npm:preact@^10.29.1",
       "npm:prismjs@^1.29.0",
+      "npm:search-insights@2",
       "npm:tailwindcss@4.2",
       "npm:twas@^2.1.3",
       "npm:vite@^7.1.4",
