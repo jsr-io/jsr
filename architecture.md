@@ -275,9 +275,10 @@ with a search-only API key directly from the browser for instant results.
 
 The indices, their settings (searchable attributes, faceting, ranking), and the
 scoped API keys (one write key for the API, search-only keys for the frontend)
-are provisioned declaratively via the Algolia Terraform provider (`terraform/
-algolia.tf`). The reindex tools only push documents and inherit those settings
-through the atomic index swap.
+are provisioned declaratively via the Algolia Terraform provider
+(`terraform/
+algolia.tf`). The reindex tools only push documents and inherit
+those settings through the atomic index swap.
 
 ## Infrastructure
 
@@ -316,18 +317,18 @@ Local hostnames (`jsr.test`, `api.jsr.test`, `npm.jsr.test`) are configured in
 
 ## Tools (`tools/`)
 
-| Script                       | Purpose                                                        |
-| ---------------------------- | -------------------------------------------------------------- |
-| `dev.ts`                     | Multi-process development orchestrator                         |
-| `prod_proxy.ts`              | Proxy for frontend-only development against the production API |
-| `algolia_packages_reindex.ts` | Reindex packages in Algolia                                   |
-| `algolia_symbols_reindex.ts`  | Reindex symbols in Algolia                                    |
-| `algolia_docs_reindex.ts`     | Reindex documentation in Algolia                              |
-| `generate_global_symbols.ts` | Generate Deno global type definitions                          |
-| `generate_web_symbols.ts`    | Generate web API type definitions                              |
-| `clone_dependency.ts`        | Clone dependencies for offline development                     |
-| `migrate_package_meta.ts`    | Database migration utilities                                   |
-| `db-switch.ts`               | Per-branch database management (copy, create empty, clean up)  |
+| Script                        | Purpose                                                        |
+| ----------------------------- | -------------------------------------------------------------- |
+| `dev.ts`                      | Multi-process development orchestrator                         |
+| `prod_proxy.ts`               | Proxy for frontend-only development against the production API |
+| `algolia_packages_reindex.ts` | Reindex packages in Algolia                                    |
+| `algolia_symbols_reindex.ts`  | Reindex symbols in Algolia                                     |
+| `algolia_docs_reindex.ts`     | Reindex documentation in Algolia                               |
+| `generate_global_symbols.ts`  | Generate Deno global type definitions                          |
+| `generate_web_symbols.ts`     | Generate web API type definitions                              |
+| `clone_dependency.ts`         | Clone dependencies for offline development                     |
+| `migrate_package_meta.ts`     | Database migration utilities                                   |
+| `db-switch.ts`                | Per-branch database management (copy, create empty, clean up)  |
 
 ## E2E Tests (`e2e/`)
 
