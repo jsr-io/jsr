@@ -58,7 +58,6 @@
     "npm:@babel/core@^7.28.0": "7.29.0",
     "npm:@babel/preset-react@^7.27.1": "7.28.5_@babel+core@7.29.0",
     "npm:@opentelemetry/api@^1.9.0": "1.9.1",
-    "npm:@orama/core@^1.2.17": "1.2.17",
     "npm:@orama/highlight@~0.1.8": "0.1.9",
     "npm:@orama/orama@2": "2.1.1",
     "npm:@preact/signals@^2.5.1": "2.9.0_preact@10.29.1",
@@ -70,6 +69,7 @@
     "npm:@types/babel__core@7": "7.20.5",
     "npm:@types/babel__core@^7.20.5": "7.20.5",
     "npm:@viz-js/viz@^3.11.0": "3.24.0",
+    "npm:algoliasearch@5": "5.50.1",
     "npm:apexcharts@^4.5.0": "4.7.0_@svgdotjs+svg.js@3.2.5_@svgdotjs+svg.select.js@4.0.3__@svgdotjs+svg.js@3.2.5",
     "npm:browserslist@4.23.0": "4.23.0",
     "npm:esbuild-wasm@~0.25.11": "0.25.12",
@@ -342,6 +342,117 @@
     }
   },
   "npm": {
+    "@algolia/abtesting@1.16.1": {
+      "integrity": "sha512-Xxk4l00pYI+jE0PNw8y0MvsQWh5278WRtZQav8/BMMi3HKi2xmeuqe11WJ3y8/6nuBHdv39w76OpJb09TMfAVQ==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/client-abtesting@5.50.1": {
+      "integrity": "sha512-4peZlPXMwTOey9q1rQKMdCnwZb/E95/1e+7KujXpLLSh0FawJzg//U2NM+r4AiJy4+naT2MTBhj0K30yshnVTA==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/client-analytics@5.50.1": {
+      "integrity": "sha512-i+aWHHG8NZvGFHtPeMZkxL2Loc6Fm7iaRo15lYSMx8gFL+at9vgdWxhka7mD1fqxkrxXsQstUBCIsSY8FvkEOw==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/client-common@5.50.1": {
+      "integrity": "sha512-Hw52Fwapyk/7hMSV/fI4+s3H9MGZEUcRh4VphyXLAk2oLYdndVUkc6KBi0zwHSzwPAr+ZBwFPe2x6naUt9mZGw=="
+    },
+    "@algolia/client-insights@5.50.1": {
+      "integrity": "sha512-Bn/wtwhJ7p1OD/6pY+Zzn+zlu2N/SJnH46md/PAbvqIzmjVuwjNwD4y0vV5Ov8naeukXdd7UU9v550+v8+mtlg==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/client-personalization@5.50.1": {
+      "integrity": "sha512-0V4Tu0RWR8YxkgI9EPVOZHGE4K5pEIhkLNN0CTkP/rnPsqaaSQpNMYW3/mGWdiKOWbX0iVmwLB9QESk3H0jS5g==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/client-query-suggestions@5.50.1": {
+      "integrity": "sha512-jofcWNYMXJDDr87Z2eivlWY6o71Zn7F7aOvQCXSDAo9QTlyf7BhXEsZymLUvF0O1yU9Q9wvrjAWn8uVHYnAvgw==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/client-search@5.50.1": {
+      "integrity": "sha512-OteRb8WubcmEvU0YlMJwCXs3Q6xrdkb0v50/qZBJP1TF0CvujFZQM++9BjEkTER/Jr9wbPHvjSFKnbMta0b4dQ==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/ingestion@1.50.1": {
+      "integrity": "sha512-0GmfSgDQK6oiIVXnJvGxtNFOfosBspRTR7csCOYCTL1P8QtxX2vDCIKwTM7xdSAEbJaZ43QlWg25q0Qdsndz8Q==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/monitoring@1.50.1": {
+      "integrity": "sha512-ySuigKEe4YjYV3si8NVk9BHQpFj/1B+ON7DhhvTvbrZJseHQQloxzq0yHwKmznSdlO6C956fx4pcfOKkZClsyg==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/recommend@5.50.1": {
+      "integrity": "sha512-Cp8T/B0gVmjFlzzp6eP47hwKh5FGyeqQp1N48/ANDdvdiQkPqLyFHQVDwLBH0LddfIPQE+yqmZIgmKc82haF4A==",
+      "dependencies": [
+        "@algolia/client-common",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
+    },
+    "@algolia/requester-browser-xhr@5.50.1": {
+      "integrity": "sha512-XKdGGLikfrlK66ZSXh/vWcXZZ8Vg3byDFbJD8pwEvN1FoBRGxhxya476IY2ohoTymLa4qB5LBRlIa+2TLHx3Uw==",
+      "dependencies": [
+        "@algolia/client-common"
+      ]
+    },
+    "@algolia/requester-fetch@5.50.1": {
+      "integrity": "sha512-mBAU6WyVsDwhHyGM+nodt1/oebHxgvuLlOAoMGbj/1i6LygDHZWDgL1t5JEs37x9Aywv7ZGhqbM1GsfZ54sU6g==",
+      "dependencies": [
+        "@algolia/client-common"
+      ]
+    },
+    "@algolia/requester-node-http@5.50.1": {
+      "integrity": "sha512-qmo1LXrNKLHvJE6mdQbLnsZAoZvj7VyF2ft4xmbSGWI2WWm87fx/CjUX4kEExt4y0a6T6nEts6ofpUfH5TEE1A==",
+      "dependencies": [
+        "@algolia/client-common"
+      ]
+    },
     "@alloc/quick-lru@5.2.0": {
       "integrity": "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="
     },
@@ -1285,9 +1396,6 @@
         "@jridgewell/sourcemap-codec"
       ]
     },
-    "@noble/hashes@1.8.0": {
-      "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
-    },
     "@nodelib/fs.scandir@2.1.5": {
       "integrity": "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==",
       "dependencies": [
@@ -1308,27 +1416,11 @@
     "@opentelemetry/api@1.9.1": {
       "integrity": "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="
     },
-    "@orama/core@1.2.17": {
-      "integrity": "sha512-gOjV1CQlD2h9XunbatH1u27g82hk+CL52puZI6158DKD9QVOKUUJ2mwQG1XRzVj7o2FKZqyZIxD1TUS6MClAfg==",
-      "dependencies": [
-        "@orama/cuid2",
-        "@orama/oramacore-events-parser"
-      ]
-    },
-    "@orama/cuid2@2.2.3": {
-      "integrity": "sha512-Lcak3chblMejdlSHgYU2lS2cdOhDpU6vkfIJH4m+YKvqQyLqs1bB8+w6NT1MG5bO12NUK2GFc34Mn2xshMIQ1g==",
-      "dependencies": [
-        "@noble/hashes"
-      ]
-    },
     "@orama/highlight@0.1.9": {
       "integrity": "sha512-eH4uZMea4R9x9vBFJyS/87oR4Y8oIKxF7e1SItJ9DhPlexZWMVZRlFYvHS1BM/563/dU240ct4ZaGHoYKiCkyQ=="
     },
     "@orama/orama@2.1.1": {
       "integrity": "sha512-euTV/2kya290SNkl5m8e/H1na8iDygk74nNtl4E0YZNyYIrEMwE1JwamoroMKGZw2Uz+in/8gH3m1+2YfP0j1w=="
-    },
-    "@orama/oramacore-events-parser@0.0.5": {
-      "integrity": "sha512-yAuSwog+HQBAXgZ60TNKEwu04y81/09mpbYBCmz1RCxnr4ObNY2JnPZI7HmALbjAhLJ8t5p+wc2JHRK93ubO4w=="
     },
     "@poppinss/colors@4.1.6": {
       "integrity": "sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg==",
@@ -1793,6 +1885,25 @@
     },
     "@yr/monotone-cubic-spline@1.0.3": {
       "integrity": "sha512-FQXkOta0XBSUPHndIKON2Y9JeQz5ZeMqLYZVVK93FliNBFm7LNMIZmY6FrMEB9XPcDbE2bekMbZD6kzDkxwYjA=="
+    },
+    "algoliasearch@5.50.1": {
+      "integrity": "sha512-/bwdue1/8LWELn/DBalGRfuLsXBLXULJo/yOeavJtDu8rBwxIzC6/Rz9Jg19S21VkJvRuZO1k8CZXBMS73mYbA==",
+      "dependencies": [
+        "@algolia/abtesting",
+        "@algolia/client-abtesting",
+        "@algolia/client-analytics",
+        "@algolia/client-common",
+        "@algolia/client-insights",
+        "@algolia/client-personalization",
+        "@algolia/client-query-suggestions",
+        "@algolia/client-search",
+        "@algolia/ingestion",
+        "@algolia/monitoring",
+        "@algolia/recommend",
+        "@algolia/requester-browser-xhr",
+        "@algolia/requester-fetch",
+        "@algolia/requester-node-http"
+      ]
     },
     "any-promise@1.3.0": {
       "integrity": "sha512-7UvmKalWRt1wgjL1RrGxoSJW/0QZFIegpeGvZG9kjp8vrRu55XTHbwnqq2GpXm9uLbcuhxm3IqX9OB4MZR1b2A=="
@@ -3080,13 +3191,13 @@
       "jsr:@std/http@1",
       "jsr:@std/path@1",
       "jsr:@std/semver@1",
-      "npm:@orama/core@^1.2.17",
       "npm:@orama/highlight@~0.1.8",
       "npm:@orama/orama@2",
       "npm:@preact/signals@^2.9.0",
       "npm:@tailwindcss/vite@^4.3.0",
       "npm:@types/babel__core@7",
       "npm:@viz-js/viz@^3.11.0",
+      "npm:algoliasearch@5",
       "npm:apexcharts@^4.5.0",
       "npm:marked-smartypants@1.1.6",
       "npm:postcss@8.4",

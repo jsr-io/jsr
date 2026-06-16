@@ -1005,7 +1005,7 @@ pub mod test {
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
-        orama_client: None,
+        algolia_client: None,
         email_sender: None,
         license_store: license_store.clone(),
         registry_url,

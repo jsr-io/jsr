@@ -2,10 +2,10 @@
 import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
-import { OramaCloud } from "@orama/core";
+import { liteClient } from "algoliasearch/lite";
 import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "fresh/runtime";
-import type { OramaPackageHit, SearchKind } from "../util.ts";
+import type { AlgoliaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
@@ -15,8 +15,9 @@ import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
 
 interface GlobalSearchProps {
   query?: string;
-  projectId?: string;
+  appId?: string;
   apiKey?: string;
+  indexName?: string;
   jumbo?: boolean;
   kind?: SearchKind;
 }
@@ -37,14 +38,15 @@ const MAX_STALE_RESULT_MS = 200;
 export function GlobalSearch(
   {
     query,
-    projectId,
+    appId,
     apiKey,
+    indexName,
     jumbo,
     kind = "packages",
   }: GlobalSearchProps,
 ) {
   const suggestions = useSignal<
-    OramaPackageHit[] | Package[] | OramaDocsHit[] | null
+    AlgoliaPackageHit[] | Package[] | AlgoliaDocsHit[] | null
   >(null);
   const searchNRef = useRef({
     started: 0,
@@ -65,14 +67,11 @@ export function GlobalSearch(
   );
   const macLike = useMacLike();
 
-  const orama = useMemo(() => {
-    if (IS_BROWSER && projectId) {
-      return new OramaCloud({
-        projectId,
-        apiKey: apiKey!,
-      });
+  const algolia = useMemo(() => {
+    if (IS_BROWSER && appId && indexName) {
+      return liteClient(appId, apiKey!);
     }
-  }, [projectId, apiKey]);
+  }, [appId, apiKey]);
 
   const randomHint = useSignal<JSX.Element | null>(null);
 
@@ -125,23 +124,19 @@ export function GlobalSearch(
 
       (async () => {
         try {
-          if (orama) {
+          if (algolia) {
             let query = value;
-            let where: undefined | Record<string, boolean | string> = undefined;
-            if (kind === "packages") ({ where, query } = processFilter(value));
-            const res = await orama.search({
-              term: query,
-              where,
-              limit: 5,
-              mode: "fulltext",
-              boost: kind === "packages"
-                ? {
-                  id: 3,
-                  scope: 2,
-                  name: 1,
-                  description: 0.5,
-                }
-                : {},
+            let filters: string | undefined = undefined;
+            if (kind === "packages") {
+              ({ filters, query } = processFilter(value));
+            }
+            const { results } = await algolia.search({
+              requests: [{
+                indexName: indexName!,
+                query,
+                filters,
+                hitsPerPage: 5,
+              }],
             });
             if (
               abort.current?.signal.aborted ||
@@ -153,8 +148,7 @@ export function GlobalSearch(
             batch(() => {
               selectionIdx.value = -1;
               // deno-lint-ignore no-explicit-any
-              suggestions.value = res?.hits.map((hit) => hit.document) as any ??
-                [];
+              suggestions.value = (results[0] as any)?.hits ?? [];
             });
           } else if (kind === "packages") {
             const res = await api.get<List<Package>>(path`/packages`, {
@@ -237,16 +231,16 @@ export function GlobalSearch(
 
         if (kind === "packages") {
           location.href = new URL(
-            `/@${(item as (OramaPackageHit | Package)).scope}/${
-              (item as (OramaPackageHit | Package)).name
+            `/@${(item as (AlgoliaPackageHit | Package)).scope}/${
+              (item as (AlgoliaPackageHit | Package)).name
             }`,
             location.origin,
           ).href;
         } else {
           location.href = new URL(
-            `/docs/${(item as OramaDocsHit).path}${
-              (item as OramaDocsHit).slug
-                ? `#${(item as OramaDocsHit).slug}`
+            `/docs/${(item as AlgoliaDocsHit).path}${
+              (item as AlgoliaDocsHit).slug
+                ? `#${(item as AlgoliaDocsHit).slug}`
                 : ""
             }`,
             location.origin,
@@ -379,7 +373,7 @@ function SuggestionList(
     randomHint,
   }: Readonly<{
     suggestions: Signal<
-      (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
+      (AlgoliaPackageHit[] | Package[]) | AlgoliaDocsHit[] | null
     >;
     showSuggestions: Signal<boolean>;
     selectionIdx: Signal<number>;
@@ -409,8 +403,8 @@ function SuggestionList(
             {suggestions.value.map((rawHit, i) => {
               const selected = computed(() => selectionIdx.value === i);
               const hit = kind === "packages"
-                ? PackageHit(rawHit as (OramaPackageHit | Package))
-                : DocsHit(rawHit as OramaDocsHit, input);
+                ? PackageHit(rawHit as (AlgoliaPackageHit | Package))
+                : DocsHit(rawHit as AlgoliaDocsHit, input);
 
               return (
                 <li
@@ -439,22 +433,21 @@ function SuggestionList(
           )}
         </div>
         <div class="flex items-center gap-1">
-          <span class="text-tertiary">
-            powered by <span class="sr-only">Orama</span>
-          </span>
-          <img class="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
-          <img
-            className="h-4 hidden dark:block"
-            src="/logos/orama-light.svg"
-            alt=""
-          />
+          <span class="text-tertiary">powered by</span>
+          <a
+            href="https://www.algolia.com/?utm_medium=AOS-referral"
+            target="_blank"
+            aria-label="Algolia"
+          >
+            <img class="h-4" src="/logos/algolia.svg" alt="Algolia" />
+          </a>
         </div>
       </div>
     </div>
   );
 }
 
-export interface OramaDocsHit {
+export interface AlgoliaDocsHit {
   path: string;
   header: string;
   headerParts: string[];
@@ -462,7 +455,7 @@ export interface OramaDocsHit {
   content: string;
 }
 
-function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
+function DocsHit(hit: AlgoliaDocsHit, input: Signal<string>): ListDisplayItem {
   const highlighter = new Highlight();
 
   return {
@@ -544,19 +537,21 @@ function tokenizeFilter(search: string): Token[] {
 
 export function processFilter(
   search: string,
-): { query: string; where: Record<string, boolean | string> | undefined } {
-  const filters: [string, boolean | string][] = [];
+): { query: string; filters: string | undefined } {
+  const filters: string[] = [];
   let query = "";
   for (const part of tokenizeFilter(search)) {
     if (part.kind === "text") {
       query += part.value + " ";
+    } else if (part.kind === "scope") {
+      filters.push(`scope:"${part.value}"`);
     } else {
-      filters.push([part.kind, part.value]);
+      // runtimeCompat.<runtime>
+      filters.push(`${part.kind}:true`);
     }
   }
-  const where = Object.fromEntries(filters);
   return {
     query: query.trim(),
-    where: filters.length === 0 ? undefined : where,
+    filters: filters.length === 0 ? undefined : filters.join(" AND "),
   };
 }

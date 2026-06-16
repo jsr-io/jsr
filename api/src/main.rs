@@ -39,8 +39,8 @@ use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
+use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
-use crate::external::orama::OramaClient;
 use crate::gcp::Queue;
 use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
@@ -67,7 +67,7 @@ pub struct MainRouterOptions {
   generate_ctx_cache: crate::docs::GenerateCtxCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
-  orama_client: Option<OramaClient>,
+  algolia_client: Option<AlgoliaClient>,
   email_sender: Option<EmailSender>,
   license_store: util::LicenseStore,
   registry_url: Url,
@@ -93,7 +93,7 @@ pub(crate) fn main_router(
     generate_ctx_cache,
     github_client,
     gitlab_client,
-    orama_client,
+    algolia_client,
     license_store,
     email_sender,
     registry_url,
@@ -112,7 +112,7 @@ pub(crate) fn main_router(
     .data(generate_ctx_cache)
     .data(github_client)
     .data(gitlab_client)
-    .data(orama_client)
+    .data(algolia_client)
     .data(email_sender)
     .data(license_store)
     .data(RegistryUrl(registry_url))
@@ -286,30 +286,19 @@ async fn main() {
     config.gitlab_client_secret,
   );
 
-  let orama_client = if let Some(orama_packages_project_id) =
-    config.orama_packages_project_id
-  {
-    Some(
-        OramaClient::new(
-          orama_packages_project_id,
-          config.orama_packages_project_key.expect(
-            "orama_packages_project_id was provided but no orama_packages_project_key",
-          ),
-          config.orama_packages_data_source.expect(
-            "orama_packages_project_id was provided but no orama_packages_data_source",
-          ),
-          config.orama_symbols_project_id.expect(
-            "orama_packages_project_id was provided but no orama_symbols_project_id",
-          ),
-          config.orama_symbols_project_key.expect(
-            "orama_packages_project_id was provided but no orama_symbols_project_key",
-          ),
-          config.orama_symbols_data_source.expect(
-            "orama_packages_project_id was provided but no orama_symbols_data_source",
-          ),
-        )
-        .await,
-      )
+  let algolia_client = if let Some(algolia_app_id) = config.algolia_app_id {
+    Some(AlgoliaClient::new(
+      algolia_app_id,
+      config
+        .algolia_write_api_key
+        .expect("algolia_app_id was provided but no algolia_write_api_key"),
+      config
+        .algolia_packages_index
+        .expect("algolia_app_id was provided but no algolia_packages_index"),
+      config
+        .algolia_symbols_index
+        .expect("algolia_app_id was provided but no algolia_symbols_index"),
+    ))
   } else {
     None
   };
@@ -338,7 +327,7 @@ async fn main() {
     generate_ctx_cache,
     github_client,
     gitlab_client,
-    orama_client,
+    algolia_client,
     email_sender,
     license_store,
     registry_url: config.registry_url,

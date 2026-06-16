@@ -37,7 +37,7 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 - Data is stored in PostgreSQL (using Google Cloud SQL)
   - The database is highly available
   - Not used for serving registry requests
-- Search powered by Orama
+- Search powered by Algolia
 - Distributed tracing using Google Cloud Trace (and Jaeger in development)
 
 For a detailed breakdown of the system, see
