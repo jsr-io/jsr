@@ -27,6 +27,16 @@ resource "algolia_index" "packages" {
       "filterOnly(runtimeCompat.workerd)",
       "filterOnly(runtimeCompat.bun)",
     ]
+    # Everything the frontend reads off a hit (see PackageHit.tsx). objectID is
+    # always returned. Without this, faceted attributes get dropped from results
+    # and the package card crashes on a missing runtimeCompat.
+    attributes_to_retrieve = [
+      "scope",
+      "name",
+      "description",
+      "runtimeCompat",
+      "score",
+    ]
   }
 
   ranking_config {
@@ -50,6 +60,14 @@ resource "algolia_index" "docs" {
 
   attributes_config {
     searchable_attributes = ["header", "headerParts", "content"]
+    # Everything the frontend reads off a docs hit (see GlobalSearch.tsx).
+    attributes_to_retrieve = [
+      "path",
+      "header",
+      "headerParts",
+      "slug",
+      "content",
+    ]
   }
 }
 
