@@ -546,7 +546,13 @@ function tokenizeFilter(search: string): Token[] {
 
   for (const part of search.split(" ")) {
     if (part.startsWith("scope:") && part.slice(6).length > 0) {
-      tokens.push({ kind: "scope", value: part.slice(6), raw: part });
+      // Scopes are stored without the leading "@", so `scope:@std` and
+      // `scope:std` should filter the same. Keep `raw` as typed for display.
+      tokens.push({
+        kind: "scope",
+        value: part.slice(6).replace(/^@/, ""),
+        raw: part,
+      });
       continue;
     } else if (part.startsWith("runtime:")) {
       const runtime = part.slice(8);

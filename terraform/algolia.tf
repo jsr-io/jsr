@@ -18,7 +18,9 @@ resource "algolia_index" "packages" {
   name = local.algolia_packages_index
 
   attributes_config {
-    searchable_attributes = ["name", "scope", "description"]
+    # Order is priority: scope ranks above name so e.g. "std" surfaces @std/*
+    # packages ahead of packages that merely contain "std" in their name.
+    searchable_attributes = ["scope", "name", "description"]
     attributes_for_faceting = [
       "filterOnly(scope)",
       "filterOnly(runtimeCompat.browser)",
