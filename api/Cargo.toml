@@ -116,7 +116,6 @@ infer = "0.15.0"
 x509-parser = { version = "0.15.1", features = ["verify"] }
 sitemap-rs = "0.2.1"
 askalono = "0.5.0"
-oramacore-client = "=1.2.2"
 moka = { version = "0.12", features = ["future"] }
 
 tree-sitter-highlight = "0.22.6"

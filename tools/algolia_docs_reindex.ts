@@ -3,25 +3,24 @@ import { pooledMap } from "@std/async/pool";
 import { stripSplitBySections } from "@deno/gfm";
 import { extractYaml } from "@std/front-matter";
 import GitHubSlugger from "github-slugger";
-import { OramaCloud } from "@orama/core";
+import { algoliasearch } from "algoliasearch";
 import TOC from "../frontend/docs/toc.ts";
 import { join } from "@std/path";
 
-const orama = new OramaCloud({
-  projectId: Deno.env.get("ORAMA_DOCS_PROJECT_ID")!,
-  apiKey: Deno.env.get("ORAMA_DOCS_PROJECT_KEY")!,
-});
-const datasource = orama.dataSource(Deno.env.get("ORAMA_DOCS_DATA_SOURCE")!);
+const client = algoliasearch(
+  Deno.env.get("ALGOLIA_APP_ID")!,
+  Deno.env.get("ALGOLIA_WRITE_API_KEY")!,
+);
+const indexName = Deno.env.get("ALGOLIA_DOCS_INDEX")!;
 
-export interface OramaDocsHit {
+export interface AlgoliaDocsHit {
+  objectID: string;
   path: string;
   header: string;
   headerParts: string[];
   slug: string;
   content: string;
 }
-
-const temp = await datasource.createTemporaryIndex();
 
 // fill the index
 const path = "frontend/docs/";
@@ -60,17 +59,22 @@ const results = pooledMap(
         }
       }
 
+      const slug = slugger.slug(section.header);
+
       return {
+        objectID: `${entry.id}#${slug}`,
         path: entry.id,
         header: section.header,
         headerParts,
-        slug: slugger.slug(section.header),
+        slug,
         content: section.content,
-      } satisfies OramaDocsHit;
+      } satisfies AlgoliaDocsHit;
     });
   },
 );
 
-const entries = (await Array.fromAsync(results)).flat();
-await temp.insertDocuments(entries);
-await temp.swap();
+const objects = (await Array.fromAsync(results)).flat();
+
+// Index settings (searchable attributes) are managed by Terraform;
+// replaceAllObjects preserves them across the atomic swap.
+await client.replaceAllObjects({ indexName, objects, batchSize: 1000 });

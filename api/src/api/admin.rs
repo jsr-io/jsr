@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use crate::NpmUrl;
 use crate::RegistryUrl;
-use crate::external::orama::OramaClient;
+use crate::external::algolia::AlgoliaClient;
 use crate::s3::Buckets;
 use hyper::Body;
 use hyper::Request;
@@ -289,7 +289,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task_id)?;
@@ -312,7 +312,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       registry,
       npm_url,
       db,
-      orama_client,
+      algolia_client,
       cache_purge,
     )
     .instrument(span);

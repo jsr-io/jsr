@@ -13,7 +13,7 @@ command = "worker-build --release"
 # from `docker-compose` for `wrangler dev` (matches `lb`'s REGISTRY_API_URL).
 COMPUTE_API_URL = "http://localhost:8001"
 
-# Production bindings (the Hyperdrive config, compute-service URL, OAuth/Orama
+# Production bindings (the Hyperdrive config, compute-service URL, OAuth/Algolia
 # config) are managed by Terraform, like the frontend/lb Workers. For local
 # `wrangler dev`, the Hyperdrive binding's connection string comes from the
 # WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE environment variable.

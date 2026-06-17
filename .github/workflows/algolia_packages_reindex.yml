@@ -1,4 +1,4 @@
-name: Orama Symbols Reindex
+name: Algolia Package Reindex
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
         required: true
 
 jobs:
-  reindex_orama:
+  reindex_algolia:
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.environment }}
@@ -21,8 +21,8 @@ jobs:
       - uses: denoland/setup-deno@v2
       - name: Deploy
         env:
-          ORAMA_SYMBOLS_PROJECT_KEY: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
-          ORAMA_SYMBOLS_PROJECT_ID: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
-          ORAMA_SYMBOLS_DATA_SOURCE: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
+          ALGOLIA_APP_ID: ${{ vars.ALGOLIA_APP_ID }}
+          ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
+          ALGOLIA_PACKAGES_INDEX: ${{ github.event.inputs.environment }}_packages
           JSR_ENDPOINT_URL: ${{ vars.ENVIRONMENT_URL }}
-        run: deno task tools:orama:symbols_reindex
+        run: deno task tools:algolia:packages_reindex

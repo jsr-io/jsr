@@ -1,5 +1,5 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { OramaPackageHit } from "../util.ts";
+import type { AlgoliaPackageHit } from "../util.ts";
 import type { Package, RuntimeCompat } from "../utils/api_types.ts";
 import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
@@ -11,7 +11,7 @@ const runtimeCompatExists = (compat: RuntimeCompat) => {
     compat?.bun;
 };
 
-export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
+export function PackageHit(pkg: AlgoliaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
     content: (

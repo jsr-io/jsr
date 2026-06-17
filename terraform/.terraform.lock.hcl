@@ -80,3 +80,27 @@ provider "registry.terraform.io/hashicorp/random" {
     "zh:c94784f005708890dc6895afd53636ec00ec1e430b15d41e5aebfb1d4b39bd04",
   ]
 }
+
+provider "registry.terraform.io/k-yomo/algolia" {
+  version     = "0.6.2"
+  constraints = ">= 0.6.0, < 0.7.0"
+  hashes = [
+    "h1:MCK3gID1u59LjIyMtbSm8JFTnFGyx9oL0dsAlXW5qTc=",
+    "h1:eiKwpqnBgZrUTZe0hpkXEAGAOzvwwdG3xkkLfpGrZ80=",
+    "h1:pYG+3so3vowf72aCPQgaNaYGKNPOeulezzUH+OwYHHI=",
+    "zh:22616d094edb8196491c18872c419dc5a4da045102953e229a1de36aae91c2a1",
+    "zh:249374f689a0f233eb4a6be1004e85ea7aa36c7c99526f42fc951e7db8a686b6",
+    "zh:3f6a48a0012b3e2ef28783962b966d51aa7738e9c9d10069a08d3a4f7ba6f751",
+    "zh:43ff4a573e5faf2f2a7ec3f25c65561291751aaef0764aa88315d84532a12201",
+    "zh:45a3f0893c1c001dd039d9e070872138ff3b792daf05c954278538fb3a18b1c9",
+    "zh:800d6adad10eafefbffcee368c592d29978d6dd5ed6bc7eeaba47dbd0bc06ec3",
+    "zh:82158a632facefe1d3932ab6014239b7464fe213fe9346a095c0b37df60d9b7b",
+    "zh:8d9676839bfac74c4e22deeb1cb00c38c557c8358a901f84cc7306c730a86470",
+    "zh:a2c29d8eac287cc824e21b12b5b37914b38fae67c35e5f596b03b8970348bd78",
+    "zh:ced03c97a34f134d4bd0659cca6c9a1e8ea33f6d6b7219c94a7768e99c8e3894",
+    "zh:e7394c245041a61365beaee8b94c5fff71e18ad8947cb47106b743d598639069",
+    "zh:ee368a6f481071bca7f2018e17c62d06c70b6197d71b5a76b4488ba24a55f80d",
+    "zh:f4db3972be875fb71b435d8e01d3cd808d53a5763fcc313f572e3372d6a35f71",
+    "zh:f567e5ed4b32332b50fe67d8ab1e38436273b212e1e8a6c67615f29a34768a55",
+  ]
+}

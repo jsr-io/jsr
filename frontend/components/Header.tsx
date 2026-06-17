@@ -9,10 +9,11 @@ import DarkModeToggle from "../islands/DarkModeToggle.tsx";
 import { SignInMenu } from "../islands/SignInMenu.tsx";
 import TbLogin2 from "tb-icons/TbLogin2";
 
-const oramaPackageApiKey = process.env.ORAMA_PACKAGES_PUBLIC_API_KEY;
-const oramaPackageProjectId = process.env.ORAMA_PACKAGES_PROJECT_ID;
-const oramaDocsApiKey = process.env.ORAMA_DOCS_PUBLIC_API_KEY;
-const oramaDocsProjectId = process.env.ORAMA_DOCS_PROJECT_ID;
+const algoliaAppId = process.env.ALGOLIA_APP_ID;
+const algoliaPackageApiKey = process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY;
+const algoliaPackageIndex = process.env.ALGOLIA_PACKAGES_INDEX;
+const algoliaDocsApiKey = process.env.ALGOLIA_DOCS_SEARCH_API_KEY;
+const algoliaDocsIndex = process.env.ALGOLIA_DOCS_INDEX;
 const prodProxy = !!process.env.PROD_PROXY;
 
 export function Header({
@@ -29,12 +30,12 @@ export function Header({
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaApiKey = searchKind === "packages"
-    ? oramaPackageApiKey
-    : oramaDocsApiKey;
-  const oramaProjectId = searchKind === "packages"
-    ? oramaPackageProjectId
-    : oramaDocsProjectId;
+  const algoliaApiKey = searchKind === "packages"
+    ? algoliaPackageApiKey
+    : algoliaDocsApiKey;
+  const algoliaIndex = searchKind === "packages"
+    ? algoliaPackageIndex
+    : algoliaDocsIndex;
 
   const isHomepage = url.pathname === "/";
 
@@ -68,8 +69,9 @@ export function Header({
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
-                projectId={oramaProjectId}
-                apiKey={oramaApiKey}
+                appId={algoliaAppId}
+                apiKey={algoliaApiKey}
+                indexName={algoliaIndex}
                 kind={searchKind}
               />
             )}
@@ -135,8 +137,9 @@ export function Header({
           {!isHomepage && (
             <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
-              projectId={oramaProjectId}
-              apiKey={oramaApiKey}
+              appId={algoliaAppId}
+              apiKey={algoliaApiKey}
+              indexName={algoliaIndex}
               kind={searchKind}
             />
           )}

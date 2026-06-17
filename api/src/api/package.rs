@@ -63,8 +63,8 @@ use crate::db::RuntimeCompat;
 use crate::db::User;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
+use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
-use crate::external::orama::OramaClient;
 use crate::gcp;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
@@ -389,9 +389,9 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
   };
 
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &Default::default());
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&package, &Default::default());
   }
 
   // The new package changes the scope's package list and scope info.
@@ -458,7 +458,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let body: ApiUpdatePackageRequest = decode_json(&mut req).await?;
 
   let db: &Database = req.data::<Database>().unwrap();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
 
   let (package, repo, meta) = db
     .get_package(&scope, &package_name)
@@ -505,7 +505,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         npm_url,
         &buckets,
         cache_purge,
-        orama_client,
+        algolia_client,
         &user.id,
         sudo,
         &scope,
@@ -547,8 +547,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
           &runtime_compat,
         )
         .await?;
-      if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta);
+      if let Some(algolia_client) = algolia_client {
+        algolia_client.upsert_package(&package, &meta);
       }
       Ok(ApiPackage::from((package, repo, meta)))
     }
@@ -574,11 +574,11 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         )
         .await?;
 
-      if let Some(orama_client) = orama_client {
+      if let Some(algolia_client) = algolia_client {
         if package.is_archived {
-          orama_client.delete_package(&scope, &package.name);
+          algolia_client.delete_package(&scope, &package.name);
         } else {
-          orama_client.upsert_package(&package, &meta);
+          algolia_client.upsert_package(&package, &meta);
         }
       }
 
@@ -613,7 +613,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     npm_url,
     buckets,
     cache_purge,
-    orama_client,
+    algolia_client,
     actor_id,
     is_sudo,
     scope,
@@ -627,7 +627,7 @@ async fn update_description(
   npm_url: &Url,
   buckets: &Buckets,
   cache_purge: &CachePurge,
-  orama_client: &Option<OramaClient>,
+  algolia_client: &Option<AlgoliaClient>,
   actor_id: &Uuid,
   is_sudo: bool,
   scope: &ScopeName,
@@ -658,8 +658,8 @@ async fn update_description(
     )
     .await?;
 
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &meta);
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&package, &meta);
   }
 
   let npm_version_manifest_path =
@@ -809,9 +809,9 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     return Err(ApiError::PackageNotEmpty);
   }
 
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  if let Some(orama_client) = orama_client {
-    orama_client.delete_package(&scope, &package);
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.delete_package(&scope, &package);
   }
 
   let registry_url = &req.data::<RegistryUrl>().unwrap().0;
@@ -924,7 +924,7 @@ pub async fn version_publish_handler(
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -1032,7 +1032,7 @@ pub async fn version_publish_handler(
       registry_url,
       npm_url,
       db,
-      orama_client,
+      algolia_client,
       cache_purge,
     )
     .instrument(span);
@@ -1061,7 +1061,7 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
   iam.check_publish_access(&scope, &package, &version).await?;
@@ -1081,8 +1081,8 @@ pub async fn version_provenance_statements_handler(
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
 
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&db_package, &meta);
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&db_package, &meta);
   }
 
   Ok(
