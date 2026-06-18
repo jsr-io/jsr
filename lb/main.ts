@@ -119,7 +119,7 @@ export async function handleNPMRequest(
   });
 
   if ((response.ok || response.status === 304) && request.method === "GET") {
-    trackNPMDownload(url.pathname, env);
+    trackNPMDownload(url.pathname, request.headers.get("User-Agent"), env);
   }
 
   return response;
@@ -314,7 +314,7 @@ async function handleModuleFileRoute(
   });
 
   if ((response.ok || response.status === 304) && request.method === "GET") {
-    trackJSRDownload(url.pathname, env);
+    trackJSRDownload(url.pathname, request.headers.get("User-Agent"), env);
   }
 
   return response;
