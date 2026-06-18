@@ -106,6 +106,7 @@ use super::ApiPackageScore;
 use super::ApiPackageVersion;
 use super::ApiPackageVersionDocs;
 use super::ApiPackageVersionSource;
+use super::ApiPackageVersionVisibility;
 use super::ApiPackageVersionWithUser;
 use super::ApiProvenanceStatementRequest;
 use super::ApiPublishingTask;
@@ -168,6 +169,10 @@ pub fn package_router() -> Router<Body, ApiError> {
         CacheDuration::THIRTY_DAYS,
         util::json(get_version_handler),
       ),
+    )
+    .get(
+      "/:package/versions/:version/visibility",
+      util::json(get_version_visibility_handler),
     )
     .post(
       "/:package/versions/:version",
@@ -870,6 +875,93 @@ pub async fn get_version_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   Ok(ApiPackageVersion::from(version))
+}
+
+#[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/visibility",
+  skip(req),
+  fields(scope, package, version)
+)]
+pub async fn get_version_visibility_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageVersionVisibility> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+
+  let _ = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let task = db
+    .get_publishing_task_for_version_optional(&scope, &package, &version)
+    .await?;
+  let db_version = db
+    .get_package_version(&scope, &package, &version)
+    .await?
+    .is_some();
+
+  let version_metadata_path =
+    crate::s3_paths::version_metadata(&scope, &package, &version);
+  let package_metadata_path =
+    crate::s3_paths::package_metadata(&scope, &package);
+  let npm_manifest_path =
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
+
+  let version_metadata = buckets
+    .modules_bucket
+    .download(version_metadata_path.into())
+    .await?
+    .is_some();
+
+  let package_metadata_bytes = buckets
+    .modules_bucket
+    .download(package_metadata_path.into())
+    .await?;
+  let (package_metadata, package_metadata_latest, package_metadata_has_version) =
+    if let Some(package_metadata_bytes) = package_metadata_bytes {
+      let package_metadata =
+        serde_json::from_slice::<PackageMetadata>(&package_metadata_bytes)?;
+      let has_version = package_metadata.versions.contains_key(&version);
+      (true, package_metadata.latest, has_version)
+    } else {
+      (false, None, false)
+    };
+
+  let npm_manifest_bytes = buckets
+    .npm_bucket
+    .download(npm_manifest_path.into())
+    .await?;
+  let (npm_manifest, npm_manifest_has_version) =
+    if let Some(npm_manifest_bytes) = npm_manifest_bytes {
+      let npm_manifest =
+        serde_json::from_slice::<serde_json::Value>(&npm_manifest_bytes)?;
+      let has_version = npm_manifest
+        .get("versions")
+        .and_then(|versions| versions.as_object())
+        .is_some_and(|versions| versions.contains_key(&version.to_string()));
+      (true, has_version)
+    } else {
+      (false, false)
+    };
+
+  Ok(ApiPackageVersionVisibility {
+    task: task.map(|(task, _)| task.status.into()),
+    db_version,
+    version_metadata,
+    package_metadata,
+    package_metadata_latest,
+    package_metadata_has_version,
+    npm_manifest,
+    npm_manifest_has_version,
+  })
 }
 
 #[instrument(
@@ -2743,6 +2835,8 @@ mod test {
   use crate::api::ApiPackageVersion;
   use crate::api::ApiPackageVersionDocs;
   use crate::api::ApiPackageVersionSource;
+  use crate::api::ApiPackageVersionVisibility;
+  use crate::api::ApiPublishingTaskStatus;
   use crate::api::ApiSource;
   use crate::api::ApiSourceDirEntry;
   use crate::api::ApiSourceDirEntryKind;
@@ -4714,6 +4808,44 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].0.id, task2.id);
+  }
+
+  #[tokio::test]
+  async fn package_version_visibility() {
+    let mut t = TestSetup::new().await;
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.2.3/visibility")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
+      .await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:?}");
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.2.3/visibility")
+      .call()
+      .await
+      .unwrap();
+    let visibility = resp.expect_ok::<ApiPackageVersionVisibility>().await;
+
+    assert_eq!(visibility.task, Some(ApiPublishingTaskStatus::Success));
+    assert!(visibility.db_version);
+    assert!(visibility.version_metadata);
+    assert!(visibility.package_metadata);
+    assert_eq!(
+      visibility.package_metadata_latest,
+      Some(Version::try_from("1.2.3").unwrap())
+    );
+    assert!(visibility.package_metadata_has_version);
+    assert!(visibility.npm_manifest);
+    assert!(visibility.npm_manifest_has_version);
   }
 
   #[tokio::test]
