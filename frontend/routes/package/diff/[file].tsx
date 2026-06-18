@@ -119,10 +119,7 @@ export const handler = define.handlers({
         versions,
         docsReq,
       },
-      // Diff pages key on old/new version (never `version`), so this branch was
-      // dead and every diff page was indexable — N² version pairs × entrypoints
-      // of cold-render cardinality with no SEO value. Always `noindex`.
-      headers: { "X-Robots-Tag": "noindex" },
+      headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
     };
   },
 });
