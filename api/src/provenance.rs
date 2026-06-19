@@ -233,12 +233,23 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> bool {
   haystack.windows(needle.len()).any(|w| w == needle)
 }
 
+/// Whether a SLSA subject digest matches the recorded tarball hash. The recorded
+/// hash is `sha256-<hex>` (the form used by the publish-token restriction); the
+/// SLSA `subject.digest.sha256` is bare hex. Comparison is case-insensitive.
+fn digest_matches(expected_tarball_hash: &str, subject_sha256: &str) -> bool {
+  let expected = expected_tarball_hash
+    .strip_prefix("sha256-")
+    .unwrap_or(expected_tarball_hash);
+  !subject_sha256.is_empty() && subject_sha256.eq_ignore_ascii_case(expected)
+}
+
 /// Verify a provenance bundle and return the Rekor transparency-log index.
 ///
 /// `subject_name` is the package coordinate (`pkg:jsr/@scope/name@version`) the
-/// attestation must be for. `expected_repo`, when present, is the GitHub
-/// repository linked to the package; the signing certificate's identity must
-/// match it.
+/// attestation must be for. `expected_tarball_hash` is the `sha256-<hex>` digest
+/// of the gzipped tarball that was actually published; the attestation's subject
+/// digest must match it. `expected_repo`, when present, is the GitHub repository
+/// linked to the package; the signing certificate's identity must match it.
 ///
 /// Verification:
 ///  1. The signing (leaf) certificate chains to the Fulcio intermediate.
@@ -249,7 +260,9 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> bool {
 ///     is what binds the (otherwise attacker-supplied) payload to the
 ///     certificate: without the certificate's private key the signature cannot
 ///     be forged.
-///  4. Only then is the now-trusted payload parsed and its subject name checked.
+///  4. Only then is the now-trusted payload parsed and its subject name and
+///     digest checked. The digest check binds the attestation to the exact bytes
+///     stored for the package version, not merely to the name@version string.
 ///
 /// NOTE: Rekor transparency-log inclusion is not yet cryptographically verified
 /// here (it would require embedding Sigstore's Rekor public key and replicating
@@ -260,6 +273,7 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> bool {
 pub fn verify(
   subject_name: String,
   expected_repo: Option<(String, String)>,
+  expected_tarball_hash: &str,
   bundle: ProvenanceBundle,
 ) -> Result<String> {
   let key = &bundle
@@ -322,6 +336,11 @@ pub fn verify(
     bail!("Invalid subject name");
   }
 
+  // The attested digest must match the bytes actually published.
+  if !digest_matches(expected_tarball_hash, &subject.digest.sha256) {
+    bail!("Invalid subject digest");
+  }
+
   let tls = &bundle.verification_material.tlog_entries[0];
   Ok(tls.log_index.to_string())
 }
@@ -329,6 +348,7 @@ pub fn verify(
 #[cfg(test)]
 mod tests {
   use super::decode_base64;
+  use super::digest_matches;
   use super::dsse_pae;
   use super::parse_github_repo;
   use base64::Engine as _;
@@ -375,5 +395,27 @@ mod tests {
     assert!(parse_github_repo("https://gitlab.com/foo/bar").is_none());
     assert!(parse_github_repo("https://github.com/").is_none());
     assert!(parse_github_repo("https://github.com/onlyowner").is_none());
+  }
+
+  #[test]
+  fn digest_matches_compares_against_recorded_tarball_hash() {
+    let hex = "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
+    let recorded = format!("sha256-{hex}");
+
+    // The recorded `sha256-<hex>` hash matches the bare-hex SLSA subject digest.
+    assert!(digest_matches(&recorded, hex));
+    // Case-insensitive: subject digests may arrive uppercase.
+    assert!(digest_matches(&recorded, &hex.to_uppercase()));
+    // A bare-hex recorded hash (no prefix) is also accepted.
+    assert!(digest_matches(hex, hex));
+
+    // A different digest must not match (the core gap this closes).
+    let other = "0000000000000000000000000000000000000000000000000000000000000000";
+    assert!(!digest_matches(&recorded, other));
+    // An empty subject digest must never match.
+    assert!(!digest_matches(&recorded, ""));
+    // The `sha256-` prefix is stripped from the recorded side only; a prefixed
+    // subject digest does not match a bare-hex recorded one.
+    assert!(!digest_matches(hex, &recorded));
   }
 }
