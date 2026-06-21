@@ -1020,6 +1020,12 @@ pub async fn version_publish_handler(
   // Otherwise, we can just propagate the error.
   upload_result?;
 
+  // Record the hash of the uploaded tarball so that a later provenance
+  // statement can be bound to the actual published bytes, not just the package
+  // name@version.
+  db.set_publishing_task_tarball_hash(publishing_task.id, &hash)
+    .await?;
+
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task.id).unwrap();
     queue.task_buffer(None, Some(body.into())).await?;
@@ -1075,8 +1081,20 @@ pub async fn version_provenance_statements_handler(
     })?;
   let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
 
+  // The attestation must be bound to the exact bytes that were published, so we
+  // compare its `subject.digest.sha256` against the tarball hash recorded at
+  // publish time. Fail closed if we have no recorded hash to compare against.
+  let tarball_hash = db
+    .get_publishing_task_tarball_hash_for_version(&scope, &package, &version)
+    .await?
+    .ok_or_else(|| {
+      error!("no recorded tarball hash for version when verifying provenance");
+      ApiError::InternalServerError
+    })?;
+
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
-  let rekor_log_id = provenance::verify(name, expected_repo, body.bundle)?;
+  let rekor_log_id =
+    provenance::verify(name, expected_repo, &tarball_hash, body.bundle)?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
@@ -3180,6 +3198,34 @@ mod test {
       .await
       .unwrap();
 
+    // Record a tarball hash for 1.0.0 so the provenance endpoint can bind the
+    // attestation to it. Without a recorded hash the request is rejected before
+    // signature verification; 1.0.1 deliberately has none, which exercises that
+    // rejection below.
+    let tarball_digest =
+      "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
+    let CreatePublishingTaskResult::Created((task, _)) = t
+      .ephemeral_database
+      .create_publishing_task(NewPublishingTask {
+        user_id: None,
+        package_scope: &scope,
+        package_name: &name,
+        package_version: &"1.0.0".try_into().unwrap(),
+        config_file: &"/jsr.json".try_into().unwrap(),
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+    t.ephemeral_database
+      .set_publishing_task_tarball_hash(
+        task.id,
+        &format!("sha256-{tarball_digest}"),
+      )
+      .await
+      .unwrap();
+
     fn update_bundle_subject(bundle: &mut ProvenanceBundle, subject: Subject) {
       let subject = serde_json::json!({ "subject": [subject] });
       bundle.content.dsse_envelope.payload = BASE64_STANDARD
@@ -3264,7 +3310,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       Subject {
         name: format!("pkg:jsr/@{}/{}@1.0.0", scope, name),
         digest: SubjectDigest {
-          sha256: "bar".to_string(),
+          sha256: tarball_digest.to_string(),
         },
       },
     );
