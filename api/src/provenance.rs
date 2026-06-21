@@ -399,7 +399,8 @@ mod tests {
 
   #[test]
   fn digest_matches_compares_against_recorded_tarball_hash() {
-    let hex = "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
+    let hex =
+      "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
     let recorded = format!("sha256-{hex}");
 
     // The recorded `sha256-<hex>` hash matches the bare-hex SLSA subject digest.
@@ -410,7 +411,8 @@ mod tests {
     assert!(digest_matches(hex, hex));
 
     // A different digest must not match (the core gap this closes).
-    let other = "0000000000000000000000000000000000000000000000000000000000000000";
+    let other =
+      "0000000000000000000000000000000000000000000000000000000000000000";
     assert!(!digest_matches(&recorded, other));
     // An empty subject digest must never match.
     assert!(!digest_matches(&recorded, ""));
