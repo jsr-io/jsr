@@ -1,0 +1,12 @@
+# EXPERIMENT (temporary): run jsr's registry_api as an emscripten worker.
+# Lives in api/ so wrangler auto-loads api/.env (the same env the native server
+# reads via dotenvy) and injects it as worker `env` bindings, which the fetch
+# handler copies into the process env for Config::parse. Run from api/:
+#   npx wrangler@latest dev
+# Use 127.0.0.1 rather than `localhost` in DATABASE_URL / S3_ENDPOINT:
+# emscripten's resolver returns EAI -2 for `localhost`, but a literal IP skips DNS.
+name = "jsr-api"
+# target/ is at the workspace root, one level up from api/.
+main = "../target/wasm32-unknown-emscripten/release/deps/registry_api.js"
+compatibility_date = "2026-06-02"
+compatibility_flags = ["nodejs_compat", "new_module_registry", "no_handle_cross_request_promise_resolution"]
