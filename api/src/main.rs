@@ -1,5 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+// jemalloc doesn't build for wasm32 (emscripten worker build); use the default
+// allocator there and keep jemalloc only for the native compute service.
+#[cfg(not(target_arch = "wasm32"))]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
@@ -15,6 +18,7 @@ mod external;
 mod gcp;
 mod iam;
 mod ids;
+#[cfg(not(target_arch = "wasm32"))]
 mod jemalloc_profiling;
 mod metadata;
 mod npm;
@@ -48,14 +52,17 @@ use crate::sitemap::scopes_sitemap_handler;
 use crate::sitemap::sitemap_index_handler;
 use crate::tasks::NpmTarballBuildQueue;
 use crate::tasks::tasks_router;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::traced_router::TracedRouterService;
 use crate::tracing::TracingExportTarget;
 use crate::tracing::setup_tracing;
 
 use clap::Parser;
 use hyper::Body;
+#[cfg(not(target_arch = "wasm32"))]
 use hyper::Server;
 use routerify::Router;
+#[cfg(not(target_arch = "wasm32"))]
 use std::net::SocketAddr;
 use std::time::Duration;
 use tasks::AnalyticsEngineConfig;
@@ -156,13 +163,10 @@ pub(crate) fn main_router(
   builder.build().unwrap()
 }
 
-#[tokio::main]
-async fn main() {
-  dotenvy::from_filename(".env.local").ok();
-  dotenvy::dotenv().ok();
-  let config = Config::parse();
-  println!("{config:?}");
-
+/// Build the fully-wired application router from a parsed [`Config`]. Shared by
+/// the native listener entry point (`main`) and the emscripten worker `fetch`
+/// export, so both drive exactly the same routes and state.
+async fn build_router(config: Config) -> Router<Body, ApiError> {
   // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
   // var as Some(""), which would otherwise build a schemeless endpoint and
   // panic the exporter at boot. Filtering here means empty == export disabled.
@@ -321,7 +325,7 @@ async fn main() {
 
   let generate_ctx_cache = crate::docs::GenerateCtxCache::new();
 
-  let router = main_router(MainRouterOptions {
+  main_router(MainRouterOptions {
     database,
     buckets,
     generate_ctx_cache,
@@ -338,13 +342,27 @@ async fn main() {
     cache_purge_client,
     expose_api: config.api,
     expose_tasks: config.tasks,
-  });
+  })
+}
+
+// Native (Cloud Run) entry point: bind a TCP listener and serve the router with
+// hyper, exactly as before.
+#[cfg(not(target_arch = "wasm32"))]
+#[tokio::main]
+async fn main() {
+  dotenvy::from_filename(".env.local").ok();
+  dotenvy::dotenv().ok();
+  let config = Config::parse();
+  println!("{config:?}");
+  let port = config.port;
+
+  let router = build_router(config).await;
 
   // Create a Service from the router above to handle incoming requests.
   let service = TracedRouterService::new(router, true).unwrap();
 
   // The address on which the server will be listening.
-  let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+  let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
   // Create a server by passing the created service to `.serve` method.
   let server = Server::bind(&addr).serve(service);
@@ -352,5 +370,143 @@ async fn main() {
   println!("App is running on: {}", addr);
   if let Err(err) = server.await {
     eprintln!("Server error: {}", err);
+  }
+}
+
+// Emscripten worker entry point. A Cloudflare Worker cannot `listen()` on a
+// socket, so instead of `Server::bind().serve()` we expose a `fetch` export that
+// bridges the runtime's `web_sys::Request`/`Response` to hyper + routerify: the
+// router is built once (from the JS `env` bindings) and reused across requests.
+#[cfg(target_arch = "wasm32")]
+fn main() {}
+
+#[cfg(target_arch = "wasm32")]
+mod worker {
+  use super::*;
+  use crate::traced_router::TracedRequestServiceBuilder;
+  use hyper::service::Service as _;
+  use std::sync::Mutex;
+  use tokio::sync::OnceCell;
+  use wasm_bindgen::prelude::*;
+
+  // Built once on the first request and reused. `RequestServiceBuilder::build`
+  // takes `&mut self`, so guard it with a `Mutex`; building a per-request
+  // service is cheap. The heavy state (DB pool, S3 clients, …) lives inside.
+  static BUILDER: OnceCell<Mutex<TracedRequestServiceBuilder<Body, ApiError>>> =
+    OnceCell::const_new();
+
+  /// Copy the string-valued entries of the worker `env` object into the process
+  /// environment so clap's `env = "..."` config parsing sees them.
+  fn env_into_process(env: &JsValue) {
+    let Ok(entries) = js_sys::Object::entries(&js_sys::Object::from(env.clone()))
+      .dyn_into::<js_sys::Array>()
+    else {
+      return;
+    };
+    for entry in entries.iter() {
+      let pair = js_sys::Array::from(&entry);
+      if let (Some(k), Some(v)) = (pair.get(0).as_string(), pair.get(1).as_string())
+      {
+        // SAFETY: single-threaded emscripten worker; no other threads race here.
+        unsafe { std::env::set_var(k, v) };
+      }
+    }
+  }
+
+  async fn init_builder(
+    env: &JsValue,
+  ) -> Result<Mutex<TracedRequestServiceBuilder<Body, ApiError>>, String> {
+    env_into_process(env);
+    let config = Config::try_parse().map_err(|e| format!("config: {e}"))?;
+    let router = build_router(config).await;
+    let builder = TracedRequestServiceBuilder::new(router)
+      .map_err(|e| format!("router build: {e}"))?;
+    Ok(Mutex::new(builder))
+  }
+
+  /// Convert the runtime's `web_sys::Request` into a `hyper::Request<Body>`.
+  async fn to_hyper_request(
+    req: web_sys::Request,
+  ) -> Result<hyper::Request<Body>, JsValue> {
+    let method = hyper::Method::from_bytes(req.method().as_bytes())
+      .map_err(|e| JsValue::from_str(&format!("bad method: {e}")))?;
+    let uri: hyper::Uri = req
+      .url()
+      .parse()
+      .map_err(|e| JsValue::from_str(&format!("bad uri: {e}")))?;
+    let mut builder = hyper::Request::builder().method(method).uri(uri);
+
+    let headers = req.headers();
+    if let Some(iter) = js_sys::try_iter(&headers)? {
+      for entry in iter {
+        let pair = js_sys::Array::from(&entry?);
+        if let (Some(k), Some(v)) =
+          (pair.get(0).as_string(), pair.get(1).as_string())
+        {
+          builder = builder.header(k, v);
+        }
+      }
+    }
+
+    let buf = wasm_bindgen_futures::JsFuture::from(req.array_buffer()?).await?;
+    let bytes = js_sys::Uint8Array::new(&buf).to_vec();
+    let body = if bytes.is_empty() {
+      Body::empty()
+    } else {
+      Body::from(bytes)
+    };
+    builder
+      .body(body)
+      .map_err(|e| JsValue::from_str(&format!("build request: {e}")))
+  }
+
+  /// Convert a `hyper::Response<Body>` into the runtime's `web_sys::Response`.
+  async fn to_web_response(
+    resp: hyper::Response<Body>,
+  ) -> Result<web_sys::Response, JsValue> {
+    let (parts, body) = resp.into_parts();
+    let bytes = hyper::body::to_bytes(body)
+      .await
+      .map_err(|e| JsValue::from_str(&format!("read response body: {e}")))?;
+
+    let headers = web_sys::Headers::new()?;
+    for (k, v) in parts.headers.iter() {
+      if let Ok(v) = v.to_str() {
+        headers.append(k.as_str(), v)?;
+      }
+    }
+
+    let init = web_sys::ResponseInit::new();
+    init.set_status(parts.status.as_u16());
+    init.set_headers(&headers);
+
+    let mut body_vec = bytes.to_vec();
+    web_sys::Response::new_with_opt_u8_array_and_init(Some(&mut body_vec), &init)
+  }
+
+  #[wasm_bindgen(tokio, js_namespace = ["default"])]
+  pub async fn fetch(
+    request: web_sys::Request,
+    env: JsValue,
+    _ctx: JsValue,
+  ) -> Result<web_sys::Response, JsValue> {
+    let builder = BUILDER
+      .get_or_try_init(|| init_builder(&env))
+      .await
+      .map_err(|e| JsValue::from_str(&e))?;
+
+    // Build a per-request service under the lock, then release it before the
+    // (async) request handling runs.
+    let mut service = {
+      let mut guard = builder.lock().unwrap();
+      guard.build("127.0.0.1:0".parse().unwrap(), true)
+    };
+
+    let hyper_req = to_hyper_request(request).await?;
+    let hyper_resp = service
+      .call(hyper_req)
+      .await
+      .map_err(|e| JsValue::from_str(&format!("route error: {e}")))?;
+    to_web_response(hyper_resp).await
   }
 }

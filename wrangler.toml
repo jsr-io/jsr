@@ -1,0 +1,24 @@
+# EXPERIMENT (temporary): run jsr's registry_api as an emscripten worker.
+# Smoke-test config only — the [vars] below are dummy values so Config::parse
+# succeeds; there is no real database/S3 behind them, so request handling will
+# fail at DB connect. The point of this config is to prove the module loads in
+# workerd and the `fetch` export is invoked.
+name = "jsr-api"
+main = "target/wasm32-unknown-emscripten/release/deps/registry_api.js"
+compatibility_date = "2026-06-02"
+compatibility_flags = ["nodejs_compat", "new_module_registry", "no_handle_cross_request_promise_resolution"]
+
+[vars]
+S3_REGION = "us-east-1"
+S3_ENDPOINT = "http://localhost:9000"
+S3_ACCESS_KEY = "test"
+S3_SECRET_KEY = "test"
+GITHUB_CLIENT_ID = "test"
+GITHUB_CLIENT_SECRET = "test"
+GITLAB_CLIENT_ID = "test"
+GITLAB_CLIENT_SECRET = "test"
+REGISTRY_URL = "http://localhost:8000/"
+NPM_URL = "http://localhost:8000/"
+DATABASE_URL = "postgres://user:password@localhost/registry"
+METADATA_STRATEGY = "testing"
+# Serve the API routes; skip the /tasks background routes for the smoke test.
