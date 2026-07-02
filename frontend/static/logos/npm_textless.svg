@@ -6,12 +6,14 @@
   viewBox="0 0 16 16"
 >
   <defs>
-    <style>.cls-1 {
+    <style>
+    .cls-1 {
       fill: #c12127;
     }
     .cls-2 {
       fill: #fff;
-    }</style>
+    }
+    </style>
   </defs>
   <title>n</title>
   <path
