@@ -3005,6 +3005,59 @@ gitlab_id: r.user_gitlab_id,
     .await
   }
 
+  /// Record the SHA-256 (`sha256-<hex>`) of the uploaded gzipped tarball on the
+  /// publishing task. This is the artifact that SLSA provenance attests over, so
+  /// it is later used to bind an attestation to the actual published bytes.
+  #[instrument(
+    name = "Database::set_publishing_task_tarball_hash",
+    skip(self),
+    err
+  )]
+  pub async fn set_publishing_task_tarball_hash(
+    &self,
+    id: Uuid,
+    tarball_hash: &str,
+  ) -> Result<()> {
+    sqlx::query!(
+      "UPDATE publishing_tasks SET tarball_hash = $1 WHERE id = $2",
+      tarball_hash,
+      id,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
+  }
+
+  /// The recorded tarball hash (`sha256-<hex>`) for the most recent publishing
+  /// task of a version, if one exists and recorded a hash. Used to verify that a
+  /// provenance attestation's `subject.digest.sha256` matches the published
+  /// bytes.
+  #[instrument(
+    name = "Database::get_publishing_task_tarball_hash_for_version",
+    skip(self),
+    err
+  )]
+  pub async fn get_publishing_task_tarball_hash_for_version(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    version: &Version,
+  ) -> Result<Option<String>> {
+    let row = sqlx::query!(
+      r#"SELECT tarball_hash FROM publishing_tasks
+      WHERE package_scope = $1 AND package_name = $2 AND package_version = $3
+        AND tarball_hash IS NOT NULL
+      ORDER BY created_at DESC
+      LIMIT 1"#,
+      scope as _,
+      name as _,
+      version as _,
+    )
+    .fetch_optional(&self.pool)
+    .await?;
+    Ok(row.and_then(|r| r.tarball_hash))
+  }
+
   #[allow(clippy::type_complexity)]
   #[instrument(name = "Database::list_publishing_tasks", skip(self), err)]
   pub async fn list_publishing_tasks(

@@ -1,10 +1,12 @@
 <svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 518 518">
-  <style>.st0 {
+  <style>
+  .st0 {
     fill: #2c8ebb;
   }
   .st1 {
     fill: #fff;
-  }</style>
+  }
+  </style>
   <path
     class="st0"
     d="M259 0c143 0 259 116 259 259S402 518 259 518 0 402 0 259 116 0 259 0z"
