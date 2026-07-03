@@ -269,13 +269,13 @@ async fn process_publishing_task(
   )
   .await?;
 
-  if let Some(algolia_client) = algolia_client {
+  /*if let Some(algolia_client) = algolia_client {
     algolia_client.upsert_symbols(
       &publishing_task.package_scope,
       &publishing_task.package_name,
       doc_search_json,
     );
-  }
+  }*/
 
   Ok(())
 }
