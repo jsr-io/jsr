@@ -5,7 +5,8 @@
   viewBox="-1 -1 15 9"
   aria-hidden="true"
 >
-  <style>#jsr-logo {
+  <style>
+  #jsr-logo {
     height: 110px;
   }
 
@@ -68,7 +69,8 @@
     100% {
       transform: translateX(0);
     }
-  }</style>
+  }
+  </style>
   <rect
     x="2"
     y="0"
@@ -76,8 +78,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1101ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="3"
     y="0"
@@ -85,8 +86,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1788ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="0"
@@ -94,8 +94,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1945ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="0"
@@ -103,8 +102,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1138ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="0"
@@ -112,8 +110,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1436ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="0"
@@ -121,8 +118,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1770ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="0"
@@ -130,8 +126,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1149ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="2"
     y="1"
@@ -139,8 +134,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 661ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="3"
     y="1"
@@ -148,8 +142,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 933ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="1"
@@ -157,8 +150,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1552ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="1"
@@ -166,8 +158,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1265ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="1"
@@ -175,8 +166,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1066ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="1"
@@ -184,8 +174,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1951ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="1"
@@ -193,8 +182,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1980ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="9"
     y="1"
@@ -202,8 +190,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1683ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="10"
     y="1"
@@ -211,8 +198,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1239ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="11"
     y="1"
@@ -220,8 +206,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1167ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="12"
     y="1"
@@ -229,8 +214,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1974ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="0"
     y="2"
@@ -238,8 +222,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1538ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="1"
     y="2"
@@ -247,8 +230,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1471ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="2"
     y="2"
@@ -256,8 +238,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 909ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="3"
     y="2"
@@ -265,8 +246,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1184ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="2"
@@ -274,8 +254,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 748ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="2"
@@ -283,8 +262,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 682ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="2"
@@ -292,8 +270,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 753ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="2"
@@ -301,8 +278,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1886ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="2"
@@ -310,8 +286,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1410ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="9"
     y="2"
@@ -319,8 +294,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1130ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="10"
     y="2"
@@ -328,8 +302,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1619ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="11"
     y="2"
@@ -337,8 +310,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 801ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="12"
     y="2"
@@ -346,8 +318,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1710ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="0"
     y="3"
@@ -355,8 +326,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1330ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="1"
     y="3"
@@ -364,8 +334,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1891ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="2"
     y="3"
@@ -373,8 +342,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1221ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="3"
     y="3"
@@ -382,8 +350,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 684ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="3"
@@ -391,8 +358,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1584ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="3"
@@ -400,8 +366,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1718ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="3"
@@ -409,8 +374,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 805ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="3"
@@ -418,8 +382,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1461ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="3"
@@ -427,8 +390,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 884ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="9"
     y="3"
@@ -436,8 +398,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1222ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="10"
     y="3"
@@ -445,8 +406,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1545ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="11"
     y="3"
@@ -454,8 +414,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1142ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="12"
     y="3"
@@ -463,8 +422,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1019ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="0"
     y="4"
@@ -472,8 +430,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1505ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="1"
     y="4"
@@ -481,8 +438,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 664ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="2"
     y="4"
@@ -490,8 +446,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 923ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="3"
     y="4"
@@ -499,8 +454,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 815ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="4"
@@ -508,8 +462,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 910ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="4"
@@ -517,8 +470,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1260ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="4"
@@ -526,8 +478,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1384ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="4"
@@ -535,8 +486,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1680ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="4"
@@ -544,8 +494,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1306ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="9"
     y="4"
@@ -553,8 +502,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1068ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="10"
     y="4"
@@ -562,8 +510,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1947ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="11"
     y="4"
@@ -571,8 +518,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 653ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="12"
     y="4"
@@ -580,8 +526,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1217ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="0"
     y="5"
@@ -589,8 +534,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1452ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="1"
     y="5"
@@ -598,8 +542,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1707ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="2"
     y="5"
@@ -607,8 +550,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1595ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="3"
     y="5"
@@ -616,8 +558,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1325ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="5"
@@ -625,8 +566,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1691ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="5"
@@ -634,8 +574,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1070ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="5"
@@ -643,8 +582,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1998ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="5"
@@ -652,8 +590,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 962ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="5"
@@ -661,8 +598,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 882ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="9"
     y="5"
@@ -670,8 +606,7 @@
     height="1"
     fill="#f7df1e"
     style="animation-duration: 1225ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="10"
     y="5"
@@ -679,8 +614,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1422ms; animation-name: jsr_logo_square_slide_in_right"
-  >
-  </rect>
+  ></rect>
   <rect
     x="4"
     y="6"
@@ -688,8 +622,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1184ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
   <rect
     x="5"
     y="6"
@@ -697,8 +630,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1971ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="6"
     y="6"
@@ -706,8 +638,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1372ms; animation-name: jsr_logo_square_slide_in_left"
-  >
-  </rect>
+  ></rect>
   <rect
     x="7"
     y="6"
@@ -715,8 +646,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1237ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="8"
     y="6"
@@ -724,8 +654,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1190ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="9"
     y="6"
@@ -733,8 +662,7 @@
     height="1"
     fill="#083344"
     style="animation-duration: 1539ms; animation-name: jsr_logo_square_slide_in_up"
-  >
-  </rect>
+  ></rect>
   <rect
     x="10"
     y="6"
@@ -742,6 +670,5 @@
     height="1"
     fill="#083344"
     style="animation-duration: 838ms; animation-name: jsr_logo_square_slide_in_down"
-  >
-  </rect>
+  ></rect>
 </svg>

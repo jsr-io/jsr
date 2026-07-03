@@ -14,7 +14,8 @@
 @source inline("bg-{abstract,deprecated,unstable,writeonly,readonly,protected,private,optional,permissions,other}/5");
 
 @layer base {
-  img:where(:not(.markdown img)), video:where(:not(.markdown video)) {
+  img:where(:not(.markdown img)),
+  video:where(:not(.markdown video)) {
     height: auto;
   }
 }
@@ -185,13 +186,15 @@
       focus:outline-4 focus:outline-offset-2;
   }
 
-  .button-primary, .button-secondary {
+  .button-primary,
+  .button-secondary {
     @apply button border-1.5 font-bold transition-all duration-75 ease-in-out
       outline-offset-2 shadow-accent-sm dark:shadow-dark-accent-sm
       disabled:shadow-transparent;
   }
 
-  .button-primary:not(:disabled), .button-secondary:not(:disabled) {
+  .button-primary:not(:disabled),
+  .button-secondary:not(:disabled) {
     @apply active:shadow-accent-sm-close dark:active:shadow-dark-accent-sm-close
       active:translate-x-[3px] active:translate-y-[4px];
   }
@@ -426,8 +429,7 @@ body .ddoc {
         color: #6a737d;
       }
 
-      .pl-c1
-      /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.raw, meta.diff.header, meta.output */,
+      .pl-c1 /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.raw, meta.diff.header, meta.output */,
       .pl-s .pl-v /* string variable */ {
         color: #005cc5;
       }
@@ -437,8 +439,7 @@ body .ddoc {
         color: #6f42c1;
       }
 
-      .pl-smi
-      /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
+      .pl-smi /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
       .pl-s .pl-s1 /* string source */ {
         color: #24292e;
       }
@@ -452,8 +453,7 @@ body .ddoc {
       }
 
       .pl-s /* string */,
-      .pl-pds
-      /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
+      .pl-pds /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
       .pl-s .pl-pse .pl-s1 /* string punctuation.section.embedded source */,
       .pl-sr /* string.regexp */,
       .pl-sr .pl-cce /* string.regexp constant.character.escape */,
@@ -467,8 +467,7 @@ body .ddoc {
         color: #e36209;
       }
 
-      .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */
-      {
+      .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */ {
         color: #b31d28;
       }
 
@@ -512,14 +511,12 @@ body .ddoc {
         color: #24292e;
       }
 
-      .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */
-      {
+      .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */ {
         color: #b31d28;
         background-color: #ffeef0;
       }
 
-      .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */
-      {
+      .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */ {
         color: #22863a;
         background-color: #f0fff4;
       }
@@ -535,7 +532,9 @@ body .ddoc {
       }
     }
 
-    .diff-added, .diff-modified, .diff-removed {
+    .diff-added,
+    .diff-modified,
+    .diff-removed {
       &:not(.diff-inline) {
         @apply py-0.5 -mb-1 px-2 -mx-2;
       }
@@ -606,7 +605,9 @@ body .ddoc {
     content: "-";
   }
 
-  .diff-added, .diff-modified, .diff-removed {
+  .diff-added,
+  .diff-modified,
+  .diff-removed {
     @apply relative rounded-r rounded-l-none;
 
     &::before {
@@ -728,7 +729,8 @@ body .ddoc {
     @apply mt-1!;
   }
 
-  #module_doc, main {
+  #module_doc,
+  main {
     @apply pb-8;
   }
 
@@ -753,8 +755,7 @@ body .ddoc {
       color: #959da5;
     }
 
-    .pl-c1
-    /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.quote, markup.raw, meta.diff.header */,
+    .pl-c1 /* constant, entity.name.constant, variable.other.constant, variable.language, support, meta.property-name, support.constant, support.variable, meta.module-reference, markup.quote, markup.raw, meta.diff.header */,
     .pl-s .pl-v /* string variable */ {
       color: #c8e1ff;
     }
@@ -764,8 +765,7 @@ body .ddoc {
       color: #b392f0;
     }
 
-    .pl-smi
-    /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
+    .pl-smi /* variable.parameter.function, storage.modifier.package, storage.modifier.import, storage.type.java, variable.other */,
     .pl-s .pl-s1 /* string source */ {
       color: #f6f8fa;
     }
@@ -779,8 +779,7 @@ body .ddoc {
     }
 
     .pl-s /* string */,
-    .pl-pds
-    /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
+    .pl-pds /* punctuation.definition.string, source.regexp, string.regexp.character-class */,
     .pl-s .pl-pse .pl-s1 /* string punctuation.section.embedded source */,
     .pl-sr /* string.regexp */,
     .pl-sr .pl-cce /* string.regexp constant.character.escape */,
@@ -794,8 +793,7 @@ body .ddoc {
       color: #fb8532;
     }
 
-    .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */
-    {
+    .pl-bu /* invalid.broken, invalid.deprecated, invalid.unimplemented, message.error, brackethighlighter.unmatched, sublimelinter.mark.error */ {
       color: #d73a49;
     }
 
@@ -835,14 +833,12 @@ body .ddoc {
       color: #f6f8fa;
     }
 
-    .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */
-    {
+    .pl-md /* markup.deleted, meta.diff.header.from-file, punctuation.definition.deleted */ {
       color: #b31d28;
       background-color: #ffeef0;
     }
 
-    .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */
-    {
+    .pl-mi1 /* markup.inserted, meta.diff.header.to-file, punctuation.definition.inserted */ {
       color: #176f2c;
       background-color: #f0fff4;
     }
@@ -866,8 +862,7 @@ body .ddoc {
       color: #0366d6;
     }
 
-    .pl-ba /* brackethighlighter.tag, brackethighlighter.curly, brackethighlighter.round, brackethighlighter.square, brackethighlighter.angle, brackethighlighter.quote */
-    {
+    .pl-ba /* brackethighlighter.tag, brackethighlighter.curly, brackethighlighter.round, brackethighlighter.square, brackethighlighter.angle, brackethighlighter.quote */ {
       color: #ffeef0;
     }
 

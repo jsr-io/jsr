@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2196.2 500">
   <defs>
-    <style>.cls-1,.cls-2{fill:#003dff;}.cls-2{fill-rule:evenodd;}</style>
+    <style>
+    .cls-1,
+    .cls-2 {
+      fill: #003dff;
+    }
+    .cls-2 {
+      fill-rule: evenodd;
+    }
+    </style>
   </defs>
   <path
     class="cls-2"

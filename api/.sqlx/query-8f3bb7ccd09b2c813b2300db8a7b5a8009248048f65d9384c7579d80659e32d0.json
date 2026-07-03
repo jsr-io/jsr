@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT tarball_hash FROM publishing_tasks\n      WHERE package_scope = $1 AND package_name = $2 AND package_version = $3\n        AND tarball_hash IS NOT NULL\n      ORDER BY created_at DESC\n      LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tarball_hash",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "8f3bb7ccd09b2c813b2300db8a7b5a8009248048f65d9384c7579d80659e32d0"
+}
