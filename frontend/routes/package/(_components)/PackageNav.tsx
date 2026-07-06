@@ -59,22 +59,6 @@ export function PackageNav({
       )}
       {(latestVersion || params.version) && (
         <NavItem
-          href={`${base}/diff/${
-            (params.version && params.version !== latestVersion)
-              ? params.version
-              : ""
-          }...${
-            (params.version && params.version === latestVersion)
-              ? params.version
-              : latestVersion ?? ""
-          }`}
-          active={currentTab === "Diff"}
-        >
-          Diff
-        </NavItem>
-      )}
-      {(latestVersion || params.version) && (
-        <NavItem
           href={`${base}/${params.version || latestVersion}`}
           active={currentTab === "Files"}
         >

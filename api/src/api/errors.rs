@@ -47,6 +47,14 @@ errors!(
     status: NOT_FOUND,
     "Diffs do not have an index.",
   },
+  DiffDisabled {
+    status: NOT_FOUND,
+    "The diff view is currently disabled.",
+  },
+  DocsOnlyForLatestVersion {
+    status: NOT_FOUND,
+    "Documentation is only available for the latest version of a package.",
+  },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
     "The requested entrypoint or symbol was not found.",

@@ -1385,17 +1385,25 @@ pub async fn get_docs_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let has_readme = !all_symbols
     && entrypoint.is_none()
@@ -1517,17 +1525,25 @@ pub async fn get_docs_search_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
   let generate_ctx_cache =
@@ -1583,17 +1599,25 @@ pub async fn get_docs_search_structured_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
   let generate_ctx_cache =
@@ -1816,6 +1840,12 @@ pub async fn get_source_handler(
 pub async fn get_diff_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiPackageVersionDocs> {
+  // The diff view is disabled. Flip to `true` to re-enable it.
+  const DIFF_ENABLED: bool = false;
+  if !DIFF_ENABLED {
+    return Err(ApiError::DiffDisabled);
+  }
+
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   Span::current().record("scope", field::display(&scope));
@@ -4071,6 +4101,109 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "entrypointOrSymbolNotFound")
+      .await;
+
+    // the "latest" alias resolves to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { version, .. } => {
+        assert_eq!(version.version, task.package_version);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // docs are only served for the latest version; any other version is
+    // rejected so callers fall back to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs/search")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.0.0/docs/search_structured",
+      )
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+
+    // the diff view is disabled
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/diff/1.0.0/1.2.3?all_symbols")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "diffDisabled")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_prerelease_only() {
+    let mut t = TestSetup::new().await;
+
+    // publish a package that only has a prerelease version (no stable release)
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3-alpha.1").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok_prerelease"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with no stable release, docs fall back to the latest prerelease for both
+    // the "latest" alias and the explicit prerelease version
+    for path in [
+      "/api/scopes/scope/packages/foo/versions/latest/docs",
+      "/api/scopes/scope/packages/foo/versions/1.2.3-alpha.1/docs",
+    ] {
+      let mut resp = t.http().get(path).call().await.unwrap();
+      let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+      match docs {
+        ApiPackageVersionDocs::Content { version, .. } => {
+          assert_eq!(version.version, task.package_version);
+        }
+        ApiPackageVersionDocs::Redirect { .. } => panic!(),
+      }
+    }
+
+    // a version that is not the latest prerelease is still rejected
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
       .await;
   }
 

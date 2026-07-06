@@ -1850,6 +1850,36 @@ gitlab_id: r.user_gitlab_id,
       .await
   }
 
+  /// Resolves the version whose docs are served for a package. This is the
+  /// latest unyanked stable version, or - for packages that only have
+  /// prerelease versions - the latest unyanked prerelease version. Ordering
+  /// stable releases ahead of prereleases keeps the result identical to
+  /// `get_latest_unyanked_version_for_package` whenever a stable release
+  /// exists.
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_for_docs",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_for_docs(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersion>> {
+    query_concat_as!(
+      PackageVersion,
+      "SELECT ", PACKAGE_VERSION_SELECT, "
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND is_yanked = false
+      ORDER BY (version NOT LIKE '%-%') DESC, version DESC
+      LIMIT 1";
+      scope as _,
+      name as _,
+    )
+    .fetch_optional(&self.pool)
+    .await
+  }
+
   #[instrument(
     name = "Database::get_latest_unyanked_version_for_package_with_newer_versions_count",
     skip(self),

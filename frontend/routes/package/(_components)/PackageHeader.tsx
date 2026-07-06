@@ -91,12 +91,6 @@ export function PackageHeader({
               >
                 Jump to {isNewerPrerelease ? "this version " : "latest"}
               </a>
-              <a
-                class="max-md:flex-1 max-md:block button-sm button-primary whitespace-nowrap"
-                href={`/@${pkg.scope}/${pkg.name}/diff/${selectedVersion.version}...${pkg.latestVersion}`}
-              >
-                Jump to diff
-              </a>
             </div>
           </div>
         </div>

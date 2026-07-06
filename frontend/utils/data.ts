@@ -126,6 +126,16 @@ export async function packageDataWithDocs(
     } else {
       if (pkgDocsResp.code === "scopeNotFound") return null;
       if (pkgDocsResp.code === "packageNotFound") return null;
+      if (pkgDocsResp.code === "docsOnlyForLatestVersion") {
+        // Docs are only served for the latest version; redirect to the
+        // canonical (versionless) docs URL for the latest version.
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: `/@${scope}/${pkg}/doc${compileDocsRequestPath(docs)}`,
+          },
+        });
+      }
       if (pkgDocsResp.code === "entrypointOrSymbolNotFound") {
         // redirect to all symbols page if there is no default entrypoint
         if ("entrypoint" in docs && !docs.symbol && docs.entrypoint === "") {
