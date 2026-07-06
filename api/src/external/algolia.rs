@@ -18,6 +18,7 @@ use tracing::instrument;
 
 // Algolia accepts batch payloads up to ~10MB. Stay well below that to leave
 // headroom for request overhead.
+#[allow(dead_code)] // used by the currently-disabled symbol indexing
 const MAX_ALGOLIA_BATCH_SIZE: f64 = 3f64 * 1024f64 * 1024f64;
 const MAX_CONCURRENT_ALGOLIA_TASKS: usize = 32;
 
@@ -30,6 +31,7 @@ pub struct AlgoliaClient {
   app_id: Arc<str>,
   api_key: Arc<str>,
   packages_index: Arc<str>,
+  #[allow(dead_code)] // used by the currently-disabled symbol indexing
   symbols_index: Arc<str>,
   semaphore: Arc<Semaphore>,
 }
@@ -135,6 +137,7 @@ impl AlgoliaClient {
     );
   }
 
+  #[allow(dead_code)] // symbol indexing is temporarily disabled
   #[instrument(name = "AlgoliaClient::upsert_symbols", skip(self))]
   pub fn upsert_symbols(
     &self,
