@@ -8,6 +8,7 @@ const TURNSTILE_SCRIPT =
 
 interface TurnstileOptions {
   sitekey: string;
+  theme: "light" | "dark";
   callback: (token: string) => void;
   "expired-callback": () => void;
   "error-callback": () => void;
@@ -21,6 +22,19 @@ interface Turnstile {
 declare global {
   // Defined by the Turnstile script once it loads.
   var turnstile: Turnstile | undefined;
+}
+
+/**
+ * Whether the site is in dark mode, which is the `dark` class on `<html>` —
+ * set before hydration by the inline script in `_app.tsx`.
+ *
+ * Turnstile's own `theme: "auto"` cannot be used: it reads `prefers-color-scheme`
+ * directly, whereas the site theme falls back to that only when the visitor has
+ * not chosen one. A visitor on a dark OS who picked the light theme would
+ * otherwise get a dark widget on a light page.
+ */
+function prefersDark(): boolean {
+  return document.documentElement.classList.contains("dark");
 }
 
 /**
@@ -45,10 +59,12 @@ export function LoginForm(
     if (!siteKey || !container.current) return;
     const el = container.current;
     let widgetId: string | undefined;
+    let dark = prefersDark();
 
     function render() {
       widgetId = globalThis.turnstile?.render(el, {
         sitekey: siteKey!,
+        theme: dark ? "dark" : "light",
         callback: (value) => {
           token.value = value;
           unavailable.value = false;
@@ -63,6 +79,23 @@ export function LoginForm(
       });
     }
 
+    // A widget's theme is fixed at render time, so following the site's theme
+    // toggle means tearing the widget down and building a new one. That voids
+    // any token it had already issued.
+    function onThemeChange() {
+      if (prefersDark() === dark) return;
+      dark = !dark;
+      if (widgetId) {
+        globalThis.turnstile?.remove(widgetId);
+        widgetId = undefined;
+        token.value = "";
+      }
+      render();
+    }
+
+    const observer = new MutationObserver(onThemeChange);
+    observer.observe(document.documentElement, { attributeFilter: ["class"] });
+
     if (globalThis.turnstile) {
       render();
     } else {
@@ -76,6 +109,7 @@ export function LoginForm(
     }
 
     return () => {
+      observer.disconnect();
       if (widgetId) globalThis.turnstile?.remove(widgetId);
     };
   }, [siteKey]);
