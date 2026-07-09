@@ -18,9 +18,10 @@ resource "cloudflare_turnstile_widget" "login" {
   name    = "${var.production ? "prod" : "staging"} login"
   domains = [var.domain_name]
 
-  # Never prompt the visitor: the widget renders, verifies, and resolves on its
-  # own. Not `invisible`, which renders nothing at all — Cloudflare conditions
-  # that mode on referencing their Turnstile Privacy Addendum from a privacy
-  # policy, and JSR does not publish one. A visible widget is that disclosure.
-  mode = "non-interactive"
+  # Cloudflare decides, per visitor, between clearing them silently and asking
+  # them to tick a box. The other two modes never prompt, which sounds nicer but
+  # leaves a visitor the passive signals cannot clear — on Tor, a VPN, or a
+  # hardened browser — with no way to prove themselves and so no way to sign in.
+  # The occasional checkbox is the price of that escape hatch.
+  mode = "managed"
 }
