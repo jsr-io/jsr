@@ -14,7 +14,9 @@ resource "cloudflare_turnstile_widget" "login" {
   name       = "${var.domain_name} login"
   domains    = [var.domain_name]
 
-  # Show an interactive challenge only to visitors that look suspicious, rather
-  # than making every sign-in solve one.
-  mode = "managed"
+  # Never prompt the visitor: the widget renders, verifies, and resolves on its
+  # own. Not `invisible`, which renders nothing at all — Cloudflare conditions
+  # that mode on referencing their Turnstile Privacy Addendum from a privacy
+  # policy, and JSR does not publish one. A visible widget is that disclosure.
+  mode = "non-interactive"
 }
