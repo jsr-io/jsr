@@ -11,8 +11,12 @@
 # rendered it.
 resource "cloudflare_turnstile_widget" "login" {
   account_id = var.cloudflare_account_id
-  name       = "${var.domain_name} login"
-  domains    = [var.domain_name]
+
+  # Staging and prod share one Cloudflare account, so the name — which is only
+  # a label in the dashboard — namespaces by environment to tell the two
+  # widgets apart. `domains` is what actually scopes the widget.
+  name    = "${var.production ? "prod" : "staging"} login"
+  domains = [var.domain_name]
 
   # Never prompt the visitor: the widget renders, verifies, and resolves on its
   # own. Not `invisible`, which renders nothing at all — Cloudflare conditions
