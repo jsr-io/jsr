@@ -32,7 +32,7 @@ resource "google_secret_manager_secret" "turnstile_secret_key" {
 
 resource "google_secret_manager_secret_version" "turnstile_secret_key" {
   secret      = google_secret_manager_secret.turnstile_secret_key.id
-  secret_data = var.turnstile_secret_key
+  secret_data = cloudflare_turnstile_widget.login.secret
 }
 
 resource "google_secret_manager_secret" "postmark_token" {

@@ -129,7 +129,7 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       # is a Secrets Manager secret on the API (see cloud_run_api.tf).
       type = "plain_text"
       name = "TURNSTILE_SITE_KEY"
-      text = var.turnstile_site_key
+      text = cloudflare_turnstile_widget.login.sitekey
     }
   ]
 }
