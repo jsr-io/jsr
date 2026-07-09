@@ -41,6 +41,8 @@ use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
 use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
+use crate::external::cloudflare::Turnstile;
+use crate::external::cloudflare::TurnstileClient;
 use crate::gcp::Queue;
 use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
@@ -79,6 +81,7 @@ pub struct MainRouterOptions {
     /* dataset_name */ String,
   )>,
   cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
+  turnstile: Turnstile,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -102,6 +105,7 @@ pub(crate) fn main_router(
     npm_tarball_build_queue,
     analytics_engine_config,
     cache_purge_client,
+    turnstile,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -121,6 +125,7 @@ pub(crate) fn main_router(
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
     .data(CachePurge(cache_purge_client))
+    .data(turnstile)
     .data(db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
@@ -131,7 +136,11 @@ pub(crate) fn main_router(
       .get("/sitemap.xml", sitemap_index_handler)
       .get("/sitemap-scopes.xml", scopes_sitemap_handler)
       .get("/sitemap-packages.xml", packages_sitemap_handler)
-      .get("/login/:service", auth::login_handler)
+      // POST, not GET: the login form carries the Turnstile response token in
+      // its body, which keeps it out of URLs, logs and `Referer` headers. It
+      // also means a bare link to this route can no longer start a login flow,
+      // so the captcha cannot be sidestepped by navigating straight here.
+      .post("/login/:service", auth::login_handler)
       .get("/login/callback/:service", auth::login_callback_handler)
       .get("/logout", auth::logout_handler)
       .get("/connect/:service", util::full_auth(auth::connect_handler))
@@ -274,6 +283,9 @@ async fn main() {
     _ => None,
   };
 
+  let turnstile =
+    Turnstile(config.turnstile_secret_key.map(TurnstileClient::new));
+
   let github_client = auth::github::Oauth2Client::new(
     &config.registry_url,
     config.github_client_id,
@@ -336,6 +348,7 @@ async fn main() {
     npm_tarball_build_queue,
     analytics_engine_config,
     cache_purge_client,
+    turnstile,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

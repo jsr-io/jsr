@@ -85,6 +85,18 @@ errors!(
     status: BAD_REQUEST,
     "Invalid OAuth State.",
   },
+  MissingTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha was not completed. Please complete the captcha and try again.",
+  },
+  InvalidTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha response was invalid or has already been used. Please try again.",
+  },
+  TurnstileVerificationFailed {
+    status: SERVICE_UNAVAILABLE,
+    "The captcha could not be verified at this time. Please try again shortly.",
+  },
   Blocked {
     status: FORBIDDEN,
     "Your account is blocked.",

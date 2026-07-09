@@ -1014,8 +1014,10 @@ pub mod test {
         npm_tarball_build_queue: None, // no queue locally
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
-        expose_api: true,              // api enabled
-        expose_tasks: true,            // task endpoints enabled
+        // No secret key, so the login captcha is not verified in tests.
+        turnstile: crate::external::cloudflare::Turnstile(None),
+        expose_api: true,   // api enabled
+        expose_tasks: true, // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)

@@ -23,6 +23,18 @@ resource "google_secret_manager_secret_version" "gitlab_client_secret" {
   secret_data = var.gitlab_client_secret
 }
 
+resource "google_secret_manager_secret" "turnstile_secret_key" {
+  secret_id = "turnstile-secret-key"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "turnstile_secret_key" {
+  secret      = google_secret_manager_secret.turnstile_secret_key.id
+  secret_data = var.turnstile_secret_key
+}
+
 resource "google_secret_manager_secret" "postmark_token" {
   secret_id = "postmark-token"
   replication {

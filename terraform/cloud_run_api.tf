@@ -34,6 +34,8 @@ locals {
     "GITLAB_CLIENT_ID" = var.gitlab_client_id
     # GITLAB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
 
+    # TURNSTILE_SECRET_KEY is defined inline, because it comes from Secrets Manager
+
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
     # ALGOLIA_WRITE_API_KEY is defined inline, because it comes from Secrets Manager
@@ -120,6 +122,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.gitlab_client_secret.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "TURNSTILE_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.turnstile_secret_key.id
             version = "latest"
           }
         }
@@ -275,6 +287,16 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
       }
 
       env {
+        name = "TURNSTILE_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.turnstile_secret_key.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "ALGOLIA_WRITE_API_KEY"
         value_source {
           secret_key_ref {
@@ -324,6 +346,12 @@ resource "google_secret_manager_secret_iam_member" "github_client_secret" {
 
 resource "google_secret_manager_secret_iam_member" "gitlab_client_secret" {
   secret_id = google_secret_manager_secret.gitlab_client_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "turnstile_secret_key" {
+  secret_id = google_secret_manager_secret.turnstile_secret_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

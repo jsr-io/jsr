@@ -6,7 +6,6 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
-import { SignInMenu } from "../islands/SignInMenu.tsx";
 import TbLogin2 from "tb-icons/TbLogin2";
 
 const algoliaAppId = process.env.ALGOLIA_APP_ID;
@@ -14,7 +13,6 @@ const algoliaPackageApiKey = process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY;
 const algoliaPackageIndex = process.env.ALGOLIA_PACKAGES_INDEX;
 const algoliaDocsApiKey = process.env.ALGOLIA_DOCS_SEARCH_API_KEY;
 const algoliaDocsIndex = process.env.ALGOLIA_DOCS_INDEX;
-const prodProxy = !!process.env.PROD_PROXY;
 
 export function Header({
   user,
@@ -118,17 +116,19 @@ export function Header({
                       logoutUrl={`/logout${redirect}`}
                     />
                   )
-                  : (prodProxy
-                    ? (
-                      <a
-                        href={`/login${redirect}`}
-                        class="flex items-center gap-2 link-header"
-                      >
-                        <TbLogin2 class="size-5" />
-                        <span>Sign in</span>
-                      </a>
-                    )
-                    : <SignInMenu redirect={redirect} />)}
+                  : (
+                    // Provider choice lives on /login, behind the captcha,
+                    // rather than in a dropdown here: the providers are reached
+                    // by a form POST carrying a Turnstile token, which a link
+                    // cannot produce.
+                    <a
+                      href={`/login${redirect}`}
+                      class="flex items-center gap-2 link-header"
+                    >
+                      <TbLogin2 class="size-5" />
+                      <span>Sign in</span>
+                    </a>
+                  )}
               </>
             )}
           </div>

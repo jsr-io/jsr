@@ -30,6 +30,20 @@ variable "gitlab_client_secret" {
   sensitive = true
 }
 
+# Cloudflare Turnstile keys for the captcha on the login page. The site key is
+# public by design — the widget ships it to the browser — while the secret key
+# is what the API uses to verify the response token. The two must be set
+# together: a site key without a secret key means the frontend renders a widget
+# whose token the API never checks.
+variable "turnstile_site_key" {
+  type = string
+}
+
+variable "turnstile_secret_key" {
+  type      = string
+  sensitive = true
+}
+
 variable "postmark_token" {
   type      = string
   sensitive = true

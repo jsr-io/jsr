@@ -3,6 +3,7 @@
 use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::db::*;
+use crate::external::cloudflare::Turnstile;
 use crate::iam::ReqIamExt;
 use crate::util::ApiResult;
 use crate::util::sanitize_redirect_url;
@@ -61,9 +62,41 @@ fn get_cookie<'a>(req: &'a Request<Body>, name: &str) -> Option<&'a str> {
   None
 }
 
-#[instrument(name = "GET /login/:service", skip(req), err, fields(redirect))]
-pub async fn login_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
+/// The form field the Turnstile widget populates with its response token. The
+/// name is fixed by Turnstile, which injects an input under it.
+const TURNSTILE_FIELD: &str = "cf-turnstile-response";
+
+/// Pulls the Turnstile response token out of the url-encoded form body.
+///
+/// A missing field and an empty one are both reported as `None`: a form
+/// submitted before the widget resolves carries the field with an empty value.
+async fn turnstile_token(
+  req: &mut Request<Body>,
+) -> Result<Option<String>, ApiError> {
+  let bytes = hyper::body::to_bytes(req.body_mut())
+    .await
+    .map_err(anyhow::Error::from)?;
+
+  Ok(
+    url::form_urlencoded::parse(&bytes)
+      .find(|(key, _)| key == TURNSTILE_FIELD)
+      .map(|(_, value)| value.into_owned())
+      .filter(|token| !token.is_empty()),
+  )
+}
+
+#[instrument(name = "POST /login/:service", skip(req), err, fields(redirect))]
+pub async fn login_handler(
+  mut req: Request<Body>,
+) -> ApiResult<Response<Body>> {
   let service = service_param(&req)?;
+
+  // Check the captcha before touching the database: this route is
+  // unauthenticated and inserts an `oauth_state` row on every call, so the
+  // caller must first prove they are a browser and not a bot enumerating it.
+  let turnstile = req.data::<Turnstile>().unwrap().clone();
+  let token = turnstile_token(&mut req).await?;
+  turnstile.verify(token.as_deref()).await?;
 
   let (pkce_code_challenge, pkce_code_verifier) =
     oauth2::PkceCodeChallenge::new_random_sha256();
@@ -108,7 +141,10 @@ pub async fn login_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 
   Ok(
     Response::builder()
-      .status(StatusCode::TEMPORARY_REDIRECT)
+      // 303, not 307: this handler is reached by a form POST, and 307 would
+      // preserve the method, making the browser POST the form to the identity
+      // provider's authorization endpoint. 303 forces the redirect to a GET.
+      .status(StatusCode::SEE_OTHER)
       .header(header::LOCATION, auth_url.as_str())
       // Bind this flow to the current browser: the callback requires the
       // returned `state` to match this cookie, so a `state` minted by an
@@ -576,6 +612,47 @@ mod tests {
       .unwrap()
       .expect_err_code(StatusCode::UNAUTHORIZED, "missingAuthentication")
       .await;
+  }
+
+  // The login flow is started by a form POST carrying the Turnstile token in
+  // its body. A bare GET must not start one: that is what stops the captcha
+  // from being sidestepped by navigating straight to this route.
+  #[tokio::test]
+  async fn login_does_not_start_a_flow_on_get() {
+    let mut t = TestSetup::new().await;
+
+    let resp = t.unauthed_http().get("/login/github").call().await.unwrap();
+
+    assert!(resp.status().is_client_error());
+    assert!(resp.headers().get(hyper::header::SET_COOKIE).is_none());
+  }
+
+  // With no secret key configured the captcha check is skipped, so a POST with
+  // no token still redirects to the identity provider. It must be a 303: a 307
+  // would preserve the method and make the browser POST the login form to
+  // GitHub's authorization endpoint.
+  #[tokio::test]
+  async fn login_post_redirects_to_provider_with_see_other() {
+    let mut t = TestSetup::new().await;
+
+    let resp = t
+      .unauthed_http()
+      .post("/login/github")
+      .call()
+      .await
+      .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::SEE_OTHER);
+    let location = resp
+      .headers()
+      .get(hyper::header::LOCATION)
+      .unwrap()
+      .to_str()
+      .unwrap();
+    assert!(
+      location.starts_with("https://github.com/login/oauth/authorize"),
+      "unexpected location: {location}"
+    );
   }
 
   // The login callback is bound to the browser that started the flow via the

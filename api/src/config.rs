@@ -180,6 +180,12 @@ pub struct Config {
   /// The Cloudflare Analytics Engine dataset name for download tracking.
   pub cloudflare_analytics_dataset: Option<String>,
 
+  #[clap(long = "turnstile_secret_key", env = "TURNSTILE_SECRET_KEY")]
+  /// The Cloudflare Turnstile secret key, used to verify the captcha response
+  /// submitted with the login form. Must be paired with the frontend's
+  /// `TURNSTILE_SITE_KEY`. Captcha verification is disabled if unset.
+  pub turnstile_secret_key: Option<String>,
+
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.
   pub postmark_token: Option<String>,
@@ -227,6 +233,10 @@ impl std::fmt::Debug for Config {
       .field(
         "npm_tarball_build_queue_id",
         &self.npm_tarball_build_queue_id,
+      )
+      .field(
+        "turnstile_secret_key",
+        &self.turnstile_secret_key.as_ref().map(|_| "***"),
       )
       .field(
         "postmark_token",
