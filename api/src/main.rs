@@ -385,15 +385,7 @@ mod worker {
   use super::*;
   use crate::traced_router::TracedRequestServiceBuilder;
   use hyper::service::Service as _;
-  use std::sync::Mutex;
-  use tokio::sync::OnceCell;
   use wasm_bindgen::prelude::*;
-
-  // Built once on the first request and reused. `RequestServiceBuilder::build`
-  // takes `&mut self`, so guard it with a `Mutex`; building a per-request
-  // service is cheap. The heavy state (DB pool, S3 clients, …) lives inside.
-  static BUILDER: OnceCell<Mutex<TracedRequestServiceBuilder<Body, ApiError>>> =
-    OnceCell::const_new();
 
   /// Copy the string-valued entries of the worker `env` object into the process
   /// environment so clap's `env = "..."` config parsing sees them.
@@ -413,15 +405,31 @@ mod worker {
     }
   }
 
-  async fn init_builder(
-    env: &JsValue,
-  ) -> Result<Mutex<TracedRequestServiceBuilder<Body, ApiError>>, String> {
-    env_into_process(env);
-    let config = Config::try_parse().map_err(|e| format!("config: {e}"))?;
-    let router = build_router(config).await;
-    let builder = TracedRequestServiceBuilder::new(router)
-      .map_err(|e| format!("router build: {e}"))?;
-    Ok(Mutex::new(builder))
+  /// Extract the host (without port) from a `scheme://[user:pass@]host[:port]/…`
+  /// URL, for the DNS prewarm below.
+  fn host_of(url: &str) -> Option<String> {
+    let after_scheme = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
+    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
+    let host = authority.rsplit_once('@').map(|(_, h)| h).unwrap_or(authority);
+    // Strip a trailing `:port`; leave IPv6 literals (`[::1]`) alone.
+    let host = if host.starts_with('[') {
+      host
+    } else {
+      host.split(':').next().unwrap_or(host)
+    };
+    (!host.is_empty()).then(|| host.to_string())
+  }
+
+  /// Prewarm emscripten's resolution cache for `host` via tokio's async DNS
+  /// (backed by `emscripten_dns_lookup_async`). The blocking `getaddrinfo`
+  /// that sqlx (`Database::connect`) and rust-s3 run on emscripten only answers
+  /// from that cache, so without a prior async lookup it returns `EAI -2`
+  /// even for `localhost`. A literal IP host resolves trivially and is a no-op.
+  async fn dns_prewarm(host: &str) -> Result<(), String> {
+    tokio::net::lookup_host((host, 0))
+      .await
+      .map(|_| ())
+      .map_err(|e| format!("dns prewarm for {host:?}: {e}"))
   }
 
   /// Convert the runtime's `web_sys::Request` into a `hyper::Request<Body>`.
@@ -490,17 +498,27 @@ mod worker {
     env: JsValue,
     _ctx: JsValue,
   ) -> Result<web_sys::Response, JsValue> {
-    let builder = BUILDER
-      .get_or_try_init(|| init_builder(&env))
-      .await
-      .map_err(|e| JsValue::from_str(&e))?;
-
-    // Build a per-request service under the lock, then release it before the
-    // (async) request handling runs.
-    let mut service = {
-      let mut guard = builder.lock().unwrap();
-      guard.build("127.0.0.1:0".parse().unwrap(), true)
-    };
+    // A Cloudflare Worker cannot reuse async I/O (open sockets, the sqlx DB
+    // pool) across requests — an I/O object created in one request's handler is
+    // unusable in the next ("Cannot perform I/O on behalf of a different
+    // request"). So build the whole router, and thus fresh DB connections,
+    // inside each request's own context rather than caching it across requests.
+    env_into_process(&env);
+    let config = Config::try_parse()
+      .map_err(|e| JsValue::from_str(&format!("config: {e}")))?;
+    // Prewarm the DNS cache for every outbound host reached during router
+    // construction (DB pool, S3 clients) before the blocking lookups fire.
+    for host in [host_of(&config.database_url), host_of(&config.s3_endpoint)]
+      .into_iter()
+      .flatten()
+      .collect::<std::collections::BTreeSet<_>>()
+    {
+      dns_prewarm(&host).await.map_err(|e| JsValue::from_str(&e))?;
+    }
+    let router = build_router(config).await;
+    let mut builder = TracedRequestServiceBuilder::new(router)
+      .map_err(|e| JsValue::from_str(&format!("router build: {e}")))?;
+    let mut service = builder.build("127.0.0.1:0".parse().unwrap(), true);
 
     let hyper_req = to_hyper_request(request).await?;
     let hyper_resp = service
