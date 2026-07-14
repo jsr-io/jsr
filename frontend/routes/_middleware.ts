@@ -109,11 +109,20 @@ const cache = define.middleware(async (ctx) => {
 // JS via addEventListener, never as inline HTML attributes, and legitimate
 // inline <script> elements (dark-mode bootstrap, island hydration) are governed
 // by script-src, not script-src-attr, so they keep working.
+//
+// `frame-src` closes the `script-src-attr` bypass: an injected
+// `<iframe src="javascript:...">` navigates rather than using an event-handler
+// attribute, so it is not caught by script-src-attr and — absent a script-src /
+// default-src / frame-src directive — executes same-origin. Restricting frame
+// sources to Cloudflare Turnstile (the only legitimate iframe, on the login
+// page) blocks `javascript:` and `data:` frames while keeping the captcha
+// working.
 const CSP = [
   "script-src-attr 'none'",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'self'",
+  "frame-src https://challenges.cloudflare.com",
 ].join("; ");
 
 const securityHeaders = define.middleware(async (ctx) => {
