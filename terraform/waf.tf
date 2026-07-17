@@ -30,12 +30,15 @@ locals {
   # challenged. The login page has its own captcha (see turnstile.tf).
   waf_re_api_route = "^/(api/|login/|connect/|disconnect/|logout$|sitemap(-scopes|-packages)?\\.xml$)"
 
-  # The expensive renders scrapers walk symbol-by-symbol, mirroring
-  # isDocsDiffSourceRoute() in lb/main.ts. Source pages (`/@scope/pkg/1.2.3/…`)
-  # are deliberately absent: they are module-shaped, so they are already exempt
-  # via the skip rule below and cannot be told apart from a raw module fetch
-  # without reading Accept — which rate limiting rule expressions cannot do.
-  # The package segment may carry an `@version` suffix, hence the second [^/]+.
+  # The expensive renders scrapers walk symbol-by-symbol. The package segment
+  # may carry an `@version` suffix, hence the second [^/]+.
+  #
+  # Source pages (`/@scope/pkg/1.2.3/mod.ts`) are covered too, but not by this
+  # regex — they are module-shaped and indistinguishable from a raw module fetch
+  # by path alone. The skip rule below does that separation for us: it removes
+  # every module fetch from the rate limiting phase by reading Accept, so any
+  # module-shaped path still arriving here can only be a source-view render.
+  # The rule reuses waf_re_module_shaped to pick them up.
   waf_re_docs_route = "^/@[^/]+/[^/]+/(doc|diff)(/|$)"
 
   # Static assets (frontend/_fresh/client — /assets/, /fonts/, /images/, plus
@@ -125,15 +128,20 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
 
   rules = [
     {
-      ref         = "ratelimit_docs_diff"
-      description = "Throttle doc and diff page scraping"
+      ref         = "ratelimit_docs_diff_source"
+      description = "Throttle doc, diff, and source page scraping"
       enabled     = true
       action      = "managed_challenge"
 
+      # Listed before the general rule so these pages get this limit rather than
+      # the looser one, and so source pages are counted here rather than being
+      # written off as static assets by the general rule — a package file named
+      # `mod.js` is an expensive render, unlike /assets/main.js.
+      #
       # cf.client.bot is verified by Cloudflare against ASN and reverse DNS,
       # unlike the spoofable User-Agent list in lb/bots.ts — `User-Agent: Slack`
       # is a free bypass there today, but cannot forge this.
-      expression = "${local.waf_expr_host} and (http.request.uri.path matches \"${local.waf_re_docs_route}\") and not cf.client.bot"
+      expression = "${local.waf_expr_host} and ((http.request.uri.path matches \"${local.waf_re_docs_route}\") or (http.request.uri.path matches \"${local.waf_re_module_shaped}\")) and not cf.client.bot"
 
       ratelimit = {
         # cf.colo.id is mandatory on every rate limiting rule, and makes the
