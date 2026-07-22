@@ -49,10 +49,30 @@ locals {
   waf_re_static_asset = "\\.(js|mjs|css|map|svg|png|jpe?g|webp|avif|gif|ico|woff2?|ttf|txt|xml)$"
 
   # Mirrors `!accept?.startsWith("text/html")` in canAccessModuleFile(). Both
-  # sides read the raw header and compare case-sensitively, so they agree
-  # exactly. A request with no Accept header yields an empty array, so any() is
-  # false — matching the Worker, where a null Accept also permits R2.
+  # sides read the raw header and compare case-sensitively. A request with no
+  # Accept header yields an empty array, so any() is false — matching the
+  # Worker, where a null Accept also permits R2.
+  #
+  # One known divergence: the Worker's headers.get() joins REPEATED Accept
+  # headers into a single comma-separated string and tests only its start,
+  # while [*] here tests each value. A client sending `text/html` as a second
+  # Accept header is served R2 by the Worker but not exempted here — the safe
+  # direction (it can be challenged, not mis-served), and no real client sends
+  # repeated Accept headers.
   waf_expr_accept_html = "any(starts_with(http.request.headers[\"accept\"][*], \"text/html\"))"
+
+  # Mirrors the Sec-Fetch-Dest branch of canAccessModuleFile(): the Worker
+  # serves R2 only when the header is absent, `empty`, or an image/video
+  # subresource load from jsr.io itself. Without this clause the Accept check
+  # alone would exempt a request the Worker routes to the FRONTEND — e.g.
+  # `Accept: */*` + `Sec-Fetch-Dest: document` on a module-shaped path is an
+  # expensive source-view render, and a scraper could walk those unthrottled
+  # with one header.
+  #
+  # Sec-Fetch-* headers are forbidden request headers — browsers set them and
+  # scripts cannot, and CLIs (`deno add`, npm) never send them — so for module
+  # fetches this clause is satisfied via absence and cannot throttle installs.
+  waf_expr_sec_fetch_dest_ok = "(not any(http.request.headers.names[*] == \"sec-fetch-dest\") or any(http.request.headers[\"sec-fetch-dest\"][*] == \"empty\") or ((any(http.request.headers[\"sec-fetch-dest\"][*] == \"image\") or any(http.request.headers[\"sec-fetch-dest\"][*] == \"video\")) and any(http.request.headers[\"sec-fetch-site\"][*] == \"same-origin\")))"
 
   # api.<domain> and npm.<domain> share the LB Worker but are pure R2/API
   # surfaces with no frontend to scrape, so rate limiting is apex-only. They
@@ -87,10 +107,12 @@ resource "cloudflare_ruleset" "waf_custom" {
       # so falls through to the rules below, which is correct — that request
       # renders on the frontend.
       #
-      # The method check mirrors canAccessModuleFile(): the Worker only ever
-      # serves R2 for GET and HEAD, so any other method lands on the frontend
-      # and keeps full WAF coverage rather than inheriting this exemption.
-      expression = "${local.waf_expr_host} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path matches \"${local.waf_re_module_shaped}\") and not ${local.waf_expr_accept_html}"
+      # The method, Accept, and Sec-Fetch-Dest checks together mirror
+      # canAccessModuleFile(): the Worker only ever serves R2 for GET and HEAD
+      # with a non-HTML Accept and a CLI/fetch-shaped Sec-Fetch-Dest, so any
+      # request failing one of these lands on the frontend and keeps full WAF
+      # coverage rather than inheriting this exemption.
+      expression = "${local.waf_expr_host} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path matches \"${local.waf_re_module_shaped}\") and not ${local.waf_expr_accept_html} and ${local.waf_expr_sec_fetch_dest_ok}"
 
       action_parameters = {
         # http_request_sbfm: Super Bot Fight Mode's only knob on this plan is
@@ -176,6 +198,10 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
       # cf.client.bot is verified by Cloudflare against ASN and reverse DNS,
       # unlike the spoofable User-Agent list in lb/bots.ts — `User-Agent: Slack`
       # is a free bypass there today, but cannot forge this.
+      #
+      # Exempting verified bots is a deliberate change from the Worker limits,
+      # which counted them too: a managed challenge is unsolvable by a crawler,
+      # so throttling Googlebot here would read as a site outage to the indexer.
       expression = "${local.waf_expr_host} and ((http.request.uri.path matches \"${local.waf_re_docs_route}\") or (http.request.uri.path matches \"${local.waf_re_module_shaped}\")) and not cf.client.bot"
 
       ratelimit = {
