@@ -17,6 +17,7 @@
 #
 # WARNING: `waf_re_module_shaped` MUST stay a strict superset of
 # `isModuleFilePath()` in lb/main.ts. Narrowing it breaks `deno add` globally.
+# lb/waf_test.ts enforces this invariant in CI against a generated corpus.
 
 locals {
   # Superset of isModuleFilePath() in lb/main.ts. That regex requires more
@@ -54,7 +55,8 @@ locals {
   waf_expr_accept_html = "any(starts_with(http.request.headers[\"accept\"][*], \"text/html\"))"
 
   # api.<domain> and npm.<domain> share the LB Worker but are pure R2/API
-  # surfaces with no frontend to scrape, so every rule here is apex-only.
+  # surfaces with no frontend to scrape, so rate limiting is apex-only. They
+  # still need SBFM handling of their own — see skip_cli_hosts_sbfm below.
   waf_expr_host = "http.host eq \"${var.domain_name}\""
 }
 
@@ -79,12 +81,16 @@ resource "cloudflare_ruleset" "waf_custom" {
       enabled     = true
       action      = "skip"
 
-      # A module fetch is a module-shaped path that is not asking for HTML.
-      # `deno add` sends Accept: */* (or nothing); a browser navigating to the
-      # same path to read the source view sends text/html and so falls through
-      # to the rules below, which is correct — that request renders on the
-      # frontend.
-      expression = "${local.waf_expr_host} and (http.request.uri.path matches \"${local.waf_re_module_shaped}\") and not ${local.waf_expr_accept_html}"
+      # A module fetch is a GET or HEAD for a module-shaped path that is not
+      # asking for HTML. `deno add` sends Accept: */* (or nothing); a browser
+      # navigating to the same path to read the source view sends text/html and
+      # so falls through to the rules below, which is correct — that request
+      # renders on the frontend.
+      #
+      # The method check mirrors canAccessModuleFile(): the Worker only ever
+      # serves R2 for GET and HEAD, so any other method lands on the frontend
+      # and keeps full WAF coverage rather than inheriting this exemption.
+      expression = "${local.waf_expr_host} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path matches \"${local.waf_re_module_shaped}\") and not ${local.waf_expr_accept_html}"
 
       action_parameters = {
         # http_request_sbfm: Super Bot Fight Mode's only knob on this plan is
@@ -108,6 +114,33 @@ resource "cloudflare_ruleset" "waf_custom" {
       logging = {
         enabled = true
       }
+    },
+    {
+      ref         = "skip_cli_hosts_sbfm"
+      description = "Exempt the CLI-only hosts (api, npm) from Super Bot Fight Mode"
+      enabled     = true
+      action      = "skip"
+
+      # api.<domain> and npm.<domain> serve exclusively programmatic clients —
+      # `deno publish`, the npm CLI — with a fixed JA3/JA4, no JS engine, and no
+      # cookies, so SBFM scores them 1 ("definitely automated") just like the
+      # module fetches skipped above. SBFM is zone-wide, so without this rule
+      # the skip above makes the toggle survivable for `deno add` while
+      # flipping it would still break every npm-compat install and publish.
+      #
+      # Managed Rules stay active here deliberately: api.<domain> fronts the
+      # registry API, a real dynamic backend worth OWASP coverage, and npm
+      # paths are built from constrained package names that cannot trip it.
+      # No rate limiting rule matches these hosts, so that phase needs no skip.
+      expression = "http.host in {\"${local.api_domain}\" \"${local.npm_domain}\"}"
+
+      action_parameters = {
+        phases = ["http_request_sbfm"]
+      }
+
+      logging = {
+        enabled = true
+      }
     }
   ]
 }
@@ -118,8 +151,11 @@ resource "cloudflare_ruleset" "waf_custom" {
 # on the apex zone the browser is actually visiting, so cf_clearance is scoped
 # to a host the browser will send it back to.
 #
-# Ordering matters — the first matching rule wins, so the strict doc/diff rule
-# is listed before the general one.
+# An under-limit request increments the counter of EVERY rule whose expression
+# matches — a doc page counts toward both rules below, exactly as the old
+# stacked Worker limits did. Ordering still matters: rules evaluate in order
+# and a challenge is terminating, so when both counters are exceeded the
+# stricter doc/diff verdict is the one that fires.
 resource "cloudflare_ruleset" "waf_ratelimit" {
   zone_id = var.cloudflare_zone_id
   name    = "jsr rate limiting"
@@ -133,9 +169,8 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
       enabled     = true
       action      = "managed_challenge"
 
-      # Listed before the general rule so these pages get this limit rather than
-      # the looser one, and so source pages are counted here rather than being
-      # written off as static assets by the general rule — a package file named
+      # Source pages are counted here even though their file extensions look
+      # like static assets to the general rule below — a package file named
       # `mod.js` is an expensive render, unlike /assets/main.js.
       #
       # cf.client.bot is verified by Cloudflare against ASN and reverse DNS,

@@ -62,6 +62,10 @@ jobs:
       - name: Lint
         run: deno task lint:lb
 
+      - name: Test
+        run: deno test --allow-read=../terraform
+        working-directory: lb
+
       - name: Build worker
         run: deno task build
         working-directory: lb
