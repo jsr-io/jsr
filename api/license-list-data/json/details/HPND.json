@@ -9,26 +9,26 @@
   "licenseId": "HPND",
   "crossRef": [
     {
+      "match": "N/A",
+      "url": "https://opensource.org/license/HPND",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:21:03Z",
+      "isWayBackLink": false,
+      "order": 0
+    },
+    {
       "match": "false",
       "url": "http://lists.opensource.org/pipermail/license-discuss_lists.opensource.org/2002-November/006304.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:56:44Z",
+      "timestamp": "2026-07-16T09:21:03Z",
       "isWayBackLink": false,
       "order": 1
-    },
-    {
-      "match": "N/A",
-      "url": "https://opensource.org/licenses/HPND",
-      "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-02-20T20:56:44Z",
-      "isWayBackLink": false,
-      "order": 0
     }
   ],
   "seeAlso": [
-    "https://opensource.org/licenses/HPND",
+    "https://opensource.org/license/HPND",
     "http://lists.opensource.org/pipermail/license-discuss_lists.opensource.org/2002-November/006304.html"
   ],
   "isOsiApproved": true,
