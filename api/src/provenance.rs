@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use x509_parser::parse_x509_certificate;
 use x509_parser::pem::parse_x509_pem;
+use x509_parser::prelude::ASN1Time;
 use x509_parser::prelude::GeneralName;
 use x509_parser::public_key::PublicKey;
 
@@ -182,12 +183,13 @@ struct RepoIdentity {
 }
 
 /// Validate that `cert` is a GitHub Actions Fulcio signing certificate: it must
-/// be within its validity window, carry the GitHub Actions OIDC issuer, and
-/// have a `github.com/<owner>/<repo>/...` SAN. Returns the repository identity.
+/// be valid at `now`, carry the GitHub Actions OIDC issuer, and have a
+/// `github.com/<owner>/<repo>/...` SAN. Returns the repository identity.
 fn verify_certificate_identity(
   cert: &x509_parser::certificate::X509Certificate,
+  now: ASN1Time,
 ) -> Result<RepoIdentity> {
-  if !cert.validity().is_valid() {
+  if !cert.validity().is_valid_at(now) {
     bail!("provenance certificate is expired or not yet valid");
   }
 
@@ -233,23 +235,23 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> bool {
   haystack.windows(needle.len()).any(|w| w == needle)
 }
 
-/// Whether a SLSA subject digest matches the recorded tarball hash. The recorded
-/// hash is `sha256-<hex>` (the form used by the publish-token restriction); the
-/// SLSA `subject.digest.sha256` is bare hex. Comparison is case-insensitive.
-fn digest_matches(expected_tarball_hash: &str, subject_sha256: &str) -> bool {
-  let expected = expected_tarball_hash
-    .strip_prefix("sha256-")
-    .unwrap_or(expected_tarball_hash);
-  !subject_sha256.is_empty() && subject_sha256.eq_ignore_ascii_case(expected)
+/// Whether a SLSA subject digest matches the digest of the published version
+/// manifest. Both sides are bare hex; comparison is case-insensitive.
+fn digest_matches(expected_sha256: &str, subject_sha256: &str) -> bool {
+  !expected_sha256.is_empty()
+    && !subject_sha256.is_empty()
+    && subject_sha256.eq_ignore_ascii_case(expected_sha256)
 }
 
 /// Verify a provenance bundle and return the Rekor transparency-log index.
 ///
 /// `subject_name` is the package coordinate (`pkg:jsr/@scope/name@version`) the
-/// attestation must be for. `expected_tarball_hash` is the `sha256-<hex>` digest
-/// of the gzipped tarball that was actually published; the attestation's subject
-/// digest must match it. `expected_repo`, when present, is the GitHub repository
-/// linked to the package; the signing certificate's identity must match it.
+/// attestation must be for. `expected_manifest_digest` is the hex SHA-256 of the
+/// published `<version>_meta.json`; the attestation's subject digest must match
+/// it. That manifest lists a checksum for every file in the version, so binding
+/// the attestation to it transitively binds it to the published contents.
+/// `expected_repo`, when present, is the GitHub repository linked to the
+/// package; the signing certificate's identity must match it.
 ///
 /// Verification:
 ///  1. The signing (leaf) certificate chains to the Fulcio intermediate.
@@ -261,8 +263,9 @@ fn digest_matches(expected_tarball_hash: &str, subject_sha256: &str) -> bool {
 ///     certificate: without the certificate's private key the signature cannot
 ///     be forged.
 ///  4. Only then is the now-trusted payload parsed and its subject name and
-///     digest checked. The digest check binds the attestation to the exact bytes
-///     stored for the package version, not merely to the name@version string.
+///     digest checked. The digest check binds the attestation to the exact
+///     manifest published for the version, not merely to the name@version
+///     string.
 ///
 /// NOTE: Rekor transparency-log inclusion is not yet cryptographically verified
 /// here (it would require embedding Sigstore's Rekor public key and replicating
@@ -273,8 +276,28 @@ fn digest_matches(expected_tarball_hash: &str, subject_sha256: &str) -> bool {
 pub fn verify(
   subject_name: String,
   expected_repo: Option<(String, String)>,
-  expected_tarball_hash: &str,
+  expected_manifest_digest: &str,
   bundle: ProvenanceBundle,
+) -> Result<String> {
+  verify_at(
+    subject_name,
+    expected_repo,
+    expected_manifest_digest,
+    bundle,
+    ASN1Time::now(),
+  )
+}
+
+/// [`verify`], with the instant the signing certificate's validity window is
+/// checked against made explicit. Fulcio certificates are only valid for ten
+/// minutes, so tests that use a real captured bundle must pin `now` to the time
+/// the bundle was produced.
+fn verify_at(
+  subject_name: String,
+  expected_repo: Option<(String, String)>,
+  expected_manifest_digest: &str,
+  bundle: ProvenanceBundle,
+  now: ASN1Time,
 ) -> Result<String> {
   let key = &bundle
     .verification_material
@@ -293,7 +316,7 @@ pub fn verify(
 
   // 2. The signing certificate must be a GitHub Actions identity, optionally
   //    matching the repository linked to the package.
-  let repo = verify_certificate_identity(&x509)?;
+  let repo = verify_certificate_identity(&x509, now)?;
   if let Some((owner, name)) = expected_repo
     && (!owner.eq_ignore_ascii_case(&repo.owner)
       || !name.eq_ignore_ascii_case(&repo.name))
@@ -336,9 +359,13 @@ pub fn verify(
     bail!("Invalid subject name");
   }
 
-  // The attested digest must match the bytes actually published.
-  if !digest_matches(expected_tarball_hash, &subject.digest.sha256) {
-    bail!("Invalid subject digest");
+  // The attested digest must match the manifest actually published.
+  if !digest_matches(expected_manifest_digest, &subject.digest.sha256) {
+    bail!(
+      "Invalid subject digest: attested {}, published manifest is {}",
+      subject.digest.sha256,
+      expected_manifest_digest
+    );
   }
 
   let tls = &bundle.verification_material.tlog_entries[0];
@@ -347,13 +374,152 @@ pub fn verify(
 
 #[cfg(test)]
 mod tests {
-  use super::decode_base64;
-  use super::digest_matches;
-  use super::dsse_pae;
-  use super::parse_github_repo;
-  use base64::Engine as _;
-  use base64::prelude::BASE64_STANDARD;
+  use super::*;
   use base64::prelude::BASE64_URL_SAFE;
+
+  /// A real provenance bundle, reassembled from Rekor log entry 2313255666:
+  /// the publish of `@stsoftware/neat-ai@6.2.0` from `stSoftwareAU/NEAT-AI` on
+  /// 2026-08-01. Fulcio certificates live for ten minutes, so tests using this
+  /// bundle pin the verification instant to `NEAT_AI_SIGNED_AT`.
+  const NEAT_AI_CERT: &str =
+    include_str!("../testdata/provenance/neat-ai-6.2.0.cert.pem");
+  const NEAT_AI_PAYLOAD: &str =
+    include_str!("../testdata/provenance/neat-ai-6.2.0.payload.json");
+  const NEAT_AI_SIG: &str =
+    include_str!("../testdata/provenance/neat-ai-6.2.0.sig.b64");
+  /// 2026-08-01T17:17:00Z — inside the certificate's 17:12:30–17:22:30 window.
+  const NEAT_AI_SIGNED_AT: i64 = 1785604620;
+  /// SHA-256 of `https://jsr.io/@stsoftware/neat-ai/6.2.0_meta.json`, which is
+  /// what the bundle's `subject.digest.sha256` attests.
+  const NEAT_AI_MANIFEST_DIGEST: &str =
+    "9141591496a48c5b815722bf6aa16e85083729f0ed1a5abbccacbbd1d4b41e82";
+
+  fn neat_ai_bundle() -> ProvenanceBundle {
+    ProvenanceBundle {
+      media_type: "application/vnd.dev.sigstore.bundle+json;version=0.1"
+        .to_string(),
+      content: SignatureBundle {
+        case: "dsseEnvelope".to_string(),
+        dsse_envelope: Envelope {
+          payload_type: "application/vnd.in-toto+json".to_string(),
+          payload: BASE64_STANDARD.encode(NEAT_AI_PAYLOAD),
+          signatures: [Signature {
+            keyid: String::new(),
+            sig: NEAT_AI_SIG.trim().to_string(),
+          }],
+        },
+      },
+      verification_material: VerificationMaterial {
+        content: VerificationMaterialContent {
+          case: "x509CertificateChain".to_string(),
+          x509_certificate_chain: X509CertificateChain {
+            certificates: [X509Certificate {
+              raw_bytes: NEAT_AI_CERT.to_string(),
+            }],
+          },
+        },
+        tlog_entries: [TlogEntry {
+          log_index: 2313255666,
+        }],
+      },
+    }
+  }
+
+  fn verify_neat_ai(
+    expected_repo: Option<(String, String)>,
+    expected_manifest_digest: &str,
+  ) -> Result<String> {
+    verify_at(
+      "pkg:jsr/@stsoftware/neat-ai@6.2.0".to_string(),
+      expected_repo,
+      expected_manifest_digest,
+      neat_ai_bundle(),
+      ASN1Time::from_timestamp(NEAT_AI_SIGNED_AT).unwrap(),
+    )
+  }
+
+  /// The happy path. Regression test for jsr-io/jsr#1474: every check in
+  /// `verify` was individually covered, but nothing asserted that a genuine
+  /// bundle is *accepted*, so a wrong `expected_digest` (the tarball hash rather
+  /// than the manifest digest the Deno CLI actually attests) silently rejected
+  /// all provenance for a month.
+  #[test]
+  fn verify_accepts_a_real_github_actions_bundle() {
+    let log_index = verify_neat_ai(
+      Some(("stSoftwareAU".to_string(), "NEAT-AI".to_string())),
+      NEAT_AI_MANIFEST_DIGEST,
+    )
+    .unwrap();
+    assert_eq!(log_index, "2313255666");
+
+    // The linked repository is optional; without one the bundle still verifies.
+    assert!(verify_neat_ai(None, NEAT_AI_MANIFEST_DIGEST).is_ok());
+    // Repository comparison is case-insensitive.
+    assert!(
+      verify_neat_ai(
+        Some(("stsoftwareau".to_string(), "neat-ai".to_string())),
+        NEAT_AI_MANIFEST_DIGEST,
+      )
+      .is_ok()
+    );
+  }
+
+  #[test]
+  fn verify_rejects_a_real_bundle_for_another_repository() {
+    let err = verify_neat_ai(
+      Some(("evil".to_string(), "NEAT-AI".to_string())),
+      NEAT_AI_MANIFEST_DIGEST,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("does not match"), "{err}");
+  }
+
+  #[test]
+  fn verify_rejects_a_real_bundle_with_the_wrong_digest() {
+    let err = verify_neat_ai(
+      None,
+      "0000000000000000000000000000000000000000000000000000000000000000",
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("Invalid subject digest"), "{err}");
+  }
+
+  #[test]
+  fn verify_rejects_an_expired_certificate() {
+    let err = verify_at(
+      "pkg:jsr/@stsoftware/neat-ai@6.2.0".to_string(),
+      None,
+      NEAT_AI_MANIFEST_DIGEST,
+      neat_ai_bundle(),
+      ASN1Time::from_timestamp(NEAT_AI_SIGNED_AT + 3600).unwrap(),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("expired"), "{err}");
+  }
+
+  #[test]
+  fn verify_rejects_a_tampered_payload() {
+    // The payload is attacker-controlled until the DSSE signature verifies, so
+    // swapping in a subject for a different package must be caught there.
+    let mut bundle = neat_ai_bundle();
+    bundle.content.dsse_envelope.payload = BASE64_STANDARD.encode(
+      NEAT_AI_PAYLOAD.replace("@stsoftware/neat-ai", "@attacker/neat-ai"),
+    );
+    let err = verify_at(
+      "pkg:jsr/@attacker/neat-ai@6.2.0".to_string(),
+      None,
+      NEAT_AI_MANIFEST_DIGEST,
+      bundle,
+      ASN1Time::from_timestamp(NEAT_AI_SIGNED_AT).unwrap(),
+    )
+    .unwrap_err();
+    assert!(
+      err
+        .to_string()
+        .contains("DSSE signature verification failed"),
+      "{err}"
+    );
+  }
 
   #[test]
   fn decode_base64_accepts_standard_and_url_safe() {
@@ -398,26 +564,25 @@ mod tests {
   }
 
   #[test]
-  fn digest_matches_compares_against_recorded_tarball_hash() {
+  fn digest_matches_compares_against_published_manifest_digest() {
     let hex =
       "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
-    let recorded = format!("sha256-{hex}");
 
-    // The recorded `sha256-<hex>` hash matches the bare-hex SLSA subject digest.
-    assert!(digest_matches(&recorded, hex));
-    // Case-insensitive: subject digests may arrive uppercase.
-    assert!(digest_matches(&recorded, &hex.to_uppercase()));
-    // A bare-hex recorded hash (no prefix) is also accepted.
     assert!(digest_matches(hex, hex));
+    // Case-insensitive: subject digests may arrive uppercase.
+    assert!(digest_matches(hex, &hex.to_uppercase()));
 
     // A different digest must not match (the core gap this closes).
     let other =
       "0000000000000000000000000000000000000000000000000000000000000000";
-    assert!(!digest_matches(&recorded, other));
-    // An empty subject digest must never match.
-    assert!(!digest_matches(&recorded, ""));
-    // The `sha256-` prefix is stripped from the recorded side only; a prefixed
-    // subject digest does not match a bare-hex recorded one.
-    assert!(!digest_matches(hex, &recorded));
+    assert!(!digest_matches(hex, other));
+    // Neither side may be empty, so an absent digest never verifies.
+    assert!(!digest_matches(hex, ""));
+    assert!(!digest_matches("", hex));
+    assert!(!digest_matches("", ""));
+    // Regression test for jsr-io/jsr#1474: the Deno CLI attests the digest of
+    // the published `<version>_meta.json`, not of the uploaded tarball, so a
+    // `sha256-<hex>` tarball hash must not be conflated with it.
+    assert!(!digest_matches(&format!("sha256-{hex}"), hex));
   }
 }

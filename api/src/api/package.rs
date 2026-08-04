@@ -1020,12 +1020,6 @@ pub async fn version_publish_handler(
   // Otherwise, we can just propagate the error.
   upload_result?;
 
-  // Record the hash of the uploaded tarball so that a later provenance
-  // statement can be bound to the actual published bytes, not just the package
-  // name@version.
-  db.set_publishing_task_tarball_hash(publishing_task.id, &hash)
-    .await?;
-
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task.id).unwrap();
     queue.task_buffer(None, Some(body.into())).await?;
@@ -1067,6 +1061,7 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
   let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
@@ -1081,20 +1076,21 @@ pub async fn version_provenance_statements_handler(
     })?;
   let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
 
-  // The attestation must be bound to the exact bytes that were published, so we
-  // compare its `subject.digest.sha256` against the tarball hash recorded at
-  // publish time. Fail closed if we have no recorded hash to compare against.
-  let tarball_hash = db
-    .get_publishing_task_tarball_hash_for_version(&scope, &package, &version)
-    .await?
-    .ok_or_else(|| {
-      error!("no recorded tarball hash for version when verifying provenance");
-      ApiError::InternalServerError
-    })?;
+  // The attestation's `subject.digest.sha256` is the SHA-256 of the published
+  // `<version>_meta.json`, which the publishing client fetches back from the
+  // registry after the version is created. Hash the stored manifest here and
+  // require the attestation to match it. Fail closed if there is no manifest.
+  let manifest_digest =
+    version_manifest_digest(buckets, &scope, &package, &version)
+      .await?
+      .ok_or_else(|| {
+        error!("no published manifest for version when verifying provenance");
+        ApiError::InternalServerError
+      })?;
 
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
   let rekor_log_id =
-    provenance::verify(name, expected_repo, &tarball_hash, body.bundle)?;
+    provenance::verify(name, expected_repo, &manifest_digest, body.bundle)?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
@@ -1109,6 +1105,32 @@ pub async fn version_provenance_statements_handler(
       .body(Body::empty())
       .unwrap(),
   )
+}
+
+/// The hex SHA-256 of the published `<version>_meta.json`, or `None` if the
+/// version has no manifest stored yet.
+///
+/// This is the artifact SLSA provenance attests over: the publishing client
+/// fetches `<version>_meta.json` back from the registry once the version is
+/// live and puts its digest in the attestation's subject. The manifest carries
+/// a checksum for every file in the version, so it transitively covers the
+/// published contents. The bytes hashed here are the exact bytes the registry
+/// serves, so the two digests are directly comparable.
+async fn version_manifest_digest(
+  buckets: &Buckets,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+) -> Result<Option<String>, ApiError> {
+  let path = crate::s3_paths::version_metadata(scope, package, version);
+  let Some(manifest) = buckets.modules_bucket.download(path.into()).await?
+  else {
+    return Ok(None);
+  };
+  Ok(Some(format!(
+    "{:x}",
+    sha2::Sha256::digest(manifest.as_ref())
+  )))
 }
 
 #[instrument(
@@ -2813,6 +2835,8 @@ mod test {
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
+  use crate::s3::S3UploadOptions;
+  use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
@@ -3201,6 +3225,7 @@ mod test {
     use crate::provenance::*;
     use base64::Engine;
     use base64::prelude::BASE64_STANDARD;
+    use sha2::Digest;
 
     let mut t = TestSetup::new().await;
     let scope = t.scope.scope.clone();
@@ -3228,30 +3253,28 @@ mod test {
       .await
       .unwrap();
 
-    // Record a tarball hash for 1.0.0 so the provenance endpoint can bind the
-    // attestation to it. Without a recorded hash the request is rejected before
-    // signature verification; 1.0.1 deliberately has none, which exercises that
-    // rejection below.
-    let tarball_digest =
-      "1c3b44ea2ac86f7133791a4a004f633993784da783a3e0f5c226dd7a4141f9f5";
-    let CreatePublishingTaskResult::Created((task, _)) = t
-      .ephemeral_database
-      .create_publishing_task(NewPublishingTask {
-        user_id: None,
-        package_scope: &scope,
-        package_name: &name,
-        package_version: &"1.0.0".try_into().unwrap(),
-        config_file: &"/jsr.json".try_into().unwrap(),
-      })
-      .await
-      .unwrap()
-    else {
-      unreachable!()
-    };
-    t.ephemeral_database
-      .set_publishing_task_tarball_hash(
-        task.id,
-        &format!("sha256-{tarball_digest}"),
+    // Store a version manifest for 1.0.0 so the provenance endpoint has
+    // something to bind the attestation to. The digest the client attests is the
+    // SHA-256 of these exact bytes (jsr-io/jsr#1474). 1.0.1 deliberately has no
+    // manifest, which exercises the fail-closed path below.
+    let manifest =
+      br#"{"exports":{".":"/mod.ts"},"manifest":{},"moduleGraph2":{}}"#;
+    let manifest_digest = format!("{:x}", sha2::Sha256::digest(manifest));
+    t.buckets()
+      .modules_bucket
+      .upload(
+        crate::s3_paths::version_metadata(
+          &scope,
+          &name,
+          &"1.0.0".try_into().unwrap(),
+        )
+        .into(),
+        UploadTaskBody::Bytes(manifest.as_slice().into()),
+        S3UploadOptions {
+          content_type: Some("application/json".into()),
+          cache_control: None,
+          gzip_encoded: false,
+        },
       )
       .await
       .unwrap();
@@ -3340,7 +3363,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       Subject {
         name: format!("pkg:jsr/@{}/{}@1.0.0", scope, name),
         digest: SubjectDigest {
-          sha256: tarball_digest.to_string(),
+          sha256: manifest_digest,
         },
       },
     );
