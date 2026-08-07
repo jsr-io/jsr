@@ -174,7 +174,15 @@ pub async fn setup_tracing(
     .with(export_layers)
     .with(filter)
     .with(fmt);
-  tracing::subscriber::set_global_default(subscriber).unwrap();
+  // The emscripten worker rebuilds the router (and thus calls this) per request,
+  // since a Cloudflare Worker cannot reuse async I/O across requests; the global
+  // subscriber may only be installed once, so tolerate a repeat there. Native
+  // calls this exactly once and still panics on an unexpected double-init.
+  let set_result = tracing::subscriber::set_global_default(subscriber);
+  #[cfg(not(target_arch = "wasm32"))]
+  set_result.unwrap();
+  #[cfg(target_arch = "wasm32")]
+  let _ = set_result;
 
   global::set_text_map_propagator(TraceContextPropagator::new());
   (reload_handle, default_filter_directive)

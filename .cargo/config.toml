@@ -1,0 +1,45 @@
+# Cargo discovers this whenever cargo is invoked from this directory or a
+# subdirectory, mirroring the wasm-pack emscripten template setup.
+
+
+[target.wasm32-unknown-emscripten]
+rustflags = [
+    # Build with the emscripten default `panic = "unwind"`: tokio's emscripten
+    # runtime drives task panics through Rust unwinding (caught by the task
+    # harness and surfaced as `JoinError` / a rejected Promise), so abort would
+    # break that contract and mask panics.
+    #
+    # Static relocation model is the only one emcc fully supports for our
+    # staticlib + post-link pipeline.
+    "-Crelocation-model=static",
+    # tokio's `wasm32-unknown-emscripten` runtime is gated behind this cfg.
+    "--cfg=tokio_unstable",
+    # emcc link-only settings. These must NOT live in `EMCC_CFLAGS`: emcc
+    # applies that to every invocation, including the C compiles of crates like
+    # `ring`, where a link setting seen at compile time is flagged
+    # `-Wunused-command-line-argument` and `-Werror` turns it fatal. Passing
+    # them as rustc link-args scopes them to the final emcc link step.
+    #   * WASM_BINDGEN=auto  run wasm-bindgen as a post-link step.
+    #   * MODULARIZE=instance/EXPORT_ES6/SOURCE_PHASE_IMPORTS  ESM output shape.
+    #   * AUTO_INIT/ENVIRONMENT=node  node bootstrap.
+    #   * NODERAWSOCKETS  back the socket layer with node net/dgram.
+    "-Clink-arg=-sWASM_BINDGEN=auto",
+    "-Clink-arg=-sMODULARIZE=instance",
+    "-Clink-arg=-sEXPORT_ES6",
+    "-Clink-arg=-sAUTO_INIT",
+    "-Clink-arg=-sSOURCE_PHASE_IMPORTS",
+    "-Clink-arg=-sENVIRONMENT=node",
+    "-Clink-arg=-sNODERAWSOCKETS",
+    # With ASSERTIONS on (the -O0 default), emscripten's shell.js skips the
+    # single-environment fast path and instead auto-detects at runtime, then
+    # asserts. workerd exposes `WorkerGlobalScope`, so it's misdetected as a
+    # `worker` env and aborts despite `-sENVIRONMENT=node`. Disabling assertions
+    # takes the `ENVIRONMENT.length == 1 && !ASSERTIONS` path, hardcoding
+    # ENVIRONMENT_IS_NODE = true (and IS_WORKER = false).
+    "-Clink-arg=-sASSERTIONS=0",
+    # emscripten's default 64KB stack overflows building regex-automata's
+    # meta DFA (deep recursion, large debug frames) — it faults as an OOB
+    # memory access. Give it room, and let the heap grow for reqwest/goose.
+    "-Clink-arg=-sSTACK_SIZE=8MB",
+    "-Clink-arg=-sALLOW_MEMORY_GROWTH=1",
+]
