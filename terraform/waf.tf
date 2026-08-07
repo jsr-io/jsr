@@ -74,6 +74,28 @@ locals {
   # fetches this clause is satisfied via absence and cannot throttle installs.
   waf_expr_sec_fetch_dest_ok = "(not any(http.request.headers.names[*] == \"sec-fetch-dest\") or any(http.request.headers[\"sec-fetch-dest\"][*] == \"empty\") or ((any(http.request.headers[\"sec-fetch-dest\"][*] == \"image\") or any(http.request.headers[\"sec-fetch-dest\"][*] == \"video\")) and any(http.request.headers[\"sec-fetch-site\"][*] == \"same-origin\")))"
 
+  # Mirrors the user-agent patterns of BOT_PATTERNS in lb/bots.ts. The Worker
+  # checks isBot() BEFORE the module-file branch, so a request carrying one of
+  # these headers is a frontend render even on a module-shaped path with a
+  # non-HTML Accept — without this clause it would inherit the exemption, and
+  # `User-Agent: Slack` would be a one-header ticket to walk source views
+  # unthrottled.
+  #
+  # Unlike waf_re_module_shaped, this must mirror lb/bots.ts EXACTLY rather
+  # than be a superset: over-matching here un-exempts real module fetches, so
+  # a CLI whose UA happened to match would have its installs rate-limited.
+  # lb/waf_test.ts enforces parity in both directions against isBot().
+  #
+  # (?i:...) is the scoped case-insensitivity form, which both the Rust regex
+  # crate (Cloudflare's engine) and the test's JS RegExp accept; bots.ts uses
+  # the /i flag.
+  waf_re_bot_user_agent = "^(?i:Slack|Iframely|Twitter|WhatsApp|Mozilla/5\\.0 \\(compatible; Discordbot)"
+
+  # Mirrors the `from` header pattern in BOT_PATTERNS — Googlebot detection.
+  waf_re_bot_from = "^(?i:googlebot\\(at\\)googlebot\\.com)"
+
+  waf_expr_lb_bot = "(http.user_agent matches \"${local.waf_re_bot_user_agent}\" or any(http.request.headers[\"from\"][*] matches \"${local.waf_re_bot_from}\"))"
+
   # api.<domain> and npm.<domain> share the LB Worker but are pure R2/API
   # surfaces with no frontend to scrape, so rate limiting is apex-only. They
   # still need SBFM handling of their own — see skip_cli_hosts_sbfm below.
@@ -108,11 +130,12 @@ resource "cloudflare_ruleset" "waf_custom" {
       # renders on the frontend.
       #
       # The method, Accept, and Sec-Fetch-Dest checks together mirror
-      # canAccessModuleFile(): the Worker only ever serves R2 for GET and HEAD
-      # with a non-HTML Accept and a CLI/fetch-shaped Sec-Fetch-Dest, so any
-      # request failing one of these lands on the frontend and keeps full WAF
-      # coverage rather than inheriting this exemption.
-      expression = "${local.waf_expr_host} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path matches \"${local.waf_re_module_shaped}\") and not ${local.waf_expr_accept_html} and ${local.waf_expr_sec_fetch_dest_ok}"
+      # canAccessModuleFile(), and the bot clause mirrors the isBot() branch
+      # that runs before it: the Worker only ever serves R2 for a non-bot GET
+      # or HEAD with a non-HTML Accept and a CLI/fetch-shaped Sec-Fetch-Dest,
+      # so any request failing one of these lands on the frontend and keeps
+      # full WAF coverage rather than inheriting this exemption.
+      expression = "${local.waf_expr_host} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path matches \"${local.waf_re_module_shaped}\") and not ${local.waf_expr_accept_html} and ${local.waf_expr_sec_fetch_dest_ok} and not ${local.waf_expr_lb_bot}"
 
       action_parameters = {
         # http_request_sbfm: Super Bot Fight Mode's only knob on this plan is
