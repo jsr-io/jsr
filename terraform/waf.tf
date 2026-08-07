@@ -201,13 +201,20 @@ resource "cloudflare_ruleset" "waf_custom" {
 # stacked Worker limits did. Ordering still matters: rules evaluate in order
 # and a challenge is terminating, so when both counters are exceeded the
 # stricter doc/diff verdict is the one that fires.
+#
+# The two rules are exactly the production plan's cap on this phase. The
+# staging zone's plan caps it at ONE rule (the apply fails with "exceeded the
+# maximum number of rules in the phase http_ratelimit: 2 out of 1"), so staging
+# deploys only the first — the doc/diff/source rule, which encodes the
+# interesting classification and so still validates the expressions and the
+# managed_challenge/mitigation_timeout combination against the real API.
 resource "cloudflare_ruleset" "waf_ratelimit" {
   zone_id = var.cloudflare_zone_id
   name    = "jsr rate limiting"
   kind    = "zone"
   phase   = "http_ratelimit"
 
-  rules = [
+  rules = concat([
     {
       ref         = "ratelimit_docs_diff_source"
       description = "Throttle doc, diff, and source page scraping"
@@ -238,7 +245,8 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
         # and reject any other duration, so this must be 0.
         mitigation_timeout = 0
       }
-    },
+    }
+    ], var.production ? [
     {
       ref         = "ratelimit_frontend"
       description = "Throttle general frontend scraping"
@@ -263,5 +271,5 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
         mitigation_timeout  = 0
       }
     }
-  ]
+  ] : [])
 }
