@@ -63,7 +63,7 @@ export function RuntimeCompatIndicator(
             {UNKNOWN_WORKING_PREFIX} {unknownWithArray.join(", ")}
           </span>
         )}
-        {RUNTIME_COMPAT_KEYS
+        {[...RUNTIME_COMPAT_KEYS]
           .sort(([keyA], [keyB]) => {
             if (runtimeCompat[keyA]) {
               return keyA > keyB ? -1 : 1;
@@ -87,6 +87,7 @@ export function RuntimeCompatIndicator(
 
               return (
                 <div
+                  aria-hidden="true"
                   class="relative h-4 md:h-5"
                   style={`aspect-ratio: ${w} / ${h}`}
                 >
@@ -94,7 +95,7 @@ export function RuntimeCompatIndicator(
                     src={icon}
                     width={w}
                     height={h}
-                    alt={ICON_TITLE_TEXT}
+                    alt=""
                     title={ICON_TITLE_TEXT}
                     class={`h-4 md:h-5 select-none ${
                       value === undefined ? "filter grayscale opacity-40" : ""
