@@ -204,10 +204,13 @@ resource "cloudflare_ruleset" "waf_custom" {
 #
 # The two rules are exactly the production plan's cap on this phase. The
 # staging zone's plan caps it at ONE rule (the apply fails with "exceeded the
-# maximum number of rules in the phase http_ratelimit: 2 out of 1"), so staging
-# deploys only the first — the doc/diff/source rule, which encodes the
-# interesting classification and so still validates the expressions and the
-# managed_challenge/mitigation_timeout combination against the real API.
+# maximum number of rules in the phase http_ratelimit: 2 out of 1") and only
+# permits a 10-second counting period ("not entitled to use the period 60, can
+# only use a period among [10]"), so staging deploys only the first rule — the
+# doc/diff/source one, which encodes the interesting classification — with the
+# 60s/15req budget scaled down to the entitled 10s window. That still
+# validates the expressions and the managed_challenge/mitigation_timeout
+# combination against the real API.
 resource "cloudflare_ruleset" "waf_ratelimit" {
   zone_id = var.cloudflare_zone_id
   name    = "jsr rate limiting"
@@ -238,11 +241,11 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
         # cf.colo.id is mandatory on every rate limiting rule, and makes the
         # counter per-datacenter rather than global.
         characteristics     = ["ip.src", "cf.colo.id"]
-        period              = 60
-        requests_per_period = 15
+        period              = var.production ? 60 : 10
+        requests_per_period = var.production ? 15 : 3
 
-        # Challenge actions on this plan always throttle for the counting period
-        # and reject any other duration, so this must be 0.
+        # Challenge actions always throttle for the counting period and reject
+        # any other duration, so this must be 0.
         mitigation_timeout = 0
       }
     }
