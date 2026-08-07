@@ -202,22 +202,26 @@ resource "cloudflare_ruleset" "waf_custom" {
 # and a challenge is terminating, so when both counters are exceeded the
 # stricter doc/diff verdict is the one that fires.
 #
-# The two rules are exactly the production plan's cap on this phase. The
-# staging zone's plan caps it at ONE rule (the apply fails with "exceeded the
-# maximum number of rules in the phase http_ratelimit: 2 out of 1") and only
-# permits a 10-second counting period ("not entitled to use the period 60, can
-# only use a period among [10]"), so staging deploys only the first rule — the
-# doc/diff/source one, which encodes the interesting classification — with the
-# 60s/15req budget scaled down to the entitled 10s window. That still
-# validates the expressions and the managed_challenge/mitigation_timeout
-# combination against the real API.
+# Production-only: the staging zone's plan cannot express these rules at all.
+# Successive staging applies bounced off three separate entitlements — the
+# phase caps at ONE rule ("2 out of 1"), the counting period must be 10s ("not
+# entitled to use the period 60"), and rate limiting rule expressions may not
+# use regex ("the use of operator Matches is not allowed, an higher Advanced
+# Rate Limiting plan is required" — a separate entitlement from the
+# custom-rules regex, which staging accepted in waf_custom above). A version
+# cut down to fit would share no expressions with the real thing and validate
+# nothing, so the prod apply is the first true validation of this resource;
+# the two-rule shape, the 60s period, and regex here all lean on the prod
+# zone's granted entitlements.
 resource "cloudflare_ruleset" "waf_ratelimit" {
+  count = var.production ? 1 : 0
+
   zone_id = var.cloudflare_zone_id
   name    = "jsr rate limiting"
   kind    = "zone"
   phase   = "http_ratelimit"
 
-  rules = concat([
+  rules = [
     {
       ref         = "ratelimit_docs_diff_source"
       description = "Throttle doc, diff, and source page scraping"
@@ -241,15 +245,14 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
         # cf.colo.id is mandatory on every rate limiting rule, and makes the
         # counter per-datacenter rather than global.
         characteristics     = ["ip.src", "cf.colo.id"]
-        period              = var.production ? 60 : 10
-        requests_per_period = var.production ? 15 : 3
+        period              = 60
+        requests_per_period = 15
 
         # Challenge actions always throttle for the counting period and reject
         # any other duration, so this must be 0.
         mitigation_timeout = 0
       }
-    }
-    ], var.production ? [
+    },
     {
       ref         = "ratelimit_frontend"
       description = "Throttle general frontend scraping"
@@ -274,5 +277,5 @@ resource "cloudflare_ruleset" "waf_ratelimit" {
         mitigation_timeout  = 0
       }
     }
-  ] : [])
+  ]
 }
