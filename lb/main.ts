@@ -224,38 +224,12 @@ export function isModuleFilePath(path: string): boolean {
     );
 }
 
-/**
- * Doc, diff, and source package pages are the expensive-to-render routes that
- * scrapers walk symbol-by-symbol. They get a stricter per-IP limit than the
- * general frontend limit. Patterns (the package segment may carry an
- * `@version` suffix; source pins the version as its own path segment):
- *   docs:   /@scope/pkg[@version]/doc(/...)?
- *   diff:   /@scope/pkg/diff/...
- *   source: /@scope/pkg/<semver>/...
- */
-const DOCS_DIFF_SOURCE_ROUTE =
-  /^\/@[^/]+\/[^/]+(?:\/doc(?:\/|$)|\/diff(?:\/|$)|\/\d+\.\d+\.\d+)/;
-
-export function isDocsDiffSourceRoute(path: string): boolean {
-  return DOCS_DIFF_SOURCE_ROUTE.test(path);
-}
-
 async function handleFrontendRoute(
   request: Request,
   env: WorkerEnv,
   isBot: boolean,
   ctx?: ExecutionCtx,
 ): Promise<Response> {
-  // Doc, diff, and source pages are the expensive renders scrapers walk;
-  // give them a stricter per-IP limit before the general frontend limit.
-  if (isDocsDiffSourceRoute(new URL(request.url).pathname)) {
-    const limited = await rateLimitGuard(request, env.DOCS_RATELIMIT);
-    if (limited) return limited;
-  }
-
-  const limited = await rateLimitGuard(request, env.FRONTEND_RATELIMIT);
-  if (limited) return limited;
-
   const response = await proxyToBackend(request, env.FRONTEND, undefined, ctx);
 
   setSecurityHeaders(response, FRONTEND);
@@ -264,33 +238,6 @@ async function handleFrontendRoute(
     isBot,
   });
 
-  return response;
-}
-
-/**
- * Per-IP rate limit, keyed on the real client IP (`CF-Connecting-IP`) at the
- * edge. Applied only to frontend routes — module files (R2), the API, and npm
- * compat are never rate-limited here. Callers pass the binding to enforce:
- * the general `FRONTEND_RATELIMIT` for all frontend routes, or the stricter
- * `DOCS_RATELIMIT` for the expensive doc/diff/source pages.
- */
-async function rateLimitGuard(
-  request: Request,
-  limiter: RateLimit | undefined,
-): Promise<Response | null> {
-  if (!limiter) return null;
-  const ip = request.headers.get("CF-Connecting-IP");
-  if (!ip) return null;
-  const { success } = await limiter.limit({ key: ip });
-  if (success) return null;
-  const response = new Response("Too Many Requests", {
-    status: 429,
-    headers: {
-      "Content-Type": "text/plain",
-      "Retry-After": "60",
-    },
-  });
-  setSecurityHeaders(response, FRONTEND);
   return response;
 }
 
