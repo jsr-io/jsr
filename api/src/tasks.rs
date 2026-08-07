@@ -94,7 +94,7 @@ pub fn tasks_router() -> Router<Body, ApiError> {
 /// re-drives it. The publish queue normally finishes a task in seconds, and
 /// Cloud Run caps a single request well under this, so a task older than this
 /// is not actively being processed and is safe to requeue.
-const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
+pub(crate) const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
 
 /// Re-drive publishing tasks that got stranded in a non-terminal state.
 ///
