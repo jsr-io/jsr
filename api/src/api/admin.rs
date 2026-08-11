@@ -512,4 +512,46 @@ mod tests {
       .expect_err_code(StatusCode::CONFLICT, "scopeAlreadyExists")
       .await;
   }
+
+  #[tokio::test]
+  async fn restricted_staff_token_cannot_access_admin() {
+    let mut t = TestSetup::new().await;
+
+    // A least-privilege publish token held by a staff user must not carry
+    // /api/admin authority. check_admin_access previously skipped the
+    // permissions guard that every other IAM check applies.
+    let permission =
+      crate::db::Permission::PackagePublish(crate::db::PackagePublishPermission::Scope {
+        scope: t.scope.scope.clone(),
+      });
+    let restricted = crate::token::create_token(
+      &t.db(),
+      t.staff_user.user.id,
+      crate::db::TokenType::Personal,
+      Some("publish-only".into()),
+      Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
+      Some(crate::db::Permissions(vec![permission])),
+    )
+    .await
+    .unwrap();
+
+    t.http()
+      .get("/api/admin/users")
+      .token(Some(&restricted))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "missingPermission")
+      .await;
+
+    // Unrestricted staff web token still works.
+    t.http()
+      .get("/api/admin/users")
+      .token(Some(&t.staff_user.token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiList<ApiFullUser>>()
+      .await;
+  }
 }

@@ -244,6 +244,11 @@ impl<'s> IamHandler<'s> {
   }
 
   pub fn check_admin_access(&self) -> Result<&User, ApiError> {
+    if self.permissions.is_some() {
+      // There is no specific permission that allows staff admin access, so if
+      // the permissions are restricted, this action is also restricted.
+      return Err(ApiError::MissingPermission);
+    }
     match &self.principal {
       Principal::User(user) if user.is_staff => Ok(user),
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
