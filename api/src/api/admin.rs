@@ -520,10 +520,11 @@ mod tests {
     // A least-privilege publish token held by a staff user must not carry
     // /api/admin authority. check_admin_access previously skipped the
     // permissions guard that every other IAM check applies.
-    let permission =
-      crate::db::Permission::PackagePublish(crate::db::PackagePublishPermission::Scope {
+    let permission = crate::db::Permission::PackagePublish(
+      crate::db::PackagePublishPermission::Scope {
         scope: t.scope.scope.clone(),
-      });
+      },
+    );
     let restricted = crate::token::create_token(
       &t.db(),
       t.staff_user.user.id,
@@ -545,9 +546,10 @@ mod tests {
       .await;
 
     // Unrestricted staff web token still works.
+    let staff_token = t.staff_user.token.clone();
     t.http()
       .get("/api/admin/users")
-      .token(Some(&t.staff_user.token))
+      .token(Some(&staff_token))
       .call()
       .await
       .unwrap()
