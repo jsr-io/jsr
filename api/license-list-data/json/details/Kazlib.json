@@ -6,11 +6,11 @@
   "licenseId": "Kazlib",
   "crossRef": [
     {
-      "match": "true",
+      "match": "false",
       "url": "http://git.savannah.gnu.org/cgit/kazlib.git/tree/except.c?id\u003d0062df360c2d17d57f6af19b0e444c51feb99036",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T20:55:06Z",
+      "timestamp": "2026-07-16T09:30:28Z",
       "isWayBackLink": false,
       "order": 0
     }

@@ -6,22 +6,22 @@
   "licenseId": "OpenMDW-1.0",
   "crossRef": [
     {
+      "match": "false",
+      "url": "https://openmdw.ai/license/",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:19:49Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
       "match": "true",
       "url": "https://raw.githubusercontent.com/OpenMDW/OpenMDW/refs/heads/main/1.0/LICENSE.openmdw",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:04:37Z",
+      "timestamp": "2026-07-16T09:19:49Z",
       "isWayBackLink": false,
       "order": 0
-    },
-    {
-      "match": "true",
-      "url": "https://openmdw.ai/license/",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:04:38Z",
-      "isWayBackLink": false,
-      "order": 1
     }
   ],
   "seeAlso": [
