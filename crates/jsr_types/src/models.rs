@@ -961,6 +961,7 @@ pub type PackageWithGitHubRepoAndMeta =
 pub struct StatsPackage {
   pub scope: ScopeName,
   pub name: PackageName,
+  pub description: String,
 }
 
 #[derive(Debug)]
@@ -968,6 +969,7 @@ pub struct StatsPackageVersion {
   pub scope: ScopeName,
   pub name: PackageName,
   pub version: Version,
+  pub description: String,
 }
 
 #[derive(Debug, Clone)]

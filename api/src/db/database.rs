@@ -1545,7 +1545,7 @@ gitlab_id: r.user_gitlab_id,
     Vec<StatsPackage>,
   )> {
     let newest_fut = sqlx::query!(
-      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
       WHERE EXISTS (
         SELECT 1 FROM package_versions
@@ -1557,11 +1557,12 @@ gitlab_id: r.user_gitlab_id,
       .map(|r| StatsPackage {
         scope: r.scope,
         name: r.name,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
     let updated_fut = sqlx::query!(
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version"
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", packages.description
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
@@ -1572,11 +1573,12 @@ gitlab_id: r.user_gitlab_id,
         scope: r.scope,
         name: r.name,
         version: r.version,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
     let featured_fut = sqlx::query!(
-      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
@@ -1585,6 +1587,7 @@ gitlab_id: r.user_gitlab_id,
       .map(|r| StatsPackage {
         scope: r.scope,
         name: r.name,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
