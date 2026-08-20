@@ -395,6 +395,11 @@ mod tests {
   use crate::api::ApiFullUser;
   use crate::api::ApiList;
   use crate::api::ApiScope;
+  use crate::db::PackagePublishPermission;
+  use crate::db::Permission;
+  use crate::db::Permissions;
+  use crate::db::TokenType;
+  use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use hyper::StatusCode;
@@ -510,6 +515,71 @@ mod tests {
       .await
       .unwrap()
       .expect_err_code(StatusCode::CONFLICT, "scopeAlreadyExists")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn restricted_staff_token_cannot_access_admin() {
+    let mut t = TestSetup::new().await;
+
+    // A least-privilege publish token held by a staff user must not carry
+    // /api/admin authority. check_admin_access previously skipped the
+    // permissions guard that every other IAM check applies.
+    let permission =
+      Permission::PackagePublish(PackagePublishPermission::Scope {
+        scope: t.scope.scope.clone(),
+      });
+    let restricted = create_token(
+      &t.db(),
+      t.staff_user.user.id,
+      TokenType::Personal,
+      Some("publish-only".into()),
+      Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
+      Some(Permissions(vec![permission])),
+    )
+    .await
+    .unwrap();
+
+    t.http()
+      .get("/api/admin/users")
+      .token(Some(&restricted))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "missingPermission")
+      .await;
+
+    // An unrestricted staff PAT is still non-interactive, so it must not
+    // authorize /api/admin either (same rule as authorization approve).
+    let staff_pat = create_token(
+      &t.db(),
+      t.staff_user.user.id,
+      TokenType::Personal,
+      Some("staff-pat".into()),
+      Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
+      None,
+    )
+    .await
+    .unwrap();
+
+    t.http()
+      .get("/api/admin/users")
+      .token(Some(&staff_pat))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "credentialNotInteractive")
+      .await;
+
+    // Unrestricted staff web token still works.
+    let staff_token = t.staff_user.token.clone();
+    t.http()
+      .get("/api/admin/users")
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<ApiList<ApiFullUser>>()
       .await;
   }
 }
