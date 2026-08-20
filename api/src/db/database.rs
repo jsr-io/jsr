@@ -14,7 +14,10 @@ use sqlx::FromRow;
 use sqlx::Result;
 use sqlx::Row;
 use sqlx::migrate;
+use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::PgSslMode;
+use std::str::FromStr;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -54,16 +57,42 @@ pub struct Database {
   pool: sqlx::PgPool,
 }
 
+/// Client-certificate TLS material for connecting to the database. Supplied
+/// when the database requires a client certificate (`ssl_mode =
+/// TRUSTED_CLIENT_CERTIFICATE_REQUIRED`); the same cert is also presented by
+/// the Hyperdrive-backed `api` Worker so both reach Cloud SQL over mTLS.
+pub struct DbTls {
+  pub client_cert: String,
+  pub client_key: String,
+}
+
 impl Database {
   pub async fn connect(
     database_url: &str,
     pool_size: u32,
     acquire_timeout: std::time::Duration,
+    tls: Option<DbTls>,
   ) -> anyhow::Result<Self> {
+    let mut opts = PgConnectOptions::from_str(database_url)?;
+    if let Some(tls) = tls {
+      // Present our client cert (the DB requires one) and encrypt, but don't
+      // verify the server cert. We use `Require`, not `VerifyCa`: Cloud Run
+      // connects to Cloud SQL by private IP, yet the server cert is only valid
+      // for the instance's `*.sql.goog` DNS name. `VerifyCa` is meant to skip
+      // that hostname check, but sqlx 0.8's `NoHostnameTlsVerifier` only
+      // swallows rustls's legacy `NotValidForName` error, not 0.23's
+      // `NotValidForNameContext`, so verification fails and the connection is
+      // refused. The client certificate (mTLS) is the access boundary and the
+      // link stays inside the VPC.
+      opts = opts
+        .ssl_mode(PgSslMode::Require)
+        .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
+        .ssl_client_key_from_pem(tls.client_key.into_bytes());
+    }
     let pool = PgPoolOptions::new()
       .max_connections(pool_size)
       .acquire_timeout(acquire_timeout)
-      .connect(database_url)
+      .connect_with(opts)
       .await?;
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       migrate!("./migrations")
@@ -1516,7 +1545,7 @@ gitlab_id: r.user_gitlab_id,
     Vec<StatsPackage>,
   )> {
     let newest_fut = sqlx::query!(
-      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
       WHERE EXISTS (
         SELECT 1 FROM package_versions
@@ -1528,11 +1557,12 @@ gitlab_id: r.user_gitlab_id,
       .map(|r| StatsPackage {
         scope: r.scope,
         name: r.name,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
     let updated_fut = sqlx::query!(
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version"
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", packages.description
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
@@ -1543,11 +1573,12 @@ gitlab_id: r.user_gitlab_id,
         scope: r.scope,
         name: r.name,
         version: r.version,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
     let featured_fut = sqlx::query!(
-      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
@@ -1556,6 +1587,7 @@ gitlab_id: r.user_gitlab_id,
       .map(|r| StatsPackage {
         scope: r.scope,
         name: r.name,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
@@ -1819,6 +1851,36 @@ gitlab_id: r.user_gitlab_id,
     )
       .fetch_optional(&self.pool)
       .await
+  }
+
+  /// Resolves the version whose docs are served for a package. This is the
+  /// latest unyanked stable version, or - for packages that only have
+  /// prerelease versions - the latest unyanked prerelease version. Ordering
+  /// stable releases ahead of prereleases keeps the result identical to
+  /// `get_latest_unyanked_version_for_package` whenever a stable release
+  /// exists.
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_for_docs",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_for_docs(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersion>> {
+    query_concat_as!(
+      PackageVersion,
+      "SELECT ", PACKAGE_VERSION_SELECT, "
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND is_yanked = false
+      ORDER BY (version NOT LIKE '%-%') DESC, version DESC
+      LIMIT 1";
+      scope as _,
+      name as _,
+    )
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -3205,6 +3267,37 @@ gitlab_id: r.user_gitlab_id,
     Ok(task)
   }
 
+  /// List publishing tasks that have been stuck in a non-terminal state
+  /// (`processing` or `processed`) for longer than `stale_after_seconds`.
+  ///
+  /// A task is normally driven from `pending` to `success` within seconds by
+  /// the publish queue. If the queue worker is killed mid-flight (e.g. the
+  /// Cloud Run request times out, or a publish is cancelled) a task can be
+  /// stranded: `processing` means the version row was never committed, while
+  /// `processed` means the version exists but its package-level `meta.json`
+  /// was never regenerated, leaving the version invisible to the resolver.
+  /// Either state also blocks re-publishing that exact version (see the
+  /// `status != 'failure'` guard in `create_publishing_task`). The reaper at
+  /// `POST /tasks/requeue_stuck_publishing_tasks` re-drives these.
+  #[instrument(name = "Database::list_stale_publishing_tasks", skip(self), err)]
+  pub async fn list_stale_publishing_tasks(
+    &self,
+    stale_after_seconds: i64,
+  ) -> Result<Vec<(Uuid, PublishingTaskStatus)>> {
+    sqlx::query!(
+      r#"SELECT id, status as "status: PublishingTaskStatus"
+      FROM publishing_tasks
+      WHERE status IN ('processing', 'processed')
+        AND updated_at < now() - ($1::bigint * interval '1 second')
+      ORDER BY updated_at ASC
+      LIMIT 1000"#,
+      stale_after_seconds,
+    )
+    .map(|r| (r.id, r.status))
+    .fetch_all(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::get_oauth_state", skip(self), err)]
   pub async fn get_oauth_state(
     &self,
@@ -3258,12 +3351,13 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<OauthState> {
     query_concat_as!(
       OauthState,
-      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url)
-      VALUES ($1, $2, $3)
+      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url, user_id)
+      VALUES ($1, $2, $3, $4)
       RETURNING ", OAUTH_STATE_SELECT;
       new_oauth_state.csrf_token,
       new_oauth_state.pkce_code_verifier,
       new_oauth_state.redirect_url,
+      new_oauth_state.user_id,
     )
     .fetch_one(&self.pool)
     .await

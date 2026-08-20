@@ -17,7 +17,12 @@ use super::ApiPublishingTask;
 
 pub fn publishing_task_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/:publishing_task_id", util::json(get_handler))
+    // Never cache: `deno publish` polls this for live status, and a cached
+    // non-terminal status would make it hang until the entry expired.
+    .get(
+      "/:publishing_task_id",
+      util::no_store(util::json(get_handler)),
+    )
     .build()
     .unwrap()
 }
@@ -25,7 +30,6 @@ pub fn publishing_task_router() -> Router<Body, ApiError> {
 #[instrument(
   name = "GET /api/publishing_tasks/:publishing_task_id",
   skip(req),
-  err,
   fields(publishing_task_id)
 )]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPublishingTask> {

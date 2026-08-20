@@ -47,6 +47,14 @@ errors!(
     status: NOT_FOUND,
     "Diffs do not have an index.",
   },
+  DiffDisabled {
+    status: NOT_FOUND,
+    "The diff view is currently disabled.",
+  },
+  DocsOnlyForLatestVersion {
+    status: NOT_FOUND,
+    "Documentation is only available for the latest version of a package.",
+  },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
     "The requested entrypoint or symbol was not found.",
@@ -76,6 +84,18 @@ errors!(
   InvalidOauthState {
     status: BAD_REQUEST,
     "Invalid OAuth State.",
+  },
+  MissingTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha was not completed. Please complete the captcha and try again.",
+  },
+  InvalidTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha response was invalid or has already been used. Please try again.",
+  },
+  TurnstileVerificationFailed {
+    status: SERVICE_UNAVAILABLE,
+    "The captcha could not be verified at this time. Please try again shortly.",
   },
   Blocked {
     status: FORBIDDEN,

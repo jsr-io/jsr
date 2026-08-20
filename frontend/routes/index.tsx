@@ -24,8 +24,9 @@ export default define.page<typeof handler>(function Home({ data }) {
   return (
     <div class="flex flex-col">
       <HomepageHero
-        projectId={Deno.env.get("ORAMA_PACKAGES_PROJECT_ID")}
-        apiKey={Deno.env.get("ORAMA_PACKAGES_PUBLIC_API_KEY")}
+        appId={process.env.ALGOLIA_APP_ID}
+        apiKey={process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY}
+        indexName={process.env.ALGOLIA_PACKAGES_INDEX}
       />
       {data.posts.length > 0 && (
         <section class="flex flex-col gap-4 mb-16 md:mb-32">
@@ -237,6 +238,7 @@ function PackageToPanelEntry(
   return {
     value: `@${entry.scope}/${entry.name}`,
     href: `/@${entry.scope}/${entry.name}`,
+    description: entry.description,
   };
 }
 
@@ -247,6 +249,7 @@ function PackageVersionToPanelEntry(
     value: `@${entry.scope}/${entry.package}`,
     href: `/@${entry.scope}/${entry.package}@${entry.version}`,
     label: entry.version,
+    description: entry.description,
   };
 }
 

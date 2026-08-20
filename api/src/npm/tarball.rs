@@ -387,7 +387,7 @@ pub async fn create_npm_tarball<'a>(
       }
     })?;
     header.set_size(content.len() as u64);
-    header.set_mode(0o777);
+    header.set_mode(0o644);
     header.set_mtime(mtime);
     header.set_cksum();
     tarball.append(&header, content.as_slice()).unwrap();
@@ -768,6 +768,12 @@ mod tests {
       // For our tests we don't care about the package parent folder
       let len = "package".to_string().len();
       let formatted_path = path[len..].to_string();
+
+      let mode = entry.header().mode().unwrap();
+      assert_eq!(
+        mode, 0o644,
+        "file {path} has unexpected mode {mode:o}, want 0o644",
+      );
 
       let mut buf = vec![];
       entry.read_to_end(&mut buf).await?;

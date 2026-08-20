@@ -46,8 +46,8 @@ export interface Source {
   source: SourceDir | SourceFile;
 }
 
-export interface OramaPackageHit {
-  id: string;
+export interface AlgoliaPackageHit {
+  objectID: string;
   scope: string;
   name: string;
   description: string;

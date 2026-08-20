@@ -31,7 +31,11 @@ pub fn authorization_router() -> Router<Body, ApiError> {
   Router::builder()
     .post("/", util::json(create_authorization))
     .post("/exchange", util::json(exchange_authorization))
-    .get("/details/:code", util::json(get_authorization))
+    // Never cache: OAuth authorization details are dynamic and per-flow.
+    .get(
+      "/details/:code",
+      util::no_store(util::json(get_authorization)),
+    )
     .post("/approve/:code", util::auth(approve_authorization))
     .post("/deny/:code", util::auth(decline_authorization))
     .build()

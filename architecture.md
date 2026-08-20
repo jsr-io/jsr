@@ -9,7 +9,8 @@ codebase and users curious about how the system works.
 jsr.io is composed of four main components:
 
 1. **API** — a Rust backend that handles all business logic
-2. **Frontend** — a Fresh (Deno + Preact) server-rendered web application
+2. **Frontend** — a Fresh (Deno + Preact) server-rendered web application,
+   bundled and deployed as a Cloudflare Worker
 3. **Load Balancer** — a Cloudflare Worker that routes requests
 4. **Database** — PostgreSQL for metadata storage
 
@@ -21,16 +22,16 @@ used for serving registry requests — it only stores metadata and user data.
 graph LR
     Worker["Cloudflare Worker<br/>(Load Balancer)"]
 
-    Worker --> Frontend["Frontend<br/>(Fresh / Preact)"]
-    Worker --> API["API (Rust)"]
+    Worker --> Frontend["Frontend Worker<br/>(Fresh / Preact)"]
+    Worker --> API["API (Rust, Cloud Run)"]
     Worker --> R2["Cloudflare R2<br/>(modules, docs, npm)"]
 
     Frontend --> API
-    Frontend -. "search" .-> Orama["Orama Search"]
+    Frontend -. "search" .-> Algolia["Algolia Search"]
 
     API --> R2
     API --> Postgres["PostgreSQL"]
-    API --> Orama
+    API --> Algolia
     API <-- "callbacks" --> CloudTasks["Cloud Tasks"]
     API --> Postmark["Postmark"]
     API --> Trace["Cloud Trace"]
@@ -41,13 +42,13 @@ graph LR
 The Cloudflare Worker in `lb/` is the entry point for all traffic. It inspects
 the hostname and path to route each request:
 
-| Request                                                      | Routed to          |
-| ------------------------------------------------------------ | ------------------ |
-| `api.jsr.io/*`                                               | Cloud Run API      |
-| `jsr.io/api/*`                                               | Cloud Run API      |
-| `npm.jsr.io/*`                                               | R2 npm bucket      |
-| `jsr.io/@scope/pkg/meta.json`, `jsr.io/@scope/pkg/version/*` | R2 modules bucket  |
-| Everything else on `jsr.io`                                  | Cloud Run Frontend |
+| Request                                                      | Routed to         |
+| ------------------------------------------------------------ | ----------------- |
+| `api.jsr.io/*`                                               | Cloud Run API     |
+| `jsr.io/api/*`                                               | Cloud Run API     |
+| `npm.jsr.io/*`                                               | R2 npm bucket     |
+| `jsr.io/@scope/pkg/meta.json`, `jsr.io/@scope/pkg/version/*` | R2 modules bucket |
+| Everything else on `jsr.io`                                  | Frontend Worker   |
 
 The worker also handles CORS, security headers (including a strict Content
 Security Policy for module files), bot detection for SEO, and download analytics
@@ -80,7 +81,7 @@ api/
 │   ├── npm/                 # NPM compatibility tarball generation
 │   ├── docs.rs              # Documentation generation (deno_doc)
 │   ├── analysis.rs          # Code analysis
-│   ├── external/            # External service clients (Cloudflare, Orama)
+│   ├── external/            # External service clients (Cloudflare, Algolia)
 │   ├── emails/              # Email templates (Postmark)
 │   ├── iam.rs               # Permissions and access control
 │   ├── ids.rs               # Type-safe identifiers
@@ -99,13 +100,13 @@ api/
 - **Authentication**: OAuth 2.0 with GitHub and GitLab. Sessions are managed via
   JWTs and stored in the database.
 - **Publishing**: Receives tarballs from `deno publish`, validates metadata and
-  files, uploads to R2, generates documentation, and indexes in Orama.
+  files, uploads to R2, generates documentation, and indexes in Algolia.
 - **Package management**: CRUD operations for scopes, packages, versions, and
   members.
 - **NPM compatibility**: Generates npm-compatible tarballs so JSR packages can
   be consumed by npm, yarn, pnpm, vlt, and bun.
 - **Search indexing**: Pushes package metadata, symbols, and documentation to
-  Orama for full-text search.
+  Algolia for full-text search.
 - **Background tasks**: Long-running work (publishing, npm tarball generation)
   is queued via Google Cloud Tasks and processed asynchronously.
 
@@ -128,6 +129,22 @@ Tailwind CSS. It uses Fresh's
 server-rendered by default, and only interactive components ("islands") ship
 JavaScript to the browser.
 
+In production the frontend ships as its own Cloudflare Worker:
+
+- `frontend/build.ts` runs the Fresh vite build, mirrors the merged static tree
+  (`frontend/static/`, `_fresh/{client,static}/`, and `frontend/docs/*.md` under
+  `_jsr_docs/`) into `_fresh/assets/`, then bundles `frontend/server.entry.ts`
+  into `_fresh/worker.js` via `deno bundle`.
+- `frontend/shim/deno.ts` polyfills the subset of `Deno.*` (env, file reads,
+  inspect, stat/open) needed by the Fresh server at runtime, with file reads
+  forwarded to the Workers ASSETS binding.
+- Static files are served by the Workers Assets binding (asset-first routing).
+  Dynamic routes fall through to the worker.
+
+Environment variables (`API_ROOT`, `FRONTEND_ROOT`, the `ALGOLIA_*` keys, etc.)
+are configured as `plain_text` bindings on the worker by Terraform; no
+`wrangler` interaction is needed.
+
 ### Directory Structure
 
 ```
@@ -144,7 +161,7 @@ frontend/
 │   ├── docs/               # Registry documentation
 │   └── publishing/         # Publish status tracking
 ├── islands/                # Interactive Preact components
-│   ├── GlobalSearch.tsx    # Search bar with Orama
+│   ├── GlobalSearch.tsx    # Search bar with Algolia
 │   ├── UserMenu.tsx        # User dropdown
 │   ├── CopyButton.tsx      # Click-to-copy
 │   └── ...
@@ -164,7 +181,8 @@ frontend/
 - **Server-side rendering** for fast initial loads and SEO
 - **Islands architecture** — only interactive components are hydrated in the
   browser
-- **Orama search** — client-side full-text search with highlighting
+- **Search** — global package/docs search via Algolia; in-package symbol search
+  runs client-side with Orama and highlighting
 - **Documentation rendering** — HTML docs generated by the API are displayed
   with breadcrumb navigation and symbol search
 - **Dark mode** support via Tailwind
@@ -177,7 +195,8 @@ A Cloudflare Worker that acts as the edge router. See
 Key files:
 
 - `main.ts` — request routing logic
-- `proxy.ts` — proxy to Cloud Run and R2 backends
+- `proxy.ts` — proxy to backends (Cloud Run for API, service binding for the
+  frontend Worker) and R2
 - `headers.ts` — security headers, CORS, CSP
 - `bots.ts` — bot/crawler detection
 - `analytics.ts` — download tracking
@@ -240,19 +259,26 @@ This is the core workflow of the registry:
    - Analyzes dependencies
    - Updates the database
    - Optionally generates an NPM compatibility tarball
-   - Indexes the package in Orama for search
+   - Indexes the package in Algolia for search
 7. The CLI polls the publishing task endpoint until it succeeds or fails.
 
 ## Search
 
-Search is powered by [Orama](https://orama.com/) with three indexes:
+Search is powered by [Algolia](https://www.algolia.com/) with three indexes:
 
 - **Packages** — package name, scope, description
 - **Symbols** — exported functions, types, interfaces, classes
 - **Documentation** — full-text documentation content
 
-The API pushes updates to Orama on each publish. The frontend queries the Orama
-public API directly from the browser for instant results.
+The API pushes updates to Algolia on each publish. The frontend queries Algolia
+with a search-only API key directly from the browser for instant results.
+
+The indices, their settings (searchable attributes, faceting, ranking), and the
+scoped API keys (one write key for the API, search-only keys for the frontend)
+are provisioned declaratively via the Algolia Terraform provider
+(`terraform/
+algolia.tf`). The reindex tools only push documents and inherit
+those settings through the atomic index swap.
 
 ## Infrastructure
 
@@ -266,7 +292,7 @@ Infrastructure is managed with Terraform across two configurations:
 ### Production Deployment
 
 - **API**: Google Cloud Run, `us-central1`
-- **Frontend**: Google Cloud Run, `us-central1`
+- **Frontend**: Cloudflare Worker (Fresh build, Workers Assets binding)
 - **Database**: Google Cloud SQL (PostgreSQL, high availability)
 - **Job queues**: Google Cloud Tasks (publishing, npm tarball builds)
 - **Analytics**: BigQuery (download metrics)
@@ -291,18 +317,18 @@ Local hostnames (`jsr.test`, `api.jsr.test`, `npm.jsr.test`) are configured in
 
 ## Tools (`tools/`)
 
-| Script                       | Purpose                                                        |
-| ---------------------------- | -------------------------------------------------------------- |
-| `dev.ts`                     | Multi-process development orchestrator                         |
-| `prod_proxy.ts`              | Proxy for frontend-only development against the production API |
-| `orama_packages_reindex.ts`  | Reindex packages in Orama                                      |
-| `orama_symbols_reindex.ts`   | Reindex symbols in Orama                                       |
-| `orama_docs_reindex.ts`      | Reindex documentation in Orama                                 |
-| `generate_global_symbols.ts` | Generate Deno global type definitions                          |
-| `generate_web_symbols.ts`    | Generate web API type definitions                              |
-| `clone_dependency.ts`        | Clone dependencies for offline development                     |
-| `migrate_package_meta.ts`    | Database migration utilities                                   |
-| `db-switch.ts`               | Per-branch database management (copy, create empty, clean up)  |
+| Script                        | Purpose                                                        |
+| ----------------------------- | -------------------------------------------------------------- |
+| `dev.ts`                      | Multi-process development orchestrator                         |
+| `prod_proxy.ts`               | Proxy for frontend-only development against the production API |
+| `algolia_packages_reindex.ts` | Reindex packages in Algolia                                    |
+| `algolia_symbols_reindex.ts`  | Reindex symbols in Algolia                                     |
+| `algolia_docs_reindex.ts`     | Reindex documentation in Algolia                               |
+| `generate_global_symbols.ts`  | Generate Deno global type definitions                          |
+| `generate_web_symbols.ts`     | Generate web API type definitions                              |
+| `clone_dependency.ts`         | Clone dependencies for offline development                     |
+| `migrate_package_meta.ts`     | Database migration utilities                                   |
+| `db-switch.ts`                | Per-branch database management (copy, create empty, clean up)  |
 
 ## E2E Tests (`e2e/`)
 

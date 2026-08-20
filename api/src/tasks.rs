@@ -28,11 +28,14 @@ use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
 use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
+use crate::api::PublishQueue;
 use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
+use crate::db::PublishingTaskStatus;
 use crate::db::VersionDownloadCount;
 use crate::external::cloudflare;
+use crate::external::cloudflare::CachePurge;
 use crate::gcp;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
@@ -41,8 +44,8 @@ use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
 use crate::publish;
 use crate::s3::Buckets;
-use crate::s3::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::CACHE_CONTROL_MANIFEST;
 use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::s3_paths;
@@ -78,8 +81,77 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/clean_download_counts_4h",
       util::json(clean_download_counts_4h_handler),
     )
+    .post(
+      "/requeue_stuck_publishing_tasks",
+      util::json(requeue_stuck_publishing_tasks_handler),
+    )
     .build()
     .unwrap()
+}
+
+/// How long a publishing task may stay in a non-terminal state
+/// (`processing`/`processed`) before the reaper treats it as stranded and
+/// re-drives it. The publish queue normally finishes a task in seconds, and
+/// Cloud Run caps a single request well under this, so a task older than this
+/// is not actively being processed and is safe to requeue.
+const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
+
+/// Re-drive publishing tasks that got stranded in a non-terminal state.
+///
+/// This is the self-healing counterpart to the manual admin requeue endpoint.
+/// A queue worker that dies mid-publish (Cloud Run timeout, cancelled CI run,
+/// transient S3/Cloudflare error after the version row was committed) can
+/// leave a task stuck in `processing` or `processed`. Such a task never
+/// finishes regenerating the package-level `meta.json`, so the published
+/// version stays invisible to Deno's resolver, and the version cannot be
+/// re-published because of the `status != 'failure'` guard in
+/// `create_publishing_task`. This handler, run periodically by Cloud
+/// Scheduler, finds those tasks and pushes them back through the publish
+/// queue, which runs `publish_task`'s state machine to completion.
+#[instrument(
+  name = "POST /tasks/requeue_stuck_publishing_tasks",
+  skip(req),
+  err
+)]
+pub async fn requeue_stuck_publishing_tasks_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let queue = queue.ok_or(ApiError::InternalServerError)?;
+
+  let stale = db
+    .list_stale_publishing_tasks(STALE_PUBLISHING_TASK_SECS)
+    .await?;
+
+  for (id, status) in stale {
+    // A `processing` task never committed its version row (the finalize
+    // transaction is atomic), so it is safe to reset it to `pending` and let
+    // the worker reprocess the tarball from scratch. A `processed` task
+    // already has its rows committed and only needs the metadata-upload step
+    // re-driven, so it is requeued as-is.
+    if status == PublishingTaskStatus::Processing
+      && let Err(err) = db
+        .update_publishing_task_status(
+          None,
+          id,
+          PublishingTaskStatus::Processing,
+          PublishingTaskStatus::Pending,
+          None,
+        )
+        .await
+    {
+      // Lost a race (the task changed status concurrently) or a transient DB
+      // error. Skip it — a later run will pick it up again if still stuck.
+      error!("failed to reset stuck publishing task {id}: {err}");
+      continue;
+    }
+
+    let body = serde_json::to_vec(&id)?;
+    queue.task_buffer(None, Some(body.into())).await?;
+  }
+
+  Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -105,6 +177,7 @@ pub async fn npm_tarball_build_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
   let is_already_built = db
     .get_npm_tarball(
@@ -208,11 +281,17 @@ pub async fn npm_tarball_build_handler(
       UploadTaskBody::Bytes(content.into()),
       S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      &npm_url, &job.scope, &job.name,
+    )])
+    .await;
 
   Ok(())
 }

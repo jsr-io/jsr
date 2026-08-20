@@ -1,17 +1,18 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { OramaPackageHit } from "../util.ts";
+import type { AlgoliaPackageHit } from "../util.ts";
 import type { Package, RuntimeCompat } from "../utils/api_types.ts";
 import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
 import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
 import TbArchive from "tb-icons/TbArchive";
+import TbFileDescription from "tb-icons/TbFileDescription";
 
 const runtimeCompatExists = (compat: RuntimeCompat) => {
   return compat?.browser || compat?.deno || compat?.node || compat?.workerd ||
     compat?.bun;
 };
 
-export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
+export function PackageHit(pkg: AlgoliaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
     content: (
@@ -62,6 +63,17 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
           </div>
         )}
       </div>
+    ),
+    actions: (
+      <a
+        href={`/@${pkg.scope}/${pkg.name}/doc`}
+        class="flex items-center gap-1 text-sm text-secondary hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-400 px-2 py-1 rounded hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 transition-colors"
+        aria-label="Documentation"
+        title="Documentation"
+      >
+        <TbFileDescription class="size-5" />
+        <span class="hidden sm:inline">Docs</span>
+      </a>
     ),
   };
 }

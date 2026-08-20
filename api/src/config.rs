@@ -76,52 +76,42 @@ pub struct Config {
   /// The GitLab Client Secret
   pub gitlab_client_secret: String,
 
-  #[clap(
-    long = "orama_packages_project_id",
-    env = "ORAMA_PACKAGES_PROJECT_ID"
-  )]
-  /// The Orama package project id
-  pub orama_packages_project_id: Option<String>,
+  #[clap(long = "algolia_app_id", env = "ALGOLIA_APP_ID")]
+  /// The Algolia application id
+  pub algolia_app_id: Option<String>,
 
-  #[clap(
-    long = "orama_packages_project_key",
-    env = "ORAMA_PACKAGES_PROJECT_KEY"
-  )]
-  /// The Orama package project key
-  pub orama_packages_project_key: Option<String>,
+  #[clap(long = "algolia_write_api_key", env = "ALGOLIA_WRITE_API_KEY")]
+  /// The Algolia API key with write access, used for indexing
+  pub algolia_write_api_key: Option<String>,
 
-  #[clap(
-    long = "orama_packages_data_source",
-    env = "ORAMA_PACKAGES_DATA_SOURCE"
-  )]
-  /// The Orama package data source
-  pub orama_packages_data_source: Option<String>,
+  #[clap(long = "algolia_packages_index", env = "ALGOLIA_PACKAGES_INDEX")]
+  /// The Algolia index name for packages
+  pub algolia_packages_index: Option<String>,
 
-  #[clap(long = "orama_symbols_project_id", env = "ORAMA_SYMBOLS_PROJECT_ID")]
-  /// The Orama symbol project id
-  pub orama_symbols_project_id: Option<String>,
+  #[clap(long = "algolia_symbols_index", env = "ALGOLIA_SYMBOLS_INDEX")]
+  /// The Algolia index name for symbols
+  pub algolia_symbols_index: Option<String>,
 
-  #[clap(
-    long = "orama_symbols_project_key",
-    env = "ORAMA_SYMBOLS_PROJECT_KEY"
-  )]
-  /// The Orama symbol project key
-  pub orama_symbols_project_key: Option<String>,
-
-  #[clap(
-    long = "orama_symbols_data_source",
-    env = "ORAMA_SYMBOLS_DATA_SOURCE"
-  )]
-  /// The Orama symbol data source
-  pub orama_symbols_data_source: Option<String>,
-
-  #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT", group = "trace")]
-  /// OTLP endpoint to send traces to.
+  #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
+  /// Base OTLP/HTTP endpoint (e.g. Grafana Cloud's
+  /// `https://otlp-gateway-<zone>.grafana.net/otlp`), OTEL
+  /// `OTEL_EXPORTER_OTLP_ENDPOINT` style: the per-signal path (`/v1/traces`
+  /// for spans, `/v1/logs` for logs) is appended automatically. A full
+  /// signal URL is also accepted. Export is disabled when unset.
   pub otlp_endpoint: Option<String>,
 
-  #[clap(long = "cloud_trace", group = "trace")]
-  /// Whether to enable cloud trace.
-  pub cloud_trace: bool,
+  #[clap(long = "otlp_headers", env = "OTLP_HEADERS")]
+  /// Extra headers sent with every OTLP request, as a comma-separated list of
+  /// `key=value` pairs (the OpenTelemetry `OTEL_EXPORTER_OTLP_HEADERS` format).
+  /// Used to carry the backend's auth, e.g. `Authorization=Basic <base64>` for
+  /// Grafana Cloud. Only the first `=` in each pair separates key from value.
+  pub otlp_headers: Option<String>,
+
+  #[clap(long = "deployment_environment", env = "DEPLOYMENT_ENVIRONMENT")]
+  /// Deployment environment name (e.g. `staging`, `production`), exported as the
+  /// `deployment.environment` OTLP resource attribute so telemetry from each
+  /// environment can be told apart in the backend. Unset omits the attribute.
+  pub deployment_environment: Option<String>,
 
   #[clap(long = "registry_url", env = "REGISTRY_URL")]
   /// The base URL of the registry, where module code and metadata can be
@@ -169,10 +159,6 @@ pub struct Config {
   /// The ID of the npm tarball build queue.
   pub npm_tarball_build_queue_id: Option<String>,
 
-  #[clap(long = "gcp_project_id", env = "GCP_PROJECT_ID")]
-  /// The ID of the project.
-  pub gcp_project_id: Option<String>,
-
   #[clap(long = "cloudflare_account_id", env = "CLOUDFLARE_ACCOUNT_ID")]
   /// The Cloudflare account ID for Analytics Engine.
   pub cloudflare_account_id: Option<String>,
@@ -181,12 +167,24 @@ pub struct Config {
   /// The Cloudflare API token.
   pub cloudflare_api_token: Option<String>,
 
+  #[clap(long = "cloudflare_zone_id", env = "CLOUDFLARE_ZONE_ID")]
+  /// The Cloudflare zone ID for the registry domain, used to purge cached
+  /// package and npm version manifests when a package is published or
+  /// mutated. Cache purge is skipped if unset.
+  pub cloudflare_zone_id: Option<String>,
+
   #[clap(
     long = "cloudflare_analytics_dataset",
     env = "CLOUDFLARE_ANALYTICS_DATASET"
   )]
   /// The Cloudflare Analytics Engine dataset name for download tracking.
   pub cloudflare_analytics_dataset: Option<String>,
+
+  #[clap(long = "turnstile_secret_key", env = "TURNSTILE_SECRET_KEY")]
+  /// The Cloudflare Turnstile secret key, used to verify the captcha response
+  /// submitted with the login form. Must be paired with the frontend's
+  /// `TURNSTILE_SITE_KEY`. Captcha verification is disabled if unset.
+  pub turnstile_secret_key: Option<String>,
 
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.
@@ -203,6 +201,16 @@ pub struct Config {
   #[clap(long = "database_pool_size", default_value = "3")]
   /// The size of the database connection pool.
   pub database_pool_size: u32,
+
+  #[clap(long = "db_client_cert", env = "DB_CLIENT_CERT")]
+  /// PEM client certificate presented when connecting to the database over
+  /// TLS. Required once the DB enforces `TRUSTED_CLIENT_CERTIFICATE_REQUIRED`;
+  /// all three of cert/key/root must be set together to take effect.
+  pub db_client_cert: Option<String>,
+
+  #[clap(long = "db_client_key", env = "DB_CLIENT_KEY")]
+  /// PEM private key matching `db_client_cert`.
+  pub db_client_key: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -216,7 +224,8 @@ impl std::fmt::Debug for Config {
       .field("github_client_id", &self.github_client_id)
       .field("github_client_secret", &"***")
       .field("otlp_endpoint", &self.otlp_endpoint)
-      .field("cloud_trace", &self.cloud_trace)
+      .field("otlp_headers", &self.otlp_headers.as_ref().map(|_| "***"))
+      .field("deployment_environment", &self.deployment_environment)
       .field("registry_url", &self.registry_url)
       .field("api", &self.api)
       .field("tasks", &self.tasks)
@@ -226,11 +235,20 @@ impl std::fmt::Debug for Config {
         &self.npm_tarball_build_queue_id,
       )
       .field(
+        "turnstile_secret_key",
+        &self.turnstile_secret_key.as_ref().map(|_| "***"),
+      )
+      .field(
         "postmark_token",
         &self.postmark_token.as_ref().map(|_| "***"),
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)
+      .field(
+        "db_client_cert",
+        &self.db_client_cert.as_ref().map(|_| "***"),
+      )
+      .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
       .finish()
   }
 }

@@ -802,66 +802,15 @@ pub enum ApiUpdateScopeRequest {
   Description(Option<String>),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiStats {
-  pub newest: Vec<ApiStatsPackage>,
-  pub updated: Vec<ApiStatsPackageVersion>,
-  pub featured: Vec<ApiStatsPackage>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiStatsPackage {
-  pub scope: ScopeName,
-  pub name: PackageName,
-}
-
-impl From<StatsPackage> for ApiStatsPackage {
-  fn from(p: StatsPackage) -> Self {
-    Self {
-      scope: p.scope,
-      name: p.name,
-    }
-  }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiStatsPackageVersion {
-  pub scope: ScopeName,
-  pub package: PackageName,
-  pub version: Version,
-}
-
-impl From<StatsPackageVersion> for ApiStatsPackageVersion {
-  fn from(v: StatsPackageVersion) -> Self {
-    Self {
-      scope: v.scope,
-      package: v.name,
-      version: v.version,
-    }
-  }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiMetrics {
-  pub packages: usize,
-  pub packages_1d: usize,
-  pub packages_7d: usize,
-  pub packages_30d: usize,
-
-  pub users: usize,
-  pub users_1d: usize,
-  pub users_7d: usize,
-  pub users_30d: usize,
-
-  pub package_versions: usize,
-  pub package_versions_1d: usize,
-  pub package_versions_7d: usize,
-  pub package_versions_30d: usize,
-}
+// `ApiStats`, `ApiStatsPackage`, `ApiStatsPackageVersion`, and `ApiMetrics` now
+// live in the shared, wasm-safe `jsr_types` crate so the workers-rs front serves
+// byte-identical JSON for the ported `GET /api/stats` and `GET /api/metrics`
+// endpoints. Re-exported here so existing `crate::api::types::*` paths keep
+// working.
+pub use jsr_types::api::ApiMetrics;
+pub use jsr_types::api::ApiStats;
+pub use jsr_types::api::ApiStatsPackage;
+pub use jsr_types::api::ApiStatsPackageVersion;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
