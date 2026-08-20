@@ -30,15 +30,20 @@ impl<'s> IamHandler<'s> {
     matches!(self.principal, Principal::Anonymous)
   }
 
+  /// Restricted credentials (a permissions allowlist is set) are deny-by-default.
+  /// `check_publish_access` is the only check that inspects the allowlist.
+  fn require_unrestricted(&self) -> Result<(), ApiError> {
+    if self.permissions.is_some() {
+      return Err(ApiError::MissingPermission);
+    }
+    Ok(())
+  }
+
   pub async fn check_scope_write_access(
     &self,
     scope: &ScopeName,
   ) -> Result<(&User, bool), ApiError> {
-    if self.permissions.is_some() {
-      // There is no specific permission that allows scope write access, so if
-      // the permissions are restricted, this action is also restricted.
-      return Err(ApiError::MissingPermission);
-    }
+    self.require_unrestricted()?;
 
     match &self.principal {
       Principal::User(user) => {
@@ -61,11 +66,7 @@ impl<'s> IamHandler<'s> {
     &self,
     scope: &ScopeName,
   ) -> Result<(&User, bool), ApiError> {
-    if self.permissions.is_some() {
-      // There is no specific permission that allows scope admin access, so if
-      // the permissions are restricted, this action is also restricted.
-      return Err(ApiError::MissingPermission);
-    }
+    self.require_unrestricted()?;
 
     match &self.principal {
       Principal::User(user) => {
@@ -101,11 +102,7 @@ impl<'s> IamHandler<'s> {
     scope: &ScopeName,
     member_id: Uuid,
   ) -> Result<(), ApiError> {
-    if self.permissions.is_some() {
-      // There is no specific permission that allows scope admin access, so if
-      // the permissions are restricted, this action is also restricted.
-      return Err(ApiError::MissingPermission);
-    }
+    self.require_unrestricted()?;
 
     match &self.principal {
       Principal::User(user) if user.is_staff && self.sudo => Ok(()),
@@ -216,11 +213,7 @@ impl<'s> IamHandler<'s> {
   }
 
   pub fn check_current_user_access(&self) -> Result<&User, ApiError> {
-    if self.permissions.is_some() {
-      // There is no specific permission that allows access to current user, so
-      // if the permissions are restricted, this action is also restricted.
-      return Err(ApiError::MissingPermission);
-    }
+    self.require_unrestricted()?;
     match &self.principal {
       Principal::User(user) => Ok(user),
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotUser),
@@ -229,12 +222,7 @@ impl<'s> IamHandler<'s> {
   }
 
   pub fn check_authorization_approve_access(&self) -> Result<&User, ApiError> {
-    if self.permissions.is_some() {
-      // There is no specific permission that allows authorization approve
-      // access, so if the permissions are restricted, this action is also
-      // restricted.
-      return Err(ApiError::MissingPermission);
-    }
+    self.require_unrestricted()?;
     match &self.principal {
       Principal::User(user) if self.interactive => Ok(user),
       Principal::User(_) => Err(ApiError::CredentialNotInteractive),
@@ -244,14 +232,15 @@ impl<'s> IamHandler<'s> {
   }
 
   pub fn check_admin_access(&self) -> Result<&User, ApiError> {
-    if self.permissions.is_some() {
-      // There is no specific permission that allows staff admin access, so if
-      // the permissions are restricted, this action is also restricted.
-      return Err(ApiError::MissingPermission);
-    }
+    self.require_unrestricted()?;
     match &self.principal {
-      Principal::User(user) if user.is_staff => Ok(user),
+      Principal::User(user) if user.is_staff && self.interactive => Ok(user),
+      Principal::User(user) if user.is_staff => {
+        Err(ApiError::CredentialNotInteractive)
+      }
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
+      // OIDC IamInfo always sets permissions: Some(...), so this arm is
+      // unreachable after require_unrestricted. No OIDC permission grants admin.
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }

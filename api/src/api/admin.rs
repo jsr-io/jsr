@@ -1,35 +1,35 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::NpmUrl;
-use crate::RegistryUrl;
 use crate::external::algolia::AlgoliaClient;
 use crate::s3::Buckets;
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use hyper::Body;
 use hyper::Request;
-use routerify::Router;
 use routerify::prelude::RequestExt;
+use routerify::Router;
 use routerify_query::RequestQueryExt;
-use tracing::Instrument;
-use tracing::Span;
 use tracing::field;
 use tracing::instrument;
+use tracing::Instrument;
+use tracing::Span;
 
 use crate::db::*;
 use crate::iam::ReqIamExt;
 use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
-use crate::util::ApiResult;
-use crate::util::LicenseStore;
-use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 use crate::util::sort;
+use crate::util::ApiResult;
+use crate::util::LicenseStore;
+use crate::util::RequestIdExt;
 
-use super::ApiError;
-use super::PublishQueue;
 use super::map_unique_violation;
 use super::types::*;
+use super::ApiError;
+use super::PublishQueue;
 
 pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -395,6 +395,11 @@ mod tests {
   use crate::api::ApiFullUser;
   use crate::api::ApiList;
   use crate::api::ApiScope;
+  use crate::db::PackagePublishPermission;
+  use crate::db::Permission;
+  use crate::db::Permissions;
+  use crate::db::TokenType;
+  use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use hyper::StatusCode;
@@ -520,18 +525,17 @@ mod tests {
     // A least-privilege publish token held by a staff user must not carry
     // /api/admin authority. check_admin_access previously skipped the
     // permissions guard that every other IAM check applies.
-    let permission = crate::db::Permission::PackagePublish(
-      crate::db::PackagePublishPermission::Scope {
+    let permission =
+      Permission::PackagePublish(PackagePublishPermission::Scope {
         scope: t.scope.scope.clone(),
-      },
-    );
-    let restricted = crate::token::create_token(
+      });
+    let restricted = create_token(
       &t.db(),
       t.staff_user.user.id,
-      crate::db::TokenType::Personal,
+      TokenType::Personal,
       Some("publish-only".into()),
       Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
-      Some(crate::db::Permissions(vec![permission])),
+      Some(Permissions(vec![permission])),
     )
     .await
     .unwrap();
@@ -543,6 +547,28 @@ mod tests {
       .await
       .unwrap()
       .expect_err_code(StatusCode::FORBIDDEN, "missingPermission")
+      .await;
+
+    // An unrestricted staff PAT is still non-interactive, so it must not
+    // authorize /api/admin either (same rule as authorization approve).
+    let staff_pat = create_token(
+      &t.db(),
+      t.staff_user.user.id,
+      TokenType::Personal,
+      Some("staff-pat".into()),
+      Some(chrono::Utc::now() + chrono::Duration::try_days(7).unwrap()),
+      None,
+    )
+    .await
+    .unwrap();
+
+    t.http()
+      .get("/api/admin/users")
+      .token(Some(&staff_pat))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::FORBIDDEN, "credentialNotInteractive")
       .await;
 
     // Unrestricted staff web token still works.
