@@ -13,7 +13,10 @@ use x509_parser::public_key::PublicKey;
 
 /// The OIDC issuer that GitHub Actions uses when requesting a Fulcio signing
 /// certificate. JSR provenance is only ever produced by GitHub Actions, so the
-/// signing certificate must carry this issuer.
+/// signing certificate must carry this issuer. The check below is a substring
+/// match, which deliberately also accepts enterprise-scoped issuers of the
+/// form `https://token.actions.githubusercontent.com/<enterpriseSlug>` (GHEC
+/// "unique OIDC issuer URL") — do not tighten it to an equality check.
 const GITHUB_ACTIONS_ISSUER: &str =
   "https://token.actions.githubusercontent.com";
 
@@ -561,6 +564,19 @@ mod tests {
     assert!(parse_github_repo("https://gitlab.com/foo/bar").is_none());
     assert!(parse_github_repo("https://github.com/").is_none());
     assert!(parse_github_repo("https://github.com/onlyowner").is_none());
+  }
+
+  #[test]
+  fn issuer_check_accepts_enterprise_scoped_issuers() {
+    // Certificates minted for GHEC enterprises with a unique OIDC issuer URL
+    // carry `<issuer>/<enterpriseSlug>`; the substring match must keep
+    // accepting them (jsr-io/jsr#1485).
+    let enterprise_issuer =
+      "https://token.actions.githubusercontent.com/octocat-inc";
+    assert!(find_subslice(
+      enterprise_issuer.as_bytes(),
+      GITHUB_ACTIONS_ISSUER.as_bytes()
+    ));
   }
 
   #[test]
