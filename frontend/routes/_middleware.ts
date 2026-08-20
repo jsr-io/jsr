@@ -102,34 +102,65 @@ const cache = define.middleware(async (ctx) => {
 //
 // Package documentation embeds HTML rendered from package-controlled symbol
 // names. deno_doc does not escape every name, so a malicious package can inject
-// markup such as `<img src=x onerror=...>` that is rendered same-origin on
-// jsr.io. `script-src-attr 'none'` blocks all inline event-handler attributes
-// (onerror/onclick/...), which is the execution vector for that payload. This
-// is the right tool for a Preact/Fresh app: event handlers are attached from
-// JS via addEventListener, never as inline HTML attributes, and legitimate
-// inline <script> elements (dark-mode bootstrap, island hydration) are governed
-// by script-src, not script-src-attr, so they keep working.
+// arbitrary markup that is rendered same-origin on jsr.io. Script execution is
+// blocked with a nonce-based `script-src`:
 //
-// `frame-src` closes the `script-src-attr` bypass: an injected
-// `<iframe src="javascript:...">` navigates rather than using an event-handler
-// attribute, so it is not caught by script-src-attr and — absent a script-src /
-// default-src / frame-src directive — executes same-origin. Restricting frame
-// sources to Cloudflare Turnstile (the only legitimate iframe, on the login
-// page) blocks `javascript:` and `data:` frames while keeping the captcha
-// working.
-const CSP = [
+// - Fresh generates a fresh nonce per render, stamps it onto every
+//   Preact-rendered <script>/<style> element (dark-mode bootstrap, island
+//   hydration, particles.js), and exposes it on the Response via
+//   `Symbol.for("__freshNonce")`. Injected markup goes through
+//   dangerouslySetInnerHTML as a raw string, so it never receives the nonce.
+// - `'strict-dynamic'` lets those nonce'd scripts load further scripts
+//   (dynamic island imports, the Turnstile loader created by LoginForm via
+//   createElement), while parser-inserted injected <script> tags stay blocked.
+// - `'self'` is deliberately NOT listed: raw package files are served on this
+//   origin (jsr.io/@scope/pkg/...), so allowlisting the origin would let an
+//   injected <script src="/@evil/pkg/1.0.0/x.js"> execute attacker-published
+//   code. CSP3 browsers ignore host sources when 'strict-dynamic' is present,
+//   but it must not be a fallback for older ones either.
+// - A `javascript:` iframe executes in a context that inherits this policy and
+//   is gated by script-src (not frame-src — the navigation is not a fetch), so
+//   the nonce requirement blocks `<iframe src="javascript:...">` as well.
+//
+// Cloudflare fronts jsr.io and injects its own inline scripts (challenge
+// platform / bot management) into HTML responses. Cloudflare propagates the
+// nonce from this header onto those scripts, but that must be confirmed in
+// production after deploy — a strict script-src blocks any it misses.
+//
+// `script-src-attr 'none'` blocks all inline event-handler attributes
+// (onerror/onclick/...): event handlers in a Preact/Fresh app are attached
+// from JS via addEventListener, never as inline HTML attributes.
+//
+// `frame-src` restricts frames to Cloudflare Turnstile (the only legitimate
+// iframe, on the login page), blocking injected frames pointed at other
+// origins or `data:` URLs.
+const BASE_CSP = [
   "script-src-attr 'none'",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'self'",
   "frame-src https://challenges.cloudflare.com",
-].join("; ");
+];
+
+// Set by Fresh on responses produced by ctx.render(); see
+// fresh/src/middlewares/csp.ts (NONCE_SYMBOL). Not part of the public export
+// map, but registered in the global symbol registry.
+const NONCE_SYMBOL = Symbol.for("__freshNonce");
 
 const securityHeaders = define.middleware(async (ctx) => {
   const resp = await ctx.next();
   const contentType = resp.headers.get("content-type") ?? "";
   if (contentType.includes("text/html")) {
-    resp.headers.set("content-security-policy", CSP);
+    const nonce = (resp as unknown as Record<symbol, string | undefined>)[
+      NONCE_SYMBOL
+    ];
+    // Every interactive HTML page is produced by ctx.render() and thus
+    // carries a nonce; fail closed on any HTML response that is not.
+    const scriptSrc = nonce
+      ? `script-src 'nonce-${nonce}' 'strict-dynamic'`
+      : "script-src 'none'";
+    const csp = [...BASE_CSP, scriptSrc];
+    resp.headers.set("content-security-policy", csp.join("; "));
     resp.headers.set("x-content-type-options", "nosniff");
     resp.headers.set("x-frame-options", "SAMEORIGIN");
   }
