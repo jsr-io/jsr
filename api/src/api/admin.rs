@@ -1,35 +1,35 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use crate::external::algolia::AlgoliaClient;
-use crate::s3::Buckets;
 use crate::NpmUrl;
 use crate::RegistryUrl;
+use crate::external::algolia::AlgoliaClient;
+use crate::s3::Buckets;
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
-use tracing::field;
-use tracing::instrument;
 use tracing::Instrument;
 use tracing::Span;
+use tracing::field;
+use tracing::instrument;
 
 use crate::db::*;
 use crate::iam::ReqIamExt;
 use crate::ids::ScopeDescription;
 use crate::publish::publish_task;
 use crate::util;
+use crate::util::ApiResult;
+use crate::util::LicenseStore;
+use crate::util::RequestIdExt;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
 use crate::util::sort;
-use crate::util::ApiResult;
-use crate::util::LicenseStore;
-use crate::util::RequestIdExt;
 
-use super::map_unique_violation;
-use super::types::*;
 use super::ApiError;
 use super::PublishQueue;
+use super::map_unique_violation;
+use super::types::*;
 
 pub fn admin_router() -> Router<Body, ApiError> {
   Router::builder()

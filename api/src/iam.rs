@@ -30,7 +30,7 @@ impl<'s> IamHandler<'s> {
     matches!(self.principal, Principal::Anonymous)
   }
 
-  /// Restricted credentials (a permissions allowlist is set) are deny-by-default.
+  /// Restricted credentials (permissions allowlist set) are deny-by-default.
   /// `check_publish_access` is the only check that inspects the allowlist.
   fn require_unrestricted(&self) -> Result<(), ApiError> {
     if self.permissions.is_some() {
@@ -239,8 +239,8 @@ impl<'s> IamHandler<'s> {
         Err(ApiError::CredentialNotInteractive)
       }
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
-      // OIDC IamInfo always sets permissions: Some(...), so this arm is
-      // unreachable after require_unrestricted. No OIDC permission grants admin.
+      // OIDC IamInfo always sets permissions: Some(...), so this arm
+      // is unreachable after require_unrestricted. No OIDC perm grants admin.
       Principal::GitHubActions { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
