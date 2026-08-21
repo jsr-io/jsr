@@ -4772,6 +4772,70 @@ gitlab_id: r.user_gitlab_id,
 
     Ok((total_scopes as usize, scopes))
   }
+
+  #[instrument(
+    name = "Database::get_recently_published_packages_by_user",
+    skip(self),
+    err
+  )]
+  pub async fn get_recently_published_packages_by_user(
+    &self,
+    user_id: &Uuid,
+  ) -> Result<Vec<PackageWithGitHubRepoAndMeta>> {
+    query_concat!(
+      "SELECT ", PACKAGE_BASE_SELECT_JOINED, ",
+      ", PACKAGE_VERSION_AGG_SELECT, ",
+      ", GITHUB_REPOSITORY_SELECT_JOINED, "
+      FROM (
+        SELECT package_scope, package_name, MAX(created_at) as last_published_at
+        FROM publishing_tasks
+        WHERE user_id = $1 AND status = 'success'
+        GROUP BY package_scope, package_name
+        ORDER BY last_published_at DESC
+        LIMIT 10
+      ) recently_published
+      JOIN packages
+        ON packages.scope = recently_published.package_scope
+        AND packages.name = recently_published.package_name
+      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+      ", PACKAGE_VERSION_LATERAL_JOINS, "
+      ORDER BY recently_published.last_published_at DESC";
+      user_id
+    )
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
+
+        let meta = r.package_version_meta.unwrap_or_default();
+
+        (package, github_repository, meta)
+      })
+      .fetch_all(&self.pool)
+      .await
+  }
 }
 
 async fn finalize_package_creation(
