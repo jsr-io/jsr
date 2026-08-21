@@ -124,6 +124,16 @@ pub struct Config {
   pub npm_url: Url,
 
   #[clap(
+    long = "fallback_registry_url",
+    env = "FALLBACK_REGISTRY_URL",
+    value_parser = parse_base_url
+  )]
+  /// The base URL of a fallback registry to use when resolving JSR dependencies
+  /// that are not available locally. This allows self-hosted instances to
+  /// depend on packages from jsr.io or other instances.
+  pub fallback_registry_url: Option<Url>,
+
+  #[clap(
     long = "api",
     default_missing_value("true"),
     default_value("true"),
@@ -250,5 +260,19 @@ impl std::fmt::Debug for Config {
       )
       .field("db_client_key", &self.db_client_key.as_ref().map(|_| "***"))
       .finish()
+  }
+}
+
+/// Parse a base URL, normalizing it to end with a trailing slash. Every
+/// consumer of a base URL assumes one: `Url::join` treats a base without a
+/// trailing slash as a file and drops its last path segment, and the frontend
+/// builds links by direct concatenation — so a subpath-hosted registry
+/// (`https://mirror.corp/jsr`) would otherwise silently query and link the
+/// wrong URLs. Normalizing once at ingestion keeps all consumers in agreement.
+fn parse_base_url(s: &str) -> Result<Url, url::ParseError> {
+  if s.ends_with('/') {
+    Url::parse(s)
+  } else {
+    Url::parse(&format!("{s}/"))
   }
 }

@@ -110,6 +110,7 @@ export async function handleNPMRequest(
       return path;
     },
     ctx,
+    env.FALLBACK_NPM_URL,
   );
 
   setSecurityHeaders(response, NPM);
@@ -294,6 +295,17 @@ async function rateLimitGuard(
   return response;
 }
 
+/**
+ * Serves module files out of the modules bucket, falling back to
+ * `FALLBACK_ROOT_URL` for artifacts this instance does not host.
+ *
+ * The fallback is deliberately limited to artifacts: a package resolved from
+ * the fallback at publish time is *linked*, not mirrored, so the API
+ * (`/api/scopes/…`, package/version metadata, search) still 404s for it and the
+ * frontend links out to the fallback registry instead of rendering a local
+ * page. Do not "fix" that by wiring the fallback into the API routes — a
+ * package this registry does not have must not appear to be one it does.
+ */
 async function handleModuleFileRoute(
   request: Request,
   env: WorkerEnv,
@@ -305,6 +317,7 @@ async function handleModuleFileRoute(
     env.MODULES_BUCKET,
     undefined,
     ctx,
+    env.FALLBACK_ROOT_URL,
   );
 
   setSecurityHeaders(response, MODULES);

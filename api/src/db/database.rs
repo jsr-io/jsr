@@ -2041,8 +2041,8 @@ gitlab_id: r.user_gitlab_id,
 
     for new_package_version_dependency in new_package_version_dependencies {
       sqlx::query!(
-        r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path, dependency_fallback_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         new_package_version_dependency.package_scope as _,
         new_package_version_dependency.package_name as _,
         new_package_version_dependency.package_version as _,
@@ -2050,6 +2050,7 @@ gitlab_id: r.user_gitlab_id,
         new_package_version_dependency.dependency_name as _,
         new_package_version_dependency.dependency_constraint as _,
         new_package_version_dependency.dependency_path as _,
+        new_package_version_dependency.dependency_fallback_url as _,
       )
         .execute(&mut *tx)
         .await?;

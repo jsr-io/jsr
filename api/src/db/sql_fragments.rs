@@ -107,7 +107,7 @@ pub const PACKAGE_FILE_SELECT: &str = r#"scope as "scope: ScopeName", name as "n
 
 pub const NPM_TARBALL_SELECT: &str = r#"scope as "scope: ScopeName", name as "name: PackageName", version as "version: Version", revision, sha1, sha512, size, updated_at, created_at"#;
 
-pub const PACKAGE_VERSION_DEPENDENCY_SELECT: &str = r#"package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, updated_at, created_at"#;
+pub const PACKAGE_VERSION_DEPENDENCY_SELECT: &str = r#"package_scope as "package_scope: ScopeName", package_name as "package_name: PackageName", package_version as "package_version: Version", dependency_kind as "dependency_kind: DependencyKind", dependency_name, dependency_constraint, dependency_path, dependency_fallback_url, updated_at, created_at"#;
 
 pub const PUBLISHING_TASK_SELECT_JOINED: &str = r#"publishing_tasks.id as "task_id", publishing_tasks.status as "task_status: PublishingTaskStatus", publishing_tasks.error as "task_error: PublishingTaskError", publishing_tasks.user_id as "task_user_id", publishing_tasks.package_scope as "task_package_scope: ScopeName", publishing_tasks.package_name as "task_package_name: PackageName", publishing_tasks.package_version as "task_package_version: Version", publishing_tasks.config_file as "task_config_file: PackagePath", publishing_tasks.created_at as "task_created_at", publishing_tasks.updated_at as "task_updated_at""#;
 
