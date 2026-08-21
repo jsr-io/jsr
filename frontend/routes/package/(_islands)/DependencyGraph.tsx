@@ -219,6 +219,16 @@ function createDigraph(dependencies: DependencyGraphItem[]) {
 }`;
 }
 
+// Node fill colors, keyed by where the dependency comes from. These are graph
+// node attributes rendered by graphviz, not DOM elements, so they can't be
+// Tailwind classes.
+const COLOR_JSR = "#faee4a";
+// A JSR package this registry doesn't host, served by the fallback registry —
+// distinct from COLOR_JSR because its node links off-instance.
+const COLOR_JSR_FALLBACK = "#a855f7";
+const COLOR_NPM = "#cb3837";
+const COLOR_ROOT = "#67bef9";
+
 function renderDependency(
   dependency: GroupedDependencyGraphKind,
   size?: number,
@@ -246,18 +256,18 @@ function renderDependency(
           }
         }).join("\n")
       }\n${formatBytes(size ?? 0, { maximumFractionDigits: 0 }).toUpperCase()}`;
-      color = dependency.fallbackUrl ? "#a855f7" : "#faee4a";
+      color = dependency.fallbackUrl ? COLOR_JSR_FALLBACK : COLOR_JSR;
       break;
     }
     case "npm": {
       content = tooltip = `${dependency.package}@${dependency.version}`;
       href = `https://www.npmjs.com/package/${dependency.package}`;
-      color = "#cb3837";
+      color = COLOR_NPM;
       break;
     }
     case "root": {
       content = tooltip = dependency.path;
-      color = "#67bef9";
+      color = COLOR_ROOT;
       break;
     }
     case "error":

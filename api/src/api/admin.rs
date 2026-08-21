@@ -300,6 +300,11 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let license_store = req.data::<LicenseStore>().unwrap().clone();
     let registry = req.data::<RegistryUrl>().unwrap().0.clone();
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+    // Re-runs against the fallback registry configured *now*, which may differ
+    // from the one the task originally resolved its dependencies against. That
+    // is intentional — the requeue re-resolves from scratch — but it means a
+    // requeue can record different `dependency_fallback_url`s than the original
+    // run did.
     let fallback_registry_url =
       req.data::<FallbackRegistryUrl>().unwrap().0.clone();
     let cache_purge = req

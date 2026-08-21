@@ -2268,6 +2268,9 @@ impl DepTreeLoader {
           if bytes.is_none()
             && let Some(fallback_url) = &fallback_registry_url
           {
+            // `registry_url` is a prefix of `specifier` (the graph was built
+            // against it), so the single replacement swaps the origin and
+            // leaves any later occurrence inside the path alone.
             let fallback_specifier =
               if specifier.as_str().starts_with(registry_url.as_str()) {
                 specifier.as_str().replacen(
@@ -2279,7 +2282,12 @@ impl DepTreeLoader {
                 specifier.to_string()
               };
 
-            let response = reqwest::get(&fallback_specifier).await.ok();
+            let response = crate::util::shared_http_client()
+              .get(&fallback_specifier)
+              .timeout(crate::tarball::FALLBACK_REQUEST_TIMEOUT)
+              .send()
+              .await
+              .ok();
             if let Some(response) = response
               && response.status().is_success()
             {
@@ -2289,6 +2297,12 @@ impl DepTreeLoader {
           }
 
           if from_fallback {
+            // Tainting is per package, not per file: a single file served by
+            // the fallback means this registry does not hold the package, so
+            // the whole package is presented as living on the fallback. Files
+            // of one package can therefore come from both registries within a
+            // graph — the link tells the reader where the package lives, not
+            // which bytes came from where.
             let package_id =
               format!("@{}/{}", scope.as_str(), package.as_str());
             fallback_packages.lock().await.insert(package_id);
@@ -2905,12 +2919,12 @@ mod test {
   use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
+  use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
   use hyper::Body;
   use hyper::StatusCode;
   use indexmap::IndexSet;
   use serde_json::json;
-  use url::Url;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -5068,8 +5082,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
 
   #[tokio::test]
   async fn test_package_dependencies_with_fallback() {
-    let mut t = TestSetup::new().await;
-    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
 
     let bytes = create_mock_tarball("fallback_import");
     let task = process_tarball_setup2(
@@ -5098,13 +5112,13 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     assert_eq!(deps.len(), 1);
     assert_eq!(deps[0].kind, ApiDependencyKind::Jsr);
     assert_eq!(deps[0].name, "@std/assert");
-    assert_eq!(deps[0].fallback_url, Some("https://jsr.io/".to_string()));
+    assert_eq!(deps[0].fallback_url, Some(fallback.url().to_string()));
   }
 
   #[tokio::test]
   async fn test_package_dependencies_graph_with_fallback() {
-    let mut t = TestSetup::new().await;
-    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
 
     let bytes = create_mock_tarball("fallback_import");
     let task = process_tarball_setup2(
@@ -5144,7 +5158,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       } => {
         assert_eq!(scope, "std");
         assert_eq!(package, "assert");
-        assert_eq!(fallback_url, &Some("https://jsr.io/".to_string()));
+        assert_eq!(fallback_url, &Some(fallback.url().to_string()));
       }
       _ => panic!("expected JSR dependency"),
     }

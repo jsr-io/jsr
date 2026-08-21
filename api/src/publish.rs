@@ -527,7 +527,9 @@ pub mod tests {
   use crate::tarball::ConfigFile;
   use crate::tarball::bucket_tarball_path;
   use crate::util::test::ApiResultExt;
+  use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use crate::util::test::unreachable_fallback_url;
   use bytes::Bytes;
   use deno_graph::analysis::ModuleInfo;
   use flate2::Compression;
@@ -554,6 +556,20 @@ pub mod tests {
     version: &Version,
     jsonc: bool,
   ) -> PublishingTask {
+    try_process_tarball_setup2(t, tarball_data, package_name, version, jsonc)
+      .await
+      .unwrap()
+  }
+
+  /// Like [`process_tarball_setup2`], but surfaces a retryable publish failure
+  /// instead of panicking on it.
+  pub async fn try_process_tarball_setup2(
+    t: &TestSetup,
+    tarball_data: Bytes,
+    package_name: &PackageName,
+    version: &Version,
+    jsonc: bool,
+  ) -> Result<PublishingTask, ApiError> {
     let scope_name = "scope".try_into().unwrap();
 
     let res = t
@@ -611,14 +627,15 @@ pub mod tests {
       None,
       CachePurge(None),
     )
-    .await
-    .unwrap();
-    t.db()
-      .get_publishing_task(task.0.id)
-      .await
-      .unwrap()
-      .unwrap()
-      .0
+    .await?;
+    Ok(
+      t.db()
+        .get_publishing_task(task.0.id)
+        .await
+        .unwrap()
+        .unwrap()
+        .0,
+    )
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {
@@ -1378,8 +1395,8 @@ pub mod tests {
 
   #[tokio::test]
   async fn jsr_import_from_fallback_registry() {
-    let mut t = TestSetup::new().await;
-    t.fallback_registry_url = Some(Url::parse("https://jsr.io/").unwrap());
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
 
     let bytes = create_mock_tarball("fallback_import");
     let task = process_tarball_setup2(
@@ -1411,8 +1428,31 @@ pub mod tests {
     assert_eq!(dependencies[0].dependency_name, "@std/assert");
     assert_eq!(
       dependencies[0].dependency_fallback_url,
-      Some("https://jsr.io/".to_string())
+      Some(fallback.url().to_string())
     );
+  }
+
+  /// A fallback registry that can't be reached must not be reported to the
+  /// publisher as "your dependency doesn't exist" — it's our infrastructure
+  /// failing, so the task stays retryable.
+  #[tokio::test]
+  async fn jsr_import_with_unreachable_fallback_is_retryable() {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let res = try_process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+
+    // A retryable error propagates out of `publish_task` rather than marking
+    // the task failed with a user-facing error code.
+    assert!(res.is_err(), "{res:#?}");
   }
 
   #[tokio::test]

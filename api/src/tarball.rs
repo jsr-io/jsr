@@ -97,6 +97,16 @@ pub struct NpmTarballInfo {
   pub size: u64,
 }
 
+/// Upper bound on a single request to the fallback registry. Without it a
+/// degraded fallback would stall the whole dependency resolution — and with it
+/// the publishing task — for as long as it keeps the connection open.
+pub const FALLBACK_REQUEST_TIMEOUT: std::time::Duration =
+  std::time::Duration::from_secs(30);
+
+/// Look up `req` in the fallback registry, returning the version it resolves to
+/// there, or `None` if the registry has no matching non-yanked version that
+/// exports `sub_path`. Errors are transport/protocol failures talking to the
+/// fallback, which are retryable — see [`PublishError::user_error_code`].
 async fn resolve_from_fallback(
   fallback_url: &Url,
   scope: &ScopeName,
@@ -104,7 +114,7 @@ async fn resolve_from_fallback(
   version_req: &VersionReq,
   sub_path: Option<&str>,
 ) -> Result<Option<Version>, PublishError> {
-  let client = reqwest::Client::new();
+  let client = crate::util::shared_http_client();
 
   let meta_url = fallback_url
     .join(&package_metadata(scope, package))
@@ -112,12 +122,15 @@ async fn resolve_from_fallback(
       PublishError::UnexpectedError(format!("Invalid fallback URL: {}", e))
     })?;
 
-  let response = client.get(meta_url.clone()).send().await.map_err(|e| {
-    PublishError::FallbackRegistryError {
+  let response = client
+    .get(meta_url.clone())
+    .timeout(FALLBACK_REQUEST_TIMEOUT)
+    .send()
+    .await
+    .map_err(|e| PublishError::FallbackRegistryError {
       url: meta_url.to_string(),
       error: FallbackRegistryError::FetchPackageMetadata(e),
-    }
-  })?;
+    })?;
 
   if !response.status().is_success() {
     if response.status() == StatusCode::NOT_FOUND {
@@ -161,15 +174,15 @@ async fn resolve_from_fallback(
         PublishError::UnexpectedError(format!("Invalid fallback URL: {}", e))
       })?;
 
-    let response =
-      client
-        .get(version_meta_url.clone())
-        .send()
-        .await
-        .map_err(|e| PublishError::FallbackRegistryError {
-          url: version_meta_url.to_string(),
-          error: FallbackRegistryError::FetchVersionMetadata(e),
-        })?;
+    let response = client
+      .get(version_meta_url.clone())
+      .timeout(FALLBACK_REQUEST_TIMEOUT)
+      .send()
+      .await
+      .map_err(|e| PublishError::FallbackRegistryError {
+        url: version_meta_url.to_string(),
+        error: FallbackRegistryError::FetchVersionMetadata(e),
+      })?;
 
     if !response.status().is_success() {
       if response.status() == StatusCode::NOT_FOUND {
@@ -530,25 +543,40 @@ pub async fn process_tarball(
           req: req.clone(),
           registry_url: None,
         });
-      } else if let Some(fallback_url) = &fallback_registry_url
-        && let Ok(Some(_resolved_version)) = resolve_from_fallback(
+        continue;
+      }
+
+      // Not in this registry — consult the fallback, if one is configured. The
+      // `?` matters: a fallback that is unreachable or misbehaving must surface
+      // as a retryable task error, not be silently folded into the fatal
+      // `UnresolvableJsrDependency` below, which would tell the publisher their
+      // dependency does not exist when we simply failed to look it up.
+      let fallback_resolution = match &fallback_registry_url {
+        Some(fallback_url) => resolve_from_fallback(
           fallback_url,
           &package_scope.scope,
           &package_scope.package,
           &req.req.version_req,
           req.sub_path.as_deref(),
         )
-        .await
-      {
+        .await?
+        .map(|_resolved_version| fallback_url.to_string()),
+        None => None,
+      };
+
+      // Only the fallback's identity is recorded, not the version it resolved
+      // to right now: like a locally-resolved dependency, the row stores the
+      // constraint and consumers re-resolve it against the fallback at install
+      // time.
+      if let Some(fallback_url) = fallback_resolution {
         resolved_dependencies.insert(ResolvedDependency {
           kind: *kind,
           req: req.clone(),
-          registry_url: Some(fallback_url.to_string()),
+          registry_url: Some(fallback_url),
         });
+      } else if let Some(err) = invalid_subpath_error {
+        return Err(err);
       } else {
-        if let Some(err) = invalid_subpath_error {
-          return Err(err);
-        }
         return Err(PublishError::UnresolvableJsrDependency(req.req.clone()));
       }
     } else {
@@ -941,9 +969,11 @@ impl PublishError {
       }
       PublishError::MissingLicense => Some("missingLicense"),
       PublishError::InvalidLicense => Some("invalidLicense"),
-      PublishError::FallbackRegistryError { .. } => {
-        Some("fallbackRegistryError")
-      }
+      // Not the publisher's fault: the fallback registry is a piece of this
+      // instance's infrastructure. Failing a publish outright because it was
+      // briefly unreachable would reject packages that are perfectly valid, so
+      // this stays retryable like the other infrastructure errors above.
+      PublishError::FallbackRegistryError { .. } => None,
     }
   }
 }

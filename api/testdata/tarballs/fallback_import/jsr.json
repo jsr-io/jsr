@@ -1,5 +1,6 @@
 {
   "name": "@scope/fallback-test",
   "version": "1.0.0",
-  "exports": "./mod.ts"
+  "exports": "./mod.ts",
+  "license": "MIT"
 }

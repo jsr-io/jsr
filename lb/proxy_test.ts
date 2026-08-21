@@ -214,6 +214,198 @@ Deno.test("proxyToR2 namespaces cache keys away from the raw URL", async () => {
   }
 });
 
+// --- proxyToR2 fallback registry tests ---
+
+/**
+ * Replaces `globalThis.fetch` with a recorder, so tests can assert exactly what
+ * the fallback path sends upstream. Returns the recorded requests and a restore
+ * function.
+ */
+function stubFetch(
+  respond: (req: Request) => Response,
+): { calls: Request[]; restore: () => void } {
+  const calls: Request[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const req = new Request(input as any, init);
+    calls.push(req);
+    return Promise.resolve(respond(req));
+  }) as typeof fetch;
+  return { calls, restore: () => (globalThis.fetch = original) };
+}
+
+Deno.test("proxyToR2 serves a bucket miss from the fallback registry", async () => {
+  const { calls, restore } = stubFetch(() =>
+    new Response("export const a = 1;", {
+      status: 200,
+      headers: { "content-type": "text/typescript" },
+    })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.text(), "export const a = 1;");
+    assertEquals(calls.length, 1);
+    assertEquals(
+      calls[0].url,
+      "https://upstream.jsr.io/@std/yaml/1.0.0/mod.ts",
+    );
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 never forwards caller credentials to the fallback registry", async () => {
+  // Regression: passing the inbound Request as fetch's init argument sent the
+  // caller's Authorization/Cookie headers to a third-party origin on every
+  // bucket miss.
+  const { calls, restore } = stubFetch(() =>
+    new Response("ok", { status: 200 })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts", {
+        headers: {
+          "Authorization": "Bearer supersecret",
+          "Cookie": "token=supersecret",
+          "X-Api-Key": "supersecret",
+        },
+      }),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(calls.length, 1);
+    assertEquals(calls[0].headers.get("Authorization"), null);
+    assertEquals(calls[0].headers.get("Cookie"), null);
+    assertEquals(calls[0].headers.get("X-Api-Key"), null);
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 does not consult the fallback outside the scoped namespace", async () => {
+  const { calls, restore } = stubFetch(() =>
+    new Response("ok", { status: 200 })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/../../etc/passwd"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 404);
+    assertEquals(calls.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 does not consult the fallback for unsafe methods", async () => {
+  const { calls, restore } = stubFetch(() =>
+    new Response("ok", { status: 200 })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts", { method: "POST" }),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 404);
+    assertEquals(calls.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 returns its own 404 when the fallback also misses", async () => {
+  const { calls, restore } = stubFetch(() =>
+    new Response("nope", { status: 404 })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 404);
+    assertEquals(await res.text(), "404 - Not Found");
+    assertEquals(calls.length, 1);
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 falls back on HEAD without a body", async () => {
+  const { calls, restore } = stubFetch(() =>
+    new Response("export const a = 1;", {
+      status: 200,
+      headers: { "content-type": "text/typescript" },
+    })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts", { method: "HEAD" }),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(res.body, null);
+    assertEquals(calls.length, 1);
+    assertEquals(calls[0].method, "HEAD");
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 serves a 404 when a fallback fetch throws", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch =
+    (() => Promise.reject(new Error("network down"))) as typeof fetch;
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 404);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 // --- proxyToBackend tests ---
 
 /** In-memory Cache stub that records put/match calls for assertions. */
