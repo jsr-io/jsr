@@ -2270,29 +2270,37 @@ impl DepTreeLoader {
           {
             // `registry_url` is a prefix of `specifier` (the graph was built
             // against it), so the single replacement swaps the origin and
-            // leaves any later occurrence inside the path alone.
-            let fallback_specifier =
-              if specifier.as_str().starts_with(registry_url.as_str()) {
-                specifier.as_str().replacen(
-                  registry_url.as_str(),
-                  fallback_url.as_str(),
-                  1,
-                )
-              } else {
-                specifier.to_string()
-              };
+            // leaves any later occurrence inside the path alone. If the prefix
+            // unexpectedly doesn't match, skip the fallback entirely — the
+            // alternative would be re-fetching the primary registry's own URL
+            // and mislabeling the result as fallback-hosted.
+            if specifier.as_str().starts_with(registry_url.as_str()) {
+              let fallback_specifier = specifier.as_str().replacen(
+                registry_url.as_str(),
+                fallback_url.as_str(),
+                1,
+              );
 
-            let response = crate::util::shared_http_client()
-              .get(&fallback_specifier)
-              .timeout(crate::tarball::FALLBACK_REQUEST_TIMEOUT)
-              .send()
-              .await
-              .ok();
-            if let Some(response) = response
-              && response.status().is_success()
-            {
-              bytes = response.bytes().await.ok();
-              from_fallback = true;
+              let response = crate::util::shared_http_client()
+                .get(&fallback_specifier)
+                .timeout(crate::tarball::FALLBACK_REQUEST_TIMEOUT)
+                .send()
+                .await
+                .ok();
+              if let Some(response) = response
+                && response.status().is_success()
+                // Only a fully-read body counts as served by the fallback: a
+                // mid-body failure must not taint the package as
+                // fallback-hosted below.
+                && let Ok(body) = response.bytes().await
+              {
+                bytes = Some(body);
+                from_fallback = true;
+              }
+            } else {
+              tracing::warn!(
+                "registry url {registry_url} is not a prefix of module specifier {specifier}; skipping fallback registry"
+              );
             }
           }
 
@@ -2316,8 +2324,12 @@ impl DepTreeLoader {
             && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
           {
             let version = captures.name("version").unwrap();
-            let meta =
-              serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+            // The bytes may have come from the fallback registry over HTTP, so
+            // a parse failure is a load error, not a programmer error.
+            let meta = serde_json::from_slice::<VersionMetadata>(&bytes)
+              .map_err(|e| {
+                LoadError::Other(Arc::new(JsErrorBox::from_err(e)))
+              })?;
 
             let mut lock = exports.lock().await;
             lock.insert(

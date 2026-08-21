@@ -507,37 +507,43 @@ pub async fn process_tarball(
         .await?;
       versions.sort_by(|a, b| b.version.cmp(&a.version));
 
-      let mut found_local = false;
-      let mut invalid_subpath_error = None;
+      // A package this registry hosts (in any version) is always served
+      // locally: its meta.json is present in the bucket, and the lb only
+      // consults the fallback on a bucket miss. So resolution must succeed
+      // against the local versions alone — validating such a dependency
+      // against the fallback would accept one that no consumer can install.
+      if !versions.is_empty() {
+        let mut found = false;
 
-      for version in versions.iter().rev() {
-        if req.req.version_req.matches(&version.version.0) {
-          let exports_key = if let Some(sub_path) = &req.sub_path {
-            if sub_path.is_empty() {
-              ".".to_owned()
+        for version in versions.iter().rev() {
+          if req.req.version_req.matches(&version.version.0) {
+            let exports_key = if let Some(sub_path) = &req.sub_path {
+              if sub_path.is_empty() {
+                ".".to_owned()
+              } else {
+                format!("./{}", sub_path)
+              }
             } else {
-              format!("./{}", sub_path)
-            }
-          } else {
-            ".".to_owned()
-          };
+              ".".to_owned()
+            };
 
-          if !version.exports.contains_key(&exports_key) {
-            invalid_subpath_error =
-              Some(PublishError::InvalidJsrDependencySubPath {
+            if !version.exports.contains_key(&exports_key) {
+              return Err(PublishError::InvalidJsrDependencySubPath {
                 req: Box::new(req.clone()),
                 resolved_version: version.version.clone(),
                 exports_key,
               });
-            continue;
+            }
+
+            found = true;
+            break;
           }
-
-          found_local = true;
-          break;
         }
-      }
 
-      if found_local {
+        if !found {
+          return Err(PublishError::UnresolvableJsrDependency(req.req.clone()));
+        }
+
         resolved_dependencies.insert(ResolvedDependency {
           kind: *kind,
           req: req.clone(),
@@ -574,16 +580,32 @@ pub async fn process_tarball(
           req: req.clone(),
           registry_url: Some(fallback_url),
         });
-      } else if let Some(err) = invalid_subpath_error {
-        return Err(err);
       } else {
         return Err(PublishError::UnresolvableJsrDependency(req.req.clone()));
       }
     } else {
+      // Npm dependencies aren't resolved at publish time, but a `@jsr/`-mapped
+      // dependency on a package this registry doesn't host is served by the
+      // npm fallback at install time — record the fallback so the frontend
+      // links there instead of to a local package page that 404s.
+      let mut registry_url = None;
+      if let Some(fallback_url) = &fallback_registry_url
+        && let Some((scope, package)) = req
+          .req
+          .name
+          .strip_prefix("@jsr/")
+          .and_then(|rest| rest.split_once("__"))
+        && let (Ok(scope), Ok(package)) =
+          (ScopeName::try_from(scope), PackageName::try_from(package))
+        && db.get_package(&scope, &package).await?.is_none()
+      {
+        registry_url = Some(fallback_url.to_string());
+      }
+
       resolved_dependencies.insert(ResolvedDependency {
         kind: *kind,
         req: req.clone(),
-        registry_url: None,
+        registry_url,
       });
     }
   }

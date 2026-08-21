@@ -23,9 +23,13 @@ const PUBLISHING_BUCKET = Deno.env.get("PUBLISHING_BUCKET") ?? "publishing";
 const ROOT_DOMAIN = Deno.env.get("ROOT_DOMAIN") ?? "jsr.test";
 const API_DOMAIN = Deno.env.get("API_DOMAIN") ?? "api.jsr.test";
 const NPM_DOMAIN = Deno.env.get("NPM_DOMAIN") ?? "npm.jsr.test";
-const FALLBACK_ROOT_URL = Deno.env.get("FALLBACK_ROOT_URL") ?? "https://jsr.io";
-const FALLBACK_NPM_URL = Deno.env.get("FALLBACK_NPM_URL") ??
-  "https://npm.jsr.io";
+// No fallback registry unless explicitly opted into: defaulting to production
+// jsr.io would transparently serve any local bucket miss from production,
+// masking missing-upload bugs and making local behavior network-dependent.
+// Set e.g. FALLBACK_ROOT_URL=https://jsr.io FALLBACK_NPM_URL=https://npm.jsr.io
+// to exercise the fallback path locally.
+const FALLBACK_ROOT_URL = Deno.env.get("FALLBACK_ROOT_URL");
+const FALLBACK_NPM_URL = Deno.env.get("FALLBACK_NPM_URL");
 
 const PORT = 80;
 

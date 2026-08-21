@@ -197,7 +197,17 @@ export async function proxyToBackend(
 // instance into an attacker-controlled outbound request from our egress IP.
 function isFallbackEligible(request: Request, path: string): boolean {
   if (request.method !== "GET" && request.method !== "HEAD") return false;
-  return path.startsWith("/@");
+  // Bucket lookups are keyed on the DECODED path (see proxyToR2), so
+  // eligibility must test the same form: /%40std/… is a valid bucket lookup
+  // for /@std/… and must reach the fallback on a miss just like the plain
+  // spelling. Undecodable paths can't have hit the bucket either — skip.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    return false;
+  }
+  return decoded.startsWith("/@");
 }
 
 // Fetch an artifact this instance does not have from the configured fallback
@@ -216,7 +226,13 @@ async function fetchFromFallback(
 
   let target: URL;
   try {
-    target = new URL(path + search, fallbackUrl);
+    // Append to the fallback's own path rather than resolving against it:
+    // `new URL(path, base)` with an absolute path discards any path on the
+    // base, silently breaking a fallback hosted under a subpath
+    // (e.g. https://mirror.corp/jsr/).
+    target = new URL(fallbackUrl);
+    target.pathname = target.pathname.replace(/\/+$/, "") + path;
+    target.search = search;
   } catch (error) {
     console.error("invalid fallback registry URL:", error);
     return null;
@@ -307,8 +323,21 @@ export async function proxyToR2(
             headers: fallback.headers,
             status: fallback.status,
           });
+          // Only cache what the fallback explicitly marked cacheable (same
+          // policy as cachedFetch below). These entries live under the
+          // internal bucket cache key, which no publish-time purge can ever
+          // target — so an unconditionally-cached copy of a MUTABLE resource
+          // (meta.json, npm packuments) would shadow later local publishes
+          // and upstream releases indefinitely. Honoring the fallback's own
+          // max-age bounds staleness to what the fallback already accepts.
+          const cacheControl = fallback.headers.get("Cache-Control") ?? "";
+          const explicitlyUncacheable = cacheControl.includes("private") ||
+            cacheControl.includes("no-store");
+          const cacheable = !explicitlyUncacheable &&
+            (cacheControl.includes("max-age") ||
+              cacheControl.includes("s-maxage"));
           const cache = caches.default;
-          if (cache) {
+          if (cache && cacheable) {
             await persistCacheWrite(ctx, cache, cacheKey, response.clone());
           }
           return response;

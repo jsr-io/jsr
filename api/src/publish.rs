@@ -1473,6 +1473,123 @@ pub mod tests {
     assert_eq!(error.code, "unresolvableJsrDependency");
   }
 
+  /// A package this registry hosts is always served locally — the lb only
+  /// consults the fallback on a bucket miss, and the package's meta.json IS in
+  /// the bucket — so a constraint no local version satisfies must fail the
+  /// publish even with a fallback configured. Consulting the (unreachable)
+  /// fallback would surface a retryable error instead of this fatal user
+  /// error, so the clean failure also proves the fallback was never contacted.
+  #[tokio::test]
+  async fn jsr_import_local_package_with_unsatisfied_constraint_fails_despite_fallback()
+   {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_unsatisfied_constraint");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "unresolvableJsrDependency");
+  }
+
+  /// Same as above for a subpath no local version exports: the previously
+  /// fatal error must not be suppressed by the fallback.
+  #[tokio::test]
+  async fn jsr_import_local_package_with_invalid_subpath_fails_despite_fallback()
+   {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_bad_subpath");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "invalidJsrDependencySubPath");
+  }
+
+  /// A `@jsr/`-mapped npm dependency on a package this registry doesn't host
+  /// is served by the npm fallback at install time, so the fallback URL is
+  /// recorded and the frontend links to the registry that actually serves it.
+  #[tokio::test]
+  async fn npm_jsr_import_records_fallback_for_missing_local_package() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("npm_jsr_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_name, "@jsr/std__assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some(fallback.url().to_string())
+    );
+  }
+
+  /// A plain npm dependency (not `@jsr/`-mapped) never records a fallback URL.
+  #[tokio::test]
+  async fn npm_import_records_no_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("npm_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_fallback_url, None);
+  }
+
   #[tokio::test]
   async fn syntax_error() {
     let t = TestSetup::new().await;

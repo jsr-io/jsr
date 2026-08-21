@@ -406,6 +406,171 @@ Deno.test("proxyToR2 serves a 404 when a fallback fetch throws", async () => {
   }
 });
 
+Deno.test("proxyToR2 consults the fallback for URL-encoded scoped paths", async () => {
+  // Bucket lookups accept the percent-encoded form (see the URL-encoded path
+  // tests above), so a miss on it must reach the fallback exactly like the
+  // plain spelling would.
+  const { calls, restore } = stubFetch(() =>
+    new Response("export const a = 1;", { status: 200 })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/%40std/yaml/1.0.0/mod.ts"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(calls.length, 1);
+    assertEquals(
+      calls[0].url,
+      "https://upstream.jsr.io/%40std/yaml/1.0.0/mod.ts",
+    );
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("proxyToR2 preserves a subpath on the fallback registry URL", async () => {
+  // `new URL(path, base)` with an absolute path would discard the base's own
+  // path, so a fallback hosted under a subpath would be queried at the wrong
+  // URLs — with or without a trailing slash on the configured URL.
+  for (
+    const fallbackUrl of ["https://mirror.corp/jsr/", "https://mirror.corp/jsr"]
+  ) {
+    const { calls, restore } = stubFetch(() =>
+      new Response("ok", { status: 200 })
+    );
+
+    try {
+      const res = await proxyToR2(
+        new Request("https://jsr.io/@std/yaml/1.0.0/mod.ts?a=1"),
+        createFakeBucket({}),
+        undefined,
+        undefined,
+        fallbackUrl,
+      );
+
+      assertEquals(res.status, 200);
+      assertEquals(calls.length, 1);
+      assertEquals(
+        calls[0].url,
+        "https://mirror.corp/jsr/@std/yaml/1.0.0/mod.ts?a=1",
+      );
+    } finally {
+      restore();
+    }
+  }
+});
+
+Deno.test("proxyToR2 does not cache a fallback response without a cacheable directive", async () => {
+  // Fallback entries live under the internal bucket cache key, which no
+  // publish-time purge can target — a mutable resource (meta.json) cached
+  // without the fallback's consent would shadow later local publishes forever.
+  const putKeys: string[] = [];
+  (globalThis as any).caches = {
+    default: {
+      match: () => Promise.resolve(undefined),
+      put: (req: Request) => {
+        putKeys.push(req.url);
+        return Promise.resolve();
+      },
+    },
+  };
+  const { restore } = stubFetch(() => new Response("{}", { status: 200 }));
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/meta.json"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(putKeys.length, 0);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToR2 caches a fallback response the fallback marked cacheable", async () => {
+  const putKeys: string[] = [];
+  (globalThis as any).caches = {
+    default: {
+      match: () => Promise.resolve(undefined),
+      put: (req: Request) => {
+        putKeys.push(req.url);
+        return Promise.resolve();
+      },
+    },
+  };
+  const { restore } = stubFetch(() =>
+    new Response("{}", {
+      status: 200,
+      headers: { "cache-control": "public, max-age=60" },
+    })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/meta.json"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(putKeys, [
+      "https://bucket-cache.jsr.internal/jsr.io/@std/yaml/meta.json",
+    ]);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
+Deno.test("proxyToR2 does not cache a no-store fallback response", async () => {
+  const putKeys: string[] = [];
+  (globalThis as any).caches = {
+    default: {
+      match: () => Promise.resolve(undefined),
+      put: (req: Request) => {
+        putKeys.push(req.url);
+        return Promise.resolve();
+      },
+    },
+  };
+  const { restore } = stubFetch(() =>
+    new Response("{}", {
+      status: 200,
+      headers: { "cache-control": "no-store, max-age=60" },
+    })
+  );
+
+  try {
+    const res = await proxyToR2(
+      new Request("https://jsr.io/@std/yaml/meta.json"),
+      createFakeBucket({}),
+      undefined,
+      undefined,
+      "https://upstream.jsr.io/",
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(putKeys.length, 0);
+  } finally {
+    restore();
+    (globalThis as any).caches = { default: undefined };
+  }
+});
+
 // --- proxyToBackend tests ---
 
 /** In-memory Cache stub that records put/match calls for assertions. */
