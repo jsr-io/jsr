@@ -1,6 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
-import { TbArrowLeft, TbCheck, TbClock } from "tb-icons";
+import TbArrowLeft from "tb-icons/TbArrowLeft";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 import twas from "twas";
 import { define } from "../util.ts";
 import { assertOk, path } from "../utils/api.ts";

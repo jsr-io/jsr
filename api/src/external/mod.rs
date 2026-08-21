@@ -2,11 +2,11 @@
 use percent_encoding::AsciiSet;
 use percent_encoding::CONTROLS;
 
+pub mod algolia;
 pub mod cloudflare;
 pub mod github;
 pub mod gitlab;
 pub mod oidc;
-pub mod orama;
 
 /// https://url.spec.whatwg.org/#fragment-percent-encode-set
 const FRAGMENT: &AsciiSet =

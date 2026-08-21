@@ -2,6 +2,7 @@
 import { HttpError, IS_BROWSER } from "fresh/runtime";
 import type { TraceSpan } from "./tracing.ts";
 import type { ErrorStatus } from "@std/http";
+import { workerLb } from "./worker_env.ts";
 
 export type QueryParams = Record<string, string | number | null>;
 
@@ -65,6 +66,15 @@ interface APIOptions {
   token?: string | null;
   sudo?: boolean;
   span?: TraceSpan | null;
+  /**
+   * User-Agent to forward on server-side API calls. The SSR client makes its
+   * own requests with a fresh header set, so without this the api server sees
+   * no user-agent and records an empty `http.user_agent` in its traces. We
+   * forward the originating client's user-agent so api traces reflect the real
+   * caller. Unused in the browser, where the runtime sets (and forbids
+   * overriding) User-Agent.
+   */
+  userAgent?: string | null;
 }
 
 interface RequestOptions {
@@ -92,12 +102,17 @@ export class API {
   #token: string | null;
   #sudo: boolean;
   #span: TraceSpan | null;
+  #userAgent: string | null;
 
-  constructor(apiRoot: string, { token, sudo, span }: APIOptions = {}) {
+  constructor(
+    apiRoot: string,
+    { token, sudo, span, userAgent }: APIOptions = {},
+  ) {
     this.#apiRoot = apiRoot;
     this.#token = token ?? null;
     this.#sudo = sudo ?? false;
     this.#span = span ?? null;
+    this.#userAgent = userAgent ?? null;
   }
 
   hasToken(): boolean {
@@ -194,8 +209,19 @@ export class API {
       headers.set("x-cloud-trace-context", span.cloudTraceContext);
       headers.set("traceparent", span.traceparent);
     }
+    if (this.#userAgent) {
+      headers.set("User-Agent", this.#userAgent);
+    }
     try {
-      const resp = await fetch(url.href, {
+      // On Cloudflare Workers, route API subrequests through the LB
+      // service binding rather than a plain `fetch()` — same-zone
+      // subrequests from a Worker bypass Workers Routes, so a plain
+      // `fetch("https://api.<zone>/…")` skips the LB and 525s on
+      // direct TLS to origin. Elsewhere (client, Deno dev, Cloud Run)
+      // workerLb() is undefined and we fall back to global fetch.
+      const lb = workerLb();
+      const doFetch: typeof fetch = lb ? lb.fetch.bind(lb) : fetch;
+      const resp = await doFetch(url.href, {
         method: req.method,
         headers,
         body: req.body ? JSON.stringify(req.body) : undefined,

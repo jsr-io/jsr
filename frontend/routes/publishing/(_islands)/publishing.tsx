@@ -6,7 +6,9 @@ import {
   PublishingTask,
   PublishingTaskStatus,
 } from "../../../utils/api_types.ts";
-import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbClockHour3 from "tb-icons/TbClockHour3";
 
 export interface VersionPublishStatus {
   loading: boolean;

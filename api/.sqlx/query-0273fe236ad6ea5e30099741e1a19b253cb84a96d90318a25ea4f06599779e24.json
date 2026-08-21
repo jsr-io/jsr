@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url, user_id)\n      VALUES ($1, $2, $3, $4)\n      RETURNING csrf_token, pkce_code_verifier, redirect_url, user_id, updated_at, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "csrf_token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "pkce_code_verifier",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "redirect_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "0273fe236ad6ea5e30099741e1a19b253cb84a96d90318a25ea4f06599779e24"
+}

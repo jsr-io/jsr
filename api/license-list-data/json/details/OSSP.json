@@ -6,11 +6,11 @@
   "licenseId": "OSSP",
   "crossRef": [
     {
-      "match": "true",
+      "match": "N/A",
       "url": "https://git.sr.ht/~nabijaczleweli/ossp-var",
       "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T20:56:43Z",
+      "isLive": false,
+      "timestamp": "2026-07-16T09:24:40Z",
       "isWayBackLink": false,
       "order": 0
     }

@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import { ComponentChild, ComponentChildren } from "preact";
-import { TbSortAscending, TbSortDescending } from "tb-icons";
+import TbSortAscending from "tb-icons/TbSortAscending";
+import TbSortDescending from "tb-icons/TbSortDescending";
 import { PaginationData } from "../util.ts";
 
 const PAGINATION_BUTTON_STYLE =

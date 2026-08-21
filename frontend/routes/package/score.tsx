@@ -7,7 +7,9 @@ import { define } from "../../util.ts";
 import { packageData } from "../../utils/data.ts";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
-import { TbAlertCircle, TbCheck, TbX } from "tb-icons";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbX from "tb-icons/TbX";
 import { getScoreBgColorClass } from "../../utils/score_ring_color.ts";
 import { scopeIAM } from "../../utils/iam.ts";
 import { Logo } from "../../components/Logo.tsx";
@@ -127,6 +129,17 @@ function ScoreInfo(props: {
             module doc
           </a>{" "}
           summarizing what is defined in that module.
+          {score.entrypointsWithoutDocs.length > 0 && (
+            <span>
+              Entrypoints missing module docs:{" "}
+              {score.entrypointsWithoutDocs.map((ep, i) => (
+                <span key={ep}>
+                  {i > 0 && ", "}
+                  <code class="text-xs">{ep}</code>
+                </span>
+              ))}
+            </span>
+          )}
         </ScoreItem>
         <ScoreItem
           value={Math.min(score.percentageDocumentedSymbols / 0.8, 1)}

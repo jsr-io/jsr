@@ -3,7 +3,7 @@ import { PageProps } from "fresh";
 import { asset } from "fresh/runtime";
 import { State } from "../util.ts";
 
-const FRONTEND_ROOT = Deno.env.get("FRONTEND_ROOT") ?? "http://jsr.test";
+const FRONTEND_ROOT = process.env.FRONTEND_ROOT ?? "http://jsr.test";
 
 export default async function App({
   Component,
@@ -51,8 +51,6 @@ export default async function App({
           type="font/woff2"
           crossOrigin="anonymous"
         />
-        <link rel="stylesheet" href={asset("/styles.css")} />
-        <link rel="stylesheet" href={asset("/gfm.css")} />
         <link
           rel="icon"
           type="image/svg+xml"

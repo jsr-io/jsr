@@ -7,11 +7,11 @@
   "licenseId": "CPOL-1.02",
   "crossRef": [
     {
-      "match": "N/A",
+      "match": "false",
       "url": "http://www.codeproject.com/info/cpol10.aspx",
       "isValid": true,
-      "isLive": false,
-      "timestamp": "2026-02-20T21:03:31Z",
+      "isLive": true,
+      "timestamp": "2026-07-16T09:20:25Z",
       "isWayBackLink": false,
       "order": 0
     }

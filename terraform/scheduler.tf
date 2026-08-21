@@ -44,6 +44,21 @@ resource "google_cloud_scheduler_job" "clean_download_counts_4h" {
   }
 }
 
+resource "google_cloud_scheduler_job" "requeue_stuck_publishing_tasks" {
+  name        = "requeue-stuck-publishing-tasks"
+  description = "Re-drive publishing tasks stranded in processing/processed so their meta.json is regenerated and the version becomes resolvable."
+  schedule    = "*/5 * * * *"
+  region      = "us-central1"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.registry_api_tasks.uri}/tasks/requeue_stuck_publishing_tasks"
+    oidc_token {
+      service_account_email = google_service_account.task_dispatcher.email
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "scrape_download_counts" {
   name        = "scrape-download-counts"
   description = "Scrape download counts from Analytics Engine and insert them into Postgres."
