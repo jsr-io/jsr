@@ -501,7 +501,7 @@ async fn packages() {
   assert!(no_package.is_none());
 
   let (total, packages) = db
-    .list_packages_by_scope(&scope_name, false, 0, 100)
+    .list_packages_by_scope(&scope_name, false, false, 0, 100)
     .await
     .unwrap();
   assert_eq!(total, 1);

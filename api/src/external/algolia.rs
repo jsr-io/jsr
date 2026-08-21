@@ -64,7 +64,7 @@ impl AlgoliaClient {
 
   #[instrument(name = "AlgoliaClient::upsert_package", skip(self))]
   pub fn upsert_package(&self, package: &Package, meta: &PackageVersionMeta) {
-    if package.version_count == 0 || package.is_archived {
+    if package.version_count == 0 || package.is_archived || package.is_private {
       return;
     }
 

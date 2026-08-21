@@ -16,10 +16,12 @@ locals {
     # apart when they export to the same OTLP backend (see otlp_envs above).
     "DEPLOYMENT_ENVIRONMENT" = var.production ? "production" : "staging"
 
-    "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
-    "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
-    "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
-    "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
+    "PUBLISHING_BUCKET"      = cloudflare_r2_bucket.publishing.name
+    "MODULES_BUCKET"         = cloudflare_r2_bucket.modules.name
+    "MODULES_PRIVATE_BUCKET" = cloudflare_r2_bucket.modules_private.name
+    "DOCS_BUCKET"            = cloudflare_r2_bucket.docs.name
+    "NPM_BUCKET"             = cloudflare_r2_bucket.npm.name
+    "NPM_PRIVATE_BUCKET"     = cloudflare_r2_bucket.npm_private.name
 
     "S3_REGION"     = "auto"
     "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"

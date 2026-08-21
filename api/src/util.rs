@@ -259,6 +259,7 @@ where
 /// [`X_JSR_CACHE_SHARED`], so the lb serves them from its shared cache to every
 /// caller instead of bypassing on auth. Only use this when the handler is
 /// genuinely viewer-independent; auditing that is the safety contract.
+#[allow(dead_code)] // unused since docs/diff gained private-package branches
 pub fn cache_shared<H, HF>(
   duration: CacheDuration,
   handler: H,
@@ -352,6 +353,7 @@ where
 /// the response stays `public` for every caller and is marked
 /// [`X_JSR_CACHE_SHARED`] so the lb shares it across authenticated callers. Used
 /// by `docs`, whose handler has no permission/member/sudo branch.
+#[allow(dead_code)] // unused since docs/diff gained private-package branches
 pub fn cache_versioned_shared<H, HF>(
   latest_duration: CacheDuration,
   versioned_duration: CacheDuration,
@@ -991,19 +993,32 @@ pub mod test {
       let s3 = FakeS3Tester::new();
       let publishing_name = format!("publishing-{test_id}");
       let modules_name = format!("modules-{test_id}");
+      let modules_private_name = format!("modules-private-{test_id}");
       let docs_name = format!("docs-{test_id}");
       let npm_name = format!("npm-{test_id}");
-      let (publishing_bucket, modules_bucket, docs_bucket, npm_bucket) = tokio::join!(
+      let npm_private_name = format!("npm-private-{test_id}");
+      let (
+        publishing_bucket,
+        modules_bucket,
+        modules_private_bucket,
+        docs_bucket,
+        npm_bucket,
+        npm_private_bucket,
+      ) = tokio::join!(
         s3.create_bucket(&publishing_name),
         s3.create_bucket(&modules_name),
+        s3.create_bucket(&modules_private_name),
         s3.create_bucket(&docs_name),
         s3.create_bucket(&npm_name),
+        s3.create_bucket(&npm_private_name),
       );
       let buckets = Buckets {
         publishing_bucket: crate::s3::BucketWithQueue::new(publishing_bucket),
         modules_bucket: BucketWithQueue::new(modules_bucket),
+        modules_private_bucket: BucketWithQueue::new(modules_private_bucket),
         docs_bucket: crate::s3::BucketWithQueue::new(docs_bucket),
         npm_bucket: crate::s3::BucketWithQueue::new(npm_bucket),
+        npm_private_bucket: BucketWithQueue::new(npm_private_bucket),
       };
       let registry_url = "http://jsr-tests.test".parse().unwrap();
       let github_oauth2_client = crate::auth::github::Oauth2Client::new(

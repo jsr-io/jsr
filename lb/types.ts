@@ -29,6 +29,8 @@ export interface WorkerEnv {
   DOWNLOADS?: AnalyticsEngineDataset;
   NPM_BUCKET: PartialBucket;
   MODULES_BUCKET: PartialBucket;
+  NPM_PRIVATE_BUCKET: PartialBucket;
+  MODULES_PRIVATE_BUCKET: PartialBucket;
 
   // Optional: omitted in local dev. Applied only to the frontend route —
   // not modules (R2), the API server, or npm compat. Keeps scrapers from

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET when_featured = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
+  "query": "UPDATE packages\n      SET is_private = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, is_private, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
   "describe": {
     "columns": [
       {
@@ -55,21 +55,26 @@
       },
       {
         "ordinal": 8,
+        "name": "is_private",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "version_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "latest_version",
         "type_info": "Text"
       }
@@ -78,7 +83,7 @@
       "Left": [
         "Text",
         "Text",
-        "Timestamptz"
+        "Bool"
       ]
     },
     "nullable": [
@@ -92,9 +97,10 @@
       false,
       false,
       false,
+      false,
       null,
       null
     ]
   },
-  "hash": "246465b7114a74de5f74426e402ff9f2d708119dd91b92100d441d338e3e7383"
+  "hash": "a8050aebace5099be9493ab562f709cfe002530b6e0cfca2cdf1724da907d051"
 }

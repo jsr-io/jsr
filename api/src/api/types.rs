@@ -463,6 +463,7 @@ pub struct ApiPackage {
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub is_private: bool,
   pub readme_source: ApiReadmeSource,
 }
 
@@ -490,6 +491,7 @@ impl From<PackageWithGitHubRepoAndMeta> for ApiPackage {
       latest_version: package.latest_version,
       when_featured: package.when_featured,
       is_archived: package.is_archived,
+      is_private: package.is_private,
       readme_source: package.readme_source.into(),
     }
   }
@@ -510,6 +512,7 @@ pub enum ApiUpdatePackageRequest {
   ReadmeSource(ApiReadmeSource),
   IsFeatured(bool),
   IsArchived(bool),
+  IsPrivate(bool),
 }
 
 #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]

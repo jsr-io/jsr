@@ -135,10 +135,23 @@ function PersonalTokenRow({ token }: { token: Token }) {
               return `Can publish ${
                 "package" in perm
                   ? `new versions of @${perm.scope}/${perm.package}`
-                  : `new versions of any package in @${perm.scope}`
+                  : "scope" in perm
+                  ? `new versions of any package in @${perm.scope}`
+                  : "new versions of any package"
               }`;
             }
-            return `has unknown permission: ${perm.permission}`;
+            if (perm.permission === "package/read") {
+              return `Can read ${
+                "package" in perm
+                  ? `@${perm.scope}/${perm.package}`
+                  : "scope" in perm
+                  ? `any private package in @${perm.scope}`
+                  : "any private package"
+              }`;
+            }
+            return `has unknown permission: ${
+              (perm as { permission: string }).permission
+            }`;
           }).join(", ")}
       </p>
     </li>

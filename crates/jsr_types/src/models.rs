@@ -378,6 +378,7 @@ pub struct Package {
   pub latest_version: Option<String>,
   pub when_featured: Option<DateTime<Utc>>,
   pub is_archived: bool,
+  pub is_private: bool,
   pub readme_source: ReadmeSource,
 }
 
@@ -428,6 +429,7 @@ impl FromRow<'_, sqlx::postgres::PgRow> for Package {
         "package_when_featured",
       )?,
       is_archived: try_get_row_or(row, "is_archived", "package_is_archived")?,
+      is_private: try_get_row_or(row, "is_private", "package_is_private")?,
       readme_source: try_get_row_or(
         row,
         "readme_source",
@@ -724,9 +726,11 @@ pub struct Permissions(pub Vec<Permission>);
 pub enum Permission {
   #[serde(rename = "package/publish")]
   PackagePublish(PackagePublishPermission),
+  #[serde(rename = "package/read")]
+  PackageRead(PackageReadPermission),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum PackagePublishPermission {
   #[serde(rename_all = "camelCase")]
@@ -743,6 +747,109 @@ pub enum PackagePublishPermission {
   },
   #[serde(rename_all = "camelCase")]
   Scope { scope: ScopeName },
+  // serializes as an empty object; see the manual Deserialize below
+  #[serde(rename_all = "camelCase")]
+  Full {},
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum PackageReadPermission {
+  #[serde(rename_all = "camelCase")]
+  Package {
+    scope: ScopeName,
+    package: PackageName,
+  },
+  #[serde(rename_all = "camelCase")]
+  Scope { scope: ScopeName },
+  // serializes as an empty object; see the manual Deserialize below
+  #[serde(rename_all = "camelCase")]
+  Full {},
+}
+
+/// The permission enums are deserialized by matching the exact key set of the
+/// object rather than `#[serde(untagged)]`: with untagged, the trailing
+/// `Full {}` variant would accept ANY object the earlier variants reject
+/// (e.g. `{"package": "x"}` with a missing scope), silently turning a
+/// malformed permission into a full-access grant.
+fn permission_field<T: serde::de::DeserializeOwned, E: serde::de::Error>(
+  map: &serde_json::Map<String, serde_json::Value>,
+  key: &str,
+) -> Result<T, E> {
+  serde_json::from_value(map.get(key).cloned().unwrap_or_default())
+    .map_err(|err| E::custom(format!("invalid `{key}`: {err}")))
+}
+
+fn permission_key_set(
+  map: &serde_json::Map<String, serde_json::Value>,
+) -> std::collections::BTreeSet<&str> {
+  map
+    .keys()
+    .map(|k| k.as_str())
+    // The internally-tagged `Permission` wrapper leaves its tag in the map.
+    .filter(|k| *k != "permission")
+    .collect()
+}
+
+impl<'de> Deserialize<'de> for PackagePublishPermission {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: serde::Deserializer<'de>,
+  {
+    use serde::de::Error;
+    let map = serde_json::Map::deserialize(deserializer)?;
+    let keys = permission_key_set(&map);
+    if keys == ["scope", "package", "version", "tarballHash"].into() {
+      Ok(Self::Version {
+        scope: permission_field(&map, "scope")?,
+        package: permission_field(&map, "package")?,
+        version: permission_field(&map, "version")?,
+        tarball_hash: permission_field(&map, "tarballHash")?,
+      })
+    } else if keys == ["scope", "package"].into() {
+      Ok(Self::Package {
+        scope: permission_field(&map, "scope")?,
+        package: permission_field(&map, "package")?,
+      })
+    } else if keys == ["scope"].into() {
+      Ok(Self::Scope {
+        scope: permission_field(&map, "scope")?,
+      })
+    } else if keys.is_empty() {
+      Ok(Self::Full {})
+    } else {
+      Err(D::Error::custom(
+        "invalid field combination for package/publish permission",
+      ))
+    }
+  }
+}
+
+impl<'de> Deserialize<'de> for PackageReadPermission {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: serde::Deserializer<'de>,
+  {
+    use serde::de::Error;
+    let map = serde_json::Map::deserialize(deserializer)?;
+    let keys = permission_key_set(&map);
+    if keys == ["scope", "package"].into() {
+      Ok(Self::Package {
+        scope: permission_field(&map, "scope")?,
+        package: permission_field(&map, "package")?,
+      })
+    } else if keys == ["scope"].into() {
+      Ok(Self::Scope {
+        scope: permission_field(&map, "scope")?,
+      })
+    } else if keys.is_empty() {
+      Ok(Self::Full {})
+    } else {
+      Err(D::Error::custom(
+        "invalid field combination for package/read permission",
+      ))
+    }
+  }
 }
 
 #[cfg(feature = "sqlx")]

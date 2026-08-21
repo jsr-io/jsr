@@ -83,6 +83,14 @@ resource "cloudflare_workers_script" "jsr_lb" {
         period = 60
       }
       }, {
+      type        = "r2_bucket"
+      name        = "MODULES_PRIVATE_BUCKET"
+      bucket_name = cloudflare_r2_bucket.modules_private.name
+      }, {
+      type        = "r2_bucket"
+      name        = "NPM_PRIVATE_BUCKET"
+      bucket_name = cloudflare_r2_bucket.npm_private.name
+      }, {
       # Stricter per-IP limit applied only to the doc, diff, and source package
       # pages (see isDocsDiffSourceRoute in lb/main.ts) — the expensive-to-render
       # routes scrapers walk symbol-by-symbol. Stacks on top of FRONTEND_RATELIMIT

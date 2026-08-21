@@ -146,12 +146,26 @@ pub async fn publish_task(
         return Err(ApiError::InternalServerError);
       }
       PublishingTaskStatus::Processed => {
+        let (package, _, _) = db
+          .get_package(
+            &publishing_task.package_scope,
+            &publishing_task.package_name,
+          )
+          .await?
+          .ok_or_else(|| {
+            error!(
+              "package not found during manifest upload: {}/{}",
+              &publishing_task.package_scope, &publishing_task.package_name
+            );
+            ApiError::InternalServerError
+          })?;
         upload_package_manifest(
           &db,
           &buckets,
           &registry_url,
           &cache_purge,
           &publishing_task,
+          package.is_private,
         )
         .await?;
         upload_npm_version_manifest(
@@ -160,6 +174,7 @@ pub async fn publish_task(
           &npm_url,
           &cache_purge,
           &publishing_task,
+          package.is_private,
         )
         .await?;
         publishing_task = db
@@ -289,11 +304,22 @@ async fn process_publishing_task(
   .await?;
 
   /*if let Some(algolia_client) = algolia_client {
-    algolia_client.upsert_symbols(
-      &publishing_task.package_scope,
-      &publishing_task.package_name,
-      doc_search_json,
-    );
+    let (package, _, _) = db
+      .get_package(
+        &publishing_task.package_scope,
+        &publishing_task.package_name,
+      )
+      .await?
+      .ok_or_else(|| {
+        anyhow::anyhow!("package not found during symbol indexing")
+      })?;
+    if !package.is_private {
+      algolia_client.upsert_symbols(
+        &publishing_task.package_scope,
+        &publishing_task.package_name,
+        doc_search_json,
+      );
+    }
   }*/
 
   Ok(())
@@ -428,6 +454,7 @@ async fn upload_package_manifest(
   registry_url: &Url,
   cache_purge: &CachePurge,
   publishing_task: &PublishingTask,
+  is_private: bool,
 ) -> Result<(), anyhow::Error> {
   let package_metadata_s3_path = crate::s3_paths::package_metadata(
     &publishing_task.package_scope,
@@ -440,8 +467,12 @@ async fn upload_package_manifest(
   )
   .await?;
   let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
+  let modules_bucket = if is_private {
+    &buckets.modules_private_bucket
+  } else {
+    &buckets.modules_bucket
+  };
+  modules_bucket
     .upload(
       package_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
@@ -474,6 +505,7 @@ async fn upload_npm_version_manifest(
   npm_url: &Url,
   cache_purge: &CachePurge,
   publishing_task: &PublishingTask,
+  is_private: bool,
 ) -> Result<(), anyhow::Error> {
   let npm_version_manifest_path_s3_path =
     crate::s3_paths::npm_version_manifest_path(
@@ -488,8 +520,12 @@ async fn upload_npm_version_manifest(
   )
   .await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
+  let npm_bucket = if is_private {
+    &buckets.npm_private_bucket
+  } else {
+    &buckets.npm_bucket
+  };
+  npm_bucket
     .upload(
       npm_version_manifest_path_s3_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),

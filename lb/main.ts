@@ -90,6 +90,13 @@ export async function handleAPIRequest(
   return response;
 }
 
+function NpmPathRewrite(path: string): string {
+  if (path === "/" || path === "/-/ping") {
+    return "/root.json";
+  }
+  return path;
+}
+
 export async function handleNPMRequest(
   request: Request,
   env: WorkerEnv,
@@ -100,18 +107,40 @@ export async function handleNPMRequest(
   }
 
   const url = new URL(request.url);
-  const response = await proxyToR2(
+  let response = await proxyToR2(
     request,
     env.NPM_BUCKET,
-    (path) => {
-      if (path === "/" || path === "/-/ping") {
-        return "/root.json";
-      }
-      return path;
-    },
+    NpmPathRewrite,
     ctx,
     env.FALLBACK_NPM_URL,
   );
+
+  if (response.status === 404) {
+    const match = url.pathname.match(/^\/@jsr\/([^_]+)__([^/]+)/);
+    if (match) {
+      const hasAccess = await validatePackageAccess(
+        request,
+        match[1],
+        match[2],
+        env,
+      );
+      if (hasAccess) {
+        // Private package responses must never enter the shared edge cache:
+        // a cached copy would be served to unauthenticated callers.
+        response = await proxyToR2(
+          request,
+          env.NPM_PRIVATE_BUCKET,
+          NpmPathRewrite,
+          ctx,
+          undefined,
+          { skipCache: true },
+        );
+        // Override the stored (public) cache metadata so no shared cache
+        // between here and the client ever stores the private response.
+        response.headers.set("Cache-Control", "private, max-age=300");
+      }
+    }
+  }
 
   setSecurityHeaders(response, NPM);
   setCORSHeaders(response, NPM);
@@ -124,6 +153,35 @@ export async function handleNPMRequest(
   }
 
   return response;
+}
+
+async function validatePackageAccess(
+  request: Request,
+  scope: string,
+  pkg: string,
+  env: WorkerEnv,
+): Promise<boolean> {
+  // Skip the API round-trip entirely for unauthenticated requests: the
+  // check-access endpoint can never grant an anonymous caller access to a
+  // private package.
+  const authHeader = request.headers.get("Authorization");
+  const cookie = request.headers.get("Cookie");
+  if (!authHeader && !cookie?.includes("token=")) {
+    return false;
+  }
+
+  const headers = new Headers();
+  if (authHeader) headers.set("Authorization", authHeader);
+  // Browser sessions authenticate with the `token` cookie instead of an
+  // Authorization header (e.g. same-origin fetches of module files).
+  if (cookie) headers.set("Cookie", cookie);
+
+  const resp = await fetch(
+    `${env.REGISTRY_API_URL}/api/scopes/${scope}/packages/${pkg}/check-access`,
+    { headers },
+  );
+
+  return resp.ok;
 }
 
 /**
@@ -158,6 +216,10 @@ export async function handleNPMRequest(
  * WARNING: Exercise extreme caution when modifying this. Untrusted files are
  * stored under the /@ prefix. It's crucial that the browser never loads these
  * untrusted files.
+ *
+ * PRIVATE PACKAGES: For performance, we try public bucket first.
+ * On 404, we check if the package is private and validate auth.
+ * This keeps public package requests fast with zero overhead.
  */
 export async function handleRootRequest(
   request: Request,
@@ -312,13 +374,40 @@ async function handleModuleFileRoute(
   ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const response = await proxyToR2(
+  let response = await proxyToR2(
     request,
     env.MODULES_BUCKET,
     undefined,
     ctx,
     env.FALLBACK_ROOT_URL,
   );
+
+  if (response.status === 404) {
+    const match = url.pathname.match(/^\/@([^/]+)\/([^/]+)/);
+    if (match) {
+      const hasAccess = await validatePackageAccess(
+        request,
+        match[1],
+        match[2],
+        env,
+      );
+      if (hasAccess) {
+        // Private package responses must never enter the shared edge cache:
+        // a cached copy would be served to unauthenticated callers.
+        response = await proxyToR2(
+          request,
+          env.MODULES_PRIVATE_BUCKET,
+          undefined,
+          ctx,
+          undefined,
+          { skipCache: true },
+        );
+        // Override the stored (public) cache metadata so no shared cache
+        // between here and the client ever stores the private response.
+        response.headers.set("Cache-Control", "private, max-age=300");
+      }
+    }
+  }
 
   setSecurityHeaders(response, MODULES);
   setCORSHeaders(response, MODULES);

@@ -239,6 +239,14 @@ async fn main() {
     )
     .unwrap(),
   );
+  let modules_private_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(
+      config.modules_private_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
   let docs_bucket = s3::BucketWithQueue::new(
     s3::Bucket::new(
       config.docs_bucket,
@@ -248,13 +256,24 @@ async fn main() {
     .unwrap(),
   );
   let npm_bucket = s3::BucketWithQueue::new(
-    s3::Bucket::new(config.npm_bucket, s3_region, s3_credentials).unwrap(),
+    s3::Bucket::new(
+      config.npm_bucket,
+      s3_region.clone(),
+      s3_credentials.clone(),
+    )
+    .unwrap(),
+  );
+  let npm_private_bucket = s3::BucketWithQueue::new(
+    s3::Bucket::new(config.npm_private_bucket, s3_region, s3_credentials)
+      .unwrap(),
   );
   let buckets = Buckets {
     publishing_bucket,
     modules_bucket,
+    modules_private_bucket,
     docs_bucket,
     npm_bucket,
+    npm_private_bucket,
   };
 
   let publish_queue = config

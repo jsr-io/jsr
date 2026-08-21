@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n        scope as \"scope: ScopeName\", name as \"name: PackageName\", updated_at,\n        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version_updated_at!\"\n      FROM packages\n      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL\n      ORDER BY scope ASC, name ASC\n      LIMIT 50000",
+  "query": "SELECT\n        scope as \"scope: ScopeName\", name as \"name: PackageName\", updated_at,\n        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version_updated_at!\"\n      FROM packages\n      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL AND is_private = false\n      ORDER BY scope ASC, name ASC\n      LIMIT 50000",
   "describe": {
     "columns": [
       {
@@ -34,5 +34,5 @@
       null
     ]
   },
-  "hash": "66fd8a093ab71803fe62daaa8b6a7b035410eb619d051f773bda7d01e54b7db0"
+  "hash": "fa4cc91b6a945e73eac72b35451f4dc932ab91b8cf8673912f5d40dfbcf11187"
 }

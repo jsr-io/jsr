@@ -259,7 +259,12 @@ export async function proxyToR2(
   // When set, objects missing from `bucket` are served from this registry
   // instead of 404ing. See fetchFromFallback for the trust boundary.
   fallbackUrl?: string,
+  // skipCache: never read from or write to the shared edge cache. Used for
+  // private-package buckets, whose responses are auth-gated per request — a
+  // shared cache entry would be served to unauthenticated callers.
+  opts?: { skipCache?: boolean },
 ): Promise<Response> {
+  const skipCache = opts?.skipCache ?? false;
   const url = new URL(request.url);
   let path = url.pathname;
   if (pathRewrite) {
@@ -270,7 +275,9 @@ export async function proxyToR2(
   const cacheKey = bucketCacheKey(request.url);
   let cached: Response | undefined;
   try {
-    cached = await caches.default?.match(cacheKey);
+    if (!skipCache) {
+      cached = await caches.default?.match(cacheKey);
+    }
   } catch (error) {
     // A corrupt/unreadable cache entry must never break the request.
     console.error("R2 cache match error:", error);
@@ -356,7 +363,7 @@ export async function proxyToR2(
 
       const response = new Response(object.body, { headers });
       const cache = caches.default;
-      if (cache) {
+      if (cache && !skipCache) {
         await persistCacheWrite(ctx, cache, cacheKey, response.clone());
       }
       return response;

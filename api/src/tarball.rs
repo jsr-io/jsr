@@ -33,9 +33,10 @@ use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
 use crate::analysis::analyze_package;
 use crate::db::Database;
+use crate::db::DependencyKind;
 use crate::db::ExportsMap;
+use crate::db::PackageVersionMeta;
 use crate::db::PublishingTask;
-use crate::db::{DependencyKind, PackageVersionMeta};
 use crate::ids::CaseInsensitivePackagePath;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -246,6 +247,20 @@ pub async fn process_tarball(
   fallback_registry_url: Option<Url>,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
+  let (package, _, _) = db
+    .get_package(
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+    )
+    .await?
+    .ok_or(PublishError::PackageNotFound)?;
+
+  let (modules_bucket, npm_bucket) = if package.is_private {
+    (&buckets.modules_private_bucket, &buckets.npm_private_bucket)
+  } else {
+    (&buckets.modules_bucket, &buckets.npm_bucket)
+  };
+
   let tarball_path = bucket_tarball_path(publishing_task.id);
   let stream = buckets
     .publishing_bucket
@@ -643,8 +658,7 @@ pub async fn process_tarball(
     &publishing_task.package_version,
     NPM_TARBALL_REVISION,
   );
-  buckets
-    .npm_bucket
+  npm_bucket
     .upload(
       npm_tarball_path.into(),
       crate::s3::UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
@@ -689,8 +703,7 @@ pub async fn process_tarball(
       );
 
       async move {
-        buckets
-          .modules_bucket
+        modules_bucket
           .upload(
             s3_path.into(),
             UploadTaskBody::Bytes(bytes),
@@ -752,6 +765,9 @@ pub enum PublishError {
 
   #[error("missing tarball")]
   MissingTarball,
+
+  #[error("package not found")]
+  PackageNotFound,
 
   #[error("s3 upload error: {0}")]
   S3UploadError(S3Error),
@@ -989,6 +1005,7 @@ impl PublishError {
       PublishError::InvalidJsrDependencySubPath { .. } => {
         Some("invalidJsrDependencySubPath")
       }
+      PublishError::PackageNotFound => Some("packageNotFound"),
       PublishError::MissingLicense => Some("missingLicense"),
       PublishError::InvalidLicense => Some("invalidLicense"),
       // Not the publisher's fault: the fallback registry is a piece of this

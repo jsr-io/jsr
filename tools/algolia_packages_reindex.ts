@@ -42,7 +42,7 @@ while (true) {
 
 const objects = packages
   .filter((entry) =>
-    entry.versionCount > 0 && !entry.isArchived &&
+    entry.versionCount > 0 && !entry.isArchived && !entry.isPrivate &&
     !entry.description.startsWith("INTERNAL") &&
     entry.latestVersion !== null
   )

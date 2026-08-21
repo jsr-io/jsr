@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::api::ApiError;
 use crate::db::Database;
 use crate::db::PackagePublishPermission;
+use crate::db::PackageReadPermission;
 use crate::db::Permission;
 use crate::db::Permissions;
 use crate::db::Token;
@@ -96,6 +97,87 @@ impl<'s> IamHandler<'s> {
     }
   }
 
+  /// Returns true if the current user is a scope member (or staff using sudo).
+  /// Returns false for anonymous users or non-members.
+  pub async fn is_scope_member(&self, scope: &ScopeName) -> bool {
+    match &self.principal {
+      Principal::User(user) => {
+        if user.is_staff && self.sudo {
+          return true;
+        }
+        self
+          .db
+          .get_scope_member(scope, user.id)
+          .await
+          .ok()
+          .flatten()
+          .is_some()
+      }
+      Principal::OidcCi { .. } | Principal::Anonymous => false,
+    }
+  }
+
+  /// Returns true if the current principal may read the private package
+  /// `@scope/package`: a permission-restricted token must carry a matching
+  /// `package/read` (or `package/publish` — the publish flow reads manifests
+  /// back from the registry) permission, and the principal must be a scope
+  /// member (or staff using sudo). Callers should mask a `false` as
+  /// [`ApiError::PackageNotFound`] so private packages are indistinguishable
+  /// from missing ones.
+  pub async fn can_read_private_package(
+    &self,
+    scope: &ScopeName,
+    package: &PackageName,
+  ) -> bool {
+    if let Some(permissions) = &self.permissions {
+      let has_read_permission =
+        permissions.0.iter().any(|permission| match permission {
+          Permission::PackageRead(read) => match read {
+            PackageReadPermission::Package {
+              scope: perm_scope,
+              package: perm_package,
+            } => perm_scope == scope && perm_package == package,
+            PackageReadPermission::Scope { scope: perm_scope } => {
+              perm_scope == scope
+            }
+            PackageReadPermission::Full {} => true,
+          },
+          Permission::PackagePublish(publish) => match publish {
+            PackagePublishPermission::Version {
+              scope: perm_scope,
+              package: perm_package,
+              ..
+            }
+            | PackagePublishPermission::Package {
+              scope: perm_scope,
+              package: perm_package,
+            } => perm_scope == scope && perm_package == package,
+            PackagePublishPermission::Scope { scope: perm_scope } => {
+              perm_scope == scope
+            }
+            PackagePublishPermission::Full {} => true,
+          },
+        });
+      if !has_read_permission {
+        return false;
+      }
+    }
+
+    match &self.principal {
+      Principal::User(_) => self.is_scope_member(scope).await,
+      Principal::OidcCi {
+        user: Some(user), ..
+      } => self
+        .db
+        .get_scope_member(scope, user.id)
+        .await
+        .ok()
+        .flatten()
+        .is_some(),
+      Principal::OidcCi { user: None, .. } | Principal::Anonymous => false,
+    }
+  }
+
   pub async fn check_scope_member_delete_access(
     &self,
     scope: &ScopeName,
@@ -159,6 +241,9 @@ impl<'s> IamHandler<'s> {
             Permission::PackagePublish(PackagePublishPermission::Scope {
               scope,
             }) if scope == scope_ => {
+              Some(PublishAccessRestriction { tarball_hash: None })
+            }
+            Permission::PackagePublish(PackagePublishPermission::Full {}) => {
               Some(PublishAccessRestriction { tarball_hash: None })
             }
             _ => None,
@@ -260,6 +345,38 @@ impl<'s> IamHandler<'s> {
       Principal::User(_) => Err(ApiError::ActorNotAuthorized),
       Principal::OidcCi { .. } => Err(ApiError::ActorNotAuthorized),
       Principal::Anonymous => Err(ApiError::MissingAuthentication),
+    }
+  }
+
+  pub async fn check_package_read_access(
+    &self,
+    scope: &ScopeName,
+    package: &PackageName,
+  ) -> Result<Option<&User>, ApiError> {
+    let (pkg, _, _) = self
+      .db
+      .get_package(scope, package)
+      .await?
+      .ok_or(ApiError::PackageNotFound)?;
+
+    if !pkg.is_private {
+      return Ok(match &self.principal {
+        Principal::User(user) => Some(user),
+        _ => None,
+      });
+    }
+
+    if self.can_read_private_package(scope, package).await {
+      Ok(match &self.principal {
+        Principal::User(user) => Some(user),
+        Principal::OidcCi { user, .. } => user.as_ref(),
+        Principal::Anonymous => None,
+      })
+    } else {
+      match &self.principal {
+        Principal::Anonymous => Err(ApiError::MissingAuthentication),
+        _ => Err(ApiError::ActorNotScopeMember),
+      }
     }
   }
 }

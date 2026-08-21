@@ -17,6 +17,9 @@ const REGISTRY_API_URL = Deno.env.get("REGISTRY_API_URL") ??
 const S3_ENDPOINT = Deno.env.get("S3_ENDPOINT") ?? "http://localhost:9000";
 const MODULES_BUCKET = Deno.env.get("MODULES_BUCKET") ?? "modules";
 const NPM_BUCKET = Deno.env.get("NPM_BUCKET") ?? "npm";
+const MODULES_PRIVATE_BUCKET = Deno.env.get("MODULES_PRIVATE_BUCKET") ??
+  "modules-private";
+const NPM_PRIVATE_BUCKET = Deno.env.get("NPM_PRIVATE_BUCKET") ?? "npm-private";
 const DOCS_BUCKET = Deno.env.get("DOCS_BUCKET") ?? "docs";
 const PUBLISHING_BUCKET = Deno.env.get("PUBLISHING_BUCKET") ?? "publishing";
 
@@ -60,7 +63,14 @@ async function createMinioBucket(name: string) {
 const bucketCreationInterval = setInterval(async () => {
   let allBucketsCreated = true;
   for (
-    const bucket of [MODULES_BUCKET, DOCS_BUCKET, PUBLISHING_BUCKET, NPM_BUCKET]
+    const bucket of [
+      MODULES_BUCKET,
+      MODULES_PRIVATE_BUCKET,
+      DOCS_BUCKET,
+      PUBLISHING_BUCKET,
+      NPM_BUCKET,
+      NPM_PRIVATE_BUCKET,
+    ]
   ) {
     allBucketsCreated &&= await createMinioBucket(bucket);
   }
@@ -208,7 +218,9 @@ function handler(req: Request): Promise<Response> {
     REGISTRY_API_URL,
     FRONTEND: frontendShim,
     MODULES_BUCKET: new R2BucketShim(MODULES_BUCKET),
+    MODULES_PRIVATE_BUCKET: new R2BucketShim(MODULES_PRIVATE_BUCKET),
     NPM_BUCKET: new R2BucketShim(NPM_BUCKET),
+    NPM_PRIVATE_BUCKET: new R2BucketShim(NPM_PRIVATE_BUCKET),
     ROOT_DOMAIN,
     API_DOMAIN,
     NPM_DOMAIN,

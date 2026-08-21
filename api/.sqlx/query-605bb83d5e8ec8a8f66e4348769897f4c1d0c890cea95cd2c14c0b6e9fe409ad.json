@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT package_versions.scope as \"scope: ScopeName\", package_versions.name as \"name: PackageName\", package_versions.version as \"version: Version\", packages.description\n      FROM package_versions\n      JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name\n      WHERE NOT packages.is_archived\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
+  "query": "SELECT package_versions.scope as \"scope: ScopeName\", package_versions.name as \"name: PackageName\", package_versions.version as \"version: Version\", packages.description\n      FROM package_versions\n      JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name\n      WHERE NOT packages.is_archived AND NOT packages.is_private\n      ORDER BY package_versions.created_at DESC\n      LIMIT 10",
   "describe": {
     "columns": [
       {
@@ -34,5 +34,5 @@
       false
     ]
   },
-  "hash": "f704a64b1757ccceee13c6441c293a6bf9627e20639f47b32c5e741d50ebc864"
+  "hash": "605bb83d5e8ec8a8f66e4348769897f4c1d0c890cea95cd2c14c0b6e9fe409ad"
 }

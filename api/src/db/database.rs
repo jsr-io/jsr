@@ -489,6 +489,7 @@ impl Database {
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          is_private: r.package_is_private,
           readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
@@ -622,6 +623,7 @@ impl Database {
         latest_version: r.package_latest_version,
         when_featured: r.package_when_featured,
         is_archived: r.package_is_archived,
+        is_private: r.package_is_private,
         readme_source: r.package_readme_source,
       };
 
@@ -699,6 +701,7 @@ impl Database {
         latest_version: r.package_latest_version,
         when_featured: r.package_when_featured,
         is_archived: r.package_is_archived,
+        is_private: r.package_is_private,
         readme_source: r.package_readme_source,
       };
 
@@ -885,6 +888,50 @@ impl Database {
       scope as _,
       name as _,
       is_archived,
+    )
+      .fetch_one(&mut *tx)
+      .await?;
+
+    tx.commit().await?;
+
+    Ok(package)
+  }
+
+  #[instrument(name = "Database::update_package_is_private", skip(self), err)]
+  pub async fn update_package_is_private(
+    &self,
+    actor_id: &Uuid,
+    is_sudo: bool,
+    scope: &ScopeName,
+    name: &PackageName,
+    is_private: bool,
+  ) -> Result<Package> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      actor_id,
+      is_sudo,
+      "package_set_private",
+      json!({
+          "scope": scope,
+          "name": name,
+          "is_private": is_private,
+      }),
+    )
+    .await?;
+
+    let package = query_concat_as!(
+      Package,
+      "UPDATE packages
+      SET is_private = $3
+      WHERE scope = $1 AND name = $2
+      RETURNING ", PACKAGE_SELECT, r#",
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+      scope as _,
+      name as _,
+      is_private,
     )
       .fetch_one(&mut *tx)
       .await?;
@@ -1358,6 +1405,7 @@ gitlab_id: r.user_gitlab_id,
     &self,
     scope: &ScopeName,
     show_archived: bool,
+    show_private: bool,
     start: i64,
     limit: i64,
   ) -> Result<(usize, Vec<PackageWithGitHubRepoAndMeta>)> {
@@ -1370,13 +1418,14 @@ gitlab_id: r.user_gitlab_id,
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       ", PACKAGE_VERSION_LATERAL_JOINS, "
-      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
+      WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false) AND ($5 = true OR packages.is_private = false)
       ORDER BY packages.is_archived ASC, packages.name
       OFFSET $3 LIMIT $4";
       scope as _,
       show_archived,
       start,
-      limit
+      limit,
+      show_private,
     )
       .map(|r| {
         let package = Package {
@@ -1391,6 +1440,7 @@ gitlab_id: r.user_gitlab_id,
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          is_private: r.package_is_private,
           readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
@@ -1413,9 +1463,10 @@ gitlab_id: r.user_gitlab_id,
       .await?;
 
     let total_packages = sqlx::query!(
-      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false);"#,
+      r#"SELECT COUNT(created_at) FROM packages WHERE scope = $1 AND ($2 = true OR packages.is_archived = false) AND ($3 = true OR packages.is_private = false);"#,
       scope as _,
       show_archived,
+      show_private,
     )
       .map(|r| r.count.unwrap())
       .fetch_one(&mut *tx)
@@ -1494,7 +1545,7 @@ gitlab_id: r.user_gitlab_id,
        FROM packages
        LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
        {}
-       WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
+       WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived AND NOT packages.is_private
        ORDER BY
          CASE
            WHEN packages.name ILIKE $3 THEN 1 -- Exact match for package name
@@ -1560,7 +1611,7 @@ gitlab_id: r.user_gitlab_id,
       WHERE EXISTS (
         SELECT 1 FROM package_versions
         WHERE scope = packages.scope AND name = packages.name AND is_yanked = false
-      ) AND NOT packages.is_archived
+      ) AND NOT packages.is_archived AND NOT packages.is_private
       ORDER BY packages.created_at DESC
       LIMIT 10"#,
     )
@@ -1575,7 +1626,7 @@ gitlab_id: r.user_gitlab_id,
       r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", packages.description
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
-      WHERE NOT packages.is_archived
+      WHERE NOT packages.is_archived AND NOT packages.is_private
       ORDER BY package_versions.created_at DESC
       LIMIT 10"#,
     )
@@ -1590,7 +1641,7 @@ gitlab_id: r.user_gitlab_id,
     let featured_fut = sqlx::query!(
       r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
-      WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
+      WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived AND NOT packages.is_private
       ORDER BY packages.when_featured DESC
       LIMIT 10"#,
     )
@@ -3940,7 +3991,7 @@ gitlab_id: r.user_gitlab_id,
         scope as "scope: ScopeName", name as "name: PackageName", updated_at,
         (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at!"
       FROM packages
-      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL
+      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL AND is_private = false
       ORDER BY scope ASC, name ASC
       LIMIT 50000"#
     )
@@ -4799,6 +4850,7 @@ gitlab_id: r.user_gitlab_id,
         AND packages.name = recently_published.package_name
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       ", PACKAGE_VERSION_LATERAL_JOINS, "
+      WHERE packages.is_private = false
       ORDER BY recently_published.last_published_at DESC";
       user_id
     )
@@ -4815,6 +4867,7 @@ gitlab_id: r.user_gitlab_id,
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          is_private: r.package_is_private,
           readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
