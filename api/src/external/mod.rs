@@ -6,6 +6,7 @@ pub mod algolia;
 pub mod cloudflare;
 pub mod github;
 pub mod gitlab;
+pub mod oidc;
 
 /// https://url.spec.whatwg.org/#fragment-percent-encode-set
 const FRAGMENT: &AsciiSet =
