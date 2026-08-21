@@ -254,7 +254,7 @@ impl Database {
   #[instrument(name = "Database::upsert_user_by_github_id", skip(
     self,
     new_user
-  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ), err, fields(user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
   ))]
   pub async fn upsert_user_by_github_id(
     &self,
@@ -282,7 +282,7 @@ impl Database {
   #[instrument(name = "Database::upsert_user_by_gitlab_id", skip(
     self,
     new_user
-  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ), err, fields(user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
   ))]
   pub async fn upsert_user_by_gitlab_id(
     &self,
