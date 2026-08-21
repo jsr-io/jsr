@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
 import type { WorkerEnv } from "./types.ts";
-import { proxyToCloudRun, proxyToR2 } from "./proxy.ts";
+import { type ExecutionCtx, proxyToBackend, proxyToR2 } from "./proxy.ts";
 import {
   handleCORSPreflight,
   isCORSPreflight,
@@ -22,9 +22,10 @@ export default {
   async fetch(
     request: Request,
     env: WorkerEnv,
+    ctx: ExecutionCtx,
   ): Promise<Response> {
     try {
-      const response = await route(request, env);
+      const response = await route(request, env, ctx);
       return response;
     } catch (error) {
       console.error("LB error:", error);
@@ -42,16 +43,17 @@ export default {
 export async function route(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
   const hostname = url.hostname.toLowerCase();
 
   if (hostname === env.API_DOMAIN) {
-    return await handleAPIRequest(request, env);
+    return await handleAPIRequest(request, env, true, ctx);
   } else if (hostname === env.NPM_DOMAIN) {
-    return await handleNPMRequest(request, env);
+    return await handleNPMRequest(request, env, ctx);
   } else if (hostname === env.ROOT_DOMAIN) {
-    return await handleRootRequest(request, env);
+    return await handleRootRequest(request, env, ctx);
   } else {
     return new Response(`Unknown hostname: ${hostname}`, {
       status: 404,
@@ -66,15 +68,17 @@ export async function handleAPIRequest(
   request: Request,
   env: WorkerEnv,
   rewritePath: boolean = true,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   if (isCORSPreflight(request)) {
     return handleCORSPreflight(API);
   }
 
-  const response = await proxyToCloudRun(
+  const response = await proxyToBackend(
     request,
     env.REGISTRY_API_URL,
     rewritePath ? (path) => `/api${path}` : undefined,
+    ctx,
   );
 
   setSecurityHeaders(response, API);
@@ -89,6 +93,7 @@ export async function handleAPIRequest(
 export async function handleNPMRequest(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   if (isCORSPreflight(request)) {
     return handleCORSPreflight(NPM);
@@ -104,6 +109,7 @@ export async function handleNPMRequest(
       }
       return path;
     },
+    ctx,
   );
 
   setSecurityHeaders(response, NPM);
@@ -113,15 +119,16 @@ export async function handleNPMRequest(
   });
 
   if ((response.ok || response.status === 304) && request.method === "GET") {
-    trackNPMDownload(url.pathname, env);
+    trackNPMDownload(url.pathname, request.headers.get("User-Agent"), env);
   }
 
   return response;
 }
 
 /**
- * By default, requests to jsr.io are proxied to the frontend hosted on Cloud
- * Run.
+ * By default, requests to jsr.io are proxied to the frontend, which runs
+ * as its own Cloudflare Worker bound here via the `FRONTEND` service
+ * binding.
  *
  * GET or HEAD requests to jsr.io/@* are routed to the modules bucket if they
  * do no have an 'Accept' header that starts with 'text/html' and either:
@@ -154,22 +161,23 @@ export async function handleNPMRequest(
 export async function handleRootRequest(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
 
   if (isAPIRoute(path)) {
-    return await handleAPIRequest(request, env, false);
+    return await handleAPIRequest(request, env, false, ctx);
   } else if (isBot(request)) {
-    return await handleFrontendRoute(request, env, true);
+    return await handleFrontendRoute(request, env, true, ctx);
   } else if (path.startsWith("/@")) {
     if (canAccessModuleFile(request) && isModuleFilePath(path)) {
-      return await handleModuleFileRoute(request, env);
+      return await handleModuleFileRoute(request, env, ctx);
     } else {
-      return await handleFrontendRoute(request, env, false);
+      return await handleFrontendRoute(request, env, false, ctx);
     }
   } else {
-    return await handleFrontendRoute(request, env, false);
+    return await handleFrontendRoute(request, env, false, ctx);
   }
 }
 
@@ -216,12 +224,39 @@ export function isModuleFilePath(path: string): boolean {
     );
 }
 
+/**
+ * Doc, diff, and source package pages are the expensive-to-render routes that
+ * scrapers walk symbol-by-symbol. They get a stricter per-IP limit than the
+ * general frontend limit. Patterns (the package segment may carry an
+ * `@version` suffix; source pins the version as its own path segment):
+ *   docs:   /@scope/pkg[@version]/doc(/...)?
+ *   diff:   /@scope/pkg/diff/...
+ *   source: /@scope/pkg/<semver>/...
+ */
+const DOCS_DIFF_SOURCE_ROUTE =
+  /^\/@[^/]+\/[^/]+(?:\/doc(?:\/|$)|\/diff(?:\/|$)|\/\d+\.\d+\.\d+)/;
+
+export function isDocsDiffSourceRoute(path: string): boolean {
+  return DOCS_DIFF_SOURCE_ROUTE.test(path);
+}
+
 async function handleFrontendRoute(
   request: Request,
   env: WorkerEnv,
   isBot: boolean,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
-  const response = await proxyToCloudRun(request, env.REGISTRY_FRONTEND_URL);
+  // Doc, diff, and source pages are the expensive renders scrapers walk;
+  // give them a stricter per-IP limit before the general frontend limit.
+  if (isDocsDiffSourceRoute(new URL(request.url).pathname)) {
+    const limited = await rateLimitGuard(request, env.DOCS_RATELIMIT);
+    if (limited) return limited;
+  }
+
+  const limited = await rateLimitGuard(request, env.FRONTEND_RATELIMIT);
+  if (limited) return limited;
+
+  const response = await proxyToBackend(request, env.FRONTEND, undefined, ctx);
 
   setSecurityHeaders(response, FRONTEND);
   setDebugHeaders(response, {
@@ -232,14 +267,44 @@ async function handleFrontendRoute(
   return response;
 }
 
+/**
+ * Per-IP rate limit, keyed on the real client IP (`CF-Connecting-IP`) at the
+ * edge. Applied only to frontend routes — module files (R2), the API, and npm
+ * compat are never rate-limited here. Callers pass the binding to enforce:
+ * the general `FRONTEND_RATELIMIT` for all frontend routes, or the stricter
+ * `DOCS_RATELIMIT` for the expensive doc/diff/source pages.
+ */
+async function rateLimitGuard(
+  request: Request,
+  limiter: RateLimit | undefined,
+): Promise<Response | null> {
+  if (!limiter) return null;
+  const ip = request.headers.get("CF-Connecting-IP");
+  if (!ip) return null;
+  const { success } = await limiter.limit({ key: ip });
+  if (success) return null;
+  const response = new Response("Too Many Requests", {
+    status: 429,
+    headers: {
+      "Content-Type": "text/plain",
+      "Retry-After": "60",
+    },
+  });
+  setSecurityHeaders(response, FRONTEND);
+  return response;
+}
+
 async function handleModuleFileRoute(
   request: Request,
   env: WorkerEnv,
+  ctx?: ExecutionCtx,
 ): Promise<Response> {
   const url = new URL(request.url);
   const response = await proxyToR2(
     request,
     env.MODULES_BUCKET,
+    undefined,
+    ctx,
   );
 
   setSecurityHeaders(response, MODULES);
@@ -249,7 +314,7 @@ async function handleModuleFileRoute(
   });
 
   if ((response.ok || response.status === 304) && request.method === "GET") {
-    trackJSRDownload(url.pathname, env);
+    trackJSRDownload(url.pathname, request.headers.get("User-Agent"), env);
   }
 
   return response;

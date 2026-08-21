@@ -54,9 +54,10 @@ impl EphemeralDatabase {
 
     pg_execute(format!("CREATE DATABASE \"{database_name}\""));
 
-    let database = Database::connect(&database_url, 1, Duration::from_secs(5))
-      .await
-      .unwrap();
+    let database =
+      Database::connect(&database_url, 1, Duration::from_secs(5), None)
+        .await
+        .unwrap();
 
     Self {
       database: Some(database),

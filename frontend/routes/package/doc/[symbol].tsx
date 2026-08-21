@@ -116,7 +116,10 @@ export const handler = define.handlers({
         docs,
         member: scopeMember,
       },
-      headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
+      // Per-symbol doc pages are unbounded cardinality (every symbol of every
+      // version) and each is a cold docs render at the origin. `noindex`
+      // unconditionally — including "latest" — so crawlers stop walking them.
+      headers: { "X-Robots-Tag": "noindex" },
     };
   },
 });

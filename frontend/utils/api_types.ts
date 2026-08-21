@@ -105,6 +105,7 @@ export interface PackageScore {
   hasReadme: boolean;
   hasReadmeExamples: boolean;
   allEntrypointsDocs: boolean;
+  entrypointsWithoutDocs: string[];
   percentageDocumentedSymbols: number;
   allFastCheck: boolean;
   hasProvenance: boolean;
@@ -250,12 +251,14 @@ export interface PackageVersionReference {
 export interface StatsPackage {
   scope: string;
   name: string;
+  description: string;
 }
 
 export interface StatsPackageVersion {
   scope: string;
   package: string;
   version: string;
+  description: string;
 }
 
 export interface Stats {

@@ -7,16 +7,18 @@ import type {
 import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { RuntimeCompatIndicator } from "../../../components/RuntimeCompatIndicator.tsx";
 import { getScoreTextColorClass } from "../../../utils/score_ring_color.ts";
-import {
-  TbAlertTriangleFilled,
-  TbExternalLink,
-  TbRosetteDiscountCheck,
-} from "tb-icons";
+import TbAlertTriangleFilled from "tb-icons/TbAlertTriangleFilled";
+import TbExternalLink from "tb-icons/TbExternalLink";
+import TbRosetteDiscountCheck from "tb-icons/TbRosetteDiscountCheck";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import twas from "twas";
 import { greaterThan, parse } from "@std/semver";
 import { DownloadWidget } from "../(_islands)/DownloadWidget.tsx";
-import { collectX, normalize } from "../(_islands)/DownloadChart.tsx";
+import {
+  collectX,
+  hasCompletedWeekData,
+  normalize,
+} from "../(_islands)/DownloadChart.tsx";
 
 interface PackageHeaderProps {
   package: Package;
@@ -37,11 +39,13 @@ export function PackageHeader({
     (pkg.latestVersion === null ||
       greaterThan(selectedVersionSemver, parse(pkg.latestVersion)));
 
-  // Calculate weekly downloads for mobile display
+  // Calculate weekly downloads for mobile display (drop incomplete current week)
+  const hasDownloads = downloads !== null &&
+    hasCompletedWeekData(downloads.total);
   let weeklyDownloads: number | null = null;
-  if (downloads && downloads.total.length > 1) {
+  if (downloads !== null && hasDownloads) {
     const xValues = collectX(downloads.total, "weekly");
-    const data = normalize(downloads.total, xValues, "weekly");
+    const data = normalize(downloads.total, xValues, "weekly").slice(0, -1);
     weeklyDownloads = data.length > 0 ? data[data.length - 1][1] : null;
   }
 
@@ -92,12 +96,6 @@ export function PackageHeader({
                 href={`/@${pkg.scope}/${pkg.name}`}
               >
                 Jump to {isNewerPrerelease ? "this version " : "latest"}
-              </a>
-              <a
-                class="max-md:flex-1 max-md:block button-sm button-primary whitespace-nowrap"
-                href={`/@${pkg.scope}/${pkg.name}/diff/${selectedVersion.version}...${pkg.latestVersion}`}
-              >
-                Jump to diff
               </a>
             </div>
           </div>
@@ -247,7 +245,7 @@ export function PackageHeader({
           </div>
 
           {pkg.description && (
-            <p class="text-secondary text-base max-w-3xl mb-6">
+            <p class="text-secondary text-base max-w-3xl mb-6 break-words">
               {pkg.description}
             </p>
           )}
@@ -255,7 +253,7 @@ export function PackageHeader({
 
         {/* Right column - Downloads only */}
         <div class="hidden md:flex flex-none md:items-end flex-col text-right md:ml-auto">
-          {downloads && downloads.total.length > 1 && (
+          {hasDownloads && downloads !== null && (
             <DownloadWidget
               downloads={downloads.total}
               scope={pkg.scope}
