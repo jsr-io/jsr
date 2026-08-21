@@ -90,6 +90,16 @@ export async function proxyToBackend(
     ? new URL(path + url.search, backend)
     : new URL(path + url.search, url.origin);
 
+  // Cache key is the PUBLIC URL (inbound origin + proxied path), never the
+  // backend origin. CDN purges target the public jsr.io / api.jsr.io URLs (see
+  // `package_api_cache_urls` in the API), so an entry keyed under the Cloud Run
+  // backend host could never be evicted on publish — which froze package
+  // metadata (`latestVersion`/version counts) for the full, now-30-day TTL. The
+  // proxied `path` already matches the purge URLs' path on both hosts, so this
+  // makes the existing purges land. For a service-binding (frontend) backend
+  // this equals `backendRequestUrl`, so frontend caching is unchanged.
+  const cacheKeyUrl = new URL(path + url.search, url.origin).toString();
+
   const headers = new Headers(request.headers);
   if (isUrlBackend) {
     headers.set("Host", new URL(backend).host);
@@ -138,6 +148,7 @@ export async function proxyToBackend(
         redirect: "manual",
       },
       ctx,
+      cacheKeyUrl,
     );
 
     const shared = isIdentityIndependent(response);
@@ -270,13 +281,17 @@ async function cachedFetch(
   restrictToShared: boolean,
   fetcher: (req: Request) => Promise<Response>,
   input: RequestInfo | URL,
-  init?: RequestInit,
-  ctx?: ExecutionCtx,
+  init: RequestInit | undefined,
+  ctx: ExecutionCtx | undefined,
+  // The PUBLIC URL to key the cache under (see proxyToBackend) — kept separate
+  // from the backend fetch URL so CDN purges, which target public URLs, can
+  // evict these entries.
+  cacheKeyUrl: string,
 ): Promise<Response> {
   const req = new Request(input, init);
+  const cacheKey = new Request(cacheKeyUrl, { method: "GET" });
 
   if (allowCache) {
-    const cacheKey = new Request(req.url, { method: "GET" });
     const cached = await caches.default?.match(cacheKey);
     if (cached && (!restrictToShared || isIdentityIndependent(cached))) {
       if (req.method === "HEAD") {
@@ -291,27 +306,27 @@ async function cachedFetch(
 
   const res = await fetcher(req);
 
-  // Cache 200s and (negatively) 404s. 200s keep the prior behaviour: cached
-  // unless explicitly `private`/`no-store` (even with no `Cache-Control`).
-  // 404s are only cached when the origin opted in with an explicit cacheable
-  // directive — the API stamps a short `public` TTL on 404s from cached routes
-  // (docs/diff for a missing symbol/version etc.); without storing them every
-  // repeat miss falls through to the origin. A 404 with no `Cache-Control`
-  // (uncached routes) is never stored.
+  // Only cache responses the origin explicitly marked cacheable: a `max-age` or
+  // `s-maxage` directive, and never `private`/`no-store`. This applies to both
+  // 200s and (negatively-cached) 404s. Previously an unmarked 200 was cached by
+  // default, which silently cached dynamic endpoints that forgot to opt out —
+  // e.g. the publish-status poll (`util::json`, no `Cache-Control`), pinning a
+  // stale "pending"/"processing" status so `deno publish` hung until the entry
+  // expired. Endpoints meant to be cached go through the API's `cache*`
+  // wrappers, which always set an explicit `public, max-age=…, s-maxage=…`.
   const cacheControl = res.headers.get("Cache-Control") ?? "";
   const explicitlyUncacheable = cacheControl.includes("private") ||
     cacheControl.includes("no-store");
-  const cacheable = res.ok
-    ? !explicitlyUncacheable
-    : res.status === 404 && !explicitlyUncacheable &&
-      (cacheControl.includes("max-age") || cacheControl.includes("s-maxage"));
+  const hasCacheableDirective = cacheControl.includes("max-age") ||
+    cacheControl.includes("s-maxage");
+  const cacheable = (res.ok || res.status === 404) &&
+    !explicitlyUncacheable && hasCacheableDirective;
   // An authenticated request may only write an identity-independent response —
   // a viewer-specific authed response must never land in the shared cache.
   const writable = cacheable &&
     (!restrictToShared || isIdentityIndependent(res));
   const cache = caches.default;
   if (cache && allowCache && req.method === "GET" && writable) {
-    const cacheKey = new Request(req.url, { method: "GET" });
     // `waitUntil` (or await in tests) so the write isn't dropped when the
     // invocation ends — the cause of the lb caching nothing in production.
     await persistCacheWrite(ctx, cache, cacheKey, res.clone());

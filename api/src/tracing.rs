@@ -13,17 +13,25 @@ use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::LoggerProvider;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::runtime;
+use opentelemetry_sdk::trace::Sampler;
 use opentelemetry_sdk::trace::TracerProvider;
+use rand::Rng;
 use tracing_opentelemetry::OtelData;
 use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::FormatFields;
+use tracing_subscriber::layer::Context;
+use tracing_subscriber::layer::Filter;
 use tracing_subscriber::layer::Layered;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::reload;
+
+/// Fraction of traces (and their logs) exported to the OTLP backend. The rest
+/// are dropped to cut export volume/cost.
+const SAMPLE_RATIO: f64 = 0.05;
 
 pub enum TracingExportTarget {
   Otlp {
@@ -113,9 +121,16 @@ pub async fn setup_tracing(
         .with_headers(headers.clone())
         .build()
         .unwrap();
+      // Sample 5% of traces to cut export volume/cost. Parent-based so child
+      // spans inherit the root's decision: this keeps each sampled trace whole
+      // (all-or-nothing per trace) rather than dropping spans mid-trace, and
+      // honors an upstream sampling decision propagated via tracecontext.
       let tracer_provider = TracerProvider::builder()
         .with_batch_exporter(span_exporter, runtime::Tokio)
         .with_resource(resource.clone())
+        .with_sampler(Sampler::ParentBased(Box::new(
+          Sampler::TraceIdRatioBased(SAMPLE_RATIO),
+        )))
         .build();
       let tracer = tracer_provider.tracer(name);
       global::set_tracer_provider(tracer_provider);
@@ -133,8 +148,15 @@ pub async fn setup_tracing(
         .with_batch_exporter(log_exporter, runtime::Tokio)
         .with_resource(resource)
         .build();
-      export_layers
-        .push(OpenTelemetryTracingBridge::new(&logger_provider).boxed());
+      // Sample exported logs at the same rate as traces. Logs that belong to a
+      // trace are kept iff that trace was sampled in (identical TraceIdRatio
+      // decision), so a kept trace keeps its logs and we never export logs for
+      // a dropped trace. Logs with no trace context fall back to a random draw.
+      export_layers.push(
+        OpenTelemetryTracingBridge::new(&logger_provider)
+          .with_filter(LogSampler)
+          .boxed(),
+      );
     }
     TracingExportTarget::None => {}
   };
@@ -213,10 +235,117 @@ where
   Some(otel_data.parent_cx.span().span_context().trace_id())
 }
 
+/// Per-event sampling filter applied to the OTLP log-export layer (it does not
+/// affect the stdout logs). Keeps [`SAMPLE_RATIO`] of logs so exported log
+/// volume tracks the sampled trace volume.
+struct LogSampler;
+
+impl<S> Filter<S> for LogSampler
+where
+  S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
+{
+  fn enabled(
+    &self,
+    _meta: &tracing::Metadata<'_>,
+    _cx: &Context<'_, S>,
+  ) -> bool {
+    // Defer to the per-event decision below; level filtering is handled by the
+    // global `EnvFilter` layer.
+    true
+  }
+
+  fn event_enabled(
+    &self,
+    event: &tracing::Event<'_>,
+    cx: &Context<'_, S>,
+  ) -> bool {
+    // Always export problem logs regardless of sampling: these are the lines
+    // you want during an incident, and head sampling cannot keep error traces
+    // (the decision is made before the request runs). Keeping the log even when
+    // its trace was dropped means the message, fields, and trace_id survive
+    // even if the spans don't.
+    if event.metadata().level() <= &tracing::Level::WARN {
+      return true;
+    }
+    match event_trace_id(event, cx) {
+      // In a trace: keep the log iff the trace's `TraceIdRatioBased` decision
+      // sampled it in. The decision is a pure function of the trace id, so
+      // every log in a trace agrees, matching the span sampler's choice.
+      Some(trace_id) => sampled_by_trace_id(trace_id, SAMPLE_RATIO),
+      // No trace context (e.g. startup logs): fall back to a random draw.
+      None => rand::thread_rng().gen_bool(SAMPLE_RATIO),
+    }
+  }
+}
+
+/// Effective trace id of the span an event belongs to, if any. Prefers the
+/// span's own `trace_id` (set for the root where it is generated and inherited
+/// by children) and falls back to a propagated remote parent's trace id.
+fn event_trace_id<S>(
+  event: &tracing::Event<'_>,
+  cx: &Context<'_, S>,
+) -> Option<TraceId>
+where
+  S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
+{
+  let span = cx.event_span(event).or_else(|| cx.lookup_current())?;
+  let extensions = span.extensions();
+  let otel_data = extensions.get::<OtelData>()?;
+  otel_data.builder.trace_id.or_else(|| {
+    let remote = otel_data.parent_cx.span().span_context().trace_id();
+    (remote != TraceId::INVALID).then_some(remote)
+  })
+}
+
+/// Whether a trace id is sampled in at the given ratio. Mirrors the
+/// opentelemetry SDK's `TraceIdRatioBased` algorithm so a trace's logs share
+/// the exact decision made for its spans.
+fn sampled_by_trace_id(trace_id: TraceId, ratio: f64) -> bool {
+  if ratio >= 1.0 {
+    return true;
+  }
+  let upper_bound = (ratio.max(0.0) * (1u64 << 63) as f64) as u64;
+  let bytes = trace_id.to_bytes();
+  let low = u64::from_be_bytes(bytes[8..].try_into().unwrap());
+  (low >> 1) < upper_bound
+}
+
 #[cfg(test)]
 mod tests {
   use super::otlp_signal_endpoint;
   use super::parse_otlp_headers;
+  use super::sampled_by_trace_id;
+  use opentelemetry::trace::TraceId;
+
+  #[test]
+  fn trace_id_sampling_matches_ratio() {
+    // Real trace ids are random across the full 128-bit range; the sampler
+    // keys on the low 64 bits, so spread the counter across that range with a
+    // 64-bit mixing constant rather than using tiny sequential values.
+    let id = |n: u64| {
+      let low = n.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+      let mut bytes = [0u8; 16];
+      bytes[8..].copy_from_slice(&low.to_be_bytes());
+      TraceId::from_bytes(bytes)
+    };
+
+    // A ratio of 1.0 keeps everything, 0.0 keeps nothing.
+    assert!(sampled_by_trace_id(id(123), 1.0));
+    assert!(!sampled_by_trace_id(id(123), 0.0));
+
+    // Across many ids the kept fraction is close to the configured ratio, and
+    // the decision is deterministic per id (logs and spans agree).
+    let ratio = 0.05;
+    let total = 100_000u64;
+    let kept = (0..total)
+      .filter(|&i| sampled_by_trace_id(id(i + 1), ratio))
+      .count();
+    let observed = kept as f64 / total as f64;
+    assert!(
+      (observed - ratio).abs() < 0.01,
+      "observed sampling rate {observed} too far from {ratio}"
+    );
+  }
 
   #[test]
   fn appends_signal_path_to_base() {

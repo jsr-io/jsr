@@ -58,8 +58,10 @@ pub fn api_router() -> Router<Body, ApiError> {
     )
     .get(
       // todo: remove once CLI uses the new endpoint
+      // Never cache: `deno publish` polls this for live status, and a cached
+      // non-terminal status would make it hang until the entry expired.
       "/publish_status/:publishing_task_id",
-      util::json(publishing_task::get_handler),
+      util::no_store(util::json(publishing_task::get_handler)),
     )
     .scope("/tickets", tickets_router())
     .get("/.well-known/openapi", openapi_handler)

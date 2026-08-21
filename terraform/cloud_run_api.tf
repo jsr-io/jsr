@@ -34,14 +34,14 @@ locals {
     "GITLAB_CLIENT_ID" = var.gitlab_client_id
     # GITLAB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
 
+    # TURNSTILE_SECRET_KEY is defined inline, because it comes from Secrets Manager
+
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
-    # ORAMA_PACKAGES_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_PACKAGES_PROJECT_ID"  = var.orama_packages_project_id
-    "ORAMA_PACKAGES_DATA_SOURCE" = var.orama_packages_data_source
-    # ORAMA_SYMBOLS_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_SYMBOLS_PROJECT_ID"  = var.orama_symbols_project_id
-    "ORAMA_SYMBOLS_DATA_SOURCE" = var.orama_symbols_data_source
+    # ALGOLIA_WRITE_API_KEY is defined inline, because it comes from Secrets Manager
+    "ALGOLIA_APP_ID"         = var.algolia_app_id
+    "ALGOLIA_PACKAGES_INDEX" = algolia_index.packages.name
+    "ALGOLIA_SYMBOLS_INDEX"  = algolia_index.symbols.name
 
     "REGISTRY_URL" = "https://${var.domain_name}"
     "NPM_URL"      = "https://${local.npm_domain}"
@@ -128,6 +128,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
+        name = "TURNSTILE_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.turnstile_secret_key.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "POSTMARK_TOKEN"
         value_source {
           secret_key_ref {
@@ -138,20 +148,10 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
-        name = "ORAMA_PACKAGES_PROJECT_KEY"
+        name = "ALGOLIA_WRITE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_packages_project_key.id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "ORAMA_SYMBOLS_PROJECT_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.orama_symbols_project_key.id
+            secret  = google_secret_manager_secret.algolia_write_api_key.id
             version = "latest"
           }
         }
@@ -287,20 +287,20 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
       }
 
       env {
-        name = "ORAMA_PACKAGES_PROJECT_KEY"
+        name = "TURNSTILE_SECRET_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_packages_project_key.id
+            secret  = google_secret_manager_secret.turnstile_secret_key.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_SYMBOLS_PROJECT_KEY"
+        name = "ALGOLIA_WRITE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_symbols_project_key.id
+            secret  = google_secret_manager_secret.algolia_write_api_key.id
             version = "latest"
           }
         }
@@ -350,20 +350,20 @@ resource "google_secret_manager_secret_iam_member" "gitlab_client_secret" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "turnstile_secret_key" {
+  secret_id = google_secret_manager_secret.turnstile_secret_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
 resource "google_secret_manager_secret_iam_member" "postmark_token" {
   secret_id = google_secret_manager_secret.postmark_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_packages_project_key" {
-  secret_id = google_secret_manager_secret.orama_packages_project_key.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "orama_symbols_project_key" {
-  secret_id = google_secret_manager_secret.orama_symbols_project_key.id
+resource "google_secret_manager_secret_iam_member" "algolia_write_api_key" {
+  secret_id = google_secret_manager_secret.algolia_write_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }

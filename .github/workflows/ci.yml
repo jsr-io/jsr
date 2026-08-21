@@ -274,13 +274,8 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
-          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
-          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
-          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
-          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
-          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
-          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          TF_VAR_algolia_app_id: ${{ vars.ALGOLIA_APP_ID }}
+          TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
 
@@ -290,12 +285,12 @@ jobs:
       - name: Run e2e tests
         run: deno task e2e:staging
 
-      - name: Reindex orama docs search
+      - name: Reindex algolia docs search
         env:
-          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
-          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
-          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
-        run: deno task tools:orama:docs_reindex
+          ALGOLIA_APP_ID: ${{ vars.ALGOLIA_APP_ID }}
+          ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
+          ALGOLIA_DOCS_INDEX: staging_docs
+        run: deno task tools:algolia:docs_reindex
 
   prod:
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
@@ -346,13 +341,8 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
-          TF_VAR_orama_packages_project_key: ${{ secrets.ORAMA_PACKAGES_PROJECT_KEY }}
-          TF_VAR_orama_packages_project_id: ${{ vars.ORAMA_PACKAGES_PROJECT_ID }}
-          TF_VAR_orama_packages_data_source: ${{ vars.ORAMA_PACKAGES_DATA_SOURCE }}
-          TF_VAR_orama_symbols_project_key: ${{ secrets.ORAMA_SYMBOLS_PROJECT_KEY }}
-          TF_VAR_orama_symbols_project_id: ${{ vars.ORAMA_SYMBOLS_PROJECT_ID }}
-          TF_VAR_orama_symbols_data_source: ${{ vars.ORAMA_SYMBOLS_DATA_SOURCE }}
-          TF_VAR_orama_docs_project_id: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
+          TF_VAR_algolia_app_id: ${{ vars.ALGOLIA_APP_ID }}
+          TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_otlp_headers: ${{ secrets.OTLP_HEADERS }}
 
@@ -362,9 +352,9 @@ jobs:
       - name: Run e2e tests
         run: deno task e2e:prod
 
-      - name: Reindex orama docs search
+      - name: Reindex algolia docs search
         env:
-          ORAMA_DOCS_PROJECT_KEY: ${{ secrets.ORAMA_DOCS_PROJECT_KEY }}
-          ORAMA_DOCS_PROJECT_ID: ${{ vars.ORAMA_DOCS_PROJECT_ID }}
-          ORAMA_DOCS_DATA_SOURCE: ${{ vars.ORAMA_DOCS_DATA_SOURCE }}
-        run: deno task tools:orama:docs_reindex
+          ALGOLIA_APP_ID: ${{ vars.ALGOLIA_APP_ID }}
+          ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
+          ALGOLIA_DOCS_INDEX: prod_docs
+        run: deno task tools:algolia:docs_reindex

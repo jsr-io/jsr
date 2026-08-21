@@ -16,8 +16,8 @@ use crate::db::PackageVersionMeta;
 use crate::db::PublishingTask;
 use crate::db::PublishingTaskError;
 use crate::db::PublishingTaskStatus;
+use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
-use crate::external::orama::OramaClient;
 use crate::ids::PackagePath;
 use crate::metadata::ManifestEntry;
 use crate::metadata::PackageMetadata;
@@ -57,7 +57,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
   let license_store = req.data::<LicenseStore>().unwrap().clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
@@ -69,7 +69,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     registry_url,
     npm_url,
     db,
-    orama_client,
+    algolia_client,
     cache_purge,
   )
   .await?;
@@ -80,7 +80,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, license_store, registry_url, orama_client, cache_purge),
+  skip(buckets, db, license_store, registry_url, algolia_client, cache_purge),
   err
 )]
 pub async fn publish_task(
@@ -90,7 +90,7 @@ pub async fn publish_task(
   registry_url: Url,
   npm_url: Url,
   db: Database,
-  orama_client: Option<OramaClient>,
+  algolia_client: Option<AlgoliaClient>,
   cache_purge: CachePurge,
 ) -> Result<(), ApiError> {
   let (mut publishing_task, _) = db
@@ -109,7 +109,7 @@ pub async fn publish_task(
           &db,
           &buckets,
           &license_store,
-          &orama_client,
+          &algolia_client,
           registry_url.clone(),
           &mut publishing_task,
         )
@@ -160,7 +160,7 @@ pub async fn publish_task(
       }
       PublishingTaskStatus::Failure => return Ok(()),
       PublishingTaskStatus::Success => {
-        if let Some(orama_client) = orama_client {
+        if let Some(algolia_client) = algolia_client {
           let (package, _, meta) = db
             .get_package(
               &publishing_task.package_scope,
@@ -174,7 +174,7 @@ pub async fn publish_task(
               );
               ApiError::InternalServerError
             })?;
-          orama_client.upsert_package(&package, &meta);
+          algolia_client.upsert_package(&package, &meta);
         }
         return Ok(());
       }
@@ -182,11 +182,14 @@ pub async fn publish_task(
   }
 }
 
+// `algolia_client`/`doc_search_json` are unused while symbol indexing is
+// disabled; keep them so re-enabling is just uncommenting the block below.
+#[allow(unused_variables)]
 async fn process_publishing_task(
   db: &Database,
   buckets: &Buckets,
   license_store: &LicenseStore,
-  orama_client: &Option<OramaClient>,
+  algolia_client: &Option<AlgoliaClient>,
   registry_url: Url,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
@@ -269,13 +272,13 @@ async fn process_publishing_task(
   )
   .await?;
 
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_symbols(
+  /*if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_symbols(
       &publishing_task.package_scope,
       &publishing_task.package_name,
       doc_search_json,
     );
-  }
+  }*/
 
   Ok(())
 }
@@ -1365,7 +1368,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:27\n\n  const invalidTypeScript = ;\n                            ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidTypeScript = ;\n  |                           ~\n    at file:///mod.ts:1:27"
     );
   }
 
@@ -1379,7 +1382,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:2\n\n  +\n   ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | +\n  |  ~\n    at file:///mod.ts:1:2"
     );
   }
 
@@ -1401,7 +1404,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///other.js:1:27\n\n  const invalidJavaScript = ;\n                            ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidJavaScript = ;\n  |                           ~\n    at file:///other.js:1:27"
     );
   }
 
@@ -1415,7 +1418,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~"
+      "failed to build module graph: SyntaxError: Unexpected character '�'\n  |\n2 | ��\n  | ~\n    at file:///mod.ts:2:1"
     );
   }
 

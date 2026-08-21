@@ -97,6 +97,37 @@ where
     .expect("expected to be able to create response")
 }
 
+/// Wrap a handler so its response is explicitly uncacheable
+/// (`Cache-Control: no-store`).
+///
+/// `json` sets no `Cache-Control`, and the lb caches such GET responses for
+/// anonymous callers. That must not happen for dynamic, not-behind-[`auth`]
+/// endpoints — most importantly the publish-status poll: a cached
+/// `pending`/`processing` status makes `deno publish` hang until the entry
+/// expires even though the task already finished. Stamping `no-store` keeps the
+/// lb (and any downstream cache) from ever storing the response.
+pub fn no_store<H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let handler = Arc::new(handler);
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+    async move {
+      let mut res = handler(req).await?;
+      res.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store"),
+      );
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
 pub fn auth<H, HF>(
   handler: H,
 ) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
@@ -974,7 +1005,7 @@ pub mod test {
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
-        orama_client: None,
+        algolia_client: None,
         email_sender: None,
         license_store: license_store.clone(),
         registry_url,
@@ -983,8 +1014,10 @@ pub mod test {
         npm_tarball_build_queue: None, // no queue locally
         analytics_engine_config: None, // no analytics engine locally
         cache_purge_client: None,      // no Cloudflare purge locally
-        expose_api: true,              // api enabled
-        expose_tasks: true,            // task endpoints enabled
+        // No secret key, so the login captcha is not verified in tests.
+        turnstile: crate::external::cloudflare::Turnstile(None),
+        expose_api: true,   // api enabled
+        expose_tasks: true, // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)

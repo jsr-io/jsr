@@ -63,8 +63,8 @@ use crate::db::RuntimeCompat;
 use crate::db::User;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
+use crate::external::algolia::AlgoliaClient;
 use crate::external::cloudflare::CachePurge;
-use crate::external::orama::OramaClient;
 use crate::gcp;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
@@ -389,9 +389,9 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     }
   };
 
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &Default::default());
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&package, &Default::default());
   }
 
   // The new package changes the scope's package list and scope info.
@@ -458,7 +458,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let body: ApiUpdatePackageRequest = decode_json(&mut req).await?;
 
   let db: &Database = req.data::<Database>().unwrap();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
 
   let (package, repo, meta) = db
     .get_package(&scope, &package_name)
@@ -505,7 +505,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         npm_url,
         &buckets,
         cache_purge,
-        orama_client,
+        algolia_client,
         &user.id,
         sudo,
         &scope,
@@ -547,8 +547,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
           &runtime_compat,
         )
         .await?;
-      if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta);
+      if let Some(algolia_client) = algolia_client {
+        algolia_client.upsert_package(&package, &meta);
       }
       Ok(ApiPackage::from((package, repo, meta)))
     }
@@ -574,11 +574,11 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         )
         .await?;
 
-      if let Some(orama_client) = orama_client {
+      if let Some(algolia_client) = algolia_client {
         if package.is_archived {
-          orama_client.delete_package(&scope, &package.name);
+          algolia_client.delete_package(&scope, &package.name);
         } else {
-          orama_client.upsert_package(&package, &meta);
+          algolia_client.upsert_package(&package, &meta);
         }
       }
 
@@ -613,7 +613,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     npm_url,
     buckets,
     cache_purge,
-    orama_client,
+    algolia_client,
     actor_id,
     is_sudo,
     scope,
@@ -627,7 +627,7 @@ async fn update_description(
   npm_url: &Url,
   buckets: &Buckets,
   cache_purge: &CachePurge,
-  orama_client: &Option<OramaClient>,
+  algolia_client: &Option<AlgoliaClient>,
   actor_id: &Uuid,
   is_sudo: bool,
   scope: &ScopeName,
@@ -658,8 +658,8 @@ async fn update_description(
     )
     .await?;
 
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &meta);
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&package, &meta);
   }
 
   let npm_version_manifest_path =
@@ -809,9 +809,9 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     return Err(ApiError::PackageNotEmpty);
   }
 
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  if let Some(orama_client) = orama_client {
-    orama_client.delete_package(&scope, &package);
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.delete_package(&scope, &package);
   }
 
   let registry_url = &req.data::<RegistryUrl>().unwrap().0;
@@ -924,7 +924,7 @@ pub async fn version_publish_handler(
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -1032,7 +1032,7 @@ pub async fn version_publish_handler(
       registry_url,
       npm_url,
       db,
-      orama_client,
+      algolia_client,
       cache_purge,
     )
     .instrument(span);
@@ -1061,24 +1061,42 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let buckets = req.data::<Buckets>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
   iam.check_publish_access(&scope, &package, &version).await?;
 
+  // The signing certificate's identity must match the repository linked to the
+  // package, if any.
+  let (db_package, github_repository, meta) =
+    db.get_package(&scope, &package).await?.ok_or_else(|| {
+      error!("package not found when inserting provenance statement");
+      ApiError::InternalServerError
+    })?;
+  let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
+
+  // The attestation's `subject.digest.sha256` is the SHA-256 of the published
+  // `<version>_meta.json`, which the publishing client fetches back from the
+  // registry after the version is created. Hash the stored manifest here and
+  // require the attestation to match it. Fail closed if there is no manifest.
+  let manifest_digest =
+    version_manifest_digest(buckets, &scope, &package, &version)
+      .await?
+      .ok_or_else(|| {
+        error!("no published manifest for version when verifying provenance");
+        ApiError::InternalServerError
+      })?;
+
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
-  let rekor_log_id = provenance::verify(name, body.bundle)?;
+  let rekor_log_id =
+    provenance::verify(name, expected_repo, &manifest_digest, body.bundle)?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
 
-  if let Some(orama_client) = orama_client {
-    let (package, _, meta) =
-      db.get_package(&scope, &package).await?.ok_or_else(|| {
-        error!("package not found after inserting provenance statement");
-        ApiError::InternalServerError
-      })?;
-    orama_client.upsert_package(&package, &meta);
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&db_package, &meta);
   }
 
   Ok(
@@ -1087,6 +1105,32 @@ pub async fn version_provenance_statements_handler(
       .body(Body::empty())
       .unwrap(),
   )
+}
+
+/// The hex SHA-256 of the published `<version>_meta.json`, or `None` if the
+/// version has no manifest stored yet.
+///
+/// This is the artifact SLSA provenance attests over: the publishing client
+/// fetches `<version>_meta.json` back from the registry once the version is
+/// live and puts its digest in the attestation's subject. The manifest carries
+/// a checksum for every file in the version, so it transitively covers the
+/// published contents. The bytes hashed here are the exact bytes the registry
+/// serves, so the two digests are directly comparable.
+async fn version_manifest_digest(
+  buckets: &Buckets,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+) -> Result<Option<String>, ApiError> {
+  let path = crate::s3_paths::version_metadata(scope, package, version);
+  let Some(manifest) = buckets.modules_bucket.download(path.into()).await?
+  else {
+    return Ok(None);
+  };
+  Ok(Some(format!(
+    "{:x}",
+    sha2::Sha256::digest(manifest.as_ref())
+  )))
 }
 
 #[instrument(
@@ -1363,17 +1407,25 @@ pub async fn get_docs_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let has_readme = !all_symbols
     && entrypoint.is_none()
@@ -1495,17 +1547,25 @@ pub async fn get_docs_search_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
   let generate_ctx_cache =
@@ -1561,17 +1621,25 @@ pub async fn get_docs_search_structured_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
   let generate_ctx_cache =
@@ -1794,6 +1862,12 @@ pub async fn get_source_handler(
 pub async fn get_diff_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiPackageVersionDocs> {
+  // The diff view is disabled. Flip to `true` to re-enable it.
+  const DIFF_ENABLED: bool = false;
+  if !DIFF_ENABLED {
+    return Err(ApiError::DiffDisabled);
+  }
+
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   Span::current().record("scope", field::display(&scope));
@@ -2358,6 +2432,8 @@ async fn analyze_deps_tree(
         unstable_bytes_imports: false,
         unstable_text_imports: false,
         jsr_metadata_store: None,
+
+        unstable_css_imports: false,
       },
     )
     .await;
@@ -2759,6 +2835,8 @@ mod test {
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
+  use crate::s3::S3UploadOptions;
+  use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
@@ -3147,6 +3225,7 @@ mod test {
     use crate::provenance::*;
     use base64::Engine;
     use base64::prelude::BASE64_STANDARD;
+    use sha2::Digest;
 
     let mut t = TestSetup::new().await;
     let scope = t.scope.scope.clone();
@@ -3171,6 +3250,32 @@ mod test {
         meta: Default::default(),
         license: "MIT".to_string(),
       })
+      .await
+      .unwrap();
+
+    // Store a version manifest for 1.0.0 so the provenance endpoint has
+    // something to bind the attestation to. The digest the client attests is the
+    // SHA-256 of these exact bytes (jsr-io/jsr#1474). 1.0.1 deliberately has no
+    // manifest, which exercises the fail-closed path below.
+    let manifest =
+      br#"{"exports":{".":"/mod.ts"},"manifest":{},"moduleGraph2":{}}"#;
+    let manifest_digest = format!("{:x}", sha2::Sha256::digest(manifest));
+    t.buckets()
+      .modules_bucket
+      .upload(
+        crate::s3_paths::version_metadata(
+          &scope,
+          &name,
+          &"1.0.0".try_into().unwrap(),
+        )
+        .into(),
+        UploadTaskBody::Bytes(manifest.as_slice().into()),
+        S3UploadOptions {
+          content_type: Some("application/json".into()),
+          cache_control: None,
+          gzip_encoded: false,
+        },
+      )
       .await
       .unwrap();
 
@@ -3247,13 +3352,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       },
     };
 
-    // Valid subject.
+    // Security regression test (gist forgery): the certificate above is a real
+    // GitHub Actions Fulcio certificate, so it chains to Fulcio and has a valid
+    // GitHub Actions identity — but the DSSE envelope is signed with a bogus
+    // signature ("sig") that the attacker fabricated. This used to be accepted
+    // (provenance verification skipped the DSSE signature entirely); it must now
+    // be rejected, and the package must not gain a provenance badge.
     update_bundle_subject(
       &mut bundle,
       Subject {
         name: format!("pkg:jsr/@{}/{}@1.0.0", scope, name),
         digest: SubjectDigest {
-          sha256: "bar".to_string(),
+          sha256: manifest_digest,
         },
       },
     );
@@ -3264,7 +3374,9 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .call()
       .await
       .unwrap();
-    resp.expect_ok_no_content().await;
+    resp
+      .expect_err_code(StatusCode::INTERNAL_SERVER_ERROR, "internalServerError")
+      .await;
 
     let mut resp = t
       .http()
@@ -3273,7 +3385,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let score: ApiPackageScore = resp.expect_ok().await;
-    assert!(score.has_provenance);
+    assert!(!score.has_provenance);
 
     // Invalid subject.
     update_bundle_subject(
@@ -4012,6 +4124,109 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "entrypointOrSymbolNotFound")
+      .await;
+
+    // the "latest" alias resolves to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { version, .. } => {
+        assert_eq!(version.version, task.package_version);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // docs are only served for the latest version; any other version is
+    // rejected so callers fall back to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs/search")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.0.0/docs/search_structured",
+      )
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+
+    // the diff view is disabled
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/diff/1.0.0/1.2.3?all_symbols")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "diffDisabled")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_prerelease_only() {
+    let mut t = TestSetup::new().await;
+
+    // publish a package that only has a prerelease version (no stable release)
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3-alpha.1").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok_prerelease"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with no stable release, docs fall back to the latest prerelease for both
+    // the "latest" alias and the explicit prerelease version
+    for path in [
+      "/api/scopes/scope/packages/foo/versions/latest/docs",
+      "/api/scopes/scope/packages/foo/versions/1.2.3-alpha.1/docs",
+    ] {
+      let mut resp = t.http().get(path).call().await.unwrap();
+      let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+      match docs {
+        ApiPackageVersionDocs::Content { version, .. } => {
+          assert_eq!(version.version, task.package_version);
+        }
+        ApiPackageVersionDocs::Redirect { .. } => panic!(),
+      }
+    }
+
+    // a version that is not the latest prerelease is still rejected
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
       .await;
   }
 

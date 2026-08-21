@@ -26,7 +26,7 @@ resource "cloudflare_worker" "jsr_frontend" {
   name       = "${var.gcp_project}-jsr-frontend"
 
   observability = {
-    enabled            = true
+    enabled = true
     logs = {
       enabled            = true
       invocation_logs    = false
@@ -102,31 +102,34 @@ resource "cloudflare_worker_version" "jsr_frontend" {
       name = "NO_COLOR"
       text = "true"
       }, {
-      # Orama search keys are public by design — the frontend ships them
-      # to the browser. They live as plain_text bindings, not secrets.
+      # Algolia app id and search-only keys are public by design — the frontend
+      # ships them to the browser. They live as plain_text bindings, not secrets.
       type = "plain_text"
-      name = "ORAMA_PACKAGES_PUBLIC_API_KEY"
-      text = var.orama_packages_public_api_key
+      name = "ALGOLIA_APP_ID"
+      text = var.algolia_app_id
       }, {
       type = "plain_text"
-      name = "ORAMA_PACKAGES_PROJECT_ID"
-      text = var.orama_packages_project_id
+      name = "ALGOLIA_PACKAGES_SEARCH_API_KEY"
+      text = algolia_api_key.packages_search.key
       }, {
       type = "plain_text"
-      name = "ORAMA_SYMBOLS_PUBLIC_API_KEY"
-      text = var.orama_symbols_public_api_key
+      name = "ALGOLIA_PACKAGES_INDEX"
+      text = algolia_index.packages.name
       }, {
       type = "plain_text"
-      name = "ORAMA_SYMBOLS_PROJECT_ID"
-      text = var.orama_symbols_project_id
+      name = "ALGOLIA_DOCS_SEARCH_API_KEY"
+      text = algolia_api_key.docs_search.key
       }, {
       type = "plain_text"
-      name = "ORAMA_DOCS_PUBLIC_API_KEY"
-      text = var.orama_docs_public_api_key
+      name = "ALGOLIA_DOCS_INDEX"
+      text = algolia_index.docs.name
       }, {
+      # The Turnstile site key is public by design — the widget on the login
+      # page ships it to the browser. Its counterpart, TURNSTILE_SECRET_KEY,
+      # is a Secrets Manager secret on the API (see cloud_run_api.tf).
       type = "plain_text"
-      name = "ORAMA_DOCS_PROJECT_ID"
-      text = var.orama_docs_project_id
+      name = "TURNSTILE_SITE_KEY"
+      text = cloudflare_turnstile_widget.login.sitekey
     }
   ]
 }

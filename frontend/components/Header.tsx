@@ -6,14 +6,13 @@ import { UserMenu } from "../islands/UserMenu.tsx";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
-import { SignInMenu } from "../islands/SignInMenu.tsx";
 import TbLogin2 from "tb-icons/TbLogin2";
 
-const oramaPackageApiKey = process.env.ORAMA_PACKAGES_PUBLIC_API_KEY;
-const oramaPackageProjectId = process.env.ORAMA_PACKAGES_PROJECT_ID;
-const oramaDocsApiKey = process.env.ORAMA_DOCS_PUBLIC_API_KEY;
-const oramaDocsProjectId = process.env.ORAMA_DOCS_PROJECT_ID;
-const prodProxy = !!process.env.PROD_PROXY;
+const algoliaAppId = process.env.ALGOLIA_APP_ID;
+const algoliaPackageApiKey = process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY;
+const algoliaPackageIndex = process.env.ALGOLIA_PACKAGES_INDEX;
+const algoliaDocsApiKey = process.env.ALGOLIA_DOCS_SEARCH_API_KEY;
+const algoliaDocsIndex = process.env.ALGOLIA_DOCS_INDEX;
 
 export function Header({
   user,
@@ -29,12 +28,12 @@ export function Header({
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
   const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaApiKey = searchKind === "packages"
-    ? oramaPackageApiKey
-    : oramaDocsApiKey;
-  const oramaProjectId = searchKind === "packages"
-    ? oramaPackageProjectId
-    : oramaDocsProjectId;
+  const algoliaApiKey = searchKind === "packages"
+    ? algoliaPackageApiKey
+    : algoliaDocsApiKey;
+  const algoliaIndex = searchKind === "packages"
+    ? algoliaPackageIndex
+    : algoliaDocsIndex;
 
   const isHomepage = url.pathname === "/";
 
@@ -68,8 +67,9 @@ export function Header({
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
-                projectId={oramaProjectId}
-                apiKey={oramaApiKey}
+                appId={algoliaAppId}
+                apiKey={algoliaApiKey}
+                indexName={algoliaIndex}
                 kind={searchKind}
               />
             )}
@@ -89,7 +89,8 @@ export function Header({
                   href="/packages"
                   className="link-header"
                 >
-                  Browse packages
+                  <span class="sm:hidden">Packages</span>
+                  <span class="hidden sm:inline">Browse packages</span>
                 </a>
               )}
             {searchKind !== "docs" && (
@@ -116,17 +117,19 @@ export function Header({
                       logoutUrl={`/logout${redirect}`}
                     />
                   )
-                  : (prodProxy
-                    ? (
-                      <a
-                        href={`/login${redirect}`}
-                        class="flex items-center gap-2 link-header"
-                      >
-                        <TbLogin2 class="size-5" />
-                        <span>Sign in</span>
-                      </a>
-                    )
-                    : <SignInMenu redirect={redirect} />)}
+                  : (
+                    // Provider choice lives on /login, behind the captcha,
+                    // rather than in a dropdown here: the providers are reached
+                    // by a form POST carrying a Turnstile token, which a link
+                    // cannot produce.
+                    <a
+                      href={`/login${redirect}`}
+                      class="flex items-center gap-2 link-header"
+                    >
+                      <TbLogin2 class="size-5" />
+                      <span>Sign in</span>
+                    </a>
+                  )}
               </>
             )}
           </div>
@@ -135,8 +138,9 @@ export function Header({
           {!isHomepage && (
             <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
-              projectId={oramaProjectId}
-              apiKey={oramaApiKey}
+              appId={algoliaAppId}
+              apiKey={algoliaApiKey}
+              indexName={algoliaIndex}
               kind={searchKind}
             />
           )}

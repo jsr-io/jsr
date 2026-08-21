@@ -10,8 +10,8 @@ resource "google_sql_database_instance" "main_pg15" {
 
   settings {
     edition           = "ENTERPRISE"
-    tier              = var.production ? "db-custom-4-8192" : "db-f1-micro"
-    availability_type = var.production ? "REGIONAL" : "ZONAL"
+    tier              = var.production ? "db-custom-2-6144" : "db-f1-micro"
+    availability_type = "ZONAL"
 
     disk_type             = "PD_SSD"
     disk_autoresize       = true

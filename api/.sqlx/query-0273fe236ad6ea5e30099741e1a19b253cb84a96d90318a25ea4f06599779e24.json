@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url)\n      VALUES ($1, $2, $3)\n      RETURNING csrf_token, pkce_code_verifier, redirect_url, updated_at, created_at",
+  "query": "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url, user_id)\n      VALUES ($1, $2, $3, $4)\n      RETURNING csrf_token, pkce_code_verifier, redirect_url, user_id, updated_at, created_at",
   "describe": {
     "columns": [
       {
@@ -20,11 +20,16 @@
       },
       {
         "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
         "name": "updated_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -33,16 +38,18 @@
       "Left": [
         "Text",
         "Text",
-        "Text"
+        "Text",
+        "Uuid"
       ]
     },
     "nullable": [
       false,
       false,
       false,
+      true,
       false,
       false
     ]
   },
-  "hash": "13ef314538ba891e013f7dd69d63cd2388176c2edd3f9141779df2a2dd5fe267"
+  "hash": "0273fe236ad6ea5e30099741e1a19b253cb84a96d90318a25ea4f06599779e24"
 }

@@ -76,44 +76,21 @@ pub struct Config {
   /// The GitLab Client Secret
   pub gitlab_client_secret: String,
 
-  #[clap(
-    long = "orama_packages_project_id",
-    env = "ORAMA_PACKAGES_PROJECT_ID"
-  )]
-  /// The Orama package project id
-  pub orama_packages_project_id: Option<String>,
+  #[clap(long = "algolia_app_id", env = "ALGOLIA_APP_ID")]
+  /// The Algolia application id
+  pub algolia_app_id: Option<String>,
 
-  #[clap(
-    long = "orama_packages_project_key",
-    env = "ORAMA_PACKAGES_PROJECT_KEY"
-  )]
-  /// The Orama package project key
-  pub orama_packages_project_key: Option<String>,
+  #[clap(long = "algolia_write_api_key", env = "ALGOLIA_WRITE_API_KEY")]
+  /// The Algolia API key with write access, used for indexing
+  pub algolia_write_api_key: Option<String>,
 
-  #[clap(
-    long = "orama_packages_data_source",
-    env = "ORAMA_PACKAGES_DATA_SOURCE"
-  )]
-  /// The Orama package data source
-  pub orama_packages_data_source: Option<String>,
+  #[clap(long = "algolia_packages_index", env = "ALGOLIA_PACKAGES_INDEX")]
+  /// The Algolia index name for packages
+  pub algolia_packages_index: Option<String>,
 
-  #[clap(long = "orama_symbols_project_id", env = "ORAMA_SYMBOLS_PROJECT_ID")]
-  /// The Orama symbol project id
-  pub orama_symbols_project_id: Option<String>,
-
-  #[clap(
-    long = "orama_symbols_project_key",
-    env = "ORAMA_SYMBOLS_PROJECT_KEY"
-  )]
-  /// The Orama symbol project key
-  pub orama_symbols_project_key: Option<String>,
-
-  #[clap(
-    long = "orama_symbols_data_source",
-    env = "ORAMA_SYMBOLS_DATA_SOURCE"
-  )]
-  /// The Orama symbol data source
-  pub orama_symbols_data_source: Option<String>,
+  #[clap(long = "algolia_symbols_index", env = "ALGOLIA_SYMBOLS_INDEX")]
+  /// The Algolia index name for symbols
+  pub algolia_symbols_index: Option<String>,
 
   #[clap(long = "otlp_endpoint", env = "OTLP_ENDPOINT")]
   /// Base OTLP/HTTP endpoint (e.g. Grafana Cloud's
@@ -203,6 +180,12 @@ pub struct Config {
   /// The Cloudflare Analytics Engine dataset name for download tracking.
   pub cloudflare_analytics_dataset: Option<String>,
 
+  #[clap(long = "turnstile_secret_key", env = "TURNSTILE_SECRET_KEY")]
+  /// The Cloudflare Turnstile secret key, used to verify the captcha response
+  /// submitted with the login form. Must be paired with the frontend's
+  /// `TURNSTILE_SITE_KEY`. Captcha verification is disabled if unset.
+  pub turnstile_secret_key: Option<String>,
+
   #[clap(long = "postmark_token", env = "POSTMARK_TOKEN")]
   /// The Postmark token to use to send emails.
   pub postmark_token: Option<String>,
@@ -250,6 +233,10 @@ impl std::fmt::Debug for Config {
       .field(
         "npm_tarball_build_queue_id",
         &self.npm_tarball_build_queue_id,
+      )
+      .field(
+        "turnstile_secret_key",
+        &self.turnstile_secret_key.as_ref().map(|_| "***"),
       )
       .field(
         "postmark_token",

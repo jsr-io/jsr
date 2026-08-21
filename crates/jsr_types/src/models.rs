@@ -514,6 +514,7 @@ pub struct PackageVersionMeta {
   pub has_readme: bool,
   pub has_readme_examples: bool,
   pub all_entrypoints_docs: bool,
+  pub entrypoints_without_docs: Vec<String>,
   pub percentage_documented_symbols: f32,
   pub all_fast_check: bool, // mean no slow types
   pub has_provenance: bool,
@@ -606,6 +607,10 @@ pub struct OauthState {
   pub csrf_token: String,
   pub pkce_code_verifier: String,
   pub redirect_url: String,
+  /// The user that initiated this flow, if any. `None` for the login flow (no
+  /// authenticated user yet); `Some` for the account-linking ("connect") flow,
+  /// where the callback must match the authenticated user.
+  pub user_id: Option<Uuid>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
@@ -615,6 +620,7 @@ pub struct NewOauthState<'a> {
   pub csrf_token: &'a str,
   pub pkce_code_verifier: &'a str,
   pub redirect_url: &'a str,
+  pub user_id: Option<Uuid>,
 }
 
 #[derive(Debug)]
@@ -956,6 +962,7 @@ pub type PackageWithGitHubRepoAndMeta =
 pub struct StatsPackage {
   pub scope: ScopeName,
   pub name: PackageName,
+  pub description: String,
 }
 
 #[derive(Debug)]
@@ -963,6 +970,7 @@ pub struct StatsPackageVersion {
   pub scope: ScopeName,
   pub name: PackageName,
   pub version: Version,
+  pub description: String,
 }
 
 #[derive(Debug, Clone)]

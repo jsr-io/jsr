@@ -82,6 +82,20 @@ resource "cloudflare_workers_script" "jsr_lb" {
         limit  = 240
         period = 60
       }
+      }, {
+      # Stricter per-IP limit applied only to the doc, diff, and source package
+      # pages (see isDocsDiffSourceRoute in lb/main.ts) — the expensive-to-render
+      # routes scrapers walk symbol-by-symbol. Stacks on top of FRONTEND_RATELIMIT
+      # so these pages are capped well below the general frontend allowance.
+      # namespace_id is a per-account identifier for this rate-limit binding;
+      # any unused value works (no Cloudflare-reserved meaning for "1002").
+      type         = "ratelimit"
+      name         = "DOCS_RATELIMIT"
+      namespace_id = "1002"
+      simple = {
+        limit  = 20
+        period = 60
+      }
     }
   ]
 

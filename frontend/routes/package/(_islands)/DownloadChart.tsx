@@ -92,13 +92,24 @@ const getChartOptions = (
   ],
 });
 
+// Considers data "present" only when at least one fully-completed week exists,
+// so the chart, widget, and header agree on the empty-state for a given package.
+export function hasCompletedWeekData(downloads: DownloadDataPoint[]): boolean {
+  return collectX(downloads, "weekly").length > 1;
+}
+
 export function DownloadChart(props: Props) {
+  const hasData = hasCompletedWeekData(
+    props.downloads.flatMap((v) => v.downloads),
+  );
+
   const chartDivRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ApexCharts>(null);
   const stackedRef = useRef(true);
   const graphRendered = useSignal(false);
 
   useEffect(() => {
+    if (!hasData) return;
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
       const isDarkMode = document.documentElement.classList.contains("dark");
@@ -137,6 +148,14 @@ export function DownloadChart(props: Props) {
       };
     })();
   }, []);
+
+  if (!hasData) {
+    return (
+      <div class="h-[300px] flex items-center justify-center text-tertiary">
+        No download data available yet.
+      </div>
+    );
+  }
 
   return (
     <div class="relative">

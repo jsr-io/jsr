@@ -23,7 +23,7 @@ serde_json = "1"
 # Only the `Uuid` type + serde are needed here; v4 generation (which pulls
 # `getrandom`, not wasm-safe by default) stays in the consuming crates.
 uuid = { version = "1", features = ["serde"] }
-deno_semver = "0.9.1"
+deno_semver = "0.10.1"
 thiserror = "2"
 indexmap = { version = "2.13.0", features = ["serde"] }
 sqlx = { version = "0.8.6", default-features = false, optional = true, features = [
