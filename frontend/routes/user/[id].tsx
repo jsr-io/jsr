@@ -2,8 +2,10 @@
 import { HttpError } from "fresh";
 import { define } from "../../util.ts";
 import { assertOk, path } from "../../utils/api.ts";
-import { FullUser, Scope, User } from "../../utils/api_types.ts";
+import { FullUser, Package, Scope, User } from "../../utils/api_types.ts";
 import { ScopeCard } from "../../components/ScopeCard.tsx";
+import { ListDisplay } from "../../components/List.tsx";
+import { PackageHit } from "../../components/PackageHit.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
 
 export default define.page<typeof handler>(function UserPage({ data, state }) {
@@ -34,14 +36,21 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
             </div>
           )}
 
-        {
-          /*<div>
-          <span class="font-semibold">Recently published</span>
-          <div class="text-tertiary text-base"
-            TODO: all packages recently published by this user
+        {data.packages.length > 0 && (
+          <div class="mt-8">
+            <h3 class="text-lg md:text-xl font-semibold">
+              Recently published
+            </h3>
+            <p class="text-base text-tertiary">
+              {state.user?.id === data.user.id
+                ? "Packages you have recently published."
+                : "Packages this user has recently published."}
+            </p>
+            <ListDisplay>
+              {data.packages.map((entry) => PackageHit(entry))}
+            </ListDisplay>
           </div>
-        </div>*/
-        }
+        )}
       </div>
     </AccountLayout>
   );
@@ -49,10 +58,11 @@ export default define.page<typeof handler>(function UserPage({ data, state }) {
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const [currentUser, userRes, scopesRes] = await Promise.all([
+    const [currentUser, userRes, scopesRes, packagesRes] = await Promise.all([
       ctx.state.userPromise,
       ctx.state.api.get<User>(path`/users/${ctx.params.id}`),
       ctx.state.api.get<Scope[]>(path`/users/${ctx.params.id}/scopes`),
+      ctx.state.api.get<Package[]>(path`/users/${ctx.params.id}/packages`),
     ]);
     if (currentUser instanceof Response) return currentUser;
 
@@ -61,6 +71,7 @@ export const handler = define.handlers({
     }
     assertOk(userRes);
     assertOk(scopesRes);
+    assertOk(packagesRes);
 
     let user: User | FullUser = userRes.data;
     if (ctx.params.id === currentUser?.id) {
@@ -74,6 +85,7 @@ export const handler = define.handlers({
       data: {
         user,
         scopes: scopesRes.data,
+        packages: packagesRes.data,
       },
     };
   },
