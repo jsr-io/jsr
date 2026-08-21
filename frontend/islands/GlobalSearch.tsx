@@ -12,7 +12,6 @@ import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
-import { initInsights, trackResultClick } from "../utils/algolia_insights.ts";
 import TbAdjustmentsHorizontal from "tb-icons/TbAdjustmentsHorizontal";
 
 interface GlobalSearchProps {
@@ -83,13 +82,9 @@ export function GlobalSearch(
 
   const algolia = useMemo(() => {
     if (IS_BROWSER && appId && indexName) {
-      initInsights(appId, apiKey!);
       return liteClient(appId, apiKey!);
     }
   }, [appId, apiKey]);
-
-  // queryID of the currently displayed suggestions, needed to attribute clicks.
-  const queryID = useRef<string | undefined>(undefined);
 
   const randomHint = useSignal<JSX.Element | null>(null);
 
@@ -152,7 +147,6 @@ export function GlobalSearch(
                 query,
                 filters,
                 hitsPerPage: 5,
-                clickAnalytics: true,
               }],
             });
             if (
@@ -164,7 +158,6 @@ export function GlobalSearch(
             searchNRef.current.displayed = searchN;
             // deno-lint-ignore no-explicit-any
             const result = results[0] as any;
-            queryID.current = result?.queryID;
             batch(() => {
               selectionIdx.value = -1;
               suggestions.value = result?.hits ?? [];
@@ -246,20 +239,6 @@ export function GlobalSearch(
     updateOverlayScroll(e.currentTarget! as HTMLInputElement);
   }
 
-  // Report a chosen suggestion to Algolia Insights (no-op without a queryID,
-  // e.g. the API fallback path).
-  function onResultSelect(rawHit: unknown, index: number) {
-    if (!queryID.current || !indexName) return;
-    const objectID = (rawHit as { objectID?: string }).objectID;
-    if (!objectID) return;
-    trackResultClick({
-      index: indexName,
-      queryID: queryID.current,
-      objectID,
-      position: index + 1,
-    });
-  }
-
   function onSubmit(e: JSX.TargetedEvent<HTMLFormElement>) {
     if (
       !btnSubmit.value && selectionIdx.value > -1 && suggestions.value !== null
@@ -267,7 +246,6 @@ export function GlobalSearch(
       const item = suggestions.value[selectionIdx.value];
       if (item !== undefined) {
         e.preventDefault();
-        onResultSelect(item, selectionIdx.value);
 
         if (kind === "packages") {
           location.href = new URL(
@@ -436,7 +414,6 @@ export function GlobalSearch(
           kind={kind}
           input={search}
           randomHint={randomHint}
-          onSelect={onResultSelect}
           showFilters={showFilters}
           activeFilters={activeFilters}
           toggleFilter={toggleFilter}
@@ -455,7 +432,6 @@ function SuggestionList(
     kind,
     input,
     randomHint,
-    onSelect,
     showFilters,
     activeFilters,
     toggleFilter,
@@ -469,7 +445,6 @@ function SuggestionList(
     kind: SearchKind;
     input: Signal<string>;
     randomHint: Signal<JSX.Element | null>;
-    onSelect: (rawHit: unknown, index: number) => void;
     showFilters: Signal<boolean>;
     activeFilters: Signal<{
       runtimes: Set<string>;
@@ -512,11 +487,7 @@ function SuggestionList(
                   class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-selected:bg-jsr-cyan-100 dark:aria-selected:bg-jsr-cyan-950"
                   aria-selected={selected}
                 >
-                  <a
-                    href={hit.href}
-                    class="bg-red-600"
-                    onClick={() => onSelect(rawHit, i)}
-                  >
+                  <a href={hit.href} class="bg-red-600">
                     {hit.content}
                   </a>
                 </li>
