@@ -42,12 +42,9 @@ an account, publish a package, open a support ticket, access or participate on
 our Sites, or otherwise interact with us. This information may include:
 
 _Contact Information._ We collect your contact information when you voluntarily
-provide it to us. For example, you may disclose contact information to us when
-you contact us for support, submit information by mail, telephone, in person or
-electronically, or when you sign up for our newsletters and other marketing
-communications. Contact Information typically includes first name, last name,
-e-mail address, postal address, organization, telephone number and other
-information that identifies you or can be used to identify or contact you.
+provide it to us — for example, when you open a support ticket or email us for
+help. In practice this is your email address and whatever you choose to put in
+your message. We do not run a newsletter and we do not send marketing email.
 
 _Account Credentials_. When you register to create an account with us, you
 authenticate via an identity provider such as GitHub, and we will collect
@@ -80,28 +77,12 @@ may collect other kinds of information, such as:
 
 **2\. Information Obtained From Third Parties**
 
-We may receive certain information about you from other sources, including
-publicly available sources (such as public records and social media platforms),
-as well as our service providers and marketing partners. In particular, when you
-authenticate to JSR through an identity provider such as GitHub, that provider
-shares certain account information with us as described above.
-
-When we collect personal information from users and visitors of other sites on
-which you have interacted with us, we will do so in accordance with the terms of
-use and privacy policies of those sites and applicable law. We may also receive
-personal information when you comment on our social media advertisements, post
-comments about us, or tag us in a public-facing social media post. Personal
-information may also be collected by the third-party social media sites that
-host our social media pages. These sites may provide aggregate information and
-analysis to us about visitors’ use of our social media pages. This allows us to
-better understand and analyze our user growth, general demographic information
-about the users of these pages, and interaction with the content that we post.
-Overall, this information may be used to help us understand the types of
-visitors and users of our social media pages and use of the content. This
-Privacy Policy does not cover personal information collected by such third-party
-social media sites. For more information on their privacy and security practices
-please review the privacy policies and terms of use on their respective
-websites.
+When you authenticate to JSR through an identity provider — GitHub or GitLab —
+that provider shares certain account information with us: your name, email
+address, avatar, username, and numeric user identifier. That is the only routine
+source of information about you that we receive from a third party. We do not
+buy personal information, and we do not receive it from data brokers or
+marketing partners.
 
 **3\. Information Collected Automatically**
 
@@ -109,26 +90,31 @@ We and our service providers may automatically obtain certain information about
 you, your electronic device, and your interactions with us, including the
 following:
 
-- _Device data_. We may collect data such as the type of device and its
-  operating system and settings, browser type, mobile device carrier, country,
-  IP address, and unique identifiers.
+- _Server logs_. Our servers and our CDN record requests made to JSR, including
+  your IP address, user agent, the path requested, and the time of the request.
 
-- _Internet and other or electronic activity data_. This includes information
-  about your interaction with our Sites, emails, and other online content.
+- _Download counts_. When a package is downloaded we record the scope, package
+  name, version, and the user agent that requested it, so that we can show
+  download statistics. We do not record your IP address alongside this.
 
-- _Tracking Data_. We may collect tracking data using first and third-party
-  cookies, pixels, web server logs, web beacons, and similar data collection and
-  tracking technologies on the Sites, third party websites, apps and online
-  services, and across your devices (such as IP address, browser, type, ISP,
-  platform type, device type). Third parties such as advertising networks and
-  analytics providers may also collect information about your online activities
-  over time and across different websites and devices when you access or use the
-  Sites.
+- _Search_. Search on JSR is powered by Algolia. The text you type into the
+  search box is sent to Algolia in order to return results. We do not tell
+  Algolia which result you clicked, and we do not keep any identifier that would
+  let searches be linked to each other or to you.
+
+- _Bot protection_. Our login page uses Cloudflare Turnstile to distinguish
+  people from automated abuse. Turnstile receives signals from your browser in
+  order to make that determination.
 
 - _Audit logs_. We keep an audit log of security- and moderation-relevant
   actions taken on the Platform, such as publishing a package, changing scope
   membership, and administrative actions. Audit log entries record the account
   that performed the action and the time at which it was performed.
+
+We do not track you. JSR contains no advertising networks, no third-party
+analytics or advertising trackers such as Google Analytics, no tracking pixels,
+and no cross-site tracking of any kind. We do not sell advertising, and we do
+not profile you or build a record of your behaviour across visits.
 
 **II. How We Use And Share Your Information**
 
@@ -147,11 +133,23 @@ to, and the packages and package versions you publish are publicly visible
 through the Site and the JSR API, and may be downloaded, cached, and mirrored by
 third parties.
 
-_Analytics Services_. We may use third-party web analytics services, such as
-Google Analytics, to help us understand and analyze how Site visitors use our
-services. For more information on how Google Analytics uses data collected
-through our Sites, visit
-[www.google.com/policies/privacy/partners](http://www.google.com/policies/privacy/partners).
+_Service Providers._ JSR is built on a small number of third-party services, and
+those providers process data on our behalf in order to run the registry. They
+are:
+
+| Provider          | What it does for JSR                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Google Cloud      | Runs the API, the database, background job queues, scheduled jobs, secrets, and log storage                                   |
+| Cloudflare        | CDN and edge routing, package and documentation storage (R2), download counts, and Turnstile bot protection on the login page |
+| Algolia           | Powers package and documentation search                                                                                       |
+| Postmark          | Sends transactional email — scope invitations, access token notices, and support ticket replies                               |
+| GitHub and GitLab | Provide authentication when you sign in                                                                                       |
+
+We use these providers only to operate the Services. This list is the complete
+set of third parties that receive personal information from JSR; if it changes
+we will update this page. Our infrastructure is defined in public Terraform in
+the [JSR repository](https://github.com/jsr-io/jsr), so this list can be checked
+against what we actually run.
 
 _Aggregated Data_. We may analyze your personal information in aggregate form
 which does not identify you personally (“**Aggregated Data**”). The Aggregated
@@ -181,7 +179,36 @@ that is not consistent with this Privacy Policy, you will be informed of such
 anticipated use prior to or at the time at which the personal information is
 collected.
 
-**III. How We Protect Your Information**
+**III. Legal Bases For Processing (EEA and UK)**
+
+If you are in the European Economic Area or the United Kingdom, we process your
+personal information on the following bases:
+
+- _Performance of a contract._ We process your account information and the
+  content you publish because it is necessary to provide the registry to you
+  under our [Terms of Service](/docs/terms-of-service).
+
+- _Legitimate interests._ We process server logs, download counts, search
+  analytics, audit logs, and bot-protection signals because we have a legitimate
+  interest in keeping JSR secure, available, and useful, and in understanding
+  how it is used. We balance that interest against your rights, which is why
+  these records are minimal and short-lived.
+
+- _Consent._ Where we rely on your consent — for example, for storage on your
+  device that is not strictly necessary to deliver the Services — you may
+  withdraw it at any time, and withdrawing it will not affect processing that
+  took place beforehand.
+
+- _Legal obligation._ We process and retain information where the law requires
+  it, and to establish, exercise, or defend legal claims.
+
+You have the right to access, correct, delete, restrict, and object to our
+processing of your personal information, and to receive a copy of it in a
+portable format. To exercise any of these rights, contact
+[help@jsr.io](mailto:help@jsr.io). You also have the right to lodge a complaint
+with your local data protection supervisory authority.
+
+**IV. How We Protect Your Information**
 
 We take commercially reasonable steps to protect your personal information from
 loss, misuse, and unauthorized access, disclosure, alteration, or destruction.
@@ -190,146 +217,138 @@ guarantee the security of our databases, nor can we guarantee that the personal
 information that you supply will not be intercepted while being transmitted to
 and from us over the Internet.
 
-**IV. Data Retention**
+**V. Data Retention**
 
-Deno determines the retention period for all Information based on the purposes
-for which we collect and/or receive the Information and/or tax, legal and
-regulatory requirements. In addition to this, we may consider other factors,
-such as the nature and sensitivity of the data, and whether we can achieve the
-purpose for which we collected the data through other means.
+We keep information only as long as we need it. Specifically:
 
-**V. Account Deletion And Data Retention**
+- _Server and request logs_ are retained for **30 days**, then deleted
+  automatically.
+- _Fine-grained download counts_ are retained for **7 days**; the aggregate
+  download totals shown on package pages are kept indefinitely, and are not
+  personal information.
+- _Expired sign-in state_ is deleted **hourly**, and is never kept longer than
+  an hour.
+- _Database backups_ have a **7 day** recovery window.
+- _Your account record_ is kept for as long as your account exists.
+- _Audit log entries_ are kept for as long as we need them for security and
+  moderation.
+- _Published packages_ are kept indefinitely, because other people's code
+  depends on them. See "Published Packages Remain Public" below.
 
-You may delete your JSR account at any time from your account settings. This
-section describes what happens to your Information when you do.
+Retention periods for logs and scheduled deletion jobs are configured in public
+Terraform in the [JSR repository](https://github.com/jsr-io/jsr) and can be
+verified there.
 
-**1\. Information That Is Deleted**
+**VI. Account Deletion**
 
-When you delete your account, your account record is permanently deleted from
-our systems. This includes your name, your email address, and your avatar, which
-are not retained.
+You can delete your account at any time from your account settings. This section
+describes what happens when you do.
 
-**2\. Information That Is Retained**
+**1. What is deleted**
 
-Deleting your account does not erase the record that the account existed or the
-actions it took on the Platform. Specifically:
+Your account is removed. Your name, your email address, and your avatar are no
+longer part of any account on JSR, and you stop appearing as a member of any
+scope.
 
-- _Audit log entries._ Audit log entries created by your account are reassigned
-  to a system service account, so that the audit trail of actions taken on the
-  Platform remains complete and attributable.
+**2. What you look like afterwards**
 
-- _Pseudonymous identifiers._ We retain a minimal, pseudonymous record of the
-  deleted account. Each of your former audit log entries retains your internal
-  account identifier (a UUID, stored as `meta.original_actor_id`), and the audit
-  log entry recording the deletion itself (`user_delete`) retains that internal
-  account identifier together with the numeric user identifiers assigned to you
-  by your identity provider (for example, your GitHub or GitLab numeric user
-  ID). This record allows the account to be re-identified through the identity
-  provider if we are legally required to do so. It does not include your name,
-  email address, or avatar.
+Wherever the site would previously have shown you — as the publisher of a
+version, or as a member of a scope — it shows an anonymous placeholder account
+instead. Your identity is not shown to other users after deletion.
 
-- _Support tickets._ Support tickets you created and messages you sent within
-  them are reassigned to the system service account and retained.
+**3. What we keep, and for how long**
 
-We retain this information because it is necessary for compliance with a legal
-obligation to which we are subject, for reasons of security and the prevention
-and investigation of fraud and abuse, and for the establishment, exercise, or
-defense of legal claims. We rely on Article 17(3)(b) and Article 17(3)(e) of the
-EU General Data Protection Regulation and on Section 1798.105(d) of the
-California Consumer Privacy Act as the bases for retaining it notwithstanding a
-deletion request.
+Deleting your account does not erase the record that it existed or what it did.
+We keep a single entry recording the deletion, which contains:
 
-**3\. Published Packages Remain Public**
+- _Indefinitely:_ an internal identifier for the account, and the numeric user
+  identifiers assigned to you by the identity provider you signed in with. These
+  are meaningless on their own and are not shown to anyone. They let us
+  re-identify the account through that provider if we are legally required to.
+
+- _For one year, then removed automatically:_ your name and email address. We
+  keep these for a limited period because supply-chain attacks and abuse are
+  frequently discovered long after the fact, and an attacker who can erase every
+  trace of themselves by deleting their account can attack the registry with
+  impunity. After a year a scheduled job strips both fields, leaving only the
+  pseudonymous identifiers above.
+
+We also keep the record of actions your account took — when a version was
+published, when scope membership changed — reattributed to an internal service
+account, and any support tickets and messages you sent us.
+
+We rely on Article 17(3)(b) and Article 17(3)(e) of the EU General Data
+Protection Regulation and on Section 1798.105(d) of the California Consumer
+Privacy Act as the bases for keeping this information notwithstanding a deletion
+request. It is kept for security, for the investigation of fraud and abuse, and
+for the establishment, exercise, or defense of legal claims — and no longer than
+described above.
+
+**4. Your scopes**
+
+If you are the only member of a scope, that scope and its packages transfer to
+an internal service account so the packages within it keep working. If a scope
+you belong to has other members, it stays with them.
+
+**5. Published packages remain public**
 
 Published package versions are immutable and are not removed when you delete
-your account. They remain publicly available through the Site, the JSR API, and
-any third-party caches and mirrors, so that packages which depend on them
-continue to resolve. Any personal information you chose to include in the
-contents or metadata of a package you published — for example, an author name or
-email address in a source file or manifest — remains part of that published
-version and remains public. See our [immutability](/docs/immutability)
-documentation for more detail.
+your account. They remain available through the Site, the JSR API, and any
+third-party caches and mirrors, so that packages which depend on them continue
+to resolve. Any personal information you chose to include in the contents or
+metadata of a package you published — an author name or email address in a
+source file or manifest, for example — remains part of that published version
+and remains public. See our [immutability](/docs/immutability) documentation.
 
-If you are the only member of a scope, that scope and its packages are
-transferred to the system service account when your account is deleted. If a
-scope you created has other members, ownership of that scope is transferred to
-another member.
+If you need something specific taken down rather than your whole account — a
+leaked credential, or personal information inside a package — contact us at
+[help@jsr.io](mailto:help@jsr.io) and we will work through it with you.
 
-**4\. Deletion Holds**
-
-Our administrators can place a deletion hold on an account. While a deletion
-hold is in place, the account cannot be deleted, and a deletion request made
-from account settings will not proceed. We use deletion holds to preserve
-evidence while a legal or moderation matter concerning an account is pending —
-for example, an active abuse investigation, a dispute over a package or scope,
-or a legal claim or litigation hold. The hold is removed once the matter is
-resolved, after which the account can be deleted as described above.
-
-If you have questions about a deletion hold on your account, contact us at
-[help@jsr.io](mailto:help@jsr.io).
-
-**VI. Your Privacy Choices**
+**VII. Your Privacy Choices**
 
 **1\. Your Information**
 
 You may request access to, correction of, or deletion of the personal
 information we maintain about you, and we will endeavor to respond promptly to
 your request. In order to make such a request, please contact us as indicated
-below. Please see the section titled “Account Deletion And Data Retention” above
-for information about what is retained when an account is deleted.
+below. Please see the section titled “Account Deletion” above for information
+about what is retained when an account is deleted.
 
-**2\. Marketing Communications**
+**2\. Email**
 
-You may opt-out of marketing-related emails by clicking on the “unsubscribe”
-link located on the bottom of any marketing email or emailing us at
-[help@jsr.io](mailto:help@jsr.io). We will use commercially reasonable efforts
-to process such requests in a timely manner. Please note that even if you
-opt-out of marketing-related emails, you will continue to receive
-service-related and other non-marketing emails.
+We only send transactional email: scope invitations, notices when a personal
+access token is created on your account, and replies to support tickets you
+opened. We do not send marketing email or newsletters, so there is nothing to
+unsubscribe from.
 
 **3\. Tracking Technology**
 
-You can choose not to permit tracking technologies, such as cookies and web
-beacons, when you use our services, but blocking some types of these tracking
-technologies may interfere with your experience.
+JSR stores very little in your browser. In full:
 
-_Browser-Based Opt-Outs_. You may be able to disable tracking technologies using
-your web browser settings. Please review your browser’s instructions or visit
-[All About Cookies](https://allaboutcookies.org/) for general information. Note
-that your web browser may have settings that allow you to transmit a “Do Not
-Track” signal when you use online services. Like many websites, our Sites are
-not currently designed to respond to “Do Not Track” signals received from
-browsers.
+- _Sign-in cookie._ Set when you log in, and required for you to stay logged in.
+  Logging out removes it.
+- _Turnstile._ Cloudflare's bot check on the login page may set storage in order
+  to avoid asking you to prove you are a person repeatedly.
 
-_Self-Regulatory Program Opt-Outs_. Two self-regulatory programs are available
-to help you control the use of tracking technologies on your browsers — the
-[Digital Advertising Alliance](https://digitaladvertisingalliance.org/) and the
-[Network Advertising Initiative](https://thenai.org/). Both programs help to
-regulate vendors in the digital advertising space. One function of their
-self-regulatory programs is to give you the ability to opt out of targeted (or
-interest-based) advertising, including the use of tracking technologies, from
-their member companies. You can visit the Digital Advertising Alliance’s Your Ad
-Choices website to opt out of targeted advertising for participating vendors.
-The Network Advertising Initiative similarly assists with opt outs through their
-Opt Out of Interest-Based Advertising webpage.
+That is the complete list. You can block or clear either through your browser's
+settings for jsr.io; blocking the sign-in cookie will prevent you from logging
+in.
 
-_Google Analytics Opt-Out._ To opt out of Google Analytics cookies, visit
-Google’s [My Ad Center](https://myadcenter.google.com/personalizationoff) and/or
-download the Google Analytics Opt-Out Browser Add-On.
+Our Sites do not respond to "Do Not Track" browser signals. We do not sell or
+share personal information for advertising, so there is no advertising opt-out
+to offer.
 
-**VII. Children**
+**VIII. Children**
 
 We do not knowingly collect personal information from children under the age of
-18 through the Sites. If you are under 18, please do not give us any personal
-information. We encourage parents and legal guardians to monitor their
-children’s Internet usage and to help enforce our Privacy Policy by instructing
-their children never to provide personal information through the Sites without
-their permission. If you have reason to believe that a child under the age of 18
-has provided personal information to us, please contact us, at
-[help@jsr.io](mailto:help@jsr.io) and we will endeavor to delete that
-information from our databases.
+16 through the Sites. If you are under 16, a parent or legal guardian must
+consent to and supervise your use of the Services. We encourage parents and
+legal guardians to monitor their children’s Internet usage. If you have reason
+to believe that a child under the age of 16 has provided personal information to
+us without that consent, please contact us at [help@jsr.io](mailto:help@jsr.io)
+and we will endeavor to delete that information from our databases.
 
-**VIII. External Websites**
+**IX. External Websites**
 
 The Sites may contain links to third-party websites. These third-party sites may
 collect information about you if you click on a link. We have no control over
@@ -338,18 +357,19 @@ responsible for the content or the privacy policies of those third-party
 websites. You should check the applicable third-party privacy policy and terms
 of use when visiting any other websites.
 
-**IX. Important Notice To Non-U.S. Residents**
+**X. Important Notice To Non-U.S. Residents**
 
-The Sites are hosted in and provided from the United States and other countries.
-If you are located outside of the United States, please be aware that any
-information you provide to us may be transferred to the United States or other
-countries where the privacy laws may not be as protective as those in your
-country of origin. If you are located outside the United States and choose to
-use the Sites, you consent to any transfer and processing of your personal
-information in accordance with this Privacy Policy, and you do so at your own
-risk.
+JSR is operated from the United States, and our infrastructure and service
+providers process data in the United States. If you are located elsewhere, your
+personal information will be transferred to and processed in the United States,
+where privacy laws differ from those in your country.
 
-**X. Notice To California Residents**
+Where we transfer personal information out of the European Economic Area or the
+United Kingdom, we rely on the European Commission's Standard Contractual
+Clauses with our service providers, or on another transfer mechanism permitted
+by applicable law.
+
+**XI. Notice To California Residents**
 
 Pursuant to Section 1798.83 of the California Civil Code, residents of
 California have the right to obtain certain information about the types of
@@ -362,7 +382,7 @@ request, please contact us using the contact information provided at the end of
 this document. Please note, however, that we do not share, nor have we shared in
 the past, personal information with third parties for direct marketing purposes.
 
-**XI. Notice To Nevada Residents**
+**XII. Notice To Nevada Residents**
 
 If you are a resident of Nevada, you have the right to opt-out of the sale of
 personal information to third parties. You can exercise this right by contacting
@@ -370,7 +390,7 @@ us at [help@jsr.io](mailto:help@jsr.io) with the subject line “Nevada Do Not
 Sell Request” and providing us with your name and the email address. Please
 note, however, that we do not sell any personal information to third parties.
 
-**XII. Changes To This Privacy Policy**
+**XIII. Changes To This Privacy Policy**
 
 This Privacy Policy is effective as of the date stated at the top of this
 Privacy Policy. We may change this Privacy Policy from time to time. Any such
@@ -381,7 +401,7 @@ use of the Information is governed by the Privacy Policy in effect at the time
 we collect the Information. Please refer back to this Privacy Policy on a
 regular basis.
 
-**XIII. How To Contact Us**
+**XIV. How To Contact Us**
 
 Please reach out to [help@jsr.io](mailto:help@jsr.io) for any questions,
 complaints, or requests regarding this Privacy Policy, and include in the

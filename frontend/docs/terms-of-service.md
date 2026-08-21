@@ -37,16 +37,14 @@ Terms, you are indicating that you agree to be bound by the modified Agreement.
 If the modified Agreement is not acceptable to you, your only recourse is to
 cease accessing or using the Services.
 
-JSR is currently provided free of charge. Deno reserves the right to change the
-JSR Offerings, to introduce new or different offerings, and to modify or
-discontinue any part of the Services, at any time and in its sole discretion.
+JSR is provided free of charge. We do not charge for publishing, downloading, or
+any other use of the Services, and we do not sell advertising on them. Deno
+reserves the right to change the JSR Offerings, to introduce new or different
+offerings, and to modify or discontinue any part of the Services, at any time
+and in its sole discretion.
 
 Capitalized terms not defined in these Terms shall have the meaning set forth in
 our Privacy Policy.
-
-**THE SECTIONS BELOW TITLED “BINDING ARBITRATION” AND “CLASS ACTION WAIVER”
-CONTAIN A BINDING ARBITRATION AGREEMENT AND CLASS ACTION WAIVER. THEY AFFECT
-YOUR LEGAL RIGHTS. PLEASE READ THEM CAREFULLY.**
 
 1. **DESCRIPTION OF THE SERVICES; RIGHT TO ACCESS AND USE THE SERVICES**
 
@@ -61,19 +59,24 @@ Subject to the terms and conditions of this Agreement, Deno hereby grants you
 during the term of this Agreement a limited, non-exclusive, non-transferable,
 non-sublicensable, revocable right, to access and use the Services.
 
-Deno reserves the right to, at any time, and without notice or liability to you:
+Deno reserves the right to:
 
 1. Block, disable, or remove any package, package version, scope, or other
-   content that, for any reason, makes the Platform unstable or violates this
-   Agreement or our [usage policy](/docs/usage-policy);
+   content that makes the Platform unstable or violates this Agreement or our
+   [usage policy](/docs/usage-policy);
 2. Impose or change quotas, rate limits, and other limits on use of the
    Services;
 3. Change which features are supported by the Services; and
 4. Modify or discontinue the availability of any other feature, function, or
    content relating to the Services.
 
-You agree that we will not be liable to you or to any third party for any
-modification, suspension, or discontinuance of the Services or any part thereof.
+Except where content presents an immediate risk to the security or stability of
+the Platform, or where the law requires us to act without delay, we will contact
+the author before removing a package, package version, or scope, explain why we
+are considering it, and give them an opportunity to respond — ordinarily around
+three weeks. We will tell you the reason for a removal or suspension and how to
+contest it. See "Reporting, Removals, and Appeals" below.
+
 You are free to stop using the Services at any time.
 
 2. **ACCOUNT CREDENTIALS**
@@ -124,23 +127,13 @@ If you violate any part of this Agreement, your permission to access and/or use
 the Content, and the Services automatically terminates and you must immediately
 destroy any copies you have made of the Content.
 
-The trademarks, service marks, and logos of Deno and JSR (the “Deno Trademarks”)
-used and displayed on the Services are registered and unregistered trademarks or
-service marks of Deno. Other company, product, and service names located on the
-Services may be trademarks or service marks owned by others (the “Third-Party
-Trademarks,” and, collectively with Deno Trademarks, the “Trademarks”). Nothing
-on the Services should be construed as granting, by implication, estoppel, or
-otherwise, any license or right to use the Trademarks, without our prior written
-permission specific for each such use. Use of the Trademarks as part of a link
-to or from any website is prohibited unless establishment of such a link is
-approved in advance by us in writing. All goodwill generated from the use of
-Deno Trademarks inures to our benefit.
-
-Elements of the Services are protected by trade dress, trademark, unfair
-competition, and other state and federal laws and may not be copied or imitated
-in whole or in part, by any means, including, but not limited to, the use of
-framing or mirrors. None of the Content may be retransmitted without our
-express, written consent for each and every instance.
+_The JSR name and logo._ You may use the JSR name and logo freely — to say that
+your package is published on JSR, to link to the registry, to write about it, or
+in documentation, articles, talks, and tooling. You do not need our permission
+and you do not need to ask. The only thing we ask is that you do not use them in
+a way that suggests JSR published, endorsed, or maintains something it did not.
+Company, product, and service names belonging to third parties remain the
+property of their respective owners.
 
 5. **USER CONTENT; USAGE DATA; AGGREGATE DATA**
 
@@ -160,26 +153,39 @@ source code, documentation, and metadata, become publicly available to anyone,
 and may be downloaded, cached, and mirrored by third parties. Published package
 versions are immutable: once a version is published, its contents cannot be
 modified or deleted. You may yank a version to discourage its use, but yanked
-versions remain available so that existing dependents continue to resolve. You
-should not publish confidential information, credentials, or personal
+versions remain available so that existing dependents continue to resolve.
+
+We recognize that this default is not right in every case. If you have published
+something that genuinely needs to come down — a leaked credential, personal
+information, material you did not have the rights to publish, or a comparable
+mistake — contact us at [help@jsr.io](mailto:help@jsr.io) and we will work with
+you on it. We take these requests seriously and handle them case by case,
+weighing the harm of leaving the content up against the breakage that removing a
+version causes for everyone depending on it. Rotate any leaked credential
+immediately regardless, since published packages are downloaded and mirrored
+within seconds.
+
+You should not publish confidential information, credentials, or personal
 information to JSR. Your User Content must comply with our
 [usage policy](/docs/usage-policy), which forms part of this Agreement.
 
 As between the parties, you own all right, title, and interest in and to your
 User Content, including all modifications, improvements, adaptations,
 enhancements, or translations made thereto, and all intellectual property rights
-therein. You hereby grant Deno a non-exclusive, worldwide, perpetual,
-irrevocable, fully paid-up, royalty-free right and license, with the right to
-grant sublicenses, to reproduce, execute, use, store, archive, modify, perform,
-display and distribute your User Content in order to operate, provide, secure,
-and promote the Services, including without limitation to host your User
-Content, to distribute it to users of the Services and through content delivery
-networks, caches, and mirrors, and to generate documentation, search indexes,
-and other derived artifacts from it. Because published package versions are
-immutable and remain available to those who depend on them, this license
-continues after termination of this Agreement and after deletion of your
-account, in each case solely to the extent necessary for Deno to continue to
-make published package versions available.
+therein. You hereby grant Deno a non-exclusive, worldwide, royalty-free license
+to store, reproduce, and distribute your User Content, and to generate
+documentation, search indexes, and npm-compatible tarballs from it, solely in
+order to operate the Services — that is, to host your packages, to serve them to
+anyone who requests them, and to serve them through the content delivery
+networks, caches, and mirrors the registry depends on. This license exists so
+that we can run a registry; it grants us no right to relicense your work, and it
+does not affect the license you chose for your package, which is what governs
+what everybody else may do with it.
+
+Because published package versions are immutable and remain available to those
+who depend on them, this license continues after termination of this Agreement
+and after deletion of your account, in each case solely to the extent necessary
+to keep published package versions available.
 
 You are responsible for ensuring that each package you publish is accompanied by
 license terms granting recipients the rights necessary to use it as distributed
@@ -200,9 +206,6 @@ following guidelines:
 
 - You will not use the Services for any unlawful purpose;
 
-- You will not access or use the Services to collect any market research for a
-  competing businesses;
-
 - You will not upload, post, e-mail, transmit, or otherwise make available any
   content that infringes any copyright, trademark, right of publicity, or other
   proprietary rights of any person or entity;
@@ -217,12 +220,10 @@ following guidelines:
 - You will not remove or modify any proprietary markings or restrictive legends
   placed on the Services;
 
-- You will not use the Services, or any portion or component thereof in
-  violation of any applicable law, in order to build a competitive product or
-  service, or for any purpose not specifically permitted in these Terms;
+- You will not use the Services in violation of any applicable law;
 
-- You will not cover, obscure, block, or in any way interfere with any
-  advertisements and/or safety features on the Services;
+- You will not cover, obscure, block, or in any way interfere with any safety
+  features on the Services;
 
 - You will not circumvent, remove, alter, deactivate, degrade, or thwart any of
   the protections in the Services;
@@ -250,30 +251,66 @@ following guidelines:
   access to any data, files, or passwords related to the Services through
   hacking, password or data mining, or any other means.
 
-Although we are not obligated to monitor access to or use of the Services, we
-have the right to do so for the purpose of operating them, to ensure compliance
-with these Terms, and to comply with applicable law or other legal requirements.
-We have the right to investigate violations of these Terms or conduct that
-affects the Services. We may also consult and cooperate with law enforcement
-authorities to prosecute Users who violate the law.
+We do not proactively monitor the registry for violations of these Terms. We
+rely on the community to bring them to our attention, and we investigate what is
+reported to us. We retain the right to investigate conduct that affects the
+Services, and to comply with applicable law and legal process.
 
 If you find something that violates these guidelines or our
-[usage policy](/docs/usage-policy), please let us know, and we will review it.
+[usage policy](/docs/usage-policy), please tell us — see "Reporting, Removals,
+and Appeals" below.
 
-7. **LINKING AND CITATION OF CONTENT**
+7. **REPORTING, REMOVALS, AND APPEALS**
 
-Deno does not object to links on third-party Services to our homepage in an
-appropriate context. However, “framing” or “mirroring” the Services or the
-Content is prohibited without the prior express written consent of Deno.
+If you believe a package violates these Terms or our
+[usage policy](/docs/usage-policy), report it using the "Report Package" button
+on the package page, or email [help@jsr.io](mailto:help@jsr.io). We review
+everything that is reported to us.
 
-8. **RESTRICTIONS**
+_Security vulnerabilities._ Please do not report security issues in the registry
+itself through the channels above. Report them privately through
+[GitHub security advisories](https://github.com/jsr-io/jsr/security/advisories/new).
 
-The Services are available only for individuals aged 18 years or older. If you
-are under 18 years of age, then please do not access and/or use the Services. By
-entering into this Agreement, you represent and warrant that you are 18 years or
-older.
+_Copyright and other legal complaints._ If you believe a package infringes your
+copyright, trademark, or other rights, email [help@jsr.io](mailto:help@jsr.io).
+Tell us what the material is and where to find it — the scope, package, version,
+and file path — what right you hold and why you believe the use is not
+authorized, and how to reach you. Please confirm that the information you have
+given us is accurate and that you are the rights holder or authorized to act for
+them.
 
-9. **FEEDBACK**
+We review every complaint we receive. If we take material down in response to
+one, we tell the publisher what was removed and why, and they may contest it by
+replying to us; if their response resolves the matter we restore the material.
+We will terminate the accounts of repeat infringers where the circumstances
+warrant it. We may share the complaint, including your contact details, with the
+publisher of the material, so that they can respond to it.
+
+_What happens when we act._ If we remove a package, package version, or scope,
+or suspend an account, we will tell the affected publisher what we removed, why,
+and how to contest it. Except where content presents an immediate risk to the
+security or stability of the Platform, or where the law requires us to act
+without delay, we contact the author first and give them an opportunity to
+explain — ordinarily around three weeks — before removing anything. If you think
+we got it wrong, reply to us at [help@jsr.io](mailto:help@jsr.io) and a person
+will look at it again.
+
+8. **LINKING AND CITATION OF CONTENT**
+
+Link to JSR freely. Packages published to JSR are public, and you are welcome to
+download, cache, mirror, and redistribute them, subject to the license each
+package carries — running a mirror or a proxy of the registry is a legitimate
+use and we encourage it. This section is about the jsr.io website itself: do not
+frame or reproduce the site in a way designed to pass it off as your own.
+
+9. **RESTRICTIONS**
+
+The Services are not directed to children under the age of 16. If you are under
+16, please do not create an account or otherwise provide us with personal
+information; a parent or legal guardian must consent to and supervise your use
+of the Services.
+
+10. **FEEDBACK**
 
 We welcome and encourage you to provide feedback, comments, and suggestions for
 improvements to the Services and our services (“Feedback”). Although we
@@ -285,7 +322,7 @@ whatsoever, including, but not limited to, the development, production and
 marketing of products and services that incorporate such information, without
 compensation or attribution to you.
 
-10. **NO WARRANTIES; LIMITATION OF LIABILITY**
+11. **NO WARRANTIES; LIMITATION OF LIABILITY**
 
 THE SERVICES AND THE CONTENT ARE PROVIDED ON AN “AS IS” AND “AS AVAILABLE”
 BASIS, AND NEITHER DENO NOR DENO’S SUPPLIERS MAKE ANY WARRANTIES WITH RESPECT TO
@@ -317,13 +354,12 @@ IN CONNECTION WITH ANY WARRANTY, CONTRACT, OR COMMON LAW TORT CLAIMS: (I) WE
 SHALL NOT BE LIABLE FOR ANY INCIDENTAL OR CONSEQUENTIAL DAMAGES, LOST PROFITS,
 OR DAMAGES RESULTING FROM LOST DATA OR BUSINESS INTERRUPTION RESULTING FROM THE
 USE OR INABILITY TO ACCESS AND USE THE SERVICES, EVEN IF WE HAVE BEEN ADVISED OF
-THE POSSIBILITY OF SUCH DAMAGES; AND (II) ANY DIRECT DAMAGES THAT YOU MAY SUFFER
-AS A RESULT OF YOUR USE OF THE SERVICES, SHALL BE LIMITED TO THE GREATER OF (I)
-MONIES YOU HAVE PAID US IN CONNECTION WITH YOUR USE OF THE SERVICES DURING THE
-TWELVE (12) MONTHS IMMEDIATELY PRECEDING THE DATE THAT GAVE RISE TO THE CLAIM OR
-(II) ONE HUNDRED DOLLARS ($100).
+THE POSSIBILITY OF SUCH DAMAGES; AND (II) OUR TOTAL LIABILITY FOR ANY DIRECT
+DAMAGES THAT YOU MAY SUFFER AS A RESULT OF YOUR USE OF THE SERVICES SHALL BE
+LIMITED TO ONE HUNDRED DOLLARS ($100). JSR IS PROVIDED FREE OF CHARGE AND YOU
+PAY US NOTHING FOR IT.
 
-11. **EXTERNAL SITES**
+12. **EXTERNAL SITES**
 
 The Services may contain links to third-party websites (“External Sites”). These
 links are provided solely as a convenience to you and not as an endorsement by
@@ -337,7 +373,7 @@ should take precautions when downloading files from all websites to protect your
 computer from viruses and other destructive programs. If you decide to access
 linked External Sites, you do so at your own risk.
 
-12. **REPRESENTATIONS AND WARRANTIES**
+13. **REPRESENTATIONS AND WARRANTIES**
 
 You represent and warrant that you have: (i) all rights and permissions
 necessary to provide us with or grant us access to and use of User Content, and
@@ -346,7 +382,7 @@ Aggregate Data,” and (ii) obtained all necessary and appropriate consents,
 permissions, and authorizations in accordance with all applicable laws and
 regulations with respect to User Content provided hereunder.
 
-13. **INDEMNIFICATION**
+14. **INDEMNIFICATION**
 
 You will indemnify, defend, and hold Deno, its affiliates, and our and their
 respective shareholders, members, officers, directors, employees, agents, and
@@ -365,7 +401,7 @@ obligations shall be subject to our: (i) promptly notifying you of the Claim;
 of the Claim; and (iii) providing you with sole control over the defense and
 negotiations for a settlement or compromise.
 
-14. **COMPLIANCE WITH APPLICABLE LAWS**
+15. **COMPLIANCE WITH APPLICABLE LAWS**
 
 The Services are based in the United States. We make no claims concerning
 whether the Services may be viewed or be appropriate for use outside of the
@@ -374,76 +410,33 @@ do so at your own risk. Whether inside or outside of the United States, you are
 solely responsible for ensuring compliance with the laws of your specific
 jurisdiction.
 
-15. **TERM; TERMINATION**
+16. **TERM; TERMINATION**
 
 These Terms, and your right to access and use the Services, will commence upon
 your acceptance of these Terms and will continue for the period of your use of
 the Services.
 
-We reserve the right, in our sole discretion, to restrict, suspend, or terminate
-these Terms and your access to all or any part of the Services, at any time and
-for any reason without prior notice or liability. We reserve the right to
-change, suspend, or discontinue all or any part of the Services at any time
-without prior notice or liability. The Sections “Description of the Services;
-Right to Access and Use the Services,” “Use of Personal Information,”
-“Intellectual Property,” “User Content; Usage Data; Aggregate Data,” “Feedback,”
-“No Warranties; Limitation of Liability,” “Indemnification,” “Compliance with
-Applicable Laws,” “Term; Termination,” “Binding Arbitration,” “Class Action
-Waiver,” “Equitable Relief,” “Controlling Law; Exclusive Forum,” and
-“Miscellaneous” shall survive the termination of these Terms.
+We may restrict, suspend, or terminate your access to all or any part of the
+Services if you breach this Agreement or our usage policy, or where we are
+required to do so by law. Except where the conduct presents an immediate risk to
+the security or stability of the Platform, or where the law requires us to act
+without delay, we will tell you what the problem is and give you an opportunity
+to respond before we act, and we will tell you the reason for any suspension or
+termination and how to contest it. We may change, suspend, or discontinue parts
+of the Services as the registry evolves. The Sections “Description of the
+Services; Right to Access and Use the Services,” “Use of Personal Information,”
+“Intellectual Property,” “User Content; Usage Data; Aggregate Data,” “Reporting,
+Removals, and Appeals,” “Feedback,” “No Warranties; Limitation of Liability,”
+“Indemnification,” “Compliance with Applicable Laws,” “Term; Termination,”
+“Equitable Relief,” “Controlling Law; Exclusive Forum,” and “Miscellaneous”
+shall survive the termination of these Terms.
 
 You may delete your account at any time from your account settings. Deleting
 your account does not remove packages you have published: as described above and
 in our [Privacy Policy](/docs/privacy-policy), published package versions are
 immutable and remain publicly available after account deletion.
 
-16. **BINDING ARBITRATION**
-
-In the event of a dispute arising under or relating to this Agreement, and/or
-the Services (each, a “Dispute”), such dispute will be finally and exclusively
-resolved by binding arbitration governed by the Federal Arbitration Act (“FAA”).
-NEITHER PARTY SHALL HAVE THE RIGHT TO LITIGATE SUCH CLAIM IN COURT OR TO HAVE A
-JURY TRIAL, EXCEPT EITHER PARTY MAY BRING ITS CLAIM IN ITS LOCAL SMALL CLAIMS
-COURT, IF PERMITTED BY THAT SMALL CLAIMS COURT RULES AND IF WITHIN SUCH COURT’S
-JURISDICTION. ARBITRATION IS DIFFERENT FROM COURT, AND DISCOVERY AND APPEAL
-RIGHTS MAY ALSO BE LIMITED IN ARBITRATION. All disputes will be resolved before
-a neutral arbitrator selected jointly by the parties, whose decision will be
-final, except for a limited right of appeal under the FAA. The arbitration shall
-be commenced and conducted by JAMS pursuant to its then current Comprehensive
-Arbitration Rules and Procedures and in accordance with the Expedited Procedures
-in those rules, or, where appropriate, pursuant to JAMS’ Streamlined Arbitration
-Rules and Procedures. All applicable JAMS’ rules and procedures are available at
-the JAMS website [www.jamsadr.com](http://www.jamsadr.com). Each party will be
-responsible for paying any JAMS filing, administrative, and arbitrator fees in
-accordance with JAMS rules. Judgment on the arbitrator’s award may be entered in
-any court having jurisdiction. This clause shall not preclude parties from
-seeking provisional remedies in aid of arbitration from a court of appropriate
-jurisdiction. The arbitration may be conducted in person, through the submission
-of documents, by phone, or online. If conducted in person, the arbitration shall
-take place in the United States county where you reside. The parties may
-litigate in court to compel arbitration, to stay a proceeding pending
-arbitration, or to confirm, modify, vacate, or enter judgment on the award
-entered by the arbitrator. The parties shall cooperate in good faith in the
-voluntary and informal exchange of all non-privileged documents and other
-information (including electronically stored information) relevant to the
-Dispute immediately after commencement of the arbitration. As set forth in
-Section 18 below, nothing in this Agreement will prevent us from seeking
-injunctive relief in any court of competent jurisdiction as necessary to protect
-our proprietary interests.
-
-17. **CLASS ACTION WAIVER**
-
-You agree that any arbitration or proceeding shall be limited to the Dispute
-between us and you individually. To the full extent permitted by law, (i) no
-arbitration or proceeding shall be joined with any other; (ii) there is no right
-or authority for any Dispute to be arbitrated or resolved on a class
-action-basis or to utilize class action procedures; and (iii) there is no right
-or authority for any Dispute to be brought in a purported representative
-capacity on behalf of the general public or any other persons. YOU AGREE THAT
-YOU MAY BRING CLAIMS AGAINST US ONLY IN YOUR INDIVIDUAL CAPACITY AND NOT AS A
-PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING.
-
-18. **EQUITABLE RELIEF**
+17. **EQUITABLE RELIEF**
 
 You acknowledge and agree that in the event of a breach or threatened violation
 of our intellectual property rights and confidential and proprietary information
@@ -451,12 +444,11 @@ by you, we will suffer irreparable harm and will therefore be entitled to
 injunctive relief to enforce this Agreement. We may, without waiving any other
 remedies under this Agreement, seek from any court having jurisdiction any
 interim, equitable, provisional, or injunctive relief that is necessary to
-protect our rights and property pending the outcome of the arbitration
-referenced above. You hereby irrevocably and unconditionally consent to the
-personal and subject matter jurisdiction of the federal and state courts in the
-State of New York for purposes of any such action by us.
+protect our rights and property. You hereby irrevocably and unconditionally
+consent to the personal and subject matter jurisdiction of the federal and state
+courts in the State of New York for purposes of any such action by us.
 
-19. **CONTROLLING LAW; EXCLUSIVE FORUM**
+18. **CONTROLLING LAW; EXCLUSIVE FORUM**
 
 The Agreement and any action related thereto will be governed by the laws of the
 State of New York without regard to its conflict of laws provisions. The parties
@@ -468,28 +460,24 @@ based on improper venue or inconvenient forum, and each party hereby irrevocably
 submits to the exclusive jurisdiction of such courts in any suits, actions, or
 proceedings arising out of or relating to this Agreement
 
-20. **MISCELLANEOUS**
+19. **MISCELLANEOUS**
 
-    Notwithstanding anything to the contrary set forth in these Terms, each
-    party may during the term of this Agreement, use the other party’s name
-    and/or logo for marketing and promotional purposes, including, without
-    limitation, identifying Authorized Users as a user of JSR on Deno’s website
-    or elsewhere. You may not assign any of your rights, duties, or obligations
-    under these Terms to any person or entity, in whole or in part, without
-    written consent from Deno. Our failure to act on or enforce any provision of
-    the Agreement shall not be construed as a waiver of that provision or any
-    other provision in this Agreement. No waiver shall be effective against us
-    unless made in writing, and no such waiver shall be construed as a waiver in
-    any other or subsequent instance. Except as expressly agreed by us and you
-    in writing, the Agreement constitutes the entire agreement between you and
-    us with respect to the subject matter, and supersedes all previous or
+    You may not assign any of your rights, duties, or obligations under these
+    Terms to any person or entity, in whole or in part, without written consent
+    from Deno. Our failure to act on or enforce any provision of the Agreement
+    shall not be construed as a waiver of that provision or any other provision
+    in this Agreement. No waiver shall be effective against us unless made in
+    writing, and no such waiver shall be construed as a waiver in any other or
+    subsequent instance. Except as expressly agreed by us and you in writing,
+    the Agreement constitutes the entire agreement between you and us with
+    respect to the subject matter, and supersedes all previous or
     contemporaneous agreements, whether written or oral, between the parties
     with respect to the subject matter. The section headings are provided merely
     for convenience and shall not be given any legal import. This Agreement will
     inure to the benefit of our successors, assigns, licensees, and
     sublicensees.
 
-21. **HOW TO CONTACT US**
+20. **HOW TO CONTACT US**
 
 Please reach out to [help@jsr.io](mailto:help@jsr.io) for any questions
 regarding these Terms.
