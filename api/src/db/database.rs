@@ -4850,6 +4850,7 @@ gitlab_id: r.user_gitlab_id,
         AND packages.name = recently_published.package_name
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
       ", PACKAGE_VERSION_LATERAL_JOINS, "
+      WHERE packages.is_private = false
       ORDER BY recently_published.last_published_at DESC";
       user_id
     )
@@ -4866,6 +4867,7 @@ gitlab_id: r.user_gitlab_id,
           latest_version: r.package_latest_version,
           when_featured: r.package_when_featured,
           is_archived: r.package_is_archived,
+          is_private: r.package_is_private,
           readme_source: r.package_readme_source,
         };
         let github_repository = if r.package_github_repository_id.is_some() {
