@@ -54,15 +54,25 @@ pub fn api_router() -> Router<Body, ApiError> {
     )
     .get(
       "/stats",
-      util::cache(CacheDuration::TEN_MINUTES, util::json(global_stats_handler)),
+      util::cache(CacheDuration::ONE_HOUR, util::json(global_stats_handler)),
     )
     .get(
       // todo: remove once CLI uses the new endpoint
+      // Never cache: `deno publish` polls this for live status, and a cached
+      // non-terminal status would make it hang until the entry expired.
       "/publish_status/:publishing_task_id",
-      util::json(publishing_task::get_handler),
+      util::no_store(util::json(publishing_task::get_handler)),
     )
     .scope("/tickets", tickets_router())
     .get("/.well-known/openapi", openapi_handler)
+    .get(
+      "/debug/mem_stats",
+      util::auth(crate::jemalloc_profiling::mem_stats_handler),
+    )
+    .get(
+      "/debug/mem_dump",
+      util::auth(crate::jemalloc_profiling::heap_profile_handler),
+    )
     .build()
     .unwrap()
 }

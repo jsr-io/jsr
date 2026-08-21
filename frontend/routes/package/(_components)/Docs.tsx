@@ -8,7 +8,7 @@ import { LocalSymbolSearch } from "../(_islands)/LocalSymbolSearch.tsx";
 import { Docs } from "../../../util.ts";
 import { BreadcrumbsSticky } from "../(_islands)/BreadcrumbsSticky.tsx";
 import { TicketModal } from "../../../islands/TicketModal.tsx";
-import { TbFlag } from "tb-icons";
+import TbFlag from "tb-icons/TbFlag";
 import { ModuleDoc, SymbolGroup, Toc } from "../../../components/doc/mod.ts";
 import { AllSymbols } from "../../../components/doc/AllSymbols.tsx";
 import { ComponentChildren } from "preact";

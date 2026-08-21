@@ -24,19 +24,24 @@ This is the source code for https://jsr.io, the new JavaScript registry.
 
 **Implementation details**
 
-- Modules and package metadata are stored on Google Cloud Storage (GCS)
-- npm compatibility tarballs are stored on Google Cloud Storage (GCS)
+- Modules and package metadata are stored on Cloudflare R2
+- npm compatibility tarballs are stored on Cloudflare R2
 - Management API is implemented in Rust and runs on Google Cloud Run
-- Frontend uses Fresh and is running on Google Cloud Run in 6 regions
+- Frontend uses Fresh and runs as a Cloudflare Worker
 - https://jsr.io, https://api.jsr.io, and https://npm.jsr.io are served by a
-  Cloudflare Workers worker
-  - Module, package metadata, and npm tarballs is served directly from GCS
+  Cloudflare Workers worker (the LB)
+  - Module, package metadata, and npm tarballs are served directly from R2
   - /api requests are proxied to the management API
-  - All other requests are proxied to the frontend
+  - All other requests are proxied to the frontend Worker via a service binding
+    (no public URL hop)
 - Data is stored in PostgreSQL (using Google Cloud SQL)
   - The database is highly available
   - Not used for serving registry requests
+- Search powered by Algolia
 - Distributed tracing using Google Cloud Trace (and Jaeger in development)
+
+For a detailed breakdown of the system, see
+[architecture.md](./architecture.md).
 
 ## Getting started (frontend only)
 
@@ -229,6 +234,23 @@ For more information on how the HTML documentation generation works and how to
 locally work on it, please see the
 [HTML development section](https://github.com/denoland/deno_doc?tab=readme-ov-file#html-generation)
 of `deno_doc`.
+
+### Per-branch databases
+
+The `db:switch` tool lets you work on multiple branches without clobbering your
+main development database. Each branch gets its own PostgreSQL database.
+
+```sh
+deno task db:switch switch     # switch to branch db copied from main
+deno task db:switch empty      # switch to an empty branch db
+deno task db:switch main       # switch back to the main database
+deno task db:switch current    # show which database is active
+deno task db:switch list       # list all branch databases
+deno task db:switch clean      # drop all branch databases
+```
+
+The `switch` and `empty` commands write an `api/.env.local` override file. Use
+`--method=export` to print an `export` command instead.
 
 ### Other
 

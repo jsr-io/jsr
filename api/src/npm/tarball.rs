@@ -322,13 +322,13 @@ pub async fn create_npm_tarball<'a>(
 
       let downloads = futures::stream::iter(paths_to_download.into_iter())
         .map(|path| {
-          let gcs_path =
-            crate::gcs_paths::file_path(scope, package, version, path).into();
+          let s3_path =
+            crate::s3_paths::file_path(scope, package, version, path).into();
           async move {
             let bytes = modules_bucket
-              .download(gcs_path)
+              .download(s3_path)
               .await?
-              .ok_or_else(|| anyhow::anyhow!("file missing on GCS: {path}"))?;
+              .ok_or_else(|| anyhow::anyhow!("file missing on S3: {path}"))?;
             Ok::<_, anyhow::Error>((path, bytes))
           }
         })
@@ -387,7 +387,7 @@ pub async fn create_npm_tarball<'a>(
       }
     })?;
     header.set_size(content.len() as u64);
-    header.set_mode(0o777);
+    header.set_mode(0o644);
     header.set_mtime(mtime);
     header.set_cksum();
     tarball.append(&header, content.as_slice()).unwrap();
@@ -395,6 +395,9 @@ pub async fn create_npm_tarball<'a>(
 
   tarball.into_inner().unwrap();
   gz_encoder.finish().unwrap();
+
+  // Free the in-memory file map now that the tarball is built
+  drop(package_files);
 
   let sha1_digest = sha1::Sha1::digest(&tar_gz_bytes);
   let sha1 = format!("{sha1_digest:X}");
@@ -765,6 +768,12 @@ mod tests {
       // For our tests we don't care about the package parent folder
       let len = "package".to_string().len();
       let formatted_path = path[len..].to_string();
+
+      let mode = entry.header().mode().unwrap();
+      assert_eq!(
+        mode, 0o644,
+        "file {path} has unexpected mode {mode:o}, want 0o644",
+      );
 
       let mut buf = vec![];
       entry.read_to_end(&mut buf).await?;

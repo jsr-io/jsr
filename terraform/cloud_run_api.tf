@@ -1,13 +1,25 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 locals {
-  api_envs = {
+  # OTLP/HTTP trace export. Only wired when an endpoint is configured (see
+  # variables.tf); the header value carries the backend auth and is passed as a
+  # plain env like DATABASE_URL / S3_SECRET_KEY below.
+  otlp_envs = merge(
+    var.otlp_endpoint != "" ? { "OTLP_ENDPOINT" = var.otlp_endpoint } : {},
+    var.otlp_headers != "" ? { "OTLP_HEADERS" = var.otlp_headers } : {},
+  )
+
+  api_envs = merge(local.otlp_envs, {
     "DATABASE_URL" = local.postgres_url
     "NO_COLOR"     = "true"
 
-    "PUBLISHING_BUCKET" = google_storage_bucket.publishing.name
-    "MODULES_BUCKET"    = google_storage_bucket.modules.name
-    "DOCS_BUCKET"       = google_storage_bucket.docs.name
-    "NPM_BUCKET"        = google_storage_bucket.npm.name
+    # Tags telemetry with the environment so staging and prod traces can be told
+    # apart when they export to the same OTLP backend (see otlp_envs above).
+    "DEPLOYMENT_ENVIRONMENT" = var.production ? "production" : "staging"
+
+    "PUBLISHING_BUCKET" = cloudflare_r2_bucket.publishing.name
+    "MODULES_BUCKET"    = cloudflare_r2_bucket.modules.name
+    "DOCS_BUCKET"       = cloudflare_r2_bucket.docs.name
+    "NPM_BUCKET"        = cloudflare_r2_bucket.npm.name
 
     "S3_REGION"     = "auto"
     "S3_ENDPOINT"   = "${var.cloudflare_account_id}.r2.cloudflarestorage.com"
@@ -22,14 +34,14 @@ locals {
     "GITLAB_CLIENT_ID" = var.gitlab_client_id
     # GITLAB_CLIENT_SECRET is defined inline, because it comes from Secrets Manager
 
+    # TURNSTILE_SECRET_KEY is defined inline, because it comes from Secrets Manager
+
     # POSTMARK_TOKEN is defined inline, because it comes from Secrets Manager
 
-    # ORAMA_PACKAGES_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_PACKAGES_PROJECT_ID"  = var.orama_packages_project_id
-    "ORAMA_PACKAGES_DATA_SOURCE" = var.orama_packages_data_source
-    # ORAMA_SYMBOLS_PROJECT_KEY is defined inline, because it comes from Secrets Manager
-    "ORAMA_SYMBOLS_PROJECT_ID"  = var.orama_symbols_project_id
-    "ORAMA_SYMBOLS_DATA_SOURCE" = var.orama_symbols_data_source
+    # ALGOLIA_WRITE_API_KEY is defined inline, because it comes from Secrets Manager
+    "ALGOLIA_APP_ID"         = var.algolia_app_id
+    "ALGOLIA_PACKAGES_INDEX" = algolia_index.packages.name
+    "ALGOLIA_SYMBOLS_INDEX"  = algolia_index.symbols.name
 
     "REGISTRY_URL" = "https://${var.domain_name}"
     "NPM_URL"      = "https://${local.npm_domain}"
@@ -44,8 +56,17 @@ locals {
     "GCP_PROJECT_ID"         = var.gcp_project
 
     "CLOUDFLARE_ACCOUNT_ID"        = var.cloudflare_account_id
+    "CLOUDFLARE_ZONE_ID"           = var.cloudflare_zone_id
     "CLOUDFLARE_ANALYTICS_DATASET" = local.worker_download_analytics_dataset
-  }
+    # Client certificate for the DB connection. The DB requires a client cert
+    # (ssl_mode = TRUSTED_CLIENT_CERTIFICATE_REQUIRED, see db.tf), so both Cloud
+    # Run services present it over the private VPC IP; the same cert is handed to
+    # the Hyperdrive config fronting the `api` Worker. The connection uses
+    # sslmode=require (encrypt + client auth, no server verification — we connect
+    # by IP), so no server CA is needed here. Plain env, like DATABASE_URL.
+    "DB_CLIENT_CERT" = google_sql_ssl_cert.api.cert
+    "DB_CLIENT_KEY"  = google_sql_ssl_cert.api.private_key
+  })
 }
 
 ### API service
@@ -60,21 +81,21 @@ resource "google_cloud_run_v2_service" "registry_api" {
 
     scaling {
       min_instance_count = var.production ? 1 : 0
-      max_instance_count = 20
+      max_instance_count = 30
     }
 
-    max_instance_request_concurrency = 250
+    max_instance_request_concurrency = 100
 
     containers {
       image = var.api_image_id
       args = [
-        "--cloud_trace", "--api", "--tasks=false", "--database_pool_size=4"
+        "--api", "--tasks=false", "--database_pool_size=4"
       ]
 
       resources {
         limits = {
           cpu    = "1"
-          memory = "1.5Gi"
+          memory = "1Gi"
         }
       }
 
@@ -107,6 +128,16 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
+        name = "TURNSTILE_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.turnstile_secret_key.id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "POSTMARK_TOKEN"
         value_source {
           secret_key_ref {
@@ -117,20 +148,10 @@ resource "google_cloud_run_v2_service" "registry_api" {
       }
 
       env {
-        name = "ORAMA_PACKAGES_PROJECT_KEY"
+        name = "ALGOLIA_WRITE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_packages_project_key.id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "ORAMA_SYMBOLS_PROJECT_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.orama_symbols_project_key.id
+            secret  = google_secret_manager_secret.algolia_write_api_key.id
             version = "latest"
           }
         }
@@ -233,7 +254,7 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
     containers {
       image = var.api_image_id
       args = [
-        "--cloud_trace", "--tasks", "--api=false", "--database_pool_size=1"
+        "--tasks", "--api=false", "--database_pool_size=1"
       ]
 
       dynamic "env" {
@@ -266,20 +287,20 @@ resource "google_cloud_run_v2_service" "registry_api_tasks" {
       }
 
       env {
-        name = "ORAMA_PACKAGES_PROJECT_KEY"
+        name = "TURNSTILE_SECRET_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_packages_project_key.id
+            secret  = google_secret_manager_secret.turnstile_secret_key.id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "ORAMA_SYMBOLS_PROJECT_KEY"
+        name = "ALGOLIA_WRITE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.orama_symbols_project_key.id
+            secret  = google_secret_manager_secret.algolia_write_api_key.id
             version = "latest"
           }
         }
@@ -317,30 +338,6 @@ resource "google_project_iam_member" "registry_api_cloudsql" {
   member  = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_storage_bucket_iam_member" "publishing_bucket_access" {
-  bucket = google_storage_bucket.publishing.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "modules_bucket_access" {
-  bucket = google_storage_bucket.modules.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "docs_bucket_access" {
-  bucket = google_storage_bucket.docs.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_storage_bucket_iam_member" "npm_bucket_access" {
-  bucket = google_storage_bucket.npm.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
 resource "google_secret_manager_secret_iam_member" "github_client_secret" {
   secret_id = google_secret_manager_secret.github_client_secret.id
   role      = "roles/secretmanager.secretAccessor"
@@ -353,20 +350,20 @@ resource "google_secret_manager_secret_iam_member" "gitlab_client_secret" {
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "turnstile_secret_key" {
+  secret_id = google_secret_manager_secret.turnstile_secret_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.registry_api.email}"
+}
+
 resource "google_secret_manager_secret_iam_member" "postmark_token" {
   secret_id = google_secret_manager_secret.postmark_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "orama_packages_project_key" {
-  secret_id = google_secret_manager_secret.orama_packages_project_key.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "orama_symbols_project_key" {
-  secret_id = google_secret_manager_secret.orama_symbols_project_key.id
+resource "google_secret_manager_secret_iam_member" "algolia_write_api_key" {
+  secret_id = google_secret_manager_secret.algolia_write_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
 }
@@ -375,12 +372,6 @@ resource "google_secret_manager_secret_iam_member" "cloudflare_api_token" {
   secret_id = google_secret_manager_secret.cloudflare_api_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.registry_api.email}"
-}
-
-resource "google_project_iam_member" "api_cloud_trace" {
-  project = google_cloud_run_v2_service.registry_api.project
-  role    = "roles/cloudtrace.agent"
-  member  = "serviceAccount:${google_service_account.registry_api.email}"
 }
 
 resource "google_cloud_tasks_queue_iam_member" "publishing_tasks" {

@@ -25,9 +25,9 @@ export const handler = define.handlers({
       return Response.json({
         schemaVersion: 1,
         label: "",
-        message: packageResp.data.latestVersion,
+        message: packageResp.data.latestVersion ?? "no versions",
         labelColor: secondaryColor,
-        color: primaryColor,
+        color: packageResp.data.latestVersion ? primaryColor : "gray",
       });
     } else {
       const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);

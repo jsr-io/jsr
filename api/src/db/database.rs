@@ -6,6 +6,7 @@ use crate::ids::ScopeDescription;
 use crate::ids::ScopeName;
 use crate::ids::Version;
 use chrono::DateTime;
+use chrono::Duration;
 use chrono::Utc;
 use registry_api_macros::query_concat;
 use registry_api_macros::query_concat_as;
@@ -14,7 +15,10 @@ use sqlx::FromRow;
 use sqlx::Result;
 use sqlx::Row;
 use sqlx::migrate;
+use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::PgSslMode;
+use std::str::FromStr;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -49,9 +53,27 @@ macro_rules! sort_by {
   (@expand $key:expr) => { $key };
 }
 
+/// How long a publishing task may stay in a non-terminal state
+/// (`processing`/`processed`) before it is considered stranded. The publish
+/// queue normally finishes a task in seconds, and Cloud Run caps a single
+/// request well under this, so a task older than this is not actively being
+/// processed. Stranded tasks are re-driven by the reaper in `tasks.rs`, and
+/// `create_publishing_task` fails a stranded `processing` task inline when a
+/// new publish for the same version arrives.
+pub const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
+
 #[derive(Debug, Clone)]
 pub struct Database {
   pool: sqlx::PgPool,
+}
+
+/// Client-certificate TLS material for connecting to the database. Supplied
+/// when the database requires a client certificate (`ssl_mode =
+/// TRUSTED_CLIENT_CERTIFICATE_REQUIRED`); the same cert is also presented by
+/// the Hyperdrive-backed `api` Worker so both reach Cloud SQL over mTLS.
+pub struct DbTls {
+  pub client_cert: String,
+  pub client_key: String,
 }
 
 impl Database {
@@ -59,11 +81,28 @@ impl Database {
     database_url: &str,
     pool_size: u32,
     acquire_timeout: std::time::Duration,
+    tls: Option<DbTls>,
   ) -> anyhow::Result<Self> {
+    let mut opts = PgConnectOptions::from_str(database_url)?;
+    if let Some(tls) = tls {
+      // Present our client cert (the DB requires one) and encrypt, but don't
+      // verify the server cert. We use `Require`, not `VerifyCa`: Cloud Run
+      // connects to Cloud SQL by private IP, yet the server cert is only valid
+      // for the instance's `*.sql.goog` DNS name. `VerifyCa` is meant to skip
+      // that hostname check, but sqlx 0.8's `NoHostnameTlsVerifier` only
+      // swallows rustls's legacy `NotValidForName` error, not 0.23's
+      // `NotValidForNameContext`, so verification fails and the connection is
+      // refused. The client certificate (mTLS) is the access boundary and the
+      // link stays inside the VPC.
+      opts = opts
+        .ssl_mode(PgSslMode::Require)
+        .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
+        .ssl_client_key_from_pem(tls.client_key.into_bytes());
+    }
     let pool = PgPoolOptions::new()
       .max_connections(pool_size)
       .acquire_timeout(acquire_timeout)
-      .connect(database_url)
+      .connect_with(opts)
       .await?;
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       migrate!("./migrations")
@@ -1325,9 +1364,12 @@ gitlab_id: r.user_gitlab_id,
     let mut tx = self.pool.begin().await?;
 
     let packages = query_concat!(
-      "SELECT ", PACKAGE_SELECT_JOINED, ", ", GITHUB_REPOSITORY_SELECT_JOINED, "
+      "SELECT ", PACKAGE_BASE_SELECT_JOINED, ",
+      ", PACKAGE_VERSION_AGG_SELECT, ",
+      ", GITHUB_REPOSITORY_SELECT_JOINED, "
       FROM packages
       LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+      ", PACKAGE_VERSION_LATERAL_JOINS, "
       WHERE packages.scope = $1 AND ($2 = true OR packages.is_archived = false)
       ORDER BY packages.is_archived ASC, packages.name
       OFFSET $3 LIMIT $4";
@@ -1448,9 +1490,10 @@ gitlab_id: r.user_gitlab_id,
     } || "packages.name ASC, packages.scope ASC");
 
     let packages = sqlx::query(
-      &format!(r#"SELECT {}, {}
+      &format!(r#"SELECT {}, {}, {}
        FROM packages
        LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+       {}
        WHERE (packages.scope ILIKE $1 OR packages.name ILIKE $2) AND (packages.github_repository_id = $5 OR $5 IS NULL) AND NOT packages.is_archived
        ORDER BY
          CASE
@@ -1460,8 +1503,10 @@ gitlab_id: r.user_gitlab_id,
         END,
         {sort}
        OFFSET $6 LIMIT $7"#,
-        crate::db::sql_fragments::PACKAGE_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_BASE_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_VERSION_AGG_SELECT_RT,
         crate::db::sql_fragments::GITHUB_REPOSITORY_SELECT_JOINED_RT,
+        crate::db::sql_fragments::PACKAGE_VERSION_LATERAL_JOINS_RT,
       ),
     )
       .bind(&scope_ilike_query)
@@ -1510,7 +1555,7 @@ gitlab_id: r.user_gitlab_id,
     Vec<StatsPackage>,
   )> {
     let newest_fut = sqlx::query!(
-      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
       WHERE EXISTS (
         SELECT 1 FROM package_versions
@@ -1522,11 +1567,12 @@ gitlab_id: r.user_gitlab_id,
       .map(|r| StatsPackage {
         scope: r.scope,
         name: r.name,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
     let updated_fut = sqlx::query!(
-      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version"
+      r#"SELECT package_versions.scope as "scope: ScopeName", package_versions.name as "name: PackageName", package_versions.version as "version: Version", packages.description
       FROM package_versions
       JOIN packages ON packages.scope = package_versions.scope AND packages.name = package_versions.name
       WHERE NOT packages.is_archived
@@ -1537,11 +1583,12 @@ gitlab_id: r.user_gitlab_id,
         scope: r.scope,
         name: r.name,
         version: r.version,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
     let featured_fut = sqlx::query!(
-      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName"
+      r#"SELECT packages.scope as "scope: ScopeName", packages.name as "name: PackageName", packages.description
       FROM packages
       WHERE packages.when_featured IS NOT NULL AND NOT packages.is_archived
       ORDER BY packages.when_featured DESC
@@ -1550,6 +1597,7 @@ gitlab_id: r.user_gitlab_id,
       .map(|r| StatsPackage {
         scope: r.scope,
         name: r.name,
+        description: r.description,
       })
       .fetch_all(&self.pool);
 
@@ -1632,21 +1680,56 @@ gitlab_id: r.user_gitlab_id,
     })
   }
 
-  #[instrument(name = "Database::list_package_versions", skip(self), err)]
-  pub async fn list_package_versions(
+  #[instrument(
+    name = "Database::list_package_versions_for_metadata",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_for_metadata(
     &self,
     scope: &ScopeName,
     name: &PackageName,
-  ) -> Result<Vec<(PackageVersion, Option<UserPublic>)>> {
-    query_concat!(
+  ) -> Result<Vec<PackageVersionForMetadata>> {
+    sqlx::query_as!(
+      PackageVersionForMetadata,
+      r#"SELECT version as "version: Version", is_yanked, created_at
+      FROM package_versions
+      WHERE scope = $1 AND name = $2
+      ORDER BY version DESC"#,
+      scope as _,
+      name as _,
+    )
+    .fetch_all(&self.pool)
+    .await
+  }
+
+  #[allow(clippy::type_complexity)]
+  #[instrument(
+    name = "Database::list_package_versions_paginated",
+    skip(self),
+    err
+  )]
+  pub async fn list_package_versions_paginated(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+    start: i64,
+    limit: i64,
+  ) -> Result<(usize, Vec<(PackageVersion, Option<UserPublic>)>)> {
+    let mut tx = self.pool.begin().await?;
+
+    let versions = query_concat!(
       "SELECT ", PACKAGE_VERSION_SELECT_JOINED, ",
       ", USER_PUBLIC_SELECT_JOINED, "
       FROM package_versions
       LEFT JOIN users ON package_versions.user_id = users.id
       WHERE package_versions.scope = $1 AND package_versions.name = $2
-      ORDER BY package_versions.version DESC";
+      ORDER BY package_versions.version DESC
+      OFFSET $3 LIMIT $4";
       scope as _,
       name as _,
+      start,
+      limit,
     )
     .map(|r| {
       let package_version = PackageVersion {
@@ -1683,8 +1766,21 @@ gitlab_id: r.user_gitlab_id,
 
       (package_version, user)
     })
-    .fetch_all(&self.pool)
-    .await
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let total = sqlx::query!(
+      r#"SELECT COUNT(*) FROM package_versions WHERE scope = $1 AND name = $2"#,
+      scope as _,
+      name as _,
+    )
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok((total as usize, versions))
   }
 
   #[instrument(
@@ -1765,6 +1861,36 @@ gitlab_id: r.user_gitlab_id,
     )
       .fetch_optional(&self.pool)
       .await
+  }
+
+  /// Resolves the version whose docs are served for a package. This is the
+  /// latest unyanked stable version, or - for packages that only have
+  /// prerelease versions - the latest unyanked prerelease version. Ordering
+  /// stable releases ahead of prereleases keeps the result identical to
+  /// `get_latest_unyanked_version_for_package` whenever a stable release
+  /// exists.
+  #[instrument(
+    name = "Database::get_latest_unyanked_version_for_package_for_docs",
+    skip(self),
+    err
+  )]
+  pub async fn get_latest_unyanked_version_for_package_for_docs(
+    &self,
+    scope: &ScopeName,
+    name: &PackageName,
+  ) -> Result<Option<PackageVersion>> {
+    query_concat_as!(
+      PackageVersion,
+      "SELECT ", PACKAGE_VERSION_SELECT, "
+      FROM package_versions
+      WHERE scope = $1 AND name = $2 AND is_yanked = false
+      ORDER BY (version NOT LIKE '%-%') DESC, version DESC
+      LIMIT 1";
+      scope as _,
+      name as _,
+    )
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -2769,8 +2895,47 @@ gitlab_id: r.user_gitlab_id,
 
       .fetch_optional(&mut *tx)
       .await?;
-    if let Some(already_processing) = already_processing {
-      return Ok(CreatePublishingTaskResult::Exists(already_processing));
+    if let Some((existing_task, existing_user)) = already_processing {
+      let stale_threshold =
+        Utc::now() - Duration::seconds(STALE_PUBLISHING_TASK_SECS);
+      let is_stale_processing = existing_task.status
+        == PublishingTaskStatus::Processing
+        && existing_task.updated_at < stale_threshold;
+
+      if !is_stale_processing {
+        return Ok(CreatePublishingTaskResult::Exists((
+          existing_task,
+          existing_user,
+        )));
+      }
+
+      // Failing a stranded `processing` task is safe: its version row never
+      // committed (the finalize transaction is atomic). `processed` tasks
+      // have committed data and are left for the requeue reaper.
+      let stale_error = PublishingTaskError {
+        code: "stale".to_string(),
+        message: "task stranded in processing".to_string(),
+      };
+      let res = sqlx::query!(
+        "UPDATE publishing_tasks
+         SET status = $1, error = $2
+         WHERE id = $3 AND status = $4",
+        PublishingTaskStatus::Failure as _,
+        stale_error as _,
+        existing_task.id,
+        PublishingTaskStatus::Processing as _,
+      )
+      .execute(&mut *tx)
+      .await?;
+      // Lost a race: the reaper requeued the task (or a worker advanced it)
+      // between our read and this update. The task is active again, so hand
+      // it back instead of creating a duplicate.
+      if res.rows_affected() == 0 {
+        return Ok(CreatePublishingTaskResult::Exists((
+          existing_task,
+          existing_user,
+        )));
+      }
     }
 
     let task = query_concat!(
@@ -2876,6 +3041,24 @@ gitlab_id: r.user_gitlab_id,
     tx.commit().await?;
 
     Ok(CreatePublishingTaskResult::Created(task))
+  }
+
+  #[cfg(test)]
+  pub async fn backdate_publishing_task_updated_at(
+    &self,
+    id: Uuid,
+    secs_ago: i64,
+  ) -> Result<()> {
+    sqlx::query!(
+      "UPDATE publishing_tasks
+       SET updated_at = now() - ($1::bigint * interval '1 second')
+       WHERE id = $2",
+      secs_ago,
+      id,
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(())
   }
 
   #[instrument(name = "Database::get_publishing_task", skip(self), err)]
@@ -3151,6 +3334,37 @@ gitlab_id: r.user_gitlab_id,
     Ok(task)
   }
 
+  /// List publishing tasks that have been stuck in a non-terminal state
+  /// (`processing` or `processed`) for longer than `stale_after_seconds`.
+  ///
+  /// A task is normally driven from `pending` to `success` within seconds by
+  /// the publish queue. If the queue worker is killed mid-flight (e.g. the
+  /// Cloud Run request times out, or a publish is cancelled) a task can be
+  /// stranded: `processing` means the version row was never committed, while
+  /// `processed` means the version exists but its package-level `meta.json`
+  /// was never regenerated, leaving the version invisible to the resolver.
+  /// Either state also blocks re-publishing that exact version (see the
+  /// `status != 'failure'` guard in `create_publishing_task`). The reaper at
+  /// `POST /tasks/requeue_stuck_publishing_tasks` re-drives these.
+  #[instrument(name = "Database::list_stale_publishing_tasks", skip(self), err)]
+  pub async fn list_stale_publishing_tasks(
+    &self,
+    stale_after_seconds: i64,
+  ) -> Result<Vec<(Uuid, PublishingTaskStatus)>> {
+    sqlx::query!(
+      r#"SELECT id, status as "status: PublishingTaskStatus"
+      FROM publishing_tasks
+      WHERE status IN ('processing', 'processed')
+        AND updated_at < now() - ($1::bigint * interval '1 second')
+      ORDER BY updated_at ASC
+      LIMIT 1000"#,
+      stale_after_seconds,
+    )
+    .map(|r| (r.id, r.status))
+    .fetch_all(&self.pool)
+    .await
+  }
+
   #[instrument(name = "Database::get_oauth_state", skip(self), err)]
   pub async fn get_oauth_state(
     &self,
@@ -3179,6 +3393,20 @@ gitlab_id: r.user_gitlab_id,
     Ok(result.rows_affected())
   }
 
+  #[instrument(name = "Database::cleanup_download_counts_4h", skip(self), err)]
+  pub async fn cleanup_download_counts_4h(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      "DELETE FROM version_download_counts_4h WHERE time_bucket < $1",
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
+  }
+
   #[instrument(name = "Database::insert_oauth_state", skip(
     self,
     new_oauth_state
@@ -3190,12 +3418,13 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<OauthState> {
     query_concat_as!(
       OauthState,
-      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url)
-      VALUES ($1, $2, $3)
+      "INSERT INTO oauth_states (csrf_token, pkce_code_verifier, redirect_url, user_id)
+      VALUES ($1, $2, $3, $4)
       RETURNING ", OAUTH_STATE_SELECT;
       new_oauth_state.csrf_token,
       new_oauth_state.pkce_code_verifier,
       new_oauth_state.redirect_url,
+      new_oauth_state.user_id,
     )
     .fetch_one(&self.pool)
     .await
@@ -3547,14 +3776,17 @@ gitlab_id: r.user_gitlab_id,
     .await?;
 
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&mut *tx)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -3568,14 +3800,17 @@ gitlab_id: r.user_gitlab_id,
     name: &str,
   ) -> Result<usize> {
     let total_unique_package_dependents = sqlx::query!(
-      r#"SELECT COUNT(DISTINCT (package_scope, package_name)) FROM package_version_dependencies
-      WHERE dependency_kind = $1 AND dependency_name = $2;"#,
+      r#"SELECT COUNT(*) FROM (
+        SELECT DISTINCT package_scope, package_name
+        FROM package_version_dependencies
+        WHERE dependency_kind = $1 AND dependency_name = $2
+      ) t;"#,
       kind as _,
       name,
     )
-      .map(|r| r.count.unwrap())
-      .fetch_one(&self.pool)
-      .await?;
+    .map(|r| r.count.unwrap())
+    .fetch_one(&self.pool)
+    .await?;
 
     Ok(total_unique_package_dependents as usize)
   }
@@ -3796,41 +4031,27 @@ gitlab_id: r.user_gitlab_id,
       .execute(&mut *tx)
       .await?;
 
+    // Aggregate version-level 24h counts into package-level 24h counts.
+    // Derived from version_download_counts_24h (not 4h) so that the
+    // package-level rollup stays correct even after 4h rows are pruned.
+    sqlx::query!(
+      r#"
+      INSERT INTO package_download_counts_24h (scope, package, time_bucket, kind, count)
+      SELECT scope, package, time_bucket, kind, SUM(count)
+      FROM version_download_counts_24h
+      WHERE time_bucket >= date_trunc('day', $1::timestamptz) AND time_bucket < date_trunc('day', $2::timestamptz) + interval '1 day'
+      GROUP BY scope, package, time_bucket, kind
+      ON CONFLICT (scope, package, time_bucket, kind) DO UPDATE SET count = EXCLUDED.count
+      "#,
+      smallest_time_bucket,
+      largest_time_bucket,
+    )
+      .execute(&mut *tx)
+      .await?;
+
     tx.commit().await?;
 
     Ok(())
-  }
-
-  #[cfg(test)]
-  #[instrument(
-    name = "Database::get_package_version_downloads_4h",
-    skip(self),
-    err
-  )]
-  pub async fn get_package_version_downloads_4h(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-    version: &Version,
-    start: DateTime<Utc>,
-    end: DateTime<Utc>,
-  ) -> Result<Vec<DownloadDataPoint>> {
-    sqlx::query_as!(
-      DownloadDataPoint,
-      r#"
-      SELECT time_bucket, kind as "kind: DownloadKind", count
-      FROM version_download_counts_4h
-      WHERE scope = $1 AND package = $2 AND version = $3 AND time_bucket >= $4 AND time_bucket < $5
-      ORDER BY time_bucket ASC
-      "#,
-      scope as _,
-      name as _,
-      version as _,
-      start,
-      end,
-    )
-      .fetch_all(&self.pool)
-      .await
   }
 
   #[instrument(
@@ -3875,10 +4096,9 @@ gitlab_id: r.user_gitlab_id,
     sqlx::query_as!(
       DownloadDataPoint,
       r#"
-    SELECT time_bucket, kind as "kind: DownloadKind", SUM(count) as "count!"
-    FROM version_download_counts_24h
+    SELECT time_bucket, kind as "kind: DownloadKind", count as "count!"
+    FROM package_download_counts_24h
     WHERE scope = $1 AND package = $2 AND time_bucket >= $3 AND time_bucket < $4
-    GROUP BY time_bucket, kind
     ORDER BY time_bucket ASC
     "#,
       scope as _,
@@ -4650,4 +4870,39 @@ pub enum CreatePublishingTaskResult {
   Created((PublishingTask, Option<UserPublic>)),
   Exists((PublishingTask, Option<UserPublic>)),
   WeeklyPublishAttemptsLimitExceeded(i32),
+}
+
+/// In-memory cache for `count_package_dependents` results. The dependent count
+/// for a package only changes when someone publishes a new version of a
+/// depending package, so a 15-minute TTL is safe and drastically reduces
+/// database load on package page views.
+#[derive(Clone)]
+pub struct DependentCountCache {
+  cache: moka::future::Cache<String, usize>,
+}
+
+impl DependentCountCache {
+  pub fn new() -> Self {
+    Self {
+      cache: moka::future::Cache::builder()
+        .max_capacity(65536)
+        .time_to_live(std::time::Duration::from_secs(900))
+        .build(),
+    }
+  }
+
+  pub async fn count_package_dependents(
+    &self,
+    db: &Database,
+    kind: DependencyKind,
+    name: &str,
+  ) -> Result<usize> {
+    let key = format!("{kind:?}:{name}");
+    if let Some(count) = self.cache.get(&key).await {
+      return Ok(count);
+    }
+    let count = db.count_package_dependents(kind, name).await?;
+    self.cache.insert(key, count).await;
+    Ok(count)
+  }
 }

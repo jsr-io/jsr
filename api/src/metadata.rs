@@ -26,7 +26,7 @@ use std::collections::HashMap;
 ///   }
 /// }
 /// ```
-/// See also [`gcs_paths::package_metadata`]
+/// See also [`s3_paths::package_metadata`]
 #[derive(Serialize, Deserialize)]
 pub struct PackageMetadata {
   pub scope: ScopeName,
@@ -41,19 +41,21 @@ impl PackageMetadata {
     scope: &ScopeName,
     package_name: &PackageName,
   ) -> anyhow::Result<Self> {
-    let mut versions = db.list_package_versions(scope, package_name).await?;
-    versions.sort_by(|(a, _), (b, _)| b.version.cmp(&a.version));
+    let mut versions = db
+      .list_package_versions_for_metadata(scope, package_name)
+      .await?;
+    versions.sort_by(|a, b| b.version.cmp(&a.version));
     let latest = versions
       .iter()
-      .find(|(v, _)| !v.is_yanked && v.version.0.pre.is_empty())
-      .map(|(v, _)| v.version.clone());
+      .find(|v| !v.is_yanked && v.version.0.pre.is_empty())
+      .map(|v| v.version.clone());
     let mut out = Self {
       scope: scope.to_owned(),
       name: package_name.to_owned(),
       latest,
       versions: HashMap::new(),
     };
-    for (version, _) in versions {
+    for version in versions {
       out.versions.insert(
         version.version,
         PackageMetadataVersion {
@@ -110,7 +112,7 @@ pub struct PackageMetadataVersion {
 ///  }
 /// }
 /// ```
-/// See also [`gcs_paths::version_metadata`]
+/// See also [`s3_paths::version_metadata`]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionMetadata {

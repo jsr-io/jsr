@@ -9,45 +9,45 @@
   "licenseId": "EPL-2.0",
   "crossRef": [
     {
-      "match": "true",
-      "url": "https://www.opensource.org/licenses/EPL-2.0",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:01:56Z",
-      "isWayBackLink": false,
-      "order": 1
-    },
-    {
       "match": "false",
       "url": "https://www.eclipse.org/legal/epl-2.0",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:01:56Z",
+      "timestamp": "2026-07-16T09:31:23Z",
       "isWayBackLink": false,
       "order": 0
-    },
-    {
-      "match": "false",
-      "url": "https://projects.eclipse.org/license/epl-2.0",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2026-02-20T21:01:56Z",
-      "isWayBackLink": false,
-      "order": 3
     },
     {
       "match": "true",
       "url": "https://www.eclipse.org/legal/epl-v20.html",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2026-02-20T21:01:57Z",
+      "timestamp": "2026-07-16T09:31:24Z",
       "isWayBackLink": false,
       "order": 2
+    },
+    {
+      "match": "true",
+      "url": "https://www.opensource.org/license/EPL-2.0",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:31:24Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
+      "match": "false",
+      "url": "https://projects.eclipse.org/license/epl-2.0",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:31:24Z",
+      "isWayBackLink": false,
+      "order": 3
     }
   ],
   "seeAlso": [
     "https://www.eclipse.org/legal/epl-2.0",
-    "https://www.opensource.org/licenses/EPL-2.0",
+    "https://www.opensource.org/license/EPL-2.0",
     "https://www.eclipse.org/legal/epl-v20.html",
     "https://projects.eclipse.org/license/epl-2.0"
   ],

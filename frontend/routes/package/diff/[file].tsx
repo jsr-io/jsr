@@ -7,6 +7,9 @@ import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
 import { DiffView } from "../(_components)/Docs.tsx";
 import { scopeIAM } from "../../../utils/iam.ts";
 
+// The diff view is disabled. Flip to `true` to re-enable it.
+const DIFF_ENABLED: boolean = false;
+
 export default define.page<typeof handler>(function File({
   data,
   params,
@@ -49,6 +52,10 @@ export default define.page<typeof handler>(function File({
 
 export const handler = define.handlers({
   async GET(ctx) {
+    if (!DIFF_ENABLED) {
+      throw new HttpError(404, "The diff view is currently disabled.");
+    }
+
     if (ctx.url.pathname.endsWith("/~")) {
       return new Response(null, {
         status: 302,
@@ -119,7 +126,10 @@ export const handler = define.handlers({
         versions,
         docsReq,
       },
-      headers: { ...(ctx.params.version ? { "X-Robots-Tag": "noindex" } : {}) },
+      // Diff pages key on old/new version (never `version`), so this branch was
+      // dead and every diff page was indexable — N² version pairs × entrypoints
+      // of cold-render cardinality with no SEO value. Always `noindex`.
+      headers: { "X-Robots-Tag": "noindex" },
     };
   },
 });

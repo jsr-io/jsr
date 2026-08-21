@@ -11,12 +11,19 @@ resource "cloudflare_workers_script" "jsr_lb" {
   main_module = "worker.js"
 
   observability = {
-    enabled            = true
-    head_sampling_rate = 1
+    enabled = true
     logs = {
       enabled            = true
-      invocation_logs    = true
-      head_sampling_rate = 1
+      invocation_logs    = false
+      head_sampling_rate = 0.01
+      persist            = false
+      destinations       = [var.cloudflare_otlp_logs_destination]
+    }
+    traces = {
+      enabled            = true
+      head_sampling_rate = 0.01
+      persist            = false
+      destinations       = [var.cloudflare_otlp_traces_destination]
     }
   }
 
@@ -29,7 +36,7 @@ resource "cloudflare_workers_script" "jsr_lb" {
       type        = "r2_bucket"
       name        = "MODULES_BUCKET"
       bucket_name = cloudflare_r2_bucket.modules.name
-    }, {
+      }, {
       type        = "r2_bucket"
       name        = "NPM_BUCKET"
       bucket_name = cloudflare_r2_bucket.npm.name
@@ -46,15 +53,53 @@ resource "cloudflare_workers_script" "jsr_lb" {
       name = "NPM_DOMAIN"
       text = local.npm_domain
       }, {
-      type = "secret_text"
+      # Cloud Run service URLs aren't secret; keep as plain_text so the
+      # current value is visible from the worker's bindings page (needed
+      # to verify the LB is pointing at a live Cloud Run revision).
+      type = "plain_text"
       name = "REGISTRY_API_URL"
       text = google_cloud_run_v2_service.registry_api.uri
       }, {
-      type = "secret_text"
-      name = "REGISTRY_FRONTEND_URL"
-      text = google_cloud_run_v2_service.registry_frontend["us-central1"].uri
+      # Service binding to the frontend Worker. Terraform uploads new
+      # versions via `cloudflare_worker_version.jsr_frontend` and
+      # promotes them via `cloudflare_workers_deployment.jsr_frontend`;
+      # the `depends_on` below makes the LB binding wait for the
+      # promotion so the LB never references an un-promoted version.
+      type    = "service"
+      name    = "FRONTEND"
+      service = "${var.gcp_project}-jsr-frontend"
+      }, {
+      # Per-IP rate limit applied only on the frontend proxy path (see
+      # handleFrontendRoute in lb/main.ts). Keeps scrapers from generating
+      # cache-miss load on the frontend Worker without touching modules,
+      # API, or npm.
+      # namespace_id is a per-account identifier for this rate-limit binding;
+      # any unused value works (no Cloudflare-reserved meaning for "1001").
+      type         = "ratelimit"
+      name         = "FRONTEND_RATELIMIT"
+      namespace_id = "1001"
+      simple = {
+        limit  = 240
+        period = 60
+      }
+      }, {
+      # Stricter per-IP limit applied only to the doc, diff, and source package
+      # pages (see isDocsDiffSourceRoute in lb/main.ts) — the expensive-to-render
+      # routes scrapers walk symbol-by-symbol. Stacks on top of FRONTEND_RATELIMIT
+      # so these pages are capped well below the general frontend allowance.
+      # namespace_id is a per-account identifier for this rate-limit binding;
+      # any unused value works (no Cloudflare-reserved meaning for "1002").
+      type         = "ratelimit"
+      name         = "DOCS_RATELIMIT"
+      namespace_id = "1002"
+      simple = {
+        limit  = 20
+        period = 60
+      }
     }
   ]
+
+  depends_on = [cloudflare_workers_deployment.jsr_frontend]
 
   lifecycle {
     create_before_destroy = true

@@ -3,6 +3,7 @@ import { Docs, Source, State } from "../util.ts";
 import { APIResponse, assertOk, path } from "./api.ts";
 import {
   FullScope,
+  List,
   Package,
   type PackageDownloads,
   PackageVersionDocs,
@@ -125,6 +126,16 @@ export async function packageDataWithDocs(
     } else {
       if (pkgDocsResp.code === "scopeNotFound") return null;
       if (pkgDocsResp.code === "packageNotFound") return null;
+      if (pkgDocsResp.code === "docsOnlyForLatestVersion") {
+        // Docs are only served for the latest version; redirect to the
+        // canonical (versionless) docs URL for the latest version.
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: `/@${scope}/${pkg}/doc${compileDocsRequestPath(docs)}`,
+          },
+        });
+      }
       if (pkgDocsResp.code === "entrypointOrSymbolNotFound") {
         // redirect to all symbols page if there is no default entrypoint
         if ("entrypoint" in docs && !docs.symbol && docs.entrypoint === "") {
@@ -132,7 +143,7 @@ export async function packageDataWithDocs(
             headers: {
               Location: `/@${scope}/${pkg}${
                 version ? `@${version}` : ""
-              }/doc/all_symbols`,
+              }/doc/all_symbols?no_default_entrypoint`,
             },
             status: 302,
           });
@@ -198,8 +209,9 @@ export async function packageDataWithDiff(
         },
       )
       : Promise.resolve(null),
-    state.api.get<PackageVersionWithUser[]>(
+    state.api.get<List<PackageVersionWithUser>>(
       path`/scopes/${scope}/packages/${pkg}/versions`,
+      { limit: 100 },
     ),
   ]);
   if (data === null) return null;
@@ -235,7 +247,7 @@ export async function packageDataWithDiff(
       ...data,
       kind: "content",
       selectedVersion: null,
-      versions: versionsResp.data,
+      versions: versionsResp.data.items,
       docs: null,
     };
   } else if (pkgDiffResp.data.kind == "redirect") {
@@ -245,7 +257,7 @@ export async function packageDataWithDiff(
       ...data,
       kind: "content",
       selectedVersion: pkgDiffResp.data.version,
-      versions: versionsResp.data,
+      versions: versionsResp.data.items,
       docs: {
         comrakCss: pkgDiffResp.data.comrakCss,
         script: pkgDiffResp.data.script,

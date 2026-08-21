@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE publishing_tasks\n       SET updated_at = now() - ($1::bigint * interval '1 second')\n       WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2bfcf9b00a00dcb339e78971a2ec1fdbaa3c8f23f639e2f9fc246526a799c63a"
+}

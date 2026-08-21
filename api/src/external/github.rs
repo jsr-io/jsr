@@ -1,12 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
 use std::fmt::Display;
 use std::str::FromStr;
 
 use crate::api::ApiError;
 use crate::util::ApiResult;
-use crate::util::USER_AGENT;
+use crate::util::shared_http_client;
 use anyhow::Context;
 use hyper::StatusCode;
 use serde::Deserialize;
@@ -27,9 +26,7 @@ impl GitHubUserClient {
     &self,
     path: &str,
   ) -> Result<reqwest::Response, anyhow::Error> {
-    let response = reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .build()?
+    let response = shared_http_client()
       .get(format!("https://api.github.com{}", path))
       .bearer_auth(&self.access_token)
       .send()
@@ -127,9 +124,7 @@ impl GitHubAppClient {
     &self,
     access_token: String,
   ) -> Result<(), anyhow::Error> {
-    let res = reqwest::Client::builder()
-      .user_agent(USER_AGENT)
-      .build()?
+    let res = shared_http_client()
       .delete(format!(
         "https://api.github.com/applications/{}/grant",
         self.id
@@ -225,11 +220,66 @@ pub struct GitHubClaims {
   pub aud: String,
 }
 
+/// Validate that `iss` is a GitHub Actions OIDC issuer: either the shared
+/// issuer, or an enterprise-scoped one of the form
+/// `https://token.actions.githubusercontent.com/<enterpriseSlug>`, which GitHub
+/// Enterprise Cloud uses when the "unique OIDC issuer URL" setting is enabled.
+/// The slug charset check also keeps the JWKS fetch below pinned to GitHub's
+/// domain.
+fn validate_oidc_issuer(iss: &str) -> ApiResult<()> {
+  if iss == GITHUB_OIDC_ISSUER {
+    return Ok(());
+  }
+  if let Some(slug) = iss.strip_prefix(GITHUB_OIDC_ISSUER)
+    && let Some(slug) = slug.strip_prefix('/')
+    && !slug.is_empty()
+    && slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+  {
+    return Ok(());
+  }
+  Err(ApiError::InvalidOidcToken {
+    msg: format!("invalid issuer: {iss}").into(),
+  })
+}
+
+/// Extract the `iss` claim from a JWT without verifying its signature. The
+/// value must only be used to select the JWKS endpoint; `verify_oidc_token`
+/// re-validates it under the token signature.
+fn extract_unverified_issuer(token: &str) -> ApiResult<String> {
+  use base64::Engine as _;
+  use base64::prelude::BASE64_URL_SAFE_NO_PAD;
+
+  #[derive(Deserialize)]
+  struct UnverifiedClaims {
+    iss: String,
+  }
+
+  let payload = token.split('.').nth(1).ok_or(ApiError::InvalidOidcToken {
+    msg: "malformed token".into(),
+  })?;
+  let payload = BASE64_URL_SAFE_NO_PAD.decode(payload).map_err(|err| {
+    ApiError::InvalidOidcToken {
+      msg: format!("failed to decode claims: {err}").into(),
+    }
+  })?;
+  let claims: UnverifiedClaims =
+    serde_json::from_slice(&payload).map_err(|err| {
+      ApiError::InvalidOidcToken {
+        msg: format!("failed to parse claims: {err}").into(),
+      }
+    })?;
+  Ok(claims.iss)
+}
+
 #[instrument(name = "github::verify_oidc_token", err, skip(token))]
 pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
-  let client = reqwest::Client::new();
-  let url = format!("{GITHUB_OIDC_ISSUER}/.well-known/jwks");
-  let res = client
+  // The issuer is needed before verification to know which JWKS endpoint to
+  // fetch: enterprise-scoped issuers serve their keys from their own path.
+  let issuer = extract_unverified_issuer(token)?;
+  validate_oidc_issuer(&issuer)?;
+
+  let url = format!("{issuer}/.well-known/jwks");
+  let res = shared_http_client()
     .get(url)
     .header("Accept", "application/json")
     .send()
@@ -268,7 +318,7 @@ pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
     })?
     .into();
   let mut validation = jsonwebtoken::Validation::new(alg);
-  validation.set_issuer(&[GITHUB_OIDC_ISSUER]);
+  validation.set_issuer(&[&issuer]);
   let decoded = jsonwebtoken::decode::<GitHubClaims>(
     token,
     &jwk.key.to_decoding_key(),
@@ -279,4 +329,59 @@ pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
   })?;
 
   Ok(decoded.claims)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::GITHUB_OIDC_ISSUER;
+  use super::extract_unverified_issuer;
+  use super::validate_oidc_issuer;
+  use base64::Engine as _;
+  use base64::prelude::BASE64_URL_SAFE_NO_PAD;
+
+  #[test]
+  fn validate_oidc_issuer_accepts_github_issuers() {
+    validate_oidc_issuer(GITHUB_OIDC_ISSUER).unwrap();
+    // Enterprise-scoped issuer (GHEC "unique OIDC issuer URL"), see
+    // jsr-io/jsr#1485.
+    validate_oidc_issuer(
+      "https://token.actions.githubusercontent.com/octocat-inc",
+    )
+    .unwrap();
+  }
+
+  #[test]
+  fn validate_oidc_issuer_rejects_other_issuers() {
+    for iss in [
+      "",
+      "https://example.com",
+      "https://token.actions.githubusercontent.com/",
+      "https://token.actions.githubusercontent.com//foo",
+      "https://token.actions.githubusercontent.com/foo/bar",
+      "https://token.actions.githubusercontent.com/foo?x=1",
+      "https://token.actions.githubusercontent.com/../foo",
+      "https://token.actions.githubusercontent.com.evil.com",
+      "https://token.actions.githubusercontent.com.evil.com/foo",
+      "https://token.actions.ghe.com/foo",
+    ] {
+      assert!(validate_oidc_issuer(iss).is_err(), "accepted: {iss}");
+    }
+  }
+
+  #[test]
+  fn extract_unverified_issuer_reads_iss_claim() {
+    let payload = BASE64_URL_SAFE_NO_PAD.encode(
+      br#"{"iss":"https://token.actions.githubusercontent.com/octocat-inc"}"#,
+    );
+    let token = format!("e30.{payload}.signature");
+    assert_eq!(
+      extract_unverified_issuer(&token).unwrap(),
+      "https://token.actions.githubusercontent.com/octocat-inc"
+    );
+
+    assert!(extract_unverified_issuer("garbage").is_err());
+    assert!(extract_unverified_issuer("e30.!!!.sig").is_err());
+    let no_iss = BASE64_URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+    assert!(extract_unverified_issuer(&format!("e30.{no_iss}.sig")).is_err());
+  }
 }

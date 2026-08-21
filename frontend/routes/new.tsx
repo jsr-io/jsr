@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
-import { asset } from "fresh/runtime";
-import { TbFolder, TbPackage } from "tb-icons";
+import TbFolder from "tb-icons/TbFolder";
+import TbPackage from "tb-icons/TbPackage";
 import {
   CreatePackage,
   IconCircle,
@@ -68,22 +68,10 @@ export default define.page<typeof handler>(function New(props) {
                     </p>
                     <div class="flex gap-5 flex-col xl:flex-row">
                       <a
-                        href={`/login/github?redirect=${
-                          encodeURIComponent(loginUrl)
-                        }`}
+                        href={`/login?redirect=${encodeURIComponent(loginUrl)}`}
                         class="button-primary"
                       >
-                        <img class="size-5" src={asset("/logos/github.svg")} />
-                        Sign in with GitHub
-                      </a>
-                      <a
-                        href={`/login/gitlab?redirect=${
-                          encodeURIComponent(loginUrl)
-                        }`}
-                        class="button-primary"
-                      >
-                        <img class="size-5" src={asset("/logos/gitlab.svg")} />
-                        Sign in with GitLab
+                        Sign in to JSR
                       </a>
                     </div>
                   </div>

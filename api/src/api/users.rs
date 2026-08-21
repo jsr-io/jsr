@@ -10,6 +10,7 @@ use tracing::instrument;
 use crate::db::Database;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 
 use super::ApiError;
@@ -18,13 +19,19 @@ use super::ApiUser;
 
 pub fn users_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/:id", util::json(get_handler))
-    .get("/:id/scopes", util::json(get_scopes_handler))
+    .get(
+      "/:id",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
+    .get(
+      "/:id/scopes",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_scopes_handler)),
+    )
     .build()
     .unwrap()
 }
 
-#[instrument(name = "GET /api/users/:id", skip(req), err, fields(id))]
+#[instrument(name = "GET /api/users/:id", skip(req), fields(id))]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiUser> {
   let id = req.param_uuid("id")?;
   Span::current().record("id", field::display(id));
@@ -38,7 +45,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiUser> {
   Ok(user.into())
 }
 
-#[instrument(name = "GET /api/users/:id/scopes", skip(req), err, fields(id))]
+#[instrument(name = "GET /api/users/:id/scopes", skip(req), fields(id))]
 pub async fn get_scopes_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScope>> {

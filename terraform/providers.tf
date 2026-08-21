@@ -12,11 +12,15 @@ terraform {
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = ">= 5.17.0, < 6.0.0"
+      version = ">= 5.19.1, < 6.0.0"
     }
     aws = {
       source  = "hashicorp/aws"
       version = ">= 5.0.0, < 6.0.0"
+    }
+    algolia = {
+      source  = "k-yomo/algolia"
+      version = ">= 0.6.0, < 0.7.0"
     }
   }
 }
@@ -27,6 +31,11 @@ provider "google" {
 
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
+}
+
+provider "algolia" {
+  app_id  = var.algolia_app_id
+  api_key = var.algolia_admin_api_key
 }
 
 provider "aws" {

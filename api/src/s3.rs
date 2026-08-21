@@ -1,7 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::pin::Pin;
-use std::sync::Arc;
-
 use crate::task_queue::DynamicBackgroundTaskQueue;
 use crate::task_queue::RestartableTask;
 use crate::task_queue::RestartableTaskResult;
@@ -14,8 +11,44 @@ use futures::TryStreamExt;
 use futures::join;
 use hyper::StatusCode;
 use s3::serde_types::ListBucketResult;
+use std::borrow::Cow;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
 use thiserror::Error;
 use tracing::instrument;
+
+pub const CACHE_CONTROL_IMMUTABLE: &str = "public, max-age=31536000, immutable";
+/// Cache-control used for package and npm version manifests. These change
+/// only on publish / yank / delete / description edit, and we explicitly
+/// purge the Cloudflare cache for the affected URLs from those code paths
+/// (see `CachePurge`). Purging is best-effort — `CachePurge::purge` swallows
+/// errors — so the cache-control must be the durability net on its own.
+///
+/// `s-maxage` is the window during which the edge treats a cached manifest as
+/// *fresh* and will not revalidate. It must stay short, because a freshly
+/// published version only becomes visible to Deno's resolver once the edge
+/// re-fetches the regenerated `meta.json`; if the explicit purge call fails,
+/// `s-maxage` is the longest a just-published version can stay invisible to
+/// the resolver while the version page and immutable `_meta.json` already
+/// exist. We deliberately omit `stale-while-revalidate`: the lb serves a
+/// cached entry on a hit without re-fetching it (see `proxyToR2`), so SWR
+/// would only let the edge keep serving the *stale* manifest without ever
+/// producing fresh content until the entry fully expires — pure added
+/// staleness with no upside. Without it, a request past `s-maxage` is an
+/// unambiguous miss that forces an R2 re-fetch, capping resolver staleness at
+/// `s-maxage`. `max-age` caps client-side staleness.
+pub const CACHE_CONTROL_MANIFEST: &str = "public, max-age=60, s-maxage=60";
+
+const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[derive(Clone)]
+pub struct Buckets {
+  pub publishing_bucket: BucketWithQueue,
+  pub modules_bucket: BucketWithQueue,
+  pub docs_bucket: BucketWithQueue,
+  pub npm_bucket: BucketWithQueue,
+}
 
 #[derive(Debug, Error, deno_error::JsError)]
 #[class(generic)]
@@ -45,6 +78,13 @@ impl S3Error {
   }
 }
 
+#[derive(Debug)]
+pub struct S3UploadOptions<'a> {
+  pub content_type: Option<Cow<'a, str>>,
+  pub cache_control: Option<Cow<'a, str>>,
+  pub gzip_encoded: bool,
+}
+
 #[derive(Clone)]
 pub struct Bucket {
   pub(crate) bucket: Box<s3::Bucket>,
@@ -57,7 +97,9 @@ impl Bucket {
     region: s3::Region,
     credentials: s3::creds::Credentials,
   ) -> Result<Self, S3Error> {
-    let bucket = s3::Bucket::new(&name, region, credentials)?.with_path_style();
+    let bucket = s3::Bucket::new(&name, region, credentials)?
+      .with_path_style()
+      .with_request_timeout(HTTP_CONNECT_TIMEOUT)?;
 
     Ok(Self { bucket, name })
   }
@@ -144,7 +186,7 @@ impl Bucket {
     &self,
     path: &str,
     data: Bytes,
-    options: &crate::gcp::GcsUploadOptions<'_>,
+    options: &S3UploadOptions<'_>,
   ) -> Result<(), S3Error> {
     let mut builder = self
       .bucket
@@ -178,7 +220,7 @@ impl Bucket {
     &self,
     path: &str,
     stream: &mut (impl tokio::io::AsyncRead + Unpin + Send),
-    options: &crate::gcp::GcsUploadOptions<'_>,
+    options: &S3UploadOptions<'_>,
   ) -> Result<(), S3Error> {
     let mut builder = self
       .bucket
@@ -253,7 +295,7 @@ impl BucketWithQueue {
     &self,
     path: Arc<str>,
     body: UploadTaskBody,
-    options: crate::gcp::GcsUploadOptions<'static>,
+    options: S3UploadOptions<'static>,
   ) -> Result<(), S3Error> {
     self
       .upload_queue
@@ -264,7 +306,6 @@ impl BucketWithQueue {
         options,
       })
       .await
-      .unwrap()
   }
 
   #[allow(dead_code)]
@@ -280,7 +321,6 @@ impl BucketWithQueue {
         path,
       })
       .await
-      .unwrap()
   }
 
   #[allow(dead_code)]
@@ -293,7 +333,6 @@ impl BucketWithQueue {
         path,
       })
       .await
-      .unwrap()
   }
 
   #[allow(dead_code)]
@@ -305,8 +344,7 @@ impl BucketWithQueue {
         bucket: self.bucket.clone(),
         path,
       })
-      .await
-      .unwrap()?;
+      .await?;
 
     if !list.is_empty() {
       let stream = futures::stream::iter(list)
@@ -324,7 +362,7 @@ struct UploadTask {
   bucket: Bucket,
   path: Arc<str>,
   body: UploadTaskBody,
-  options: crate::gcp::GcsUploadOptions<'static>,
+  options: S3UploadOptions<'static>,
 }
 
 pub enum UploadTaskBody {
@@ -503,6 +541,36 @@ pub struct FakeS3Tester {
 static SHARED_S3_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
 
 #[cfg(test)]
+/// Global list of child processes to kill on exit.
+static TEST_CHILD_PROCS: std::sync::Mutex<Vec<std::process::Child>> =
+  std::sync::Mutex::new(Vec::new());
+
+#[cfg(test)]
+/// Register an atexit handler (once) that kills all tracked child processes.
+static ATEXIT_REGISTERED: std::sync::Once = std::sync::Once::new();
+
+#[cfg(test)]
+pub(crate) fn track_child_proc(proc: std::process::Child) {
+  ATEXIT_REGISTERED.call_once(|| {
+    extern "C" fn kill_children() {
+      if let Ok(mut children) = TEST_CHILD_PROCS.lock() {
+        for child in children.iter_mut() {
+          let _ = child.kill();
+          let _ = child.wait();
+        }
+      }
+    }
+    unsafe extern "C" {
+      fn atexit(cb: extern "C" fn()) -> std::ffi::c_int;
+    }
+    unsafe {
+      atexit(kill_children);
+    }
+  });
+  TEST_CHILD_PROCS.lock().unwrap().push(proc);
+}
+
+#[cfg(test)]
 fn start_shared_fake_s3() -> u16 {
   use std::io::BufRead;
   use std::io::BufReader;
@@ -530,7 +598,6 @@ fn start_shared_fake_s3() -> u16 {
   dir.push("fake-s3-server");
 
   for attempt in 0..5 {
-    dbg!();
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     drop(listener);
@@ -566,13 +633,12 @@ fn start_shared_fake_s3() -> u16 {
       continue;
     }
 
-    // Then copy the rest of stderr to a sink to prevent fake-gcs-server from
-    // blocking.
+    // Then copy the rest of stderr to a sink to prevent minio from blocking.
     std::thread::spawn(move || {
       std::io::copy(&mut stderr.into_inner(), &mut std::io::sink()).ok();
     });
 
-    crate::gcp::track_child_proc(proc);
+    track_child_proc(proc);
     return port;
   }
   panic!("failed to start shared fake s3 server after 5 attempts");
@@ -622,7 +688,7 @@ mod tests {
       .upload(
         "upload_download.txt",
         "hello world".as_bytes().to_vec().into(),
-        &crate::gcp::GcsUploadOptions {
+        &S3UploadOptions {
           content_type: None,
           cache_control: None,
           gzip_encoded: false,
