@@ -2,11 +2,12 @@
 import { define } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
-import { path } from "../../utils/api.ts";
-import { List, Ticket } from "../../utils/api_types.ts";
+import { assertOk, path } from "../../utils/api.ts";
+import type { ApiTicket, List } from "../../utils/api_types.ts";
 import { URLQuerySearch } from "./(_components)/URLQuerySearch.tsx";
 import twas from "twas";
-import { TbCheck, TbClock } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 
 export default define.page<typeof handler>(function Tickets({
   data,
@@ -117,7 +118,7 @@ export const handler = define.handlers({
     const page = +(ctx.url.searchParams.get("page") || 1);
     const limit = +(ctx.url.searchParams.get("limit") || 20);
 
-    const resp = await ctx.state.api.get<List<Ticket>>(
+    const resp = await ctx.state.api.get<List<ApiTicket>>(
       path`/admin/tickets`,
       {
         query,
@@ -126,7 +127,7 @@ export const handler = define.handlers({
         limit,
       },
     );
-    if (!resp.ok) throw resp; // gracefully handle this
+    assertOk(resp);
 
     return {
       data: {

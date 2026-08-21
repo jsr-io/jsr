@@ -6,22 +6,28 @@ import { ComponentChildren } from "preact";
 export interface ListDisplayItem {
   href: string;
   content: ComponentChildren;
+  actions?: ComponentChildren;
   parentClass?: string;
 }
 
 export function ListDisplay(
-  { title, pagination, currentUrl, children }: {
+  { title, pagination, currentUrl, children, hasHeader }: {
     title?: string;
     pagination?: PaginationData;
     currentUrl?: URL;
     children: ListDisplayItem[];
+    hasHeader?: boolean;
   },
 ) {
   return (
-    <div class="mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden">
+    <div
+      class={hasHeader
+        ? ""
+        : "mt-8 ring-1 ring-jsr-cyan-100 dark:ring-jsr-cyan-900 rounded overflow-hidden"}
+    >
       {title &&
         (
-          <div class="px-5 py-4 border-b border-jsr-cyan-50 dark:border-jsr-cyan-900 bg-jsr-gray-50 dark:bg-jsr-gray-900 leading-none">
+          <div class="px-5 py-4 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 leading-none">
             <span class="font-semibold">{title}</span>
           </div>
         )}
@@ -29,16 +35,44 @@ export function ListDisplay(
       <ul class="divide-y divide-jsr-cyan-50 dark:divide-jsr-cyan-950">
         {children.map((item) => (
           <li>
-            <a
-              href={item.href}
-              class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-yellow-100 dark:hover:bg-jsr-yellow-950 focus:bg-jsr-yellow-100 dark:focus:bg-jsr-yellow-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
-                item.parentClass ?? ""
-              }`}
-            >
-              {item.content}
+            {item.actions
+              ? (
+                <div
+                  class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 ${
+                    item.parentClass ?? ""
+                  }`}
+                >
+                  <a
+                    href={item.href}
+                    class="flex-1 flex items-center gap-2 min-w-0 outline-none focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset rounded"
+                  >
+                    {item.content}
+                  </a>
+                  <div class="flex items-center gap-2 shrink-0">
+                    {item.actions}
+                  </div>
+                  <a
+                    href={item.href}
+                    class="shrink-0"
+                    aria-hidden="true"
+                    tabindex={-1}
+                  >
+                    <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 size-6" />
+                  </a>
+                </div>
+              )
+              : (
+                <a
+                  href={item.href}
+                  class={`flex items-center px-5 py-3 gap-2 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 focus:ring-2 ring-jsr-cyan-700 dark:ring-jsr-cyan-500 ring-inset outline-none ${
+                    item.parentClass ?? ""
+                  }`}
+                >
+                  {item.content}
 
-              <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 flex-shrink-0 size-6" />
-            </a>
+                  <TbChevronRight class="text-jsr-cyan-800 dark:text-jsr-cyan-400 shrink-0 size-6" />
+                </a>
+              )}
           </li>
         ))}
       </ul>

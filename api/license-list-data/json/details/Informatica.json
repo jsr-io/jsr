@@ -1,0 +1,33 @@
+{
+  "isDeprecatedLicenseId": false,
+  "licenseText": " Redistribution and use in source and binary forms, with or without\n modification, are permitted without restriction.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND INFORMATICA DISCLAIMS ALL WARRANTIES\nEXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF\nNON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR\nPURPOSE.  INFORMATICA DOES NOT WARRANT THAT USE OF THE SOFTWARE WILL BE\nUNINTERRUPTED OR ERROR-FREE.  INFORMATICA SHALL NOT, UNDER ANY CIRCUMSTANCES,\nBE LIABLE TO LICENSEE FOR LOST PROFITS, CONSEQUENTIAL, INCIDENTAL, SPECIAL OR\nINDIRECT DAMAGES ARISING OUT OF OR RELATED TO THIS AGREEMENT OR THE\nTRANSACTIONS CONTEMPLATED HEREUNDER, EVEN IF INFORMATICA HAS BEEN APPRISED OF\nTHE LIKELIHOOD OF SUCH DAMAGES.\n",
+  "standardLicenseTemplate": "Redistribution and use in source and binary forms, with or without modification, are permitted without restriction.\n\n\u003c\u003cbeginOptional\u003e\u003eNote: this program is based on the sd_listen program by Tom Pusateri (pusateri@cs.duke.edu) and developed by Jon Knight (J.P.Knight@lut.ac.uk).\n\n\u003c\u003cendOptional\u003e\u003e\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND INFORMATICA DISCLAIMS ALL WARRANTIES EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. INFORMATICA DOES NOT WARRANT THAT USE OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE. INFORMATICA SHALL NOT, UNDER ANY CIRCUMSTANCES, BE LIABLE TO LICENSEE FOR LOST PROFITS, CONSEQUENTIAL, INCIDENTAL, SPECIAL OR INDIRECT DAMAGES ARISING OUT OF OR RELATED TO THIS AGREEMENT OR THE TRANSACTIONS CONTEMPLATED HEREUNDER, EVEN IF INFORMATICA HAS BEEN APPRISED OF THE LIKELIHOOD OF SUCH DAMAGES.\n\n",
+  "name": "Informatica License",
+  "licenseId": "Informatica",
+  "crossRef": [
+    {
+      "match": "false",
+      "url": "https://raw.githubusercontent.com/landtuna/open-mtools/6c04c2882eca7c4313ec267766ea53ac9bfe129b/mdump.c",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:25:44Z",
+      "isWayBackLink": false,
+      "order": 1
+    },
+    {
+      "match": "false",
+      "url": "https://raw.githubusercontent.com/landtuna/open-mtools/6c04c2882eca7c4313ec267766ea53ac9bfe129b/msend.c",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:25:44Z",
+      "isWayBackLink": false,
+      "order": 0
+    }
+  ],
+  "seeAlso": [
+    "https://raw.githubusercontent.com/landtuna/open-mtools/6c04c2882eca7c4313ec267766ea53ac9bfe129b/msend.c",
+    "https://raw.githubusercontent.com/landtuna/open-mtools/6c04c2882eca7c4313ec267766ea53ac9bfe129b/mdump.c"
+  ],
+  "isOsiApproved": false,
+  "licenseTextHtml": "\n         \u003cp\u003eRedistribution and use in source and binary forms, with or without modification, are permitted without restriction.\u003c/p\u003e\n\n         \u003cdiv class\u003d\"optional-license-text\"\u003e \n            \u003cp\u003eNote: this program is based on the sd_listen program by Tom Pusateri (pusateri@cs.duke.edu) and developed by Jon Knight (J.P.Knight@lut.ac.uk).\u003c/p\u003e\n\n         \u003c/div\u003e\n\n         \u003cp\u003eTHE SOFTWARE IS PROVIDED \u0026quot;AS IS\u0026quot; AND INFORMATICA DISCLAIMS ALL WARRANTIES EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.  INFORMATICA DOES NOT WARRANT THAT USE OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE.  INFORMATICA SHALL NOT, UNDER ANY CIRCUMSTANCES, BE LIABLE TO LICENSEE FOR LOST PROFITS, CONSEQUENTIAL, INCIDENTAL, SPECIAL OR INDIRECT DAMAGES ARISING OUT OF OR RELATED TO THIS AGREEMENT OR THE TRANSACTIONS CONTEMPLATED HEREUNDER, EVEN IF INFORMATICA HAS BEEN APPRISED OF THE LIKELIHOOD OF SUCH DAMAGES.\u003c/p\u003e\n\n      "
+}

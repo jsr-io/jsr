@@ -21,11 +21,15 @@ export const RUNTIME_COMPAT_KEYS: [
 
 export function RuntimeCompatIndicator(
   { runtimeCompat, hideUnknown, compact }: {
-    runtimeCompat: RuntimeCompat;
+    runtimeCompat: RuntimeCompat | null | undefined;
     hideUnknown?: boolean;
     compact?: boolean;
   },
 ) {
+  // Search hits may omit runtimeCompat; treat a missing object as "all unknown"
+  // rather than crashing while rendering.
+  runtimeCompat ??= {};
+
   const worksWithArray: string[] = [];
   const unknownWithArray: string[] = [];
 
@@ -100,7 +104,7 @@ export function RuntimeCompatIndicator(
                     <div
                       aria-hidden="true"
                       title={ICON_TITLE_TEXT}
-                      class="absolute inset-0 h-full w-full text-jsr-cyan-600 dark:text-cyan-500 text-center leading-4 md:leading-5 drop-shadow-md font-bold text-md md:text-xl select-none"
+                      class="absolute inset-0 h-full w-full text-jsr-cyan-600 dark:text-cyan-500 text-center leading-4 md:leading-5 drop-shadow-md font-bold text-xs md:text-sm select-none"
                     >
                       ?
                     </div>

@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
 use crate::db::*;
 use chrono::DateTime;
@@ -79,9 +78,9 @@ pub fn encode_base62(mut num: u32) -> String {
 
 #[cfg(test)]
 mod tests {
+  use super::TokenType;
   use super::encode_base62;
   use super::generate_token;
-  use super::TokenType;
 
   #[test]
   fn test_encode_base62() {

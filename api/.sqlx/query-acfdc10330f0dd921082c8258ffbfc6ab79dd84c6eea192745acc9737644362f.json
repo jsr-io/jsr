@@ -1,0 +1,131 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n        publishing_tasks.id as \"task_id\", publishing_tasks.status as \"task_status: PublishingTaskStatus\", publishing_tasks.error as \"task_error: PublishingTaskError\", publishing_tasks.user_id as \"task_user_id\", publishing_tasks.package_scope as \"task_package_scope: ScopeName\", publishing_tasks.package_name as \"task_package_name: PackageName\", publishing_tasks.package_version as \"task_package_version: Version\", publishing_tasks.config_file as \"task_config_file: PackagePath\", publishing_tasks.created_at as \"task_created_at\", publishing_tasks.updated_at as \"task_updated_at\",\n        users.id as \"user_id?\", users.name as \"user_name?\", users.avatar_url as \"user_avatar_url?\", users.github_id as \"user_github_id?\", users.gitlab_id as \"user_gitlab_id?\", users.updated_at as \"user_updated_at?\", users.created_at as \"user_created_at?\"\n      FROM publishing_tasks\n      LEFT JOIN users on publishing_tasks.user_id = users.id\n      WHERE publishing_tasks.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "task_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "task_status: PublishingTaskStatus",
+        "type_info": {
+          "Custom": {
+            "name": "task_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "processing",
+                "processed",
+                "success",
+                "failure"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "task_error: PublishingTaskError",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "task_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "task_package_scope: ScopeName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "task_package_name: PackageName",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "task_package_version: Version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "task_config_file: PackagePath",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "task_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "task_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "user_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "user_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "user_avatar_url?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "user_github_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "user_gitlab_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "user_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "user_created_at?",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "acfdc10330f0dd921082c8258ffbfc6ab79dd84c6eea192745acc9737644362f"
+}

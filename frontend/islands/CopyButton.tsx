@@ -1,7 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useCallback, useRef } from "preact/hooks";
-import { TbCheck, TbCopy } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbCopy from "tb-icons/TbCopy";
 
 interface CopyButtonProps {
   title: string;
@@ -10,10 +11,10 @@ interface CopyButtonProps {
 }
 
 export function CopyButton(props: CopyButtonProps) {
-  const timer = useRef<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copied = useSignal(false);
 
-  const { text } = props;
+  const text = props.text;
 
   const copy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {

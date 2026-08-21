@@ -32,7 +32,7 @@ export default define.page<typeof handler>(function PackagePage({
         params={params as unknown as Params}
         latestVersion={data.package.latestVersion}
       />
-      <div class="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-y-8 lg:gap-x-16">
+      <div class="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-y-8 lg:gap-x-16">
         <div>
           <h2 class="font-bold text-2xl lg:text-3xl mb-8 text-balance">
             How to publish:
@@ -135,7 +135,7 @@ export default define.page<typeof handler>(function PackagePage({
             </p>
           </div>
         </div>
-        <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
+        <div class="h-full w-full grid grid-cols-1 grid-rows-1 *:col-start-1 *:row-start-1 items-center justify-center">
           <hr class="border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-600 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
           <div class="p-2 bg-white dark:bg-jsr-gray-950 text-center w-max mx-auto font-bold">
             OR
@@ -175,7 +175,7 @@ jobs:
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  contents: read</span>
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  id-token: write</span>
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>  - name: Publish package</span>
     <span class='bg-[rgba(134,239,172,.25)] text-[rgba(190,242,100)]'>    run: npx jsr publish</span>
 `;
@@ -250,7 +250,7 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
       <p class="mt-4">
         Set up your workflow with OIDC permissions and a step to run{" "}
-        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-px px-2 text-sm">
           npx jsr publish
         </code>:
       </p>
@@ -278,11 +278,11 @@ function GitHubActions({ pkg, canEdit, user }: {
 
       <p class="mt-4">
         You can also use{" "}
-        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-px px-2 text-sm">
           deno publish
         </code>{" "}
         instead of{" "}
-        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-px px-2 text-sm">
           npx jsr publish
         </code>. When doing that, make sure to install Deno in your workflow
         first.

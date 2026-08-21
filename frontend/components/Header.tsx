@@ -3,10 +3,16 @@
 import { FullUser } from "../utils/api_types.ts";
 import { GlobalSearch } from "../islands/GlobalSearch.tsx";
 import { UserMenu } from "../islands/UserMenu.tsx";
-import TbBrandGithub from "tb-icons/TbBrandGithub";
 import { SearchKind } from "../util.ts";
 import { HeaderLogo } from "../islands/HeaderLogo.tsx";
 import DarkModeToggle from "../islands/DarkModeToggle.tsx";
+import TbLogin2 from "tb-icons/TbLogin2";
+
+const algoliaAppId = process.env.ALGOLIA_APP_ID;
+const algoliaPackageApiKey = process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY;
+const algoliaPackageIndex = process.env.ALGOLIA_PACKAGES_INDEX;
+const algoliaDocsApiKey = process.env.ALGOLIA_DOCS_SEARCH_API_KEY;
+const algoliaDocsIndex = process.env.ALGOLIA_DOCS_INDEX;
 
 export function Header({
   user,
@@ -20,21 +26,14 @@ export function Header({
   searchKind?: SearchKind;
 }) {
   const redirectUrl = `${url.pathname}${url.search}${url.hash}`;
-  const loginUrl = `/login?redirect=${encodeURIComponent(redirectUrl)}`;
-  const logoutUrl = `/logout?redirect=${encodeURIComponent(redirectUrl)}`;
+  const redirect = `?redirect=${encodeURIComponent(redirectUrl)}`;
 
-  const oramaPackageApiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-  const oramaPackageIndexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
-
-  const oramaDocsApiKey = Deno.env.get("ORAMA_DOCS_PUBLIC_API_KEY");
-  const oramaDocsIndexId = Deno.env.get("ORAMA_DOCS_PUBLIC_INDEX_ID");
-
-  const oramaApiKey = searchKind === "packages"
-    ? oramaPackageApiKey
-    : oramaDocsApiKey;
-  const oramaIndexId = searchKind === "packages"
-    ? oramaPackageIndexId
-    : oramaDocsIndexId;
+  const algoliaApiKey = searchKind === "packages"
+    ? algoliaPackageApiKey
+    : algoliaDocsApiKey;
+  const algoliaIndex = searchKind === "packages"
+    ? algoliaPackageIndex
+    : algoliaDocsIndex;
 
   const isHomepage = url.pathname === "/";
 
@@ -62,14 +61,15 @@ export function Header({
               <HeaderLogo class="h-8 flex-none" />
             </a>
           )}
-          <div class="hidden sm:block grow-1 flex-1">
+          <div class="hidden sm:block grow flex-1">
             {!isHomepage && (
               <GlobalSearch
                 query={(url.pathname === "/packages"
                   ? url.searchParams.get("search")
                   : undefined) ?? undefined}
-                apiKey={oramaApiKey}
-                indexId={oramaIndexId}
+                appId={algoliaAppId}
+                apiKey={algoliaApiKey}
+                indexName={algoliaIndex}
                 kind={searchKind}
               />
             )}
@@ -89,7 +89,8 @@ export function Header({
                   href="/packages"
                   className="link-header"
                 >
-                  Browse packages
+                  <span class="sm:hidden">Packages</span>
+                  <span class="hidden sm:inline">Browse packages</span>
                 </a>
               )}
             {searchKind !== "docs" && (
@@ -105,23 +106,41 @@ export function Header({
             )}
             <Divider />
             <DarkModeToggle />
-            <Divider />
-            {user
-              ? <UserMenu user={user} sudo={sudo} logoutUrl={logoutUrl} />
-              : (
-                <a href={loginUrl} class="link-header flex items-center gap-2">
-                  <TbBrandGithub class="size-5 flex-none" aria-hidden />
-                  Sign in
-                </a>
-              )}
+            {url.pathname !== "/login" && (
+              <>
+                <Divider />
+                {user
+                  ? (
+                    <UserMenu
+                      user={user}
+                      sudo={sudo}
+                      logoutUrl={`/logout${redirect}`}
+                    />
+                  )
+                  : (
+                    // Provider choice lives on /login, behind the captcha,
+                    // rather than in a dropdown here: the providers are reached
+                    // by a form POST carrying a Turnstile token, which a link
+                    // cannot produce.
+                    <a
+                      href={`/login${redirect}`}
+                      class="flex items-center gap-2 link-header"
+                    >
+                      <TbLogin2 class="size-5" />
+                      <span>Sign in</span>
+                    </a>
+                  )}
+              </>
+            )}
           </div>
         </div>
         <div class="mt-4 sm:hidden">
           {!isHomepage && (
             <GlobalSearch
               query={url.searchParams.get("search") ?? undefined}
-              apiKey={oramaApiKey}
-              indexId={oramaIndexId}
+              appId={algoliaAppId}
+              apiKey={algoliaApiKey}
+              indexName={algoliaIndex}
               kind={searchKind}
             />
           )}

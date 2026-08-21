@@ -1,7 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useId, useRef } from "preact/hooks";
 import { FullUser } from "../utils/api_types.ts";
-import { TbArrowRight, TbLogout, TbPlus, TbUser, TbUserCog } from "tb-icons";
+import TbArrowRight from "tb-icons/TbArrowRight";
+import TbLogout from "tb-icons/TbLogout";
+import TbPlus from "tb-icons/TbPlus";
+import TbUser from "tb-icons/TbUser";
+import TbUserCog from "tb-icons/TbUserCog";
 import { useSignal } from "@preact/signals";
 
 const SHARED_ITEM_CLASSES =
@@ -53,7 +57,7 @@ export function UserMenu({ user, sudo, logoutUrl }: {
       <div
         aria-labelledby={`${prefix}-user-menu`}
         role="region"
-        class={`absolute top-[120%] -right-4 z-[80] rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
+        class={`absolute top-[120%] -right-4 z-80 rounded border-1.5 border-current bg-white dark:bg-jsr-gray-950 dark:text-gray-200 w-56 shadow overflow-hidden ${
           open.value
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-5 pointer-events-none"

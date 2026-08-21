@@ -3,7 +3,8 @@ import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
 import { define } from "../../util.ts";
 import { Scope } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
+import { primaryColor, secondaryColor } from "../../utils/colors.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -17,21 +18,17 @@ export const handler = define.handlers({
         path`/scopes/${ctx.params.scope}`,
       );
 
-      if (!scopeResp.ok) {
-        if (scopeResp.code === "scopeNotFound") {
-          return new Response(null, { status: 404 });
-        } else {
-          throw scopeResp;
-        }
-      } else {
-        return Response.json({
-          schemaVersion: 1,
-          label: "",
-          message: `@${scopeResp.data.scope}`,
-          labelColor: "rgb(247,223,30)",
-          color: "rgb(8,51,68)",
-        });
+      if (!scopeResp.ok && scopeResp.code === "scopeNotFound") {
+        return new Response(null, { status: 404 });
       }
+      assertOk(scopeResp);
+      return Response.json({
+        schemaVersion: 1,
+        label: "",
+        message: `@${scopeResp.data.scope}`,
+        labelColor: secondaryColor,
+        color: primaryColor,
+      });
     } else {
       const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
 
@@ -43,7 +40,7 @@ export const handler = define.handlers({
       shieldsUrl.searchParams.set("cacheSeconds", "300");
 
       if (!ctx.url.searchParams.has("logoColor")) {
-        shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
+        shieldsUrl.searchParams.set("logoColor", primaryColor);
       }
 
       const res = await fetch(shieldsUrl);

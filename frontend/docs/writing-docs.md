@@ -171,8 +171,12 @@ You can also include examples in module documentation:
    */
 ````
 
-If a default entrypoint has a module documentation, it takes precedence over the
-README file in the "Overview" tab of the package page.
+By default, if the default entrypoint (the `.` export) has a module doc comment
+(a JSDoc comment with the `@module` tag), that documentation is shown on the
+"Overview" tab of the package page instead of the README. You can change this
+behavior in the package's "Settings" tab by setting the **Readme Source** to
+"Readme", which will always show the README on the Overview tab regardless of
+whether a module doc exists.
 [Learn more in the documentation section for packages](/docs/packages#documentation).
 
 By default, when using a wildcard import, the identifier used is `mod`. For

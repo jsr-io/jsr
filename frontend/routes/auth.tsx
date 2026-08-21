@@ -4,7 +4,7 @@ import { HttpError, RouteConfig } from "fresh";
 import { ComponentChild } from "preact";
 import { define } from "../util.ts";
 import Authorize from "../islands/Authorize.tsx";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import type {
   Authorization,
   Permission,
@@ -97,13 +97,13 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
 
   switch (permission?.permission ?? null) {
     case null:
-      icon = <TbChevronRight class="w-12 h-12 flex-shrink-0" />;
+      icon = <TbChevronRight class="w-12 h-12 shrink-0" />;
       title = "Full access";
       description =
         "Including creating scopes, publishing any package, adding members, removing members, and more";
       break;
     case "package/publish":
-      icon = <TbChevronRight class="w-12 h-12 flex-shrink-0" />;
+      icon = <TbChevronRight class="w-12 h-12 shrink-0" />;
       if ("package" in permission!) {
         title = `Publish any version of @${permission!.scope}/${
           permission!.package
@@ -152,7 +152,7 @@ export const handler = define.handlers({
       if (authorizationResp.code === "authorizationNotFound") {
         throw new HttpError(404, "Authorization not found");
       }
-      throw authorizationResp; // gracefully handle this
+      assertOk(authorizationResp);
     }
 
     const authorization = authorizationResp?.data ?? null;

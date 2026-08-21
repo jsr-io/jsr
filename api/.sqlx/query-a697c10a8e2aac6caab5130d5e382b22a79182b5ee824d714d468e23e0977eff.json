@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE publishing_tasks\n         SET status = $1, error = $2\n         WHERE id = $3 AND status = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "task_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "processing",
+                "processed",
+                "success",
+                "failure"
+              ]
+            }
+          }
+        },
+        "Jsonb",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "task_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "processing",
+                "processed",
+                "success",
+                "failure"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a697c10a8e2aac6caab5130d5e382b22a79182b5ee824d714d468e23e0977eff"
+}

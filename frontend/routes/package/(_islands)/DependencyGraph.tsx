@@ -3,15 +3,13 @@ import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { instance, type Viz } from "@viz-js/viz";
-import {
-  TbChevronDown,
-  TbChevronLeft,
-  TbChevronRight,
-  TbChevronUp,
-  TbMinus,
-  TbPlus,
-  TbRefresh,
-} from "tb-icons";
+import TbChevronDown from "tb-icons/TbChevronDown";
+import TbChevronLeft from "tb-icons/TbChevronLeft";
+import TbChevronRight from "tb-icons/TbChevronRight";
+import TbChevronUp from "tb-icons/TbChevronUp";
+import TbMinus from "tb-icons/TbMinus";
+import TbPlus from "tb-icons/TbPlus";
+import TbRefresh from "tb-icons/TbRefresh";
 
 import type {
   DependencyGraphItem,
@@ -31,6 +29,7 @@ interface DependencyGraphKindGroupedJsr {
   package: string;
   version: string;
   entrypoints: string[];
+  fallbackUrl: string | null;
 }
 
 type GroupedDependencyGraphKind =
@@ -76,6 +75,7 @@ function groupDependencies(
     size: number | undefined;
     mediaType: string | undefined;
     oldIds: number[];
+    fallbackUrl: string | null;
   }>();
 
   for (const item of items) {
@@ -93,6 +93,7 @@ function groupDependencies(
         size: undefined,
         mediaType: undefined,
         oldIds: [],
+        fallbackUrl: item.dependency.fallbackUrl,
       };
       group.entrypoints.push({
         entrypoint: item.dependency.entrypoint.value,
@@ -148,6 +149,7 @@ function groupDependencies(
             package: group.key.package,
             version: group.key.version,
             entrypoints: Array.from(new Set(filteredEntrypoints)),
+            fallbackUrl: group.fallbackUrl,
           },
           children: uniqueChildren,
           size: group.size,
@@ -217,6 +219,16 @@ function createDigraph(dependencies: DependencyGraphItem[]) {
 }`;
 }
 
+// Node fill colors, keyed by where the dependency comes from. These are graph
+// node attributes rendered by graphviz, not DOM elements, so they can't be
+// Tailwind classes.
+const COLOR_JSR = "#faee4a";
+// A JSR package this registry doesn't host, served by the fallback registry —
+// distinct from COLOR_JSR because its node links off-instance.
+const COLOR_JSR_FALLBACK = "#a855f7";
+const COLOR_NPM = "#cb3837";
+const COLOR_ROOT = "#67bef9";
+
 function renderDependency(
   dependency: GroupedDependencyGraphKind,
   size?: number,
@@ -229,7 +241,12 @@ function renderDependency(
     case "jsr": {
       tooltip =
         `@${dependency.scope}/${dependency.package}@${dependency.version}`;
-      href = `/${tooltip}`;
+      if (dependency.fallbackUrl) {
+        href =
+          `${dependency.fallbackUrl}@${dependency.scope}/${dependency.package}`;
+      } else {
+        href = `/${tooltip}`;
+      }
       content = `${tooltip}\n${
         dependency.entrypoints.map((entrypoint) => {
           if (entrypoint == ".") {
@@ -239,18 +256,18 @@ function renderDependency(
           }
         }).join("\n")
       }\n${formatBytes(size ?? 0, { maximumFractionDigits: 0 }).toUpperCase()}`;
-      color = "#faee4a";
+      color = dependency.fallbackUrl ? COLOR_JSR_FALLBACK : COLOR_JSR;
       break;
     }
     case "npm": {
       content = tooltip = `${dependency.package}@${dependency.version}`;
       href = `https://www.npmjs.com/package/${dependency.package}`;
-      color = "#cb3837";
+      color = COLOR_NPM;
       break;
     }
     case "root": {
       content = tooltip = dependency.path;
-      color = "#67bef9";
+      color = COLOR_ROOT;
       break;
     }
     case "error":

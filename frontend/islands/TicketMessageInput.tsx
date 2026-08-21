@@ -1,17 +1,21 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useState } from "preact/hooks";
-import { TbCheck, TbClock } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 import {
   AdminUpdateTicketRequest,
   FullUser,
   NewTicketMessage,
-  Ticket,
 } from "../utils/api_types.ts";
 import { api, path } from "../utils/api.ts";
 import { useSignal } from "@preact/signals";
 
 export function TicketMessageInput(
-  { ticket, user }: { ticket: Ticket; user: FullUser },
+  { ticketId, closed, user }: {
+    ticketId: string;
+    closed: boolean;
+    user: FullUser;
+  },
 ) {
   const message = useSignal("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +42,7 @@ export function TicketMessageInput(
         }
 
         api.post(
-          path`/tickets/${ticket.id}`,
+          path`/tickets/${ticketId}`,
           {
             message: message.value,
           } satisfies NewTicketMessage,
@@ -76,9 +80,9 @@ export function TicketMessageInput(
               e.preventDefault();
 
               api.patch(
-                path`/admin/tickets/${ticket.id}`,
+                path`/admin/tickets/${ticketId}`,
                 {
-                  closed: !ticket.closed,
+                  closed: !closed,
                 } satisfies AdminUpdateTicketRequest,
               ).then((resp) => {
                 if (resp.ok) {
@@ -90,7 +94,7 @@ export function TicketMessageInput(
               });
             }}
           >
-            {ticket.closed
+            {closed
               ? (
                 <>
                   <TbClock class="text-white" /> Re-open

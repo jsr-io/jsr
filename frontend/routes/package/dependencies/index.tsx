@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, type RouteConfig } from "fresh";
 import type { Dependency } from "../../../utils/api_types.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { define } from "../../../util.ts";
 import { packageDataWithVersion } from "../../../utils/data.ts";
 import { PackageHeader } from "../(_components)/PackageHeader.tsx";
@@ -11,14 +11,16 @@ import { scopeIAM } from "../../../utils/iam.ts";
 
 function getDependencyLink(dep: Dependency) {
   if (dep.kind === "jsr") {
-    return `/${dep.name}`;
+    return `${dep.fallbackUrl ?? "/"}${dep.name}`;
   }
   const result = /^@jsr\/(?<scope>[a-z0-9-]+)__(?<package>[a-z0-9-]+)/
     .exec(
       dep.name,
     );
   if (result?.groups?.scope && result?.groups?.package) {
-    return `/@${result.groups.scope}/${result.groups.package}`;
+    return `${
+      dep.fallbackUrl ?? "/"
+    }@${result.groups.scope}/${result.groups.package}`;
   }
   return `https://www.npmjs.com/package/${dep.name}`;
 }
@@ -199,7 +201,7 @@ export const handler = define.handlers({
     const depsResp = await ctx.state.api.get<Dependency[]>(
       path`/scopes/${pkg.scope}/packages/${pkg.name}/versions/${selectedVersion.version}/dependencies`,
     );
-    if (!depsResp.ok) throw depsResp;
+    assertOk(depsResp);
 
     ctx.state.meta = {
       title: `Dependencies - @${pkg.scope}/${pkg.name} - JSR`,
@@ -207,6 +209,10 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,

@@ -2,13 +2,14 @@
 
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use std::borrow::Cow;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
+use crate::RegistryUrl;
 use crate::db::NewTicket;
 use crate::db::NewTicketMessage;
 use crate::db::{Database, UserPublic};
@@ -16,14 +17,15 @@ use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
 use crate::iam::ReqIamExt;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
 use crate::util::RequestIdExt;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 use super::ApiError;
 use super::ApiTicket;
 use super::ApiTicketMessage;
+use super::ApiTicketMessageOrAuditLog;
+use super::ApiTicketOverview;
 
 pub fn tickets_router() -> Router<Body, ApiError> {
   Router::builder()
@@ -34,25 +36,55 @@ pub fn tickets_router() -> Router<Body, ApiError> {
     .unwrap()
 }
 
-#[instrument(name = "GET /api/tickets/:id", skip(req), err, fields(id))]
-pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicket> {
+#[instrument(name = "GET /api/tickets/:id", skip(req), fields(id))]
+pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   let id = req.param_uuid("id")?;
+
   Span::current().record("id", field::display(id));
 
   let db = req.data::<Database>().unwrap();
-  let ticket = db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
+
+  let (ticket, creator, messages) =
+    db.get_ticket(id).await?.ok_or(ApiError::TicketNotFound)?;
+
+  let ticket_audit = db.get_ticket_audit_logs(id).await;
 
   let iam = req.iam();
-
   let current_user = iam.check_current_user_access()?;
-  if current_user == &ticket.1 || iam.check_admin_access().is_ok() {
-    Ok(ticket.into())
+
+  if current_user == &creator || iam.check_admin_access().is_ok() {
+    let mut events: Vec<ApiTicketMessageOrAuditLog> = Vec::new();
+
+    for message in messages {
+      events.push(ApiTicketMessageOrAuditLog::Message {
+        message: message.0,
+        user: message.1,
+      });
+    }
+
+    if let Ok(audit_logs) = ticket_audit {
+      for audit_log in audit_logs {
+        events.push(ApiTicketMessageOrAuditLog::AuditLog {
+          audit_log: audit_log.0,
+          user: audit_log.1,
+        });
+      }
+    }
+
+    events.sort_by_key(|event| match event {
+      ApiTicketMessageOrAuditLog::Message { message, .. } => message.created_at,
+      ApiTicketMessageOrAuditLog::AuditLog { audit_log, .. } => {
+        audit_log.created_at
+      }
+    });
+
+    Ok((ticket, creator, events).into())
   } else {
     Err(ApiError::TicketNotFound)
   }
 }
 
-#[instrument(name = "POST /api/tickets", skip(req), err)]
+#[instrument(name = "POST /api/tickets", skip(req))]
 pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let new_ticket: NewTicket = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
@@ -126,27 +158,27 @@ pub async fn post_message_handler(
     .await?;
 
   // only send email to ticket creator if the message was not sent by ticket creator
-  if creator.id != message_author.id {
-    if let Some(email) = &creator.email {
-      let email_sender = req.data::<Option<EmailSender>>().unwrap();
-      let registry_url = req.data::<RegistryUrl>().unwrap();
-      if let Some(email_sender) = email_sender {
-        let email_args = EmailArgs::SupportTicketMessage {
-          ticket_id: Cow::Owned(ticket.id.to_string()),
-          name: Cow::Owned(creator.name),
-          content: Cow::Borrowed(&message.message),
-          registry_url: Cow::Borrowed(registry_url.0.as_str()),
-          registry_name: Cow::Borrowed(&email_sender.from_name),
-          support_email: Cow::Borrowed(&email_sender.from),
-        };
-        email_sender
-          .send(email.clone(), email_args)
-          .await
-          .map_err(|e| {
-            tracing::error!("failed to send email: {:?}", e);
-            ApiError::InternalServerError
-          })?;
-      }
+  if creator.id != message_author.id
+    && let Some(email) = &creator.email
+  {
+    let email_sender = req.data::<Option<EmailSender>>().unwrap();
+    let registry_url = req.data::<RegistryUrl>().unwrap();
+    if let Some(email_sender) = email_sender {
+      let email_args = EmailArgs::SupportTicketMessage {
+        ticket_id: Cow::Owned(ticket.id.to_string()),
+        name: Cow::Owned(creator.name),
+        content: Cow::Borrowed(&message.message),
+        registry_url: Cow::Borrowed(registry_url.0.as_str()),
+        registry_name: Cow::Borrowed(&email_sender.from_name),
+        support_email: Cow::Borrowed(&email_sender.from),
+      };
+      email_sender
+        .send(email.clone(), email_args)
+        .await
+        .map_err(|e| {
+          tracing::error!("failed to send email: {:?}", e);
+          ApiError::InternalServerError
+        })?;
     }
   }
 
@@ -206,9 +238,22 @@ mod test {
       .call()
       .await
       .unwrap();
-    let ticket: ApiTicket = resp.expect_ok().await;
-    assert_eq!(ticket.messages[0].message, "test");
-    assert_eq!(ticket.messages[1].message, "test2");
+    let ticket_overview: super::ApiTicketOverview = resp.expect_ok().await;
+
+    let mut message_contents: Vec<String> = Vec::new();
+    for event in &ticket_overview.events {
+      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
+      {
+        message_contents.push(message.message.clone());
+      }
+    }
+    assert!(
+      message_contents.len() >= 2,
+      "Expected at least 2 messages, found {}",
+      message_contents.len()
+    );
+    assert_eq!(message_contents[0], "test");
+    assert_eq!(message_contents[1], "test2");
 
     let other_user_token = t.user2.token.clone();
     let mut resp = t
@@ -228,6 +273,22 @@ mod test {
       .call()
       .await
       .unwrap();
-    let _ticket: ApiTicket = resp.expect_ok().await;
+    let staff_ticket_overview: super::ApiTicketOverview =
+      resp.expect_ok().await;
+
+    let mut staff_message_contents: Vec<String> = Vec::new();
+    for event in &staff_ticket_overview.events {
+      if let super::ApiTicketMessageOrAuditLog::Message { message, .. } = event
+      {
+        staff_message_contents.push(message.message.clone());
+      }
+    }
+    assert!(
+      staff_message_contents.len() >= 2,
+      "Expected at least 2 messages for staff view, found {}",
+      staff_message_contents.len()
+    );
+    assert_eq!(staff_message_contents[0], "test");
+    assert_eq!(staff_message_contents[1], "test2");
   }
 }

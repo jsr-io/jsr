@@ -1,7 +1,9 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useSignal } from "@preact/signals";
 import { useState } from "preact/hooks";
-import { TbCheck, TbPencil, TbX } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbPencil from "tb-icons/TbPencil";
+import TbX from "tb-icons/TbX";
 import { api, path } from "../../../utils/api.ts";
 import { validateScopeDescription } from "../../../utils/ids.ts";
 import type { FullScope } from "../../../utils/api_types.ts";
@@ -91,12 +93,12 @@ export function ScopeDescriptionForm(
 
   return (
     <div class="mt-2 flex items-start gap-2">
-      <p class="text-secondary max-w-2xl flex-grow">
+      <p class="text-secondary max-w-2xl grow">
         {scope.value.description || <i>No description provided.</i>}
       </p>
       <button
         type="button"
-        class="button-primary flex-shrink-0"
+        class="button-primary shrink-0"
         onClick={() => isEditing.value = true}
         aria-label="Edit description"
       >

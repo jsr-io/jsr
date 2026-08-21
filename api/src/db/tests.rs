@@ -119,6 +119,232 @@ async fn publishing_tasks() {
 }
 
 #[tokio::test]
+async fn list_stale_publishing_tasks() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "package".try_into().unwrap();
+  let config_file: PackagePath = "/jsr.json".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  db.create_package(&scope_name, &package_name).await.unwrap();
+
+  // Create one task per terminal/non-terminal status (each on its own version,
+  // since `create_publishing_task` only allows one non-failure task per
+  // version) and drive it to the desired status via direct transitions.
+  let mut ids = std::collections::HashMap::new();
+  for (version_str, target) in [
+    ("1.0.0", PublishingTaskStatus::Pending),
+    ("2.0.0", PublishingTaskStatus::Processing),
+    ("3.0.0", PublishingTaskStatus::Processed),
+    ("4.0.0", PublishingTaskStatus::Success),
+    ("5.0.0", PublishingTaskStatus::Failure),
+  ] {
+    let version: Version = version_str.try_into().unwrap();
+    let CreatePublishingTaskResult::Created((pt, _)) = db
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(user_id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &config_file,
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+
+    // Walk the status machine from `pending` up to the target status.
+    let path: &[PublishingTaskStatus] = match target {
+      PublishingTaskStatus::Pending => &[],
+      PublishingTaskStatus::Processing => &[PublishingTaskStatus::Processing],
+      PublishingTaskStatus::Processed => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+      ],
+      PublishingTaskStatus::Success => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+        PublishingTaskStatus::Success,
+      ],
+      PublishingTaskStatus::Failure => &[PublishingTaskStatus::Failure],
+    };
+    let mut prev = PublishingTaskStatus::Pending;
+    for next in path {
+      let error =
+        (*next == PublishingTaskStatus::Failure).then(|| PublishingTaskError {
+          code: "x".to_string(),
+          message: "x".to_string(),
+        });
+      db.update_publishing_task_status(None, pt.id, prev, next.clone(), error)
+        .await
+        .unwrap();
+      prev = next.clone();
+    }
+    ids.insert(version_str, pt.id);
+  }
+
+  // With a zero threshold every already-updated task qualifies on time, so the
+  // result is governed purely by the status filter: only the non-terminal
+  // `processing` and `processed` tasks should be returned.
+  let stale = db.list_stale_publishing_tasks(0).await.unwrap();
+  let stale_ids: std::collections::HashSet<_> =
+    stale.iter().map(|(id, _)| *id).collect();
+  assert_eq!(stale.len(), 2, "{stale:?}");
+  assert!(
+    stale_ids.contains(&ids["2.0.0"]),
+    "processing must be listed"
+  );
+  assert!(
+    stale_ids.contains(&ids["3.0.0"]),
+    "processed must be listed"
+  );
+  assert!(!stale_ids.contains(&ids["1.0.0"]), "pending excluded");
+  assert!(!stale_ids.contains(&ids["4.0.0"]), "success excluded");
+  assert!(!stale_ids.contains(&ids["5.0.0"]), "failure excluded");
+
+  // With a long threshold the freshly-updated tasks are not yet stale.
+  let none_stale = db.list_stale_publishing_tasks(3600).await.unwrap();
+  assert!(none_stale.is_empty(), "{none_stale:?}");
+}
+
+#[tokio::test]
+async fn create_publishing_task_auto_fails_stranded_processing() {
+  let db = EphemeralDatabase::create().await;
+
+  let user_id = uuid::Uuid::default();
+  let scope_name: ScopeName = "scope".try_into().unwrap();
+  let package_name: PackageName = "package".try_into().unwrap();
+  let config_file: PackagePath = "/jsr.json".try_into().unwrap();
+
+  db.create_scope(
+    &user_id,
+    false,
+    &scope_name,
+    user_id,
+    &ScopeDescription::default(),
+  )
+  .await
+  .unwrap();
+  db.create_package(&scope_name, &package_name).await.unwrap();
+
+  // Helper: create a task on `version_str` and walk it up to `target`.
+  let make_task = async |version_str: &str, target: PublishingTaskStatus| {
+    let version: Version = version_str.try_into().unwrap();
+    let CreatePublishingTaskResult::Created((pt, _)) = db
+      .create_publishing_task(NewPublishingTask {
+        user_id: Some(user_id),
+        package_scope: &scope_name,
+        package_name: &package_name,
+        package_version: &version,
+        config_file: &config_file,
+      })
+      .await
+      .unwrap()
+    else {
+      unreachable!()
+    };
+    let path: &[PublishingTaskStatus] = match target {
+      PublishingTaskStatus::Pending => &[],
+      PublishingTaskStatus::Processing => &[PublishingTaskStatus::Processing],
+      PublishingTaskStatus::Processed => &[
+        PublishingTaskStatus::Processing,
+        PublishingTaskStatus::Processed,
+      ],
+      _ => unreachable!(),
+    };
+    let mut prev = PublishingTaskStatus::Pending;
+    for next in path {
+      db.update_publishing_task_status(None, pt.id, prev, next.clone(), None)
+        .await
+        .unwrap();
+      prev = next.clone();
+    }
+    pt.id
+  };
+
+  // 1. Fresh `processing` task: a duplicate publish gets the existing task back.
+  let fresh_id = make_task("1.0.0", PublishingTaskStatus::Processing).await;
+  let v1: Version = "1.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v1,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Exists((reused, _)) = res else {
+    panic!("fresh processing task should return Exists")
+  };
+  assert_eq!(reused.id, fresh_id);
+  assert_eq!(reused.status, PublishingTaskStatus::Processing);
+
+  // 2. Stranded `processing` task (>30 min old): inline auto-fail, new task created.
+  let stranded_id = make_task("2.0.0", PublishingTaskStatus::Processing).await;
+  db.backdate_publishing_task_updated_at(stranded_id, 31 * 60)
+    .await
+    .unwrap();
+  let v2: Version = "2.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v2,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Created((new_task, _)) = res else {
+    panic!(
+      "stranded processing task should be auto-failed and new task created"
+    )
+  };
+  assert_ne!(new_task.id, stranded_id);
+  assert_eq!(new_task.status, PublishingTaskStatus::Pending);
+  let (old, _) = db.get_publishing_task(stranded_id).await.unwrap().unwrap();
+  assert_eq!(old.status, PublishingTaskStatus::Failure);
+  assert_eq!(old.error.unwrap().code, "stale");
+
+  // 3. Stranded `processed` task: still returns Exists (left to the reaper).
+  let processed_id = make_task("3.0.0", PublishingTaskStatus::Processed).await;
+  db.backdate_publishing_task_updated_at(processed_id, 31 * 60)
+    .await
+    .unwrap();
+  let v3: Version = "3.0.0".try_into().unwrap();
+  let res = db
+    .create_publishing_task(NewPublishingTask {
+      user_id: Some(user_id),
+      package_scope: &scope_name,
+      package_name: &package_name,
+      package_version: &v3,
+      config_file: &config_file,
+    })
+    .await
+    .unwrap();
+  let CreatePublishingTaskResult::Exists((reused, _)) = res else {
+    panic!(
+      "stranded processed task is the reaper's responsibility, not this path"
+    )
+  };
+  assert_eq!(reused.id, processed_id);
+  assert_eq!(reused.status, PublishingTaskStatus::Processed);
+}
+
+#[tokio::test]
 async fn users() {
   let db = EphemeralDatabase::create().await;
 
@@ -127,6 +353,7 @@ async fn users() {
     email: None,
     avatar_url: "",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: true,
   };
@@ -137,6 +364,7 @@ async fn users() {
     email: Some("alice@example.com"),
     avatar_url: "https://example.com/alice.png",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: true,
   };
@@ -215,6 +443,7 @@ async fn packages() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -237,11 +466,12 @@ async fn packages() {
   let alice2 = db.get_user(alice.id).await.unwrap().unwrap();
   assert_eq!(alice2.scope_usage, 1);
 
-  assert!(db
-    .get_scope_member(&scope_name, alice.id)
-    .await
-    .unwrap()
-    .is_some());
+  assert!(
+    db.get_scope_member(&scope_name, alice.id)
+      .await
+      .unwrap()
+      .is_some()
+  );
 
   let CreatePackageResult::Ok(package) =
     db.create_package(&scope_name, &package_name).await.unwrap()
@@ -290,6 +520,7 @@ async fn scope_members() {
       email: None,
       avatar_url: "https://example.com/bob.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -321,6 +552,7 @@ async fn scope_members() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -362,6 +594,7 @@ async fn create_package_version_and_finalize_publishing_task() {
       name: "Bob",
       email: None,
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
       avatar_url: "https://example.com/bob.png",
@@ -429,6 +662,7 @@ async fn create_package_version_and_finalize_publishing_task() {
         uses_npm: true,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       },
       &package_files,
       &package_version_dependencies,
@@ -470,6 +704,7 @@ async fn package_files() {
       email: None,
       avatar_url: "https://example.com/alice.png",
       github_id: None,
+      gitlab_id: None,
       is_blocked: false,
       is_staff: false,
     })
@@ -506,6 +741,7 @@ async fn package_files() {
       exports: &ExportsMap::mock(),
       uses_npm: false,
       meta: Default::default(),
+      license: "MIT".to_string(),
     })
     .await
     .unwrap();
@@ -556,11 +792,13 @@ async fn oauth_state() {
     csrf_token: "a",
     pkce_code_verifier: "b",
     redirect_url: "c",
+    user_id: None,
   };
   let oauth_state = db.insert_oauth_state(new_oauth_state).await.unwrap();
   assert_eq!(oauth_state.csrf_token, "a");
   assert_eq!(oauth_state.pkce_code_verifier, "b");
   assert_eq!(oauth_state.redirect_url, "c");
+  assert_eq!(oauth_state.user_id, None);
 
   let oauth_state2 = db
     .get_oauth_state(&oauth_state.csrf_token)
@@ -571,6 +809,25 @@ async fn oauth_state() {
   assert_eq!(oauth_state2.pkce_code_verifier, "b");
   assert_eq!(oauth_state2.redirect_url, "c");
 
+  // A state from the "connect" (account-linking) flow is bound to the user that
+  // initiated it; the binding must round-trip so the callback can enforce it.
+  let user_id: uuid::Uuid =
+    "00000000-0000-0000-0000-000000000000".try_into().unwrap();
+  let bound = db
+    .insert_oauth_state(NewOauthState {
+      csrf_token: "d",
+      pkce_code_verifier: "e",
+      redirect_url: "f",
+      user_id: Some(user_id),
+    })
+    .await
+    .unwrap();
+  assert_eq!(bound.user_id, Some(user_id));
+  assert_eq!(
+    db.get_oauth_state("d").await.unwrap().unwrap().user_id,
+    Some(user_id)
+  );
+
   let oauth_state3 = db
     .delete_oauth_state(&oauth_state.csrf_token)
     .await
@@ -580,11 +837,12 @@ async fn oauth_state() {
   assert_eq!(oauth_state3.pkce_code_verifier, "b");
   assert_eq!(oauth_state3.redirect_url, "c");
 
-  assert!(db
-    .delete_oauth_state(&oauth_state.csrf_token)
-    .await
-    .unwrap()
-    .is_none())
+  assert!(
+    db.delete_oauth_state(&oauth_state.csrf_token)
+      .await
+      .unwrap()
+      .is_none()
+  )
 }
 
 #[tokio::test]
@@ -596,6 +854,7 @@ async fn tokens() {
     email: Some("alice@example.com"),
     avatar_url: "https://example.com/alice.png",
     github_id: None,
+    gitlab_id: None,
     is_blocked: false,
     is_staff: false,
   };

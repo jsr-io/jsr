@@ -1,15 +1,16 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 use hyper::Body;
 use hyper::Request;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
+use tracing::Span;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
 use crate::db::Database;
 use crate::util;
 use crate::util::ApiResult;
+use crate::util::CacheDuration;
 use crate::util::RequestIdExt;
 
 use super::ApiError;
@@ -19,14 +20,26 @@ use super::ApiUser;
 
 pub fn users_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/:id", util::json(get_handler))
-    .get("/:id/scopes", util::json(get_scopes_handler))
-    .get("/:id/packages", util::json(get_packages_handler))
+    .get(
+      "/:id",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+    )
+    .get(
+      "/:id/scopes",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_scopes_handler)),
+    )
+    .get(
+      "/:id/packages",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(get_packages_handler),
+      ),
+    )
     .build()
     .unwrap()
 }
 
-#[instrument(name = "GET /api/users/:id", skip(req), err, fields(id))]
+#[instrument(name = "GET /api/users/:id", skip(req), fields(id))]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiUser> {
   let id = req.param_uuid("id")?;
   Span::current().record("id", field::display(id));
@@ -40,7 +53,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiUser> {
   Ok(user.into())
 }
 
-#[instrument(name = "GET /api/users/:id/scopes", skip(req), err, fields(id))]
+#[instrument(name = "GET /api/users/:id/scopes", skip(req), fields(id))]
 pub async fn get_scopes_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScope>> {
@@ -57,7 +70,7 @@ pub async fn get_scopes_handler(
   Ok(scopes.into_iter().map(ApiScope::from).collect())
 }
 
-#[instrument(name = "GET /api/users/:id/packages", skip(req), err, fields(id))]
+#[instrument(name = "GET /api/users/:id/packages", skip(req), fields(id))]
 pub async fn get_packages_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiPackage>> {
@@ -69,12 +82,7 @@ pub async fn get_packages_handler(
     .await?
     .ok_or(ApiError::UserNotFound)?;
 
-  let packages = db.get_recent_packages_by_user(&id).await?;
+  let packages = db.get_recently_published_packages_by_user(&id).await?;
 
-  Ok(
-    packages
-      .into_iter()
-      .map(|package| ApiPackage::from((package, None, Default::default())))
-      .collect(),
-  )
+  Ok(packages.into_iter().map(ApiPackage::from).collect())
 }

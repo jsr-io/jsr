@@ -1,58 +1,65 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-use std::collections::HashSet;
-
 use bytes::Bytes;
-use chrono::DateTime;
+use chrono::Duration;
 use chrono::Utc;
+use deno_semver::StackString;
+use deno_semver::VersionReq;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageSubPath;
-use deno_semver::StackString;
-use deno_semver::VersionReq;
-use futures::stream;
 use futures::StreamExt;
+use futures::stream;
 use hyper::Body;
 use hyper::Request;
-use routerify::ext::RequestExt;
 use routerify::Router;
+use routerify::ext::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
+use std::collections::HashSet;
+use std::str::FromStr;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Span;
 
-use crate::analysis::rebuild_npm_tarball;
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use crate::analysis::RebuildNpmTarballData;
+use crate::analysis::rebuild_npm_tarball;
 use crate::api::ApiError;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
+use crate::api::PublishQueue;
 use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
+use crate::db::PublishingTaskStatus;
+use crate::db::STALE_PUBLISHING_TASK_SECS;
 use crate::db::VersionDownloadCount;
+use crate::external::cloudflare;
+use crate::external::cloudflare::CachePurge;
 use crate::gcp;
-use crate::gcp::GcsUploadOptions;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcs_paths;
 use crate::ids::PackageName;
 use crate::ids::ScopeName;
 use crate::ids::Version;
-use crate::npm::generate_npm_version_manifest;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::npm::generate_npm_version_manifest;
 use crate::publish;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::CACHE_CONTROL_MANIFEST;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
+use crate::s3_paths;
 use crate::util;
-use crate::util::decode_json;
 use crate::util::ApiResult;
-use crate::NpmUrl;
-use crate::RegistryUrl;
+use crate::util::decode_json;
 
 pub struct NpmTarballBuildQueue(pub Option<gcp::Queue>);
-pub struct LogsBigQueryTable(
-  pub Option<(gcp::BigQuery, /* logs table id */ String)>,
+pub struct AnalyticsEngineConfig(
+  pub  Option<(
+    cloudflare::AnalyticsEngineClient,
+    /* dataset name */ String,
+  )>,
 );
 
 pub fn tasks_router() -> Router<Body, ApiError> {
@@ -67,8 +74,78 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/scrape_download_counts",
       util::json(scrape_download_counts_handler),
     )
+    .post(
+      "/clean_oauth_states",
+      util::json(clean_oauth_states_handler),
+    )
+    .post(
+      "/clean_download_counts_4h",
+      util::json(clean_download_counts_4h_handler),
+    )
+    .post(
+      "/requeue_stuck_publishing_tasks",
+      util::json(requeue_stuck_publishing_tasks_handler),
+    )
     .build()
     .unwrap()
+}
+
+/// Re-drive publishing tasks that got stranded in a non-terminal state.
+///
+/// This is the self-healing counterpart to the manual admin requeue endpoint.
+/// A queue worker that dies mid-publish (Cloud Run timeout, cancelled CI run,
+/// transient S3/Cloudflare error after the version row was committed) can
+/// leave a task stuck in `processing` or `processed`. Such a task never
+/// finishes regenerating the package-level `meta.json`, so the published
+/// version stays invisible to Deno's resolver, and the version cannot be
+/// re-published because of the `status != 'failure'` guard in
+/// `create_publishing_task`. This handler, run periodically by Cloud
+/// Scheduler, finds those tasks and pushes them back through the publish
+/// queue, which runs `publish_task`'s state machine to completion.
+#[instrument(
+  name = "POST /tasks/requeue_stuck_publishing_tasks",
+  skip(req),
+  err
+)]
+pub async fn requeue_stuck_publishing_tasks_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let queue = req.data::<PublishQueue>().unwrap().0.clone();
+  let queue = queue.ok_or(ApiError::InternalServerError)?;
+
+  let stale = db
+    .list_stale_publishing_tasks(STALE_PUBLISHING_TASK_SECS)
+    .await?;
+
+  for (id, status) in stale {
+    // A `processing` task never committed its version row (the finalize
+    // transaction is atomic), so it is safe to reset it to `pending` and let
+    // the worker reprocess the tarball from scratch. A `processed` task
+    // already has its rows committed and only needs the metadata-upload step
+    // re-driven, so it is requeued as-is.
+    if status == PublishingTaskStatus::Processing
+      && let Err(err) = db
+        .update_publishing_task_status(
+          None,
+          id,
+          PublishingTaskStatus::Processing,
+          PublishingTaskStatus::Pending,
+          None,
+        )
+        .await
+    {
+      // Lost a race (the task changed status concurrently) or a transient DB
+      // error. Skip it — a later run will pick it up again if still stuck.
+      error!("failed to reset stuck publishing task {id}: {err}");
+      continue;
+    }
+
+    let body = serde_json::to_vec(&id)?;
+    queue.task_buffer(None, Some(body.into())).await?;
+  }
+
+  Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -94,6 +171,7 @@ pub async fn npm_tarball_build_handler(
   let buckets = req.data::<Buckets>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
   let is_already_built = db
     .get_npm_tarball(
@@ -163,7 +241,7 @@ pub async fn npm_tarball_build_handler(
       sha512: &npm_tarball.sha512,
     };
 
-    let npm_tarball_path = gcs_paths::npm_tarball_path(
+    let npm_tarball_path = s3_paths::npm_tarball_path(
       &job.scope,
       &job.name,
       &job.version,
@@ -174,7 +252,7 @@ pub async fn npm_tarball_build_handler(
       .upload(
         npm_tarball_path.into(),
         UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
-        GcsUploadOptions {
+        S3UploadOptions {
           content_type: Some("application/octet-stream".into()),
           cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
           gzip_encoded: false,
@@ -186,7 +264,7 @@ pub async fn npm_tarball_build_handler(
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&job.scope, &job.name);
+    crate::s3_paths::npm_version_manifest_path(&job.scope, &job.name);
   let npm_version_manifest =
     generate_npm_version_manifest(&db, &npm_url, &job.scope, &job.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -195,13 +273,19 @@ pub async fn npm_tarball_build_handler(
     .upload(
       npm_version_manifest_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      &npm_url, &job.scope, &job.name,
+    )])
+    .await;
 
   Ok(())
 }
@@ -243,13 +327,8 @@ pub async fn scrape_download_counts_handler(
   req: Request<Body>,
 ) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
-  let bigquery = req.data::<LogsBigQueryTable>().unwrap();
-  let Some((bigquery, logs_table_id)) = bigquery.0.as_ref() else {
-    error!("BigQuery not configured");
-    return Err(ApiError::InternalServerError);
-  };
 
-  let time_window = req
+  let time_window: i64 = req
     .query("intervalHrs")
     .ok_or_else(|| ApiError::MalformedRequest {
       msg: "intervalHrs query param is required".into(),
@@ -259,160 +338,110 @@ pub async fn scrape_download_counts_handler(
       msg: "intervalHrs query param must be an integer".into(),
     })?;
 
-  let current_timestamp = chrono::Utc::now();
-  let start_timestamp =
-    current_timestamp - chrono::Duration::hours(time_window);
-
-  fn bigquery_timestamp_serialization(timestamp: DateTime<Utc>) -> String {
-    timestamp.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
-  }
-
-  let params = vec![
-    json!({
-      "name": "start_timestamp",
-      "parameterType": {
-        "type": "TIMESTAMP"
-      },
-      "parameterValue": {
-        "value": bigquery_timestamp_serialization(start_timestamp)
-      }
-    }),
-    json!({
-      "name": "end_timestamp",
-      "parameterType": {
-        "type": "TIMESTAMP"
-      },
-      "parameterValue": {
-        "value": bigquery_timestamp_serialization(current_timestamp)
-      }
-    }),
-  ];
-
-  let registry_root = req.data::<RegistryUrl>().unwrap().0.to_string();
-  let jsr_meta_query = format!(
-    r#"
+  let analytics_engine = req.data::<AnalyticsEngineConfig>().unwrap();
+  if let Some((analytics_client, dataset_name)) = analytics_engine.0.as_ref() {
+    let jsr_downloads = analytics_client
+      .query_downloads(format!(
+        r#"
 SELECT
-  t1.time_bucket,
-  t1.scope,
-  t1.package,
-  t1.version,
-  COUNT(*) AS count
-FROM (
-  SELECT
-    TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@([^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') AS scope,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/([^/]*?)/(?:[^/]*?)_meta.json') AS package,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/(?:[^/]*?)/([^/]*?)_meta.json') AS version
-  FROM
-    `{logs_table_id}` AS t2
-  WHERE
-    t2.timestamp BETWEEN @start_timestamp
-    AND @end_timestamp
-    AND t2.log_id = "requests"
-    AND REGEXP_CONTAINS(t2.http_request.request_url, '{registry_root}@(?:[^/]*?)/(?:[^/]*?)/(?:[^/]*?)_meta.json') ) AS t1
+  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
+  blob2 as scope,
+  blob3 as package,
+  blob4 as ver,
+  intDiv(sum(_sample_interval), 1) as count
+FROM
+  '{dataset_name}'
+WHERE
+  timestamp >= NOW() - INTERVAL '{time_window}' HOUR
+  AND blob1 = 'jsr'
 GROUP BY
-  1,
-  2,
-  3,
-  4
-ORDER BY
   time_bucket,
   scope,
   package,
-  version"#
-  );
-  let jsr_meta_res = bigquery.query(&jsr_meta_query, &params).await?;
-  if !jsr_meta_res.job_complete {
-    error!(
-      "BigQuery job did not complete, errors: {:?}",
-      jsr_meta_res.errors
-    );
-    return Err(ApiError::InternalServerError);
-  }
-  let mut jsr_meta_rows = jsr_meta_res.rows;
-  let mut page_token = jsr_meta_res.page_token;
-  while let Some(token) = page_token {
-    let res = bigquery
-      .get_query_results(&jsr_meta_res.job_reference.job_id, &token)
-      .await?;
-    jsr_meta_rows.extend(res.rows);
-    page_token = res.page_token;
-  }
+  ver
+ORDER BY
+  time_bucket DESC
+      "#
+      ))
+      .await
+      .map_err(|e| {
+        error!("Failed to query JSR downloads from Analytics Engine: {}", e);
+        ApiError::InternalServerError
+      })?;
 
-  insert_bigquery_download_entries(&db, jsr_meta_rows, DownloadKind::JsrMeta)
+    insert_analytics_download_entries(
+      &db,
+      jsr_downloads,
+      DownloadKind::JsrMeta,
+    )
     .await?;
 
-  let npm_root = req.data::<NpmUrl>().unwrap().0.to_string();
-  let npm_tgz_query = format!(
-    r#"
+    let npm_downloads = analytics_client
+      .query_downloads(format!(
+        r#"
 SELECT
-  t1.time_bucket,
-  t1.scope,
-  t1.package,
-  t1.version,
-  COUNT(*) AS count
-FROM (
-  SELECT
-    TIMESTAMP_BUCKET(t2.timestamp, INTERVAL 4 HOUR) AS time_bucket,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/([^/]*?)__(?:[^/]*?)/(?:[^/]*?)\\.tgz') AS scope,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__([^/]*?)/(?:[^/]*?)\\.tgz') AS package,
-    REGEXP_EXTRACT(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__(?:[^/]*?)/([^/]*?)\\.tgz') AS version
-  FROM
-    `{logs_table_id}` AS t2
-  WHERE
-    t2.timestamp BETWEEN @start_timestamp
-    AND @end_timestamp
-    AND t2.log_id = "requests"
-    AND REGEXP_CONTAINS(t2.http_request.request_url, '{npm_root}~/\\d+/@jsr/(?:[^/]*?)__(?:[^/]*?)/(?:[^/]*?)\\.tgz') ) AS t1
+  toStartOfInterval(timestamp, INTERVAL '4' HOUR) as time_bucket,
+  blob2 as scope,
+  blob3 as package,
+  blob4 as ver,
+  intDiv(sum(_sample_interval), 1) as count
+FROM
+  '{dataset_name}'
+WHERE
+  timestamp >= NOW() - INTERVAL '{time_window}' HOUR
+  AND blob1 = 'npm'
 GROUP BY
-  1,
-  2,
-  3,
-  4
-ORDER BY
   time_bucket,
   scope,
   package,
-  version"#
-  );
-  let npm_tgz_res = bigquery.query(&npm_tgz_query, &params).await?;
-  if !npm_tgz_res.job_complete {
-    error!(
-      "BigQuery job did not complete, errors: {:?}",
-      npm_tgz_res.errors
-    );
-    return Err(ApiError::InternalServerError);
-  }
-  let mut npm_tgz_rows = npm_tgz_res.rows;
-  let mut page_token = npm_tgz_res.page_token;
-  while let Some(token) = page_token {
-    let res = bigquery
-      .get_query_results(&npm_tgz_res.job_reference.job_id, &token)
-      .await?;
-    npm_tgz_rows.extend(res.rows);
-    page_token = res.page_token;
-  }
+  ver
+ORDER BY
+  time_bucket DESC
+      "#
+      ))
+      .await
+      .map_err(|e| {
+        error!("Failed to query NPM downloads from Analytics Engine: {}", e);
+        ApiError::InternalServerError
+      })?;
 
-  insert_bigquery_download_entries(&db, npm_tgz_rows, DownloadKind::NpmTgz)
-    .await?;
+    insert_analytics_download_entries(&db, npm_downloads, DownloadKind::NpmTgz)
+      .await?;
+  };
 
   Ok(())
 }
 
-async fn insert_bigquery_download_entries(
+#[instrument(name = "POST /tasks/clean_oauth_states", skip(req), err)]
+pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::hours(1);
+  let deleted = db.delete_expired_oauth_states(cutoff).await?;
+  tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
+#[instrument(name = "POST /tasks/clean_download_counts_4h", skip(req), err)]
+pub async fn clean_download_counts_4h_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::days(7);
+  let deleted = db.cleanup_download_counts_4h(cutoff).await?;
+  tracing::info!(deleted, "cleaned up old 4h download counts");
+  Ok(())
+}
+
+async fn insert_analytics_download_entries(
   db: &Database,
-  rows: Vec<serde_json::Value>,
+  records: Vec<cloudflare::DownloadRecord>,
   kind: DownloadKind,
 ) -> Result<(), ApiError> {
-  let mut entries = Vec::with_capacity(rows.len());
-  for row in rows {
-    if let Some(entry) = deserialize_version_download_count_from_bigquery(
-      &row, kind,
-    )
-    .ok_or_else(|| {
-      error!("Failed to deserialize row: {:?}", row);
-      ApiError::InternalServerError
-    })? {
+  let mut entries = Vec::with_capacity(records.len());
+  for record in records {
+    if let Some(entry) =
+      deserialize_version_download_count_from_analytics(record, kind)
+    {
       entries.push(entry);
     }
   }
@@ -422,283 +451,28 @@ async fn insert_bigquery_download_entries(
   Ok(())
 }
 
-// Outer option: failed to deserialize because bigquery was invalid
-// Inner option: failed to deserialize because scope / package / version was not formatted correctly
-fn deserialize_version_download_count_from_bigquery(
-  row: &serde_json::Value,
+fn deserialize_version_download_count_from_analytics(
+  record: cloudflare::DownloadRecord,
   kind: DownloadKind,
-) -> Option<Option<VersionDownloadCount>> {
-  let f = row.get("f")?;
-  let time_bucket_micros: i64 = f.get(0)?.get("v")?.as_str()?.parse().ok()?;
-  let time_bucket = DateTime::from_timestamp_micros(time_bucket_micros)?;
-  let Ok(scope) = ScopeName::new(f.get(1)?.get("v")?.as_str()?.to_owned())
-  else {
-    return Some(None);
-  };
-  let Ok(package) = PackageName::new(f.get(2)?.get("v")?.as_str()?.to_owned())
-  else {
-    return Some(None);
-  };
-  let Ok(version) = Version::new(f.get(3)?.get("v")?.as_str()?) else {
-    return Some(None);
-  };
-  let count = f.get(4)?.get("v")?.as_str()?.parse().ok()?;
-  Some(Some(VersionDownloadCount {
+) -> Option<VersionDownloadCount> {
+  // Cloudflare Analytics Engine (ClickHouse) returns datetimes as
+  // "YYYY-MM-DD HH:MM:SS", not RFC3339.
+  let time_bucket = chrono::NaiveDateTime::parse_from_str(
+    &record.time_bucket,
+    "%Y-%m-%d %H:%M:%S",
+  )
+  .ok()
+  .unwrap()
+  .and_utc();
+  let scope = ScopeName::new(record.scope).ok()?;
+  let package = PackageName::new(record.package).ok()?;
+  let version = Version::new(&record.ver).ok()?;
+  Some(VersionDownloadCount {
     time_bucket,
     scope,
     package,
     version,
     kind,
-    count,
-  }))
-}
-
-#[cfg(test)]
-mod tests {
-  use chrono::DateTime;
-  use chrono::Utc;
-  use serde_json::json;
-  use uuid::Uuid;
-
-  use crate::db::DownloadKind;
-  use crate::db::EphemeralDatabase;
-  use crate::db::ExportsMap;
-  use crate::db::NewPackageVersion;
-  use crate::db::PackageVersionMeta;
-  use crate::gcp::BigQueryQueryResult;
-  use crate::ids::{PackageName, ScopeDescription, ScopeName, Version};
-
-  use super::deserialize_version_download_count_from_bigquery;
-
-  #[test]
-  fn test_deserialize_version_download_count_from_bigquery() {
-    let value = json!({
-      "f": [
-        {
-          "v": "1721131200000000"
-        },
-        {
-          "v": "luca"
-        },
-        {
-          "v": "flag"
-        },
-        {
-          "v": "1.0.0"
-        },
-        {
-          "v": "154"
-        }
-      ]
-    });
-    let res = deserialize_version_download_count_from_bigquery(
-      &value,
-      DownloadKind::JsrMeta,
-    );
-    let data = res.unwrap().unwrap();
-    assert_eq!(data.time_bucket.timestamp_micros(), 1721131200000000);
-    assert_eq!(data.scope.as_str(), "luca");
-    assert_eq!(data.package.as_str(), "flag");
-    assert_eq!(data.version.to_string(), "1.0.0");
-    assert_eq!(data.count, 154);
-  }
-
-  #[test]
-  fn test_deserialize_malformed_version_download_count_from_bigquery() {
-    let value = json!({
-      "f": [
-        {
-          "v": "1721131200000000"
-        },
-        {
-          "v": "luca"
-        },
-        {
-          "v": "flag"
-        },
-        {
-          "v": "  1.0.0"
-        },
-        {
-          "v": "154"
-        }
-      ]
-    });
-    let res = deserialize_version_download_count_from_bigquery(
-      &value,
-      DownloadKind::JsrMeta,
-    );
-    let data = res.unwrap();
-    assert!(data.is_none());
-  }
-
-  #[tokio::test]
-  async fn test_insert_bigquery_download_entries() {
-    let db = EphemeralDatabase::create().await;
-
-    let res: BigQueryQueryResult = serde_json::from_str(include_str!(
-      "../testdata/bigquery_query_results.json"
-    ))
-    .unwrap();
-
-    let std = ScopeName::new("std".to_owned()).unwrap();
-    let fs = PackageName::new("fs".to_owned()).unwrap();
-    let luca = ScopeName::new("luca".to_owned()).unwrap();
-    let flag = PackageName::new("flag".to_owned()).unwrap();
-    let v0_215_0 = Version::new("0.215.0").unwrap();
-    let v0_219_3 = Version::new("0.219.3").unwrap();
-    let v1_0_0 = Version::new("1.0.0").unwrap();
-
-    db.create_scope(
-      &Uuid::nil(),
-      false,
-      &std,
-      Uuid::nil(),
-      &ScopeDescription::default(),
-    )
-    .await
-    .unwrap();
-    db.create_scope(
-      &Uuid::nil(),
-      false,
-      &luca,
-      Uuid::nil(),
-      &ScopeDescription::default(),
-    )
-    .await
-    .unwrap();
-    db.create_package(&std, &fs).await.unwrap();
-    db.create_package(&luca, &flag).await.unwrap();
-    db.create_package_version_for_test(NewPackageVersion {
-      scope: &std,
-      name: &fs,
-      version: &v0_215_0,
-      exports: &ExportsMap::mock(),
-      user_id: None,
-      readme_path: None,
-      uses_npm: false,
-      meta: PackageVersionMeta::default(),
-    })
-    .await
-    .unwrap();
-    db.create_package_version_for_test(NewPackageVersion {
-      scope: &luca,
-      name: &flag,
-      version: &v1_0_0,
-      exports: &ExportsMap::mock(),
-      user_id: None,
-      readme_path: None,
-      uses_npm: false,
-      meta: PackageVersionMeta::default(),
-    })
-    .await
-    .unwrap();
-
-    let rows = res.rows;
-    super::insert_bigquery_download_entries(&db, rows, DownloadKind::JsrMeta)
-      .await
-      .unwrap();
-
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &std,
-        &fs,
-        &v0_215_0,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 1, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].count, 13);
-
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &luca,
-        &flag,
-        &v1_0_0,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 2, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].count, 196);
-    assert_eq!(
-      downloads[1].time_bucket,
-      "2024-07-16T16:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[1].count, 42);
-
-    // non existant version
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &std,
-        &fs,
-        &v0_219_3,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 0, "{:?}", downloads);
-
-    // time window with no data
-    let downloads = db
-      .get_package_version_downloads_4h(
-        &std,
-        &fs,
-        &v0_215_0,
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-06-30T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 0, "{:?}", downloads);
-
-    // 24 hour window
-    let downloads = db
-      .get_package_versions_downloads_24h(
-        &std,
-        &fs,
-        &[v0_215_0.clone()],
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 1, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].version, v0_215_0);
-    assert_eq!(downloads[0].count, 13);
-
-    let downloads = db
-      .get_package_versions_downloads_24h(
-        &luca,
-        &flag,
-        &[v1_0_0.clone()],
-        "2024-06-01T00:00:00Z".parse().unwrap(),
-        "2024-07-31T00:00:00Z".parse().unwrap(),
-      )
-      .await
-      .unwrap();
-    assert_eq!(downloads.len(), 1, "{:?}", downloads);
-    assert_eq!(
-      downloads[0].time_bucket,
-      "2024-07-16T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
-    );
-    assert_eq!(downloads[0].version, v1_0_0);
-    assert_eq!(downloads[0].count, 238);
-  }
+    count: i64::from_str(&record.count).unwrap(),
+  })
 }

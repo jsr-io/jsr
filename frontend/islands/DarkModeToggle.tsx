@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect } from "preact/hooks";
-import { TbBrightnessUpFilled, TbMoonFilled } from "tb-icons";
+import TbBrightnessUpFilled from "tb-icons/TbBrightnessUpFilled";
+import TbMoonFilled from "tb-icons/TbMoonFilled";
 import { useSignal } from "@preact/signals";
 
 export default function DarkModeToggle() {
@@ -47,12 +48,12 @@ export default function DarkModeToggle() {
   return (
     <button
       onClick={toggleDarkMode}
-      class="p-2 rounded-md text-primary hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 focus:outline-none"
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      class="p-2 rounded-md text-jsr-cyan-700 hover:text-jsr-cyan-900 dark:text-cyan-400 dark:hover:text-cyan-300 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 focus:outline-none"
+      title={isDark.value ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={isDark.value ? "Switch to light mode" : "Switch to dark mode"}
       type="button"
     >
-      {isDark
+      {isDark.value
         ? <TbBrightnessUpFilled class="size-5" />
         : <TbMoonFilled class="size-5" />}
     </button>

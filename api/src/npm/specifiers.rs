@@ -91,7 +91,10 @@ pub fn relative_import_specifier(
 ) -> String {
   let relative = base_specifier.make_relative(specifier).unwrap();
   if relative.is_empty() {
-    format!("./{}", specifier.path_segments().unwrap().last().unwrap())
+    format!(
+      "./{}",
+      specifier.path_segments().unwrap().next_back().unwrap()
+    )
   } else if relative.starts_with("../") {
     relative.to_string()
   } else {

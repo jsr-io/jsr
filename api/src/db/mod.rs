@@ -3,6 +3,7 @@ mod database;
 #[cfg(test)]
 mod ephemeral_database;
 pub(crate) mod models;
+pub(crate) mod sql_fragments;
 #[cfg(test)]
 mod tests;
 

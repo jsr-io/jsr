@@ -1,0 +1,131 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+
+locals {
+  worker_download_analytics_dataset = "${var.gcp_project}-downloads"
+}
+
+resource "cloudflare_workers_script" "jsr_lb" {
+  account_id  = var.cloudflare_account_id
+  script_name = "${var.gcp_project}-jsr-lb"
+  content     = file("${path.module}/../lb/dist/main.js")
+  main_module = "worker.js"
+
+  observability = {
+    enabled = true
+    logs = {
+      enabled            = true
+      invocation_logs    = false
+      head_sampling_rate = 0.01
+      persist            = false
+      destinations       = [var.cloudflare_otlp_logs_destination]
+    }
+    traces = {
+      enabled            = true
+      head_sampling_rate = 0.01
+      persist            = false
+      destinations       = [var.cloudflare_otlp_traces_destination]
+    }
+  }
+
+  bindings = [
+    {
+      type    = "analytics_engine"
+      name    = "DOWNLOADS"
+      dataset = local.worker_download_analytics_dataset
+      }, {
+      type        = "r2_bucket"
+      name        = "MODULES_BUCKET"
+      bucket_name = cloudflare_r2_bucket.modules.name
+      }, {
+      type        = "r2_bucket"
+      name        = "NPM_BUCKET"
+      bucket_name = cloudflare_r2_bucket.npm.name
+      }, {
+      type = "plain_text"
+      name = "ROOT_DOMAIN"
+      text = var.domain_name
+      }, {
+      type = "plain_text"
+      name = "API_DOMAIN"
+      text = local.api_domain
+      }, {
+      type = "plain_text"
+      name = "NPM_DOMAIN"
+      text = local.npm_domain
+      }, {
+      # Cloud Run service URLs aren't secret; keep as plain_text so the
+      # current value is visible from the worker's bindings page (needed
+      # to verify the LB is pointing at a live Cloud Run revision).
+      type = "plain_text"
+      name = "REGISTRY_API_URL"
+      text = google_cloud_run_v2_service.registry_api.uri
+      }, {
+      # Service binding to the frontend Worker. Terraform uploads new
+      # versions via `cloudflare_worker_version.jsr_frontend` and
+      # promotes them via `cloudflare_workers_deployment.jsr_frontend`;
+      # the `depends_on` below makes the LB binding wait for the
+      # promotion so the LB never references an un-promoted version.
+      type    = "service"
+      name    = "FRONTEND"
+      service = "${var.gcp_project}-jsr-frontend"
+      }, {
+      # Per-IP rate limit applied only on the frontend proxy path (see
+      # handleFrontendRoute in lb/main.ts). Keeps scrapers from generating
+      # cache-miss load on the frontend Worker without touching modules,
+      # API, or npm.
+      # namespace_id is a per-account identifier for this rate-limit binding;
+      # any unused value works (no Cloudflare-reserved meaning for "1001").
+      type         = "ratelimit"
+      name         = "FRONTEND_RATELIMIT"
+      namespace_id = "1001"
+      simple = {
+        limit  = 240
+        period = 60
+      }
+      }, {
+      # Stricter per-IP limit applied only to the doc, diff, and source package
+      # pages (see isDocsDiffSourceRoute in lb/main.ts) — the expensive-to-render
+      # routes scrapers walk symbol-by-symbol. Stacks on top of FRONTEND_RATELIMIT
+      # so these pages are capped well below the general frontend allowance.
+      # namespace_id is a per-account identifier for this rate-limit binding;
+      # any unused value works (no Cloudflare-reserved meaning for "1002").
+      type         = "ratelimit"
+      name         = "DOCS_RATELIMIT"
+      namespace_id = "1002"
+      simple = {
+        limit  = 20
+        period = 60
+      }
+    }
+  ]
+
+  depends_on = [cloudflare_workers_deployment.jsr_frontend]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "cloudflare_workers_route" "jsr_root" {
+  zone_id = var.cloudflare_zone_id
+  pattern = "${var.domain_name}/*"
+  script  = cloudflare_workers_script.jsr_lb.script_name
+
+  depends_on = [cloudflare_workers_script.jsr_lb]
+}
+
+resource "cloudflare_workers_route" "jsr_api" {
+  zone_id = var.cloudflare_zone_id
+  pattern = "${local.api_domain}/*"
+  script  = cloudflare_workers_script.jsr_lb.script_name
+
+  depends_on = [cloudflare_workers_script.jsr_lb]
+}
+
+resource "cloudflare_workers_route" "jsr_npm" {
+  zone_id = var.cloudflare_zone_id
+  pattern = "${local.npm_domain}/*"
+  script  = cloudflare_workers_script.jsr_lb.script_name
+
+  depends_on = [cloudflare_workers_script.jsr_lb]
+}

@@ -2,8 +2,9 @@
 import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
 import { Package } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { define } from "../../util.ts";
+import { primaryColor, secondaryColor } from "../../utils/colors.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -17,25 +18,20 @@ export const handler = define.handlers({
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}`,
       );
 
-      if (!packageResp.ok) {
-        if (packageResp.code === "packageNotFound") {
-          return new Response(null, { status: 404 });
-        } else {
-          throw packageResp;
-        }
-      } else {
-        if (packageResp.data.score === null) {
-          return new Response(null, { status: 404 });
-        }
-
-        return Response.json({
-          schemaVersion: 1,
-          label: "",
-          message: `${packageResp.data.score}%`,
-          labelColor: "rgb(247,223,30)",
-          color: "rgb(8,51,68)",
-        });
+      if (!packageResp.ok && packageResp.code === "packageNotFound") {
+        return new Response(null, { status: 404 });
       }
+      assertOk(packageResp);
+      if (packageResp.data.score === null) {
+        return new Response(null, { status: 404 });
+      }
+      return Response.json({
+        schemaVersion: 1,
+        label: "",
+        message: `${packageResp.data.score}%`,
+        labelColor: secondaryColor,
+        color: primaryColor,
+      });
     } else {
       const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
 
@@ -47,7 +43,7 @@ export const handler = define.handlers({
       shieldsUrl.searchParams.set("cacheSeconds", "300");
 
       if (!ctx.url.searchParams.has("logoColor")) {
-        shieldsUrl.searchParams.set("logoColor", "rgb(8,51,68)");
+        shieldsUrl.searchParams.set("logoColor", primaryColor);
       }
 
       const res = await fetch(shieldsUrl);

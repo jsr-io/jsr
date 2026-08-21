@@ -11,6 +11,7 @@ export interface Params {
 type Tab =
   | "Index"
   | "Docs"
+  | "Diff"
   | "Files"
   | "Versions"
   | "Dependencies"

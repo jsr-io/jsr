@@ -4,56 +4,57 @@ use chrono::Utc;
 use comrak::adapters::SyntaxHighlighterAdapter;
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
-use deno_ast::ParseDiagnostic;
 use deno_error::JsErrorBox;
+use deno_graph::BuildOptions;
+use deno_graph::GraphKind;
+use deno_graph::Module;
+use deno_graph::Resolution;
+use deno_graph::WorkspaceMember;
+use deno_graph::analysis::ModuleInfo;
+use deno_graph::ast::CapturingModuleAnalyzer;
 use deno_graph::source::JsrUrlProvider;
 use deno_graph::source::LoadError;
 use deno_graph::source::LoadOptions;
 use deno_graph::source::NullFileSystem;
-use deno_graph::BuildOptions;
-use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::GraphKind;
-use deno_graph::Module;
-use deno_graph::ModuleInfo;
-use deno_graph::Resolution;
-use deno_graph::WorkspaceMember;
 use deno_semver::StackString;
-use futures::future::Either;
 use futures::StreamExt;
-use hyper::body::HttpBody;
+use futures::TryFutureExt;
+use futures::future::Either;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use hyper::body::HttpBody;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use regex::Regex;
-use routerify::prelude::RequestExt;
 use routerify::Router;
+use routerify::prelude::RequestExt;
 use routerify_query::RequestQueryExt;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::io;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use tracing::Instrument;
+use tracing::Span;
 use tracing::error;
 use tracing::field;
 use tracing::instrument;
-use tracing::Instrument;
-use tracing::Span;
 use url::Url;
 use uuid::Uuid;
 
+use crate::FallbackRegistryUrl;
+use crate::NpmUrl;
+use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
 use crate::analysis::ModuleParser;
-use crate::auth::access_token;
-use crate::auth::GithubOauth2Client;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
+use crate::auth;
 use crate::db::CreatePackageResult;
 use crate::db::CreatePublishingTaskResult;
 use crate::db::Database;
@@ -62,12 +63,11 @@ use crate::db::NewPublishingTask;
 use crate::db::Package;
 use crate::db::RuntimeCompat;
 use crate::db::User;
-use crate::docs::DocNodesByUrl;
 use crate::docs::DocsRequest;
 use crate::docs::GeneratedDocsOutput;
+use crate::external::algolia::AlgoliaClient;
+use crate::external::cloudflare::CachePurge;
 use crate::gcp;
-use crate::gcp::GcsUploadOptions;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
 use crate::iam::ReqIamExt;
 use crate::ids::PackageName;
 use crate::ids::PackagePath;
@@ -76,20 +76,22 @@ use crate::ids::Version;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::generate_npm_version_manifest;
-use crate::orama::OramaClient;
 use crate::provenance;
 use crate::publish::publish_task;
-use crate::tarball::gcs_tarball_path;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_MANIFEST;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
+use crate::tarball::bucket_tarball_path;
 use crate::util;
+use crate::util::LicenseStore;
+use crate::util::RequestIdExt;
+use crate::util::VersionOrLatest;
 use crate::util::decode_json;
 use crate::util::pagination;
 use crate::util::search;
-use crate::util::ApiResult;
-use crate::util::CacheDuration;
-use crate::util::RequestIdExt;
-use crate::util::VersionOrLatest;
-use crate::NpmUrl;
-use crate::RegistryUrl;
+use crate::util::{ApiResult, docs_queries};
+use crate::util::{CacheDuration, DocsQueries};
 
 use super::ApiCreatePackageRequest;
 use super::ApiDependency;
@@ -113,30 +115,61 @@ use super::ApiSource;
 use super::ApiSourceDirEntry;
 use super::ApiSourceDirEntryKind;
 use super::ApiStats;
+use super::ApiStatsPackage;
+use super::ApiStatsPackageVersion;
 use super::ApiUpdatePackageGithubRepositoryRequest;
+
 use super::ApiUpdatePackageRequest;
 use super::ApiUpdatePackageVersionRequest;
 
-const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
+pub const MAX_PUBLISH_TARBALL_SIZE: u64 = 20 * 1024 * 1024; // 20mb
 
 pub struct PublishQueue(pub Option<gcp::Queue>);
 
 pub fn package_router() -> Router<Body, ApiError> {
   Router::builder()
-    .get("/", util::json(list_handler))
+    .get(
+      // Cache-busted on publish/create/delete via `package_api_cache_urls` /
+      // `scope_api_cache_urls`.
+      "/",
+      util::cache(CacheDuration::ONE_DAY, util::json(list_handler)),
+    )
     .post("/", util::json(create_handler))
-    .get("/:package", util::json(get_handler))
+    .get(
+      // Cached aggressively; cache-busted on publish/yank/update/delete via
+      // `package_api_cache_urls` (this endpoint has no query params, so the
+      // canonical URL purge is exact).
+      "/:package",
+      util::cache(CacheDuration::THIRTY_DAYS, util::json(get_handler)),
+    )
     .patch("/:package", util::auth(util::json(update_handler)))
     .delete("/:package", util::auth(delete_handler))
     .get(
+      // Cache-busted on publish/yank/delete. The canonical (unpaginated) URL is
+      // purged exactly; paginated variants fall back to a 1-day bound.
       "/:package/versions",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(list_versions_handler)),
+      util::cache(CacheDuration::ONE_DAY, util::json(list_versions_handler)),
     )
-    .get("/:package/dependents", util::json(list_dependents_handler))
-    .get("/:package/downloads", util::json(get_downloads_handler))
+    .get(
+      "/:package/dependents",
+      util::cache(
+        CacheDuration::FIVE_MINUTES,
+        util::json(list_dependents_handler),
+      ),
+    )
+    .get(
+      // Refreshed by the daily download-count scrape, not by publish; a 1-day
+      // TTL matches that cadence.
+      "/:package/downloads",
+      util::cache(CacheDuration::ONE_DAY, util::json(get_downloads_handler)),
+    )
     .get(
       "/:package/versions/:version",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_version_handler)),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_version_handler),
+      ),
     )
     .post(
       "/:package/versions/:version",
@@ -155,30 +188,67 @@ pub fn package_router() -> Router<Body, ApiError> {
       util::auth(version_provenance_statements_handler),
     )
     .get(
+      "/:package/versions/:version/tarball",
+      util::cache(CacheDuration::FOREVER, version_tarball_handler),
+    )
+    .get(
+      // For a specific (non-"latest") version the content is immutable, so the
+      // versioned arm is cached for 30 days. The "latest" arm moves on publish
+      // and can carry query params (symbol/entrypoint), so it stays short — but
+      // this is the default package-page render, by far the hottest docs call,
+      // so 5 minutes (vs 60s) cuts its origin rate ~5x while staying fresh
+      // enough that a new publish appears promptly.
       "/:package/versions/:version/docs",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_docs_handler)),
+      // `_shared`: the docs response is identity-independent (no permission/
+      // member/sudo branch), so the lb may serve it from its shared cache to
+      // authenticated callers too, rather than bypassing cache on auth.
+      util::cache_versioned_shared(
+        CacheDuration::FIVE_MINUTES,
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_docs_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/docs/search",
-      util::cache(
-        CacheDuration::ONE_MINUTE,
+      util::cache_versioned(
+        CacheDuration::FIVE_MINUTES,
+        CacheDuration::THIRTY_DAYS,
         util::json(get_docs_search_handler),
       ),
     )
     .get(
-      "/:package/versions/:version/docs/search_html",
-      util::cache(
-        CacheDuration::ONE_MINUTE,
-        util::json(get_docs_search_html_handler),
+      "/:package/versions/:version/docs/search_structured",
+      util::cache_versioned(
+        CacheDuration::FIVE_MINUTES,
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_docs_search_structured_handler),
       ),
     )
     .get(
       "/:package/versions/:version/source",
-      util::cache(CacheDuration::ONE_MINUTE, util::json(get_source_handler)),
+      util::cache_versioned(
+        CacheDuration::FIVE_MINUTES,
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_source_handler),
+      ),
+    )
+    .get(
+      // Both versions are immutable, so the diff between them never changes.
+      // `_shared`: identity-independent (see docs above), so the lb shares it
+      // across authenticated callers.
+      "/:package/diff/:old_version/:new_version",
+      util::cache_shared(
+        CacheDuration::THIRTY_DAYS,
+        util::json(get_diff_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies",
-      util::json(list_dependencies_handler),
+      util::cache_versioned(
+        CacheDuration::ONE_MINUTE,
+        CacheDuration::THIRTY_DAYS,
+        util::json(list_dependencies_handler),
+      ),
     )
     .get(
       "/:package/versions/:version/dependencies/graph",
@@ -191,12 +261,15 @@ pub fn package_router() -> Router<Body, ApiError> {
       "/:package/publishing_tasks",
       util::json(list_publishing_tasks_handler),
     )
-    .get("/:package/score", util::json(get_score_handler))
+    .get(
+      "/:package/score",
+      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_score_handler)),
+    )
     .build()
     .unwrap()
 }
 
-#[instrument(name = "GET /api/packages", skip(req), err, fields(query))]
+#[instrument(name = "GET /api/packages", skip(req), fields(query))]
 pub async fn global_list_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiPackage>> {
@@ -228,20 +301,23 @@ pub async fn global_list_handler(
   })
 }
 
-#[instrument(name = "GET /api/stats", skip(req), err)]
+#[instrument(name = "GET /api/stats", skip(req))]
 pub async fn global_stats_handler(req: Request<Body>) -> ApiResult<ApiStats> {
   let db = req.data::<Database>().unwrap();
 
   let (newest, updated, featured) = db.package_stats().await?;
 
   Ok(ApiStats {
-    newest: newest.into_iter().map(ApiPackage::from).collect(),
-    updated: updated.into_iter().map(ApiPackageVersion::from).collect(),
-    featured: featured.into_iter().map(ApiPackage::from).collect(),
+    newest: newest.into_iter().map(ApiStatsPackage::from).collect(),
+    updated: updated
+      .into_iter()
+      .map(ApiStatsPackageVersion::from)
+      .collect(),
+    featured: featured.into_iter().map(ApiStatsPackage::from).collect(),
   })
 }
 
-#[instrument(name = "GET /api/metrics", skip(req), err)]
+#[instrument(name = "GET /api/metrics", skip(req))]
 pub async fn global_metrics_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiMetrics> {
@@ -253,7 +329,6 @@ pub async fn global_metrics_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages",
   skip(req),
-  err,
   fields(scope)
 )]
 pub async fn list_handler(
@@ -282,7 +357,6 @@ pub async fn list_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
@@ -307,20 +381,27 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let package = match res {
     CreatePackageResult::Ok(package) => package,
     CreatePackageResult::AlreadyExists => {
-      return Err(ApiError::PackageAlreadyExists)
+      return Err(ApiError::PackageAlreadyExists);
     }
     CreatePackageResult::PackageLimitExceeded(limit) => {
-      return Err(ApiError::PackageLimitExceeded { limit })
+      return Err(ApiError::PackageLimitExceeded { limit });
     }
     CreatePackageResult::WeeklyPackageLimitExceeded(limit) => {
-      return Err(ApiError::WeeklyPackageLimitExceeded { limit })
+      return Err(ApiError::WeeklyPackageLimitExceeded { limit });
     }
   };
 
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &Default::default());
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&package, &Default::default());
   }
+
+  // The new package changes the scope's package list and scope info.
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
+  cache_purge
+    .purge(crate::s3_paths::scope_api_cache_urls(registry_url, &scope))
+    .await;
 
   Ok(ApiPackage::from((package, None, Default::default())))
 }
@@ -328,7 +409,6 @@ pub async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
@@ -354,8 +434,11 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
     api_package.dependency_count = dependency_count as u64;
   }
 
-  let dependent_count = db
+  let dependent_count_cache =
+    req.data::<crate::db::DependentCountCache>().unwrap();
+  let dependent_count = dependent_count_cache
     .count_package_dependents(
+      db,
       crate::db::DependencyKind::Jsr,
       &format!("@{}/{}", scope, package),
     )
@@ -368,7 +451,6 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
 #[instrument(
   name = "PATCH /api/scopes/:scope/packages/:package",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
@@ -378,8 +460,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   let body: ApiUpdatePackageRequest = decode_json(&mut req).await?;
 
   let db: &Database = req.data::<Database>().unwrap();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  let github_oauth2_client = req.data::<GithubOauth2Client>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
 
   let (package, repo, meta) = db
     .get_package(&scope, &package_name)
@@ -406,15 +487,27 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     return Err(ApiError::PackageArchived);
   }
 
-  match body {
+  // Every update variant mutates the aggressively-cached `:package` response,
+  // so cache-bust it (and the scope aggregates) afterwards. Built before the
+  // match because the GitHub-repository arm consumes `scope`/`package_name`.
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let purge_urls = crate::s3_paths::package_api_cache_urls(
+    &registry_url,
+    &scope,
+    &package_name,
+  );
+
+  let result = match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
       let buckets = req.data::<Buckets>().unwrap().clone();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let package = update_description(
         db,
         npm_url,
         &buckets,
-        orama_client,
+        cache_purge,
+        algolia_client,
         &user.id,
         sudo,
         &scope,
@@ -431,6 +524,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let github_oauth2_client =
+        req.data::<auth::github::Oauth2Client>().unwrap();
       update_github_repository(
         &user.id,
         sudo,
@@ -454,8 +549,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
           &runtime_compat,
         )
         .await?;
-      if let Some(orama_client) = orama_client {
-        orama_client.upsert_package(&package, &meta);
+      if let Some(algolia_client) = algolia_client {
+        algolia_client.upsert_package(&package, &meta);
       }
       Ok(ApiPackage::from((package, repo, meta)))
     }
@@ -481,11 +576,11 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
         )
         .await?;
 
-      if let Some(orama_client) = orama_client {
+      if let Some(algolia_client) = algolia_client {
         if package.is_archived {
-          orama_client.delete_package(&scope, &package.name);
+          algolia_client.delete_package(&scope, &package.name);
         } else {
-          orama_client.upsert_package(&package, &meta);
+          algolia_client.upsert_package(&package, &meta);
         }
       }
 
@@ -504,7 +599,13 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
 
       Ok(ApiPackage::from((package, repo, meta)))
     }
-  }
+  };
+
+  let result = result?;
+  let cache_purge = req.data::<CachePurge>().unwrap();
+  cache_purge.purge(purge_urls).await;
+
+  Ok(result)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -513,7 +614,8 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     db,
     npm_url,
     buckets,
-    orama_client,
+    cache_purge,
+    algolia_client,
     actor_id,
     is_sudo,
     scope,
@@ -526,7 +628,8 @@ async fn update_description(
   db: &Database,
   npm_url: &Url,
   buckets: &Buckets,
-  orama_client: &Option<OramaClient>,
+  cache_purge: &CachePurge,
+  algolia_client: &Option<AlgoliaClient>,
   actor_id: &Uuid,
   is_sudo: bool,
   scope: &ScopeName,
@@ -557,12 +660,12 @@ async fn update_description(
     )
     .await?;
 
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_package(&package, &meta);
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&package, &meta);
   }
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(scope, &package.name);
+    crate::s3_paths::npm_version_manifest_path(scope, &package.name);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, scope, &package.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -570,26 +673,34 @@ async fn update_description(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
 
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      npm_url,
+      scope,
+      &package.name,
+    )])
+    .await;
+
   Ok(package)
 }
 
 #[allow(clippy::too_many_arguments)]
-#[instrument(skip(db, scope, package, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
+#[instrument(skip(db, scope, package, github_oauth2_client, req), err, fields(repo.owner = req.owner, repo.name = req.name))]
 async fn update_github_repository(
   actor_id: &Uuid,
   is_sudo: bool,
   user: &User,
   db: &Database,
-  github_oauth2_client: &GithubOauth2Client,
+  github_oauth2_client: &auth::github::Oauth2Client,
   scope: ScopeName,
   package: PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
@@ -602,8 +713,9 @@ async fn update_github_repository(
   let ghid = db.get_github_identity(gh_user_id).await?;
   let mut new_ghid = ghid.into();
   let access_token =
-    access_token(db, github_oauth2_client, &mut new_ghid).await?;
-  let github_u2s_client = crate::github::GitHubUserClient::new(access_token);
+    auth::github::access_token(db, github_oauth2_client, &mut new_ghid).await?;
+  let github_u2s_client =
+    crate::external::github::GitHubUserClient::new(access_token);
 
   let repo = github_u2s_client
     .get_repo(&req.owner, &req.name)
@@ -643,17 +755,18 @@ async fn update_github_repository(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn list_versions_handler(
   req: Request<Body>,
-) -> ApiResult<Vec<ApiPackageVersionWithUser>> {
+) -> ApiResult<ApiList<ApiPackageVersionWithUser>> {
   let scope = req.param_scope()?;
   let package = req.param_package()?;
 
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package));
+
+  let (start, limit) = pagination(&req);
 
   let db = req.data::<Database>().unwrap();
 
@@ -661,20 +774,22 @@ pub async fn list_versions_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let versions = db
-    .list_package_versions(&scope, &package)
-    .await?
-    .into_iter()
-    .map(ApiPackageVersionWithUser::from)
-    .collect::<Vec<_>>();
+  let (total, versions) = db
+    .list_package_versions_paginated(&scope, &package, start, limit)
+    .await?;
 
-  Ok(versions)
+  Ok(ApiList {
+    items: versions
+      .into_iter()
+      .map(ApiPackageVersionWithUser::from)
+      .collect(),
+    total,
+  })
 }
 
 #[instrument(
   name = "DELETE /api/scopes/:scope/packages/:package",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
@@ -696,10 +811,20 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
     return Err(ApiError::PackageNotEmpty);
   }
 
-  let orama_client = req.data::<Option<OramaClient>>().unwrap();
-  if let Some(orama_client) = orama_client {
-    orama_client.delete_package(&scope, &package);
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap();
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.delete_package(&scope, &package);
   }
+
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   let res = Response::builder()
     .status(StatusCode::NO_CONTENT)
@@ -711,7 +836,6 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn get_version_handler(
@@ -732,11 +856,16 @@ pub async fn get_version_handler(
 
   let maybe_version = match version {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package, &version).await?
+      db.get_package_version_with_newer_versions_count(
+        &scope, &package, &version,
+      )
+      .await?
     }
     VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package)
-        .await?
+      db.get_latest_unyanked_version_for_package_with_newer_versions_count(
+        &scope, &package,
+      )
+      .await?
     }
   };
 
@@ -748,7 +877,6 @@ pub async fn get_version_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_publish_handler(
@@ -776,13 +904,13 @@ pub async fn version_publish_handler(
 
   // If there is a content-length header, check it isn't too big.
   // We don't rely on this, we will also check MAX_PAYLOAD_SIZE later.
-  if let Some(size) = req.body().size_hint().upper() {
-    if size > MAX_PUBLISH_TARBALL_SIZE {
-      return Err(ApiError::TarballSizeLimitExceeded {
-        size,
-        max_size: MAX_PUBLISH_TARBALL_SIZE,
-      });
-    }
+  if let Some(size) = req.body().size_hint().upper()
+    && size > MAX_PUBLISH_TARBALL_SIZE
+  {
+    return Err(ApiError::TarballSizeLimitExceeded {
+      size,
+      max_size: MAX_PUBLISH_TARBALL_SIZE,
+    });
   }
 
   // Ensure the upload is gzip encoded.
@@ -793,10 +921,14 @@ pub async fn version_publish_handler(
 
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let license_store = req.data::<LicenseStore>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
   let (access_restriction, user_id) = iam
@@ -826,14 +958,14 @@ pub async fn version_publish_handler(
     CreatePublishingTaskResult::Exists(task) => {
       return Err(ApiError::DuplicateVersionPublish {
         task: Box::new(task.into()),
-      })
+      });
     }
     CreatePublishingTaskResult::WeeklyPublishAttemptsLimitExceeded(limit) => {
-      return Err(ApiError::WeeklyPublishAttemptsLimitExceeded { limit })
+      return Err(ApiError::WeeklyPublishAttemptsLimitExceeded { limit });
     }
   };
 
-  let gcs_path = gcs_tarball_path(publishing_task.id);
+  let s3_path = bucket_tarball_path(publishing_task.id);
 
   let body = req.into_body();
   let total_size = Arc::new(AtomicU64::new(0));
@@ -847,20 +979,20 @@ pub async fn version_publish_handler(
       hash_.lock().unwrap().as_mut().unwrap().update(&bytes);
       total_size_.fetch_add(bytes.len() as u64, Ordering::SeqCst);
       if total_size_.load(Ordering::SeqCst) > MAX_PUBLISH_TARBALL_SIZE {
-        Err(io::Error::new(io::ErrorKind::Other, "Payload too large"))
+        Err(io::Error::other("Payload too large"))
       } else {
         Ok(bytes)
       }
     }
-    Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+    Err(err) => Err(io::Error::other(err)),
   });
 
   let upload_result = buckets
     .publishing_bucket
     .upload(
-      gcs_path.into(),
-      UploadTaskBody::Stream(Box::new(stream)),
-      GcsUploadOptions {
+      s3_path.into(),
+      crate::s3::UploadTaskBody::Stream(Box::new(stream)),
+      S3UploadOptions {
         content_type: Some("application/x-tar".into()),
         cache_control: None,
         gzip_encoded: true,
@@ -870,14 +1002,14 @@ pub async fn version_publish_handler(
 
   let hash = hash.lock().unwrap().take().unwrap().finalize();
   let hash = format!("sha256-{:02x}", hash);
-  if let Some(tarball_hash) = access_restriction.tarball_hash {
-    if tarball_hash != hash {
-      error!(
-        "Tarball hash mismatch: expected {}, got {}",
-        tarball_hash, hash
-      );
-      return Err(ApiError::MissingPermission);
-    }
+  if let Some(tarball_hash) = access_restriction.tarball_hash
+    && tarball_hash != hash
+  {
+    error!(
+      "Tarball hash mismatch: expected {}, got {}",
+      tarball_hash, hash
+    );
+    return Err(ApiError::MissingPermission);
   }
 
   // If the upload failed due to the size limit, we can cancel the task.
@@ -899,11 +1031,14 @@ pub async fn version_publish_handler(
     let span = Span::current();
     let fut = publish_task(
       publishing_task.id,
-      buckets.clone(),
+      buckets,
+      license_store,
       registry_url,
       npm_url,
+      fallback_registry_url,
       db,
-      orama_client,
+      algolia_client,
+      cache_purge,
     )
     .instrument(span);
     tokio::spawn(fut);
@@ -915,7 +1050,6 @@ pub async fn version_publish_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/packages/:package/versions/:version/provenance",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_provenance_statements_handler(
@@ -932,23 +1066,42 @@ pub async fn version_provenance_statements_handler(
   let body: ApiProvenanceStatementRequest = decode_json(&mut req).await?;
 
   let db = req.data::<Database>().unwrap();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let buckets = req.data::<Buckets>().unwrap();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   let iam = req.iam();
   iam.check_publish_access(&scope, &package, &version).await?;
 
+  // The signing certificate's identity must match the repository linked to the
+  // package, if any.
+  let (db_package, github_repository, meta) =
+    db.get_package(&scope, &package).await?.ok_or_else(|| {
+      error!("package not found when inserting provenance statement");
+      ApiError::InternalServerError
+    })?;
+  let expected_repo = github_repository.map(|repo| (repo.owner, repo.name));
+
+  // The attestation's `subject.digest.sha256` is the SHA-256 of the published
+  // `<version>_meta.json`, which the publishing client fetches back from the
+  // registry after the version is created. Hash the stored manifest here and
+  // require the attestation to match it. Fail closed if there is no manifest.
+  let manifest_digest =
+    version_manifest_digest(buckets, &scope, &package, &version)
+      .await?
+      .ok_or_else(|| {
+        error!("no published manifest for version when verifying provenance");
+        ApiError::InternalServerError
+      })?;
+
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
-  let rekor_log_id = provenance::verify(name, body.bundle)?;
+  let rekor_log_id =
+    provenance::verify(name, expected_repo, &manifest_digest, body.bundle)?;
 
   db.insert_provenance_statement(&scope, &package, &version, &rekor_log_id)
     .await?;
 
-  if let Some(orama_client) = orama_client {
-    let (package, _, meta) = db
-      .get_package(&scope, &package)
-      .await?
-      .ok_or(ApiError::InternalServerError)?;
-    orama_client.upsert_package(&package, &meta);
+  if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_package(&db_package, &meta);
   }
 
   Ok(
@@ -959,10 +1112,35 @@ pub async fn version_provenance_statements_handler(
   )
 }
 
+/// The hex SHA-256 of the published `<version>_meta.json`, or `None` if the
+/// version has no manifest stored yet.
+///
+/// This is the artifact SLSA provenance attests over: the publishing client
+/// fetches `<version>_meta.json` back from the registry once the version is
+/// live and puts its digest in the attestation's subject. The manifest carries
+/// a checksum for every file in the version, so it transitively covers the
+/// published contents. The bytes hashed here are the exact bytes the registry
+/// serves, so the two digests are directly comparable.
+async fn version_manifest_digest(
+  buckets: &Buckets,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+) -> Result<Option<String>, ApiError> {
+  let path = crate::s3_paths::version_metadata(scope, package, version);
+  let Some(manifest) = buckets.modules_bucket.download(path.into()).await?
+  else {
+    return Ok(None);
+  };
+  Ok(Some(format!(
+    "{:x}",
+    sha2::Sha256::digest(manifest.as_ref())
+  )))
+}
+
 #[instrument(
   name = "PATCH /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_update_handler(
@@ -980,7 +1158,9 @@ pub async fn version_update_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
 
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
@@ -996,7 +1176,7 @@ pub async fn version_update_handler(
   .await?;
 
   let package_metadata_path =
-    crate::gcs_paths::package_metadata(&scope, &package);
+    crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
@@ -1005,16 +1185,16 @@ pub async fn version_update_handler(
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -1022,14 +1202,25 @@ pub async fn version_update_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  let mut purge_urls = vec![
+    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
+    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
+  ];
+  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+    registry_url,
+    &scope,
+    &package,
+  ));
+  cache_purge.purge(purge_urls).await;
 
   Ok(
     Response::builder()
@@ -1042,7 +1233,6 @@ pub async fn version_update_handler(
 #[instrument(
   name = "DELETE /api/scopes/:scope/packages/:package/versions/:version",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn version_delete_handler(
@@ -1057,7 +1247,9 @@ pub async fn version_delete_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
+  let registry_url = &req.data::<RegistryUrl>().unwrap().0;
   let npm_url = &req.data::<NpmUrl>().unwrap().0;
+  let cache_purge = req.data::<CachePurge>().unwrap();
 
   let iam = req.iam();
   let staff = iam.check_admin_access()?;
@@ -1076,18 +1268,20 @@ pub async fn version_delete_handler(
   db.delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
 
-  let path = crate::gcs_paths::docs_v1_path(&scope, &package, &version);
-  buckets.docs_bucket.delete_file(path.into()).await?;
+  let v1_path = crate::s3_paths::docs_v1_path(&scope, &package, &version);
+  let v2_path = crate::s3_paths::docs_v2_path(&scope, &package, &version);
+  buckets.docs_bucket.delete_file(v1_path.into()).await?;
+  buckets.docs_bucket.delete_file(v2_path.into()).await?;
 
-  let path = crate::gcs_paths::version_metadata(&scope, &package, &version);
+  let path = crate::s3_paths::version_metadata(&scope, &package, &version);
   buckets.modules_bucket.delete_file(path.into()).await?;
 
   let path =
-    crate::gcs_paths::file_path_root_directory(&scope, &package, &version);
+    crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
   let package_metadata_path =
-    crate::gcs_paths::package_metadata(&scope, &package);
+    crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
@@ -1096,16 +1290,16 @@ pub async fn version_delete_handler(
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
 
   let npm_version_manifest_path =
-    crate::gcs_paths::npm_version_manifest_path(&scope, &package);
+    crate::s3_paths::npm_version_manifest_path(&scope, &package);
   let npm_version_manifest =
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
@@ -1113,14 +1307,25 @@ pub async fn version_delete_handler(
     .npm_bucket
     .upload(
       npm_version_manifest_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  let mut purge_urls = vec![
+    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
+    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
+  ];
+  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+    registry_url,
+    &scope,
+    &package,
+  ));
+  cache_purge.purge(purge_urls).await;
 
   Ok(
     Response::builder()
@@ -1131,9 +1336,52 @@ pub async fn version_delete_handler(
 }
 
 #[instrument(
+  name = "POST /api/scopes/:scope/packages/:package/versions/:version/tarball",
+  skip(req),
+  fields(scope, package, version)
+)]
+pub async fn version_tarball_handler(
+  req: Request<Body>,
+) -> ApiResult<Response<Body>> {
+  let scope = req.param_scope()?;
+  let package = req.param_package()?;
+  let version = req.param_version()?;
+
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package));
+  Span::current().record("version", field::display(&version));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap().clone();
+
+  let (task, _) = db
+    .get_publishing_task_for_version(&scope, &package, &version)
+    .await?;
+
+  let path = bucket_tarball_path(task.id);
+  let body = buckets
+    .publishing_bucket
+    .bucket
+    .download_stream(&path, None)
+    .await?
+    .unwrap();
+
+  Ok(
+    Response::builder()
+      .status(StatusCode::OK)
+      .header(hyper::header::CONTENT_TYPE, "application/gzip")
+      .body(Body::wrap_stream(body.map(|r| {
+        r.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+          Box::new(e)
+        })
+      })))
+      .unwrap(),
+  )
+}
+
+#[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
 pub async fn get_docs_handler(
@@ -1145,30 +1393,17 @@ pub async fn get_docs_handler(
   Span::current().record("scope", field::display(&scope));
   Span::current().record("package", field::display(&package_name));
   Span::current().record("version", field::display(&version_or_latest));
-  let all_symbols = req.query("all_symbols").is_some();
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+
   Span::current().record("all_symbols", field::display(&all_symbols));
-  let entrypoint = req.query("entrypoint").and_then(|s| match s.as_str() {
-    "" => None,
-    s => Some(s),
-  });
   Span::current()
     .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
-
-  let symbol = req
-    .query("symbol")
-    .and_then(|s| match s.as_str() {
-      "" => None,
-      s => Some(urlencoding::decode(s)),
-    })
-    .transpose()?;
   Span::current()
     .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
-
-  if all_symbols && (entrypoint.is_some() || symbol.is_some()) {
-    return Err(ApiError::MalformedRequest {
-      msg: "Cannot specify both all_symbols and entrypoint".into(),
-    });
-  }
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap();
@@ -1177,49 +1412,74 @@ pub async fn get_docs_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let doc_nodes_fut = buckets.docs_bucket.download(docs_path.into());
-  let readme_fut = if !all_symbols && entrypoint.is_none() && symbol.is_none() {
-    if let Some(readme_path) = &version.readme_path {
-      let gcs_path = crate::gcs_paths::file_path(
-        &scope,
-        &package_name,
-        &version.version,
-        readme_path,
-      )
-      .into();
-      Either::Left(buckets.modules_bucket.download(gcs_path))
-    } else {
-      Either::Right(futures::future::ready(Ok(None)))
-    }
+  let has_readme = !all_symbols
+    && entrypoint.is_none()
+    && symbol.is_none()
+    && version.readme_path.is_some();
+
+  let readme_fut = if has_readme {
+    let s3_path = crate::s3_paths::file_path(
+      &scope,
+      &package_name,
+      &version.version,
+      version.readme_path.as_ref().unwrap(),
+    )
+    .into();
+    Either::Left(buckets.modules_bucket.download(s3_path))
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
 
-  let (docs, readme) =
-    futures::future::try_join(doc_nodes_fut, readme_fut).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx_fut = generate_ctx_cache.get(
+    &scope,
+    &package_name,
+    &version.version,
+    version_or_latest == VersionOrLatest::Latest,
+    has_readme,
+    &version.exports,
+    repo,
+    package.runtime_compat,
+    &registry_url,
+    buckets,
+  );
+
+  let (ctx, readme) = futures::future::try_join(
+    ctx_fut.map_err(ApiError::from),
+    readme_fut.map_err(ApiError::from),
+  )
+  .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
+
   let readme = readme.and_then(|readme| {
     std::str::from_utf8(&readme).ok().map(ToOwned::to_owned)
   });
@@ -1229,8 +1489,6 @@ pub async fn get_docs_handler(
   if entrypoint.is_some() && docs_info.entrypoint_url.is_none() {
     return Err(ApiError::EntrypointOrSymbolNotFound);
   }
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
 
   let req = match (docs_info.entrypoint_url, symbol) {
     _ if all_symbols => DocsRequest::AllSymbols,
@@ -1248,35 +1506,22 @@ pub async fn get_docs_handler(
     (None, None) => DocsRequest::Index,
   };
 
-  let docs = crate::docs::generate_docs_html(
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    req,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    readme,
-    package.runtime_compat,
-    registry_url,
-    package.readme_source,
-  )
-  .map_err(|e| {
-    error!("failed to generate docs: {}", e);
-    ApiError::InternalServerError
-  })?
-  .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let docs =
+    crate::docs::render_docs_html(&ctx, req, readme, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
 
   match docs {
     GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
-      css: Cow::Borrowed(deno_doc::html::STYLESHEET),
       comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
       script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
       breadcrumbs: docs.breadcrumbs,
       toc: docs.toc,
-      main: docs.main,
+      main: docs.main.into(),
       version: ApiPackageVersion::from(version),
     }),
     GeneratedDocsOutput::Redirect(href) => {
@@ -1288,7 +1533,6 @@ pub async fn get_docs_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
 pub async fn get_docs_search_handler(
@@ -1308,63 +1552,66 @@ pub async fn get_docs_search_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
+    .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
-
-  let ctx = crate::docs::get_generate_ctx(
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
-    false,
-    package.runtime_compat,
-    registry_url,
-  );
-
+  let _permit = crate::docs::acquire_doc_render_permit().await;
   let search_index = deno_doc::html::generate_search_index(&ctx);
 
   Ok(search_index)
 }
 
 #[instrument(
-  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_html",
+  name = "GET /api/scopes/:scope/packages/:package/versions/:version/docs/search_structured",
   skip(req),
-  err,
   fields(scope, package, version, all_symbols, entrypoint, symbol)
 )]
-pub async fn get_docs_search_html_handler(
+pub async fn get_docs_search_structured_handler(
   req: Request<Body>,
-) -> ApiResult<String> {
+) -> ApiResult<deno_doc::html::AllSymbolsCtx> {
   let scope = req.param_scope()?;
   let package_name = req.param_package()?;
   let version_or_latest = req.param_version_or_latest()?;
@@ -1379,48 +1626,57 @@ pub async fn get_docs_search_html_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let maybe_version = match &version_or_latest {
+  // Docs are only served for the latest version of a package. A specific
+  // version is accepted only if it is the current latest unyanked version; any
+  // other version is rejected so callers fall back to the latest version.
+  let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
-      db.get_package_version(&scope, &package_name, version)
+      let latest = db
+        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
         .await?
+        .ok_or(ApiError::PackageVersionNotFound)?;
+      if latest.version != *version {
+        return Err(ApiError::DocsOnlyForLatestVersion);
+      }
+      latest
     }
-    VersionOrLatest::Latest => {
-      db.get_latest_unyanked_version_for_package(&scope, &package_name)
-        .await?
-    }
+    VersionOrLatest::Latest => db
+      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .await?
+      .ok_or(ApiError::PackageVersionNotFound)?,
   };
-  let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
-  let docs_path =
-    crate::gcs_paths::docs_v1_path(&scope, &package_name, &version.version);
-  let docs = buckets.docs_bucket.download(docs_path.into()).await?;
-  let docs = docs.ok_or_else(|| {
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+  let generate_ctx_cache =
+    req.data::<crate::docs::GenerateCtxCache>().unwrap().clone();
+
+  let ctx = generate_ctx_cache
+    .get(
+      &scope,
+      &package_name,
+      &version.version,
+      version_or_latest == VersionOrLatest::Latest,
+      false,
+      &version.exports,
+      repo,
+      package.runtime_compat,
+      &registry_url,
+      buckets,
+    )
+    .await?;
+  let ctx = ctx.ok_or_else(|| {
     error!(
       "docs not found for {}/{}/{}",
       scope, package_name, version.version
     );
     ApiError::InternalServerError
   })?;
-  let doc_nodes: DocNodesByUrl =
-    serde_json::from_slice(&docs).context("failed to parse doc nodes")?;
 
-  let docs_info = crate::docs::get_docs_info(&version.exports, None);
-
-  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
-
-  let docs = crate::docs::generate_docs_html(
-    doc_nodes,
-    docs_info.main_entrypoint,
-    docs_info.rewrite_map,
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let docs = crate::docs::render_docs_html(
+    &ctx,
     DocsRequest::AllSymbols,
-    scope.clone(),
-    package_name.clone(),
-    version.version.clone(),
-    version_or_latest == VersionOrLatest::Latest,
-    repo,
     None,
-    package.runtime_compat,
-    registry_url,
     package.readme_source,
   )
   .map_err(|e| {
@@ -1430,8 +1686,11 @@ pub async fn get_docs_search_html_handler(
   .unwrap();
 
   let search = match docs {
-    GeneratedDocsOutput::Docs(docs) => docs.main,
-    GeneratedDocsOutput::Redirect(_) => unreachable!(),
+    GeneratedDocsOutput::Docs(crate::docs::GeneratedDocs {
+      main: crate::docs::GeneratedDocsContent::AllSymbols(main),
+      ..
+    }) => main,
+    _ => unreachable!(),
   };
 
   Ok(search)
@@ -1440,7 +1699,6 @@ pub async fn get_docs_search_html_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/source",
   skip(req),
-  err,
   fields(scope, package, version, path)
 )]
 pub async fn get_source_handler(
@@ -1475,14 +1733,14 @@ pub async fn get_source_handler(
   let version = maybe_version.ok_or(ApiError::PackageVersionNotFound)?;
 
   let file = if path == "meta.json" {
-    let source_file_path = crate::gcs_paths::package_metadata(&scope, &package);
+    let source_file_path = crate::s3_paths::package_metadata(&scope, &package);
     buckets
       .modules_bucket
       .download(source_file_path.into())
       .await?
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
-      crate::gcs_paths::version_metadata(&scope, &package, &version.version);
+      crate::s3_paths::version_metadata(&scope, &package, &version.version);
     buckets
       .modules_bucket
       .download(source_file_path.into())
@@ -1493,7 +1751,7 @@ pub async fn get_source_handler(
       ApiError::MalformedRequest { msg }
     })?;
 
-    let source_file_path = crate::gcs_paths::file_path(
+    let source_file_path = crate::s3_paths::file_path(
       &scope,
       &package,
       &version.version,
@@ -1527,7 +1785,12 @@ pub async fn get_source_handler(
         path_buf
           .extension()
           .map(|ext| ext.to_string_lossy())
-          .as_deref(),
+          .as_deref()
+          .map(|ext| match ext {
+            "mts" | "cts" => "ts",
+            "mjs" | "cjs" => "js",
+            ext => ext,
+          }),
         &file,
       )?;
       out.extend(b"</code></pre>");
@@ -1590,7 +1853,6 @@ pub async fn get_source_handler(
 
   Ok(ApiPackageVersionSource {
     version: ApiPackageVersion::from(version),
-    css: Cow::Borrowed(deno_doc::html::STYLESHEET),
     comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
     script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
     source,
@@ -1598,9 +1860,176 @@ pub async fn get_source_handler(
 }
 
 #[instrument(
+  name = "GET /api/scopes/:scope/packages/:package/diff/:old_version/:new_version",
+  skip(req),
+  fields(scope, package, version, all_symbols, entrypoint, symbol)
+)]
+pub async fn get_diff_handler(
+  req: Request<Body>,
+) -> ApiResult<ApiPackageVersionDocs> {
+  // The diff view is disabled. Flip to `true` to re-enable it.
+  const DIFF_ENABLED: bool = false;
+  if !DIFF_ENABLED {
+    return Err(ApiError::DiffDisabled);
+  }
+
+  let scope = req.param_scope()?;
+  let package_name = req.param_package()?;
+  Span::current().record("scope", field::display(&scope));
+  Span::current().record("package", field::display(&package_name));
+
+  let old_version = util::param(&req, "old_version")?;
+  let old_version = Version::try_from(old_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'old_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("old_version", field::display(&old_version));
+
+  let new_version = util::param(&req, "new_version")?;
+  let new_version = Version::try_from(new_version.as_str()).map_err(|err| {
+    let msg =
+      format!("failed to parse path parameter 'new_version': {err}").into();
+    ApiError::MalformedRequest { msg }
+  })?;
+  Span::current().record("new_version", field::display(&new_version));
+
+  let DocsQueries {
+    all_symbols,
+    entrypoint,
+    symbol,
+  } = docs_queries(&req)?;
+  if !all_symbols && entrypoint.is_none() {
+    return Err(ApiError::DiffNoIndex);
+  }
+
+  Span::current().record("all_symbols", field::display(&all_symbols));
+  Span::current()
+    .record("entrypoint", field::display(&entrypoint.unwrap_or("")));
+  Span::current()
+    .record("symbol", field::display(&symbol.as_deref().unwrap_or("")));
+
+  let full = req.query("full").is_some();
+  Span::current().record("full", field::display(full));
+
+  let db = req.data::<Database>().unwrap();
+  let buckets = req.data::<Buckets>().unwrap();
+  let (package, repo, _) = db
+    .get_package(&scope, &package_name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  let old_version = db
+    .get_package_version(&scope, &package_name, &old_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+  let new_version = db
+    .get_package_version(&scope, &package_name, &new_version)
+    .await?
+    .ok_or(ApiError::PackageVersionNotFound)?;
+
+  let (old_doc_nodes, new_doc_nodes) = futures::future::try_join(
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &old_version.version,
+      buckets,
+    ),
+    crate::docs::download_doc_nodes(
+      &scope,
+      &package_name,
+      &new_version.version,
+      buckets,
+    ),
+  )
+  .await?;
+
+  let old_doc_nodes = old_doc_nodes.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, old_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+  let new_doc_nodes = new_doc_nodes.ok_or_else(|| {
+    error!(
+      "docs not found for {}/{}/{}",
+      scope, package_name, new_version.version
+    );
+    ApiError::InternalServerError
+  })?;
+
+  // diffs are applied on top of the new version
+  let new_docs_info =
+    crate::docs::get_docs_info(&new_version.exports, entrypoint);
+
+  if entrypoint.is_some() && new_docs_info.entrypoint_url.is_none() {
+    return Err(ApiError::EntrypointOrSymbolNotFound);
+  }
+
+  let registry_url = req.data::<RegistryUrl>().unwrap().0.to_string();
+
+  let docs_req = match (new_docs_info.entrypoint_url, symbol) {
+    _ if all_symbols => DocsRequest::AllSymbols,
+    (Some(entrypoint), None) => DocsRequest::File(entrypoint),
+    (Some(entrypoint), Some(symbol)) => {
+      DocsRequest::Symbol(entrypoint, symbol.into())
+    }
+    (None, Some(symbol)) => {
+      if let Some(entrypoint_url) = new_docs_info.main_entrypoint.clone() {
+        DocsRequest::Symbol(entrypoint_url, symbol.into())
+      } else {
+        return Err(ApiError::EntrypointOrSymbolNotFound);
+      }
+    }
+    (None, None) => DocsRequest::Index,
+  };
+
+  let diff = deno_doc::diff::DocDiff::diff(&old_doc_nodes, &new_doc_nodes);
+
+  let _permit = crate::docs::acquire_doc_render_permit().await;
+  let ctx = crate::docs::get_generate_ctx(
+    format!("/diff/{}...{}", old_version.version, new_version.version),
+    new_doc_nodes,
+    new_docs_info.main_entrypoint,
+    new_docs_info.rewrite_map,
+    scope.clone(),
+    package_name.clone(),
+    new_version.version.clone(),
+    true,
+    repo,
+    false,
+    package.runtime_compat,
+    registry_url,
+    Some((diff, full)),
+  );
+
+  let docs =
+    crate::docs::render_docs_html(&ctx, docs_req, None, package.readme_source)
+      .map_err(|e| {
+        error!("failed to generate docs: {}", e);
+        ApiError::InternalServerError
+      })?
+      .ok_or(ApiError::EntrypointOrSymbolNotFound)?;
+
+  match docs {
+    GeneratedDocsOutput::Docs(docs) => Ok(ApiPackageVersionDocs::Content {
+      comrak_css: Cow::Borrowed(deno_doc::html::comrak::COMRAK_STYLESHEET),
+      script: Cow::Borrowed(deno_doc::html::SCRIPT_JS),
+      breadcrumbs: docs.breadcrumbs,
+      toc: docs.toc,
+      main: docs.main.into(),
+      version: ApiPackageVersion::from(new_version),
+    }),
+    GeneratedDocsOutput::Redirect(href) => {
+      Ok(ApiPackageVersionDocs::Redirect { symbol: href })
+    }
+  }
+}
+
+#[instrument(
   name = "GET /api/scopes/:scope/packages/:package/dependents",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn list_dependents_handler(
@@ -1623,10 +2052,12 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  let dep_name = format!("@{}/{}", scope, package);
+
   let (total, deps) = db
     .list_package_dependents(
       crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
+      &dep_name,
       start,
       limit,
       versions_per_package_limit,
@@ -1643,7 +2074,6 @@ pub async fn list_dependents_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/downloads",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn get_downloads_handler(
@@ -1717,7 +2147,6 @@ pub async fn get_downloads_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn list_dependencies_handler(
@@ -1751,8 +2180,11 @@ struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
+  registry_url: Url,
+  fallback_registry_url: Option<Url>,
+  fallback_packages: Arc<tokio::sync::Mutex<HashSet<String>>>,
 }
 
 impl DepTreeLoader {
@@ -1777,7 +2209,7 @@ impl DepTreeLoader {
         async move {
           let Some(bytes) = bucket
             .download(
-              crate::gcs_paths::file_path(&scope, &package, &version, &path)
+              crate::s3_paths::file_path(&scope, &package, &version, &path)
                 .into(),
             )
             .await
@@ -1788,6 +2220,7 @@ impl DepTreeLoader {
 
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
+            mtime: None,
             specifier: specifier.clone(),
             maybe_headers: None,
           }))
@@ -1797,6 +2230,9 @@ impl DepTreeLoader {
       "http" | "https" => {
         let bucket = self.bucket.clone();
         let exports = self.exports.clone();
+        let registry_url = self.registry_url.clone();
+        let fallback_registry_url = self.fallback_registry_url.clone();
+        let fallback_packages = self.fallback_packages.clone();
 
         async move {
           let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
@@ -1822,35 +2258,94 @@ impl DepTreeLoader {
           )
           .into();
 
-          let Some(bytes) = bucket
+          let mut bytes = bucket
             .download(full_path.clone())
             .await
-            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
-          else {
-            return Ok(None);
-          };
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?;
 
-          if version.is_none() {
-            if let Some(captures) = JSR_DEP_META_RE.captures(path.as_str()) {
-              let version = captures.name("version").unwrap();
-              let meta =
-                serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+          let mut from_fallback = false;
 
-              let mut lock = exports.lock().await;
-              lock.insert(
-                format!(
-                  "@{}/{}@{}",
-                  scope.as_str(),
-                  package.as_str(),
-                  version.as_str()
-                ),
-                meta.exports,
+          if bytes.is_none()
+            && let Some(fallback_url) = &fallback_registry_url
+          {
+            // `registry_url` is a prefix of `specifier` (the graph was built
+            // against it), so the single replacement swaps the origin and
+            // leaves any later occurrence inside the path alone. If the prefix
+            // unexpectedly doesn't match, skip the fallback entirely — the
+            // alternative would be re-fetching the primary registry's own URL
+            // and mislabeling the result as fallback-hosted.
+            if specifier.as_str().starts_with(registry_url.as_str()) {
+              let fallback_specifier = specifier.as_str().replacen(
+                registry_url.as_str(),
+                fallback_url.as_str(),
+                1,
+              );
+
+              let response = crate::util::shared_http_client()
+                .get(&fallback_specifier)
+                .timeout(crate::tarball::FALLBACK_REQUEST_TIMEOUT)
+                .send()
+                .await
+                .ok();
+              if let Some(response) = response
+                && response.status().is_success()
+                // Only a fully-read body counts as served by the fallback: a
+                // mid-body failure must not taint the package as
+                // fallback-hosted below.
+                && let Ok(body) = response.bytes().await
+              {
+                bytes = Some(body);
+                from_fallback = true;
+              }
+            } else {
+              tracing::warn!(
+                "registry url {registry_url} is not a prefix of module specifier {specifier}; skipping fallback registry"
               );
             }
           }
 
+          if from_fallback {
+            // Tainting is per package, not per file: a single file served by
+            // the fallback means this registry does not hold the package, so
+            // the whole package is presented as living on the fallback. Files
+            // of one package can therefore come from both registries within a
+            // graph — the link tells the reader where the package lives, not
+            // which bytes came from where.
+            let package_id =
+              format!("@{}/{}", scope.as_str(), package.as_str());
+            fallback_packages.lock().await.insert(package_id);
+          }
+
+          let Some(bytes) = bytes else {
+            return Ok(None);
+          };
+
+          if version.is_none()
+            && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
+          {
+            let version = captures.name("version").unwrap();
+            // The bytes may have come from the fallback registry over HTTP, so
+            // a parse failure is a load error, not a programmer error.
+            let meta = serde_json::from_slice::<VersionMetadata>(&bytes)
+              .map_err(|e| {
+                LoadError::Other(Arc::new(JsErrorBox::from_err(e)))
+              })?;
+
+            let mut lock = exports.lock().await;
+            lock.insert(
+              format!(
+                "@{}/{}@{}",
+                scope.as_str(),
+                package.as_str(),
+                version.as_str()
+              ),
+              meta.exports,
+            );
+          }
+
           Ok(Some(deno_graph::source::LoadResponse::Module {
             content: bytes.to_vec().into(),
+            mtime: None,
             specifier: specifier.clone(),
             maybe_headers: None,
           }))
@@ -1907,13 +2402,13 @@ impl Default for DepTreeAnalyzer {
 }
 
 #[async_trait::async_trait(?Send)]
-impl deno_graph::ModuleAnalyzer for DepTreeAnalyzer {
+impl deno_graph::analysis::ModuleAnalyzer for DepTreeAnalyzer {
   async fn analyze(
     &self,
     specifier: &ModuleSpecifier,
     source: Arc<str>,
     media_type: MediaType,
-  ) -> Result<ModuleInfo, ParseDiagnostic> {
+  ) -> Result<ModuleInfo, JsErrorBox> {
     let module_info =
       self.analyzer.analyze(specifier, source, media_type).await?;
 
@@ -1949,13 +2444,15 @@ lazy_static::lazy_static! {
 
 // We have to spawn another tokio runtime, because
 // `deno_graph::ModuleGraph::build` is not thread-safe.
+#[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
-  bucket: crate::buckets::BucketWithQueue,
+  bucket: crate::s3::BucketWithQueue,
   exports: IndexMap<String, String>,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
@@ -1981,18 +2478,22 @@ async fn analyze_deps_tree(
     version,
     bucket,
     exports: Default::default(),
+    registry_url: registry_url.clone(),
+    fallback_registry_url: fallback_registry_url.clone(),
+    fallback_packages: Default::default(),
   };
   graph
     .build(
       roots.clone(),
+      vec![],
       &loader,
       BuildOptions {
         is_dynamic: false,
         module_analyzer: &module_analyzer,
-        imports: Default::default(),
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
-        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url.clone()),
+        jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: false,
         resolver: Some(&JsrResolver { member }),
         npm_resolver: None,
@@ -2000,6 +2501,12 @@ async fn analyze_deps_tree(
         executor: Default::default(),
         locker: None,
         skip_dynamic_deps: false,
+        module_info_cacher: Default::default(),
+        unstable_bytes_imports: false,
+        unstable_text_imports: false,
+        jsr_metadata_store: None,
+
+        unstable_css_imports: false,
       },
     )
     .await;
@@ -2029,6 +2536,8 @@ async fn analyze_deps_tree(
     })
     .collect();
 
+  let fallback_packages_set = loader.fallback_packages.lock().await.clone();
+
   for root in roots {
     GraphDependencyCollector::collect(
       &graph,
@@ -2036,6 +2545,8 @@ async fn analyze_deps_tree(
       &exports_by_identifier,
       &mut index,
       &mut dependencies,
+      fallback_registry_url.as_ref(),
+      &fallback_packages_set,
     );
   }
 
@@ -2048,6 +2559,8 @@ struct GraphDependencyCollector<'a> {
   exports: &'a IndexMap<String, IndexMap<String, String>>,
   id_index: &'a mut usize,
   visited: IndexSet<DependencyKind>,
+  fallback_registry_url: Option<&'a Url>,
+  fallback_packages: &'a HashSet<String>,
 }
 
 impl<'a> GraphDependencyCollector<'a> {
@@ -2057,6 +2570,8 @@ impl<'a> GraphDependencyCollector<'a> {
     exports: &'a IndexMap<String, IndexMap<String, String>>,
     id_index: &'a mut usize,
     dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+    fallback_registry_url: Option<&'a Url>,
+    fallback_packages: &'a HashSet<String>,
   ) {
     let root_module = graph.try_get(root).unwrap().unwrap();
 
@@ -2066,6 +2581,8 @@ impl<'a> GraphDependencyCollector<'a> {
       exports,
       id_index,
       visited: Default::default(),
+      fallback_registry_url,
+      fallback_packages,
     }
     .build_module_info(root_module)
     .unwrap();
@@ -2100,11 +2617,20 @@ impl<'a> GraphDependencyCollector<'a> {
             JsrEntrypoint::Path(path.as_str().to_string())
           };
 
+          // Check if this package was loaded from the fallback registry
+          let package_id = format!("@{}/{}", scope.as_str(), package.as_str());
+          let fallback_url = if self.fallback_packages.contains(&package_id) {
+            self.fallback_registry_url.map(|url| url.to_string())
+          } else {
+            None
+          };
+
           DependencyKind::Jsr {
             scope: scope.as_str().to_string(),
             package: package.as_str().to_string(),
             version: version.as_str().to_string(),
             entrypoint,
+            fallback_url,
           }
         } else {
           DependencyKind::Root {
@@ -2153,22 +2679,21 @@ impl<'a> GraphDependencyCollector<'a> {
       let mut children = IndexSet::new();
       match module {
         Module::Js(module) => {
-          if let Some(types_dep) = &module.maybe_types_dependency {
-            if let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          if let Some(types_dep) = &module.maybe_types_dependency
+            && let Some(child) = self.build_resolved_info(&types_dep.dependency)
+          {
+            children.insert(child);
+          }
+          for dep in module.dependencies.values() {
+            if !dep.maybe_code.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_code)
             {
               children.insert(child);
             }
-          }
-          for dep in module.dependencies.values() {
-            if !dep.maybe_code.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_code) {
-                children.insert(child);
-              }
-            }
-            if !dep.maybe_type.is_none() {
-              if let Some(child) = self.build_resolved_info(&dep.maybe_type) {
-                children.insert(child);
-              }
+            if !dep.maybe_type.is_none()
+              && let Some(child) = self.build_resolved_info(&dep.maybe_type)
+            {
+              children.insert(child);
             }
           }
         }
@@ -2237,11 +2762,13 @@ pub enum JsrEntrypoint {
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum DependencyKind {
+  #[serde(rename_all = "camelCase")]
   Jsr {
     scope: String,
     package: String,
     version: String,
     entrypoint: JsrEntrypoint,
+    fallback_url: Option<String>,
   },
   Npm {
     package: String,
@@ -2265,7 +2792,6 @@ pub struct DependencyInfo {
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/versions/:version/dependencies/graph",
   skip(req),
-  err,
   fields(scope, package, version)
 )]
 pub async fn get_dependencies_graph_handler(
@@ -2279,20 +2805,23 @@ pub async fn get_dependencies_graph_handler(
   Span::current().record("version", field::display(&version));
 
   let buckets = req.data::<Buckets>().unwrap().clone();
-  let gcs_path =
-    crate::gcs_paths::version_metadata(&scope, &package, &version).into();
+  let s3_path =
+    crate::s3_paths::version_metadata(&scope, &package, &version).into();
   let version_meta = buckets
     .modules_bucket
-    .download(gcs_path)
+    .download(s3_path)
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
       registry_url,
+      fallback_registry_url,
       scope,
       package,
       version,
@@ -2315,7 +2844,6 @@ pub async fn get_dependencies_graph_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/publishing_tasks",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn list_publishing_tasks_handler(
@@ -2346,7 +2874,6 @@ pub async fn list_publishing_tasks_handler(
 #[instrument(
   name = "GET /api/scopes/:scope/packages/:package/score",
   skip(req),
-  err,
   fields(scope, package)
 )]
 pub async fn get_score_handler(
@@ -2368,11 +2895,6 @@ pub async fn get_score_handler(
 
 #[cfg(test)]
 mod test {
-  use hyper::Body;
-  use hyper::StatusCode;
-  use indexmap::IndexSet;
-  use serde_json::json;
-
   use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
@@ -2405,9 +2927,16 @@ mod test {
   use crate::publish::tests::create_mock_tarball;
   use crate::publish::tests::process_tarball_setup;
   use crate::publish::tests::process_tarball_setup2;
+  use crate::s3::S3UploadOptions;
+  use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
+  use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use hyper::Body;
+  use hyper::StatusCode;
+  use indexmap::IndexSet;
+  use serde_json::json;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -2696,8 +3225,9 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert!(versions.is_empty());
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert!(list.items.is_empty());
+    assert_eq!(list.total, 0);
 
     t.ephemeral_database
       .create_package_version_for_test(NewPackageVersion {
@@ -2709,6 +3239,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2719,9 +3250,10 @@ mod test {
       .call()
       .await
       .unwrap();
-    let versions: Vec<ApiPackageVersion> = resp.expect_ok().await;
-    assert_eq!(versions.len(), 1);
-    assert_eq!(versions[0].version.to_string(), "1.0.0");
+    let list: ApiList<ApiPackageVersion> = resp.expect_ok().await;
+    assert_eq!(list.items.len(), 1);
+    assert_eq!(list.total, 1);
+    assert_eq!(list.items[0].version.to_string(), "1.0.0");
 
     let mut resp = t
       .http()
@@ -2769,6 +3301,7 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2787,8 +3320,9 @@ mod test {
   #[tokio::test]
   async fn test_package_provenance() {
     use crate::provenance::*;
-    use base64::prelude::BASE64_STANDARD;
     use base64::Engine;
+    use base64::prelude::BASE64_STANDARD;
+    use sha2::Digest;
 
     let mut t = TestSetup::new().await;
     let scope = t.scope.scope.clone();
@@ -2811,7 +3345,34 @@ mod test {
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
+      .await
+      .unwrap();
+
+    // Store a version manifest for 1.0.0 so the provenance endpoint has
+    // something to bind the attestation to. The digest the client attests is the
+    // SHA-256 of these exact bytes (jsr-io/jsr#1474). 1.0.1 deliberately has no
+    // manifest, which exercises the fail-closed path below.
+    let manifest =
+      br#"{"exports":{".":"/mod.ts"},"manifest":{},"moduleGraph2":{}}"#;
+    let manifest_digest = format!("{:x}", sha2::Sha256::digest(manifest));
+    t.buckets()
+      .modules_bucket
+      .upload(
+        crate::s3_paths::version_metadata(
+          &scope,
+          &name,
+          &"1.0.0".try_into().unwrap(),
+        )
+        .into(),
+        UploadTaskBody::Bytes(manifest.as_slice().into()),
+        S3UploadOptions {
+          content_type: Some("application/json".into()),
+          cache_control: None,
+          gzip_encoded: false,
+        },
+      )
       .await
       .unwrap();
 
@@ -2888,13 +3449,18 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       },
     };
 
-    // Valid subject.
+    // Security regression test (gist forgery): the certificate above is a real
+    // GitHub Actions Fulcio certificate, so it chains to Fulcio and has a valid
+    // GitHub Actions identity — but the DSSE envelope is signed with a bogus
+    // signature ("sig") that the attacker fabricated. This used to be accepted
+    // (provenance verification skipped the DSSE signature entirely); it must now
+    // be rejected, and the package must not gain a provenance badge.
     update_bundle_subject(
       &mut bundle,
       Subject {
         name: format!("pkg:jsr/@{}/{}@1.0.0", scope, name),
         digest: SubjectDigest {
-          sha256: "bar".to_string(),
+          sha256: manifest_digest,
         },
       },
     );
@@ -2905,7 +3471,9 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .call()
       .await
       .unwrap();
-    resp.expect_ok_no_content().await;
+    resp
+      .expect_err_code(StatusCode::INTERNAL_SERVER_ERROR, "internalServerError")
+      .await;
 
     let mut resp = t
       .http()
@@ -2914,7 +3482,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     let score: ApiPackageScore = resp.expect_ok().await;
-    assert!(score.has_provenance);
+    assert!(!score.has_provenance);
 
     // Invalid subject.
     update_bundle_subject(
@@ -2980,6 +3548,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -2994,6 +3563,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3008,6 +3578,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         uses_npm: false,
         exports: &ExportsMap::mock(),
         meta: Default::default(),
+        license: "MIT".to_string(),
       })
       .await
       .unwrap();
@@ -3533,17 +4104,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
         assert!(breadcrumbs.is_none(), "{:?}", breadcrumbs);
-        assert!(toc.is_some(), "{:?}", toc)
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3559,21 +4127,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("all symbols"),
-          "{:?}",
-          breadcrumbs
-        );
-        assert!(toc.is_none(), "{:?}", toc);
+        assert!(breadcrumbs.is_some());
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3589,21 +4150,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("hello"),
-          "{:?}",
-          breadcrumbs
-        );
-        assert!(toc.is_some(), "{:?}", toc);
+        assert!(breadcrumbs.is_some());
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3622,21 +4176,14 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     match docs {
       ApiPackageVersionDocs::Content {
         version,
-        css,
         comrak_css: _,
         script: _,
         breadcrumbs,
-        toc,
+        toc: _,
         main: _,
       } => {
         assert_eq!(version.version, task.package_version);
-        assert!(css.contains("{max-width:"), "{}", css);
-        assert!(
-          breadcrumbs.as_ref().unwrap().contains("读取多键1"),
-          "{:?}",
-          breadcrumbs
-        );
-        assert!(toc.is_some(), "{:?}", toc);
+        assert!(breadcrumbs.is_some());
       }
       ApiPackageVersionDocs::Redirect { .. } => panic!(),
     }
@@ -3651,7 +4198,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     let search: serde_json::Value = resp.expect_ok().await;
     assert_eq!(
       search,
-      json!({"kind":"search","nodes":[{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
+      json!({"kind":"search","nodes":[{"id":"namespace_hello","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"hello","file":".","doc":"This is a test constant.","url":"/@scope/foo@1.2.3/doc/~/hello","deprecated":false},{"id":"namespace_读取多键1","kind":[{"kind":"Variable","char":"v","title":"Variable"}],"name":"读取多键1","file":".","doc":"","url":"/@scope/foo@1.2.3/doc/~/读取多键1","deprecated":false}]}),
     );
 
     // symbol doesn't exist
@@ -3674,6 +4221,109 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .unwrap();
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "entrypointOrSymbolNotFound")
+      .await;
+
+    // the "latest" alias resolves to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest/docs")
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { version, .. } => {
+        assert_eq!(version.version, task.package_version);
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
+
+    // docs are only served for the latest version; any other version is
+    // rejected so callers fall back to the latest version
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs/search")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.0.0/docs/search_structured",
+      )
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
+      .await;
+
+    // the diff view is disabled
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/diff/1.0.0/1.2.3?all_symbols")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "diffDisabled")
+      .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_prerelease_only() {
+    let mut t = TestSetup::new().await;
+
+    // publish a package that only has a prerelease version (no stable release)
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3-alpha.1").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok_prerelease"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // with no stable release, docs fall back to the latest prerelease for both
+    // the "latest" alias and the explicit prerelease version
+    for path in [
+      "/api/scopes/scope/packages/foo/versions/latest/docs",
+      "/api/scopes/scope/packages/foo/versions/1.2.3-alpha.1/docs",
+    ] {
+      let mut resp = t.http().get(path).call().await.unwrap();
+      let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+      match docs {
+        ApiPackageVersionDocs::Content { version, .. } => {
+          assert_eq!(version.version, task.package_version);
+        }
+        ApiPackageVersionDocs::Redirect { .. } => panic!(),
+      }
+    }
+
+    // a version that is not the latest prerelease is still rejected
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/1.0.0/docs")
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
       .await;
   }
 
@@ -3750,13 +4400,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           kind: ApiDependencyKind::Jsr,
           name: "@scope/foo".to_string(),
           constraint: "1".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
         ApiDependency {
           kind: ApiDependencyKind::Npm,
           name: "express".to_string(),
           constraint: "4".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
       ],
     );
@@ -3965,7 +4617,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
             scope: "scope".to_string(),
             package: "foo".to_string(),
             version: "1.2.3".to_string(),
-            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
+            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string()),
+            fallback_url: None,
           },
           children: IndexSet::new(),
           size: Some(155),
@@ -4247,7 +4900,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
         },
         ApiSourceDirEntry {
           name: "jsr.json".to_string(),
-          size: 74,
+          size: 93,
           kind: ApiSourceDirEntryKind::File,
         },
         ApiSourceDirEntry {
@@ -4437,5 +5090,89 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     )
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{:?}", task);
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_with_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies",
+      )
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(deps.len(), 1);
+    assert_eq!(deps[0].kind, ApiDependencyKind::Jsr);
+    assert_eq!(deps[0].name, "@std/assert");
+    assert_eq!(deps[0].fallback_url, Some(fallback.url().to_string()));
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_graph_with_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+
+    // Find the JSR dependency in the graph
+    let jsr_dep = deps
+      .iter()
+      .find(|d| matches!(&d.dependency, super::DependencyKind::Jsr { .. }))
+      .expect("should have a JSR dependency");
+
+    match &jsr_dep.dependency {
+      super::DependencyKind::Jsr {
+        scope,
+        package,
+        fallback_url,
+        ..
+      } => {
+        assert_eq!(scope, "std");
+        assert_eq!(package, "assert");
+        assert_eq!(fallback_url, &Some(fallback.url().to_string()));
+      }
+      _ => panic!("expected JSR dependency"),
+    }
   }
 }

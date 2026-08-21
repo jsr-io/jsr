@@ -5,6 +5,7 @@ import type { DownloadDataPoint } from "../../../utils/api_types.ts";
 import {
   type AggregationPeriod,
   collectX,
+  hasCompletedWeekData,
   normalize,
 } from "./DownloadChart.tsx";
 import { useSignal } from "@preact/signals";
@@ -20,8 +21,11 @@ const AGGREGATION_PERIOD: AggregationPeriod = "weekly";
 export function DownloadWidget(props: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
 
+  const hasData = hasCompletedWeekData(props.downloads);
   const xValues = collectX(props.downloads, AGGREGATION_PERIOD);
-  const data = normalize(props.downloads, xValues, AGGREGATION_PERIOD);
+  // Drop the last (current, incomplete) week so the chart only shows full weeks
+  const data = normalize(props.downloads, xValues, AGGREGATION_PERIOD)
+    .slice(0, -1);
 
   let min = Infinity;
   let max = 0;
@@ -40,6 +44,7 @@ export function DownloadWidget(props: Props) {
   const graphRendered = useSignal(false);
 
   useEffect(() => {
+    if (!hasData) return;
     // deno-lint-ignore no-explicit-any
     let chart: any;
     (async () => {
@@ -85,9 +90,19 @@ export function DownloadWidget(props: Props) {
         dataLabels: {
           enabled: false,
         },
+        colors: ["#0d7590"],
         stroke: {
           curve: "straight",
           width: 2,
+        },
+        fill: {
+          type: "gradient",
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.5,
+            opacityTo: 0.3,
+            stops: [0, 100],
+          },
         },
         series: [{ data }],
         xaxis: {
@@ -124,22 +139,21 @@ export function DownloadWidget(props: Props) {
       graphRendered.value = true;
     })();
     return () => {
-      chart.destroy();
+      chart?.destroy();
     };
   }, []);
 
+  if (!hasData) return null;
+
   return (
     <a
-      className="flex flex-row gap-2"
+      className="flex flex-col items-end"
       href={`/@${props.scope}/${props.pkg}/versions`}
     >
-      <div
-        class="font-mono text-xs space-y-2 z-10 text-nowrap"
-        style={{ width: `${max.toString().length + 1}ch` }}
-      >
+      <div class="text-sm text-secondary z-10 text-nowrap text-right">
         {graphRendered.value && (
           <>
-            <div>
+            <div class="font-semibold">
               {hoveredDataPoint.value
                 ? `${
                   new Date(hoveredDataPoint.value.date).toISOString()
@@ -160,7 +174,7 @@ export function DownloadWidget(props: Props) {
           </>
         )}
       </div>
-      <div className="w-[150px] h-[50px]">
+      <div className="w-[200px] h-[40px] -mt-1">
         <div ref={chartRef} class="minimal-chart" />
       </div>
     </a>

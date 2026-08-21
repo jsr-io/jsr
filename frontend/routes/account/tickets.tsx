@@ -3,10 +3,11 @@ import { HttpError } from "fresh";
 import { AccountLayout } from "./(_components)/AccountLayout.tsx";
 import { define } from "../../util.ts";
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { Ticket } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { ApiTicket } from "../../utils/api_types.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import twas from "twas";
-import { TbCheck, TbClock } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 import { TicketTitle } from "../../components/TicketTitle.tsx";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
@@ -77,11 +78,11 @@ export const handler = define.handlers({
   async GET(ctx) {
     const [currentUser, ticketsRes] = await Promise.all([
       ctx.state.userPromise,
-      ctx.state.api.get<Ticket[]>(path`/user/tickets`),
+      ctx.state.api.get<ApiTicket[]>(path`/user/tickets`),
     ]);
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
-    if (!ticketsRes.ok) throw ticketsRes; // gracefully handle errors
+    assertOk(ticketsRes);
 
     ctx.state.meta = { title: "Your tickets - JSR" };
     return {
