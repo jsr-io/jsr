@@ -32,33 +32,37 @@ use uuid::Uuid;
 use crate::analysis::PackageAnalysisData;
 use crate::analysis::PackageAnalysisOutput;
 use crate::analysis::analyze_package;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::ExportsMap;
 use crate::db::PublishingTask;
 use crate::db::{DependencyKind, PackageVersionMeta};
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcp::GcsError;
-use crate::gcp::GcsUploadOptions;
-use crate::gcs_paths::npm_tarball_path;
-use crate::gcs_paths::{docs_v1_path, package_metadata};
-use crate::gcs_paths::{file_path, version_metadata};
+use crate::ids::CaseInsensitivePackagePath;
+use crate::ids::PackageName;
 use crate::ids::PackagePath;
 use crate::ids::PackagePathValidationError;
+use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::ScopedPackageNameValidateError;
 use crate::ids::Version;
-use crate::ids::{CaseInsensitivePackagePath, PackageName, ScopeName};
-use crate::metadata::{PackageMetadata, VersionMetadata};
+use crate::metadata::PackageMetadata;
+use crate::metadata::VersionMetadata;
 use crate::npm::NPM_TARBALL_REVISION;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::S3Error;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
+use crate::s3_paths::file_path;
+use crate::s3_paths::npm_tarball_path;
+use crate::s3_paths::package_metadata;
+use crate::s3_paths::version_metadata;
 use crate::util::LicenseStore;
 
 const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 20 MB
 const HIGH_MAX_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
 const HIGH_MAX_TOTAL_FILE_SIZE: u64 = 20 * 1024 * 1024; // 40 MB
-const MAX_CONCURRENT_UPLOADS: usize = 1024;
+const MAX_CONCURRENT_UPLOADS: usize = 64;
 
 static MEDIA_INFER: OnceLock<infer::Infer> = OnceLock::new();
 
@@ -195,13 +199,19 @@ async fn resolve_from_fallback(
   Ok(None)
 }
 
-static SUPPORTED_LICENSE_FILE_NAMES: [&str; 6] = [
+static SUPPORTED_LICENSE_FILE_NAMES: [&str; 12] = [
   "/LICENSE",
   "/LICENSE.md",
   "/LICENSE.txt",
   "/LICENCE",
   "/LICENCE.md",
   "/LICENCE.txt",
+  "/COPYING",
+  "/COPYING.md",
+  "/COPYING.txt",
+  "/COPYING.LESSER",
+  "/COPYING.LESSER.md",
+  "/COPYING.LESSER.txt",
 ];
 
 #[instrument(
@@ -223,18 +233,20 @@ pub async fn process_tarball(
   fallback_registry_url: Option<Url>,
   publishing_task: &PublishingTask,
 ) -> Result<ProcessTarballOutput, PublishError> {
-  let tarball_path = gcs_tarball_path(publishing_task.id);
+  let tarball_path = bucket_tarball_path(publishing_task.id);
   let stream = buckets
     .publishing_bucket
     .bucket
     .download_stream(&tarball_path, None)
     .await
-    .map_err(PublishError::GcsDownloadError)?
+    .map_err(PublishError::S3DownloadError)?
     .ok_or(PublishError::MissingTarball)?
     .map_err(io::Error::other);
 
   let async_read = stream.into_async_read();
-  let mut tar = async_tar::Archive::new(async_read)
+  let decompressed =
+    async_compression::futures::bufread::GzipDecoder::new(async_read);
+  let mut tar = async_tar::Archive::new(decompressed)
     .entries()
     .map_err(from_tarball_io_error)?;
 
@@ -408,7 +420,7 @@ pub async fn process_tarball(
   }
 
   let license = if let Some(license) = config_file.license {
-    if license_store.0.get_original(&license).is_none() {
+    if !license_store.is_recognized(&license) {
       return Err(PublishError::InvalidLicense);
     } else {
       license
@@ -445,7 +457,7 @@ pub async fn process_tarball(
   let PackageAnalysisOutput {
     data: PackageAnalysisData { exports, files },
     module_graph_2,
-    doc_nodes_json,
+    doc_nodes_bytes,
     doc_search_json,
     dependencies,
     npm_tarball,
@@ -547,26 +559,27 @@ pub async fn process_tarball(
       });
     }
   }
-  // TO ENSURE CONSISTENCY OF FILES IN GCS, ALL ERRORS RETURNED AFTER THIS POINT MUST BE RETRYABLE
+
+  // TO ENSURE CONSISTENCY OF FILES IN S3, ALL ERRORS RETURNED AFTER THIS POINT MUST BE RETRYABLE
 
   buckets
     .docs_bucket
     .upload(
-      docs_v1_path(
+      crate::s3_paths::docs_v2_path(
         &publishing_task.package_scope,
         &publishing_task.package_name,
         &publishing_task.package_version,
       )
       .into(),
-      UploadTaskBody::Bytes(doc_nodes_json),
-      GcsUploadOptions {
-        content_type: Some("application/json".into()),
+      crate::s3::UploadTaskBody::Bytes(doc_nodes_bytes),
+      S3UploadOptions {
+        content_type: Some("application/x-msgpack".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
-        gzip_encoded: false,
+        gzip_encoded: true,
       },
     )
     .await
-    .map_err(PublishError::GcsUploadError)?;
+    .map_err(PublishError::S3UploadError)?;
 
   let npm_tarball_info = NpmTarballInfo {
     sha1: npm_tarball.sha1,
@@ -584,15 +597,15 @@ pub async fn process_tarball(
     .npm_bucket
     .upload(
       npm_tarball_path.into(),
-      UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
-      GcsUploadOptions {
+      crate::s3::UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
+      S3UploadOptions {
         content_type: Some("application/octet-stream".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: false,
       },
     )
     .await
-    .map_err(PublishError::GcsUploadError)?;
+    .map_err(PublishError::S3UploadError)?;
 
   let mut uploads = futures::stream::iter(files)
     .map(|(path, data)| {
@@ -618,7 +631,7 @@ pub async fn process_tarball(
       (path, bytes, maybe_content_type)
     })
     .map(|(path, bytes, maybe_content_type)| {
-      let gcs_path = file_path(
+      let s3_path = file_path(
         &publishing_task.package_scope,
         &publishing_task.package_name,
         &publishing_task.package_version,
@@ -629,16 +642,16 @@ pub async fn process_tarball(
         buckets
           .modules_bucket
           .upload(
-            gcs_path.into(),
+            s3_path.into(),
             UploadTaskBody::Bytes(bytes),
-            GcsUploadOptions {
+            S3UploadOptions {
               content_type: maybe_content_type.map(Into::into),
               cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
               gzip_encoded: false,
             },
           )
           .await
-          .map_err(PublishError::GcsUploadError)
+          .map_err(PublishError::S3UploadError)
       }
     })
     .buffer_unordered(MAX_CONCURRENT_UPLOADS);
@@ -662,7 +675,7 @@ pub async fn process_tarball(
   })
 }
 
-pub fn gcs_tarball_path(id: Uuid) -> String {
+pub fn bucket_tarball_path(id: Uuid) -> String {
   format!("publishing_tasks/{}.tar.gz", id)
 }
 
@@ -684,14 +697,14 @@ pub enum FallbackRegistryError {
 
 #[derive(Debug, Error)]
 pub enum PublishError {
-  #[error("gcs download error: {0}")]
-  GcsDownloadError(GcsError),
+  #[error("s3 download error: {0}")]
+  S3DownloadError(S3Error),
 
   #[error("missing tarball")]
   MissingTarball,
 
-  #[error("gcs upload error: {0}")]
-  GcsUploadError(GcsError),
+  #[error("s3 upload error: {0}")]
+  S3UploadError(S3Error),
 
   #[error("invalid tarball: {0}")]
   InvalidTarball(io::Error),
@@ -871,8 +884,8 @@ impl PublishError {
   /// other errors are retryable, and displayed as internal errors to users.
   pub fn user_error_code(&self) -> Option<&'static str> {
     match self {
-      PublishError::GcsDownloadError(_) => None,
-      PublishError::GcsUploadError(_) => None,
+      PublishError::S3DownloadError(_) => None,
+      PublishError::S3UploadError(_) => None,
       PublishError::MissingTarball => None,
       PublishError::DatabaseError(_) => None,
       PublishError::UnexpectedError(_) => None,
@@ -936,8 +949,8 @@ impl PublishError {
 }
 
 fn from_tarball_io_error(err: io::Error) -> PublishError {
-  match err.downcast::<reqwest::Error>() {
-    Ok(err) => PublishError::GcsDownloadError(GcsError::Reqwest(err)),
+  match err.downcast::<s3::error::S3Error>() {
+    Ok(err) => PublishError::S3DownloadError(S3Error::S3(err)),
     Err(err) => PublishError::InvalidTarball(err),
   }
 }

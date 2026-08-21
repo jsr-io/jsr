@@ -8,11 +8,11 @@
   "licenseId": "CryptoSwift",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/krzyzanowskim/CryptoSwift/blob/main/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:57:19Z",
+      "timestamp": "2026-07-16T09:23:39Z",
       "isWayBackLink": false,
       "order": 0
     }

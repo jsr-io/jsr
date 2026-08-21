@@ -2,21 +2,24 @@
 import { batch, computed, Signal, useSignal } from "@preact/signals";
 import { useEffect, useMemo, useRef } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
-import { OramaClient } from "@oramacloud/client";
+import { liteClient } from "algoliasearch/lite";
 import { Highlight } from "@orama/highlight";
 import { IS_BROWSER } from "fresh/runtime";
-import type { OramaPackageHit, SearchKind } from "../util.ts";
+import type { AlgoliaPackageHit, SearchKind } from "../util.ts";
 import { api, path } from "../utils/api.ts";
 import type { List, Package, RuntimeCompat } from "../utils/api_types.ts";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { useMacLike } from "../utils/os.ts";
 import type { ListDisplayItem } from "../components/List.tsx";
 import { RUNTIME_COMPAT_KEYS } from "../components/RuntimeCompatIndicator.tsx";
+import { initInsights, trackResultClick } from "../utils/algolia_insights.ts";
+import TbAdjustmentsHorizontal from "tb-icons/TbAdjustmentsHorizontal";
 
 interface GlobalSearchProps {
   query?: string;
-  indexId?: string;
+  appId?: string;
   apiKey?: string;
+  indexName?: string;
   jumbo?: boolean;
   kind?: SearchKind;
 }
@@ -28,7 +31,18 @@ const searchHints: JSX.Element[] = [
   <p key="runtime:">
     Hint: use <code>runtime:</code> to search for packages by compatible runtime
   </p>,
+  <p key="score:">
+    Hint: use <code>{"score:>N"}</code> to filter packages by minimum score
+  </p>,
 ];
+
+const SCORE_OPTIONS = [
+  { label: "Any", value: null },
+  { label: "60+", value: 60 },
+  { label: "70+", value: 70 },
+  { label: "80+", value: 80 },
+  { label: "90+", value: 90 },
+] as const;
 
 // The maximum time between a query and the result for that query being
 // displayed, if there is a more recent pending query.
@@ -37,14 +51,15 @@ const MAX_STALE_RESULT_MS = 200;
 export function GlobalSearch(
   {
     query,
-    indexId,
+    appId,
     apiKey,
+    indexName,
     jumbo,
     kind = "packages",
   }: GlobalSearchProps,
 ) {
   const suggestions = useSignal<
-    OramaPackageHit[] | Package[] | OramaDocsHit[] | null
+    AlgoliaPackageHit[] | Package[] | AlgoliaDocsHit[] | null
   >(null);
   const searchNRef = useRef({
     started: 0,
@@ -59,22 +74,30 @@ export function GlobalSearch(
   const inputOverlayContentRef = useRef<HTMLDivElement>(null);
   const inputOverlayContent2Ref = useRef<HTMLDivElement>(null);
   const sizeClasses = jumbo ? "py-3 px-4 text-lg" : "py-1 px-2 text-base";
+  const showFilters = useSignal(false);
 
   const showSuggestions = computed(() =>
     isFocused.value && (search.value.length > 0 || kind !== "docs")
   );
   const macLike = useMacLike();
 
-  const orama = useMemo(() => {
-    if (IS_BROWSER && indexId) {
-      return new OramaClient({
-        endpoint: `https://cloud.orama.run/v1/indexes/${indexId}`,
-        api_key: apiKey!,
-      });
+  const algolia = useMemo(() => {
+    if (IS_BROWSER && appId && indexName) {
+      initInsights(appId, apiKey!);
+      return liteClient(appId, apiKey!);
     }
-  }, [indexId, apiKey]);
+  }, [appId, apiKey]);
+
+  // queryID of the currently displayed suggestions, needed to attribute clicks.
+  const queryID = useRef<string | undefined>(undefined);
 
   const randomHint = useSignal<JSX.Element | null>(null);
+
+  // Initialize random hint once on mount
+  useEffect(() => {
+    randomHint.value =
+      searchHints[Math.floor(Math.random() * searchHints.length)];
+  }, []);
 
   useEffect(() => {
     const outsideClick = (e: Event) => {
@@ -100,16 +123,8 @@ export function GlobalSearch(
     };
   });
 
-  // Initialize random hint once on mount
-  useEffect(() => {
-    randomHint.value =
-      searchHints[Math.floor(Math.random() * searchHints.length)];
-  }, []);
-
-  const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
-    const value = ev.currentTarget!.value as string;
+  function triggerSearch(value: string) {
     search.value = value;
-    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
 
     if (value.length >= 1) {
       const searchN = ++searchNRef.current.started;
@@ -125,25 +140,21 @@ export function GlobalSearch(
 
       (async () => {
         try {
-          if (orama) {
+          if (algolia) {
             let query = value;
-            let where: undefined | Record<string, boolean | string> = undefined;
-            if (kind === "packages") ({ where, query } = processFilter(value));
-            const res = await orama.search({
-              term: query,
-              where,
-              limit: 5,
-              mode: "fulltext",
-              // @ts-expect-error boost does exist
-              boost: kind === "packages"
-                ? {
-                  id: 3,
-                  scope: 2,
-                  name: 1,
-                  description: 0.5,
-                }
-                : {},
-            }, { abortController: abort.current! });
+            let filters: string | undefined = undefined;
+            if (kind === "packages") {
+              ({ filters, query } = processFilter(value));
+            }
+            const { results } = await algolia.search({
+              requests: [{
+                indexName: indexName!,
+                query,
+                filters,
+                hitsPerPage: 5,
+                clickAnalytics: true,
+              }],
+            });
             if (
               abort.current?.signal.aborted ||
               searchNRef.current.displayed > searchN
@@ -151,11 +162,12 @@ export function GlobalSearch(
               return;
             }
             searchNRef.current.displayed = searchN;
+            // deno-lint-ignore no-explicit-any
+            const result = results[0] as any;
+            queryID.current = result?.queryID;
             batch(() => {
               selectionIdx.value = -1;
-              // deno-lint-ignore no-explicit-any
-              suggestions.value = res?.hits.map((hit) => hit.document) as any ??
-                [];
+              suggestions.value = result?.hits ?? [];
             });
           } else if (kind === "packages") {
             const res = await api.get<List<Package>>(path`/packages`, {
@@ -190,6 +202,12 @@ export function GlobalSearch(
       abort.current = new AbortController();
       suggestions.value = null;
     }
+  }
+
+  const onInput = (ev: JSX.TargetedEvent<HTMLInputElement>) => {
+    const value = ev.currentTarget!.value as string;
+    updateOverlayScroll(ev.currentTarget! as HTMLInputElement);
+    triggerSearch(value);
   };
 
   function onKeyUp(e: KeyboardEvent) {
@@ -228,6 +246,20 @@ export function GlobalSearch(
     updateOverlayScroll(e.currentTarget! as HTMLInputElement);
   }
 
+  // Report a chosen suggestion to Algolia Insights (no-op without a queryID,
+  // e.g. the API fallback path).
+  function onResultSelect(rawHit: unknown, index: number) {
+    if (!queryID.current || !indexName) return;
+    const objectID = (rawHit as { objectID?: string }).objectID;
+    if (!objectID) return;
+    trackResultClick({
+      index: indexName,
+      queryID: queryID.current,
+      objectID,
+      position: index + 1,
+    });
+  }
+
   function onSubmit(e: JSX.TargetedEvent<HTMLFormElement>) {
     if (
       !btnSubmit.value && selectionIdx.value > -1 && suggestions.value !== null
@@ -235,19 +267,20 @@ export function GlobalSearch(
       const item = suggestions.value[selectionIdx.value];
       if (item !== undefined) {
         e.preventDefault();
+        onResultSelect(item, selectionIdx.value);
 
         if (kind === "packages") {
           location.href = new URL(
-            `/@${(item as (OramaPackageHit | Package)).scope}/${
-              (item as (OramaPackageHit | Package)).name
+            `/@${(item as (AlgoliaPackageHit | Package)).scope}/${
+              (item as (AlgoliaPackageHit | Package)).name
             }`,
             location.origin,
           ).href;
         } else {
           location.href = new URL(
-            `/docs/${(item as OramaDocsHit).path}${
-              (item as OramaDocsHit).slug
-                ? `#${(item as OramaDocsHit).slug}`
+            `/docs/${(item as AlgoliaDocsHit).path}${
+              (item as AlgoliaDocsHit).slug
+                ? `#${(item as AlgoliaDocsHit).slug}`
                 : ""
             }`,
             location.origin,
@@ -261,11 +294,50 @@ export function GlobalSearch(
     }
   }
 
+  function toggleFilter(tokenRaw: string) {
+    const tokens = tokenizeFilter(search.value);
+    const existing = tokens.find((t) => t.raw === tokenRaw);
+    let newValue: string;
+    if (existing) {
+      newValue = tokens.filter((t) => t !== existing).map((t) => t.raw).join(
+        " ",
+      );
+    } else {
+      newValue = (search.value.trim() + " " + tokenRaw).trim();
+    }
+    triggerSearch(newValue);
+  }
+
+  function setScoreFilter(scoreValue: number | null) {
+    const tokens = tokenizeFilter(search.value);
+    const withoutScore = tokens.filter((t) => t.kind !== "score");
+    let newValue = withoutScore.map((t) => t.raw).join(" ");
+    if (scoreValue !== null) {
+      newValue = (newValue + " score:>=" + scoreValue).trim();
+    }
+    triggerSearch(newValue);
+  }
+
   const kindPlaceholder = kind === "packages"
     ? "Search for packages"
     : "Search for documentation";
   const placeholder = kindPlaceholder +
     (macLike !== undefined ? ` (${macLike ? "⌘K" : "Ctrl+K"})` : "");
+
+  // Compute active filter state from search text
+  const activeFilters = computed(() => {
+    const tokens = tokenizeFilter(search.value);
+    const runtimes = new Set<string>();
+    let scoreValue: number | null = null;
+    for (const t of tokens) {
+      if (t.kind.startsWith("runtimeCompat.")) {
+        runtimes.add(t.kind.slice("runtimeCompat.".length));
+      } else if (t.kind === "score") {
+        scoreValue = t.value;
+      }
+    }
+    return { runtimes, scoreValue };
+  });
 
   return (
     <div ref={ref} class="pointer-events-auto">
@@ -284,9 +356,9 @@ export function GlobalSearch(
             name="search"
             class={`w-full h-full search-input bg-white/90 dark:bg-jsr-gray-950/90 truncate ${
               kind === "packages"
-                ? "!text-transparent selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
+                ? "text-transparent! selection:text-transparent selection:bg-blue-500/30 dark:selection:bg-blue-400/40"
                 : ""
-            } !caret-black dark:!caret-white input rounded-r-none ${sizeClasses} relative`}
+            } caret-black! dark:caret-white! input rounded-r-none ${sizeClasses} relative`}
             placeholder={placeholder}
             value={search.value}
             onInput={onInput}
@@ -302,7 +374,7 @@ export function GlobalSearch(
           />
           {kind === "packages" && (
             <div
-              class={`search-input !bg-transparent !border-transparent select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
+              class={`search-input bg-transparent! border-transparent! select-none pointer-events-none inset-0 absolute ${sizeClasses}`}
             >
               <div
                 ref={inputOverlayContentRef}
@@ -364,6 +436,11 @@ export function GlobalSearch(
           kind={kind}
           input={search}
           randomHint={randomHint}
+          onSelect={onResultSelect}
+          showFilters={showFilters}
+          activeFilters={activeFilters}
+          toggleFilter={toggleFilter}
+          setScoreFilter={setScoreFilter}
         />
       </div>
     </div>
@@ -378,18 +455,34 @@ function SuggestionList(
     kind,
     input,
     randomHint,
+    onSelect,
+    showFilters,
+    activeFilters,
+    toggleFilter,
+    setScoreFilter,
   }: Readonly<{
     suggestions: Signal<
-      (OramaPackageHit[] | Package[]) | OramaDocsHit[] | null
+      (AlgoliaPackageHit[] | Package[]) | AlgoliaDocsHit[] | null
     >;
     showSuggestions: Signal<boolean>;
     selectionIdx: Signal<number>;
     kind: SearchKind;
     input: Signal<string>;
     randomHint: Signal<JSX.Element | null>;
+    onSelect: (rawHit: unknown, index: number) => void;
+    showFilters: Signal<boolean>;
+    activeFilters: Signal<{
+      runtimes: Set<string>;
+      scoreValue: number | null;
+    }>;
+    toggleFilter: (tokenRaw: string) => void;
+    setScoreFilter: (scoreValue: number | null) => void;
   }>,
 ) {
   if (!showSuggestions.value) return null;
+
+  const filtersActive = activeFilters.value.runtimes.size > 0 ||
+    activeFilters.value.scoreValue !== null;
 
   return (
     <div class="absolute bg-white dark:bg-jsr-gray-950 w-full sibling:bg-red-500 border-1.5 border-jsr-cyan-950 dark:border-jsr-cyan-600 rounded-lg z-40 overflow-hidden top-0.5">
@@ -410,16 +503,20 @@ function SuggestionList(
             {suggestions.value.map((rawHit, i) => {
               const selected = computed(() => selectionIdx.value === i);
               const hit = kind === "packages"
-                ? PackageHit(rawHit as (OramaPackageHit | Package))
-                : DocsHit(rawHit as OramaDocsHit, input);
+                ? PackageHit(rawHit as (AlgoliaPackageHit | Package))
+                : DocsHit(rawHit as AlgoliaDocsHit, input);
 
               return (
                 <li
                   key={i}
-                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-[selected=true]:bg-jsr-cyan-100 dark:aria-[selected=true]:bg-jsr-cyan-950"
+                  class="p-2 hover:bg-jsr-gray-100 dark:hover:bg-jsr-gray-900 cursor-pointer aria-selected:bg-jsr-cyan-100 dark:aria-selected:bg-jsr-cyan-950"
                   aria-selected={selected}
                 >
-                  <a href={hit.href} class="bg-red-600">
+                  <a
+                    href={hit.href}
+                    class="bg-red-600"
+                    onClick={() => onSelect(rawHit, i)}
+                  >
                     {hit.content}
                   </a>
                 </li>
@@ -427,35 +524,151 @@ function SuggestionList(
             })}
           </ul>
         )}
-      <div class="bg-jsr-gray-50 dark:bg-jsr-gray-900 flex items-center justify-between py-1 px-2 text-sm">
-        <div>
+      {kind === "packages" && showFilters.value && (
+        <FilterBar
+          activeFilters={activeFilters}
+          toggleFilter={toggleFilter}
+          setScoreFilter={setScoreFilter}
+        />
+      )}
+      <div class="bg-jsr-cyan-50 dark:bg-jsr-cyan-950/50 flex items-center justify-between py-1.5 px-3 text-sm border-t border-jsr-cyan-100 dark:border-jsr-cyan-900">
+        <div class="flex items-center gap-3">
           {kind === "packages" && (
-            <a
-              class="link"
-              href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
-              target="_blank"
-            >
-              Search syntax
-            </a>
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showFilters.value = !showFilters.value;
+                }}
+                class={`inline-flex items-center gap-1 text-xs transition-colors cursor-pointer ${
+                  showFilters.value || filtersActive
+                    ? "text-jsr-cyan-700 dark:text-jsr-cyan-400 font-semibold"
+                    : "text-jsr-gray-400 dark:text-jsr-gray-500 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300"
+                }`}
+              >
+                <TbAdjustmentsHorizontal class="size-3.5" />
+                Filters{filtersActive
+                  ? ` (${
+                    activeFilters.value.runtimes.size +
+                    (activeFilters.value.scoreValue !== null ? 1 : 0)
+                  })`
+                  : ""}
+              </button>
+              <a
+                class="text-xs text-jsr-gray-400 dark:text-jsr-gray-500 hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-300 transition-colors"
+                href="/docs/faq#can-i-filter-packages-by-compatible-runtime-in-the-search"
+                target="_blank"
+              >
+                Search syntax
+              </a>
+            </>
           )}
         </div>
         <div class="flex items-center gap-1">
-          <span class="text-tertiary">
-            powered by <span class="sr-only">Orama</span>
-          </span>
-          <img class="h-4 dark:hidden" src="/logos/orama-dark.svg" alt="" />
-          <img
-            className="h-4 hidden dark:block"
-            src="/logos/orama-light.svg"
-            alt=""
-          />
+          <span class="text-tertiary">powered by</span>
+          <a
+            href="https://www.algolia.com/?utm_medium=AOS-referral"
+            target="_blank"
+            aria-label="Algolia"
+          >
+            <img class="h-4" src="/logos/algolia.svg" alt="Algolia" />
+          </a>
         </div>
       </div>
     </div>
   );
 }
 
-export interface OramaDocsHit {
+const ACTIVE_FILTER_CLASSES =
+  "border-jsr-cyan-300 dark:border-jsr-cyan-700 bg-jsr-cyan-100 dark:bg-jsr-cyan-900 text-jsr-cyan-800 dark:text-jsr-cyan-200";
+const INACTIVE_FILTER_CLASSES =
+  "border-jsr-gray-200 dark:border-jsr-gray-700 text-jsr-gray-600 dark:text-jsr-gray-300 hover:bg-jsr-cyan-50 dark:hover:bg-jsr-cyan-950 hover:border-jsr-cyan-200 dark:hover:border-jsr-cyan-800";
+
+function FilterBar(
+  { activeFilters, toggleFilter, setScoreFilter }: {
+    activeFilters: Signal<{
+      runtimes: Set<string>;
+      scoreValue: number | null;
+    }>;
+    toggleFilter: (tokenRaw: string) => void;
+    setScoreFilter: (scoreValue: number | null) => void;
+  },
+) {
+  return (
+    <div
+      class="px-3 py-2.5 border-t border-jsr-cyan-100 dark:border-jsr-cyan-900 space-y-2.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 font-semibold mr-0.5 select-none">
+          Runtime
+        </span>
+        {RUNTIME_COMPAT_KEYS.map(([key, name, icon, w, h]) => {
+          const active = activeFilters.value.runtimes.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleFilter(`runtime:${key}`);
+              }}
+              class={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer select-none transition-colors duration-75 ${
+                active ? ACTIVE_FILTER_CLASSES : INACTIVE_FILTER_CLASSES
+              }`}
+            >
+              <div
+                class="relative h-3 shrink-0"
+                style={`aspect-ratio: ${w} / ${h}`}
+              >
+                <img
+                  src={icon}
+                  width={w}
+                  height={h}
+                  alt=""
+                  class="h-3 select-none"
+                />
+              </div>
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-jsr-gray-500 dark:text-jsr-gray-400 font-semibold mr-0.5 select-none">
+          Min score
+        </span>
+        {SCORE_OPTIONS.map(({ label, value }) => {
+          const active =
+            (value === null && activeFilters.value.scoreValue === null) ||
+            (value !== null && activeFilters.value.scoreValue === value);
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setScoreFilter(value);
+              }}
+              class={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer select-none transition-colors duration-75 ${
+                active ? ACTIVE_FILTER_CLASSES : INACTIVE_FILTER_CLASSES
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export interface AlgoliaDocsHit {
+  objectID: string;
   path: string;
   header: string;
   headerParts: string[];
@@ -463,13 +676,13 @@ export interface OramaDocsHit {
   content: string;
 }
 
-function DocsHit(hit: OramaDocsHit, input: Signal<string>): ListDisplayItem {
+function DocsHit(hit: AlgoliaDocsHit, input: Signal<string>): ListDisplayItem {
   const highlighter = new Highlight();
 
   return {
     href: `/docs/${hit.path}${hit.slug ? `#${hit.slug}` : ""}`,
     content: (
-      <div class="grow-1 w-full space-y-1">
+      <div class="grow w-full space-y-1">
         {hit.header && (
           <div class="font-semibold space-x-1">
             {hit.headerParts.map((part, i) => (
@@ -515,22 +728,53 @@ interface RuntimeToken {
   value: true;
   raw: string;
 }
+export type ScoreOp = "gt" | "gte" | "lt" | "lte";
+interface ScoreToken {
+  kind: "score";
+  op: ScoreOp;
+  value: number;
+  raw: string;
+}
 
-type Token = TextToken | ScopeToken | RuntimeToken;
+type Token = TextToken | ScopeToken | RuntimeToken | ScoreToken;
 
 function tokenizeFilter(search: string): Token[] {
   const tokens: Token[] = [];
 
   for (const part of search.split(" ")) {
     if (part.startsWith("scope:") && part.slice(6).length > 0) {
-      tokens.push({ kind: "scope", value: part.slice(6), raw: part });
+      // Scopes are stored without the leading "@", so `scope:@std` and
+      // `scope:std` should filter the same. Keep `raw` as typed for display.
+      tokens.push({
+        kind: "scope",
+        value: part.slice(6).replace(/^@/, ""),
+        raw: part,
+      });
       continue;
     } else if (part.startsWith("runtime:")) {
-      const runtime = part.slice(8);
+      const runtime = part.slice(8).toLowerCase();
       if (RUNTIME_COMPAT_KEYS.find(([k]) => runtime == k)) {
         tokens.push({
           kind: `runtimeCompat.${runtime as keyof RuntimeCompat}`,
           value: true,
+          raw: `runtime:${runtime}`,
+        });
+        continue;
+      }
+    } else if (part.startsWith("score:")) {
+      const rest = part.slice(6);
+      const match = rest.match(/^(>=|<=|>|<)(\d+)$/);
+      if (match) {
+        const opMap: Record<string, ScoreOp> = {
+          ">": "gt",
+          ">=": "gte",
+          "<": "lt",
+          "<=": "lte",
+        };
+        tokens.push({
+          kind: "score",
+          op: opMap[match[1]],
+          value: parseInt(match[2], 10),
           raw: part,
         });
         continue;
@@ -543,21 +787,32 @@ function tokenizeFilter(search: string): Token[] {
   return tokens;
 }
 
+const SCORE_OP_SYMBOLS: Record<ScoreOp, string> = {
+  gt: ">",
+  gte: ">=",
+  lt: "<",
+  lte: "<=",
+};
+
 export function processFilter(
   search: string,
-): { query: string; where: Record<string, boolean | string> | undefined } {
-  const filters: [string, boolean | string][] = [];
+): { query: string; filters: string | undefined } {
+  const filters: string[] = [];
   let query = "";
   for (const part of tokenizeFilter(search)) {
     if (part.kind === "text") {
       query += part.value + " ";
+    } else if (part.kind === "scope") {
+      filters.push(`scope:"${part.value}"`);
+    } else if (part.kind === "score") {
+      filters.push(`score ${SCORE_OP_SYMBOLS[part.op]} ${part.value}`);
     } else {
-      filters.push([part.kind, part.value]);
+      // runtimeCompat.<runtime>
+      filters.push(`${part.kind}:true`);
     }
   }
-  const where = Object.fromEntries(filters);
   return {
     query: query.trim(),
-    where: filters.length === 0 ? undefined : where,
+    filters: filters.length === 0 ? undefined : filters.join(" AND "),
   };
 }

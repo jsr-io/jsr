@@ -2,8 +2,8 @@
 use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
-use crate::buckets::Buckets;
-use crate::orama::OramaClient;
+use crate::external::algolia::AlgoliaClient;
+use crate::s3::Buckets;
 use hyper::Body;
 use hyper::Request;
 use routerify::Router;
@@ -55,7 +55,7 @@ pub fn admin_router() -> Router<Body, ApiError> {
     .unwrap()
 }
 
-#[instrument(name = "GET /api/admin/users", skip(req), err)]
+#[instrument(name = "GET /api/admin/users", skip(req))]
 pub async fn list_users(req: Request<Body>) -> ApiResult<ApiList<ApiFullUser>> {
   let iam = req.iam();
   iam.check_admin_access()?;
@@ -77,7 +77,6 @@ pub async fn list_users(req: Request<Body>) -> ApiResult<ApiList<ApiFullUser>> {
 #[instrument(
   name = "PATCH /api/admin/users/:user_id",
   skip(req),
-  err,
   fields(user_id)
 )]
 pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
@@ -118,7 +117,7 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
   }
 }
 
-#[instrument(name = "GET /api/admin/scopes", skip(req), err)]
+#[instrument(name = "GET /api/admin/scopes", skip(req))]
 pub async fn list_scopes(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiFullScope>> {
@@ -139,12 +138,7 @@ pub async fn list_scopes(
   })
 }
 
-#[instrument(
-  name = "PATCH /api/admin/scopes/:scope",
-  skip(req),
-  err,
-  fields(scope)
-)]
+#[instrument(name = "PATCH /api/admin/scopes/:scope", skip(req), fields(scope))]
 pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
   let scope = req.param_scope()?;
   Span::current().record("scope", field::display(&scope));
@@ -185,7 +179,6 @@ pub async fn patch_scopes(mut req: Request<Body>) -> ApiResult<ApiFullScope> {
 #[instrument(
   name = "POST /api/admin/scopes",
   skip(req),
-  err,
   fields(scope, user_id)
 )]
 pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
@@ -218,7 +211,7 @@ pub async fn assign_scope(mut req: Request<Body>) -> ApiResult<ApiScope> {
   Ok(scope.into())
 }
 
-#[instrument(name = "GET /api/admin/packages", skip(req), err)]
+#[instrument(name = "GET /api/admin/packages", skip(req))]
 pub async fn list_packages(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiPackage>> {
@@ -241,7 +234,7 @@ pub async fn list_packages(
   })
 }
 
-#[instrument(name = "GET /api/admin/publishing_tasks", skip(req), err)]
+#[instrument(name = "GET /api/admin/publishing_tasks", skip(req))]
 pub async fn list_publishing_tasks(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiPublishingTask>> {
@@ -269,7 +262,6 @@ pub async fn list_publishing_tasks(
 #[instrument(
   name = "POST /api/admin/publishing_tasks/:publishing_task/requeue",
   skip(req),
-  err
   fields(publishing_task)
 )]
 pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
@@ -298,7 +290,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   }
 
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
 
   if let Some(queue) = publish_queue {
     let body = serde_json::to_vec(&publishing_task_id)?;
@@ -310,6 +302,10 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
     let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
     let fallback_registry_url =
       req.data::<FallbackRegistryUrl>().unwrap().0.clone();
+    let cache_purge = req
+      .data::<crate::external::cloudflare::CachePurge>()
+      .unwrap()
+      .clone();
 
     let span = Span::current();
     let fut = publish_task(
@@ -320,7 +316,8 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
       npm_url,
       fallback_registry_url,
       db,
-      orama_client,
+      algolia_client,
+      cache_purge,
     )
     .instrument(span);
     tokio::spawn(fut);
@@ -329,7 +326,7 @@ pub async fn requeue_publishing_tasks(req: Request<Body>) -> ApiResult<()> {
   Ok(())
 }
 
-#[instrument(name = "GET /api/admin/tickets", skip(req), err)]
+#[instrument(name = "GET /api/admin/tickets", skip(req))]
 pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
   let iam = req.iam();
   iam.check_admin_access()?;
@@ -348,7 +345,7 @@ pub async fn list_tickets(req: Request<Body>) -> ApiResult<ApiList<ApiTicket>> {
   })
 }
 
-#[instrument(name = "PATCH /api/admin/tickets/:id", skip(req), err)]
+#[instrument(name = "PATCH /api/admin/tickets/:id", skip(req))]
 pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let id = req.param_uuid("id")?;
   Span::current().record("id", field::display(id));
@@ -371,7 +368,7 @@ pub async fn patch_ticket(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   Ok(ticket.into())
 }
 
-#[instrument(name = "GET /api/admin/audit_logs", skip(req), err)]
+#[instrument(name = "GET /api/admin/audit_logs", skip(req))]
 pub async fn list_audit_logs(
   req: Request<Body>,
 ) -> ApiResult<ApiList<ApiAuditLog>> {

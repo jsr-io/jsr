@@ -135,7 +135,7 @@ export default define.page<typeof handler>(function PackagePage({
             </p>
           </div>
         </div>
-        <div class="h-full w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-center">
+        <div class="h-full w-full grid grid-cols-1 grid-rows-1 *:col-start-1 *:row-start-1 items-center justify-center">
           <hr class="border-t-1.5 border-jsr-cyan-900 dark:border-jsr-cyan-600 lg:border-l-1.5 lg:border-t-0 lg:h-full lg:mx-auto" />
           <div class="p-2 bg-white dark:bg-jsr-gray-950 text-center w-max mx-auto font-bold">
             OR
@@ -250,7 +250,7 @@ function GitHubActions({ pkg, canEdit, user }: {
       </p>
       <p class="mt-4">
         Set up your workflow with OIDC permissions and a step to run{" "}
-        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-jsr-gray-950 text-white rounded py-px px-2 text-sm">
           npx jsr publish
         </code>:
       </p>
@@ -278,11 +278,11 @@ function GitHubActions({ pkg, canEdit, user }: {
 
       <p class="mt-4">
         You can also use{" "}
-        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-px px-2 text-sm">
           deno publish
         </code>{" "}
         instead of{" "}
-        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-[1px] px-2 text-sm">
+        <code class="bg-slate-900 dark:bg-slate-800 text-white rounded py-px px-2 text-sm">
           npx jsr publish
         </code>. When doing that, make sure to install Deno in your workflow
         first.

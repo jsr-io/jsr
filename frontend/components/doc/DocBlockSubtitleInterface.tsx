@@ -11,7 +11,9 @@ export function DocBlockSubtitleInterface(
 
   return (
     <div>
-      <span class="type">{" extends "}</span>
+      <span class="text-stone-400 italic dark:text-stone-500">
+        {" extends "}
+      </span>
       {value.extends.map((ext, index) => (
         <>
           <span

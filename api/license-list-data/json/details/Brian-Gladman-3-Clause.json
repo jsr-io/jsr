@@ -6,11 +6,11 @@
   "licenseId": "Brian-Gladman-3-Clause",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/SWI-Prolog/packages-clib/blob/master/sha1/brg_endian.h",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T15:05:59Z",
+      "timestamp": "2026-07-16T09:31:25Z",
       "isWayBackLink": false,
       "order": 0
     }

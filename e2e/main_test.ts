@@ -324,6 +324,13 @@ if (import.meta.main) {
   );
 });
 
+Deno.test("[GET /docs/introduction] renders docs page", async () => {
+  const res = await fetch(`${JSR_URL}docs/introduction`, {
+    headers: { "accept": "text/html" },
+  });
+  await assertHtml(res);
+});
+
 Deno.test("[GET /badges/@luca/flag] works", async (t) => {
   await t.step("Package badge", async () => {
     const res = await fetch(`${JSR_URL}badges/@luca/flag`);

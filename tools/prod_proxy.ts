@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A --watch
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
-import { isCDNRequest, proxy } from "./server.ts";
+import { canAccessModuleFile, isModuleFilePath } from "../lb/main.ts";
 
 const FRONTEND_SERVER = "http://localhost:8000";
 const API_SERVER = "https://api.jsr.io";
@@ -22,7 +22,7 @@ async function handler(req: Request): Promise<Response> {
 
   switch (url.hostname) {
     case DOMAIN: {
-      if (isCDNRequest(req, url)) {
+      if (canAccessModuleFile(req) && isModuleFilePath(url.pathname)) {
         const res = await fetch(
           `${CDN_SERVER}${url.pathname}`,
           { redirect: "manual", method: req.method, headers: req.headers },
@@ -32,11 +32,21 @@ async function handler(req: Request): Promise<Response> {
       if (url.pathname.startsWith("/api")) {
         const pathname = url.pathname.replace(/^\/api/, "");
         const apiUrl = `${API_SERVER}${pathname}${url.search}`;
-        const apiRes = await proxy(req, apiUrl);
+        const apiRes = await fetch(apiUrl, {
+          method: req.method,
+          headers: req.headers,
+          body: req.body,
+          redirect: "manual",
+        });
         return apiRes;
       }
       const frontendUrl = `${FRONTEND_SERVER}${url.pathname}${url.search}`;
-      const frontendRes = await proxy(req, frontendUrl);
+      const frontendRes = await fetch(frontendUrl, {
+        method: req.method,
+        headers: req.headers,
+        body: req.body,
+        redirect: "manual",
+      });
       return frontendRes;
     }
     default:

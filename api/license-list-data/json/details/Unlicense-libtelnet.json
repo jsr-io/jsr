@@ -8,11 +8,11 @@
   "licenseId": "Unlicense-libtelnet",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/seanmiddleditch/libtelnet/blob/develop/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:54:50Z",
+      "timestamp": "2026-07-16T09:27:18Z",
       "isWayBackLink": false,
       "order": 0
     }

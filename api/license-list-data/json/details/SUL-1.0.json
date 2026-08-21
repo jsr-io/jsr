@@ -8,11 +8,11 @@
   "licenseId": "SUL-1.0",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/n8n-io/n8n/blob/master/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T15:02:27Z",
+      "timestamp": "2026-07-16T09:22:20Z",
       "isWayBackLink": false,
       "order": 0
     }

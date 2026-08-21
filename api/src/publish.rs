@@ -6,8 +6,6 @@ use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
-use crate::buckets::Buckets;
-use crate::buckets::UploadTaskBody;
 use crate::db::Database;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
@@ -19,16 +17,19 @@ use crate::db::PackageVersionMeta;
 use crate::db::PublishingTask;
 use crate::db::PublishingTaskError;
 use crate::db::PublishingTaskStatus;
-use crate::gcp::CACHE_CONTROL_DO_NOT_CACHE;
-use crate::gcp::CACHE_CONTROL_IMMUTABLE;
-use crate::gcp::GcsUploadOptions;
+use crate::external::algolia::AlgoliaClient;
+use crate::external::cloudflare::CachePurge;
 use crate::ids::PackagePath;
 use crate::metadata::ManifestEntry;
 use crate::metadata::PackageMetadata;
 use crate::metadata::VersionMetadata;
 use crate::npm::NPM_TARBALL_REVISION;
 use crate::npm::generate_npm_version_manifest;
-use crate::orama::OramaClient;
+use crate::s3::Buckets;
+use crate::s3::CACHE_CONTROL_IMMUTABLE;
+use crate::s3::CACHE_CONTROL_MANIFEST;
+use crate::s3::S3UploadOptions;
+use crate::s3::UploadTaskBody;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
 use crate::tarball::ResolvedDependency;
@@ -57,11 +58,12 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let db = req.data::<Database>().unwrap().clone();
   let buckets = req.data::<Buckets>().unwrap().clone();
   let license_store = req.data::<LicenseStore>().unwrap().clone();
-  let orama_client = req.data::<Option<OramaClient>>().unwrap().clone();
+  let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let fallback_registry_url =
     req.data::<FallbackRegistryUrl>().unwrap().0.clone();
+  let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
   publish_task(
     publishing_task_id,
@@ -71,13 +73,15 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     npm_url,
     fallback_registry_url,
     db,
-    orama_client,
+    algolia_client,
+    cache_purge,
   )
   .await?;
 
   Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "publish_task",
   skip(
@@ -86,7 +90,8 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     license_store,
     registry_url,
     fallback_registry_url,
-    orama_client
+    algolia_client,
+    cache_purge
   ),
   err
 )]
@@ -98,7 +103,8 @@ pub async fn publish_task(
   npm_url: Url,
   fallback_registry_url: Option<Url>,
   db: Database,
-  orama_client: Option<OramaClient>,
+  algolia_client: Option<AlgoliaClient>,
+  cache_purge: CachePurge,
 ) -> Result<(), ApiError> {
   let (mut publishing_task, _) = db
     .get_publishing_task(publish_id)
@@ -116,7 +122,7 @@ pub async fn publish_task(
           &db,
           &buckets,
           &license_store,
-          &orama_client,
+          &algolia_client,
           registry_url.clone(),
           fallback_registry_url.clone(),
           &mut publishing_task,
@@ -140,9 +146,22 @@ pub async fn publish_task(
         return Err(ApiError::InternalServerError);
       }
       PublishingTaskStatus::Processed => {
-        upload_package_manifest(&db, &buckets, &publishing_task).await?;
-        upload_npm_version_manifest(&db, &buckets, &npm_url, &publishing_task)
-          .await?;
+        upload_package_manifest(
+          &db,
+          &buckets,
+          &registry_url,
+          &cache_purge,
+          &publishing_task,
+        )
+        .await?;
+        upload_npm_version_manifest(
+          &db,
+          &buckets,
+          &npm_url,
+          &cache_purge,
+          &publishing_task,
+        )
+        .await?;
         publishing_task = db
           .update_publishing_task_status(
             None,
@@ -155,7 +174,7 @@ pub async fn publish_task(
       }
       PublishingTaskStatus::Failure => return Ok(()),
       PublishingTaskStatus::Success => {
-        if let Some(orama_client) = orama_client {
+        if let Some(algolia_client) = algolia_client {
           let (package, _, meta) = db
             .get_package(
               &publishing_task.package_scope,
@@ -169,7 +188,7 @@ pub async fn publish_task(
               );
               ApiError::InternalServerError
             })?;
-          orama_client.upsert_package(&package, &meta);
+          algolia_client.upsert_package(&package, &meta);
         }
         return Ok(());
       }
@@ -177,11 +196,14 @@ pub async fn publish_task(
   }
 }
 
+// `algolia_client`/`doc_search_json` are unused while symbol indexing is
+// disabled; keep them so re-enabling is just uncommenting the block below.
+#[allow(unused_variables)]
 async fn process_publishing_task(
   db: &Database,
   buckets: &Buckets,
   license_store: &LicenseStore,
-  orama_client: &Option<OramaClient>,
+  algolia_client: &Option<AlgoliaClient>,
   registry_url: Url,
   fallback_registry_url: Option<Url>,
   publishing_task: &mut PublishingTask,
@@ -266,13 +288,13 @@ async fn process_publishing_task(
   )
   .await?;
 
-  if let Some(orama_client) = orama_client {
-    orama_client.upsert_symbols(
+  /*if let Some(algolia_client) = algolia_client {
+    algolia_client.upsert_symbols(
       &publishing_task.package_scope,
       &publishing_task.package_name,
       doc_search_json,
     );
-  }
+  }*/
 
   Ok(())
 }
@@ -284,7 +306,7 @@ async fn upload_version_manifest(
   exports: IndexMap<String, String>,
   module_graph_2: HashMap<String, deno_graph::analysis::ModuleInfo>,
 ) -> Result<(), anyhow::Error> {
-  let version_metadata_gcs_path = crate::gcs_paths::version_metadata(
+  let version_metadata_s3_path = crate::s3_paths::version_metadata(
     &publishing_task.package_scope,
     &publishing_task.package_name,
     &publishing_task.package_version,
@@ -310,9 +332,9 @@ async fn upload_version_manifest(
   buckets
     .modules_bucket
     .upload(
-      version_metadata_gcs_path.into(),
+      version_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
         cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
         gzip_encoded: false,
@@ -403,9 +425,11 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
 async fn upload_package_manifest(
   db: &Database,
   buckets: &Buckets,
+  registry_url: &Url,
+  cache_purge: &CachePurge,
   publishing_task: &PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  let package_metadata_gcs_path = crate::gcs_paths::package_metadata(
+  let package_metadata_s3_path = crate::s3_paths::package_metadata(
     &publishing_task.package_scope,
     &publishing_task.package_name,
   );
@@ -419,15 +443,27 @@ async fn upload_package_manifest(
   buckets
     .modules_bucket
     .upload(
-      package_metadata_gcs_path.into(),
+      package_metadata_s3_path.into(),
       UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  let mut purge_urls = vec![crate::s3_paths::package_metadata_url(
+    registry_url,
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  )];
+  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+    registry_url,
+    &publishing_task.package_scope,
+    &publishing_task.package_name,
+  ));
+  cache_purge.purge(purge_urls).await;
 
   Ok(())
 }
@@ -436,10 +472,11 @@ async fn upload_npm_version_manifest(
   db: &Database,
   buckets: &Buckets,
   npm_url: &Url,
+  cache_purge: &CachePurge,
   publishing_task: &PublishingTask,
 ) -> Result<(), anyhow::Error> {
-  let npm_version_manifest_path_gcs_path =
-    crate::gcs_paths::npm_version_manifest_path(
+  let npm_version_manifest_path_s3_path =
+    crate::s3_paths::npm_version_manifest_path(
       &publishing_task.package_scope,
       &publishing_task.package_name,
     );
@@ -454,15 +491,23 @@ async fn upload_npm_version_manifest(
   buckets
     .npm_bucket
     .upload(
-      npm_version_manifest_path_gcs_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      GcsUploadOptions {
+      npm_version_manifest_path_s3_path.into(),
+      crate::s3::UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
         content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_DO_NOT_CACHE.into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
         gzip_encoded: false,
       },
     )
     .await?;
+
+  cache_purge
+    .purge(vec![crate::s3_paths::npm_version_manifest_url(
+      npm_url,
+      &publishing_task.package_scope,
+      &publishing_task.package_name,
+    )])
+    .await;
 
   Ok(())
 }
@@ -471,6 +516,7 @@ async fn upload_npm_version_manifest(
 pub mod tests {
   use super::*;
   use crate::api::ApiPublishingTask;
+  use crate::api::package::MAX_PUBLISH_TARBALL_SIZE;
   use crate::db::CreatePackageResult;
   use crate::db::CreatePublishingTaskResult;
   use crate::db::NewPublishingTask;
@@ -479,7 +525,7 @@ pub mod tests {
   use crate::ids::{PackageName, PackagePath};
   use crate::metadata::VersionMetadata;
   use crate::tarball::ConfigFile;
-  use crate::tarball::gcs_tarball_path;
+  use crate::tarball::bucket_tarball_path;
   use crate::util::test::ApiResultExt;
   use crate::util::test::TestSetup;
   use bytes::Bytes;
@@ -539,13 +585,13 @@ pub mod tests {
       unreachable!()
     };
 
-    let tarball_path = gcs_tarball_path(task.0.id);
+    let tarball_path = bucket_tarball_path(task.0.id);
     t.buckets
       .publishing_bucket
       .upload(
         tarball_path.into(),
-        UploadTaskBody::Bytes(tarball_data),
-        GcsUploadOptions {
+        crate::s3::UploadTaskBody::Bytes(tarball_data),
+        S3UploadOptions {
           content_type: Some("application/x-tar".into()),
           cache_control: None,
           gzip_encoded: true,
@@ -563,6 +609,7 @@ pub mod tests {
       t.fallback_registry_url.clone(),
       t.db(),
       None,
+      CachePurge(None),
     )
     .await
     .unwrap();
@@ -632,7 +679,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn payload_too_large() {
-    let body = Body::from(vec![0; 999999999]);
+    let body = Body::from(vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10]);
 
     let mut t = TestSetup::new().await;
     let mut resp = t
@@ -655,7 +702,7 @@ pub mod tests {
   async fn payload_too_large_stream() {
     // Convert the Vec<u8> into a hyper Body with chunked transfer encoding
     let body = Body::wrap_stream(tokio_stream::once(Ok::<_, std::io::Error>(
-      vec![0; 999999999],
+      vec![0; MAX_PUBLISH_TARBALL_SIZE as usize + 10],
     )));
 
     let mut t = TestSetup::new().await;
@@ -710,28 +757,31 @@ pub mod tests {
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/jsr.json")
+      .bucket
+      .get_object("@scope/foo/1.2.3/jsr.json")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/mod.ts")
+      .bucket
+      .get_object("@scope/foo/1.2.3/mod.ts")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "text/typescript");
     let response = t
       .buckets
       .modules_bucket
       .bucket
-      .download_resp("@scope/foo/1.2.3/logo.svg")
+      .bucket
+      .get_object("@scope/foo/1.2.3/logo.svg")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "image/svg+xml");
   }
 
@@ -1178,6 +1228,14 @@ pub mod tests {
   }
 
   #[tokio::test]
+  async fn license_alias() {
+    let t = TestSetup::new().await;
+    let bytes = create_mock_tarball("license_alias");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+  }
+
+  #[tokio::test]
   async fn no_license() {
     let t = TestSetup::new().await;
     let bytes = create_mock_tarball("no_license");
@@ -1385,7 +1443,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:27\n\n  const invalidTypeScript = ;\n                            ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidTypeScript = ;\n  |                           ~\n    at file:///mod.ts:1:27"
     );
   }
 
@@ -1399,7 +1457,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///mod.ts:1:2\n\n  +\n   ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | +\n  |  ~\n    at file:///mod.ts:1:2"
     );
   }
 
@@ -1421,7 +1479,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Expression expected at file:///other.js:1:27\n\n  const invalidJavaScript = ;\n                            ~"
+      "failed to build module graph: SyntaxError: Expression expected\n  |\n1 | const invalidJavaScript = ;\n  |                           ~\n    at file:///other.js:1:27"
     );
   }
 
@@ -1435,7 +1493,7 @@ pub mod tests {
     assert_eq!(error.code, "graphError");
     assert_eq!(
       error.message,
-      "failed to build module graph: The module's source code could not be parsed: Unexpected character '�' at file:///mod.ts:2:1\n\n  ��\n  ~"
+      "failed to build module graph: SyntaxError: Unexpected character '�'\n  |\n2 | ��\n  | ~\n    at file:///mod.ts:2:1"
     );
   }
 
@@ -1508,12 +1566,14 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .download_resp("@jsr/scope__foo")
+      .bucket
+      .get_object("@jsr/scope__foo")
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(response.headers()["content-type"], "application/json");
-    let mut json: serde_json::Value = response.json().await.unwrap();
+    let mut json: serde_json::Value =
+      serde_json::from_slice(&response.into_bytes()).unwrap();
     json.as_object_mut().unwrap().remove("time");
     let dist = json
       .as_object_mut()
@@ -1562,10 +1622,11 @@ pub mod tests {
       .buckets
       .npm_bucket
       .bucket
-      .download_resp(res_url.as_str())
+      .bucket
+      .get_object(res_url.as_str())
       .await
       .unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_code(), 200);
     assert_eq!(
       response.headers()["content-type"],
       "application/octet-stream"

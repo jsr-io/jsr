@@ -10,13 +10,17 @@ target/
 *.secret.tfvars
 
 **/.env
+**/.env.local
 
 frontend/coverage
 frontend/dist
 frontend/node_modules
+frontend/_fresh
 
 lb/dist
+lb/node_modules
 
 .gcs
+.minio
 
 .idea

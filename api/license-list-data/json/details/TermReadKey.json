@@ -6,11 +6,11 @@
   "licenseId": "TermReadKey",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/jonathanstowe/TermReadKey/blob/master/README#L9-L10",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T15:04:13Z",
+      "timestamp": "2026-07-16T09:25:47Z",
       "isWayBackLink": false,
       "order": 0
     }

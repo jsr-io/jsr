@@ -6,11 +6,11 @@
   "licenseId": "UCAR",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/Unidata/UDUNITS-2/blob/master/COPYRIGHT",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:57:49Z",
+      "timestamp": "2026-07-16T09:30:45Z",
       "isWayBackLink": false,
       "order": 0
     }

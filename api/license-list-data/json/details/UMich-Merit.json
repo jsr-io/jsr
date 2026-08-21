@@ -8,11 +8,11 @@
   "licenseId": "UMich-Merit",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/radcli/radcli/blob/master/COPYRIGHT#L64",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:54:24Z",
+      "timestamp": "2026-07-16T09:25:43Z",
       "isWayBackLink": false,
       "order": 0
     }

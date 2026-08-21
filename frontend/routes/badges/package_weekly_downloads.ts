@@ -2,7 +2,7 @@
 import type { RouteConfig } from "fresh";
 import { accepts } from "@std/http/negotiation";
 import { PackageDownloads } from "../../utils/api_types.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { define } from "../../util.ts";
 import { primaryColor, secondaryColor } from "../../utils/colors.ts";
 import { numberFormat } from "../../utils/number_format.ts";
@@ -20,32 +20,27 @@ export const handler = define.handlers({
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/downloads`,
       );
 
-      if (!packageResp.ok) {
-        if (packageResp.code === "packageNotFound") {
-          return new Response(null, { status: 404 });
-        } else {
-          throw packageResp;
-        }
-      } else {
-        const totalCount = packageResp.data.total.reduce(
-          (acc, curr) => acc + curr.count,
-          0,
-        );
-        const firstDate = new Date(
-          packageResp.data.total.at(0)?.timeBucket ?? "",
-        );
-        const now = new Date();
-        const timeDifference = now.getTime() - firstDate.getTime();
-        const weeksDifference = (timeDifference / timeInAWeek) || 1; // If there is only one data point, we assume it's a week
-
-        return Response.json({
-          schemaVersion: 1,
-          label: "downloads",
-          message: `${numberFormat(totalCount / weeksDifference)}/week`,
-          labelColor: secondaryColor,
-          color: primaryColor,
-        });
+      if (!packageResp.ok && packageResp.code === "packageNotFound") {
+        return new Response(null, { status: 404 });
       }
+      assertOk(packageResp);
+      const totalCount = packageResp.data.total.reduce(
+        (acc, curr) => acc + curr.count,
+        0,
+      );
+      const firstDate = new Date(
+        packageResp.data.total.at(0)?.timeBucket ?? "",
+      );
+      const now = new Date();
+      const timeDifference = now.getTime() - firstDate.getTime();
+      const weeksDifference = (timeDifference / timeInAWeek) || 1; // If there is only one data point, we assume it's a week
+      return Response.json({
+        schemaVersion: 1,
+        label: "downloads",
+        message: `${numberFormat(totalCount / weeksDifference)}/week`,
+        labelColor: secondaryColor,
+        color: primaryColor,
+      });
     } else {
       const url = new URL("https://jsr.io" + ctx.url.pathname + ctx.url.search);
 

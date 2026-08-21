@@ -22,7 +22,7 @@ export function CategoryPanel(
           </li>
         ))}
         <li>
-          <a class="!flex items-center gap-0.5" href={all_symbols_href}>
+          <a class="flex! items-center gap-0.5" href={all_symbols_href}>
             <span class="leading-none">view all {total_symbols} symbols</span>
             <TbChevronRight class="size-4" />
           </a>

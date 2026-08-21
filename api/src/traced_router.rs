@@ -1,5 +1,4 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
 //! This module implements a hyper service that wraps routerify and handles
 //! tracing. It starts a span for each request, and records successes and
@@ -125,7 +124,8 @@ impl<
       "http.url" = ?uri,
       "http.user_agent" = user_agent,
       "http.status_code" = field::Empty,
-      "otel.status_code" = "ok"
+      "otel.status_code" = "ok",
+      "otel.kind" = "server"
     );
 
     if self.is_internal {

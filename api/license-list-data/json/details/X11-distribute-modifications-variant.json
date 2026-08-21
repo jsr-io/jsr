@@ -8,11 +8,11 @@
   "licenseId": "X11-distribute-modifications-variant",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/mirror/ncurses/blob/master/COPYING",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:57:02Z",
+      "timestamp": "2026-07-16T09:25:45Z",
       "isWayBackLink": false,
       "order": 0
     }

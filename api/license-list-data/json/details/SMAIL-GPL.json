@@ -6,11 +6,11 @@
   "licenseId": "SMAIL-GPL",
   "crossRef": [
     {
-      "match": "true",
+      "match": "false",
       "url": "https://sources.debian.org/copyright/license/debianutils/4.11.2/",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T15:02:09Z",
+      "timestamp": "2026-07-16T09:26:49Z",
       "isWayBackLink": false,
       "order": 0
     }

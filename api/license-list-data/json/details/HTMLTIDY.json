@@ -6,11 +6,11 @@
   "licenseId": "HTMLTIDY",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/htacg/tidy-html5/blob/next/README/LICENSE.md",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T15:00:28Z",
+      "timestamp": "2026-07-16T09:21:34Z",
       "isWayBackLink": false,
       "order": 0
     }

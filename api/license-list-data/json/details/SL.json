@@ -6,11 +6,11 @@
   "licenseId": "SL",
   "crossRef": [
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/mtoyoda/sl/blob/master/LICENSE",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:54:38Z",
+      "timestamp": "2026-07-16T09:23:35Z",
       "isWayBackLink": false,
       "order": 0
     }

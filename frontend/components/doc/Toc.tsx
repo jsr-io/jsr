@@ -3,35 +3,62 @@ import type { VNode } from "preact";
 import type { ToCCtx, ToCEntry } from "@deno/doc/html-types";
 import TbChevronRight from "tb-icons/TbChevronRight";
 import { DocNodeKindIcon } from "./DocNodeKindIcon.tsx";
-import { Usages } from "./Usages.tsx";
+import Usages from "../../islands/DocUsages.tsx";
 
 export function Toc(
-  { content: { usages, top_symbols, document_navigation } }: {
+  { content: { usages, top_symbols, document_navigation }, diff }: {
     content: ToCCtx;
+    diff?: {
+      oldVersionUrl: string;
+      oldVersion: string;
+      newVersionUrl: string;
+      newVersion: string;
+    };
   },
 ) {
-  if (!usages && !top_symbols && document_navigation.length === 0) {
+  if (!usages && !top_symbols && document_navigation.length === 0 && !diff) {
     return null;
   }
 
   return (
-    <div class="ddoc w-full lg:overflow-y-auto pb-4">
+    <div class="ddoc lg:overflow-y-auto pb-4 pt-4 -mx-3 px-3">
       <div class="toc">
-        <div>
+        <div class="space-y-5">
+          {diff && (
+            <div class="flex flex-col gap-4">
+              <a
+                href={diff.oldVersionUrl}
+                class="block button-sm button-secondary"
+              >
+                View in {diff.oldVersion}
+              </a>
+              <a
+                href={diff.newVersionUrl}
+                class="block button-sm button-secondary"
+              >
+                View in {diff.newVersion}
+              </a>
+            </div>
+          )}
+
           {usages && <Usages usages={usages} />}
 
           {top_symbols && (
-            <nav class="topSymbols">
-              <h3>Symbols</h3>
-              <ul>
+            <nav class="max-lg:hidden space-y-3 text-sm">
+              <h3 class="font-bold text-lg mb-3">Symbols</h3>
+              <ul class="list-none space-y-2.5">
                 {top_symbols.symbols.map((symbol) => (
-                  <li>
-                    <a href={symbol.href} title={symbol.name}>
+                  <li class="block">
+                    <a
+                      href={symbol.href}
+                      title={symbol.name}
+                      class="flex items-center gap-2"
+                    >
                       <DocNodeKindIcon kinds={symbol.kind} />
                       <span
-                        class={`hover:bg-${symbol.kind[0]?.kind}/15 hover:bg-${
+                        class={`block w-full overflow-hidden whitespace-nowrap text-ellipsis -my-0.5 -ml-1 py-0.5 pl-1 rounded hover:bg-${
                           symbol.kind[0]?.kind
-                        }Dark/15`}
+                        }/15 hover:bg-${symbol.kind[0]?.kind}Dark/15`}
                       >
                         {symbol.name}
                       </span>
@@ -41,7 +68,7 @@ export function Toc(
               </ul>
               {top_symbols.total_symbols > 5 && (
                 <a
-                  class="flex items-center gap-0.5"
+                  class="flex items-center gap-0.5 hover:underline"
                   href={top_symbols.all_symbols_href}
                 >
                   <span class="leading-none">
@@ -54,8 +81,8 @@ export function Toc(
           )}
 
           {document_navigation.length > 0 && (
-            <nav class="documentNavigation">
-              <h3>Document Navigation</h3>
+            <nav class="max-sm:hidden text-sm space-y-3">
+              <h3 class="font-bold text-lg mb-3">Document Navigation</h3>
               <ul>
                 {renderToC(
                   document_navigation,
@@ -75,6 +102,7 @@ function renderToC(
   items: ToCEntry[],
   currentLevel: number,
   startIdx: number,
+  isRoot = true,
 ): [VNode[], number] {
   const result: VNode[] = [];
   let i = startIdx;
@@ -85,15 +113,31 @@ function renderToC(
     if (entry.level === currentLevel) {
       const [children, nextIdx] =
         i + 1 < items.length && items[i + 1].level > currentLevel
-          ? renderToC(items, items[i + 1].level, i + 1)
+          ? renderToC(items, items[i + 1].level, i + 1, false)
           : [[], i + 1];
+      const hasChildren = children.length > 0;
 
       result.push(
-        <li key={entry.anchor}>
-          <a href={`#${entry.anchor}`} title={entry.content}>
+        <li
+          key={entry.anchor}
+          class={isRoot
+            ? `mx-3 ${hasChildren ? "mt-0" : "mt-2"} pb-0!`
+            : "mt-1!"}
+        >
+          <a
+            href={`#${entry.anchor}`}
+            title={entry.content}
+            class={`hover:underline block overflow-hidden whitespace-nowrap text-ellipsis ${
+              !isRoot ? "p-1 hover:text-black dark:hover:text-white" : ""
+            }`}
+          >
             {entry.content}
           </a>
-          {children.length > 0 && <ul>{children}</ul>}
+          {hasChildren && (
+            <ul class="ml-3.5 space-y-2 text-[0.8rem] leading-none text-jsr-gray-600 dark:text-jsr-gray-200">
+              {children}
+            </ul>
+          )}
         </li>,
       );
       i = nextIdx;

@@ -8,11 +8,11 @@
   "licenseId": "HPND-UC",
   "crossRef": [
     {
-      "match": "true",
+      "match": "false",
       "url": "https://core.tcl-lang.org/tk/file?name\u003dcompat/unistd.h",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:55:45Z",
+      "timestamp": "2026-07-16T09:23:38Z",
       "isWayBackLink": false,
       "order": 0
     }

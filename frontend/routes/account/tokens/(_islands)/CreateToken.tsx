@@ -9,7 +9,7 @@ import { api, APIResponseError, path } from "../../../../utils/api.ts";
 import { CreatedToken, Permission } from "../../../../utils/api_types.ts";
 import { ErrorDisplay } from "../../../../components/ErrorDisplay.tsx";
 
-export function CreateToken() {
+export function CreateToken({ url }: { url: URL }) {
   const usage = useSignal<"publish" | "api" | null>(null);
   const env = useSignal<
     "development" | "github_actions" | "other_ci_service" | null
@@ -49,7 +49,7 @@ export function CreateToken() {
     return <FinalDangerWarning willBeSafe={willBeSafe} />;
   }
 
-  return <CreateTokenForm />;
+  return <CreateTokenForm url={url} />;
 }
 
 function useRadioGroup<T extends string>(
@@ -260,7 +260,7 @@ function FinalDangerWarning({ willBeSafe }: { willBeSafe: Signal<boolean> }) {
   );
 }
 
-function CreateTokenForm() {
+function CreateTokenForm({ url }: { url: URL }) {
   const description = useSignal<string>("");
   const expiry = useSignal<number>(-1);
   const permission = useSignal<"package" | "scope" | "full" | null>(null);
@@ -339,7 +339,7 @@ function CreateTokenForm() {
       </button>
       {error.value !== null && (
         <div class="mt-8">
-          <ErrorDisplay error={error.value} />
+          <ErrorDisplay error={error.value} url={url} />
         </div>
       )}
     </form>

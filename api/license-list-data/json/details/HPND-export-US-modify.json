@@ -12,16 +12,16 @@
       "url": "https://github.com/krb5/krb5/blob/krb5-1.21.2-final/NOTICE#L1157-L1182",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:55:21Z",
+      "timestamp": "2026-07-16T09:29:54Z",
       "isWayBackLink": false,
       "order": 0
     },
     {
-      "match": "false",
+      "match": "true",
       "url": "https://github.com/pythongssapi/k5test/blob/v0.10.3/K5TEST-LICENSE.txt",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:55:22Z",
+      "timestamp": "2026-07-16T09:29:55Z",
       "isWayBackLink": false,
       "order": 1
     }

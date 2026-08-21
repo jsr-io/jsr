@@ -1,0 +1,140 @@
+// Copyright 2024 the JSR authors. All rights reserved. MIT license.
+import { HttpError, RouteConfig } from "fresh";
+import { define } from "../../../util.ts";
+import { DiffData, packageDataWithDiff } from "../../../utils/data.ts";
+import { PackageHeader } from "../(_components)/PackageHeader.tsx";
+import { PackageNav, Params } from "../(_components)/PackageNav.tsx";
+import { DiffView } from "../(_components)/Docs.tsx";
+import { scopeIAM } from "../../../utils/iam.ts";
+
+// The diff view is disabled. Flip to `true` to re-enable it.
+const DIFF_ENABLED: boolean = false;
+
+export default define.page<typeof handler>(function Symbol(
+  { data, params, state, url },
+) {
+  const iam = scopeIAM(state, data.member);
+
+  return (
+    <div>
+      <PackageHeader
+        package={data.package}
+        selectedVersion={data.selectedVersion ?? undefined}
+        downloads={data.downloads}
+      />
+
+      <PackageNav
+        currentTab="Diff"
+        versionCount={data.package.versionCount}
+        dependencyCount={data.package.dependencyCount}
+        dependentCount={data.package.dependentCount}
+        iam={iam}
+        params={params as unknown as Params}
+        latestVersion={data.package.latestVersion}
+      />
+
+      <DiffView
+        docs={data.docs}
+        scope={data.package.scope}
+        pkg={data.package.name}
+        versions={data.versions}
+        oldVersion={params.oldVersion}
+        newVersion={params.newVersion}
+        url={url}
+        request={data.docsReq}
+      />
+    </div>
+  );
+});
+
+export const handler = define.handlers({
+  async GET(ctx) {
+    if (!DIFF_ENABLED) {
+      throw new HttpError(404, "The diff view is currently disabled.");
+    }
+
+    const docsReq = {
+      entrypoint: ctx.params.entrypoint,
+      symbol: ctx.params.symbol,
+    };
+    const res = await packageDataWithDiff(
+      ctx.state,
+      ctx.params.scope,
+      ctx.params.package,
+      ctx.params.oldVersion,
+      ctx.params.newVersion,
+      ctx.url.searchParams.get("full"),
+      docsReq,
+    );
+    if (!res) {
+      throw new HttpError(
+        404,
+        "This package, package version, entrypoint, or symbol was not found.",
+      );
+    }
+    if (res instanceof Response) {
+      return res;
+    }
+
+    if (res.kind === "redirect") {
+      return new Response(null, {
+        status: 307,
+        headers: {
+          "location": res.symbol,
+        },
+      });
+    }
+
+    const {
+      pkg,
+      scopeMember,
+      selectedVersion,
+      docs,
+      downloads,
+      versions,
+    } = res as DiffData;
+    if (selectedVersion !== null && docs === null) {
+      throw new HttpError(
+        404,
+        "This package, package version, entrypoint, or symbol was not found.",
+      );
+    }
+
+    ctx.state.meta = {
+      /* TODO: print symbol kind here (function / class / etc) */
+      title: `Diff${
+        ctx.params.oldVersion && ctx.params.newVersion
+          ? ` ${ctx.params.oldVersion} -> ${ctx.params.newVersion}`
+          : ""
+      } - ${ctx.params.symbol}${
+        ctx.params.entrypoint && ` from ${ctx.params.entrypoint}`
+      } - @${pkg.scope}/${pkg.name} - JSR`,
+      description: `@${ctx.params.scope}/${ctx.params.package} on JSR${
+        pkg.description ? `: ${pkg.description}` : ""
+      }`,
+    };
+    ctx.state.cacheControl =
+      "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400";
+
+    return {
+      data: {
+        package: pkg,
+        downloads,
+        selectedVersion,
+        docs,
+        member: scopeMember,
+        versions,
+        docsReq,
+      },
+      // Diff pages key on old/new version (never `version`), so this branch was
+      // dead and every diff page was indexable — N² version pairs × symbols of
+      // cold-render cardinality with no SEO value. Always `noindex`.
+      headers: { "X-Robots-Tag": "noindex" },
+    };
+  },
+});
+
+export const config: RouteConfig = {
+  routeOverride:
+    "/@:scope/:package/diff/{:oldVersion}?...{:newVersion}?/:entrypoint*/~/:symbol+",
+};

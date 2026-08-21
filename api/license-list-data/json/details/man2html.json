@@ -9,10 +9,19 @@
   "crossRef": [
     {
       "match": "false",
+      "url": "https://docs.oracle.com/cd/E81115_01/html/E81116/licenses.html",
+      "isValid": true,
+      "isLive": true,
+      "timestamp": "2026-07-16T09:28:21Z",
+      "isWayBackLink": false,
+      "order": 2
+    },
+    {
+      "match": "false",
       "url": "https://github.com/hamano/man2html/blob/master/man2html.c",
       "isValid": true,
       "isLive": true,
-      "timestamp": "2025-07-01T14:54:52Z",
+      "timestamp": "2026-07-16T09:28:23Z",
       "isWayBackLink": false,
       "order": 1
     },
@@ -21,18 +30,9 @@
       "url": "http://primates.ximian.com/~flucifredi/man/man-1.6g.tar.gz",
       "isValid": true,
       "isLive": false,
-      "timestamp": "2025-07-01T14:54:52Z",
+      "timestamp": "2026-07-16T09:28:24Z",
       "isWayBackLink": false,
       "order": 0
-    },
-    {
-      "match": "false",
-      "url": "https://docs.oracle.com/cd/E81115_01/html/E81116/licenses.html",
-      "isValid": true,
-      "isLive": true,
-      "timestamp": "2025-07-01T14:54:52Z",
-      "isWayBackLink": false,
-      "order": 2
     }
   ],
   "seeAlso": [
