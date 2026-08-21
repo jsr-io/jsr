@@ -495,10 +495,10 @@ impl Database {
     let service_account_id = Uuid::nil();
     let mut tx = self.pool.begin().await?;
 
-    // Check user exists, and capture the identity provider IDs for the
-    // deletion tombstone below.
+    // Check user exists, and capture the identity data for the deletion
+    // tombstone below.
     let Some(user_row) = sqlx::query!(
-      r#"SELECT github_id, gitlab_id FROM users WHERE id = $1"#,
+      r#"SELECT name, email, github_id, gitlab_id FROM users WHERE id = $1"#,
       id
     )
     .fetch_optional(&mut *tx)
@@ -597,10 +597,13 @@ impl Database {
 
     // Write the deletion audit entry, storing the actual actor in meta
     // so it's preserved even when the actor is the user being deleted.
-    // The identity provider IDs are retained as a minimal tombstone so the
-    // account can be re-identified through the provider if legally required
-    // (GDPR art. 17(3)(b)/(e), CCPA 1798.105(d)); name and email are not
-    // retained.
+    // The user's identity data is retained as a tombstone so abuse and
+    // supply-chain attacks can still be investigated after the account is
+    // gone (GDPR art. 17(3)(b)/(e), CCPA 1798.105(d)). Name and email are
+    // stripped from the entry after one year by the
+    // /tasks/anonymize_deleted_users cron; the internal user ID and the
+    // identity provider IDs are kept indefinitely so the account can be
+    // re-identified through the provider if legally required.
     let audit_actor = if *actor_id == id {
       &service_account_id
     } else {
@@ -614,6 +617,8 @@ impl Database {
       json!({
         "user_id": id,
         "performed_by": actor_id,
+        "name": user_row.name,
+        "email": user_row.email,
         "github_id": user_row.github_id,
         "gitlab_id": user_row.gitlab_id,
       }),
@@ -643,6 +648,27 @@ impl Database {
 
     tx.commit().await?;
     Ok(Some(()))
+  }
+
+  /// Strips name and email from `user_delete` audit tombstones older than
+  /// the cutoff, completing the anonymization of deleted accounts. The
+  /// internal user ID and identity provider IDs remain (see `delete_user`).
+  #[instrument(name = "Database::anonymize_deleted_users", skip(self), err)]
+  pub async fn anonymize_deleted_users(
+    &self,
+    older_than: DateTime<Utc>,
+  ) -> Result<u64> {
+    let result = sqlx::query!(
+      r#"UPDATE audit_logs
+      SET meta = meta - 'name' - 'email'
+      WHERE action = 'user_delete'
+        AND created_at < $1
+        AND (meta ? 'name' OR meta ? 'email')"#,
+      older_than
+    )
+    .execute(&self.pool)
+    .await?;
+    Ok(result.rows_affected())
   }
 
   #[instrument(name = "Database::get_package", skip(self), err)]

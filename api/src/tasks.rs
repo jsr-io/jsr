@@ -86,6 +86,10 @@ pub fn tasks_router() -> Router<Body, ApiError> {
       "/requeue_stuck_publishing_tasks",
       util::json(requeue_stuck_publishing_tasks_handler),
     )
+    .post(
+      "/anonymize_deleted_users",
+      util::json(anonymize_deleted_users_handler),
+    )
     .build()
     .unwrap()
 }
@@ -418,6 +422,22 @@ pub async fn clean_oauth_states_handler(req: Request<Body>) -> ApiResult<()> {
   let cutoff = Utc::now() - Duration::hours(1);
   let deleted = db.delete_expired_oauth_states(cutoff).await?;
   tracing::info!(deleted, "cleaned up expired oauth states");
+  Ok(())
+}
+
+/// Strips name and email from the `user_delete` audit tombstones of accounts
+/// deleted more than a year ago. The identity data is kept for that window so
+/// abuse and supply-chain attacks can still be investigated after an account
+/// is deleted; afterwards only the pseudonymous identifiers remain (see
+/// `Database::delete_user`). Run periodically by Cloud Scheduler.
+#[instrument(name = "POST /tasks/anonymize_deleted_users", skip(req), err)]
+pub async fn anonymize_deleted_users_handler(
+  req: Request<Body>,
+) -> ApiResult<()> {
+  let db = req.data::<Database>().unwrap().clone();
+  let cutoff = Utc::now() - Duration::days(365);
+  let anonymized = db.anonymize_deleted_users(cutoff).await?;
+  tracing::info!(anonymized, "anonymized deleted user tombstones");
   Ok(())
 }
 

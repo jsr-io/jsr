@@ -504,6 +504,7 @@ mod tests {
   async fn delete_own_account() {
     let mut t = TestSetup::new().await;
 
+    let user2_id = t.user2.user.id;
     let user2_token = t.user2.token.clone();
 
     // Create a scope owned solely by user2
@@ -550,6 +551,48 @@ mod tests {
     assert_eq!(members.len(), 1);
     assert_eq!(members[0].user.id, uuid::Uuid::nil());
     assert!(members[0].is_admin);
+
+    // The deletion audit entry retains an identity tombstone for forensics.
+    let find_tombstone = || async {
+      let (_, logs) = t
+        .db()
+        .list_audit_logs(0, 100, Some("user_delete"), None, false)
+        .await
+        .unwrap();
+      logs
+        .into_iter()
+        .map(|(log, _)| log)
+        .find(|log| log.action == "user_delete")
+        .unwrap()
+    };
+    let tombstone = find_tombstone().await;
+    assert_eq!(tombstone.meta["name"], "User 2");
+    assert_eq!(tombstone.meta["github_id"], 102);
+
+    // Tombstones younger than the cutoff are left alone.
+    let anonymized = t
+      .db()
+      .anonymize_deleted_users(chrono::Utc::now() - chrono::Duration::days(1))
+      .await
+      .unwrap();
+    assert_eq!(anonymized, 0);
+
+    // Once past the cutoff, name and email are stripped but the
+    // pseudonymous identifiers remain.
+    let anonymized = t
+      .db()
+      .anonymize_deleted_users(chrono::Utc::now() + chrono::Duration::days(1))
+      .await
+      .unwrap();
+    assert_eq!(anonymized, 1);
+    let tombstone = find_tombstone().await;
+    assert!(tombstone.meta.get("name").is_none());
+    assert!(tombstone.meta.get("email").is_none());
+    assert_eq!(tombstone.meta["github_id"], 102);
+    assert_eq!(
+      tombstone.meta["user_id"],
+      serde_json::Value::String(user2_id.to_string())
+    );
   }
 
   #[tokio::test]
