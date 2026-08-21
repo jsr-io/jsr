@@ -1,9 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError, RouteConfig } from "fresh";
-import { TbArrowLeft, TbCheck, TbClock } from "tb-icons";
+import TbArrowLeft from "tb-icons/TbArrowLeft";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 import twas from "twas";
 import { define } from "../util.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { TicketMessageInput } from "../islands/TicketMessageInput.tsx";
 import { TicketTitle } from "../components/TicketTitle.tsx";
 import type { ApiTicketOverview, TicketKind } from "../utils/api_types.ts";
@@ -181,7 +183,7 @@ export const handler = define.handlers({
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
-    if (!ticketResp.ok) throw ticketResp; // gracefully handle this
+    assertOk(ticketResp);
 
     ctx.state.meta = {
       title: `Ticket ${ticketResp.data.id} - JSR`,

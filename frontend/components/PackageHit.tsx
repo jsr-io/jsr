@@ -1,10 +1,11 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-import type { OramaPackageHit } from "../util.ts";
+import type { AlgoliaPackageHit } from "../util.ts";
 import type { Package, RuntimeCompat } from "../utils/api_types.ts";
 import { getScoreBgColorClass } from "../utils/score_ring_color.ts";
 import type { ListDisplayItem } from "./List.tsx";
 import { RuntimeCompatIndicator } from "./RuntimeCompatIndicator.tsx";
 import TbArchiveFilled from "tb-icons/TbArchiveFilled";
+import TbFileDescription from "tb-icons/TbFileDescription";
 import TbLockFilled from "tb-icons/TbLockFilled";
 
 const runtimeCompatExists = (compat: RuntimeCompat) => {
@@ -12,12 +13,12 @@ const runtimeCompatExists = (compat: RuntimeCompat) => {
     compat?.bun;
 };
 
-export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
+export function PackageHit(pkg: AlgoliaPackageHit | Package): ListDisplayItem {
   return {
     href: `/@${pkg.scope}/${pkg.name}`,
     content: (
-      <div class="grow-1 w-full flex flex-col md:flex-row gap-2 justify-between">
-        <div class="grow-1">
+      <div class="grow w-full flex flex-col md:flex-row gap-2 justify-between">
+        <div class="grow">
           <div class="flex flex-wrap items-baseline gap-x-2 mb-2 md:mb-0">
             <span class="text-jsr-cyan-700 dark:text-cyan-400 font-semibold">
               {`@${pkg.scope}/${pkg.name}`}
@@ -69,6 +70,17 @@ export function PackageHit(pkg: OramaPackageHit | Package): ListDisplayItem {
           </div>
         )}
       </div>
+    ),
+    actions: (
+      <a
+        href={`/@${pkg.scope}/${pkg.name}/doc`}
+        class="flex items-center gap-1 text-sm text-secondary hover:text-jsr-cyan-700 dark:hover:text-jsr-cyan-400 px-2 py-1 rounded hover:bg-jsr-cyan-100 dark:hover:bg-jsr-cyan-900 transition-colors"
+        aria-label="Documentation"
+        title="Documentation"
+      >
+        <TbFileDescription class="size-5" />
+        <span class="hidden sm:inline">Docs</span>
+      </a>
     ),
   };
 }

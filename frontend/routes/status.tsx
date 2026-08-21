@@ -5,13 +5,15 @@ import type {
   PublishingTask,
   PublishingTaskStatus,
 } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { packageData } from "../utils/data.ts";
 import { PackageHeader } from "./package/(_components)/PackageHeader.tsx";
 import { PackageNav } from "./package/(_components)/PackageNav.tsx";
 import twas from "twas";
 import PublishingTaskRequeue from "../islands/PublishingTaskRequeue.tsx";
-import { TbAlertCircle, TbCheck, TbClockHour3 } from "tb-icons";
+import TbAlertCircle from "tb-icons/TbAlertCircle";
+import TbCheck from "tb-icons/TbCheck";
+import TbClockHour3 from "tb-icons/TbClockHour3";
 import { scopeIAM } from "../utils/iam.ts";
 
 export default define.page<typeof handler>(function PackageListPage({
@@ -121,7 +123,7 @@ export const handler = define.handlers({
     const publishingTaskResp = await ctx.state.api.get<PublishingTask>(
       path`/publishing_tasks/${ctx.params.publishingTask}`,
     );
-    if (!publishingTaskResp.ok) throw publishingTaskResp; // gracefully handle this
+    assertOk(publishingTaskResp);
 
     const res = await packageData(
       ctx.state,

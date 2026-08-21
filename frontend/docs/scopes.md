@@ -4,8 +4,8 @@ description: Scopes are groups that jointly administer a set of packages. Learn 
 ---
 
 On JSR, all packages are contained within a scope. A scope is a group that
-jointly administers a set of packages. Scopes are owned by a single user, and
-can have multiple members.
+jointly administers a set of packages. Scopes have no single owner, and are
+instead managed by one or more admins.
 
 Scopes on JSR are similar to npm organizations. Scopes are prefixed with an `@`
 symbol. Scope names must be between 2 and 20 characters long, and can only

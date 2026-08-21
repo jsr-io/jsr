@@ -21,11 +21,15 @@ export const RUNTIME_COMPAT_KEYS: [
 
 export function RuntimeCompatIndicator(
   { runtimeCompat, hideUnknown, compact }: {
-    runtimeCompat: RuntimeCompat;
+    runtimeCompat: RuntimeCompat | null | undefined;
     hideUnknown?: boolean;
     compact?: boolean;
   },
 ) {
+  // Search hits may omit runtimeCompat; treat a missing object as "all unknown"
+  // rather than crashing while rendering.
+  runtimeCompat ??= {};
+
   const worksWithArray: string[] = [];
   const unknownWithArray: string[] = [];
 

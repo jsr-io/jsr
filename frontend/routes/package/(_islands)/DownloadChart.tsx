@@ -14,99 +14,111 @@ interface Props {
 
 export type AggregationPeriod = "daily" | "weekly" | "monthly";
 
-export function DownloadChart(props: Props) {
-  const chartDivRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<ApexCharts>(null);
-  const graphRendered = useSignal(false);
-
-  const getChartOptions = (
-    isDarkMode: boolean,
-    aggregationPeriod: AggregationPeriod = "weekly",
-  ) => ({
-    chart: {
-      type: "area",
-      stacked: true,
-      animations: {
-        enabled: false,
-      },
-      height: "100%",
-      width: "100%",
-      zoom: {
-        allowMouseWheelZoom: false,
-      },
-      background: "transparent",
-      foreColor: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+const getChartOptions = (
+  isDarkMode: boolean,
+  stacked: boolean,
+): ApexCharts.ApexOptions => ({
+  chart: {
+    type: "area",
+    stacked,
+    animations: {
+      enabled: false,
     },
-    legend: {
-      horizontalAlign: "center",
-      position: "top",
-      showForSingleSeries: true,
-      labels: {
+    height: "100%",
+    width: "100%",
+    zoom: {
+      allowMouseWheelZoom: false,
+    },
+    background: "transparent",
+    foreColor: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+  },
+  legend: {
+    horizontalAlign: "right",
+    offsetY: -1,
+    position: "top",
+    showForSingleSeries: true,
+    labels: {
+      colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+    },
+  },
+  tooltip: {
+    theme: isDarkMode ? "dark" : "light",
+  },
+  dataLabels: {
+    enabled: false,
+  },
+  stroke: {
+    curve: "straight",
+    width: 1.7,
+  },
+  xaxis: {
+    type: "datetime",
+    tooltip: {
+      enabled: false,
+    },
+    labels: {
+      style: {
+        colors: isDarkMode ? "#ced3da" : "#515d6c", // jsr-gray-200 for dark mode, jsr-gray-600 for light
+      },
+    },
+    axisBorder: {
+      color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
+    },
+    axisTicks: {
+      color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
+    },
+  },
+  yaxis: {
+    labels: {
+      style: {
         colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
       },
     },
-    tooltip: {
-      items: {
-        padding: 0,
-      },
-      theme: isDarkMode ? "dark" : "light",
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    stroke: {
-      curve: "straight",
-      width: 1.7,
-    },
-    series: getSeries(props.downloads, aggregationPeriod),
-    xaxis: {
-      type: "datetime",
-      tooltip: {
-        enabled: false,
-      },
-      labels: {
-        style: {
-          colors: isDarkMode ? "#ced3da" : "#515d6c", // jsr-gray-200 for dark mode, jsr-gray-600 for light
-        },
-      },
-      axisBorder: {
-        color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
-      },
-      axisTicks: {
-        color: isDarkMode ? "#47515c" : "#ced3da", // jsr-gray-700 for dark mode, jsr-gray-200 for light
-      },
-    },
-    yaxis: {
-      labels: {
-        style: {
-          colors: isDarkMode ? "#a8b2bd" : "#515d6c", // jsr-gray-300 for dark mode, jsr-gray-600 for light
+  },
+  grid: {
+    borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
+    strokeDashArray: 3,
+  },
+  responsive: [
+    {
+      breakpoint: 768,
+      options: {
+        horizontalAlign: "left",
+        legend: {
+          offsetY: -30,
         },
       },
     },
-    grid: {
-      borderColor: isDarkMode ? "#47515c" : "#e5e8eb", // jsr-gray-700 for dark mode, jsr-gray-100 for light
-      strokeDashArray: 3,
-    },
-    responsive: [
-      {
-        breakpoint: 768,
-        options: {
-          legend: {
-            horizontalAlign: "left",
-          },
-        },
-      },
-    ],
-  });
+  ],
+});
+
+// Considers data "present" only when at least one fully-completed week exists,
+// so the chart, widget, and header agree on the empty-state for a given package.
+export function hasCompletedWeekData(downloads: DownloadDataPoint[]): boolean {
+  return collectX(downloads, "weekly").length > 1;
+}
+
+export function DownloadChart(props: Props) {
+  const hasData = hasCompletedWeekData(
+    props.downloads.flatMap((v) => v.downloads),
+  );
+
+  const chartDivRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ApexCharts>(null);
+  const stackedRef = useRef(true);
+  const graphRendered = useSignal(false);
 
   useEffect(() => {
+    if (!hasData) return;
     (async () => {
       const { default: ApexCharts } = await import("apexcharts");
       const isDarkMode = document.documentElement.classList.contains("dark");
 
+      const initialOptions = getChartOptions(isDarkMode, stackedRef.current);
+      initialOptions.series = getSeries(props.downloads, "weekly");
       chartRef.current = new ApexCharts(
         chartDivRef.current!,
-        getChartOptions(isDarkMode),
+        initialOptions,
       );
 
       chartRef.current.render();
@@ -118,7 +130,9 @@ export function DownloadChart(props: Props) {
           "dark",
         );
         if (chartRef.current) {
-          chartRef.current?.updateOptions(getChartOptions(newIsDarkMode));
+          chartRef.current?.updateOptions(
+            getChartOptions(newIsDarkMode, stackedRef.current),
+          );
         }
       });
 
@@ -135,43 +149,83 @@ export function DownloadChart(props: Props) {
     })();
   }, []);
 
+  if (!hasData) {
+    return (
+      <div class="h-[300px] flex items-center justify-center text-tertiary">
+        No download data available yet.
+      </div>
+    );
+  }
+
   return (
     <div class="relative">
       {graphRendered.value && (
-        <div className="absolute flex items-center gap-2 pt-1 text-sm pl-5 z-20">
-          <label htmlFor="aggregationPeriod" className="text-secondary">
-            Aggregation Period:
-          </label>
-          <select
-            id="aggregationPeriod"
-            onChange={(e) => {
-              const isDarkMode = document.documentElement.classList.contains(
-                "dark",
-              );
-              const newAggregationPeriod = e.currentTarget
-                .value as AggregationPeriod;
-
-              // Update chart with new options including the new aggregation period
-              chartRef.current?.updateOptions(
-                getChartOptions(isDarkMode, newAggregationPeriod),
-              );
-
-              chartRef.current?.updateSeries(
-                getSeries(
-                  props.downloads,
-                  e.currentTarget.value as AggregationPeriod,
-                ),
-              );
-            }}
-            className="input-container input select w-20"
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly" selected>Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
+        <div className="absolute flex top-2 md:-top-4 gap-2 pt-4 text-sm pl-4  z-20">
+          <div className="flex items-center gap-2">
+            <label htmlFor="aggregationPeriod" className="text-secondary">
+              Aggregation Period:
+            </label>
+            <select
+              id="aggregationPeriod"
+              onChange={(e) => {
+                chartRef.current?.updateSeries(
+                  getSeries(
+                    props.downloads,
+                    e.currentTarget.value as AggregationPeriod,
+                  ),
+                );
+              }}
+              className="input-container input select w-20"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly" selected>
+                Weekly
+              </option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="displayAs" className="text-secondary">
+              Display as
+            </label>
+            <select
+              id="displayAs"
+              onChange={(e) => {
+                const newDisplay = e.currentTarget.value === "stacked";
+                stackedRef.current = newDisplay;
+                // Update chart with new options including the new stacked display
+                chartRef.current?.updateOptions(
+                  { chart: { stacked: newDisplay } },
+                );
+              }}
+              className="input-container input select w-24"
+            >
+              <option value="stacked" selected>Stacked</option>
+              <option value="unstacked">
+                Unstacked
+              </option>
+            </select>
+          </div>
         </div>
       )}
-      <div className="h-[300px] md:pt-0 pt-10 text-secondary">
+      <style>
+        {`
+        .apexcharts-legend.apexcharts-align-right.apx-legend-position-top {
+          right: unset !important;
+        }
+        @media (max-width: 598px) {
+          .apexcharts-toolbar {
+            top: -28px !important;
+          }
+        }
+        @media (min-width: 768px) {
+          .apexcharts-legend.apexcharts-align-right.apx-legend-position-top {
+            right: 125px !important;
+          }
+        }
+      `}
+      </style>
+      <div className="h-[300px] md:pt-0 pt-5 text-secondary">
         <div ref={chartDivRef} />
       </div>
     </div>
@@ -198,19 +252,17 @@ function adjustTimePeriod(
   switch (aggregation) {
     case "weekly":
       // start of week (Sunday) in UTC
-      out = new Date(Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate() - date.getUTCDay(),
-      ));
+      out = new Date(
+        Date.UTC(
+          date.getUTCFullYear(),
+          date.getUTCMonth(),
+          date.getUTCDate() - date.getUTCDay(),
+        ),
+      );
       break;
     case "monthly":
       // first day of month in UTC
-      out = new Date(Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        1,
-      ));
+      out = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
       break;
     default: // daily
       out = date;
@@ -228,8 +280,8 @@ export function collectX(
     xValues.add(adjustTimePeriod(point.timeBucket, aggregationPeriod));
   });
 
-  return Array.from(xValues).sort((a, b) =>
-    new Date(a).getTime() - new Date(b).getTime()
+  return Array.from(xValues).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime(),
   );
 }
 
@@ -253,17 +305,18 @@ export function normalize(
     }
   });
 
-  return Object.entries(normalized).map((
-    [key, value],
-  ) => [new Date(key).getTime(), value]);
+  return Object.entries(normalized).map(([key, value]) => [
+    new Date(key).getTime(),
+    value,
+  ]);
 }
 
 function getSeries(
   recentVersions: PackageDownloadsRecentVersion[],
   aggregationPeriod: AggregationPeriod,
 ) {
-  const dataPointsWithDownloads = recentVersions.filter((dataPoints) =>
-    dataPoints.downloads.length > 0
+  const dataPointsWithDownloads = recentVersions.filter(
+    (dataPoints) => dataPoints.downloads.length > 0,
   );
 
   const dataPointsToDisplay = dataPointsWithDownloads.slice(0, 5);

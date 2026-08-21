@@ -149,12 +149,12 @@ These badges can be customized by adding query parameters to the URL, for
 example:
 
 ```
-https://jsr.io/badges/@luca?logoColor=f7fd1e&color=f7fd1e&labelColor=083344
+https://jsr.io/badges/@luca?logoColor=f7df1e&color=f7df1e&labelColor=083344
 ```
 
 Here's how it looks:
 
-[![JSR Scope](https://jsr.io/badges/@luca?logoColor=f7fd1e&color=f7fd1e&labelColor=083344)](https://jsr.io/@luca)
+[![JSR Scope](https://jsr.io/badges/@luca?logoColor=f7df1e&color=f7df1e&labelColor=083344)](https://jsr.io/@luca)
 
 The supported style-related query parameters can be found in the
 [Shields.io documentation](https://shields.io/badges/endpoint-badge#:~:text=Query%20Parameters).

@@ -1,7 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { HttpError } from "fresh";
 import { define } from "../../util.ts";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { FullUser, Scope, User } from "../../utils/api_types.ts";
 import { ScopeCard } from "../../components/ScopeCard.tsx";
 import { AccountLayout } from "../account/(_components)/AccountLayout.tsx";
@@ -56,14 +56,11 @@ export const handler = define.handlers({
     ]);
     if (currentUser instanceof Response) return currentUser;
 
-    if (!userRes.ok) {
-      if (userRes.code == "userNotFound") {
-        throw new HttpError(404, "This user was not found.");
-      }
-
-      throw userRes; // gracefully handle errors
+    if (!userRes.ok && userRes.code === "userNotFound") {
+      throw new HttpError(404, "This user was not found.");
     }
-    if (!scopesRes.ok) throw scopesRes; // gracefully handle errors
+    assertOk(userRes);
+    assertOk(scopesRes);
 
     let user: User | FullUser = userRes.data;
     if (ctx.params.id === currentUser?.id) {

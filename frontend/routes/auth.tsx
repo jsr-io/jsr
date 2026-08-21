@@ -4,7 +4,7 @@ import { HttpError, RouteConfig } from "fresh";
 import { ComponentChild } from "preact";
 import { define } from "../util.ts";
 import Authorize from "../islands/Authorize.tsx";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import type {
   Authorization,
   Permission,
@@ -97,13 +97,13 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
 
   switch (permission?.permission ?? null) {
     case null:
-      icon = <TbChevronRight class="w-12 h-12 flex-shrink-0" />;
+      icon = <TbChevronRight class="w-12 h-12 shrink-0" />;
       title = "Full access";
       description =
         "Including creating scopes, publishing any package, adding members, removing members, and more";
       break;
     case "package/publish":
-      icon = <TbChevronRight class="w-12 h-12 flex-shrink-0" />;
+      icon = <TbChevronRight class="w-12 h-12 shrink-0" />;
       if ("package" in permission!) {
         title = `Publish any version of @${permission!.scope}/${
           permission!.package
@@ -112,12 +112,35 @@ function PermissionTile({ permission }: { permission: Permission | null }) {
           `This application will be able to publish new versions of the package @${
             permission!.scope
           }/${permission!.package}`;
-      } else {
+      } else if ("scope" in permission!) {
         title = `Publishing any version in @${permission!.scope}`;
         description =
           `This application will be able to publish new versions of any existing package in the scope @${
             permission!.scope
           }`;
+      } else {
+        title = "Publishing any version of any package";
+        description =
+          "This application will be able to publish new versions of any package in any scope you have access to";
+      }
+      break;
+    case "package/read":
+      icon = <TbChevronRight class="w-12 h-12 shrink-0" />;
+      if ("package" in permission!) {
+        title = `Read @${permission!.scope}/${permission!.package}`;
+        description = `This application will be able to read the package @${
+          permission!.scope
+        }/${permission!.package}, even if it is private`;
+      } else if ("scope" in permission!) {
+        title = `Read any package in @${permission!.scope}`;
+        description =
+          `This application will be able to read any package in the scope @${
+            permission!.scope
+          }, including private packages`;
+      } else {
+        title = "Read any package";
+        description =
+          "This application will be able to read any package you have access to, including private packages";
       }
       break;
 
@@ -152,7 +175,7 @@ export const handler = define.handlers({
       if (authorizationResp.code === "authorizationNotFound") {
         throw new HttpError(404, "Authorization not found");
       }
-      throw authorizationResp; // gracefully handle this
+      assertOk(authorizationResp);
     }
 
     const authorization = authorizationResp?.data ?? null;

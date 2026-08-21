@@ -5,7 +5,10 @@ import { define } from "../../util.ts";
 import { packageDataWithSource } from "../../utils/data.ts";
 import { PackageNav, Params } from "./(_components)/PackageNav.tsx";
 import { PackageHeader } from "./(_components)/PackageHeader.tsx";
-import { TbFileOff, TbFolder, TbFolderOpen, TbSourceCode } from "tb-icons";
+import TbFileOff from "tb-icons/TbFileOff";
+import TbFolder from "tb-icons/TbFolder";
+import TbFolderOpen from "tb-icons/TbFolderOpen";
+import TbSourceCode from "tb-icons/TbSourceCode";
 import { ListDisplay } from "../../components/List.tsx";
 import { scopeIAM } from "../../utils/iam.ts";
 import { format as formatBytes } from "@std/fmt/bytes";
@@ -25,10 +28,6 @@ export default define.page<typeof handler>(function PackagePage(
           <style
             // deno-lint-ignore react-no-danger
             dangerouslySetInnerHTML={{ __html: data.source.comrakCss }}
-          />
-          <style
-            // deno-lint-ignore react-no-danger
-            dangerouslySetInnerHTML={{ __html: data.source.css }}
           />
           <script
             hidden
@@ -60,7 +59,7 @@ export default define.page<typeof handler>(function PackagePage(
             class="flex items-center gap-2.5 px-5 py-3 bg-jsr-cyan-50 dark:bg-jsr-cyan-950 border-b border-jsr-cyan-100 dark:border-jsr-cyan-900"
           >
             <TbFolderOpen
-              class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 flex-shrink-0"
+              class="text-jsr-cyan-700 dark:text-jsr-cyan-400 size-5 shrink-0"
               aria-hidden="true"
             />
             <div class="flex flex-row flex-wrap gap-1 items-center">
@@ -134,7 +133,7 @@ export default define.page<typeof handler>(function PackagePage(
                     : (
                       <div class="flex items-center gap-2 px-5 py-4 text-secondary">
                         <TbFileOff
-                          class="size-5 flex-shrink-0"
+                          class="size-5 shrink-0"
                           aria-hidden="true"
                         />
                         <span>Source cannot be displayed.</span>
@@ -144,7 +143,7 @@ export default define.page<typeof handler>(function PackagePage(
             )
             : (
               <div class="flex items-center gap-2 px-5 py-4 text-secondary">
-                <TbFileOff class="size-5 flex-shrink-0" aria-hidden="true" />
+                <TbFileOff class="size-5 shrink-0" aria-hidden="true" />
                 <span>Source does not exist.</span>
               </div>
             )}
@@ -156,7 +155,7 @@ export default define.page<typeof handler>(function PackagePage(
 
 function DirEntry({ entry }: { entry: SourceDirEntry }) {
   return (
-    <div class="grow-1 flex justify-between items-center w-full">
+    <div class="grow flex justify-between items-center w-full">
       <div class="flex items-center gap-2">
         <div class="text-tertiary">
           {entry.kind === "dir" ? <TbFolder /> : <TbSourceCode />}
@@ -224,6 +223,10 @@ export const handler = define.handlers({
         pkg.description ? `: ${pkg.description}` : ""
       }`,
     };
+    ctx.state.cacheControl = ctx.params.version
+      ? "public, max-age=30, s-maxage=3600, stale-while-revalidate=10800"
+      : "public, max-age=30, s-maxage=120, stale-while-revalidate=360";
+
     return {
       data: {
         package: pkg,

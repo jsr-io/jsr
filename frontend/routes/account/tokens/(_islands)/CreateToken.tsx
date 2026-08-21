@@ -10,22 +10,22 @@ import { api, APIResponseError, path } from "../../../../utils/api.ts";
 import { CreatedToken, Permission } from "../../../../utils/api_types.ts";
 import { ErrorDisplay } from "../../../../components/ErrorDisplay.tsx";
 
-export function CreateToken() {
+export function CreateToken({ url }: { url: URL }) {
   const usage = useSignal<"publish" | "read" | "api" | null>(null);
 
   switch (usage.value) {
     case null:
       return <ChooseUsage usage={usage} />;
     case "publish":
-      return <PublishTokenFlow />;
+      return <PublishTokenFlow url={url} />;
     case "read":
-      return <ReadTokenFlow />;
+      return <ReadTokenFlow url={url} />;
     case "api":
-      return <ApiTokenFlow />;
+      return <ApiTokenFlow url={url} />;
   }
 }
 
-function PublishTokenFlow() {
+function PublishTokenFlow({ url }: { url: URL }) {
   const env = useSignal<
     "development" | "github_actions" | "other_ci_service" | null
   >(null);
@@ -60,6 +60,7 @@ function PublishTokenFlow() {
 
   return (
     <CreateTokenForm
+      url={url}
       usage="publish"
       descriptions={{
         package: "Publish new versions of this package",
@@ -70,7 +71,7 @@ function PublishTokenFlow() {
   );
 }
 
-function ReadTokenFlow() {
+function ReadTokenFlow({ url }: { url: URL }) {
   const willBeSafe = useSignal(false);
 
   if (!willBeSafe.value) {
@@ -86,6 +87,7 @@ function ReadTokenFlow() {
 
   return (
     <CreateTokenForm
+      url={url}
       usage="read"
       descriptions={{
         package: "Read this (private) package",
@@ -96,7 +98,7 @@ function ReadTokenFlow() {
   );
 }
 
-function ApiTokenFlow() {
+function ApiTokenFlow({ url }: { url: URL }) {
   const willBeSafe = useSignal(false);
 
   if (!willBeSafe.value) {
@@ -111,7 +113,7 @@ function ApiTokenFlow() {
     );
   }
 
-  return <CreateTokenForm usage="api" />;
+  return <CreateTokenForm url={url} usage="api" />;
 }
 
 function useRadioGroup<T extends string>(
@@ -326,7 +328,8 @@ function DangerWarning(
 }
 
 function CreateTokenForm(
-  { usage, descriptions }: {
+  { url, usage, descriptions }: {
+    url: URL;
     usage: "publish" | "read" | "api";
     descriptions?: PermissionDescriptions;
   },
@@ -443,7 +446,7 @@ function CreateTokenForm(
       </button>
       {error.value !== null && (
         <div class="mt-8">
-          <ErrorDisplay error={error.value} />
+          <ErrorDisplay error={error.value} url={url} />
         </div>
       )}
     </form>

@@ -2,7 +2,7 @@
 
 import { HttpError } from "fresh";
 import { define } from "../../../util.ts";
-import { path } from "../../../utils/api.ts";
+import { assertOk, path } from "../../../utils/api.ts";
 import { Token } from "../../../utils/api_types.ts";
 import { AccountLayout } from "../(_components)/AccountLayout.tsx";
 import { Card } from "../../../components/Card.tsx";
@@ -135,10 +135,23 @@ function PersonalTokenRow({ token }: { token: Token }) {
               return `Can publish ${
                 "package" in perm
                   ? `new versions of @${perm.scope}/${perm.package}`
-                  : `new versions of any package in @${perm.scope}`
+                  : "scope" in perm
+                  ? `new versions of any package in @${perm.scope}`
+                  : "new versions of any package"
               }`;
             }
-            return `has unknown permission: ${perm.permission}`;
+            if (perm.permission === "package/read") {
+              return `Can read ${
+                "package" in perm
+                  ? `@${perm.scope}/${perm.package}`
+                  : "scope" in perm
+                  ? `any private package in @${perm.scope}`
+                  : "any private package"
+              }`;
+            }
+            return `has unknown permission: ${
+              (perm as { permission: string }).permission
+            }`;
           }).join(", ")}
       </p>
     </li>
@@ -194,7 +207,7 @@ export const handler = define.handlers({
     if (currentUser instanceof Response) return currentUser;
     if (!currentUser) throw new HttpError(404, "No signed in user found.");
 
-    if (!tokensRes.ok) throw tokensRes; // gracefully handle errors
+    assertOk(tokensRes);
 
     ctx.state.meta = { title: "Your tokens - JSR" };
     return {

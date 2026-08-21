@@ -3,10 +3,9 @@ use hyper::Body;
 use hyper::Response;
 use std::borrow::Cow;
 
-use crate::errors;
-use crate::gcp::GcsError;
-
 use super::ApiPublishingTask;
+use crate::errors;
+use crate::s3::S3Error;
 
 errors!(
   TarballSizeLimitExceeded {
@@ -44,6 +43,18 @@ errors!(
     status: NOT_FOUND,
     "The requested package version was not found.",
   },
+  DiffNoIndex {
+    status: NOT_FOUND,
+    "Diffs do not have an index.",
+  },
+  DiffDisabled {
+    status: NOT_FOUND,
+    "The diff view is currently disabled.",
+  },
+  DocsOnlyForLatestVersion {
+    status: NOT_FOUND,
+    "Documentation is only available for the latest version of a package.",
+  },
   EntrypointOrSymbolNotFound {
     status: NOT_FOUND,
     "The requested entrypoint or symbol was not found.",
@@ -73,6 +84,18 @@ errors!(
   InvalidOauthState {
     status: BAD_REQUEST,
     "Invalid OAuth State.",
+  },
+  MissingTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha was not completed. Please complete the captcha and try again.",
+  },
+  InvalidTurnstileToken {
+    status: BAD_REQUEST,
+    "The captcha response was invalid or has already been used. Please try again.",
+  },
+  TurnstileVerificationFailed {
+    status: SERVICE_UNAVAILABLE,
+    "The captcha could not be verified at this time. Please try again shortly.",
   },
   Blocked {
     status: FORBIDDEN,
@@ -253,6 +276,18 @@ errors!(
     status: BAD_REQUEST,
     "The metadata for the ticket is not in a valid format, should be a key-value of strings.",
   },
+  UnknownLoginService {
+    status: BAD_REQUEST,
+    "The login service is not known.",
+  },
+  ConnectTakenService {
+    status: BAD_REQUEST,
+    "Another user is already connected with this user from the provided service.",
+  },
+  DisconnectLastService {
+    status: BAD_REQUEST,
+    "You cannot disconnect the last connected service.",
+  },
 );
 
 pub fn map_unique_violation(err: sqlx::Error, new_err: ApiError) -> ApiError {
@@ -366,8 +401,32 @@ impl From<oauth2::ConfigurationError> for ApiError {
   }
 }
 
-impl From<GcsError> for ApiError {
-  fn from(error: GcsError) -> ApiError {
+impl
+  From<
+    oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  > for ApiError
+{
+  fn from(
+    error: oauth2::RequestTokenError<
+      oauth2::reqwest::Error<reqwest::Error>,
+      oauth2::basic::BasicRevocationErrorResponse,
+    >,
+  ) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<crate::docs::DocNodeCacheError> for ApiError {
+  fn from(error: crate::docs::DocNodeCacheError) -> ApiError {
+    anyhow::Error::from(error).into()
+  }
+}
+
+impl From<S3Error> for ApiError {
+  fn from(error: S3Error) -> ApiError {
     anyhow::Error::from(error).into()
   }
 }

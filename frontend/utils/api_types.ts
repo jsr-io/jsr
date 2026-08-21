@@ -1,8 +1,17 @@
+import {
+  AllSymbolsCtx,
+  BreadcrumbsCtx,
+  ModuleDocCtx,
+  SymbolGroupCtx,
+  ToCCtx,
+} from "@deno/doc/html-types";
+
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 export interface User {
   id: string;
   name: string;
   githubId: number | null;
+  gitlabId: number | null;
   avatarUrl: string;
   updatedAt: string;
   createdAt: string;
@@ -96,6 +105,7 @@ export interface PackageScore {
   hasReadme: boolean;
   hasReadmeExamples: boolean;
   allEntrypointsDocs: boolean;
+  entrypointsWithoutDocs: string[];
   percentageDocumentedSymbols: number;
   allFastCheck: boolean;
   hasProvenance: boolean;
@@ -135,8 +145,9 @@ export interface PackageVersion {
   version: string;
   yanked: boolean;
   usesNpm: boolean;
-  newerVersionsCount: number;
+  newerVersionsCount: number | null;
   rekorLogId: string | null;
+  license: string | null;
   readmePath: string;
   updatedAt: string;
   createdAt: string;
@@ -149,13 +160,18 @@ export interface PackageVersionWithUser extends PackageVersion {
 export interface PackageVersionDocsContent {
   kind: "content";
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
-  breadcrumbs: string | null;
-  toc: string | null;
-  main: string;
+  breadcrumbs: BreadcrumbsCtx | null;
+  toc: ToCCtx;
+  main: DocsMainContent;
 }
+
+export type DocsMainContent =
+  | { kind: "allSymbols"; value: AllSymbolsCtx }
+  | { kind: "index"; value: ModuleDocCtx }
+  | { kind: "file"; value: ModuleDocCtx }
+  | { kind: "symbol"; value: SymbolGroupCtx };
 
 export interface PackageVersionDocsRedirect {
   kind: "redirect";
@@ -185,7 +201,6 @@ export interface SourceFile {
 
 export interface PackageVersionSource {
   version: PackageVersionWithUser;
-  css: string;
   comrakCss: string;
   script: string;
   source: SourceDir | SourceFile;
@@ -249,6 +264,7 @@ export interface Dependency {
   name: string;
   constraint: string;
   path: string;
+  fallbackUrl: string | null;
 }
 
 export interface PackageVersionReference {
@@ -257,10 +273,23 @@ export interface PackageVersionReference {
   version: string;
 }
 
+export interface StatsPackage {
+  scope: string;
+  name: string;
+  description: string;
+}
+
+export interface StatsPackageVersion {
+  scope: string;
+  package: string;
+  version: string;
+  description: string;
+}
+
 export interface Stats {
-  newest: Package[];
-  updated: PackageVersionWithUser[];
-  featured: Package[];
+  newest: StatsPackage[];
+  updated: StatsPackageVersion[];
+  featured: StatsPackage[];
 }
 
 export interface List<T> {
@@ -301,6 +330,7 @@ export interface DependencyGraphKindJsr {
   package: string;
   version: string;
   entrypoint: DependencyGraphJsrEntrypoint;
+  fallbackUrl: string | null;
 }
 
 export interface DependencyGraphKindNpm {

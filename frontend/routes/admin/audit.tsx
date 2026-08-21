@@ -1,6 +1,6 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { Table, TableData, TableRow } from "../../components/Table.tsx";
-import { path } from "../../utils/api.ts";
+import { assertOk, path } from "../../utils/api.ts";
 import { AuditLog, List } from "../../utils/api_types.ts";
 import { AdminNav } from "./(_components)/AdminNav.tsx";
 import { AuditURLQuerySearch } from "./(_islands)/AuditURLQuerySearch.tsx";
@@ -87,7 +87,7 @@ export const handler = define.handlers({
         sudoOnly,
       },
     );
-    if (!resp.ok) throw resp; // gracefully handle this
+    assertOk(resp);
 
     return {
       data: {

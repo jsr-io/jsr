@@ -1,8 +1,8 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { define } from "../util.ts";
-import { OramaClient } from "@oramacloud/client";
+import { liteClient } from "algoliasearch/lite";
 import type { List, Package } from "../utils/api_types.ts";
-import { path } from "../utils/api.ts";
+import { assertOk, path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { processFilter } from "../islands/GlobalSearch.tsx";
@@ -29,17 +29,13 @@ export default define.page<typeof handler>(function PackageListPage({
           </span>
           <div class="flex items-center gap-1">
             <span className="text-sm text-tertiary">powered by</span>
-            <span className="sr-only">Orama</span>
-            <img
-              className="h-4 dark:hidden"
-              src="/logos/orama-dark.svg"
-              alt=""
-            />
-            <img
-              className="h-4 hidden dark:block"
-              src="/logos/orama-light.svg"
-              alt=""
-            />
+            <a
+              href="https://www.algolia.com/?utm_medium=AOS-referral"
+              target="_blank"
+              aria-label="Algolia"
+            >
+              <img class="h-4" src="/logos/algolia.svg" alt="Algolia" />
+            </a>
           </div>
         </div>
       </div>
@@ -47,8 +43,9 @@ export default define.page<typeof handler>(function PackageListPage({
   );
 });
 
-const apiKey = Deno.env.get("ORAMA_PACKAGE_PUBLIC_API_KEY");
-const indexId = Deno.env.get("ORAMA_PACKAGE_PUBLIC_INDEX_ID");
+const appId = process.env.ALGOLIA_APP_ID;
+const apiKey = process.env.ALGOLIA_PACKAGES_SEARCH_API_KEY;
+const indexName = process.env.ALGOLIA_PACKAGES_INDEX;
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -58,33 +55,25 @@ export const handler = define.handlers({
 
     let packages: Package[];
     let total;
-    if (apiKey) {
-      const orama = new OramaClient({
-        endpoint: `https://cloud.orama.run/v1/indexes/${indexId!}`,
-        api_key: apiKey,
+    if (appId && apiKey && indexName) {
+      const algolia = liteClient(appId, apiKey);
+
+      const { query, filters } = processFilter(search);
+
+      const { results } = await algolia.search({
+        requests: [{
+          indexName,
+          query,
+          filters,
+          hitsPerPage: limit,
+          page: page - 1,
+        }],
       });
 
-      const { query, where } = processFilter(search);
-
-      const res = await orama.search({
-        term: query,
-        where,
-        limit,
-        offset: (page - 1) * limit,
-        mode: "fulltext",
-        // @ts-ignore boost does exist
-        boost: {
-          id: 3,
-          scope: 2,
-          name: 1,
-          description: 0.5,
-        },
-      });
-
-      packages = res?.hits
-        // deno-lint-ignore no-explicit-any
-        .map((hit) => hit.document).filter((document) => document) as any ?? [];
-      total = res?.count ?? 0;
+      // deno-lint-ignore no-explicit-any
+      const result = results[0] as any;
+      packages = result?.hits ?? [];
+      total = result?.nbHits ?? 0;
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(
         path`/packages`,
@@ -94,7 +83,7 @@ export const handler = define.handlers({
           limit,
         },
       );
-      if (!packagesResp.ok) throw packagesResp; // gracefully handle this
+      assertOk(packagesResp);
 
       packages = packagesResp.data.items;
       total = packagesResp.data.total;
