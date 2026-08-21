@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use std::io;
 use std::sync::OnceLock;
 
-use async_tar::EntryType;
 use bytes::Bytes;
 use deno_ast::MediaType;
 use deno_graph::ModuleGraphError;
@@ -13,9 +12,11 @@ use deno_semver::npm::NpmPackageReqReference;
 use deno_semver::package::PackageReq;
 use deno_semver::package::PackageReqReference;
 use deno_semver::package::PackageReqReferenceParseError;
-use futures::AsyncReadExt;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use tokio::io::AsyncReadExt;
+use tokio_tar::EntryType;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use indexmap::IndexMap;
 use jsonc_parser::ParseOptions;
 use serde::Deserialize;
@@ -116,12 +117,14 @@ pub async fn process_tarball(
     .ok_or(PublishError::MissingTarball)?
     .map_err(io::Error::other);
 
-  let async_read = stream.into_async_read();
+  // Bridge the S3 download (a futures-io AsyncRead) to tokio's AsyncRead, then
+  // gunzip and read the tar with the tokio-based tar reader.
+  let tokio_read =
+    tokio::io::BufReader::new(stream.into_async_read().compat());
   let decompressed =
-    async_compression::futures::bufread::GzipDecoder::new(async_read);
-  let mut tar = async_tar::Archive::new(decompressed)
-    .entries()
-    .map_err(from_tarball_io_error)?;
+    async_compression::tokio::bufread::GzipDecoder::new(tokio_read);
+  let mut archive = tokio_tar::Archive::new(decompressed);
+  let mut tar = archive.entries().map_err(from_tarball_io_error)?;
 
   let mut files = HashMap::new();
   let mut case_insensitive_paths = HashSet::<CaseInsensitivePackagePath>::new();
@@ -148,7 +151,8 @@ pub async fn process_tarball(
     let mut entry = res.map_err(from_tarball_io_error)?;
 
     let header = entry.header();
-    let path = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
+    let path_bytes = entry.path_bytes().map_err(from_tarball_io_error)?;
+    let path = String::from_utf8_lossy(&path_bytes).into_owned();
     let path = if path.starts_with("./") {
       path[1..].to_string()
     } else if !path.starts_with('/') {

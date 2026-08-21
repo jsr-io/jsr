@@ -89,12 +89,23 @@ opentelemetry-otlp = { version = "0.27", default-features = false, features = [
     "http-proto",
     "reqwest-client",
 ] }
-rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
+# wasm32 (emscripten worker): drop `tokio-rustls-tls`, which drags in
+# aws-creds/rustls-tls -> attohttpc -> rustls(aws-lc), and aws-lc-sys won't
+# build for emscripten. jsr uses static S3 creds, so aws-creds' HTTP credential
+# fetching (the only attohttpc user) is dead weight; reqwest handles the S3 TLS.
+# The native compute service keeps the original rustls S3 stack below.
+rust-s3 = { version = "0.37.1", default-features = false, features = ["with-tokio", "tokio"] }
 deno_semver = "0.10.1"
 flate2 = "1"
 thiserror = "2"
-async-tar = "0.4.2"
-async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
+# Async tarball reading built on tokio (not async-std): tokio works on
+# wasm32-emscripten, so this replaces async-tar (which drags in async-std's
+# async-io epoll reactor and can't build for wasm). `default-features = false`
+# drops the unix-only `xattr` extraction feature we don't use (read-only).
+astral-tokio-tar = { version = "0.6", default-features = false }
+async-compression = { version = "0.4", features = ["tokio", "gzip"] }
+# `compat` bridges the S3 download's futures-io AsyncRead to tokio's AsyncRead.
+tokio-util = { version = "0.7", features = ["compat"] }
 deno_graph = "=0.109.0"
 deno_ast = { version = "0.53.0", features = ["view"] }
 # sync with frontend/deno.json
@@ -103,8 +114,8 @@ deno_error = "0.7.0"
 comrak = { version = "0.29.0", default-features = false }
 ammonia = "4.0.0"
 async-trait = "0.1.73"
-jsonwebkey = { version = "0.3.5", features = ["jsonwebtoken", "jwt-convert"] }
-jsonwebtoken = "8.3.0"
+jsonwebkey = { version = "0.4.0", features = ["jsonwebtoken", "jwt-convert"] }
+jsonwebtoken = "10"
 indexmap = { version = "2.13.0", features = ["serde"] }
 pin-project = "1.1.3"
 regex = "1.10.2"
@@ -113,9 +124,13 @@ handlebars = "5.0.0"
 jsonc-parser = { version = "0.26.3", features = ["serde"] }
 sha1 = "0.10.6"
 infer = "0.15.0"
-x509-parser = { version = "0.15.1", features = ["verify"] }
+x509-parser = { version = "0.16", features = ["verify"] }
 sitemap-rs = "0.2.1"
-askalono = "0.5.0"
+# `gzip` feature: askalono otherwise compresses its license cache with zstd
+# (zstd-sys C lib, unavailable on wasm) and selects the codec by feature, not
+# target. gzip (flate2) builds everywhere. Must match the build-dependency
+# askalono below, since it generates the cache build.rs embeds.
+askalono = { version = "0.5.0", features = ["gzip"] }
 moka = { version = "0.12", features = ["future"] }
 
 tree-sitter-highlight = "0.22.6"
@@ -130,13 +145,36 @@ tree-sitter-html = "0.20.3"
 tree-sitter-bash = "0.21.0"
 tree-sitter-xml = "0.6.4"
 lazy_static = "1.5.0"
-tikv-jemallocator = { version = "0.6", features = ["profiling"] }
-tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 registry_api_macros = { path = "macros" }
 jsr_types = { path = "../crates/jsr_types", features = ["sqlx"] }
 
+# emscripten worker entry point (`fetch` export) bridges web_sys Request/Response
+# to hyper. These match the wasm-bindgen version the workers-rs post-link CLI
+# expects (pinned via the [patch] block in the workspace Cargo.toml).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "Headers",
+    "Request",
+    "Response",
+    "ResponseInit",
+] }
+
+# jemalloc has no wasm32 build; keep it (and its profiling endpoints) only for
+# the native compute service.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tikv-jemallocator = { version = "0.6", features = ["profiling"] }
+tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
+# Native keeps the original rustls-based S3 TLS stack (feature-unifies with the
+# base rust-s3 dep above).
+rust-s3 = { version = "0.37.1", features = ["tokio-rustls-tls"] }
+
 [build-dependencies]
-askalono = "0.5.0"
+# Keep the codec in sync with the runtime askalono dep (gzip, not zstd), so the
+# cache generated here matches what `util::license_store` reads back.
+askalono = { version = "0.5.0", features = ["gzip"] }
 
 [dev-dependencies]
 flate2 = "1"

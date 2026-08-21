@@ -99,11 +99,29 @@ impl Database {
         .ssl_client_cert_from_pem(tls.client_cert.into_bytes())
         .ssl_client_key_from_pem(tls.client_key.into_bytes());
     }
+    // Native: a normal eagerly-connected pool.
+    #[cfg(not(target_arch = "wasm32"))]
     let pool = PgPoolOptions::new()
       .max_connections(pool_size)
       .acquire_timeout(acquire_timeout)
       .connect_with(opts)
       .await?;
+    // Emscripten worker: a Cloudflare Worker isolates I/O per request and drives
+    // a persistent thread-local tokio reactor, so a pooled connection that is
+    // opened, parked idle, then reused (across the reactor's global socket
+    // callbacks) hangs on later requests. Mirror goose's reliable pattern — one
+    // connection opened at query time and consumed within the request — with a
+    // single-connection, lazy pool that never parks or reaps: no eager/min
+    // connection, no idle pre-acquire test, no idle/lifetime reaper tasks.
+    #[cfg(target_arch = "wasm32")]
+    let pool = PgPoolOptions::new()
+      .max_connections(1)
+      .min_connections(0)
+      .acquire_timeout(acquire_timeout)
+      .test_before_acquire(false)
+      .idle_timeout(None)
+      .max_lifetime(None)
+      .connect_lazy_with(opts);
     if std::env::var("DATABASE_DISABLE_MIGRATIONS").is_err() {
       migrate!("./migrations")
         .run(&pool)

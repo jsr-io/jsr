@@ -33,7 +33,7 @@ use crate::util;
 use crate::util::CacheDuration;
 
 pub fn api_router() -> Router<Body, ApiError> {
-  Router::builder()
+  let builder = Router::builder()
     .get(
       "/metrics",
       util::cache(
@@ -64,7 +64,11 @@ pub fn api_router() -> Router<Body, ApiError> {
       util::no_store(util::json(publishing_task::get_handler)),
     )
     .scope("/tickets", tickets_router())
-    .get("/.well-known/openapi", openapi_handler)
+    .get("/.well-known/openapi", openapi_handler);
+
+  // jemalloc-backed debug endpoints are only available in the native build.
+  #[cfg(not(target_arch = "wasm32"))]
+  let builder = builder
     .get(
       "/debug/mem_stats",
       util::auth(crate::jemalloc_profiling::mem_stats_handler),
@@ -72,7 +76,9 @@ pub fn api_router() -> Router<Body, ApiError> {
     .get(
       "/debug/mem_dump",
       util::auth(crate::jemalloc_profiling::heap_profile_handler),
-    )
+    );
+
+  builder
     .build()
     .unwrap()
 }
