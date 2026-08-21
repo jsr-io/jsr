@@ -36,12 +36,13 @@ export default define.page<typeof handler>(function Score(
         latestVersion={data.package.latestVersion}
       />
 
-      {data.package.score
+      {data.scorePercentage !== null
         ? (
           <ScoreInfo
             scope={data.package.scope}
             name={data.package.name}
-            scorePercentage={data.package.score}
+            version={data.selectedVersion}
+            scorePercentage={data.scorePercentage}
             score={data.score}
             canAdmin={iam.canAdmin}
           />
@@ -59,11 +60,12 @@ export default define.page<typeof handler>(function Score(
 function ScoreInfo(props: {
   scope: string;
   name: string;
+  version: string | null;
   scorePercentage: number;
   score: PackageScore;
   canAdmin: boolean;
 }) {
-  const { scope, name, scorePercentage, score, canAdmin } = props;
+  const { scope, name, version, scorePercentage, score, canAdmin } = props;
 
   return (
     <div class="mt-8 grid items-center justify-items-center grid-cols-1 md:grid-cols-3 gap-12">
@@ -76,6 +78,7 @@ function ScoreInfo(props: {
         </div>
         <div class="mb-6">
           @{scope}/{name}
+          {version && <span class="font-bold">@{version}</span>}
         </div>
         <div
           class={`score-circle flex w-full max-w-32 items-center justify-center aspect-square rounded-full p-1.5 ${
@@ -88,9 +91,9 @@ function ScoreInfo(props: {
           </span>
         </div>
         <div class="text-tertiary text-sm text-center mt-6">
-          The JSR score is an overall measure of the quality of the latest
-          version of a package, based on on factors such as documentation and
-          runtime compatibility.
+          The JSR score is an overall measure of the quality of{" "}
+          {version ? "this version" : "the latest version"} of a package, based
+          on factors such as documentation and runtime compatibility.
         </div>
       </div>
 
@@ -287,12 +290,17 @@ function ScoreItem(
   );
 }
 
+// Keep in sync with `ApiPackageScore::MAX_SCORE` in the API.
+const MAX_SCORE = 17;
+
 export const handler = define.handlers({
   async GET(ctx) {
+    const version = ctx.params.version || null;
     const [res, scoreResp] = await Promise.all([
       packageData(ctx.state, ctx.params.scope, ctx.params.package),
       ctx.state.api.get<PackageScore>(
         path`/scopes/${ctx.params.scope}/packages/${ctx.params.package}/score`,
+        version ? { version } : undefined,
       ),
     ]);
     if (res === null) throw new HttpError(404, "This package was not found.");
@@ -304,10 +312,25 @@ export const handler = define.handlers({
       });
     }
 
+    if (
+      version && !scoreResp.ok &&
+      (scoreResp.code === "packageVersionNotFound" ||
+        scoreResp.code === "malformedRequest")
+    ) {
+      throw new HttpError(404, "This package version was not found.");
+    }
     assertOk(scoreResp);
 
+    // For a specific version the package's overall score does not apply, so
+    // derive the percentage from the returned score breakdown.
+    const scorePercentage = version
+      ? Math.min(Math.floor((scoreResp.data.total * 100) / MAX_SCORE), 100)
+      : res.pkg.score;
+
     ctx.state.meta = {
-      title: `Score - @${res.pkg.scope}/${res.pkg.name} - JSR`,
+      title: `Score - @${res.pkg.scope}/${res.pkg.name}${
+        version ? `@${version}` : ""
+      } - JSR`,
       description: `@${res.pkg.scope}/${res.pkg.name} on JSR${
         res.pkg.description ? `: ${res.pkg.description}` : ""
       }`,
@@ -320,6 +343,8 @@ export const handler = define.handlers({
         package: res.pkg,
         downloads: res.downloads,
         score: scoreResp.data,
+        scorePercentage,
+        selectedVersion: version,
         member: res.scopeMember,
       },
       headers: { "X-Robots-Tag": "noindex" },
@@ -328,5 +353,5 @@ export const handler = define.handlers({
 });
 
 export const config: RouteConfig = {
-  routeOverride: "/@:scope/:package/score",
+  routeOverride: "/@:scope/:package{@:version}?/score",
 };
