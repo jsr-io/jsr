@@ -6,7 +6,6 @@ import { assertOk, path } from "../utils/api.ts";
 import { ListDisplay } from "../components/List.tsx";
 import { PackageHit } from "../components/PackageHit.tsx";
 import { processFilter } from "../islands/GlobalSearch.tsx";
-import SearchInsights from "../islands/SearchInsights.tsx";
 
 export default define.page<typeof handler>(function PackageListPage({
   data,
@@ -22,22 +21,6 @@ export default define.page<typeof handler>(function PackageListPage({
         >
           {data.packages.map((entry) => PackageHit(entry))}
         </ListDisplay>
-
-        {data.queryID && (
-          <SearchInsights
-            appId={appId}
-            apiKey={apiKey}
-            index={indexName}
-            queryID={data.queryID}
-            hits={data.packages.map((entry, i) => ({
-              // deno-lint-ignore no-explicit-any
-              objectID: (entry as any).objectID ??
-                `@${entry.scope}/${entry.name}`,
-              href: `/@${entry.scope}/${entry.name}`,
-              position: (data.page - 1) * data.limit + i + 1,
-            }))}
-          />
-        )}
 
         <div className="mt-2 flex flex-wrap items-start justify-between px-2">
           <span className="text-sm text-jsr-gray-400 dark:text-jsr-gray-400 block">
@@ -72,7 +55,6 @@ export const handler = define.handlers({
 
     let packages: Package[];
     let total;
-    let queryID: string | undefined;
     if (appId && apiKey && indexName) {
       const algolia = liteClient(appId, apiKey);
 
@@ -85,7 +67,6 @@ export const handler = define.handlers({
           filters,
           hitsPerPage: limit,
           page: page - 1,
-          clickAnalytics: true,
         }],
       });
 
@@ -93,7 +74,6 @@ export const handler = define.handlers({
       const result = results[0] as any;
       packages = result?.hits ?? [];
       total = result?.nbHits ?? 0;
-      queryID = result?.queryID;
     } else {
       const packagesResp = await ctx.state.api.get<List<Package>>(
         path`/packages`,
@@ -121,7 +101,6 @@ export const handler = define.handlers({
         page,
         limit,
         total,
-        queryID,
       },
     };
   },
