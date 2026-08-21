@@ -2,6 +2,10 @@
 -- so that deleting a user doesn't require manual cleanup of every table.
 
 -- scopes.creator: change from CASCADE (would delete scopes!) to SET NULL
+-- WARNING: this was CASCADE before this migration — deleting a user would
+-- have deleted every scope they created. That path was dormant (no user
+-- deletion existed), but it is a correctness prerequisite for enabling
+-- user deletion.
 ALTER TABLE scopes DROP CONSTRAINT IF EXISTS scopes_creator_fkey;
 ALTER TABLE scopes ADD CONSTRAINT scopes_creator_fkey
     FOREIGN KEY (creator) REFERENCES users(id) ON DELETE SET NULL;

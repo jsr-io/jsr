@@ -470,6 +470,9 @@ impl Database {
     // For scopes where the user is the last member, transfer to service account.
     // For scopes where the user is creator but others exist, transfer creator.
     // Everything else (scope_members, invites, tokens, etc.) cascades via FK constraints.
+    // Note: this runs at READ COMMITTED, so a member added to one of these
+    // scopes concurrently can end up as a peer of the service account instead
+    // of preventing the transfer. That's acceptable for this rare flow.
     let memberships = sqlx::query!(
       r#"SELECT scope as "scope: ScopeName",
         (SELECT COUNT(*) FROM scope_members sm2 WHERE sm2.scope = scope_members.scope AND sm2.user_id != $1) as "other_member_count!",
@@ -568,9 +571,14 @@ impl Database {
     )
     .await?;
 
-    // Reassign all of the deleted user's audit log entries to the service account.
+    // Reassign all of the deleted user's audit log entries to the service
+    // account, preserving the original actor in each entry's meta so the
+    // audit trail stays attributable after deletion.
     sqlx::query!(
-      r#"UPDATE audit_logs SET actor_id = $1 WHERE actor_id = $2"#,
+      r#"UPDATE audit_logs
+      SET actor_id = $1,
+        meta = jsonb_set(meta, '{original_actor_id}', to_jsonb($2::uuid))
+      WHERE actor_id = $2"#,
       service_account_id,
       id,
     )
@@ -3713,14 +3721,22 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<()> {
     let user_id = Uuid::nil();
     let mut tx = self.pool.begin().await?;
-    sqlx::query!("DELETE FROM tokens WHERE user_id = $1", user_id)
-      .execute(&mut *tx)
-      .await?;
+    // Only delete tokens that don't match the current hash, and insert with
+    // ON CONFLICT DO NOTHING, so concurrently starting replicas never leave
+    // a window where no service account token exists.
+    sqlx::query!(
+      "DELETE FROM tokens WHERE user_id = $1 AND hash IS DISTINCT FROM $2",
+      user_id,
+      hash.as_deref(),
+    )
+    .execute(&mut *tx)
+    .await?;
 
     if let Some(hash) = hash {
       sqlx::query!(
         r#"INSERT INTO tokens (hash, user_id, type, description, expires_at, permissions)
-        VALUES ($1, $2, 'personal', 'service account token', NULL, NULL)"#,
+        VALUES ($1, $2, 'personal', 'service account token', NULL, NULL)
+        ON CONFLICT (hash) DO NOTHING"#,
         hash,
         user_id,
       )

@@ -208,7 +208,11 @@ async fn main() {
 
   database
     .upsert_service_account_token(
-      config.service_account_token.as_deref().map(token::hash),
+      config
+        .service_account_token
+        .as_deref()
+        .filter(|token| !token.is_empty())
+        .map(token::hash),
     )
     .await
     .expect("failed to upsert service account token");

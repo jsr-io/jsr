@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE audit_logs\n      SET actor_id = $1,\n        meta = jsonb_set(meta, '{original_actor_id}', to_jsonb($2::uuid))\n      WHERE actor_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bcd29edbc1435ede1625a05336b4da2a1ef5e446c19591b521d20719d2b5f372"
+}
