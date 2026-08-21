@@ -259,6 +259,7 @@ where
 /// [`X_JSR_CACHE_SHARED`], so the lb serves them from its shared cache to every
 /// caller instead of bypassing on auth. Only use this when the handler is
 /// genuinely viewer-independent; auditing that is the safety contract.
+#[allow(dead_code)] // unused since docs/diff gained private-package branches
 pub fn cache_shared<H, HF>(
   duration: CacheDuration,
   handler: H,
@@ -352,6 +353,7 @@ where
 /// the response stays `public` for every caller and is marked
 /// [`X_JSR_CACHE_SHARED`] so the lb shares it across authenticated callers. Used
 /// by `docs`, whose handler has no permission/member/sudo branch.
+#[allow(dead_code)] // unused since docs/diff gained private-package branches
 pub fn cache_versioned_shared<H, HF>(
   latest_duration: CacheDuration,
   versioned_duration: CacheDuration,

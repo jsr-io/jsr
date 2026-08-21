@@ -199,10 +199,10 @@ pub fn package_router() -> Router<Body, ApiError> {
       // so 5 minutes (vs 60s) cuts its origin rate ~5x while staying fresh
       // enough that a new publish appears promptly.
       "/:package/versions/:version/docs",
-      // `_shared`: the docs response is identity-independent (no permission/
-      // member/sudo branch), so the lb may serve it from its shared cache to
-      // authenticated callers too, rather than bypassing cache on auth.
-      util::cache_versioned_shared(
+      // NOT `_shared`: the handler branches on scope membership for private
+      // packages, so responses are identity-dependent — a member's private
+      // docs must never land in the lb's shared cache.
+      util::cache_versioned(
         CacheDuration::FIVE_MINUTES,
         CacheDuration::THIRTY_DAYS,
         util::json(get_docs_handler),
@@ -234,13 +234,10 @@ pub fn package_router() -> Router<Body, ApiError> {
     )
     .get(
       // Both versions are immutable, so the diff between them never changes.
-      // `_shared`: identity-independent (see docs above), so the lb shares it
-      // across authenticated callers.
+      // NOT `_shared`: the handler branches on scope membership for private
+      // packages, so responses are identity-dependent.
       "/:package/diff/:old_version/:new_version",
-      util::cache_shared(
-        CacheDuration::THIRTY_DAYS,
-        util::json(get_diff_handler),
-      ),
+      util::cache(CacheDuration::THIRTY_DAYS, util::json(get_diff_handler)),
     )
     .get(
       "/:package/versions/:version/dependencies",
@@ -432,11 +429,10 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if res_package.0.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if res_package.0.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let mut api_package = ApiPackage::from(res_package);
@@ -615,6 +611,14 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::IsPrivate(is_private) => {
+      // Artifacts (module files, npm tarballs, manifests) are uploaded to
+      // either the public or the private bucket at publish time and are not
+      // migrated on a visibility change. Allowing a toggle on a package with
+      // published versions would leave private files publicly served (or
+      // public packages broken), so only empty packages may be toggled.
+      if package.is_private != is_private && package.version_count > 0 {
+        return Err(ApiError::PackageVisibilityChangeNotAllowed);
+      }
       let package = db
         .update_package_is_private(
           &user.id,
@@ -706,7 +710,7 @@ async fn update_description(
     generate_npm_version_manifest(db, npm_url, scope, &package.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
   buckets
-    .npm_bucket
+    .npm(package.is_private)
     .upload(
       npm_version_manifest_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
@@ -811,11 +815,10 @@ pub async fn list_versions_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let (total, versions) = db
@@ -898,11 +901,10 @@ pub async fn get_version_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let maybe_version = match version {
@@ -1136,13 +1138,18 @@ pub async fn version_provenance_statements_handler(
   // `<version>_meta.json`, which the publishing client fetches back from the
   // registry after the version is created. Hash the stored manifest here and
   // require the attestation to match it. Fail closed if there is no manifest.
-  let manifest_digest =
-    version_manifest_digest(buckets, &scope, &package, &version)
-      .await?
-      .ok_or_else(|| {
-        error!("no published manifest for version when verifying provenance");
-        ApiError::InternalServerError
-      })?;
+  let manifest_digest = version_manifest_digest(
+    buckets,
+    &scope,
+    &package,
+    &version,
+    db_package.is_private,
+  )
+  .await?
+  .ok_or_else(|| {
+    error!("no published manifest for version when verifying provenance");
+    ApiError::InternalServerError
+  })?;
 
   let name = format!("pkg:jsr/@{}/{}@{}", scope, package, version);
   let rekor_log_id =
@@ -1177,9 +1184,11 @@ async fn version_manifest_digest(
   scope: &ScopeName,
   package: &PackageName,
   version: &Version,
+  is_private: bool,
 ) -> Result<Option<String>, ApiError> {
   let path = crate::s3_paths::version_metadata(scope, package, version);
-  let Some(manifest) = buckets.modules_bucket.download(path.into()).await?
+  let Some(manifest) =
+    buckets.modules(is_private).download(path.into()).await?
   else {
     return Ok(None);
   };
@@ -1216,6 +1225,11 @@ pub async fn version_update_handler(
   let iam = req.iam();
   let (user, sudo) = iam.check_scope_admin_access(&scope).await?;
 
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
   db.yank_package_version(
     &user.id,
     sudo,
@@ -1232,7 +1246,7 @@ pub async fn version_update_handler(
 
   let content = serde_json::to_vec(&package_metadata)?;
   buckets
-    .modules_bucket
+    .modules(pkg.is_private)
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
@@ -1250,7 +1264,7 @@ pub async fn version_update_handler(
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
   buckets
-    .npm_bucket
+    .npm(pkg.is_private)
     .upload(
       npm_version_manifest_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
@@ -1316,6 +1330,11 @@ pub async fn version_delete_handler(
     return Err(ApiError::DeleteVersionHasDependents);
   }
 
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
   db.delete_package_version(&staff.id, &scope, &package, &version)
     .await?;
 
@@ -1324,20 +1343,21 @@ pub async fn version_delete_handler(
   buckets.docs_bucket.delete_file(v1_path.into()).await?;
   buckets.docs_bucket.delete_file(v2_path.into()).await?;
 
+  let modules_bucket = buckets.modules(pkg.is_private);
+
   let path = crate::s3_paths::version_metadata(&scope, &package, &version);
-  buckets.modules_bucket.delete_file(path.into()).await?;
+  modules_bucket.delete_file(path.into()).await?;
 
   let path =
     crate::s3_paths::file_path_root_directory(&scope, &package, &version);
-  buckets.modules_bucket.delete_directory(path.into()).await?;
+  modules_bucket.delete_directory(path.into()).await?;
 
   let package_metadata_path =
     crate::s3_paths::package_metadata(&scope, &package);
   let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
 
   let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
+  modules_bucket
     .upload(
       package_metadata_path.into(),
       UploadTaskBody::Bytes(content.into()),
@@ -1355,7 +1375,7 @@ pub async fn version_delete_handler(
     generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
   buckets
-    .npm_bucket
+    .npm(pkg.is_private)
     .upload(
       npm_version_manifest_path.into(),
       crate::s3::UploadTaskBody::Bytes(content.into()),
@@ -1404,6 +1424,17 @@ pub async fn version_tarball_handler(
 
   let db = req.data::<Database>().unwrap();
   let buckets = req.data::<Buckets>().unwrap().clone();
+
+  let (pkg, _, _) = db
+    .get_package(&scope, &package)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
+  }
 
   let (task, _) = db
     .get_publishing_task_for_version(&scope, &package, &version)
@@ -1463,11 +1494,13 @@ pub async fn get_docs_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if package.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if package.is_private
+    && !req
+      .iam()
+      .can_read_private_package(&scope, &package_name)
+      .await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   // Docs are only served for the latest version of a package. A specific
@@ -1503,7 +1536,7 @@ pub async fn get_docs_handler(
       version.readme_path.as_ref().unwrap(),
     )
     .into();
-    Either::Left(buckets.modules_bucket.download(s3_path))
+    Either::Left(buckets.modules(package.is_private).download(s3_path))
   } else {
     Either::Right(futures::future::ready(Ok(None)))
   };
@@ -1610,11 +1643,13 @@ pub async fn get_docs_search_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if package.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if package.is_private
+    && !req
+      .iam()
+      .can_read_private_package(&scope, &package_name)
+      .await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   // Docs are only served for the latest version of a package. A specific
@@ -1691,11 +1726,13 @@ pub async fn get_docs_search_structured_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if package.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if package.is_private
+    && !req
+      .iam()
+      .can_read_private_package(&scope, &package_name)
+      .await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   // Docs are only served for the latest version of a package. A specific
@@ -1793,11 +1830,10 @@ pub async fn get_source_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let maybe_version = match &version_or_latest {
@@ -1814,14 +1850,14 @@ pub async fn get_source_handler(
   let file = if path == "meta.json" {
     let source_file_path = crate::s3_paths::package_metadata(&scope, &package);
     buckets
-      .modules_bucket
+      .modules(pkg.is_private)
       .download(source_file_path.into())
       .await?
   } else if path == format!("{}_meta.json", version.version) {
     let source_file_path =
       crate::s3_paths::version_metadata(&scope, &package, &version.version);
     buckets
-      .modules_bucket
+      .modules(pkg.is_private)
       .download(source_file_path.into())
       .await?
   } else if path != "/" {
@@ -1837,7 +1873,7 @@ pub async fn get_source_handler(
       &package_path,
     );
     buckets
-      .modules_bucket
+      .modules(pkg.is_private)
       .download(source_file_path.into())
       .await?
   } else {
@@ -1998,6 +2034,15 @@ pub async fn get_diff_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
+  if package.is_private
+    && !req
+      .iam()
+      .can_read_private_package(&scope, &package_name)
+      .await
+  {
+    return Err(ApiError::PackageNotFound);
+  }
+
   let old_version = db
     .get_package_version(&scope, &package_name, &old_version)
     .await?
@@ -2132,11 +2177,10 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let dep_name = format!("@{}/{}", scope, package);
@@ -2177,11 +2221,10 @@ pub async fn get_downloads_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let current = Utc::now();
@@ -2260,11 +2303,10 @@ pub async fn list_dependencies_handler(
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   db.get_package_version(&scope, &package, &version)
@@ -2286,7 +2328,12 @@ struct DepTreeLoader {
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
+  /// The bucket holding the root package's own files (the private modules
+  /// bucket for a private package).
   bucket: crate::s3::BucketWithQueue,
+  /// The public modules bucket, used to resolve dependency files — deps of a
+  /// private package still live in the public bucket.
+  deps_bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
   registry_url: Url,
   fallback_registry_url: Option<Url>,
@@ -2334,7 +2381,7 @@ impl DepTreeLoader {
         .boxed()
       }
       "http" | "https" => {
-        let bucket = self.bucket.clone();
+        let bucket = self.deps_bucket.clone();
         let exports = self.exports.clone();
         let registry_url = self.registry_url.clone();
         let fallback_registry_url = self.fallback_registry_url.clone();
@@ -2552,6 +2599,7 @@ lazy_static::lazy_static! {
 // `deno_graph::ModuleGraph::build` is not thread-safe.
 #[allow(clippy::result_large_err)]
 #[tokio::main(flavor = "current_thread")]
+#[allow(clippy::too_many_arguments)]
 async fn analyze_deps_tree(
   registry_url: Url,
   fallback_registry_url: Option<Url>,
@@ -2559,6 +2607,7 @@ async fn analyze_deps_tree(
   package: PackageName,
   version: crate::ids::Version,
   bucket: crate::s3::BucketWithQueue,
+  deps_bucket: crate::s3::BucketWithQueue,
   exports: IndexMap<String, String>,
 ) -> Result<
   IndexMap<DependencyKind, DependencyInfo>,
@@ -2583,6 +2632,7 @@ async fn analyze_deps_tree(
     package,
     version,
     bucket,
+    deps_bucket,
     exports: Default::default(),
     registry_url: registry_url.clone(),
     fallback_registry_url: fallback_registry_url.clone(),
@@ -2916,18 +2966,17 @@ pub async fn get_dependencies_graph_handler(
     .get_package(&scope, &package)
     .await?
     .ok_or(ApiError::PackageNotFound)?;
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   let buckets = req.data::<Buckets>().unwrap().clone();
   let s3_path =
     crate::s3_paths::version_metadata(&scope, &package, &version).into();
   let version_meta = buckets
-    .modules_bucket
+    .modules(pkg.is_private)
     .download(s3_path)
     .await?
     .ok_or(ApiError::PackageVersionNotFound)?;
@@ -2937,13 +2986,15 @@ pub async fn get_dependencies_graph_handler(
   let fallback_registry_url =
     req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
-  let deps = tokio::task::spawn_blocking(|| {
+  let is_private = pkg.is_private;
+  let deps = tokio::task::spawn_blocking(move || {
     analyze_deps_tree(
       registry_url,
       fallback_registry_url,
       scope,
       package,
       version,
+      buckets.modules(is_private).clone(),
       buckets.modules_bucket,
       version_meta.exports,
     )
@@ -3009,11 +3060,10 @@ pub async fn get_score_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  if pkg.is_private {
-    let iam = req.iam();
-    if !iam.is_scope_member(&scope).await {
-      return Err(ApiError::PackageNotFound);
-    }
+  if pkg.is_private
+    && !req.iam().can_read_private_package(&scope, &package).await
+  {
+    return Err(ApiError::PackageNotFound);
   }
 
   Ok(ApiPackageScore::from((&meta, &pkg)))
@@ -3036,7 +3086,16 @@ pub async fn check_access_handler(
 
   let iam = req.iam();
 
-  iam.check_package_read_access(&scope, &package).await?;
+  // Mask authorization failures as "not found" so a probe cannot tell a
+  // private package apart from a nonexistent one.
+  if let Err(err) = iam.check_package_read_access(&scope, &package).await {
+    return Err(match err {
+      ApiError::MissingAuthentication
+      | ApiError::MissingPermission
+      | ApiError::ActorNotScopeMember => ApiError::PackageNotFound,
+      other => other,
+    });
+  }
 
   let res = Response::builder()
     .status(StatusCode::NO_CONTENT)
@@ -4491,7 +4550,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     resp
-      .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
       .await;
     let mut resp = t
       .http()
@@ -4713,7 +4772,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     resp
-      .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
       .await;
 
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
@@ -5015,6 +5074,113 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   }
 
   #[tokio::test]
+  async fn private_package_access() {
+    let mut t = TestSetup::new().await;
+
+    let scope = t.scope.scope.clone();
+    let name = PackageName::try_from("foo").unwrap();
+    let res = t
+      .ephemeral_database
+      .create_package(&scope, &name)
+      .await
+      .unwrap();
+    assert!(matches!(res, CreatePackageResult::Ok(_)));
+
+    // Only scope admins may toggle visibility, and only before publishing.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({ "isPrivate": true }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.is_private);
+
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok"),
+      &name,
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // The scope member sees the package.
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.is_private);
+
+    // Anonymous callers see a 404, indistinguishable from a missing package.
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .token(None)
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
+      .await;
+
+    // So do authenticated non-members.
+    let user2_token = t.user2.token.clone();
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
+      .await;
+
+    // The same masking applies to versions, docs, and the source browser.
+    for path in [
+      "/api/scopes/scope/packages/foo/versions",
+      "/api/scopes/scope/packages/foo/versions/1.2.3",
+      "/api/scopes/scope/packages/foo/versions/1.2.3/source?path=/",
+      "/api/scopes/scope/packages/foo/check-access",
+    ] {
+      let mut resp = t.http().get(path).token(None).call().await.unwrap();
+      resp
+        .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
+        .await;
+    }
+
+    // check-access succeeds for the scope member.
+    let resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/check-access")
+      .call()
+      .await
+      .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    // Visibility can no longer be toggled now that a version is published.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({ "isPrivate": false }))
+      .call()
+      .await
+      .unwrap();
+    resp
+      .expect_err_code(
+        StatusCode::CONFLICT,
+        "packageVisibilityChangeNotAllowed",
+      )
+      .await;
+  }
+
+  #[tokio::test]
   async fn package_source() {
     let mut t: TestSetup = TestSetup::new().await;
 
@@ -5183,7 +5349,7 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       .await
       .unwrap();
     resp
-      .expect_err_code(StatusCode::NOT_FOUND, "packageVersionNotFound")
+      .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
       .await;
 
     let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;

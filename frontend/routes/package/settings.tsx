@@ -39,7 +39,10 @@ export default define.page<typeof handler>(
 
           <SelectReadmeSourceEditor source={data.package.readmeSource} />
 
-          <PrivatePackage isPrivate={data.package.isPrivate} />
+          <PrivatePackage
+            isPrivate={data.package.isPrivate}
+            hasVersions={data.package.versionCount > 0}
+          />
 
           <ArchivePackage isArchived={data.package.isArchived} />
 
@@ -215,7 +218,7 @@ function RuntimeCompatEditorItem({ name, id, value }: {
   );
 }
 
-function PrivatePackage(props: { isPrivate: boolean }) {
+function PrivatePackage(props: { isPrivate: boolean; hasVersions: boolean }) {
   if (!props.isPrivate) {
     return (
       <form class="flex flex-col items-start gap-4" method="POST">
@@ -231,12 +234,20 @@ function PrivatePackage(props: { isPrivate: boolean }) {
 
         <button
           class="button-danger"
+          disabled={props.hasVersions}
           type="submit"
           name="action"
           value="makePrivate"
         >
           Make private
         </button>
+
+        {props.hasVersions && (
+          <p class="text-red-600">
+            The visibility of this package cannot be changed because it has
+            published versions. Only empty packages can be made private.
+          </p>
+        )}
       </form>
     );
   } else {
@@ -252,12 +263,20 @@ function PrivatePackage(props: { isPrivate: boolean }) {
 
         <button
           class="button-danger"
+          disabled={props.hasVersions}
           type="submit"
           name="action"
           value="makePublic"
         >
           Make public
         </button>
+
+        {props.hasVersions && (
+          <p class="text-red-600">
+            The visibility of this package cannot be changed because it has
+            published versions. Only empty packages can be made public.
+          </p>
+        )}
       </form>
     );
   }

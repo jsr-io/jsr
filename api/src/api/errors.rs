@@ -260,6 +260,10 @@ errors!(
     status: BAD_REQUEST,
     "The requested package is archived. Unarchive it to modify settings or publish to it.",
   },
+  PackageVisibilityChangeNotAllowed {
+    status: CONFLICT,
+    "The visibility of a package can only be changed while it has no published versions, because already-published artifacts are not moved between the public and private storage buckets.",
+  },
   DeleteVersionHasDependents {
     status: BAD_REQUEST,
     "The requested package version has dependents. Only a version without dependents can be deleted.",

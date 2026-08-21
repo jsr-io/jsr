@@ -52,6 +52,28 @@ pub struct Buckets {
   pub npm_private_bucket: BucketWithQueue,
 }
 
+impl Buckets {
+  /// The modules bucket for a package: private packages store their module
+  /// files and metadata in the auth-gated private bucket.
+  pub fn modules(&self, is_private: bool) -> &BucketWithQueue {
+    if is_private {
+      &self.modules_private_bucket
+    } else {
+      &self.modules_bucket
+    }
+  }
+
+  /// The npm bucket for a package: private packages store their npm tarballs
+  /// and metadata in the auth-gated private bucket.
+  pub fn npm(&self, is_private: bool) -> &BucketWithQueue {
+    if is_private {
+      &self.npm_private_bucket
+    } else {
+      &self.npm_bucket
+    }
+  }
+}
+
 #[derive(Debug, Error, deno_error::JsError)]
 #[class(generic)]
 pub enum S3Error {

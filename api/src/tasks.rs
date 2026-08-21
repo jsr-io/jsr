@@ -173,6 +173,11 @@ pub async fn npm_tarball_build_handler(
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
+  let (pkg, _, _) = db
+    .get_package(&job.scope, &job.name)
+    .await?
+    .ok_or(ApiError::PackageNotFound)?;
+
   let is_already_built = db
     .get_npm_tarball(
       &job.scope,
@@ -225,8 +230,9 @@ pub async fn npm_tarball_build_handler(
       dependencies,
       exports: version.exports,
     };
-    let npm_tarball = tokio::task::spawn_blocking(|| {
-      rebuild_npm_tarball(span, registry_url, buckets.modules_bucket, data)
+    let modules_bucket = buckets.modules(pkg.is_private).clone();
+    let npm_tarball = tokio::task::spawn_blocking(move || {
+      rebuild_npm_tarball(span, registry_url, modules_bucket, data)
     })
     .await
     .unwrap()?;
@@ -248,7 +254,7 @@ pub async fn npm_tarball_build_handler(
       NPM_TARBALL_REVISION,
     );
     buckets
-      .npm_bucket
+      .npm(pkg.is_private)
       .upload(
         npm_tarball_path.into(),
         UploadTaskBody::Bytes(Bytes::from(npm_tarball.tarball)),
@@ -269,7 +275,7 @@ pub async fn npm_tarball_build_handler(
     generate_npm_version_manifest(&db, &npm_url, &job.scope, &job.name).await?;
   let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
   buckets
-    .npm_bucket
+    .npm(pkg.is_private)
     .upload(
       npm_version_manifest_path.into(),
       UploadTaskBody::Bytes(content.into()),

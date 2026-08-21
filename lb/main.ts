@@ -135,6 +135,9 @@ export async function handleNPMRequest(
           undefined,
           { skipCache: true },
         );
+        // Override the stored (public) cache metadata so no shared cache
+        // between here and the client ever stores the private response.
+        response.headers.set("Cache-Control", "private, max-age=300");
       }
     }
   }
@@ -158,14 +161,24 @@ async function validatePackageAccess(
   pkg: string,
   env: WorkerEnv,
 ): Promise<boolean> {
+  // Skip the API round-trip entirely for unauthenticated requests: the
+  // check-access endpoint can never grant an anonymous caller access to a
+  // private package.
   const authHeader = request.headers.get("Authorization");
+  const cookie = request.headers.get("Cookie");
+  if (!authHeader && !cookie?.includes("token=")) {
+    return false;
+  }
+
+  const headers = new Headers();
+  if (authHeader) headers.set("Authorization", authHeader);
+  // Browser sessions authenticate with the `token` cookie instead of an
+  // Authorization header (e.g. same-origin fetches of module files).
+  if (cookie) headers.set("Cookie", cookie);
+
   const resp = await fetch(
     `${env.REGISTRY_API_URL}/api/scopes/${scope}/packages/${pkg}/check-access`,
-    {
-      headers: {
-        Authorization: authHeader ?? "",
-      },
-    },
+    { headers },
   );
 
   return resp.ok;
@@ -389,6 +402,9 @@ async function handleModuleFileRoute(
           undefined,
           { skipCache: true },
         );
+        // Override the stored (public) cache metadata so no shared cache
+        // between here and the client ever stores the private response.
+        response.headers.set("Cache-Control", "private, max-age=300");
       }
     }
   }

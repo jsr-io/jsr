@@ -117,6 +117,67 @@ impl<'s> IamHandler<'s> {
     }
   }
 
+  /// Returns true if the current principal may read the private package
+  /// `@scope/package`: a permission-restricted token must carry a matching
+  /// `package/read` (or `package/publish` — the publish flow reads manifests
+  /// back from the registry) permission, and the principal must be a scope
+  /// member (or staff using sudo). Callers should mask a `false` as
+  /// [`ApiError::PackageNotFound`] so private packages are indistinguishable
+  /// from missing ones.
+  pub async fn can_read_private_package(
+    &self,
+    scope: &ScopeName,
+    package: &PackageName,
+  ) -> bool {
+    if let Some(permissions) = &self.permissions {
+      let has_read_permission =
+        permissions.0.iter().any(|permission| match permission {
+          Permission::PackageRead(read) => match read {
+            PackageReadPermission::Package {
+              scope: perm_scope,
+              package: perm_package,
+            } => perm_scope == scope && perm_package == package,
+            PackageReadPermission::Scope { scope: perm_scope } => {
+              perm_scope == scope
+            }
+            PackageReadPermission::Full {} => true,
+          },
+          Permission::PackagePublish(publish) => match publish {
+            PackagePublishPermission::Version {
+              scope: perm_scope,
+              package: perm_package,
+              ..
+            }
+            | PackagePublishPermission::Package {
+              scope: perm_scope,
+              package: perm_package,
+            } => perm_scope == scope && perm_package == package,
+            PackagePublishPermission::Scope { scope: perm_scope } => {
+              perm_scope == scope
+            }
+            PackagePublishPermission::Full {} => true,
+          },
+        });
+      if !has_read_permission {
+        return false;
+      }
+    }
+
+    match &self.principal {
+      Principal::User(_) => self.is_scope_member(scope).await,
+      Principal::OidcCi {
+        user: Some(user), ..
+      } => self
+        .db
+        .get_scope_member(scope, user.id)
+        .await
+        .ok()
+        .flatten()
+        .is_some(),
+      Principal::OidcCi { user: None, .. } | Principal::Anonymous => false,
+    }
+  }
+
   pub async fn check_scope_member_delete_access(
     &self,
     scope: &ScopeName,
@@ -180,6 +241,9 @@ impl<'s> IamHandler<'s> {
             Permission::PackagePublish(PackagePublishPermission::Scope {
               scope,
             }) if scope == scope_ => {
+              Some(PublishAccessRestriction { tarball_hash: None })
+            }
+            Permission::PackagePublish(PackagePublishPermission::Full {}) => {
               Some(PublishAccessRestriction { tarball_hash: None })
             }
             _ => None,
@@ -302,52 +366,17 @@ impl<'s> IamHandler<'s> {
       });
     }
 
-    if let Some(permissions) = &self.permissions {
-      let has_read_permission = permissions.0.iter().any(|permission| {
-        if let Permission::PackageRead(read) = permission {
-          match read {
-            PackageReadPermission::Package {
-              scope: perm_scope,
-              package: perm_package,
-            } => perm_scope == scope && perm_package == package,
-            PackageReadPermission::Scope { scope: perm_scope } => {
-              perm_scope == scope
-            }
-            PackageReadPermission::Full {} => true,
-          }
-        } else {
-          false
-        }
-      });
-      if !has_read_permission {
-        return Err(ApiError::MissingPermission);
+    if self.can_read_private_package(scope, package).await {
+      Ok(match &self.principal {
+        Principal::User(user) => Some(user),
+        Principal::OidcCi { user, .. } => user.as_ref(),
+        Principal::Anonymous => None,
+      })
+    } else {
+      match &self.principal {
+        Principal::Anonymous => Err(ApiError::MissingAuthentication),
+        _ => Err(ApiError::ActorNotScopeMember),
       }
-    }
-
-    match &self.principal {
-      Principal::User(user) => {
-        // Scope members can access, as can staff using sudo.
-        if (user.is_staff && self.sudo)
-          || self.db.get_scope_member(scope, user.id).await?.is_some()
-        {
-          Ok(Some(user))
-        } else {
-          Err(ApiError::ActorNotScopeMember)
-        }
-      }
-      Principal::OidcCi { user, .. } => {
-        // OIDC CI workloads can access if the associated user is a scope member
-        if let Some(user) = user {
-          if self.db.get_scope_member(scope, user.id).await?.is_some() {
-            Ok(Some(user))
-          } else {
-            Err(ApiError::ActorNotScopeMember)
-          }
-        } else {
-          Err(ApiError::ActorNotScopeMember)
-        }
-      }
-      Principal::Anonymous => Err(ApiError::MissingAuthentication),
     }
   }
 }
