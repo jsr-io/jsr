@@ -48,8 +48,8 @@ export default define.page<typeof handler>(function Score(
         )
         : (
           <div class="mt-8 text-tertiary text-center">
-            No score is available for this package, because it does not have a
-            stable release.
+            No score is available for this package, because it has no usable
+            versions.
           </div>
         )}
     </div>

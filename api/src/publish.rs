@@ -1789,4 +1789,66 @@ pub mod tests {
       "application/octet-stream"
     );
   }
+
+  #[tokio::test]
+  async fn prerelease_only_package_latest() {
+    let t = TestSetup::new().await;
+
+    async fn latest_in_meta_json(t: &TestSetup) -> Option<Version> {
+      let json = t
+        .buckets
+        .modules_bucket
+        .download("@scope/foo/meta.json".into())
+        .await
+        .unwrap()
+        .unwrap();
+      let package_metadata: PackageMetadata =
+        serde_json::from_slice(&json).unwrap();
+      package_metadata.latest
+    }
+
+    async fn npm_latest_dist_tag(t: &TestSetup) -> serde_json::Value {
+      let response = t
+        .buckets
+        .npm_bucket
+        .bucket
+        .bucket
+        .get_object("@jsr/scope__foo")
+        .await
+        .unwrap();
+      let json: serde_json::Value =
+        serde_json::from_slice(&response.into_bytes()).unwrap();
+      json["dist-tags"]["latest"].clone()
+    }
+
+    // publish a package that only has a prerelease version (no stable
+    // release)
+    let package_name = PackageName::try_from("foo").unwrap();
+    let version = Version::try_from("1.2.3-alpha.1").unwrap();
+    let task = process_tarball_setup2(
+      &t,
+      create_mock_tarball("ok_prerelease"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // meta.json's `latest` and the npm manifest's `latest` dist-tag fall
+    // back to the newest prerelease
+    assert_eq!(latest_in_meta_json(&t).await, Some(version));
+    assert_eq!(npm_latest_dist_tag(&t).await, "1.2.3-alpha.1");
+
+    // once a stable release is published it takes over `latest`, even though
+    // the prerelease sorts higher under the database's natural collation
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    assert_eq!(
+      latest_in_meta_json(&t).await,
+      Some(Version::try_from("1.2.3").unwrap())
+    );
+    assert_eq!(npm_latest_dist_tag(&t).await, "1.2.3");
+  }
 }

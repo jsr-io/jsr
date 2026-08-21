@@ -524,7 +524,7 @@ impl Database {
       VALUES ($1, $2)
       RETURNING ", PACKAGE_SELECT, r#",
         (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as "latest_version"
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as "latest_version"
       "#;
       scope as _,
       name as _
@@ -744,8 +744,8 @@ impl Database {
       SET github_repository_id = NULL
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
     )
@@ -791,8 +791,8 @@ impl Database {
       SET runtime_compat = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       runtime_compat as _
@@ -836,8 +836,8 @@ impl Database {
       SET when_featured = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       when_featured,
@@ -880,8 +880,8 @@ impl Database {
       SET is_archived = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       is_archived,
@@ -924,8 +924,8 @@ impl Database {
       SET readme_source = $3
       WHERE scope = $1 AND name = $2
       RETURNING ", PACKAGE_SELECT, r#",
-        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as "version_count!",
-        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version""#;
+        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as "version_count!",
+        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as "latest_version""#;
       scope as _,
       name as _,
       source as _,
@@ -1839,42 +1839,15 @@ gitlab_id: r.user_gitlab_id,
       .await
   }
 
+  /// Resolves the "latest" version of a package. This is the latest unyanked
+  /// stable version, or - for packages that only have prerelease versions -
+  /// the latest unyanked prerelease version.
   #[instrument(
     name = "Database::get_latest_unyanked_version_for_package",
     skip(self),
     err
   )]
   pub async fn get_latest_unyanked_version_for_package(
-    &self,
-    scope: &ScopeName,
-    name: &PackageName,
-  ) -> Result<Option<PackageVersion>> {
-    query_concat_as!(
-      PackageVersion,
-      "SELECT ", PACKAGE_VERSION_SELECT, "
-      FROM package_versions
-      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
-      ORDER BY version DESC
-      LIMIT 1";
-      scope as _,
-      name as _,
-    )
-      .fetch_optional(&self.pool)
-      .await
-  }
-
-  /// Resolves the version whose docs are served for a package. This is the
-  /// latest unyanked stable version, or - for packages that only have
-  /// prerelease versions - the latest unyanked prerelease version. Ordering
-  /// stable releases ahead of prereleases keeps the result identical to
-  /// `get_latest_unyanked_version_for_package` whenever a stable release
-  /// exists.
-  #[instrument(
-    name = "Database::get_latest_unyanked_version_for_package_for_docs",
-    skip(self),
-    err
-  )]
-  pub async fn get_latest_unyanked_version_for_package_for_docs(
     &self,
     scope: &ScopeName,
     name: &PackageName,
@@ -1908,14 +1881,14 @@ gitlab_id: r.user_gitlab_id,
       "SELECT ", PACKAGE_VERSION_SELECT, ",
       ", NEWER_VERSIONS_COUNT_SUBQUERY, "
       FROM package_versions
-      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
-      ORDER BY version DESC
+      WHERE scope = $1 AND name = $2 AND is_yanked = false
+      ORDER BY (version NOT LIKE '%-%') DESC, version DESC
       LIMIT 1";
       scope as _,
       name as _,
     )
-      .fetch_optional(&self.pool)
-      .await
+    .fetch_optional(&self.pool)
+    .await
   }
 
   #[instrument(
@@ -1933,17 +1906,17 @@ gitlab_id: r.user_gitlab_id,
       r#"
       SELECT version as "version: Version"
       FROM package_versions
-      WHERE scope = $1 AND name = $2 AND version NOT LIKE '%-%' AND is_yanked = false
-      ORDER BY version DESC
+      WHERE scope = $1 AND name = $2 AND is_yanked = false
+      ORDER BY (version NOT LIKE '%-%') DESC, version DESC
       LIMIT $3
       "#,
       scope as _,
       name as _,
       limit as i32,
     )
-      .map(|r| r.version)
-      .fetch_all(&self.pool)
-      .await
+    .map(|r| r.version)
+    .fetch_all(&self.pool)
+    .await
   }
 
   #[instrument(name = "Database::get_package_version", skip(self), err)]
@@ -3938,9 +3911,9 @@ gitlab_id: r.user_gitlab_id,
     sqlx::query!(
       r#"SELECT
         scope as "scope: ScopeName", name as "name: PackageName", updated_at,
-        (SELECT created_at FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at!"
+        (SELECT created_at FROM package_versions WHERE scope = packages.scope AND name = packages.name ORDER BY version DESC LIMIT 1) as "latest_version_updated_at!"
       FROM packages
-      WHERE (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) IS NOT NULL
+      WHERE EXISTS (SELECT 1 FROM package_versions WHERE scope = packages.scope AND name = packages.name)
       ORDER BY scope ASC, name ASC
       LIMIT 50000"#
     )

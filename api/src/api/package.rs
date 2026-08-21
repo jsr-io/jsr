@@ -1418,7 +1418,7 @@ pub async fn get_docs_handler(
   let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
       let latest = db
-        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+        .get_latest_unyanked_version_for_package(&scope, &package_name)
         .await?
         .ok_or(ApiError::PackageVersionNotFound)?;
       if latest.version != *version {
@@ -1427,7 +1427,7 @@ pub async fn get_docs_handler(
       latest
     }
     VersionOrLatest::Latest => db
-      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .get_latest_unyanked_version_for_package(&scope, &package_name)
       .await?
       .ok_or(ApiError::PackageVersionNotFound)?,
   };
@@ -1558,7 +1558,7 @@ pub async fn get_docs_search_handler(
   let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
       let latest = db
-        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+        .get_latest_unyanked_version_for_package(&scope, &package_name)
         .await?
         .ok_or(ApiError::PackageVersionNotFound)?;
       if latest.version != *version {
@@ -1567,7 +1567,7 @@ pub async fn get_docs_search_handler(
       latest
     }
     VersionOrLatest::Latest => db
-      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .get_latest_unyanked_version_for_package(&scope, &package_name)
       .await?
       .ok_or(ApiError::PackageVersionNotFound)?,
   };
@@ -1632,7 +1632,7 @@ pub async fn get_docs_search_structured_handler(
   let version = match &version_or_latest {
     VersionOrLatest::Version(version) => {
       let latest = db
-        .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+        .get_latest_unyanked_version_for_package(&scope, &package_name)
         .await?
         .ok_or(ApiError::PackageVersionNotFound)?;
       if latest.version != *version {
@@ -1641,7 +1641,7 @@ pub async fn get_docs_search_structured_handler(
       latest
     }
     VersionOrLatest::Latest => db
-      .get_latest_unyanked_version_for_package_for_docs(&scope, &package_name)
+      .get_latest_unyanked_version_for_package(&scope, &package_name)
       .await?
       .ok_or(ApiError::PackageVersionNotFound)?,
   };
@@ -3594,6 +3594,49 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
   }
 
   #[tokio::test]
+  async fn test_package_latest_version_prerelease_only() {
+    let mut t = TestSetup::new().await;
+
+    let scope = t.scope.scope.clone();
+
+    let name = PackageName::try_from("foo").unwrap();
+    let res = t
+      .ephemeral_database
+      .create_package(&scope, &name)
+      .await
+      .unwrap();
+    assert!(matches!(res, CreatePackageResult::Ok(_)));
+
+    for version in ["1.0.0-rc.2", "1.0.0-rc.10"] {
+      t.ephemeral_database
+        .create_package_version_for_test(NewPackageVersion {
+          scope: &scope,
+          name: &name,
+          version: &version.try_into().unwrap(),
+          user_id: None,
+          readme_path: None,
+          uses_npm: false,
+          exports: &ExportsMap::mock(),
+          meta: Default::default(),
+          license: "MIT".to_string(),
+        })
+        .await
+        .unwrap();
+    }
+
+    // with no stable release, the latest version falls back to the newest
+    // prerelease
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert_eq!(package.latest_version.unwrap(), "1.0.0-rc.10");
+  }
+
+  #[tokio::test]
   async fn update_package_description() {
     let mut t = TestSetup::new().await;
 
@@ -4325,6 +4368,27 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "docsOnlyForLatestVersion")
       .await;
+
+    // with no stable release, the package's latest version is the newest
+    // prerelease
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo")
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert_eq!(package.latest_version.unwrap(), "1.2.3-alpha.1");
+
+    // the `latest` version alias also resolves to the newest prerelease
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/versions/latest")
+      .call()
+      .await
+      .unwrap();
+    let version: ApiPackageVersion = resp.expect_ok().await;
+    assert_eq!(version.version.to_string(), "1.2.3-alpha.1");
   }
 
   #[tokio::test]
