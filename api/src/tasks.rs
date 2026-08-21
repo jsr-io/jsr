@@ -33,6 +33,7 @@ use crate::db::Database;
 use crate::db::DownloadKind;
 use crate::db::NewNpmTarball;
 use crate::db::PublishingTaskStatus;
+use crate::db::STALE_PUBLISHING_TASK_SECS;
 use crate::db::VersionDownloadCount;
 use crate::external::cloudflare;
 use crate::external::cloudflare::CachePurge;
@@ -88,13 +89,6 @@ pub fn tasks_router() -> Router<Body, ApiError> {
     .build()
     .unwrap()
 }
-
-/// How long a publishing task may stay in a non-terminal state
-/// (`processing`/`processed`) before the reaper treats it as stranded and
-/// re-drives it. The publish queue normally finishes a task in seconds, and
-/// Cloud Run caps a single request well under this, so a task older than this
-/// is not actively being processed and is safe to requeue.
-const STALE_PUBLISHING_TASK_SECS: i64 = 30 * 60;
 
 /// Re-drive publishing tasks that got stranded in a non-terminal state.
 ///
