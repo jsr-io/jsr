@@ -129,6 +129,16 @@ export default [
     group: "Reference",
   },
   {
+    title: "Terms of service",
+    id: "terms-of-service",
+    group: "Reference",
+  },
+  {
+    title: "Privacy policy",
+    id: "privacy-policy",
+    group: "Reference",
+  },
+  {
     title: "API",
     id: "api",
     group: "Reference",
