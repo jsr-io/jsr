@@ -1,8 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { Package } from "./api_types.ts";
 
-/// The CI provider that built and (optionally) signed a package version.
-/// New providers add an entry here and a matching row in PROVIDER_DISPLAY.
+/**
+ * The CI provider that built and (optionally) signed a package version.
+ * New providers add an entry here and a matching row in PROVIDER_DISPLAY.
+ */
 export type SourceProvider = "github";
 
 export interface SourceProviderDisplay {
@@ -19,8 +21,10 @@ export const PROVIDER_DISPLAY: Record<SourceProvider, SourceProviderDisplay> = {
   },
 };
 
-/// Resolve which source provider a package is currently linked to, if any.
-/// Returns null when the package has no linked source repository.
+/**
+ * Resolve which source provider a package is currently linked to, if any.
+ * Returns null when the package has no linked source repository.
+ */
 export function getSourceProvider(pkg: Package): SourceProvider | null {
   if (pkg.githubRepository) return "github";
   return null;
