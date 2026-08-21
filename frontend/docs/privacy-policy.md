@@ -169,8 +169,8 @@ In general:
 - public packages and associated metadata are normally retained indefinitely
   because other people may depend on them, subject to exceptional removal;
 - account information is retained while the account exists;
-- authentication and browser state is retained for as long as needed to complete
-  its function and protect the Service;
+- authentication and browser state are retained for as long as needed to
+  complete their functions and protect the Service;
 - operational, request, security, abuse, audit, and correspondence records are
   retained for periods appropriate to their purpose and risk; and
 - backups, caches, and mirrors expire through ordinary rotation or may persist

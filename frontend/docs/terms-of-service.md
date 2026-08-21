@@ -168,18 +168,29 @@ reliance, security and privacy, applicable law, the reliability of the Service,
 and the integrity of the registry. Where reasonably practicable, we may notify
 an affected publisher and consider information they provide. We do not promise
 notice, a response, a particular timeline, an appeal, restoration, or any
-particular outcome. We may act immediately, and our operational decisions are
-final, subject to rights that applicable law does not allow us to limit.
+particular outcome. We may act immediately and may decline to revisit a
+decision, subject to rights that applicable law does not allow us to limit.
 
 If we receive a legal complaint concerning your content or conduct, we may
 remove or restrict the content, preserve relevant records, and disclose
 information as reasonably necessary to handle the complaint or comply with law.
+If you believe content infringes your copyright, trademark, or another right,
+please identify the material and where to find it (including the scope, package,
+version, and file path where applicable), explain what right you hold and why
+you believe the use is unauthorized, give us a way to contact you, and confirm
+that the information is accurate and that you are the rights holder or are
+authorized to act for them.
 
 ## 7. Deno materials and feedback
 
 These Terms do not give you ownership of the Service, JSR or Deno trademarks, or
 Deno content. Separate open-source licenses continue to govern software and
 other materials that Deno publishes under those licenses.
+
+You may use the JSR name and logo to accurately identify or link to JSR,
+including in package documentation, articles, talks, and tooling. You do not
+need separate permission. You must not use them in a way likely to suggest that
+JSR or Deno published, maintains, sponsors, or endorses something it does not.
 
 If you voluntarily give us feedback about JSR, you permit us to use it without
 restriction or compensation. This does not include package content or personal
@@ -223,8 +234,9 @@ LOSS OF PROFITS, REVENUE, GOODWILL, USE, OR DATA; BUSINESS INTERRUPTION; OR THE
 COST OF SUBSTITUTE SERVICES, ARISING OUT OF OR RELATED TO JSR, PACKAGES, OR
 THESE TERMS, EVEN IF ADVISED THAT SUCH DAMAGES WERE POSSIBLE.
 
-TO THE FULLEST EXTENT PERMITTED BY LAW, THEIR TOTAL AGGREGATE LIABILITY ARISING
-OUT OF OR RELATED TO JSR OR THESE TERMS WILL NOT EXCEED US $100.
+TO THE FULLEST EXTENT PERMITTED BY LAW, THE TOTAL AGGREGATE LIABILITY OF DENO
+AND THE PARTIES ABOVE ARISING OUT OF OR RELATED TO JSR OR THESE TERMS WILL NOT
+EXCEED US $100.
 
 These limitations do not apply where applicable law prohibits them, including to
 liability that cannot lawfully be excluded or limited. They apply regardless of
