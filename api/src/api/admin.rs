@@ -85,6 +85,7 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
   let ApiAdminUpdateUserRequest {
     is_staff,
     is_blocked,
+    deletion_hold,
     scope_limit,
   } = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();
@@ -105,6 +106,12 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
     updated_user =
       Some(db.user_set_blocked(&staff.id, user_id, is_blocked).await?);
   }
+  if let Some(deletion_hold) = deletion_hold {
+    updated_user = Some(
+      db.user_set_deletion_hold(&staff.id, user_id, deletion_hold)
+        .await?,
+    );
+  }
   if let Some(scope_limit) = scope_limit {
     updated_user = Some(
       db.user_set_scope_limit(&staff.id, user_id, scope_limit)
@@ -116,7 +123,8 @@ pub async fn update_user(mut req: Request<Body>) -> ApiResult<ApiFullUser> {
     Ok(updated_user.into())
   } else {
     Err(ApiError::MalformedRequest {
-      msg: "missing 'is_staff', 'is_blocked' or 'scope_limit' parameter".into(),
+      msg: "missing 'is_staff', 'is_blocked', 'deletion_hold' or 'scope_limit' parameter"
+        .into(),
     })
   }
 }
@@ -140,6 +148,11 @@ pub async fn delete_user_admin(
   }
 
   let db = req.data::<Database>().unwrap();
+
+  let user = db.get_user(user_id).await?.ok_or(ApiError::UserNotFound)?;
+  if user.deletion_hold {
+    return Err(ApiError::UserDeletionHeld);
+  }
 
   match db.delete_user(&staff.id, true, user_id).await? {
     Some(()) => {

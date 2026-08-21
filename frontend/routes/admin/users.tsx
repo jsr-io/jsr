@@ -95,9 +95,17 @@ export default define.page<typeof handler>(function Users({ data, url }) {
                           type: "boolean",
                           value: user.isBlocked,
                         },
+                        {
+                          name: "deletionHold",
+                          label: "deletion hold",
+                          type: "boolean",
+                          value: user.deletionHold,
+                        },
                       ]}
                     />
-                    <DeleteUser userId={user.id} userName={user.name} />
+                    {!user.deletionHold && (
+                      <DeleteUser userId={user.id} userName={user.name} />
+                    )}
                   </>
                 )}
               </div>

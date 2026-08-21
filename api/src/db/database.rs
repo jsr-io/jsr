@@ -413,6 +413,42 @@ impl Database {
     Ok(user)
   }
 
+  #[instrument(name = "Database::user_set_deletion_hold", skip(self), err)]
+  pub async fn user_set_deletion_hold(
+    &self,
+    staff_id: &Uuid,
+    user_id: Uuid,
+    deletion_hold: bool,
+  ) -> Result<User> {
+    let mut tx = self.pool.begin().await?;
+
+    audit_log(
+      &mut tx,
+      staff_id,
+      true,
+      "user_set_deletion_hold",
+      json!({
+        "user_id": user_id,
+        "deletion_hold": deletion_hold,
+      }),
+    )
+    .await?;
+
+    let user = query_concat_as!(
+      User,
+      "UPDATE users SET deletion_hold = $1 WHERE id = $2
+      RETURNING ", USER_SELECT_FULL;
+      deletion_hold,
+      user_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(user)
+  }
+
   #[instrument(name = "Database::user_set_scope_limit", skip(self), err)]
   pub async fn user_set_scope_limit(
     &self,
@@ -459,13 +495,17 @@ impl Database {
     let service_account_id = Uuid::nil();
     let mut tx = self.pool.begin().await?;
 
-    // Check user exists
-    let user_exists = sqlx::query!(r#"SELECT id FROM users WHERE id = $1"#, id)
-      .fetch_optional(&mut *tx)
-      .await?;
-    if user_exists.is_none() {
+    // Check user exists, and capture the identity provider IDs for the
+    // deletion tombstone below.
+    let Some(user_row) = sqlx::query!(
+      r#"SELECT github_id, gitlab_id FROM users WHERE id = $1"#,
+      id
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    else {
       return Ok(None);
-    }
+    };
 
     // For scopes where the user is the last member, transfer to service account.
     // For scopes where the user is creator but others exist, transfer creator.
@@ -557,6 +597,10 @@ impl Database {
 
     // Write the deletion audit entry, storing the actual actor in meta
     // so it's preserved even when the actor is the user being deleted.
+    // The identity provider IDs are retained as a minimal tombstone so the
+    // account can be re-identified through the provider if legally required
+    // (GDPR art. 17(3)(b)/(e), CCPA 1798.105(d)); name and email are not
+    // retained.
     let audit_actor = if *actor_id == id {
       &service_account_id
     } else {
@@ -567,7 +611,12 @@ impl Database {
       audit_actor,
       is_sudo,
       "user_delete",
-      json!({ "user_id": id, "performed_by": actor_id }),
+      json!({
+        "user_id": id,
+        "performed_by": actor_id,
+        "github_id": user_row.github_id,
+        "gitlab_id": user_row.gitlab_id,
+      }),
     )
     .await?;
 
@@ -4331,6 +4380,7 @@ gitlab_id: r.user_gitlab_id,
         gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
+        deletion_hold: r.user_deletion_hold,
         scope_usage: r.user_scope_usage,
         scope_limit: r.user_scope_limit,
         invite_count: r.user_invite_count,
@@ -4508,6 +4558,7 @@ gitlab_id: r.user_gitlab_id,
         gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
+        deletion_hold: r.user_deletion_hold,
         scope_usage: r.user_scope_usage,
         scope_limit: r.user_scope_limit,
         invite_count: r.user_invite_count,
@@ -4600,6 +4651,7 @@ gitlab_id: r.user_gitlab_id,
         gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
+        deletion_hold: r.user_deletion_hold,
         scope_usage: r.user_scope_usage,
         scope_limit: r.user_scope_limit,
         invite_count: r.user_invite_count,
@@ -4830,6 +4882,7 @@ gitlab_id: r.user_gitlab_id,
         gitlab_id: r.user_gitlab_id,
         is_blocked: r.user_is_blocked,
         is_staff: r.user_is_staff,
+        deletion_hold: r.user_deletion_hold,
         scope_usage: r.user_scope_usage,
         scope_limit: r.user_scope_limit,
         invite_count: r.user_invite_count,

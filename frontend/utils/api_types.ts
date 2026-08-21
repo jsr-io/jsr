@@ -21,6 +21,7 @@ export interface FullUser extends User {
   email: string | null;
   isStaff: boolean;
   isBlocked: boolean;
+  deletionHold: boolean;
   scopeUsage: number;
   scopeLimit: number | null;
   inviteCount: number;

@@ -95,13 +95,29 @@ export default define.page<typeof handler>(function AccountInvitesPage({
         </div>
         <div>
           <h2 class="text-xl mb-2 font-bold">Delete account</h2>
-          <p class="mt-2 text-secondary max-w-xl">
-            You may delete your account at any time. If you delete your account,
-            any scopes that you are the sole owner of will be transferred to a
-            service account. You will not be able to recover your account after
-            deletion.
-          </p>
-          <DeleteAccount scopes={data.scopes} userName={data.user.name} />
+          {data.user.deletionHold
+            ? (
+              <p class="mt-2 text-secondary max-w-xl">
+                Your account cannot be deleted at this time because it is
+                subject to a deletion hold, for example due to a pending legal
+                or moderation matter. Please contact support for more
+                information.
+              </p>
+            )
+            : (
+              <>
+                <p class="mt-2 text-secondary max-w-xl">
+                  You may delete your account at any time. If you delete your
+                  account, any scopes that you are the sole owner of will be
+                  transferred to a service account. You will not be able to
+                  recover your account after deletion.
+                </p>
+                <DeleteAccount
+                  scopes={data.scopes}
+                  userName={data.user.name}
+                />
+              </>
+            )}
         </div>
       </div>
     </AccountLayout>

@@ -73,6 +73,10 @@ async fn delete_account(req: Request<Body>) -> ApiResult<Response<Body>> {
     return Err(ApiError::CannotDeleteServiceAccount);
   }
 
+  if current_user.deletion_hold {
+    return Err(ApiError::UserDeletionHeld);
+  }
+
   let db = req.data::<Database>().unwrap();
   let user_id = current_user.id;
 
@@ -546,5 +550,67 @@ mod tests {
     assert_eq!(members.len(), 1);
     assert_eq!(members[0].user.id, uuid::Uuid::nil());
     assert!(members[0].is_admin);
+  }
+
+  #[tokio::test]
+  async fn deletion_hold_blocks_account_deletion() {
+    let mut t = TestSetup::new().await;
+
+    let user2_id = t.user2.user.id;
+    let user2_token = t.user2.token.clone();
+    let staff_token = t.staff_user.token.clone();
+
+    // Staff places a deletion hold on user2
+    let user: crate::api::ApiFullUser = t
+      .http()
+      .patch(format!("/api/admin/users/{}", user2_id))
+      .body_json(json!({ "deletionHold": true }))
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok()
+      .await;
+    assert!(user.deletion_hold);
+
+    // Self-service deletion is blocked
+    t.http()
+      .delete("/api/user")
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::CONFLICT, "userDeletionHeld")
+      .await;
+
+    // Admin deletion is blocked too
+    t.http()
+      .delete(format!("/api/admin/users/{}", user2_id))
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_err_code(StatusCode::CONFLICT, "userDeletionHeld")
+      .await;
+
+    // Lifting the hold allows deletion again
+    t.http()
+      .patch(format!("/api/admin/users/{}", user2_id))
+      .body_json(json!({ "deletionHold": false }))
+      .token(Some(&staff_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok::<crate::api::ApiFullUser>()
+      .await;
+
+    t.http()
+      .delete("/api/user")
+      .token(Some(&user2_token))
+      .call()
+      .await
+      .unwrap()
+      .expect_ok_no_content()
+      .await;
   }
 }

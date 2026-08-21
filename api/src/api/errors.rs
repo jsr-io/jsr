@@ -39,6 +39,10 @@ errors!(
     status: BAD_REQUEST,
     "The service account cannot be modified.",
   },
+  UserDeletionHeld {
+    status: CONFLICT,
+    "This account cannot be deleted at this time because it is subject to a deletion hold, for example due to a pending legal or moderation matter. Contact support for more information.",
+  },
   ScopeNotFound {
     status: NOT_FOUND,
     "The requested scope was not found.",

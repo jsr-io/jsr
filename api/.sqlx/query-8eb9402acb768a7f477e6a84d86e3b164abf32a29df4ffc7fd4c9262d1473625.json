@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT github_id, gitlab_id FROM users WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "github_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "gitlab_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "8eb9402acb768a7f477e6a84d86e3b164abf32a29df4ffc7fd4c9262d1473625"
+}
