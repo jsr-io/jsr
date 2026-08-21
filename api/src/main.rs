@@ -39,7 +39,10 @@ use crate::config::Config;
 use crate::db::Database;
 use crate::emails::EmailSender;
 use crate::errors_internal::error_handler;
-use crate::external::orama::OramaClient;
+use crate::external::algolia::AlgoliaClient;
+use crate::external::cloudflare::CachePurge;
+use crate::external::cloudflare::Turnstile;
+use crate::external::cloudflare::TurnstileClient;
 use crate::gcp::Queue;
 use crate::s3::Buckets;
 use crate::sitemap::packages_sitemap_handler;
@@ -66,7 +69,7 @@ pub struct MainRouterOptions {
   generate_ctx_cache: crate::docs::GenerateCtxCache,
   github_client: auth::github::Oauth2Client,
   gitlab_client: auth::gitlab::Oauth2Client,
-  orama_client: Option<OramaClient>,
+  algolia_client: Option<AlgoliaClient>,
   email_sender: Option<EmailSender>,
   license_store: util::LicenseStore,
   registry_url: Url,
@@ -77,6 +80,8 @@ pub struct MainRouterOptions {
     external::cloudflare::AnalyticsEngineClient,
     /* dataset_name */ String,
   )>,
+  cache_purge_client: Option<external::cloudflare::CachePurgeClient>,
+  turnstile: Turnstile,
   expose_api: bool,
   expose_tasks: bool,
 }
@@ -91,7 +96,7 @@ pub(crate) fn main_router(
     generate_ctx_cache,
     github_client,
     gitlab_client,
-    orama_client,
+    algolia_client,
     license_store,
     email_sender,
     registry_url,
@@ -99,6 +104,8 @@ pub(crate) fn main_router(
     publish_queue,
     npm_tarball_build_queue,
     analytics_engine_config,
+    cache_purge_client,
+    turnstile,
     expose_api,
     expose_tasks,
   }: MainRouterOptions,
@@ -109,7 +116,7 @@ pub(crate) fn main_router(
     .data(generate_ctx_cache)
     .data(github_client)
     .data(gitlab_client)
-    .data(orama_client)
+    .data(algolia_client)
     .data(email_sender)
     .data(license_store)
     .data(RegistryUrl(registry_url))
@@ -117,6 +124,8 @@ pub(crate) fn main_router(
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
+    .data(CachePurge(cache_purge_client))
+    .data(turnstile)
     .data(db::DependentCountCache::new())
     .middleware(routerify_query::query_parser())
     .err_handler_with_info(error_handler);
@@ -127,7 +136,11 @@ pub(crate) fn main_router(
       .get("/sitemap.xml", sitemap_index_handler)
       .get("/sitemap-scopes.xml", scopes_sitemap_handler)
       .get("/sitemap-packages.xml", packages_sitemap_handler)
-      .get("/login/:service", auth::login_handler)
+      // POST, not GET: the login form carries the Turnstile response token in
+      // its body, which keeps it out of URLs, logs and `Referer` headers. It
+      // also means a bare link to this route can no longer start a login flow,
+      // so the captcha cannot be sidestepped by navigating straight here.
+      .post("/login/:service", auth::login_handler)
       .get("/login/callback/:service", auth::login_callback_handler)
       .get("/logout", auth::logout_handler)
       .get("/connect/:service", util::full_auth(auth::connect_handler))
@@ -159,19 +172,36 @@ async fn main() {
   let config = Config::parse();
   println!("{config:?}");
 
-  let export_target = if config.cloud_trace {
-    TracingExportTarget::CloudTrace
-  } else if let Some(otlp_endpoint) = config.otlp_endpoint {
-    TracingExportTarget::Otlp(otlp_endpoint)
+  // Treat a present-but-empty OTLP_ENDPOINT as unset: clap parses an empty env
+  // var as Some(""), which would otherwise build a schemeless endpoint and
+  // panic the exporter at boot. Filtering here means empty == export disabled.
+  let export_target = if let Some(endpoint) =
+    config.otlp_endpoint.filter(|s| !s.trim().is_empty())
+  {
+    TracingExportTarget::Otlp {
+      endpoint,
+      headers: crate::tracing::parse_otlp_headers(
+        config.otlp_headers.as_deref(),
+      ),
+    }
   } else {
     TracingExportTarget::None
   };
-  setup_tracing("api", export_target).await;
+  setup_tracing("api", export_target, config.deployment_environment).await;
+
+  let db_tls = match (config.db_client_cert, config.db_client_key) {
+    (Some(client_cert), Some(client_key)) => Some(crate::db::DbTls {
+      client_cert,
+      client_key,
+    }),
+    _ => None,
+  };
 
   let database = Database::connect(
     &config.database_url,
     config.database_pool_size,
     Duration::from_secs(15),
+    db_tls,
   )
   .await
   .unwrap();
@@ -238,6 +268,16 @@ async fn main() {
     .npm_tarball_build_queue_id
     .map(|id: String| Queue::new(gcp_client.clone(), id, None));
 
+  let cache_purge_client = match (
+    config.cloudflare_zone_id.clone(),
+    config.cloudflare_api_token.clone(),
+  ) {
+    (Some(zone_id), Some(api_token)) => Some(
+      external::cloudflare::CachePurgeClient::new(zone_id, api_token),
+    ),
+    _ => None,
+  };
+
   let analytics_engine_config = match (
     config.cloudflare_account_id,
     config.cloudflare_api_token,
@@ -249,6 +289,9 @@ async fn main() {
     )),
     _ => None,
   };
+
+  let turnstile =
+    Turnstile(config.turnstile_secret_key.map(TurnstileClient::new));
 
   let github_client = auth::github::Oauth2Client::new(
     &config.registry_url,
@@ -262,30 +305,19 @@ async fn main() {
     config.gitlab_client_secret,
   );
 
-  let orama_client = if let Some(orama_packages_project_id) =
-    config.orama_packages_project_id
-  {
-    Some(
-        OramaClient::new(
-          orama_packages_project_id,
-          config.orama_packages_project_key.expect(
-            "orama_packages_project_id was provided but no orama_packages_project_key",
-          ),
-          config.orama_packages_data_source.expect(
-            "orama_packages_project_id was provided but no orama_packages_data_source",
-          ),
-          config.orama_symbols_project_id.expect(
-            "orama_packages_project_id was provided but no orama_symbols_project_id",
-          ),
-          config.orama_symbols_project_key.expect(
-            "orama_packages_project_id was provided but no orama_symbols_project_key",
-          ),
-          config.orama_symbols_data_source.expect(
-            "orama_packages_project_id was provided but no orama_symbols_data_source",
-          ),
-        )
-        .await,
-      )
+  let algolia_client = if let Some(algolia_app_id) = config.algolia_app_id {
+    Some(AlgoliaClient::new(
+      algolia_app_id,
+      config
+        .algolia_write_api_key
+        .expect("algolia_app_id was provided but no algolia_write_api_key"),
+      config
+        .algolia_packages_index
+        .expect("algolia_app_id was provided but no algolia_packages_index"),
+      config
+        .algolia_symbols_index
+        .expect("algolia_app_id was provided but no algolia_symbols_index"),
+    ))
   } else {
     None
   };
@@ -314,7 +346,7 @@ async fn main() {
     generate_ctx_cache,
     github_client,
     gitlab_client,
-    orama_client,
+    algolia_client,
     email_sender,
     license_store,
     registry_url: config.registry_url,
@@ -322,6 +354,8 @@ async fn main() {
     publish_queue,
     npm_tarball_build_queue,
     analytics_engine_config,
+    cache_purge_client,
+    turnstile,
     expose_api: config.api,
     expose_tasks: config.tasks,
   });

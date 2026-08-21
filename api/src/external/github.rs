@@ -1,17 +1,23 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
-// Copyright Deno Land Inc. All Rights Reserved. Proprietary and confidential.
 
 use std::fmt::Display;
 use std::str::FromStr;
 
 use crate::api::ApiError;
+use crate::db::Database;
+use crate::db::Permissions;
+use crate::external::oidc;
+use crate::external::oidc::OidcProvider;
+use crate::external::oidc::OidcProviderKind;
+use crate::iam::IamInfo;
+use crate::iam::Principal;
 use crate::util::ApiResult;
 use crate::util::shared_http_client;
-use anyhow::Context;
 use hyper::StatusCode;
 use serde::Deserialize;
 use serde::Deserializer;
-use tracing::error;
+use tracing::Span;
+use tracing::field;
 use tracing::instrument;
 
 pub struct GitHubUserClient {
@@ -204,13 +210,20 @@ where
   }
 }
 
-#[derive(Deserialize)]
-struct GitHubActionKeys {
-  keys: Vec<jsonwebkey::JsonWebKey>,
-}
-
 pub static GITHUB_OIDC_ISSUER: &str =
   "https://token.actions.githubusercontent.com";
+
+/// Build the provider configuration for a validated GitHub Actions issuer.
+/// The issuer is per-token: GitHub Enterprise Cloud enterprises with the
+/// "unique OIDC issuer URL" setting get an enterprise-scoped issuer that
+/// serves its JWKS from its own path.
+fn oidc_provider(issuer: String) -> OidcProvider {
+  OidcProvider {
+    kind: OidcProviderKind::GitHub,
+    jwks_url: format!("{issuer}/.well-known/jwks"),
+    issuer,
+  }
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct GitHubClaims {
@@ -221,57 +234,161 @@ pub struct GitHubClaims {
   pub aud: String,
 }
 
-#[instrument(name = "github::verify_oidc_token", err, skip(token))]
-pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
-  let url = format!("{GITHUB_OIDC_ISSUER}/.well-known/jwks");
-  let res = shared_http_client()
-    .get(url)
-    .header("Accept", "application/json")
-    .send()
-    .await
-    .context("failed to download github jwks")?;
-  let status = res.status();
-  if !status.is_success() {
-    let body = res.text().await.unwrap_or_default();
-    error!("failed to download github jwks: {body} (status: {status}) ");
-    return Err(ApiError::InternalServerError);
+/// Validate that `iss` is a GitHub Actions OIDC issuer: either the shared
+/// issuer, or an enterprise-scoped one of the form
+/// `https://token.actions.githubusercontent.com/<enterpriseSlug>`, which GitHub
+/// Enterprise Cloud uses when the "unique OIDC issuer URL" setting is enabled.
+/// The slug charset check also keeps the JWKS fetch below pinned to GitHub's
+/// domain.
+fn validate_oidc_issuer(iss: &str) -> ApiResult<()> {
+  if iss == GITHUB_OIDC_ISSUER {
+    return Ok(());
   }
-  let GitHubActionKeys { keys } =
-    res.json().await.context("failed to parse github jwks")?;
+  if let Some(slug) = iss.strip_prefix(GITHUB_OIDC_ISSUER)
+    && let Some(slug) = slug.strip_prefix('/')
+    && !slug.is_empty()
+    && slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+  {
+    return Ok(());
+  }
+  Err(ApiError::InvalidOidcToken {
+    msg: format!("invalid issuer: {iss}").into(),
+  })
+}
 
-  let header = jsonwebtoken::decode_header(token).map_err(|err| {
+/// Extract the `iss` claim from a JWT without verifying its signature. The
+/// value must only be used to select the JWKS endpoint; `verify_oidc_token`
+/// re-validates it under the token signature.
+fn extract_unverified_issuer(token: &str) -> ApiResult<String> {
+  use base64::Engine as _;
+  use base64::prelude::BASE64_URL_SAFE_NO_PAD;
+
+  #[derive(Deserialize)]
+  struct UnverifiedClaims {
+    iss: String,
+  }
+
+  let payload = token.split('.').nth(1).ok_or(ApiError::InvalidOidcToken {
+    msg: "malformed token".into(),
+  })?;
+  let payload = BASE64_URL_SAFE_NO_PAD.decode(payload).map_err(|err| {
     ApiError::InvalidOidcToken {
-      msg: err.to_string().into(),
+      msg: format!("failed to decode claims: {err}").into(),
     }
   })?;
-  let kid = header.kid.ok_or(ApiError::InvalidOidcToken {
-    msg: "missing kid".into(),
-  })?;
+  let claims: UnverifiedClaims =
+    serde_json::from_slice(&payload).map_err(|err| {
+      ApiError::InvalidOidcToken {
+        msg: format!("failed to parse claims: {err}").into(),
+      }
+    })?;
+  Ok(claims.iss)
+}
 
-  let jwk = keys
-    .iter()
-    .find(|k| k.key_id.as_deref() == Some(&*kid))
-    .ok_or_else(|| ApiError::InvalidOidcToken {
-      msg: format!("invalid kid: {kid}").into(),
+#[instrument(name = "github::verify_oidc_token", err, skip(token))]
+pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
+  // The issuer is needed before verification to know which JWKS endpoint to
+  // fetch: enterprise-scoped issuers serve their keys from their own path.
+  let issuer = extract_unverified_issuer(token)?;
+  validate_oidc_issuer(&issuer)?;
+  oidc::verify_token::<GitHubClaims>(&oidc_provider(issuer), token).await
+}
+
+/// The `aud` claim from a GitHub Actions OIDC token issued for JSR carries
+/// JSON-encoded fine-grained publishing permissions. Other providers use a
+/// plain-string aud and surface their own `aud`-shaped types.
+#[derive(Clone, Debug, Deserialize)]
+pub struct GithubOidcTokenAud {
+  pub permissions: Permissions,
+}
+
+/// Verify a GitHub Actions OIDC token and turn it into an [`IamInfo`].
+/// Records `repo.id` and (if the OIDC actor maps to a known JSR user)
+/// `user.id` on the provided span.
+#[instrument(name = "github::build_iam_info", err, skip(db, token, span))]
+pub async fn build_iam_info(
+  db: &Database,
+  token: &str,
+  span: &Span,
+) -> ApiResult<IamInfo> {
+  let claims = verify_oidc_token(token).await?;
+  span.record("repo.id", field::display(claims.repository_id));
+
+  let aud: GithubOidcTokenAud =
+    serde_json::from_str(&claims.aud).map_err(|err| {
+      ApiError::InvalidOidcToken {
+        msg: format!("failed to parse 'aud': {err}").into(),
+      }
     })?;
 
-  let alg: jsonwebtoken::Algorithm = jwk
-    .algorithm
-    .ok_or_else(|| {
-      error!("jwk {jwk:?} missing algorithm");
-      ApiError::InternalServerError
-    })?
-    .into();
-  let mut validation = jsonwebtoken::Validation::new(alg);
-  validation.set_issuer(&[GITHUB_OIDC_ISSUER]);
-  let decoded = jsonwebtoken::decode::<GitHubClaims>(
-    token,
-    &jwk.key.to_decoding_key(),
-    &validation,
-  )
-  .map_err(|err| ApiError::InvalidOidcToken {
-    msg: err.to_string().into(),
-  })?;
+  let user = db.get_user_by_github_id(claims.actor_id).await?;
+  if let Some(user) = &user {
+    span.record("user.id", field::display(user.id));
+  }
 
-  Ok(decoded.claims)
+  Ok(IamInfo {
+    principal: Principal::OidcCi {
+      provider: OidcProviderKind::GitHub,
+      repository_external_id: claims.repository_id.to_string(),
+      user,
+    },
+    permissions: Some(aud.permissions),
+    interactive: false,
+    sudo: false,
+  })
+}
+
+#[cfg(test)]
+mod tests {
+  use super::GITHUB_OIDC_ISSUER;
+  use super::extract_unverified_issuer;
+  use super::validate_oidc_issuer;
+  use base64::Engine as _;
+  use base64::prelude::BASE64_URL_SAFE_NO_PAD;
+
+  #[test]
+  fn validate_oidc_issuer_accepts_github_issuers() {
+    validate_oidc_issuer(GITHUB_OIDC_ISSUER).unwrap();
+    // Enterprise-scoped issuer (GHEC "unique OIDC issuer URL"), see
+    // jsr-io/jsr#1485.
+    validate_oidc_issuer(
+      "https://token.actions.githubusercontent.com/octocat-inc",
+    )
+    .unwrap();
+  }
+
+  #[test]
+  fn validate_oidc_issuer_rejects_other_issuers() {
+    for iss in [
+      "",
+      "https://example.com",
+      "https://token.actions.githubusercontent.com/",
+      "https://token.actions.githubusercontent.com//foo",
+      "https://token.actions.githubusercontent.com/foo/bar",
+      "https://token.actions.githubusercontent.com/foo?x=1",
+      "https://token.actions.githubusercontent.com/../foo",
+      "https://token.actions.githubusercontent.com.evil.com",
+      "https://token.actions.githubusercontent.com.evil.com/foo",
+      "https://token.actions.ghe.com/foo",
+    ] {
+      assert!(validate_oidc_issuer(iss).is_err(), "accepted: {iss}");
+    }
+  }
+
+  #[test]
+  fn extract_unverified_issuer_reads_iss_claim() {
+    let payload = BASE64_URL_SAFE_NO_PAD.encode(
+      br#"{"iss":"https://token.actions.githubusercontent.com/octocat-inc"}"#,
+    );
+    let token = format!("e30.{payload}.signature");
+    assert_eq!(
+      extract_unverified_issuer(&token).unwrap(),
+      "https://token.actions.githubusercontent.com/octocat-inc"
+    );
+
+    assert!(extract_unverified_issuer("garbage").is_err());
+    assert!(extract_unverified_issuer("e30.!!!.sig").is_err());
+    let no_iss = BASE64_URL_SAFE_NO_PAD.encode(br#"{"sub":"x"}"#);
+    assert!(extract_unverified_issuer(&format!("e30.{no_iss}.sig")).is_err());
+  }
 }

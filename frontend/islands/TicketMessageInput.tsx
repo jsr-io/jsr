@@ -1,6 +1,7 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import { useEffect, useState } from "preact/hooks";
-import { TbCheck, TbClock } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 import {
   AdminUpdateTicketRequest,
   FullUser,

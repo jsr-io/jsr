@@ -35,17 +35,16 @@ pub fn scope_router() -> Router<Body, ApiError> {
     .scope("/:scope/packages", package_router())
     .post("/", util::auth(util::json(create_handler)))
     .get(
+      // Cache-busted on package publish/create/delete via the scope aggregates
+      // in `package_api_cache_urls` / `scope_api_cache_urls`.
       "/:scope",
-      util::cache(CacheDuration::FIVE_MINUTES, util::json(get_handler)),
+      util::cache(CacheDuration::ONE_DAY, util::json(get_handler)),
     )
     .patch("/:scope", util::auth(util::json(update_handler)))
     .delete("/:scope", util::auth(delete_handler))
     .get(
       "/:scope/members",
-      util::cache(
-        CacheDuration::FIVE_MINUTES,
-        util::json(list_members_handler),
-      ),
+      util::cache(CacheDuration::ONE_HOUR, util::json(list_members_handler)),
     )
     .post(
       "/:scope/members",
@@ -71,7 +70,7 @@ pub fn scope_router() -> Router<Body, ApiError> {
 static RESERVED_SCOPES: OnceLock<std::collections::HashSet<String>> =
   OnceLock::new();
 
-#[instrument(name = "POST /api/scopes", skip(req), err, fields(scope))]
+#[instrument(name = "POST /api/scopes", skip(req), fields(scope))]
 async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   let ApiCreateScopeRequest { scope, description } =
     decode_json(&mut req).await?;
@@ -116,7 +115,7 @@ async fn create_handler(mut req: Request<Body>) -> ApiResult<ApiScope> {
   Ok(scope.into())
 }
 
-#[instrument(name = "GET /api/scopes/:scope", skip(req), err, fields(scope))]
+#[instrument(name = "GET /api/scopes/:scope", skip(req), fields(scope))]
 async fn get_handler(req: Request<Body>) -> ApiResult<ApiScopeOrFullScope> {
   let scope_name = req.param_scope()?;
   Span::current().record("scope", field::display(&scope_name));
@@ -140,7 +139,7 @@ async fn get_handler(req: Request<Body>) -> ApiResult<ApiScopeOrFullScope> {
   }
 }
 
-#[instrument(name = "PATCH /api/scopes/:scope", skip(req), err, fields(scope))]
+#[instrument(name = "PATCH /api/scopes/:scope", skip(req), fields(scope))]
 async fn update_handler(
   mut req: Request<Body>,
 ) -> ApiResult<ApiScopeOrFullScope> {
@@ -196,7 +195,7 @@ async fn update_handler(
   ))
 }
 
-#[instrument(name = "DELETE /api/scopes/:scope", skip(req), err, fields(scop))]
+#[instrument(name = "DELETE /api/scopes/:scope", skip(req), fields(scop))]
 pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   let scope = req.param_scope()?;
 
@@ -219,12 +218,7 @@ pub async fn delete_handler(req: Request<Body>) -> ApiResult<Response<Body>> {
   Ok(res)
 }
 
-#[instrument(
-  name = "GET /api/scopes/:scope/members",
-  skip(req),
-  err,
-  fields(scope)
-)]
+#[instrument(name = "GET /api/scopes/:scope/members", skip(req), fields(scope))]
 async fn list_members_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScopeMember>> {
@@ -248,7 +242,6 @@ async fn list_members_handler(
 #[instrument(
   name = "POST /api/scopes/:scope/members",
   skip(req),
-  err,
   fields(scope, github_login)
 )]
 async fn invite_member_handler(
@@ -348,7 +341,6 @@ async fn invite_member_handler(
 #[instrument(
   name = "PATCH /api/scopes/:scope/members/:member",
   skip(req),
-  err,
   fields(scope, member)
 )]
 async fn update_member_handler(
@@ -399,7 +391,6 @@ async fn update_member_handler(
 #[instrument(
   name = "DELETE /api/scopes/:scope/members/:member",
   skip(req),
-  err,
   fields(scope, member)
 )]
 pub async fn delete_member_handler(
@@ -440,12 +431,7 @@ pub async fn delete_member_handler(
   Ok(resp)
 }
 
-#[instrument(
-  name = "GET /api/scopes/:scope/invites",
-  skip(req),
-  err,
-  fields(scope)
-)]
+#[instrument(name = "GET /api/scopes/:scope/invites", skip(req), fields(scope))]
 pub async fn list_invites_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScopeInvite>> {
@@ -472,7 +458,6 @@ pub async fn list_invites_handler(
 #[instrument(
   name = "DELETE /api/scopes/:scope/invites/:user_id",
   skip(req),
-  err,
   fields(scope, user_id)
 )]
 pub async fn delete_invite_handler(

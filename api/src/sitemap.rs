@@ -14,6 +14,18 @@ use crate::RegistryUrl;
 use crate::api::ApiError;
 use crate::db::Database;
 
+// Sitemaps are unauthenticated, fetched primarily by search-engine
+// crawlers. Allow the CDN to hold a single shared copy for an hour and
+// keep serving stale while revalidating, so the API never sees more than
+// a handful of full table scans per hour regardless of crawl rate.
+const SITEMAP_CACHE_CONTROL: &str =
+  "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600";
+
+// The index just points at the other two sitemaps. It only changes when
+// we add a new sitemap, so cache it for a full day.
+const SITEMAP_INDEX_CACHE_CONTROL: &str =
+  "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400";
+
 #[allow(deprecated)] // the replacement can not be used in const positions in stable
 const TWO_DAYS: chrono::Duration = chrono::Duration::days(2);
 #[allow(deprecated)] // the replacement can not be used in const positions in stable
@@ -41,6 +53,7 @@ pub async fn sitemap_index_handler(
 
   let response = Response::builder()
     .header("Content-Type", "application/xml")
+    .header("Cache-Control", SITEMAP_INDEX_CACHE_CONTROL)
     .body(Body::from(bytes))
     .unwrap();
 
@@ -96,6 +109,7 @@ pub async fn scopes_sitemap_handler(
 
   let response = Response::builder()
     .header("Content-Type", "application/xml")
+    .header("Cache-Control", SITEMAP_CACHE_CONTROL)
     .body(Body::from(bytes))
     .unwrap();
 
@@ -147,6 +161,7 @@ pub async fn packages_sitemap_handler(
 
   let response = Response::builder()
     .header("Content-Type", "application/xml")
+    .header("Cache-Control", SITEMAP_CACHE_CONTROL)
     .body(Body::from(bytes))
     .unwrap();
 

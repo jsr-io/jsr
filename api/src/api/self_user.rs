@@ -57,14 +57,14 @@ pub fn self_user_router() -> Router<Body, ApiError> {
     .unwrap()
 }
 
-#[instrument(name = "GET /api/user", skip(req), err)]
+#[instrument(name = "GET /api/user", skip(req))]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiFullUser> {
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?.to_owned();
   Ok(current_user.into())
 }
 
-#[instrument(name = "DELETE /api/user", skip(req), err)]
+#[instrument(name = "DELETE /api/user", skip(req))]
 async fn delete_account(req: Request<Body>) -> ApiResult<Response<Body>> {
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;
@@ -88,7 +88,7 @@ async fn delete_account(req: Request<Body>) -> ApiResult<Response<Body>> {
   Ok(resp)
 }
 
-#[instrument(name = "GET /api/user/scopes", skip(req), err)]
+#[instrument(name = "GET /api/user/scopes", skip(req))]
 pub async fn list_scopes_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScope>> {
@@ -101,12 +101,7 @@ pub async fn list_scopes_handler(
   Ok(scopes.into_iter().map(ApiScope::from).collect())
 }
 
-#[instrument(
-  name = "GET /api/user/member/:scope",
-  skip(req),
-  err,
-  fields(scope)
-)]
+#[instrument(name = "GET /api/user/member/:scope", skip(req), fields(scope))]
 pub async fn get_member_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiScopeMember> {
@@ -126,7 +121,7 @@ pub async fn get_member_handler(
   Ok((scope_member, UserPublic::from(current_user.clone())).into())
 }
 
-#[instrument(name = "GET /api/user/invites", skip(req), err)]
+#[instrument(name = "GET /api/user/invites", skip(req))]
 pub async fn list_invites_handler(
   req: Request<Body>,
 ) -> ApiResult<Vec<ApiScopeInvite>> {
@@ -145,12 +140,7 @@ pub async fn list_invites_handler(
   Ok(scope_invites)
 }
 
-#[instrument(
-  name = "POST /api/user/invites/:scope",
-  skip(req),
-  err,
-  fields(scope)
-)]
+#[instrument(name = "POST /api/user/invites/:scope", skip(req), fields(scope))]
 pub async fn accept_invite_handler(
   req: Request<Body>,
 ) -> ApiResult<ApiScopeMember> {
@@ -173,7 +163,6 @@ pub async fn accept_invite_handler(
 #[instrument(
   name = "DELETE /api/user/invites/:scope",
   skip(req),
-  err,
   fields(scope)
 )]
 pub async fn decline_invite_handler(
@@ -345,7 +334,7 @@ async fn delete_token(req: Request<Body>) -> Result<Response<Body>, ApiError> {
   Ok(resp)
 }
 
-#[instrument(name = "GET /api/user/tickets", skip(req), err)]
+#[instrument(name = "GET /api/user/tickets", skip(req))]
 pub async fn list_tickets(req: Request<Body>) -> ApiResult<Vec<ApiTicket>> {
   let iam = req.iam();
   let current_user = iam.check_current_user_access()?;

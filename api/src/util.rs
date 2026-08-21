@@ -24,8 +24,8 @@ use uuid::Uuid;
 
 use crate::api::ApiError;
 use crate::db::Database;
-use crate::db::Permissions;
-use crate::external::github::verify_oidc_token;
+use crate::external::github;
+use crate::external::oidc::OidcProviderKind;
 use crate::iam::IamInfo;
 use crate::iam::ReqIamExt as _;
 use crate::ids::PackageName;
@@ -97,6 +97,37 @@ where
     .expect("expected to be able to create response")
 }
 
+/// Wrap a handler so its response is explicitly uncacheable
+/// (`Cache-Control: no-store`).
+///
+/// `json` sets no `Cache-Control`, and the lb caches such GET responses for
+/// anonymous callers. That must not happen for dynamic, not-behind-[`auth`]
+/// endpoints — most importantly the publish-status poll: a cached
+/// `pending`/`processing` status makes `deno publish` hang until the entry
+/// expires even though the task already finished. Stamping `no-store` keeps the
+/// lb (and any downstream cache) from ever storing the response.
+pub fn no_store<H, HF>(
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  let handler = Arc::new(handler);
+  move |req: Request<Body>| {
+    let handler = handler.clone();
+    async move {
+      let mut res = handler(req).await?;
+      res.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store"),
+      );
+      Ok(res)
+    }
+    .boxed()
+  }
+}
+
 pub fn auth<H, HF>(
   handler: H,
 ) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
@@ -129,14 +160,119 @@ pub struct CacheDuration(pub usize);
 impl CacheDuration {
   pub const ONE_MINUTE: CacheDuration = CacheDuration(60);
   pub const FIVE_MINUTES: CacheDuration = CacheDuration(60 * 5);
+  #[allow(dead_code)]
   pub const TEN_MINUTES: CacheDuration = CacheDuration(60 * 10);
   pub const ONE_HOUR: CacheDuration = CacheDuration(60 * 60);
   pub const ONE_DAY: CacheDuration = CacheDuration(60 * 60 * 24);
+  pub const THIRTY_DAYS: CacheDuration = CacheDuration(60 * 60 * 24 * 30);
   pub const FOREVER: CacheDuration = CacheDuration(60 * 60 * 24 * 365);
 }
 
+/// Brief negative-cache window (seconds) for `404 Not Found` responses on
+/// cached routes. Misses (e.g. docs/diff for a symbol, entrypoint or version
+/// that doesn't exist) carry no `Cache-Control` from the error path, so every
+/// repeat hits the origin — these are the dominant uncacheable load on the
+/// docs/diff handlers. Caching them for a short window collapses the repeats
+/// while keeping a newly-published version visible quickly.
+const NOT_FOUND_CACHE_SECS: usize = 60;
+
+/// Response header marking a response as identity-independent: its body does not
+/// depend on the requesting user, so the lb may serve it from its shared
+/// (URL-keyed) cache even to authenticated callers, instead of bypassing the
+/// cache whenever auth is present. Only set by the `*_shared` cache wrappers, on
+/// routes whose handler provably ignores identity (e.g. docs/diff). The lb
+/// strips it before returning to the client. A `Cache-Control` of `public` is
+/// also required by the lb, so an accidentally-`private` response can never be
+/// shared even if this header leaks onto it.
+static X_JSR_CACHE_SHARED: HeaderName =
+  HeaderName::from_static("x-jsr-cache-shared");
+
+fn mark_shared(res: &mut Response<Body>, shared: bool) {
+  if shared {
+    res
+      .headers_mut()
+      .insert(&X_JSR_CACHE_SHARED, header::HeaderValue::from_static("1"));
+  }
+}
+
+/// Render an `ApiError` to its JSON response with an explicit `Cache-Control`.
+fn error_response(
+  err: &ApiError,
+  cache_control: header::HeaderValue,
+  shared: bool,
+) -> Response<Body> {
+  let mut res = err.json_response();
+  res
+    .headers_mut()
+    .insert(header::CACHE_CONTROL, cache_control);
+  mark_shared(&mut res, shared);
+  res
+}
+
+/// Short negative-cache `Cache-Control` for a `404` on a cached route. Anonymous
+/// (and identity-independent `shared`) requests get a brief `public` window;
+/// other authenticated requests are never cached (the lb skips its shared cache
+/// when an `Authorization` header or `token=` cookie is present, so a `public`
+/// 404 can't leak across viewers, but we still mark them `no-store` for defence
+/// in depth).
+fn short_negative_cache_control(public: bool) -> header::HeaderValue {
+  header::HeaderValue::from_str(&if public {
+    format!(
+      "public, max-age=30, s-maxage={NOT_FOUND_CACHE_SECS}, stale-while-revalidate={NOT_FOUND_CACHE_SECS}"
+    )
+  } else {
+    "private, no-store".to_string()
+  })
+  .unwrap()
+}
+
+/// A missing entrypoint/symbol on an immutable (non-"latest") version can never
+/// appear later, so it is as cacheable as a normal `200` for that version —
+/// unlike other 404s (package/version not found, or anything on "latest"), which
+/// only get the brief negative-cache window. Returns the long-lived value to use
+/// for such an error, or `None` to fall back to short negative caching.
+fn immutable_miss_cache_control(
+  err: &ApiError,
+  is_latest: bool,
+  long_lived: impl FnOnce() -> header::HeaderValue,
+) -> Option<header::HeaderValue> {
+  (matches!(err, ApiError::EntrypointOrSymbolNotFound) && !is_latest)
+    .then(long_lived)
+}
+
+/// Cache an immutable-ish response for `duration`. See [`cache_shared`] for the
+/// identity-independent variant.
 pub fn cache<H, HF>(
   duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_impl(duration, false, handler)
+}
+
+/// Like [`cache`], but for routes whose response does **not** depend on the
+/// requesting identity (no permission/member/sudo branch — e.g. `diff`). Such
+/// responses stay `public` even when authenticated and are marked
+/// [`X_JSR_CACHE_SHARED`], so the lb serves them from its shared cache to every
+/// caller instead of bypassing on auth. Only use this when the handler is
+/// genuinely viewer-independent; auditing that is the safety contract.
+pub fn cache_shared<H, HF>(
+  duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_impl(duration, true, handler)
+}
+
+fn cache_impl<H, HF>(
+  duration: CacheDuration,
+  shared: bool,
   handler: H,
 ) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
 where
@@ -167,13 +303,29 @@ where
     let value = value.clone();
     let private_value = private_value.clone();
     async move {
-      let is_anonymous = req.iam().is_anonymous();
-      let mut res = handler(req).await?;
-      let value = if is_anonymous { value } else { private_value };
+      // A shared route is identity-independent, so it stays `public` for every
+      // caller; otherwise authenticated callers get the `private` value.
+      let public = shared || req.iam().is_anonymous();
+      // No `:version` param (e.g. the diff route's old/new versions are both
+      // pinned) ⇒ never "latest" ⇒ a missing entrypoint/symbol is immutable.
+      let is_latest =
+        req.param("version").map(|v| v == "latest").unwrap_or(false);
+      let mut res = match handler(req).await {
+        Ok(res) => res,
+        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+          let long_lived = || if public { value } else { private_value };
+          let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
+            .unwrap_or_else(|| short_negative_cache_control(public));
+          return Ok(error_response(&err, cc, shared));
+        }
+        Err(err) => return Err(err),
+      };
+      let value = if public { value } else { private_value };
       res
         .headers_mut()
         .entry(header::CACHE_CONTROL)
         .or_insert_with(|| value);
+      mark_shared(&mut res, shared);
       Ok(res)
     }
     .boxed()
@@ -187,6 +339,35 @@ where
 pub fn cache_versioned<H, HF>(
   latest_duration: CacheDuration,
   versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_versioned_impl(latest_duration, versioned_duration, false, handler)
+}
+
+/// Identity-independent variant of [`cache_versioned`] (see [`cache_shared`]):
+/// the response stays `public` for every caller and is marked
+/// [`X_JSR_CACHE_SHARED`] so the lb shares it across authenticated callers. Used
+/// by `docs`, whose handler has no permission/member/sudo branch.
+pub fn cache_versioned_shared<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  handler: H,
+) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
+where
+  H: Send + Sync + Fn(Request<Body>) -> HF + Send + 'static,
+  HF: Future<Output = ApiResult<Response<Body>>> + Send + 'static,
+{
+  cache_versioned_impl(latest_duration, versioned_duration, true, handler)
+}
+
+fn cache_versioned_impl<H, HF>(
+  latest_duration: CacheDuration,
+  versioned_duration: CacheDuration,
+  shared: bool,
   handler: H,
 ) -> impl Fn(Request<Body>) -> ApiHandlerFuture<Response<Body>>
 where
@@ -238,11 +419,27 @@ where
     let private_latest_value = private_latest_value.clone();
     let private_versioned_value = private_versioned_value.clone();
     async move {
-      let is_anonymous = req.iam().is_anonymous();
+      // Shared routes are identity-independent ⇒ `public` for every caller.
+      let public = shared || req.iam().is_anonymous();
       let is_latest =
         req.param("version").map(|v| v == "latest").unwrap_or(true);
-      let mut res = handler(req).await?;
-      let value = match (is_anonymous, is_latest) {
+      let mut res = match handler(req).await {
+        Ok(res) => res,
+        Err(err) if err.status_code() == StatusCode::NOT_FOUND => {
+          let long_lived = || {
+            if public {
+              versioned_value
+            } else {
+              private_versioned_value
+            }
+          };
+          let cc = immutable_miss_cache_control(&err, is_latest, long_lived)
+            .unwrap_or_else(|| short_negative_cache_control(public));
+          return Ok(error_response(&err, cc, shared));
+        }
+        Err(err) => return Err(err),
+      };
+      let value = match (public, is_latest) {
         (true, true) => latest_value,
         (true, false) => versioned_value,
         (false, true) => private_latest_value,
@@ -252,6 +449,7 @@ where
         .headers_mut()
         .entry(header::CACHE_CONTROL)
         .or_insert(value);
+      mark_shared(&mut res, shared);
       Ok(res)
     }
     .boxed()
@@ -265,51 +463,40 @@ pub async fn auth_middleware(req: Request<Body>) -> ApiResult<Request<Body>> {
 
   let span = Span::current();
 
-  let iam_info =
-    match token {
-      Some((AuthorizationToken::Bearer(token), sudo)) => {
-        span.record("token.kind", field::display("bearer"));
-        if let Some(token) =
-          db.get_token_by_hash(&crate::token::hash(token)).await?
+  let iam_info = match token {
+    Some((AuthorizationToken::Bearer(token), sudo)) => {
+      span.record("token.kind", field::display("bearer"));
+      if let Some(token) =
+        db.get_token_by_hash(&crate::token::hash(token)).await?
+      {
+        if let Some(expires_at) = token.expires_at
+          && expires_at < chrono::Utc::now()
         {
-          if let Some(expires_at) = token.expires_at
-            && expires_at < chrono::Utc::now()
-          {
-            return Err(ApiError::InvalidBearerToken);
-          }
-
-          let user = db.get_user(token.user_id).await?.unwrap();
-          span.record("user.id", field::display(user.id));
-
-          if user.is_blocked {
-            return Err(ApiError::Blocked);
-          }
-
-          IamInfo::from((token, user, sudo))
-        } else {
           return Err(ApiError::InvalidBearerToken);
         }
-      }
-      Some((AuthorizationToken::GithubOIDC(token), _)) => {
-        span.record("token.kind", field::display("githuboidc"));
 
-        let claims = verify_oidc_token(token).await?;
-        span.record("repo.id", field::display(claims.repository_id));
+        let user = db.get_user(token.user_id).await?.unwrap();
+        span.record("user.id", field::display(user.id));
 
-        let aud: GithubOidcTokenAud = serde_json::from_str(&claims.aud)
-          .map_err(|err| ApiError::InvalidOidcToken {
-            msg: format!("failed to parse 'aud': {err}").into(),
-          })?;
-
-        let user = db.get_user_by_github_id(claims.actor_id).await?;
-        if let Some(user) = &user {
-          span.record("user.id", field::display(user.id));
+        if user.is_blocked {
+          return Err(ApiError::Blocked);
         }
 
-        IamInfo::from((claims.repository_id, aud, user))
+        IamInfo::from((token, user, sudo))
+      } else {
+        return Err(ApiError::InvalidBearerToken);
       }
-      None => IamInfo::anonymous(),
-    };
+    }
+    Some((AuthorizationToken::Oidc { kind, token }, _)) => {
+      span.record("token.kind", field::display(kind.span_kind()));
+      match kind {
+        OidcProviderKind::GitHub => {
+          github::build_iam_info(db, token, &span).await?
+        }
+      }
+    }
+    None => IamInfo::anonymous(),
+  };
 
   req.set_context(iam_info);
 
@@ -339,7 +526,10 @@ where
 
 enum AuthorizationToken<'s> {
   Bearer(&'s str),
-  GithubOIDC(&'s str),
+  Oidc {
+    kind: OidcProviderKind,
+    token: &'s str,
+  },
 }
 
 static X_JSR_SUDO: HeaderName = header::HeaderName::from_static("x-jsr-sudo");
@@ -377,17 +567,14 @@ fn extract_token_and_sudo(
     if let Some(token) = auth.strip_prefix("Bearer ") {
       return Some((AuthorizationToken::Bearer(token), sudo));
     }
-    if let Some(token) = auth.strip_prefix("githuboidc ") {
-      return Some((AuthorizationToken::GithubOIDC(token), sudo));
+    for kind in OidcProviderKind::all() {
+      if let Some(token) = auth.strip_prefix(kind.auth_prefix()) {
+        return Some((AuthorizationToken::Oidc { kind: *kind, token }, sudo));
+      }
     }
   }
 
   None
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct GithubOidcTokenAud {
-  pub permissions: Permissions,
 }
 
 pub async fn decode_json<T>(req: &mut Request<Body>) -> ApiResult<T>
@@ -602,18 +789,10 @@ impl LicenseStore {
 }
 
 pub fn license_store() -> LicenseStore {
-  let mut license_store = askalono::Store::new();
-  let license_path =
-    std::env::var("LICENSE_LIST_DATA_PATH").unwrap_or_else(|_| {
-      concat!(env!("CARGO_MANIFEST_DIR"), "/license-list-data").to_string()
-    });
-  license_store
-    .load_spdx(
-      &std::path::Path::new(&license_path).join("json/details"),
-      false,
-    )
-    .unwrap();
-  LicenseStore(Arc::new(license_store))
+  static CACHE: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/license-store.cache"));
+  let store = askalono::Store::from_cache(CACHE).unwrap();
+  LicenseStore(Arc::new(store))
 }
 
 #[cfg(test)]
@@ -815,7 +994,7 @@ pub mod test {
         generate_ctx_cache: crate::docs::GenerateCtxCache::new(),
         github_client: github_oauth2_client.clone(),
         gitlab_client: gitlab_oauth2_client.clone(),
-        orama_client: None,
+        algolia_client: None,
         email_sender: None,
         license_store: license_store.clone(),
         registry_url,
@@ -823,8 +1002,11 @@ pub mod test {
         publish_queue: None,           // no queue locally
         npm_tarball_build_queue: None, // no queue locally
         analytics_engine_config: None, // no analytics engine locally
-        expose_api: true,              // api enabled
-        expose_tasks: true,            // task endpoints enabled
+        cache_purge_client: None,      // no Cloudflare purge locally
+        // No secret key, so the login captcha is not verified in tests.
+        turnstile: crate::external::cloudflare::Turnstile(None),
+        expose_api: true,   // api enabled
+        expose_tasks: true, // task endpoints enabled
       });
 
       let service = routerify::RequestServiceBuilder::new(router)

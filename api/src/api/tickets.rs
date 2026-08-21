@@ -36,7 +36,7 @@ pub fn tickets_router() -> Router<Body, ApiError> {
     .unwrap()
 }
 
-#[instrument(name = "GET /api/tickets/:id", skip(req), err, fields(id))]
+#[instrument(name = "GET /api/tickets/:id", skip(req), fields(id))]
 pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   let id = req.param_uuid("id")?;
 
@@ -84,7 +84,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiTicketOverview> {
   }
 }
 
-#[instrument(name = "POST /api/tickets", skip(req), err)]
+#[instrument(name = "POST /api/tickets", skip(req))]
 pub async fn post_handler(mut req: Request<Body>) -> ApiResult<ApiTicket> {
   let new_ticket: NewTicket = decode_json(&mut req).await?;
   let db = req.data::<Database>().unwrap();

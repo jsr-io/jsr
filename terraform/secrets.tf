@@ -23,6 +23,18 @@ resource "google_secret_manager_secret_version" "gitlab_client_secret" {
   secret_data = var.gitlab_client_secret
 }
 
+resource "google_secret_manager_secret" "turnstile_secret_key" {
+  secret_id = "turnstile-secret-key"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "turnstile_secret_key" {
+  secret      = google_secret_manager_secret.turnstile_secret_key.id
+  secret_data = cloudflare_turnstile_widget.login.secret
+}
+
 resource "google_secret_manager_secret" "postmark_token" {
   secret_id = "postmark-token"
   replication {
@@ -35,28 +47,16 @@ resource "google_secret_manager_secret_version" "postmark_token" {
   secret_data = var.postmark_token
 }
 
-resource "google_secret_manager_secret" "orama_packages_project_key" {
-  secret_id = "orama-packages-project-key"
+resource "google_secret_manager_secret" "algolia_write_api_key" {
+  secret_id = "algolia-write-api-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "orama_packages_project_key" {
-  secret      = google_secret_manager_secret.orama_packages_project_key.id
-  secret_data = var.orama_packages_project_key
-}
-
-resource "google_secret_manager_secret" "orama_symbols_project_key" {
-  secret_id = "orama-symbols-project-key"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "orama_symbols_project_key" {
-  secret      = google_secret_manager_secret.orama_symbols_project_key.id
-  secret_data = var.orama_symbols_project_key
+resource "google_secret_manager_secret_version" "algolia_write_api_key" {
+  secret      = google_secret_manager_secret.algolia_write_api_key.id
+  secret_data = algolia_api_key.write.key
 }
 
 resource "google_secret_manager_secret" "cloudflare_api_token" {

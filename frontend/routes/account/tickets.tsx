@@ -6,7 +6,8 @@ import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { ApiTicket } from "../../utils/api_types.ts";
 import { assertOk, path } from "../../utils/api.ts";
 import twas from "twas";
-import { TbCheck, TbClock } from "tb-icons";
+import TbCheck from "tb-icons/TbCheck";
+import TbClock from "tb-icons/TbClock";
 import { TicketTitle } from "../../components/TicketTitle.tsx";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
