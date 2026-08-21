@@ -491,21 +491,27 @@ impl Database {
     actor_id: &Uuid,
     is_sudo: bool,
     id: Uuid,
-  ) -> Result<Option<()>> {
+  ) -> Result<UserDeleteResult> {
     let service_account_id = Uuid::nil();
     let mut tx = self.pool.begin().await?;
 
     // Check user exists, and capture the identity data for the deletion
-    // tombstone below.
+    // tombstone below. The deletion hold is re-checked here, with the row
+    // locked for the duration of the transaction, so a hold placed after
+    // the handler's own check can't race with the deletion.
     let Some(user_row) = sqlx::query!(
-      r#"SELECT name, email, github_id, gitlab_id FROM users WHERE id = $1"#,
+      r#"SELECT name, email, github_id, gitlab_id, deletion_hold FROM users WHERE id = $1 FOR UPDATE"#,
       id
     )
     .fetch_optional(&mut *tx)
     .await?
     else {
-      return Ok(None);
+      return Ok(UserDeleteResult::NotFound);
     };
+
+    if user_row.deletion_hold {
+      return Ok(UserDeleteResult::Held);
+    }
 
     // For scopes where the user is the last member, transfer to service account.
     // For scopes where the user is creator but others exist, transfer creator.
@@ -647,7 +653,7 @@ impl Database {
       .await?;
 
     tx.commit().await?;
-    Ok(Some(()))
+    Ok(UserDeleteResult::Deleted)
   }
 
   /// Strips name and email from `user_delete` audit tombstones older than
@@ -5105,6 +5111,13 @@ pub enum ScopeMemberUpdateResult {
   TargetIsLastAdmin,
   TargetIsLastTransferableAdmin,
   TargetNotMember,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum UserDeleteResult {
+  Deleted,
+  NotFound,
+  Held,
 }
 
 #[derive(Debug)]

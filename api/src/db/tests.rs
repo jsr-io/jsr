@@ -419,10 +419,20 @@ async fn users() {
   assert_eq!(users[0].scope_usage, 0);
   assert_eq!(users[2].id, uuid::Uuid::default()); // added by migrations
 
-  db.delete_user(&user.id, false, user.id)
+  // A deletion hold is enforced inside delete_user itself, not just by the
+  // handlers' pre-checks.
+  db.user_set_deletion_hold(&staff_user.id, user.id, true)
     .await
-    .unwrap()
     .unwrap();
+  let held = db.delete_user(&user.id, false, user.id).await.unwrap();
+  assert_eq!(held, UserDeleteResult::Held);
+  assert!(db.get_user(user.id).await.unwrap().is_some());
+  db.user_set_deletion_hold(&staff_user.id, user.id, false)
+    .await
+    .unwrap();
+
+  let deleted = db.delete_user(&user.id, false, user.id).await.unwrap();
+  assert_eq!(deleted, UserDeleteResult::Deleted);
 
   let no_user = db.get_user(user.id).await.unwrap();
   assert!(no_user.is_none());
@@ -432,7 +442,7 @@ async fn users() {
   assert_eq!(users.len(), 2); // just the default user added by migrations
 
   let no_user = db.delete_user(&user.id, false, user.id).await.unwrap();
-  assert!(no_user.is_none());
+  assert_eq!(no_user, UserDeleteResult::NotFound);
 }
 
 #[tokio::test]

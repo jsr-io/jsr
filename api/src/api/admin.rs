@@ -149,20 +149,16 @@ pub async fn delete_user_admin(
 
   let db = req.data::<Database>().unwrap();
 
-  let user = db.get_user(user_id).await?.ok_or(ApiError::UserNotFound)?;
-  if user.deletion_hold {
-    return Err(ApiError::UserDeletionHeld);
-  }
-
   match db.delete_user(&staff.id, true, user_id).await? {
-    Some(()) => {
+    UserDeleteResult::Deleted => {
       let resp = hyper::Response::builder()
         .status(hyper::StatusCode::NO_CONTENT)
         .body(Body::empty())
         .unwrap();
       Ok(resp)
     }
-    None => Err(ApiError::UserNotFound),
+    UserDeleteResult::NotFound => Err(ApiError::UserNotFound),
+    UserDeleteResult::Held => Err(ApiError::UserDeletionHeld),
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT name, email, github_id, gitlab_id FROM users WHERE id = $1",
+  "query": "SELECT name, email, github_id, gitlab_id, deletion_hold FROM users WHERE id = $1 FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,11 @@
         "ordinal": 3,
         "name": "gitlab_id",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "deletion_hold",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -33,8 +38,9 @@
       false,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "7b8dc32e68b240bb8c91c95f7fd6a7d84d8dd9b1729c1fe192650de21753ad33"
+  "hash": "106506774ae4907b7199c7f15d80a75291ead98fc47a5d6f701da0dc08e4f256"
 }

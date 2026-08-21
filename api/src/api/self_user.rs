@@ -18,6 +18,7 @@ use crate::db::Database;
 use crate::db::PackagePublishPermission;
 use crate::db::Permission;
 use crate::db::TokenType;
+use crate::db::UserDeleteResult;
 use crate::db::UserPublic;
 use crate::emails::EmailArgs;
 use crate::emails::EmailSender;
@@ -73,16 +74,13 @@ async fn delete_account(req: Request<Body>) -> ApiResult<Response<Body>> {
     return Err(ApiError::CannotDeleteServiceAccount);
   }
 
-  if current_user.deletion_hold {
-    return Err(ApiError::UserDeletionHeld);
-  }
-
   let db = req.data::<Database>().unwrap();
   let user_id = current_user.id;
 
-  let deleted = db.delete_user(&user_id, false, user_id).await?;
-  if deleted.is_none() {
-    return Err(ApiError::UserNotFound);
+  match db.delete_user(&user_id, false, user_id).await? {
+    UserDeleteResult::Deleted => {}
+    UserDeleteResult::NotFound => return Err(ApiError::UserNotFound),
+    UserDeleteResult::Held => return Err(ApiError::UserDeletionHeld),
   }
 
   let resp = Response::builder()
