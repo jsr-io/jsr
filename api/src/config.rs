@@ -45,6 +45,15 @@ pub struct Config {
   pub npm_bucket: String,
 
   #[clap(
+    long = "ticket_attachments_bucket",
+    env = "TICKET_ATTACHMENTS_BUCKET",
+    default_value = "ticket-attachments"
+  )]
+  /// The name of the S3 bucket where files attached to support ticket emails
+  /// are stored.
+  pub ticket_attachments_bucket: String,
+
+  #[clap(
     long = "metadata_strategy",
     env = "METADATA_STRATEGY",
     default_value = "testing"
@@ -200,6 +209,14 @@ pub struct Config {
   /// The Postmark token to use to send emails.
   pub postmark_token: Option<String>,
 
+  #[clap(
+    long = "postmark_webhook_password",
+    env = "POSTMARK_WEBHOOK_PASSWORD"
+  )]
+  /// The password Postmark authenticates with when delivering inbound email to
+  /// the support ticket webhook. Inbound handling is disabled if unset.
+  pub postmark_webhook_password: Option<String>,
+
   #[clap(long = "email_from", env = "EMAIL_FROM")]
   /// The email address to send emails from.
   pub email_from: Option<String>,
@@ -251,6 +268,10 @@ impl std::fmt::Debug for Config {
       .field(
         "postmark_token",
         &self.postmark_token.as_ref().map(|_| "***"),
+      )
+      .field(
+        "postmark_webhook_password",
+        &self.postmark_webhook_password.as_ref().map(|_| "***"),
       )
       .field("email_from", &self.email_from)
       .field("email_from_name", &self.email_from_name)

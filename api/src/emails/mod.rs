@@ -20,6 +20,8 @@ const SUPPORT_TICKET_CREATED_TXT: &str = "support_ticket_created.txt";
 const SUPPORT_TICKET_CREATED_HTML: &str = "support_ticket_created.html";
 const SUPPORT_TICKET_MESSAGE_TXT: &str = "support_ticket_message.txt";
 const SUPPORT_TICKET_MESSAGE_HTML: &str = "support_ticket_message.html";
+const SUPPORT_TICKET_AUTO_REPLY_TXT: &str = "support_ticket_auto_reply.txt";
+const SUPPORT_TICKET_AUTO_REPLY_HTML: &str = "support_ticket_auto_reply.html";
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -44,6 +46,7 @@ pub enum EmailArgs<'a> {
   SupportTicketCreated {
     name: Cow<'a, str>,
     ticket_id: Cow<'a, str>,
+    ticket_number: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
@@ -51,7 +54,20 @@ pub enum EmailArgs<'a> {
   SupportTicketMessage {
     name: Cow<'a, str>,
     ticket_id: Cow<'a, str>,
+    ticket_number: Cow<'a, str>,
     content: Cow<'a, str>,
+    registry_url: Cow<'a, str>,
+    registry_name: Cow<'a, str>,
+    support_email: Cow<'a, str>,
+  },
+  /// Sent back to whoever emailed support, acknowledging that their mail opened
+  /// a ticket and handing them the link that binds it to an account.
+  SupportTicketAutoReply {
+    /// The display name from the sender's `From` header, if it had one.
+    name: Option<Cow<'a, str>>,
+    ticket_number: Cow<'a, str>,
+    original_subject: Cow<'a, str>,
+    claim_url: Cow<'a, str>,
     registry_url: Cow<'a, str>,
     registry_name: Cow<'a, str>,
     support_email: Cow<'a, str>,
@@ -71,9 +87,26 @@ impl EmailArgs<'_> {
       EmailArgs::PersonalAccessToken { registry_name, .. } => {
         format!("A new personal access token was created on {registry_name}")
       }
-      EmailArgs::SupportTicketCreated { ticket_id, .. }
-      | EmailArgs::SupportTicketMessage { ticket_id, .. } => {
-        format!("Support request {ticket_id}")
+      // The ticket number goes in the subject of every ticket email so that a
+      // reply which arrives with no usable threading headers can still be
+      // matched back to its ticket. See `api/src/api/hooks.rs`.
+      EmailArgs::SupportTicketCreated { ticket_number, .. }
+      | EmailArgs::SupportTicketMessage { ticket_number, .. } => {
+        format!("[{ticket_number}] Support request")
+      }
+      EmailArgs::SupportTicketAutoReply {
+        ticket_number,
+        original_subject,
+        ..
+      } => {
+        // Keep the reporter's own subject so the exchange still reads as one
+        // thread in their mail client, without stacking up `Re:` prefixes.
+        let subject = original_subject
+          .trim()
+          .strip_prefix("Re:")
+          .unwrap_or(original_subject)
+          .trim();
+        format!("[{ticket_number}] Re: {subject}")
       }
     }
   }
@@ -84,6 +117,7 @@ impl EmailArgs<'_> {
       EmailArgs::PersonalAccessToken { .. } => PERSONAL_ACCESS_TOKEN_TXT,
       EmailArgs::SupportTicketCreated { .. } => SUPPORT_TICKET_CREATED_TXT,
       EmailArgs::SupportTicketMessage { .. } => SUPPORT_TICKET_MESSAGE_TXT,
+      EmailArgs::SupportTicketAutoReply { .. } => SUPPORT_TICKET_AUTO_REPLY_TXT,
     }
   }
 
@@ -93,6 +127,9 @@ impl EmailArgs<'_> {
       EmailArgs::PersonalAccessToken { .. } => PERSONAL_ACCESS_TOKEN_HTML,
       EmailArgs::SupportTicketCreated { .. } => SUPPORT_TICKET_CREATED_HTML,
       EmailArgs::SupportTicketMessage { .. } => SUPPORT_TICKET_MESSAGE_HTML,
+      EmailArgs::SupportTicketAutoReply { .. } => {
+        SUPPORT_TICKET_AUTO_REPLY_HTML
+      }
     }
   }
 }
@@ -141,6 +178,14 @@ fn init_handlebars()
     SUPPORT_TICKET_MESSAGE_HTML,
     include_str!("./templates/support_ticket_message.html.hbs"),
   )?;
+  t.register_template_string(
+    SUPPORT_TICKET_AUTO_REPLY_TXT,
+    include_str!("./templates/support_ticket_auto_reply.txt.hbs"),
+  )?;
+  t.register_template_string(
+    SUPPORT_TICKET_AUTO_REPLY_HTML,
+    include_str!("./templates/support_ticket_auto_reply.html.hbs"),
+  )?;
 
   t.set_strict_mode(true);
 
@@ -164,6 +209,28 @@ pub fn email_content(args: EmailArgs) -> Result<EmailContent, RenderError> {
   let html = hbs.render(html_filename, &args)?;
 
   Ok(EmailContent { text, html })
+}
+
+/// Where an outgoing email sits in an email thread. All three fields hold RFC
+/// 5322 `Message-ID`s, angle brackets included.
+#[derive(Debug)]
+pub struct EmailThread<'a> {
+  /// The `Message-ID` to send under. Callers generate this before sending and
+  /// record it, so that a reply pointing back at it can be matched to the
+  /// conversation it belongs to.
+  pub message_id: &'a str,
+  /// The message being replied to, if any.
+  pub in_reply_to: Option<String>,
+  /// The conversation so far, oldest first. Mail clients use this to group the
+  /// thread even when an intermediate message is missing.
+  pub references: Vec<String>,
+}
+
+fn header(name: &str, value: &str) -> postmark::api::email::Header {
+  postmark::api::email::Header {
+    name: name.to_owned(),
+    value: value.to_owned(),
+  }
 }
 
 #[derive(Debug)]
@@ -191,9 +258,21 @@ impl EmailSender {
     to: String,
     args: EmailArgs<'_>,
   ) -> Result<(), anyhow::Error> {
+    self.send_threaded(to, args, None).await
+  }
+
+  /// Sends an email that is part of an ongoing conversation, carrying the RFC
+  /// 5322 headers that let the recipient's reply be threaded back onto the
+  /// ticket it belongs to.
+  pub async fn send_threaded(
+    &self,
+    to: String,
+    args: EmailArgs<'_>,
+    thread: Option<EmailThread<'_>>,
+  ) -> Result<(), anyhow::Error> {
     let subject = args.subject();
     let content = email_content(args)?;
-    let req = postmark::api::email::SendEmailRequest::builder()
+    let mut request = postmark::api::email::SendEmailRequest::builder()
       .from(format!("{} <{}>", self.from_name, self.from))
       .to(to)
       .subject(subject)
@@ -202,7 +281,19 @@ impl EmailSender {
         text: content.text,
       })
       .build();
-    let resp = req.execute(&self.postmark).await?;
+
+    if let Some(thread) = thread {
+      let mut headers = vec![header("Message-ID", thread.message_id)];
+      if let Some(in_reply_to) = &thread.in_reply_to {
+        headers.push(header("In-Reply-To", in_reply_to));
+      }
+      if !thread.references.is_empty() {
+        headers.push(header("References", &thread.references.join(" ")));
+      }
+      request.headers = Some(headers);
+    }
+
+    let resp = request.execute(&self.postmark).await?;
     if resp.error_code != 0 {
       Err(anyhow::anyhow!(
         "Postmark error {}: {}",

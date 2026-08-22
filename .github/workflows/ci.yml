@@ -274,6 +274,7 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
+          TF_VAR_postmark_webhook_password: ${{ secrets.POSTMARK_WEBHOOK_PASSWORD }}
           TF_VAR_algolia_app_id: ${{ vars.ALGOLIA_APP_ID }}
           TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -341,6 +342,7 @@ jobs:
           TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
           TF_VAR_gitlab_client_secret: ${{ secrets.GITLAB_CLIENT_SECRET }}
           TF_VAR_postmark_token: ${{ secrets.POSTMARK_TOKEN }}
+          TF_VAR_postmark_webhook_password: ${{ secrets.POSTMARK_WEBHOOK_PASSWORD }}
           TF_VAR_algolia_app_id: ${{ vars.ALGOLIA_APP_ID }}
           TF_VAR_algolia_admin_api_key: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}

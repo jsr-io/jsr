@@ -1,21 +1,31 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 import type { JSX } from "preact";
-import type { TicketKind, User } from "../utils/api_types.ts";
+import type { ApiTicketActor, TicketKind } from "../utils/api_types.ts";
+import { ticketActorName } from "./TicketActor.tsx";
 
 interface TicketTitleProps {
   kind: TicketKind;
   meta: Record<string, string>;
-  user: User;
+  reporter: ApiTicketActor;
+  /// The email subject, for a ticket that arrived by email. Such tickets have no
+  /// structured `kind`/`meta` to build a title from, so this is used instead.
+  subject?: string | null;
 }
 
 export function TicketTitle(props: TicketTitleProps): JSX.Element {
+  if (props.subject) {
+    return <>{props.subject}</>;
+  }
+
   let title: string;
   switch (props.kind) {
     case "other":
       title = "Other";
       break;
     case "user_scope_quota_increase":
-      title = `Request scope quota increase for '${props.user.name}'`;
+      title = `Request scope quota increase for '${
+        ticketActorName(props.reporter)
+      }'`;
       break;
     case "scope_quota_increase":
       title = `Request '${
