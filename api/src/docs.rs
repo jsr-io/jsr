@@ -660,6 +660,13 @@ fn get_url_rewriter(
   })
 }
 
+/// Maximum number of symbol rows rendered in module symbol listings (the
+/// per-entrypoint overview and the "all symbols" page). Namespace-heavy
+/// packages (e.g. zod, which re-exports its whole API under several
+/// namespaces) can otherwise produce listings with tens of thousands of rows,
+/// blowing the docs response past Cloud Run's 32 MiB response cap.
+const SYMBOL_LISTING_LIMIT: usize = 2048;
+
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "get_generate_ctx",
@@ -776,6 +783,7 @@ pub fn get_generate_ctx(
       head_inject: None,
       id_prefix: None,
       diff_only: diff.as_ref().map(|diff| !diff.1).unwrap_or_default(),
+      symbol_listing_limit: Some(SYMBOL_LISTING_LIMIT),
     },
     None,
     deno_doc::html::FileMode::Normal,
