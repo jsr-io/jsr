@@ -2526,6 +2526,8 @@ async fn analyze_deps_tree(
         jsr_metadata_store: None,
 
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -4403,6 +4405,43 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "diffDisabled")
       .await;
+  }
+
+  #[tokio::test]
+  async fn test_package_docs_merged_export_name() {
+    let mut t = TestSetup::new().await;
+
+    let task =
+      process_tarball_setup(&t, create_mock_tarball("merged_export_name"))
+        .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    // `ArrayExpression` is both a re-exported function (through a value
+    // `export *`) and an interface (through an `export type *`); the symbol
+    // page must show both.
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/foo/versions/1.2.3/docs?symbol=ArrayExpression",
+      )
+      .call()
+      .await
+      .unwrap();
+    let docs: ApiPackageVersionDocs = resp.expect_ok().await;
+    match docs {
+      ApiPackageVersionDocs::Content { main, .. } => {
+        let main = serde_json::to_string(&main).unwrap();
+        assert!(
+          main.contains("builder function"),
+          "function part missing from symbol page: {main}"
+        );
+        assert!(
+          main.contains("node interface"),
+          "interface part missing from symbol page: {main}"
+        );
+      }
+      ApiPackageVersionDocs::Redirect { .. } => panic!(),
+    }
   }
 
   #[tokio::test]
