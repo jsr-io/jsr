@@ -168,8 +168,9 @@ pub struct ApiFullUser {
   pub gitlab_id: Option<i64>,
   pub is_blocked: bool,
   pub is_staff: bool,
+  pub deletion_hold: bool,
   pub scope_usage: i32,
-  pub scope_limit: i32,
+  pub scope_limit: Option<i32>,
   pub invite_count: u64,
   pub newer_ticket_messages_count: u64,
 }
@@ -187,6 +188,7 @@ impl From<User> for ApiFullUser {
       gitlab_id: user.gitlab_id,
       is_blocked: user.is_blocked,
       is_staff: user.is_staff,
+      deletion_hold: user.deletion_hold,
       scope_usage: user.scope_usage as i32,
       scope_limit: user.scope_limit,
       invite_count: user.invite_count as u64,
@@ -782,6 +784,7 @@ impl From<(PackageVersion, Option<UserPublic>)> for ApiPackageVersionWithUser {
 pub struct ApiAdminUpdateUserRequest {
   pub is_staff: Option<bool>,
   pub is_blocked: Option<bool>,
+  pub deletion_hold: Option<bool>,
   pub scope_limit: Option<i32>,
 }
 
