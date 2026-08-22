@@ -1,0 +1,65 @@
+# index.tsx
+export function Hello(props: { name: string }) {
+  return <div>hello {props.name}</div>;
+}
+
+# jsr.json
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.tsx",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "npm:preact"
+  }
+}
+
+# npm:preact
+<external>
+
+# output
+== /index.js ==
+import { jsxs as _jsxs } from "preact/jsx-runtime";
+export function Hello(props) {
+  return /*#__PURE__*/ _jsxs("div", {
+    children: [
+      "hello ",
+      props.name
+    ]
+  });
+}
+//# sourceMappingURL=index.js.map
+
+== /index.js.map ==
+{"version":3,"file":"index.js","sources":["./index.tsx"],"names":[],"mappings":";AAAA,OAAO,SAAS,MAAM,KAAuB;EAC3C,qBAAO,MAAC;;MAAI;MAAO,MAAM,IAAI;;;AAC/B"}
+
+== /index.tsx ==
+export function Hello(props: { name: string }) {
+  return <div>hello {props.name}</div>;
+}
+
+== /jsr.json ==
+{
+  "name": "@scope/foo",
+  "version": "1.0.0",
+  "exports": "./index.tsx",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "npm:preact"
+  }
+}
+
+== /package.json ==
+{
+  "name": "@jsr/scope__foo",
+  "version": "1.0.0",
+  "homepage": "http://jsr.test/@scope/foo",
+  "type": "module",
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    }
+  },
+  "_jsr_revision": 0
+}
