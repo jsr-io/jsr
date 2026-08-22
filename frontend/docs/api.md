@@ -72,12 +72,20 @@ Each version in the metadata contains information about the version, such as the
 yanked status, and the `exports` field for the package version. The `exports`
 field is normalized to simple object form.
 
+If the package has a linked GitHub repository, the metadata additionally
+contains a `githubRepository` field with the `owner` and `name` of the linked
+repository.
+
 For the above `@luca/flag` package, the metadata would look like this:
 
 ```json
 {
   "scope": "luca",
   "name": "flag",
+  "githubRepository": {
+    "owner": "lucacasonato",
+    "name": "flag"
+  },
   "versions": {
     "1.0.0": {
       "yanked": true
@@ -169,6 +177,9 @@ fields:
 
 - `name`: The npm compatibility name of the package.
 - `description`: The package description.
+- `repository`: The linked GitHub repository of the package, in npm's
+  `repository` format. Only present if the package has a linked GitHub
+  repository.
 - `dist-tags`: The `latest` version of the package.
 - `versions`: A map of versions to version metadata.
 - `time`: A map of versions to publish timestamps.
@@ -180,6 +191,9 @@ fields:
 - `name`: The npm compatibility name of the package.
 - `version`: The version of the package.
 - `description`: The package description.
+- `repository`: The linked GitHub repository of the package, in npm's
+  `repository` format. Only present if the package has a linked GitHub
+  repository.
 - `dist`: The `dist` field for the package version. This contains the tarball
   URL for the package version, and the checksums / integrity hashes for the
   tarball.

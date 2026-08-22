@@ -484,8 +484,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
   }
 
   // Every update variant mutates the aggressively-cached `:package` response,
-  // so cache-bust it (and the scope aggregates) afterwards. Built before the
-  // match because the GitHub-repository arm consumes `scope`/`package_name`.
+  // so cache-bust it (and the scope aggregates) afterwards.
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let purge_urls = crate::s3_paths::package_api_cache_urls(
     &registry_url,
@@ -493,7 +492,7 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
     &package_name,
   );
 
-  let result = match body {
+  let result: Result<ApiPackage, ApiError> = match body {
     ApiUpdatePackageRequest::Description(description) => {
       let npm_url = &req.data::<NpmUrl>().unwrap().0;
       let buckets = req.data::<Buckets>().unwrap().clone();
@@ -514,25 +513,56 @@ pub async fn update_handler(mut req: Request<Body>) -> ApiResult<ApiPackage> {
       Ok(ApiPackage::from((package, repo, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(None) => {
+      let npm_url = &req.data::<NpmUrl>().unwrap().0;
+      let buckets = req.data::<Buckets>().unwrap();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let package = db
         .delete_package_github_repository(&user.id, sudo, &scope, &package_name)
         .await?;
+      // The GitHub repository is embedded in the package `meta.json` and the
+      // npm compatibility manifest, so regenerate them.
+      upload_package_manifests(
+        db,
+        buckets,
+        &registry_url,
+        npm_url,
+        cache_purge,
+        &scope,
+        &package_name,
+      )
+      .await?;
       Ok(ApiPackage::from((package, None, meta)))
     }
     ApiUpdatePackageRequest::GithubRepository(Some(repo)) => {
+      let npm_url = &req.data::<NpmUrl>().unwrap().0;
+      let buckets = req.data::<Buckets>().unwrap();
+      let cache_purge = req.data::<CachePurge>().unwrap();
       let github_oauth2_client =
         req.data::<auth::github::Oauth2Client>().unwrap();
-      update_github_repository(
+      let package = update_github_repository(
         &user.id,
         sudo,
         user,
         db,
         github_oauth2_client,
-        scope,
-        package_name,
+        &scope,
+        &package_name,
         repo,
       )
-      .await
+      .await?;
+      // The GitHub repository is embedded in the package `meta.json` and the
+      // npm compatibility manifest, so regenerate them.
+      upload_package_manifests(
+        db,
+        buckets,
+        &registry_url,
+        npm_url,
+        cache_purge,
+        &scope,
+        &package_name,
+      )
+      .await?;
+      Ok(package)
     }
     ApiUpdatePackageRequest::RuntimeCompat(runtime_compat) => {
       let runtime_compat: RuntimeCompat = runtime_compat.into();
@@ -697,8 +727,8 @@ async fn update_github_repository(
   user: &User,
   db: &Database,
   github_oauth2_client: &auth::github::Oauth2Client,
-  scope: ScopeName,
-  package: PackageName,
+  scope: &ScopeName,
+  package: &PackageName,
   req: ApiUpdatePackageGithubRepositoryRequest,
 ) -> Result<ApiPackage, ApiError> {
   let gh_user_id = user.github_id.ok_or_else(|| {
@@ -741,11 +771,67 @@ async fn update_github_repository(
 
   let (package, repo, score) = db
     .update_package_github_repository(
-      actor_id, is_sudo, &scope, &package, new_repo,
+      actor_id, is_sudo, scope, package, new_repo,
     )
     .await?;
 
   Ok(ApiPackage::from((package, Some(repo), score)))
+}
+
+/// Regenerates the package-level `meta.json` and the npm compatibility
+/// version manifest from the current database state, uploads them to their
+/// buckets, and purges their CDN cache entries.
+async fn upload_package_manifests(
+  db: &Database,
+  buckets: &Buckets,
+  registry_url: &Url,
+  npm_url: &Url,
+  cache_purge: &CachePurge,
+  scope: &ScopeName,
+  package: &PackageName,
+) -> Result<(), ApiError> {
+  let package_metadata_path = crate::s3_paths::package_metadata(scope, package);
+  let package_metadata = PackageMetadata::create(db, scope, package).await?;
+  let content = serde_json::to_vec(&package_metadata)?;
+  buckets
+    .modules_bucket
+    .upload(
+      package_metadata_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  let npm_version_manifest_path =
+    crate::s3_paths::npm_version_manifest_path(scope, package);
+  let npm_version_manifest =
+    generate_npm_version_manifest(db, npm_url, scope, package).await?;
+  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
+  buckets
+    .npm_bucket
+    .upload(
+      npm_version_manifest_path.into(),
+      UploadTaskBody::Bytes(content.into()),
+      S3UploadOptions {
+        content_type: Some("application/json".into()),
+        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
+        gzip_encoded: false,
+      },
+    )
+    .await?;
+
+  cache_purge
+    .purge(vec![
+      crate::s3_paths::package_metadata_url(registry_url, scope, package),
+      crate::s3_paths::npm_version_manifest_url(npm_url, scope, package),
+    ])
+    .await;
+
+  Ok(())
 }
 
 #[instrument(
@@ -1171,52 +1257,24 @@ pub async fn version_update_handler(
   )
   .await?;
 
-  let package_metadata_path =
-    crate::s3_paths::package_metadata(&scope, &package);
-  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
-
-  let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
-    .upload(
-      package_metadata_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(&scope, &package);
-  let npm_version_manifest =
-    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
-  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
-    .upload(
-      npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let mut purge_urls = vec![
-    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-  ];
-  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+  upload_package_manifests(
+    db,
+    &buckets,
     registry_url,
+    npm_url,
+    cache_purge,
     &scope,
     &package,
-  ));
-  cache_purge.purge(purge_urls).await;
+  )
+  .await?;
+
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   Ok(
     Response::builder()
@@ -1271,52 +1329,24 @@ pub async fn version_delete_handler(
     crate::s3_paths::file_path_root_directory(&scope, &package, &version);
   buckets.modules_bucket.delete_directory(path.into()).await?;
 
-  let package_metadata_path =
-    crate::s3_paths::package_metadata(&scope, &package);
-  let package_metadata = PackageMetadata::create(db, &scope, &package).await?;
-
-  let content = serde_json::to_vec(&package_metadata)?;
-  buckets
-    .modules_bucket
-    .upload(
-      package_metadata_path.into(),
-      UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let npm_version_manifest_path =
-    crate::s3_paths::npm_version_manifest_path(&scope, &package);
-  let npm_version_manifest =
-    generate_npm_version_manifest(db, npm_url, &scope, &package).await?;
-  let content = serde_json::to_vec_pretty(&npm_version_manifest)?;
-  buckets
-    .npm_bucket
-    .upload(
-      npm_version_manifest_path.into(),
-      crate::s3::UploadTaskBody::Bytes(content.into()),
-      S3UploadOptions {
-        content_type: Some("application/json".into()),
-        cache_control: Some(CACHE_CONTROL_MANIFEST.into()),
-        gzip_encoded: false,
-      },
-    )
-    .await?;
-
-  let mut purge_urls = vec![
-    crate::s3_paths::package_metadata_url(registry_url, &scope, &package),
-    crate::s3_paths::npm_version_manifest_url(npm_url, &scope, &package),
-  ];
-  purge_urls.extend(crate::s3_paths::package_api_cache_urls(
+  upload_package_manifests(
+    db,
+    &buckets,
     registry_url,
+    npm_url,
+    cache_purge,
     &scope,
     &package,
-  ));
-  cache_purge.purge(purge_urls).await;
+  )
+  .await?;
+
+  cache_purge
+    .purge(crate::s3_paths::package_api_cache_urls(
+      registry_url,
+      &scope,
+      &package,
+    ))
+    .await;
 
   Ok(
     Response::builder()
@@ -3676,6 +3706,110 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     resp
       .expect_err_code(StatusCode::NOT_FOUND, "packageNotFound")
       .await;
+  }
+
+  #[tokio::test]
+  async fn package_manifests_include_github_repository() {
+    let mut t = TestSetup::new().await;
+
+    let task = process_tarball_setup(&t, create_mock_tarball("ok")).await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "{:?}",
+      task.error
+    );
+
+    let scope = t.scope.scope.clone();
+    let name = PackageName::try_from("foo").unwrap();
+
+    let download_meta_json = |t: &TestSetup| {
+      let bucket = t.buckets.modules_bucket.clone();
+      async move {
+        let json = bucket
+          .download("@scope/foo/meta.json".into())
+          .await
+          .unwrap()
+          .unwrap();
+        serde_json::from_slice::<serde_json::Value>(&json).unwrap()
+      }
+    };
+    let download_npm_manifest = |t: &TestSetup| {
+      let bucket = t.buckets.npm_bucket.clone();
+      async move {
+        let json = bucket
+          .download("@jsr/scope__foo".into())
+          .await
+          .unwrap()
+          .unwrap();
+        serde_json::from_slice::<serde_json::Value>(&json).unwrap()
+      }
+    };
+
+    // No repository is linked yet, so the manifests don't contain one.
+    let meta_json = download_meta_json(&t).await;
+    assert!(meta_json.get("githubRepository").is_none());
+    let npm_json = download_npm_manifest(&t).await;
+    assert!(npm_json.get("repository").is_none());
+
+    t.ephemeral_database
+      .update_package_github_repository(
+        &t.user1.user.id,
+        false,
+        &scope,
+        &name,
+        NewGithubRepository {
+          id: 42,
+          owner: "octocat",
+          name: "hello-world",
+        },
+      )
+      .await
+      .unwrap();
+
+    // Yank state updates regenerate the manifests, which now include the
+    // linked repository.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo/versions/1.2.3")
+      .body_json(json!({ "yanked": false }))
+      .call()
+      .await
+      .unwrap();
+    resp.expect_ok_no_content().await;
+
+    let meta_json = download_meta_json(&t).await;
+    assert_eq!(
+      meta_json.get("githubRepository").unwrap(),
+      &json!({ "owner": "octocat", "name": "hello-world" })
+    );
+    let npm_json = download_npm_manifest(&t).await;
+    let expected_repository = json!({
+      "type": "git",
+      "url": "git+https://github.com/octocat/hello-world.git"
+    });
+    assert_eq!(npm_json.get("repository").unwrap(), &expected_repository);
+    assert_eq!(
+      npm_json["versions"]["1.2.3"].get("repository").unwrap(),
+      &expected_repository
+    );
+
+    // Unlinking the repository regenerates the manifests without it.
+    let mut resp = t
+      .http()
+      .patch("/api/scopes/scope/packages/foo")
+      .body_json(json!({ "githubRepository": null }))
+      .call()
+      .await
+      .unwrap();
+    let package: ApiPackage = resp.expect_ok().await;
+    assert!(package.github_repository.is_none());
+
+    let meta_json = download_meta_json(&t).await;
+    assert!(meta_json.get("githubRepository").is_none());
+    let npm_json = download_npm_manifest(&t).await;
+    assert!(npm_json.get("repository").is_none());
+    assert!(npm_json["versions"]["1.2.3"].get("repository").is_none());
   }
 
   #[tokio::test]
