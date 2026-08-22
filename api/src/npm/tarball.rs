@@ -35,6 +35,7 @@ use crate::ids::Version;
 use crate::s3::BucketWithQueue;
 
 use super::NPM_TARBALL_REVISION;
+use super::emit::JsxEmitOptions;
 use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
 use super::specifiers::Extension;
@@ -99,6 +100,9 @@ pub async fn create_npm_tarball<'a>(
 
   let npm_package_id = NpmMappedJsrPackageName { scope, package };
 
+  let jsx_options =
+    load_jsx_emit_options(&files, scope, package, version).await;
+
   let npm_dependencies =
     create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
 
@@ -137,7 +141,7 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::Jsx => {
         let source_specifier =
           rewrite_file_specifier(module.specifier(), "", Extension::Js);
-        if let Some(source_specifier) = source_specifier {
+        if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
@@ -146,12 +150,16 @@ pub async fn create_npm_tarball<'a>(
         {
           declaration_rewrites
             .insert(module.specifier(), resolved.specifier.clone());
+        } else if let Some(source_specifier) = source_specifier {
+          declaration_rewrites.insert(module.specifier(), source_specifier);
         }
       }
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         // no extra work needed for these, as they can not have type dependencies
       }
-      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+      deno_ast::MediaType::TypeScript
+      | deno_ast::MediaType::Mts
+      | deno_ast::MediaType::Tsx => {
         let source_specifier =
           rewrite_file_specifier(module.specifier(), "", Extension::Js);
         if let Some(source_specifier) = source_specifier.clone() {
@@ -231,14 +239,20 @@ pub async fn create_npm_tarball<'a>(
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
         };
-        let (source, source_map) =
-          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
-            .unwrap();
+        let (source, source_map) = transpile_to_js(
+          &parsed_source,
+          specifier_rewriter,
+          source_target,
+          &jsx_options,
+        )
+        .unwrap();
         package_files.insert(source_target.path().to_owned(), source);
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
       }
-      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+      deno_ast::MediaType::TypeScript
+      | deno_ast::MediaType::Mts
+      | deno_ast::MediaType::Tsx => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
           .analyze(&js.specifier, js.source.text.clone(), js.media_type)
@@ -267,9 +281,13 @@ pub async fn create_npm_tarball<'a>(
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
         };
-        let (source, source_map) =
-          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
-            .unwrap();
+        let (source, source_map) = transpile_to_js(
+          &parsed_source,
+          specifier_rewriter,
+          source_target,
+          &jsx_options,
+        )
+        .unwrap();
         package_files.insert(source_target.path().to_owned(), source);
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
@@ -409,6 +427,70 @@ pub async fn create_npm_tarball<'a>(
     sha1,
     sha512,
   })
+}
+
+async fn load_jsx_emit_options(
+  files: &NpmTarballFiles<'_>,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+) -> JsxEmitOptions {
+  const CANDIDATES: &[&str] =
+    &["/deno.json", "/deno.jsonc", "/jsr.json", "/jsr.jsonc"];
+  match files {
+    NpmTarballFiles::WithBytes(map) => {
+      for candidate in CANDIDATES {
+        if let Some((_, content)) =
+          map.iter().find(|(p, _)| p.to_string() == *candidate)
+          && let Some(opts) = parse_jsx_emit_options(content)
+        {
+          return opts;
+        }
+      }
+    }
+    NpmTarballFiles::FromBucket {
+      files,
+      modules_bucket,
+    } => {
+      for candidate in CANDIDATES {
+        let Ok(path) = PackagePath::new(candidate.to_string()) else {
+          continue;
+        };
+        if !files.contains(&path) {
+          continue;
+        }
+        let s3_path =
+          crate::s3_paths::file_path(scope, package, version, &path).into();
+        if let Ok(Some(bytes)) = modules_bucket.download(s3_path).await
+          && let Some(opts) = parse_jsx_emit_options(&bytes)
+        {
+          return opts;
+        }
+      }
+    }
+  }
+  JsxEmitOptions::default()
+}
+
+fn parse_jsx_emit_options(bytes: &[u8]) -> Option<JsxEmitOptions> {
+  let text = std::str::from_utf8(bytes).ok()?;
+  let value = jsonc_parser::parse_to_serde_value(
+    text,
+    &jsonc_parser::ParseOptions::default(),
+  )
+  .ok()
+  .flatten()?;
+  let co = value.get("compilerOptions")?;
+  Some(JsxEmitOptions {
+    jsx: json_opt_string(co.get("jsx")),
+    jsx_import_source: json_opt_string(co.get("jsxImportSource")),
+    jsx_factory: json_opt_string(co.get("jsxFactory")),
+    jsx_fragment_factory: json_opt_string(co.get("jsxFragmentFactory")),
+  })
+}
+
+fn json_opt_string(value: Option<&serde_json::Value>) -> Option<String> {
+  value.and_then(|v| v.as_str()).map(str::to_string)
 }
 
 fn rewrite_specifiers(
@@ -791,7 +873,7 @@ mod tests {
       );
       write!(
         &mut output,
-        "== {path} ==\n{}\n{}",
+        "== {path} ==\n{}{}",
         content,
         if content.ends_with('\n') { "" } else { "\n" }
       )?;
