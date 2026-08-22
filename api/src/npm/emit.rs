@@ -1,5 +1,10 @@
 // Copyright 2024 the JSR authors. All rights reserved. MIT license.
 
+use deno_ast::DecoratorsTranspileOption;
+use deno_ast::EmittedSourceText;
+use deno_ast::JsxAutomaticOptions;
+use deno_ast::JsxClassicOptions;
+use deno_ast::JsxRuntime;
 use deno_ast::ParsedSource;
 use deno_ast::SourceMap;
 use deno_ast::SourceMapOption;
@@ -7,8 +12,6 @@ use deno_ast::TranspileOptions;
 use deno_ast::emit;
 use deno_ast::fold_program;
 use deno_ast::swc::ecma_visit::VisitMutWith;
-use deno_ast::{DecoratorsTranspileOption, EmittedSourceText};
-use deno_ast::{JsxAutomaticOptions, JsxClassicOptions, JsxRuntime};
 use deno_graph::FastCheckTypeModule;
 use url::Url;
 
@@ -87,9 +90,7 @@ pub fn transpile_to_dts(
   specifier_rewriter: SpecifierRewriter,
   target_specifier: &Url,
 ) -> Result<(Vec<u8>, Vec<u8>), anyhow::Error> {
-  let dts = fast_check_module.dts.as_ref().ok_or_else(|| {
-    anyhow::anyhow!("fast check module is missing dts")
-  })?;
+  let dts = fast_check_module.dts.as_ref().unwrap();
 
   let basename = target_specifier.path().rsplit_once('/').unwrap().1;
   let emit_options = deno_ast::EmitOptions {
