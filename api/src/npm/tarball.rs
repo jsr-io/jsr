@@ -4,18 +4,18 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use base64::Engine;
-use deno_ast::apply_text_changes;
 use deno_ast::SourceTextInfo;
 use deno_ast::TextChange;
-use deno_graph::CapturingModuleAnalyzer;
-use deno_graph::DependencyDescriptor;
-use deno_graph::ModuleAnalyzer;
+use deno_ast::apply_text_changes;
 use deno_graph::ModuleGraph;
-use deno_graph::ModuleInfo;
 use deno_graph::ModuleSpecifier;
-use deno_graph::ParsedSourceStore;
 use deno_graph::PositionRange;
 use deno_graph::Resolution;
+use deno_graph::analysis::DependencyDescriptor;
+use deno_graph::analysis::ModuleAnalyzer;
+use deno_graph::analysis::ModuleInfo;
+use deno_graph::ast::CapturingModuleAnalyzer;
+use deno_graph::ast::ParsedSourceStore;
 use deno_semver::package::PackageReqReference;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -25,7 +25,6 @@ use tar::Header;
 use tracing::error;
 use url::Url;
 
-use crate::buckets::BucketWithQueue;
 use crate::db::DependencyKind;
 use crate::db::ExportsMap;
 use crate::ids::PackageName;
@@ -33,19 +32,21 @@ use crate::ids::PackagePath;
 use crate::ids::ScopeName;
 use crate::ids::ScopedPackageName;
 use crate::ids::Version;
+use crate::s3::BucketWithQueue;
 
+use super::NPM_TARBALL_REVISION;
+use super::emit::JsxEmitOptions;
 use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
-use super::specifiers::follow_specifier;
-use super::specifiers::relative_import_specifier;
-use super::specifiers::rewrite_file_specifier;
 use super::specifiers::Extension;
 use super::specifiers::RewriteKind;
 use super::specifiers::SpecifierRewriter;
+use super::specifiers::follow_specifier;
+use super::specifiers::relative_import_specifier;
+use super::specifiers::rewrite_file_specifier;
 use super::types::NpmExportConditions;
 use super::types::NpmMappedJsrPackageName;
 use super::types::NpmPackageJson;
-use super::NPM_TARBALL_REVISION;
 
 pub struct NpmTarball {
   /// The gzipped tarball contents.
@@ -99,6 +100,9 @@ pub async fn create_npm_tarball<'a>(
 
   let npm_package_id = NpmMappedJsrPackageName { scope, package };
 
+  let jsx_options =
+    load_jsx_emit_options(&files, scope, package, version).await;
+
   let npm_dependencies =
     create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
 
@@ -127,33 +131,37 @@ pub async fn create_npm_tarball<'a>(
 
     match js.media_type {
       deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
-        if let Some(types_dep) = &js.maybe_types_dependency {
-          if let Resolution::Ok(resolved) = &types_dep.dependency {
-            declaration_rewrites
-              .insert(module.specifier(), resolved.specifier.clone());
-          }
+        if let Some(types_dep) = &js.maybe_types_dependency
+          && let Resolution::Ok(resolved) = &types_dep.dependency
+        {
+          declaration_rewrites
+            .insert(module.specifier(), resolved.specifier.clone());
         }
       }
       deno_ast::MediaType::Jsx => {
         let source_specifier =
-          rewrite_file_specifier(module.specifier(), "/_dist", Extension::Js);
-        if let Some(source_specifier) = source_specifier {
+          rewrite_file_specifier(module.specifier(), "", Extension::Js);
+        if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
 
-        if let Some(types_dep) = &js.maybe_types_dependency {
-          if let Resolution::Ok(resolved) = &types_dep.dependency {
-            declaration_rewrites
-              .insert(module.specifier(), resolved.specifier.clone());
-          }
+        if let Some(types_dep) = &js.maybe_types_dependency
+          && let Resolution::Ok(resolved) = &types_dep.dependency
+        {
+          declaration_rewrites
+            .insert(module.specifier(), resolved.specifier.clone());
+        } else if let Some(source_specifier) = source_specifier {
+          declaration_rewrites.insert(module.specifier(), source_specifier);
         }
       }
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         // no extra work needed for these, as they can not have type dependencies
       }
-      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+      deno_ast::MediaType::TypeScript
+      | deno_ast::MediaType::Mts
+      | deno_ast::MediaType::Tsx => {
         let source_specifier =
-          rewrite_file_specifier(module.specifier(), "/_dist", Extension::Js);
+          rewrite_file_specifier(module.specifier(), "", Extension::Js);
         if let Some(source_specifier) = source_specifier.clone() {
           source_rewrites.insert(module.specifier(), source_specifier);
         }
@@ -183,7 +191,8 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::JavaScript | deno_ast::MediaType::Mjs => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
-          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .analyze(&js.specifier, js.source.text.clone(), js.media_type)
+          .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
@@ -192,7 +201,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Source,
@@ -203,7 +212,8 @@ pub async fn create_npm_tarball<'a>(
       deno_ast::MediaType::Dts | deno_ast::MediaType::Dmts => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
-          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .analyze(&js.specifier, js.source.text.clone(), js.media_type)
+          .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
@@ -212,7 +222,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Declaration,
@@ -229,20 +239,24 @@ pub async fn create_npm_tarball<'a>(
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
         };
-        let (source, source_map) =
-          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
-            .unwrap();
+        let (source, source_map) = transpile_to_js(
+          &parsed_source,
+          specifier_rewriter,
+          source_target,
+          &jsx_options,
+        )
+        .unwrap();
+        package_files.insert(source_target.path().to_owned(), source);
         package_files
-          .insert(source_target.path().to_owned(), source.into_bytes());
-        package_files.insert(
-          format!("{}.map", source_target.path()),
-          source_map.into_bytes(),
-        );
+          .insert(format!("{}.map", source_target.path()), source_map);
       }
-      deno_ast::MediaType::TypeScript | deno_ast::MediaType::Mts => {
+      deno_ast::MediaType::TypeScript
+      | deno_ast::MediaType::Mts
+      | deno_ast::MediaType::Tsx => {
         let parsed_source = sources.get_parsed_source(&js.specifier).unwrap();
         let module_info = sources
-          .analyze(&js.specifier, js.source.clone(), js.media_type)
+          .analyze(&js.specifier, js.source.text.clone(), js.media_type)
+          .await
           .unwrap();
         let specifier_rewriter = SpecifierRewriter {
           base_specifier: &js.specifier,
@@ -251,7 +265,7 @@ pub async fn create_npm_tarball<'a>(
           dependencies: &js.dependencies,
         };
         let rewritten = rewrite_specifiers(
-          parsed_source.text_info(),
+          parsed_source.text_info_lazy(),
           &module_info,
           specifier_rewriter,
           RewriteKind::Source,
@@ -267,15 +281,16 @@ pub async fn create_npm_tarball<'a>(
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
         };
-        let (source, source_map) =
-          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
-            .unwrap();
+        let (source, source_map) = transpile_to_js(
+          &parsed_source,
+          specifier_rewriter,
+          source_target,
+          &jsx_options,
+        )
+        .unwrap();
+        package_files.insert(source_target.path().to_owned(), source);
         package_files
-          .insert(source_target.path().to_owned(), source.into_bytes());
-        package_files.insert(
-          format!("{}.map", source_target.path()),
-          source_map.into_bytes(),
-        );
+          .insert(format!("{}.map", source_target.path()), source_map);
 
         if let Some(fast_check_module) = js.fast_check_module() {
           let declaration_target =
@@ -292,13 +307,11 @@ pub async fn create_npm_tarball<'a>(
             specifier_rewriter,
             declaration_target,
           )?;
-          package_files.insert(
-            declaration_target.path().to_owned(),
-            declaration.into_bytes(),
-          );
+          package_files
+            .insert(declaration_target.path().to_owned(), declaration);
           package_files.insert(
             format!("{}.map", declaration_target.path()),
-            declaration_map.into_bytes(),
+            declaration_map,
           );
         }
       }
@@ -327,13 +340,13 @@ pub async fn create_npm_tarball<'a>(
 
       let downloads = futures::stream::iter(paths_to_download.into_iter())
         .map(|path| {
-          let gcs_path =
-            crate::gcs_paths::file_path(scope, package, version, path).into();
+          let s3_path =
+            crate::s3_paths::file_path(scope, package, version, path).into();
           async move {
             let bytes = modules_bucket
-              .download(gcs_path)
+              .download(s3_path)
               .await?
-              .ok_or_else(|| anyhow::anyhow!("file missing on GCS: {path}"))?;
+              .ok_or_else(|| anyhow::anyhow!("file missing on S3: {path}"))?;
             Ok::<_, anyhow::Error>((path, bytes))
           }
         })
@@ -392,7 +405,7 @@ pub async fn create_npm_tarball<'a>(
       }
     })?;
     header.set_size(content.len() as u64);
-    header.set_mode(0o777);
+    header.set_mode(0o644);
     header.set_mtime(mtime);
     header.set_cksum();
     tarball.append(&header, content.as_slice()).unwrap();
@@ -400,6 +413,9 @@ pub async fn create_npm_tarball<'a>(
 
   tarball.into_inner().unwrap();
   gz_encoder.finish().unwrap();
+
+  // Free the in-memory file map now that the tarball is built
+  drop(package_files);
 
   let sha1_digest = sha1::Sha1::digest(&tar_gz_bytes);
   let sha1 = format!("{sha1_digest:X}");
@@ -411,6 +427,70 @@ pub async fn create_npm_tarball<'a>(
     sha1,
     sha512,
   })
+}
+
+async fn load_jsx_emit_options(
+  files: &NpmTarballFiles<'_>,
+  scope: &ScopeName,
+  package: &PackageName,
+  version: &Version,
+) -> JsxEmitOptions {
+  const CANDIDATES: &[&str] =
+    &["/deno.json", "/deno.jsonc", "/jsr.json", "/jsr.jsonc"];
+  match files {
+    NpmTarballFiles::WithBytes(map) => {
+      for candidate in CANDIDATES {
+        if let Some((_, content)) =
+          map.iter().find(|(p, _)| p.to_string() == *candidate)
+          && let Some(opts) = parse_jsx_emit_options(content)
+        {
+          return opts;
+        }
+      }
+    }
+    NpmTarballFiles::FromBucket {
+      files,
+      modules_bucket,
+    } => {
+      for candidate in CANDIDATES {
+        let Ok(path) = PackagePath::new(candidate.to_string()) else {
+          continue;
+        };
+        if !files.contains(&path) {
+          continue;
+        }
+        let s3_path =
+          crate::s3_paths::file_path(scope, package, version, &path).into();
+        if let Ok(Some(bytes)) = modules_bucket.download(s3_path).await
+          && let Some(opts) = parse_jsx_emit_options(&bytes)
+        {
+          return opts;
+        }
+      }
+    }
+  }
+  JsxEmitOptions::default()
+}
+
+fn parse_jsx_emit_options(bytes: &[u8]) -> Option<JsxEmitOptions> {
+  let text = std::str::from_utf8(bytes).ok()?;
+  let value = jsonc_parser::parse_to_serde_value(
+    text,
+    &jsonc_parser::ParseOptions::default(),
+  )
+  .ok()
+  .flatten()?;
+  let co = value.get("compilerOptions")?;
+  Some(JsxEmitOptions {
+    jsx: json_opt_string(co.get("jsx")),
+    jsx_import_source: json_opt_string(co.get("jsxImportSource")),
+    jsx_factory: json_opt_string(co.get("jsxFactory")),
+    jsx_fragment_factory: json_opt_string(co.get("jsxFragmentFactory")),
+  })
+}
+
+fn json_opt_string(value: Option<&serde_json::Value>) -> Option<String> {
+  value.and_then(|v| v.as_str()).map(str::to_string)
 }
 
 fn rewrite_specifiers(
@@ -460,34 +540,36 @@ fn rewrite_specifiers(
         }
       }
       DependencyDescriptor::Dynamic(desc) => match &desc.argument {
-        deno_graph::DynamicArgument::String(specifier) => {
+        deno_graph::analysis::DynamicArgument::String(specifier) => {
           if let Some(specifier) = specifier_rewriter.rewrite(specifier, kind) {
             add_text_change(&mut text_changes, specifier, &desc.argument_range);
           }
         }
-        deno_graph::DynamicArgument::Template(_) => {}
-        deno_graph::DynamicArgument::Expr => {}
+        deno_graph::analysis::DynamicArgument::Template(_) => {}
+        deno_graph::analysis::DynamicArgument::Expr => {}
       },
     }
   }
 
   for ts_ref in &module_info.ts_references {
     match ts_ref {
-      deno_graph::TypeScriptReference::Path(s) => {
+      deno_graph::analysis::TypeScriptReference::Path(s) => {
         if let Some(specifier) =
           specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
         {
           add_text_change(&mut text_changes, specifier, &s.range);
         }
       }
-      deno_graph::TypeScriptReference::Types(s) => {
+      deno_graph::analysis::TypeScriptReference::Types {
+        specifier, ..
+      } => {
         match kind {
           RewriteKind::Source => {
             // Type reference comments in JS are a Deno specific concept, and
             // are thus not relevant for the tarball. We remove them.
 
             let start_pos = source_text_info.range().start;
-            let start = s.range.start.as_source_pos(source_text_info);
+            let start = specifier.range.start.as_source_pos(source_text_info);
             let start = source_text_info.line_and_column_index(start);
 
             let line_start = source_text_info.line_start(start.line_index);
@@ -509,10 +591,14 @@ fn rewrite_specifiers(
             });
           }
           RewriteKind::Declaration => {
-            if let Some(specifier) =
-              specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+            if let Some(rewritten_specifier) = specifier_rewriter
+              .rewrite(&specifier.text, RewriteKind::Declaration)
             {
-              add_text_change(&mut text_changes, specifier, &s.range);
+              add_text_change(
+                &mut text_changes,
+                rewritten_specifier,
+                &specifier.range,
+              );
             }
           }
         }
@@ -522,9 +608,9 @@ fn rewrite_specifiers(
 
   for s in &module_info.jsdoc_imports {
     if let Some(specifier) =
-      specifier_rewriter.rewrite(&s.text, RewriteKind::Declaration)
+      specifier_rewriter.rewrite(&s.specifier.text, RewriteKind::Declaration)
     {
-      add_text_change(&mut text_changes, specifier, &s.range);
+      add_text_change(&mut text_changes, specifier, &s.specifier.range);
     }
   }
 
@@ -539,7 +625,7 @@ pub fn create_npm_dependencies<'a>(
     let (kind, req) = &*dep;
     match kind {
       DependencyKind::Jsr => {
-        let jsr_name = ScopedPackageName::new(req.req.name.clone())?;
+        let jsr_name = ScopedPackageName::new(req.req.name.to_string())?;
         let npm_name = NpmMappedJsrPackageName {
           scope: &jsr_name.scope,
           package: &jsr_name.package,
@@ -549,7 +635,7 @@ pub fn create_npm_dependencies<'a>(
       }
       DependencyKind::Npm => {
         npm_dependencies
-          .insert(req.req.name.clone(), req.req.version_req.to_string());
+          .insert(req.req.name.to_string(), req.req.version_req.to_string());
       }
     }
   }
@@ -581,27 +667,23 @@ pub fn create_npm_exports(
 
     if let Some(source_specifier) =
       follow_specifier(&specifier, source_rewrites)
+      && source_specifier.scheme() == "file"
+      && package_files.contains_key(source_specifier.path())
     {
-      if source_specifier.scheme() == "file"
-        && package_files.contains_key(source_specifier.path())
-      {
-        let new_specifier =
-          relative_import_specifier(&package_json_specifier, source_specifier);
-        conditions.default = Some(new_specifier);
-      }
+      let new_specifier =
+        relative_import_specifier(&package_json_specifier, source_specifier);
+      conditions.default = Some(new_specifier);
     }
 
     if let Some(types_specifier) =
       follow_specifier(&specifier, declaration_rewrites)
+      && types_specifier.scheme() == "file"
+      && package_files.contains_key(types_specifier.path())
     {
-      if types_specifier.scheme() == "file"
-        && package_files.contains_key(types_specifier.path())
-      {
-        let new_specifier =
-          relative_import_specifier(&package_json_specifier, types_specifier);
-        if conditions.default.as_ref() != Some(&new_specifier) {
-          conditions.types = Some(new_specifier);
-        }
+      let new_specifier =
+        relative_import_specifier(&package_json_specifier, types_specifier);
+      if conditions.default.as_ref() != Some(&new_specifier) {
+        conditions.types = Some(new_specifier);
       }
     }
 
@@ -618,33 +700,33 @@ mod tests {
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
-  use deno_graph::source::MemoryLoader;
-  use deno_graph::source::NullFileSystem;
-  use deno_graph::source::Source;
   use deno_graph::BuildFastCheckTypeGraphOptions;
   use deno_graph::BuildOptions;
   use deno_graph::GraphKind;
   use deno_graph::ModuleGraph;
   use deno_graph::WorkspaceFastCheckOption;
   use deno_graph::WorkspaceMember;
-  use deno_semver::package::PackageNv;
+  use deno_graph::source::MemoryLoader;
+  use deno_graph::source::NullFileSystem;
+  use deno_graph::source::Source;
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
   use url::Url;
 
+  use crate::analysis::JsrResolver;
   use crate::analysis::ModuleAnalyzer;
   use crate::analysis::PassthroughJsrUrlProvider;
   use crate::db::DependencyKind;
   use crate::ids::PackagePath;
+  use crate::npm::NPM_TARBALL_REVISION;
   use crate::npm::tests::helpers;
   use crate::npm::tests::helpers::Spec;
-  use crate::npm::NPM_TARBALL_REVISION;
   use crate::tarball::exports_map_from_json;
 
-  use super::create_npm_tarball;
   use super::NpmTarballFiles;
   use super::NpmTarballOptions;
+  use super::create_npm_tarball;
 
   async fn test_npm_tarball(
     spec_path: &Path,
@@ -652,7 +734,7 @@ mod tests {
   ) -> Result<(), anyhow::Error> {
     let scope = spec.jsr_json.name.scope.clone();
     let package = spec.jsr_json.name.package.clone();
-    let version = spec.jsr_json.version.clone();
+    let version = spec.jsr_json.version.clone().unwrap();
 
     let exports = match exports_map_from_json(spec.jsr_json.exports.clone()) {
       Ok(exports) => exports,
@@ -690,14 +772,13 @@ mod tests {
 
     let loader = MemoryLoader::new(memory_files, vec![]);
     let mut graph = ModuleGraph::new(GraphKind::All);
-    let workspace_members = vec![WorkspaceMember {
+    let workspace_member = WorkspaceMember {
       base: Url::parse("file:///").unwrap(),
+      name: StackString::from_string(format!("@{}/{}", scope, package)),
+      version: Some(version.0.clone()),
       exports: exports.clone().into_inner(),
-      nv: PackageNv {
-        name: format!("@{}/{}", scope, package),
-        version: version.0.clone(),
-      },
-    }];
+    };
+    let workspace_members = vec![workspace_member.clone()];
 
     let mut roots: Vec<ModuleSpecifier> = vec![];
     for ex in exports.iter() {
@@ -710,13 +791,15 @@ mod tests {
     graph
       .build(
         roots,
+        vec![],
         &loader,
         BuildOptions {
           is_dynamic: false,
           module_analyzer: &module_analyzer,
-          workspace_members: &workspace_members,
           file_system: &NullFileSystem,
-          resolver: None,
+          resolver: Some(&JsrResolver {
+            member: workspace_member,
+          }),
           npm_resolver: None,
           reporter: None,
           jsr_url_provider: &PassthroughJsrUrlProvider,
@@ -730,9 +813,8 @@ mod tests {
       fast_check_cache: Default::default(),
       fast_check_dts: true,
       jsr_url_provider: &PassthroughJsrUrlProvider,
-      module_parser: Some(&module_analyzer.analyzer),
+      es_parser: Some(&module_analyzer.analyzer),
       resolver: None,
-      npm_resolver: None,
       workspace_fast_check: WorkspaceFastCheckOption::Enabled(
         &workspace_members,
       ),
@@ -769,6 +851,12 @@ mod tests {
       let len = "package".to_string().len();
       let formatted_path = path[len..].to_string();
 
+      let mode = entry.header().mode().unwrap();
+      assert_eq!(
+        mode, 0o644,
+        "file {path} has unexpected mode {mode:o}, want 0o644",
+      );
+
       let mut buf = vec![];
       entry.read_to_end(&mut buf).await?;
       transpiled_files.push((formatted_path, buf));
@@ -785,14 +873,14 @@ mod tests {
       );
       write!(
         &mut output,
-        "== {path} ==\n{}\n{}",
+        "== {path} ==\n{}{}",
         content,
         if content.ends_with('\n') { "" } else { "\n" }
       )?;
     }
 
     if std::env::var("UPDATE").is_ok() {
-      spec.output_file.text = output.clone();
+      spec.output_file.text.clone_from(&output);
       std::fs::write(spec_path, spec.emit())?;
     } else {
       assert_eq!(
@@ -804,6 +892,7 @@ mod tests {
     Ok(())
   }
 
+  use deno_semver::StackString;
   use std::path::Path;
 
   #[tokio::test]
