@@ -167,6 +167,8 @@ async fn analyze_package_inner(
         unstable_text_imports: false,
         jsr_metadata_store: None,
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;
@@ -658,6 +660,8 @@ async fn rebuild_npm_tarball_inner(
         unstable_text_imports: false,
         jsr_metadata_store: None,
         unstable_css_imports: false,
+        unstable_config_imports: false,
+        prefer_cached_jsr_versions: false,
       },
     )
     .await;

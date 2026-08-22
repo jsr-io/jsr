@@ -925,6 +925,49 @@ pub fn render_docs_html(
   }
 }
 
+/// Resolves the references of a doc node, keeping any non-reference
+/// declarations alongside the resolved targets so they are not lost (e.g. an
+/// interface merged with a same-named function re-exported through
+/// `export *`).
+fn resolve_doc_node_references(
+  ctx: &GenerateCtx,
+  node: DocNodeWithContext,
+) -> Vec<DocNodeWithContext> {
+  if !node
+    .declarations
+    .iter()
+    .any(|decl| decl.reference_def().is_some())
+  {
+    return vec![node];
+  }
+
+  let mut nodes = Vec::new();
+  for decl in &node.declarations {
+    if let Some(reference) = decl.reference_def() {
+      nodes.extend(
+        ctx
+          .resolve_reference(node.parent.as_deref(), &reference.target)
+          .map(|resolved| resolved.into_owned()),
+      );
+    }
+  }
+
+  let non_reference_decls = node
+    .declarations
+    .iter()
+    .filter(|decl| decl.reference_def().is_none())
+    .cloned()
+    .collect::<Vec<_>>();
+  if !non_reference_decls.is_empty() {
+    let mut stripped = node;
+    std::sync::Arc::make_mut(&mut stripped.inner).declarations =
+      non_reference_decls;
+    nodes.push(stripped);
+  }
+
+  nodes
+}
+
 fn generate_symbol_page(
   ctx: &GenerateCtx,
   short_path: &ShortPath,
@@ -944,20 +987,7 @@ fn generate_symbol_page(
           decl.declaration_kind == deno_doc::node::DeclarationKind::Private
         }) && node.get_name() == next_part
       })
-      .flat_map(|node| {
-        if let Some(reference) = node
-          .declarations
-          .iter()
-          .find_map(|decl| decl.reference_def())
-        {
-          ctx
-            .resolve_reference(node.parent.as_deref(), &reference.target)
-            .map(|node| node.into_owned())
-            .collect::<Vec<_>>()
-        } else {
-          vec![node.clone()]
-        }
-      })
+      .flat_map(|node| resolve_doc_node_references(ctx, node.clone()))
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_some() {
@@ -1146,20 +1176,7 @@ fn generate_symbol_page(
 
     nodes = nodes
       .into_iter()
-      .flat_map(|node| {
-        if let Some(reference) = node
-          .declarations
-          .iter()
-          .find_map(|decl| decl.reference_def())
-        {
-          ctx
-            .resolve_reference(node.parent.as_deref(), &reference.target)
-            .map(|node| node.into_owned())
-            .collect::<Vec<_>>()
-        } else {
-          vec![node]
-        }
-      })
+      .flat_map(|node| resolve_doc_node_references(ctx, node))
       .collect::<Vec<_>>();
 
     if name_parts.peek().is_none() {
@@ -1202,6 +1219,32 @@ fn generate_symbol_page(
     return None;
   }
 
+  // One symbol name can produce multiple doc nodes (e.g. a resolved
+  // re-export alongside a same-named interface merged through `export *`);
+  // combine their declarations so the page shows all of them. Prefer the
+  // node carrying the requested name as the base so the page keeps it.
+  let doc_node = if doc_nodes.len() == 1 {
+    doc_nodes[0].clone()
+  } else {
+    let requested_name = name.rsplit('.').next().unwrap();
+    let mut merged = doc_nodes
+      .iter()
+      .find(|node| node.get_name() == requested_name)
+      .unwrap_or(&doc_nodes[0])
+      .clone();
+    let mut declarations = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for node in &doc_nodes {
+      for decl in &node.declarations {
+        if seen.insert((decl.location.clone(), decl.def.to_kind())) {
+          declarations.push(decl.clone());
+        }
+      }
+    }
+    std::sync::Arc::make_mut(&mut merged.inner).declarations = declarations;
+    merged
+  };
+
   let render_ctx = RenderContext::new(
     ctx,
     doc_nodes_for_module,
@@ -1212,7 +1255,7 @@ fn generate_symbol_page(
     deno_doc::html::pages::render_symbol_page(
       &render_ctx,
       short_path,
-      &doc_nodes[0],
+      &doc_node,
     );
 
   Some(SymbolPage::Symbol {
