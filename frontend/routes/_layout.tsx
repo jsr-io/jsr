@@ -53,6 +53,20 @@ export default function Layout(
         </a>{" "}
         -{" "}
         <a
+          href="/docs/terms-of-service"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
+        >
+          Terms
+        </a>{" "}
+        -{" "}
+        <a
+          href="/docs/privacy-policy"
+          class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
+        >
+          Privacy
+        </a>{" "}
+        -{" "}
+        <a
           href="https://github.com/jsr-io/jsr"
           class="text-jsr-cyan-700 hover:text-blue-400 underline dark:text-cyan-400 dark:hover:text-blue-300"
         >
