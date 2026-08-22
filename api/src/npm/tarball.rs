@@ -4,18 +4,18 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use base64::Engine;
+use deno_ast::apply_text_changes;
 use deno_ast::SourceTextInfo;
 use deno_ast::TextChange;
-use deno_ast::apply_text_changes;
-use deno_graph::ModuleGraph;
-use deno_graph::ModuleSpecifier;
-use deno_graph::PositionRange;
-use deno_graph::Resolution;
 use deno_graph::analysis::DependencyDescriptor;
 use deno_graph::analysis::ModuleAnalyzer;
 use deno_graph::analysis::ModuleInfo;
 use deno_graph::ast::CapturingModuleAnalyzer;
 use deno_graph::ast::ParsedSourceStore;
+use deno_graph::ModuleGraph;
+use deno_graph::ModuleSpecifier;
+use deno_graph::PositionRange;
+use deno_graph::Resolution;
 use deno_semver::package::PackageReqReference;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -34,19 +34,18 @@ use crate::ids::ScopedPackageName;
 use crate::ids::Version;
 use crate::s3::BucketWithQueue;
 
-use super::NPM_TARBALL_REVISION;
-use super::emit::JsxEmitOptions;
 use super::emit::transpile_to_dts;
 use super::emit::transpile_to_js;
-use super::specifiers::Extension;
-use super::specifiers::RewriteKind;
-use super::specifiers::SpecifierRewriter;
 use super::specifiers::follow_specifier;
 use super::specifiers::relative_import_specifier;
 use super::specifiers::rewrite_file_specifier;
+use super::specifiers::Extension;
+use super::specifiers::RewriteKind;
+use super::specifiers::SpecifierRewriter;
 use super::types::NpmExportConditions;
 use super::types::NpmMappedJsrPackageName;
 use super::types::NpmPackageJson;
+use super::NPM_TARBALL_REVISION;
 
 pub struct NpmTarball {
   /// The gzipped tarball contents.
@@ -99,9 +98,6 @@ pub async fn create_npm_tarball<'a>(
   } = opts;
 
   let npm_package_id = NpmMappedJsrPackageName { scope, package };
-
-  let jsx_options =
-    load_jsx_emit_options(&files, scope, package, version).await;
 
   let npm_dependencies =
     create_npm_dependencies(dependencies.map(Cow::Borrowed))?;
@@ -239,13 +235,9 @@ pub async fn create_npm_tarball<'a>(
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
         };
-        let (source, source_map) = transpile_to_js(
-          &parsed_source,
-          specifier_rewriter,
-          source_target,
-          &jsx_options,
-        )
-        .unwrap();
+        let (source, source_map) =
+          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
+            .unwrap();
         package_files.insert(source_target.path().to_owned(), source);
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
@@ -281,13 +273,9 @@ pub async fn create_npm_tarball<'a>(
           declaration_rewrites: &declaration_rewrites,
           dependencies: &js.dependencies,
         };
-        let (source, source_map) = transpile_to_js(
-          &parsed_source,
-          specifier_rewriter,
-          source_target,
-          &jsx_options,
-        )
-        .unwrap();
+        let (source, source_map) =
+          transpile_to_js(&parsed_source, specifier_rewriter, source_target)
+            .unwrap();
         package_files.insert(source_target.path().to_owned(), source);
         package_files
           .insert(format!("{}.map", source_target.path()), source_map);
@@ -427,70 +415,6 @@ pub async fn create_npm_tarball<'a>(
     sha1,
     sha512,
   })
-}
-
-async fn load_jsx_emit_options(
-  files: &NpmTarballFiles<'_>,
-  scope: &ScopeName,
-  package: &PackageName,
-  version: &Version,
-) -> JsxEmitOptions {
-  const CANDIDATES: &[&str] =
-    &["/deno.json", "/deno.jsonc", "/jsr.json", "/jsr.jsonc"];
-  match files {
-    NpmTarballFiles::WithBytes(map) => {
-      for candidate in CANDIDATES {
-        if let Some((_, content)) =
-          map.iter().find(|(p, _)| p.to_string() == *candidate)
-          && let Some(opts) = parse_jsx_emit_options(content)
-        {
-          return opts;
-        }
-      }
-    }
-    NpmTarballFiles::FromBucket {
-      files,
-      modules_bucket,
-    } => {
-      for candidate in CANDIDATES {
-        let Ok(path) = PackagePath::new(candidate.to_string()) else {
-          continue;
-        };
-        if !files.contains(&path) {
-          continue;
-        }
-        let s3_path =
-          crate::s3_paths::file_path(scope, package, version, &path).into();
-        if let Ok(Some(bytes)) = modules_bucket.download(s3_path).await
-          && let Some(opts) = parse_jsx_emit_options(&bytes)
-        {
-          return opts;
-        }
-      }
-    }
-  }
-  JsxEmitOptions::default()
-}
-
-fn parse_jsx_emit_options(bytes: &[u8]) -> Option<JsxEmitOptions> {
-  let text = std::str::from_utf8(bytes).ok()?;
-  let value = jsonc_parser::parse_to_serde_value(
-    text,
-    &jsonc_parser::ParseOptions::default(),
-  )
-  .ok()
-  .flatten()?;
-  let co = value.get("compilerOptions")?;
-  Some(JsxEmitOptions {
-    jsx: json_opt_string(co.get("jsx")),
-    jsx_import_source: json_opt_string(co.get("jsxImportSource")),
-    jsx_factory: json_opt_string(co.get("jsxFactory")),
-    jsx_fragment_factory: json_opt_string(co.get("jsxFragmentFactory")),
-  })
-}
-
-fn json_opt_string(value: Option<&serde_json::Value>) -> Option<String> {
-  value.and_then(|v| v.as_str()).map(str::to_string)
 }
 
 fn rewrite_specifiers(
@@ -700,15 +624,15 @@ mod tests {
 
   use async_tar::Archive;
   use deno_ast::ModuleSpecifier;
+  use deno_graph::source::MemoryLoader;
+  use deno_graph::source::NullFileSystem;
+  use deno_graph::source::Source;
   use deno_graph::BuildFastCheckTypeGraphOptions;
   use deno_graph::BuildOptions;
   use deno_graph::GraphKind;
   use deno_graph::ModuleGraph;
   use deno_graph::WorkspaceFastCheckOption;
   use deno_graph::WorkspaceMember;
-  use deno_graph::source::MemoryLoader;
-  use deno_graph::source::NullFileSystem;
-  use deno_graph::source::Source;
   use deno_semver::package::PackageReqReference;
   use futures::AsyncReadExt;
   use futures::StreamExt;
@@ -719,14 +643,14 @@ mod tests {
   use crate::analysis::PassthroughJsrUrlProvider;
   use crate::db::DependencyKind;
   use crate::ids::PackagePath;
-  use crate::npm::NPM_TARBALL_REVISION;
   use crate::npm::tests::helpers;
   use crate::npm::tests::helpers::Spec;
+  use crate::npm::NPM_TARBALL_REVISION;
   use crate::tarball::exports_map_from_json;
 
+  use super::create_npm_tarball;
   use super::NpmTarballFiles;
   use super::NpmTarballOptions;
-  use super::create_npm_tarball;
 
   async fn test_npm_tarball(
     spec_path: &Path,
@@ -873,7 +797,7 @@ mod tests {
       );
       write!(
         &mut output,
-        "== {path} ==\n{}{}",
+        "== {path} ==\n{}\n{}",
         content,
         if content.ends_with('\n') { "" } else { "\n" }
       )?;
