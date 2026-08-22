@@ -4,13 +4,20 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use crate::api::ApiError;
+use crate::db::Database;
+use crate::db::Permissions;
+use crate::external::oidc;
+use crate::external::oidc::OidcProvider;
+use crate::external::oidc::OidcProviderKind;
+use crate::iam::IamInfo;
+use crate::iam::Principal;
 use crate::util::ApiResult;
 use crate::util::shared_http_client;
-use anyhow::Context;
 use hyper::StatusCode;
 use serde::Deserialize;
 use serde::Deserializer;
-use tracing::error;
+use tracing::Span;
+use tracing::field;
 use tracing::instrument;
 
 pub struct GitHubUserClient {
@@ -203,13 +210,20 @@ where
   }
 }
 
-#[derive(Deserialize)]
-struct GitHubActionKeys {
-  keys: Vec<jsonwebkey::JsonWebKey>,
-}
-
 pub static GITHUB_OIDC_ISSUER: &str =
   "https://token.actions.githubusercontent.com";
+
+/// Build the provider configuration for a validated GitHub Actions issuer.
+/// The issuer is per-token: GitHub Enterprise Cloud enterprises with the
+/// "unique OIDC issuer URL" setting get an enterprise-scoped issuer that
+/// serves its JWKS from its own path.
+fn oidc_provider(issuer: String) -> OidcProvider {
+  OidcProvider {
+    kind: OidcProviderKind::GitHub,
+    jwks_url: format!("{issuer}/.well-known/jwks"),
+    issuer,
+  }
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct GitHubClaims {
@@ -277,58 +291,51 @@ pub async fn verify_oidc_token(token: &str) -> ApiResult<GitHubClaims> {
   // fetch: enterprise-scoped issuers serve their keys from their own path.
   let issuer = extract_unverified_issuer(token)?;
   validate_oidc_issuer(&issuer)?;
+  oidc::verify_token::<GitHubClaims>(&oidc_provider(issuer), token).await
+}
 
-  let url = format!("{issuer}/.well-known/jwks");
-  let res = shared_http_client()
-    .get(url)
-    .header("Accept", "application/json")
-    .send()
-    .await
-    .context("failed to download github jwks")?;
-  let status = res.status();
-  if !status.is_success() {
-    let body = res.text().await.unwrap_or_default();
-    error!("failed to download github jwks: {body} (status: {status}) ");
-    return Err(ApiError::InternalServerError);
-  }
-  let GitHubActionKeys { keys } =
-    res.json().await.context("failed to parse github jwks")?;
+/// The `aud` claim from a GitHub Actions OIDC token issued for JSR carries
+/// JSON-encoded fine-grained publishing permissions. Other providers use a
+/// plain-string aud and surface their own `aud`-shaped types.
+#[derive(Clone, Debug, Deserialize)]
+pub struct GithubOidcTokenAud {
+  pub permissions: Permissions,
+}
 
-  let header = jsonwebtoken::decode_header(token).map_err(|err| {
-    ApiError::InvalidOidcToken {
-      msg: err.to_string().into(),
-    }
-  })?;
-  let kid = header.kid.ok_or(ApiError::InvalidOidcToken {
-    msg: "missing kid".into(),
-  })?;
+/// Verify a GitHub Actions OIDC token and turn it into an [`IamInfo`].
+/// Records `repo.id` and (if the OIDC actor maps to a known JSR user)
+/// `user.id` on the provided span.
+#[instrument(name = "github::build_iam_info", err, skip(db, token, span))]
+pub async fn build_iam_info(
+  db: &Database,
+  token: &str,
+  span: &Span,
+) -> ApiResult<IamInfo> {
+  let claims = verify_oidc_token(token).await?;
+  span.record("repo.id", field::display(claims.repository_id));
 
-  let jwk = keys
-    .iter()
-    .find(|k| k.key_id.as_deref() == Some(&*kid))
-    .ok_or_else(|| ApiError::InvalidOidcToken {
-      msg: format!("invalid kid: {kid}").into(),
+  let aud: GithubOidcTokenAud =
+    serde_json::from_str(&claims.aud).map_err(|err| {
+      ApiError::InvalidOidcToken {
+        msg: format!("failed to parse 'aud': {err}").into(),
+      }
     })?;
 
-  let alg: jsonwebtoken::Algorithm = jwk
-    .algorithm
-    .ok_or_else(|| {
-      error!("jwk {jwk:?} missing algorithm");
-      ApiError::InternalServerError
-    })?
-    .into();
-  let mut validation = jsonwebtoken::Validation::new(alg);
-  validation.set_issuer(&[&issuer]);
-  let decoded = jsonwebtoken::decode::<GitHubClaims>(
-    token,
-    &jwk.key.to_decoding_key(),
-    &validation,
-  )
-  .map_err(|err| ApiError::InvalidOidcToken {
-    msg: err.to_string().into(),
-  })?;
+  let user = db.get_user_by_github_id(claims.actor_id).await?;
+  if let Some(user) = &user {
+    span.record("user.id", field::display(user.id));
+  }
 
-  Ok(decoded.claims)
+  Ok(IamInfo {
+    principal: Principal::OidcCi {
+      provider: OidcProviderKind::GitHub,
+      repository_external_id: claims.repository_id.to_string(),
+      user,
+    },
+    permissions: Some(aud.permissions),
+    interactive: false,
+    sudo: false,
+  })
 }
 
 #[cfg(test)]

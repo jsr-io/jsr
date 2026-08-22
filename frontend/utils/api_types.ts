@@ -240,6 +240,7 @@ export interface Dependency {
   name: string;
   constraint: string;
   path: string;
+  fallbackUrl: string | null;
 }
 
 export interface PackageVersionReference {
@@ -305,6 +306,7 @@ export interface DependencyGraphKindJsr {
   package: string;
   version: string;
   entrypoint: DependencyGraphJsrEntrypoint;
+  fallbackUrl: string | null;
 }
 
 export interface DependencyGraphKindNpm {

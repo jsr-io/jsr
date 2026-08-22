@@ -35,6 +35,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -48,6 +49,7 @@ use tracing::instrument;
 use url::Url;
 use uuid::Uuid;
 
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::analysis::JsrResolver;
@@ -922,6 +924,8 @@ pub async fn version_publish_handler(
   let license_store = req.data::<LicenseStore>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let publish_queue = req.data::<PublishQueue>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
   let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
@@ -1031,6 +1035,7 @@ pub async fn version_publish_handler(
       license_store,
       registry_url,
       npm_url,
+      fallback_registry_url,
       db,
       algolia_client,
       cache_purge,
@@ -2177,6 +2182,9 @@ struct DepTreeLoader {
   version: crate::ids::Version,
   bucket: crate::s3::BucketWithQueue,
   exports: Arc<tokio::sync::Mutex<IndexMap<String, IndexMap<String, String>>>>,
+  registry_url: Url,
+  fallback_registry_url: Option<Url>,
+  fallback_packages: Arc<tokio::sync::Mutex<HashSet<String>>>,
 }
 
 impl DepTreeLoader {
@@ -2222,6 +2230,9 @@ impl DepTreeLoader {
       "http" | "https" => {
         let bucket = self.bucket.clone();
         let exports = self.exports.clone();
+        let registry_url = self.registry_url.clone();
+        let fallback_registry_url = self.fallback_registry_url.clone();
+        let fallback_packages = self.fallback_packages.clone();
 
         async move {
           let jsr_matches = JSR_DEP_PATH_RE.captures(specifier.path()).unwrap();
@@ -2247,11 +2258,65 @@ impl DepTreeLoader {
           )
           .into();
 
-          let Some(bytes) = bucket
+          let mut bytes = bucket
             .download(full_path.clone())
             .await
-            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?
-          else {
+            .map_err(|e| LoadError::Other(Arc::new(JsErrorBox::from_err(e))))?;
+
+          let mut from_fallback = false;
+
+          if bytes.is_none()
+            && let Some(fallback_url) = &fallback_registry_url
+          {
+            // `registry_url` is a prefix of `specifier` (the graph was built
+            // against it), so the single replacement swaps the origin and
+            // leaves any later occurrence inside the path alone. If the prefix
+            // unexpectedly doesn't match, skip the fallback entirely — the
+            // alternative would be re-fetching the primary registry's own URL
+            // and mislabeling the result as fallback-hosted.
+            if specifier.as_str().starts_with(registry_url.as_str()) {
+              let fallback_specifier = specifier.as_str().replacen(
+                registry_url.as_str(),
+                fallback_url.as_str(),
+                1,
+              );
+
+              let response = crate::util::shared_http_client()
+                .get(&fallback_specifier)
+                .timeout(crate::tarball::FALLBACK_REQUEST_TIMEOUT)
+                .send()
+                .await
+                .ok();
+              if let Some(response) = response
+                && response.status().is_success()
+                // Only a fully-read body counts as served by the fallback: a
+                // mid-body failure must not taint the package as
+                // fallback-hosted below.
+                && let Ok(body) = response.bytes().await
+              {
+                bytes = Some(body);
+                from_fallback = true;
+              }
+            } else {
+              tracing::warn!(
+                "registry url {registry_url} is not a prefix of module specifier {specifier}; skipping fallback registry"
+              );
+            }
+          }
+
+          if from_fallback {
+            // Tainting is per package, not per file: a single file served by
+            // the fallback means this registry does not hold the package, so
+            // the whole package is presented as living on the fallback. Files
+            // of one package can therefore come from both registries within a
+            // graph — the link tells the reader where the package lives, not
+            // which bytes came from where.
+            let package_id =
+              format!("@{}/{}", scope.as_str(), package.as_str());
+            fallback_packages.lock().await.insert(package_id);
+          }
+
+          let Some(bytes) = bytes else {
             return Ok(None);
           };
 
@@ -2259,8 +2324,12 @@ impl DepTreeLoader {
             && let Some(captures) = JSR_DEP_META_RE.captures(path.as_str())
           {
             let version = captures.name("version").unwrap();
-            let meta =
-              serde_json::from_slice::<VersionMetadata>(&bytes).unwrap();
+            // The bytes may have come from the fallback registry over HTTP, so
+            // a parse failure is a load error, not a programmer error.
+            let meta = serde_json::from_slice::<VersionMetadata>(&bytes)
+              .map_err(|e| {
+                LoadError::Other(Arc::new(JsErrorBox::from_err(e)))
+              })?;
 
             let mut lock = exports.lock().await;
             lock.insert(
@@ -2379,6 +2448,7 @@ lazy_static::lazy_static! {
 #[tokio::main(flavor = "current_thread")]
 async fn analyze_deps_tree(
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   scope: ScopeName,
   package: PackageName,
   version: crate::ids::Version,
@@ -2408,6 +2478,9 @@ async fn analyze_deps_tree(
     version,
     bucket,
     exports: Default::default(),
+    registry_url: registry_url.clone(),
+    fallback_registry_url: fallback_registry_url.clone(),
+    fallback_packages: Default::default(),
   };
   graph
     .build(
@@ -2419,7 +2492,7 @@ async fn analyze_deps_tree(
         module_analyzer: &module_analyzer,
         // todo: use the data in the package for the file system
         file_system: &NullFileSystem,
-        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url),
+        jsr_url_provider: &DepTreeJsrUrlProvider(registry_url.clone()),
         jsr_version_resolver: Default::default(),
         passthrough_jsr_specifiers: false,
         resolver: Some(&JsrResolver { member }),
@@ -2463,6 +2536,8 @@ async fn analyze_deps_tree(
     })
     .collect();
 
+  let fallback_packages_set = loader.fallback_packages.lock().await.clone();
+
   for root in roots {
     GraphDependencyCollector::collect(
       &graph,
@@ -2470,6 +2545,8 @@ async fn analyze_deps_tree(
       &exports_by_identifier,
       &mut index,
       &mut dependencies,
+      fallback_registry_url.as_ref(),
+      &fallback_packages_set,
     );
   }
 
@@ -2482,6 +2559,8 @@ struct GraphDependencyCollector<'a> {
   exports: &'a IndexMap<String, IndexMap<String, String>>,
   id_index: &'a mut usize,
   visited: IndexSet<DependencyKind>,
+  fallback_registry_url: Option<&'a Url>,
+  fallback_packages: &'a HashSet<String>,
 }
 
 impl<'a> GraphDependencyCollector<'a> {
@@ -2491,6 +2570,8 @@ impl<'a> GraphDependencyCollector<'a> {
     exports: &'a IndexMap<String, IndexMap<String, String>>,
     id_index: &'a mut usize,
     dependencies: &'a mut IndexMap<DependencyKind, DependencyInfo>,
+    fallback_registry_url: Option<&'a Url>,
+    fallback_packages: &'a HashSet<String>,
   ) {
     let root_module = graph.try_get(root).unwrap().unwrap();
 
@@ -2500,6 +2581,8 @@ impl<'a> GraphDependencyCollector<'a> {
       exports,
       id_index,
       visited: Default::default(),
+      fallback_registry_url,
+      fallback_packages,
     }
     .build_module_info(root_module)
     .unwrap();
@@ -2534,11 +2617,20 @@ impl<'a> GraphDependencyCollector<'a> {
             JsrEntrypoint::Path(path.as_str().to_string())
           };
 
+          // Check if this package was loaded from the fallback registry
+          let package_id = format!("@{}/{}", scope.as_str(), package.as_str());
+          let fallback_url = if self.fallback_packages.contains(&package_id) {
+            self.fallback_registry_url.map(|url| url.to_string())
+          } else {
+            None
+          };
+
           DependencyKind::Jsr {
             scope: scope.as_str().to_string(),
             package: package.as_str().to_string(),
             version: version.as_str().to_string(),
             entrypoint,
+            fallback_url,
           }
         } else {
           DependencyKind::Root {
@@ -2670,11 +2762,13 @@ pub enum JsrEntrypoint {
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum DependencyKind {
+  #[serde(rename_all = "camelCase")]
   Jsr {
     scope: String,
     package: String,
     version: String,
     entrypoint: JsrEntrypoint,
+    fallback_url: Option<String>,
   },
   Npm {
     package: String,
@@ -2721,10 +2815,13 @@ pub async fn get_dependencies_graph_handler(
   let version_meta = serde_json::from_slice::<VersionMetadata>(&version_meta)?;
 
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
 
   let deps = tokio::task::spawn_blocking(|| {
     analyze_deps_tree(
       registry_url,
+      fallback_registry_url,
       scope,
       package,
       version,
@@ -2798,11 +2895,6 @@ pub async fn get_score_handler(
 
 #[cfg(test)]
 mod test {
-  use hyper::Body;
-  use hyper::StatusCode;
-  use indexmap::IndexSet;
-  use serde_json::json;
-
   use crate::api::ApiDependencyGraphItem;
   use crate::api::ApiDependencyKind;
   use crate::api::ApiDependent;
@@ -2839,7 +2931,12 @@ mod test {
   use crate::s3::UploadTaskBody;
   use crate::token::create_token;
   use crate::util::test::ApiResultExt;
+  use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use hyper::Body;
+  use hyper::StatusCode;
+  use indexmap::IndexSet;
+  use serde_json::json;
 
   #[tokio::test]
   async fn test_packages_list() {
@@ -4303,13 +4400,15 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
           kind: ApiDependencyKind::Jsr,
           name: "@scope/foo".to_string(),
           constraint: "1".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
         ApiDependency {
           kind: ApiDependencyKind::Npm,
           name: "express".to_string(),
           constraint: "4".to_string(),
-          path: "".to_string()
+          path: "".to_string(),
+          fallback_url: None,
         },
       ],
     );
@@ -4518,7 +4617,8 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
             scope: "scope".to_string(),
             package: "foo".to_string(),
             version: "1.2.3".to_string(),
-            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string())
+            entrypoint: super::JsrEntrypoint::Entrypoint(".".to_string()),
+            fallback_url: None,
           },
           children: IndexSet::new(),
           size: Some(155),
@@ -4990,5 +5090,89 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
     )
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{:?}", task);
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_with_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get(
+        "/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies",
+      )
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(deps.len(), 1);
+    assert_eq!(deps[0].kind, ApiDependencyKind::Jsr);
+    assert_eq!(deps[0].name, "@std/assert");
+    assert_eq!(deps[0].fallback_url, Some(fallback.url().to_string()));
+  }
+
+  #[tokio::test]
+  async fn test_package_dependencies_graph_with_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let mut t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/fallback-test/versions/1.0.0/dependencies/graph")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependencyGraphItem> = resp.expect_ok().await;
+
+    // Find the JSR dependency in the graph
+    let jsr_dep = deps
+      .iter()
+      .find(|d| matches!(&d.dependency, super::DependencyKind::Jsr { .. }))
+      .expect("should have a JSR dependency");
+
+    match &jsr_dep.dependency {
+      super::DependencyKind::Jsr {
+        scope,
+        package,
+        fallback_url,
+        ..
+      } => {
+        assert_eq!(scope, "std");
+        assert_eq!(package, "assert");
+        assert_eq!(fallback_url, &Some(fallback.url().to_string()));
+      }
+      _ => panic!("expected JSR dependency"),
+    }
   }
 }

@@ -254,7 +254,7 @@ impl Database {
   #[instrument(name = "Database::upsert_user_by_github_id", skip(
     self,
     new_user
-  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ), err, fields(user.github_id = new_user.github_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
   ))]
   pub async fn upsert_user_by_github_id(
     &self,
@@ -282,7 +282,7 @@ impl Database {
   #[instrument(name = "Database::upsert_user_by_gitlab_id", skip(
     self,
     new_user
-  ), err, fields(user.name = new_user.name, user.email = new_user.email, user.avatar_url = new_user.avatar_url, user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
+  ), err, fields(user.github_id = new_user.github_id, user.gitlab_id = new_user.gitlab_id, user.is_blocked = new_user.is_blocked, user.is_staff = new_user.is_staff
   ))]
   pub async fn upsert_user_by_gitlab_id(
     &self,
@@ -2041,8 +2041,8 @@ gitlab_id: r.user_gitlab_id,
 
     for new_package_version_dependency in new_package_version_dependencies {
       sqlx::query!(
-        r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        r#"INSERT INTO package_version_dependencies (package_scope, package_name, package_version, dependency_kind, dependency_name, dependency_constraint, dependency_path, dependency_fallback_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         new_package_version_dependency.package_scope as _,
         new_package_version_dependency.package_name as _,
         new_package_version_dependency.package_version as _,
@@ -2050,6 +2050,7 @@ gitlab_id: r.user_gitlab_id,
         new_package_version_dependency.dependency_name as _,
         new_package_version_dependency.dependency_constraint as _,
         new_package_version_dependency.dependency_path as _,
+        new_package_version_dependency.dependency_fallback_url as _,
       )
         .execute(&mut *tx)
         .await?;
@@ -4770,6 +4771,70 @@ gitlab_id: r.user_gitlab_id,
     tx.commit().await?;
 
     Ok((total_scopes as usize, scopes))
+  }
+
+  #[instrument(
+    name = "Database::get_recently_published_packages_by_user",
+    skip(self),
+    err
+  )]
+  pub async fn get_recently_published_packages_by_user(
+    &self,
+    user_id: &Uuid,
+  ) -> Result<Vec<PackageWithGitHubRepoAndMeta>> {
+    query_concat!(
+      "SELECT ", PACKAGE_BASE_SELECT_JOINED, ",
+      ", PACKAGE_VERSION_AGG_SELECT, ",
+      ", GITHUB_REPOSITORY_SELECT_JOINED, "
+      FROM (
+        SELECT package_scope, package_name, MAX(created_at) as last_published_at
+        FROM publishing_tasks
+        WHERE user_id = $1 AND status = 'success'
+        GROUP BY package_scope, package_name
+        ORDER BY last_published_at DESC
+        LIMIT 10
+      ) recently_published
+      JOIN packages
+        ON packages.scope = recently_published.package_scope
+        AND packages.name = recently_published.package_name
+      LEFT JOIN github_repositories ON packages.github_repository_id = github_repositories.id
+      ", PACKAGE_VERSION_LATERAL_JOINS, "
+      ORDER BY recently_published.last_published_at DESC";
+      user_id
+    )
+      .map(|r| {
+        let package = Package {
+          scope: r.package_scope,
+          name: r.package_name,
+          description: r.package_description,
+          github_repository_id: r.package_github_repository_id,
+          runtime_compat: r.package_runtime_compat,
+          created_at: r.package_created_at,
+          updated_at: r.package_updated_at,
+          version_count: r.package_version_count,
+          latest_version: r.package_latest_version,
+          when_featured: r.package_when_featured,
+          is_archived: r.package_is_archived,
+          readme_source: r.package_readme_source,
+        };
+        let github_repository = if r.package_github_repository_id.is_some() {
+          Some(GithubRepository {
+            id: r.github_repository_id.unwrap(),
+            owner: r.github_repository_owner.unwrap(),
+            name: r.github_repository_name.unwrap(),
+            created_at: r.github_repository_created_at.unwrap(),
+            updated_at: r.github_repository_updated_at.unwrap(),
+          })
+        } else {
+          None
+        };
+
+        let meta = r.package_version_meta.unwrap_or_default();
+
+        (package, github_repository, meta)
+      })
+      .fetch_all(&self.pool)
+      .await
   }
 }
 

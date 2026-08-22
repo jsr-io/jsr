@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::FallbackRegistryUrl;
 use crate::NpmUrl;
 use crate::RegistryUrl;
 use crate::api::ApiError;
@@ -31,11 +32,11 @@ use crate::s3::S3UploadOptions;
 use crate::s3::UploadTaskBody;
 use crate::tarball::NpmTarballInfo;
 use crate::tarball::ProcessTarballOutput;
+use crate::tarball::ResolvedDependency;
 use crate::tarball::process_tarball;
 use crate::util::ApiResult;
 use crate::util::LicenseStore;
 use crate::util::decode_json;
-use deno_semver::package::PackageReqReference;
 use hyper::Body;
 use hyper::Request;
 use indexmap::IndexMap;
@@ -60,6 +61,8 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
   let algolia_client = req.data::<Option<AlgoliaClient>>().unwrap().clone();
   let registry_url = req.data::<RegistryUrl>().unwrap().0.clone();
   let npm_url = req.data::<NpmUrl>().unwrap().0.clone();
+  let fallback_registry_url =
+    req.data::<FallbackRegistryUrl>().unwrap().0.clone();
   let cache_purge = req.data::<CachePurge>().unwrap().clone();
 
   publish_task(
@@ -68,6 +71,7 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
     license_store,
     registry_url,
     npm_url,
+    fallback_registry_url,
     db,
     algolia_client,
     cache_purge,
@@ -80,7 +84,15 @@ pub async fn publish_handler(mut req: Request<Body>) -> ApiResult<()> {
 #[allow(clippy::too_many_arguments)]
 #[instrument(
   name = "publish_task",
-  skip(buckets, db, license_store, registry_url, algolia_client, cache_purge),
+  skip(
+    buckets,
+    db,
+    license_store,
+    registry_url,
+    fallback_registry_url,
+    algolia_client,
+    cache_purge
+  ),
   err
 )]
 pub async fn publish_task(
@@ -89,6 +101,7 @@ pub async fn publish_task(
   license_store: LicenseStore,
   registry_url: Url,
   npm_url: Url,
+  fallback_registry_url: Option<Url>,
   db: Database,
   algolia_client: Option<AlgoliaClient>,
   cache_purge: CachePurge,
@@ -111,6 +124,7 @@ pub async fn publish_task(
           &license_store,
           &algolia_client,
           registry_url.clone(),
+          fallback_registry_url.clone(),
           &mut publishing_task,
         )
         .await;
@@ -191,6 +205,7 @@ async fn process_publishing_task(
   license_store: &LicenseStore,
   algolia_client: &Option<AlgoliaClient>,
   registry_url: Url,
+  fallback_registry_url: Option<Url>,
   publishing_task: &mut PublishingTask,
 ) -> Result<(), anyhow::Error> {
   *publishing_task = db
@@ -208,6 +223,7 @@ async fn process_publishing_task(
     buckets,
     license_store,
     registry_url,
+    fallback_registry_url,
     publishing_task,
   )
   .await
@@ -335,7 +351,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
   publishing_task: &mut PublishingTask,
   file_infos: &[crate::tarball::FileInfo],
   exports: ExportsMap,
-  dependencies: HashSet<(DependencyKind, PackageReqReference)>,
+  dependencies: HashSet<ResolvedDependency>,
   npm_tarball_info: &NpmTarballInfo,
   readme_path: Option<PackagePath>,
   meta: PackageVersionMeta,
@@ -343,7 +359,7 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
 ) -> Result<(), anyhow::Error> {
   let uses_npm = dependencies
     .iter()
-    .any(|(kind, _)| kind == &DependencyKind::Npm);
+    .any(|dep| dep.kind == DependencyKind::Npm);
 
   let new_package_version = NewPackageVersion {
     scope: &publishing_task.package_scope,
@@ -371,14 +387,15 @@ async fn create_package_version_and_npm_tarball_and_update_publishing_task(
 
   let new_package_version_dependencies = dependencies
     .iter()
-    .map(|(kind, req)| NewPackageVersionDependency {
+    .map(|dep| NewPackageVersionDependency {
       package_scope: &publishing_task.package_scope,
       package_name: &publishing_task.package_name,
       package_version: &publishing_task.package_version,
-      dependency_kind: *kind,
-      dependency_name: &req.req.name,
-      dependency_constraint: req.req.version_req.version_text(),
-      dependency_path: req.sub_path.as_deref().unwrap_or(""),
+      dependency_kind: dep.kind,
+      dependency_name: &dep.req.req.name,
+      dependency_constraint: dep.req.req.version_req.version_text(),
+      dependency_path: dep.req.sub_path.as_deref().unwrap_or(""),
+      dependency_fallback_url: dep.registry_url.as_deref(),
     })
     .collect::<Vec<_>>();
 
@@ -510,7 +527,9 @@ pub mod tests {
   use crate::tarball::ConfigFile;
   use crate::tarball::bucket_tarball_path;
   use crate::util::test::ApiResultExt;
+  use crate::util::test::FakeFallbackRegistry;
   use crate::util::test::TestSetup;
+  use crate::util::test::unreachable_fallback_url;
   use bytes::Bytes;
   use deno_graph::analysis::ModuleInfo;
   use flate2::Compression;
@@ -537,6 +556,20 @@ pub mod tests {
     version: &Version,
     jsonc: bool,
   ) -> PublishingTask {
+    try_process_tarball_setup2(t, tarball_data, package_name, version, jsonc)
+      .await
+      .unwrap()
+  }
+
+  /// Like [`process_tarball_setup2`], but surfaces a retryable publish failure
+  /// instead of panicking on it.
+  pub async fn try_process_tarball_setup2(
+    t: &TestSetup,
+    tarball_data: Bytes,
+    package_name: &PackageName,
+    version: &Version,
+    jsonc: bool,
+  ) -> Result<PublishingTask, ApiError> {
     let scope_name = "scope".try_into().unwrap();
 
     let res = t
@@ -589,18 +622,20 @@ pub mod tests {
       t.license_store(),
       t.registry_url(),
       t.npm_url(),
+      t.fallback_registry_url.clone(),
       t.db(),
       None,
       CachePurge(None),
     )
-    .await
-    .unwrap();
-    t.db()
-      .get_publishing_task(task.0.id)
-      .await
-      .unwrap()
-      .unwrap()
-      .0
+    .await?;
+    Ok(
+      t.db()
+        .get_publishing_task(task.0.id)
+        .await
+        .unwrap()
+        .unwrap()
+        .0,
+    )
   }
 
   pub fn create_mock_tarball(name: &str) -> Bytes {
@@ -1356,6 +1391,203 @@ pub mod tests {
     .await;
     assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
     assert_eq!(task.error.unwrap().code, "missingConstraint");
+  }
+
+  #[tokio::test]
+  async fn jsr_import_from_fallback_registry() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(
+      task.status,
+      PublishingTaskStatus::Success,
+      "publishing task failed: {task:#?}"
+    );
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Jsr);
+    assert_eq!(dependencies[0].dependency_name, "@std/assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some(fallback.url().to_string())
+    );
+  }
+
+  /// A fallback registry that can't be reached must not be reported to the
+  /// publisher as "your dependency doesn't exist" — it's our infrastructure
+  /// failing, so the task stays retryable.
+  #[tokio::test]
+  async fn jsr_import_with_unreachable_fallback_is_retryable() {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let res = try_process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+
+    // A retryable error propagates out of `publish_task` rather than marking
+    // the task failed with a user-facing error code.
+    assert!(res.is_err(), "{res:#?}");
+  }
+
+  #[tokio::test]
+  async fn jsr_import_fails_without_fallback_when_missing() {
+    let t = TestSetup::new().await;
+
+    let bytes = create_mock_tarball("fallback_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("fallback-test").unwrap(),
+      &Version::try_from("1.0.0").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    let error = task.error.unwrap();
+    assert_eq!(error.code, "unresolvableJsrDependency");
+  }
+
+  /// A package this registry hosts is always served locally — the lb only
+  /// consults the fallback on a bucket miss, and the package's meta.json IS in
+  /// the bucket — so a constraint no local version satisfies must fail the
+  /// publish even with a fallback configured. Consulting the (unreachable)
+  /// fallback would surface a retryable error instead of this fatal user
+  /// error, so the clean failure also proves the fallback was never contacted.
+  #[tokio::test]
+  async fn jsr_import_local_package_with_unsatisfied_constraint_fails_despite_fallback()
+   {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_unsatisfied_constraint");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "unresolvableJsrDependency");
+  }
+
+  /// Same as above for a subpath no local version exports: the previously
+  /// fatal error must not be suppressed by the fallback.
+  #[tokio::test]
+  async fn jsr_import_local_package_with_invalid_subpath_fails_despite_fallback()
+   {
+    let t =
+      TestSetup::with_fallback_registry(Some(unreachable_fallback_url())).await;
+
+    let bytes = create_mock_tarball("ok");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let bytes = create_mock_tarball("jsr_import_bad_subpath");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Failure, "{task:#?}");
+    assert_eq!(task.error.unwrap().code, "invalidJsrDependencySubPath");
+  }
+
+  /// A `@jsr/`-mapped npm dependency on a package this registry doesn't host
+  /// is served by the npm fallback at install time, so the fallback URL is
+  /// recorded and the frontend links to the registry that actually serves it.
+  #[tokio::test]
+  async fn npm_jsr_import_records_fallback_for_missing_local_package() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("npm_jsr_import");
+    let task = process_tarball_setup2(
+      &t,
+      bytes,
+      &PackageName::try_from("bar").unwrap(),
+      &Version::try_from("1.2.3").unwrap(),
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_name, "@jsr/std__assert");
+    assert_eq!(
+      dependencies[0].dependency_fallback_url,
+      Some(fallback.url().to_string())
+    );
+  }
+
+  /// A plain npm dependency (not `@jsr/`-mapped) never records a fallback URL.
+  #[tokio::test]
+  async fn npm_import_records_no_fallback() {
+    let fallback = FakeFallbackRegistry::start().await;
+    let t = TestSetup::with_fallback_registry(Some(fallback.url())).await;
+
+    let bytes = create_mock_tarball("npm_import");
+    let task = process_tarball_setup(&t, bytes).await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{task:#?}");
+
+    let dependencies = t
+      .db()
+      .list_package_version_dependencies(
+        &task.package_scope,
+        &task.package_name,
+        &task.package_version,
+      )
+      .await
+      .unwrap();
+
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].dependency_kind, DependencyKind::Npm);
+    assert_eq!(dependencies[0].dependency_fallback_url, None);
   }
 
   #[tokio::test]

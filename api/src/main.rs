@@ -74,6 +74,7 @@ pub struct MainRouterOptions {
   license_store: util::LicenseStore,
   registry_url: Url,
   npm_url: Url,
+  fallback_registry_url: Option<Url>,
   publish_queue: Option<Queue>,
   npm_tarball_build_queue: Option<Queue>,
   analytics_engine_config: Option<(
@@ -88,6 +89,7 @@ pub struct MainRouterOptions {
 
 pub struct RegistryUrl(pub Url);
 pub struct NpmUrl(pub Url);
+pub struct FallbackRegistryUrl(pub Option<Url>);
 
 pub(crate) fn main_router(
   MainRouterOptions {
@@ -101,6 +103,7 @@ pub(crate) fn main_router(
     email_sender,
     registry_url,
     npm_url,
+    fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
     analytics_engine_config,
@@ -121,6 +124,7 @@ pub(crate) fn main_router(
     .data(license_store)
     .data(RegistryUrl(registry_url))
     .data(NpmUrl(npm_url))
+    .data(FallbackRegistryUrl(fallback_registry_url))
     .data(PublishQueue(publish_queue))
     .data(NpmTarballBuildQueue(npm_tarball_build_queue))
     .data(AnalyticsEngineConfig(analytics_engine_config))
@@ -344,6 +348,7 @@ async fn main() {
     license_store,
     registry_url: config.registry_url,
     npm_url: config.npm_url,
+    fallback_registry_url: config.fallback_registry_url,
     publish_queue,
     npm_tarball_build_queue,
     analytics_engine_config,
