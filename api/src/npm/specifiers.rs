@@ -297,6 +297,14 @@ mod tests {
       rewrite_path_extension("foo/bar.jsx", Extension::Dts),
       Some("foo/bar.d.ts".to_owned())
     );
+    assert_eq!(
+      rewrite_path_extension("foo/bar.tsx", Extension::Js),
+      Some("foo/bar.js".to_owned())
+    );
+    assert_eq!(
+      rewrite_path_extension("foo/bar.tsx", Extension::Dts),
+      Some("foo/bar.d.ts".to_owned())
+    );
   }
 
   #[test]
