@@ -23,6 +23,14 @@ resource "cloudflare_r2_bucket" "npm" {
   location   = "enam"
 }
 
+// Files people attach to support emails. Kept apart from the registry buckets:
+// nothing here is public, and the contents come from strangers.
+resource "cloudflare_r2_bucket" "ticket_attachments" {
+  account_id = var.cloudflare_account_id
+  name       = "${var.gcp_project}-ticket-attachments"
+  location   = "enam"
+}
+
 resource "aws_s3_object" "r2_npm_root_json" {
   bucket        = cloudflare_r2_bucket.npm.name
   key           = "root.json"
@@ -42,10 +50,11 @@ resource "cloudflare_account_token" "buckets_rw" {
       { id = "2efd5506f9c8494dacb1fa10a3e7d5b6" }, // Workers R2 Storage Bucket Item Write
     ]
     resources = jsonencode({
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.modules.name}"    = "*",
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}" = "*",
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}"       = "*",
-      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.npm.name}"        = "*"
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.modules.name}"            = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.publishing.name}"         = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.docs.name}"               = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.npm.name}"                = "*",
+      "com.cloudflare.edge.r2.bucket.${var.cloudflare_account_id}_default_${cloudflare_r2_bucket.ticket_attachments.name}" = "*"
     })
   }]
 }

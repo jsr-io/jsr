@@ -1053,12 +1053,80 @@ pub struct ApiPackageDownloadsRecentVersion {
   pub downloads: Vec<ApiDownloadDataPoint>,
 }
 
+/// Who wrote a ticket message, or opened the ticket. A ticket that arrived by
+/// email has only an address behind it until somebody claims it.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum ApiTicketActor {
+  User {
+    user: ApiUser,
+  },
+  #[serde(rename_all = "camelCase")]
+  Email {
+    name: Option<String>,
+    email: String,
+    /// Whether the sending domain passed SPF and DKIM. False means the address
+    /// is unproven and should be treated as such in the UI.
+    email_verified: bool,
+  },
+  /// JSR itself — the automatic acknowledgement sent when a ticket is opened by
+  /// email.
+  System,
+}
+
+impl
+  From<(
+    Option<UserPublic>,
+    Option<String>,
+    Option<String>,
+    Option<bool>,
+  )> for ApiTicketActor
+{
+  fn from(
+    (user, email, name, email_verified): (
+      Option<UserPublic>,
+      Option<String>,
+      Option<String>,
+      Option<bool>,
+    ),
+  ) -> Self {
+    match (user, email) {
+      (Some(user), _) => ApiTicketActor::User { user: user.into() },
+      (None, Some(email)) => ApiTicketActor::Email {
+        name,
+        email,
+        email_verified: email_verified.unwrap_or(false),
+      },
+      (None, None) => ApiTicketActor::System,
+    }
+  }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTicketAttachment {
+  pub id: Uuid,
+  pub filename: String,
+  pub content_type: String,
+  pub size_bytes: i32,
+}
+
+impl From<TicketAttachment> for ApiTicketAttachment {
+  fn from(value: TicketAttachment) -> Self {
+    Self {
+      id: value.id,
+      filename: value.filename,
+      content_type: value.content_type,
+      size_bytes: value.size_bytes,
+    }
+  }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum ApiTicketMessageOrAuditLog {
   Message {
-    message: TicketMessage,
-    user: UserPublic,
+    message: ApiTicketMessage,
   },
   #[serde(rename_all = "camelCase")]
   AuditLog {
@@ -1071,27 +1139,43 @@ pub enum ApiTicketMessageOrAuditLog {
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicketOverview {
   pub id: Uuid,
+  pub ticket_number: String,
   pub kind: TicketKind,
-  pub creator: ApiUser,
+  pub reporter: ApiTicketActor,
+  /// The email subject an email-opened ticket arrived with. Null for tickets
+  /// opened through the web UI, whose title comes from `kind` and `meta`.
+  pub subject: Option<String>,
   pub meta: serde_json::Value,
-  pub closed: bool,
+  pub status: TicketStatus,
   pub events: Vec<ApiTicketMessageOrAuditLog>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
+impl From<(Ticket, Option<User>, Vec<ApiTicketMessageOrAuditLog>)>
   for ApiTicketOverview
 {
   fn from(
-    (value, user, events): (Ticket, User, Vec<ApiTicketMessageOrAuditLog>),
+    (value, user, events): (
+      Ticket,
+      Option<User>,
+      Vec<ApiTicketMessageOrAuditLog>,
+    ),
   ) -> Self {
     Self {
       id: value.id,
+      ticket_number: value.ticket_number,
       kind: value.kind,
-      creator: user.into(),
+      reporter: (
+        user.map(UserPublic::from),
+        value.reporter_email,
+        value.reporter_name,
+        Some(true),
+      )
+        .into(),
+      subject: value.subject,
       meta: value.meta,
-      closed: value.closed,
+      status: value.status,
       events,
       updated_at: value.updated_at,
       created_at: value.created_at,
@@ -1103,25 +1187,33 @@ impl From<(Ticket, User, Vec<ApiTicketMessageOrAuditLog>)>
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicket {
   pub id: Uuid,
+  pub ticket_number: String,
   pub kind: TicketKind,
-  pub creator: ApiUser,
+  pub reporter: ApiTicketActor,
+  pub subject: Option<String>,
   pub meta: serde_json::Value,
-  pub closed: bool,
+  pub status: TicketStatus,
   pub messages: Vec<ApiTicketMessage>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
-  fn from(
-    (value, user, messages): (Ticket, User, Vec<(TicketMessage, UserPublic)>),
-  ) -> Self {
+impl From<FullTicket> for ApiTicket {
+  fn from((value, user, messages): FullTicket) -> Self {
     Self {
       id: value.id,
+      ticket_number: value.ticket_number,
       kind: value.kind,
-      creator: user.into(),
+      reporter: (
+        user.map(UserPublic::from),
+        value.reporter_email,
+        value.reporter_name,
+        Some(true),
+      )
+        .into(),
+      subject: value.subject,
       meta: value.meta,
-      closed: value.closed,
+      status: value.status,
       messages: messages.into_iter().map(|message| message.into()).collect(),
       updated_at: value.updated_at,
       created_at: value.created_at,
@@ -1132,17 +1224,29 @@ impl From<(Ticket, User, Vec<(TicketMessage, UserPublic)>)> for ApiTicket {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiTicketMessage {
-  pub author: ApiUser,
+  pub id: Uuid,
+  pub author: ApiTicketActor,
+  pub direction: TicketMessageDirection,
   pub message: String,
+  pub attachments: Vec<ApiTicketAttachment>,
   pub updated_at: DateTime<Utc>,
   pub created_at: DateTime<Utc>,
 }
 
-impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
-  fn from((value, user): (TicketMessage, UserPublic)) -> Self {
+impl From<FullTicketMessage> for ApiTicketMessage {
+  fn from((value, user, attachments): FullTicketMessage) -> Self {
     Self {
-      author: user.into(),
+      id: value.id,
+      author: (
+        user,
+        value.author_email,
+        value.author_name,
+        value.author_email_verified,
+      )
+        .into(),
+      direction: value.direction,
       message: value.message,
+      attachments: attachments.into_iter().map(Into::into).collect(),
       updated_at: value.updated_at,
       created_at: value.created_at,
     }
@@ -1152,7 +1256,7 @@ impl From<(TicketMessage, UserPublic)> for ApiTicketMessage {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiAdminUpdateTicketRequest {
-  pub closed: Option<bool>,
+  pub status: Option<TicketStatus>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

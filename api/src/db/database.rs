@@ -4128,6 +4128,162 @@ gitlab_id: r.user_gitlab_id,
     .await
   }
 
+  /// Loads a ticket and, if it has been claimed, the account that owns it.
+  async fn load_ticket(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ticket_id: Uuid,
+  ) -> Result<Option<(Ticket, Option<User>)>> {
+    query_concat!(
+      "SELECT
+            ", TICKET_SELECT_JOINED, ",
+            ", USER_SELECT_FULL_JOINED_OPTIONAL, "
+        FROM tickets
+        LEFT JOIN users ON users.id = tickets.creator
+        WHERE tickets.id = $1";
+      ticket_id as _,
+    )
+    .map(|r| {
+      let ticket = Ticket {
+        id: r.ticket_id,
+        ticket_number: r.ticket_ticket_number,
+        kind: r.ticket_kind,
+        creator: r.ticket_creator,
+        reporter_email: r.ticket_reporter_email,
+        reporter_name: r.ticket_reporter_name,
+        subject: r.ticket_subject,
+        claim_token: r.ticket_claim_token,
+        meta: r.ticket_meta,
+        status: r.ticket_status,
+        closed_at: r.ticket_closed_at,
+        updated_at: r.ticket_updated_at,
+        created_at: r.ticket_created_at,
+      };
+
+      let user = r.user_id.map(|id| User {
+        id,
+        name: r.user_name.unwrap(),
+        email: r.user_email,
+        avatar_url: r.user_avatar_url.unwrap(),
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        is_blocked: r.user_is_blocked.unwrap(),
+        is_staff: r.user_is_staff.unwrap(),
+        scope_usage: r.user_scope_usage.unwrap(),
+        scope_limit: r.user_scope_limit.unwrap(),
+        invite_count: r.user_invite_count.unwrap(),
+        newer_ticket_messages_count: r
+          .user_newer_ticket_messages_count
+          .unwrap(),
+        updated_at: r.user_updated_at.unwrap(),
+        created_at: r.user_created_at.unwrap(),
+      });
+
+      (ticket, user)
+    })
+    .fetch_optional(&mut **tx)
+    .await
+  }
+
+  /// Loads a ticket's whole conversation: every message, the account that wrote
+  /// it where there was one, and any files that came with it.
+  async fn load_ticket_messages(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ticket_id: Uuid,
+  ) -> Result<Vec<FullTicketMessage>> {
+    let messages = query_concat!(
+      "SELECT
+            ", TICKET_MESSAGE_SELECT_JOINED, ",
+            ", USER_PUBLIC_SELECT_JOINED_OPTIONAL, "
+        FROM ticket_messages
+        LEFT JOIN users ON users.id = ticket_messages.author
+        WHERE ticket_messages.ticket_id = $1
+        ORDER BY ticket_messages.created_at";
+      ticket_id as _,
+    )
+    .map(|r| {
+      let message = TicketMessage {
+        id: r.message_id,
+        ticket_id: r.message_ticket_id,
+        author: r.message_author,
+        author_email: r.message_author_email,
+        author_name: r.message_author_name,
+        author_email_verified: r.message_author_email_verified,
+        direction: r.message_direction,
+        email_message_id: r.message_email_message_id,
+        message: r.message_message,
+        updated_at: r.message_updated_at,
+        created_at: r.message_created_at,
+      };
+
+      let user = r.user_id.map(|id| UserPublic {
+        id,
+        name: r.user_name.unwrap(),
+        avatar_url: r.user_avatar_url.unwrap(),
+        github_id: r.user_github_id,
+        gitlab_id: r.user_gitlab_id,
+        updated_at: r.user_updated_at.unwrap(),
+        created_at: r.user_created_at.unwrap(),
+      });
+
+      (message, user)
+    })
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let mut attachments = sqlx::query!(
+      r#"SELECT ticket_attachments.id, ticket_attachments.message_id, ticket_attachments.filename, ticket_attachments.content_type, ticket_attachments.size_bytes, ticket_attachments.storage_key, ticket_attachments.created_at
+        FROM ticket_attachments
+        INNER JOIN ticket_messages ON ticket_messages.id = ticket_attachments.message_id
+        WHERE ticket_messages.ticket_id = $1
+        ORDER BY ticket_attachments.created_at"#,
+      ticket_id as _,
+    )
+    .map(|r| TicketAttachment {
+      id: r.id,
+      message_id: r.message_id,
+      filename: r.filename,
+      content_type: r.content_type,
+      size_bytes: r.size_bytes,
+      storage_key: r.storage_key,
+      created_at: r.created_at,
+    })
+    .fetch_all(&mut **tx)
+    .await?
+    .into_iter()
+    .fold(
+      std::collections::HashMap::<Uuid, Vec<TicketAttachment>>::new(),
+      |mut acc, attachment| {
+        acc
+          .entry(attachment.message_id)
+          .or_default()
+          .push(attachment);
+        acc
+      },
+    );
+
+    Ok(
+      messages
+        .into_iter()
+        .map(|(message, user)| {
+          let files = attachments.remove(&message.id).unwrap_or_default();
+          (message, user, files)
+        })
+        .collect(),
+    )
+  }
+
+  /// Loads a ticket in full.
+  async fn load_full_ticket(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ticket_id: Uuid,
+  ) -> Result<Option<FullTicket>> {
+    let Some((ticket, user)) = Self::load_ticket(tx, ticket_id).await? else {
+      return Ok(None);
+    };
+    let messages = Self::load_ticket_messages(tx, ticket_id).await?;
+    Ok(Some((ticket, user, messages)))
+  }
+
   #[instrument(name = "Database::create_ticket", skip(self), err)]
   pub async fn create_ticket(
     &self,
@@ -4136,82 +4292,34 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<(Ticket, User, TicketMessage)> {
     let mut tx = self.pool.begin().await?;
 
-    let (ticket, user) = query_concat!(
-      "WITH ticket AS (
-          INSERT INTO tickets (kind, creator, meta)
-          VALUES ($1, $2, $3)
-          RETURNING id, kind, creator, meta, closed, updated_at, created_at
-        )
-        SELECT
-            ticket.id as \"ticket_id\",
-            ticket.kind as \"ticket_kind: TicketKind\",
-            ticket.creator as \"ticket_creator\",
-            ticket.meta as \"ticket_meta\",
-            ticket.closed as \"ticket_closed\",
-            ticket.updated_at as \"ticket_updated_at\",
-            ticket.created_at as \"ticket_created_at\",
-            ", USER_SELECT_FULL_JOINED, "
-        FROM ticket
-        INNER JOIN users ON users.id = ticket.creator
-    ";
+    let ticket_id = sqlx::query_scalar!(
+      r#"INSERT INTO tickets (kind, creator, meta) VALUES ($1, $2, $3) RETURNING id"#,
       new_ticket.kind as _,
       user_id as _,
       new_ticket.meta as _,
     )
-    .map(|r| {
-      let ticket = Ticket {
-        id: r.ticket_id,
-        kind: r.ticket_kind,
-        creator: r.ticket_creator,
-        meta: r.ticket_meta,
-        closed: r.ticket_closed,
-        updated_at: r.ticket_updated_at,
-        created_at: r.ticket_created_at,
-      };
-
-      let user = User {
-        id: r.user_id,
-        name: r.user_name,
-        email: r.user_email,
-        avatar_url: r.user_avatar_url,
-        github_id: r.user_github_id,
-        gitlab_id: r.user_gitlab_id,
-        is_blocked: r.user_is_blocked,
-        is_staff: r.user_is_staff,
-        scope_usage: r.user_scope_usage,
-        scope_limit: r.user_scope_limit,
-        invite_count: r.user_invite_count,
-        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-        updated_at: r.user_updated_at,
-        created_at: r.user_created_at,
-      };
-
-      (ticket, user)
-    })
     .fetch_one(&mut *tx)
     .await?;
 
-    let message = sqlx::query!(
-      r#"INSERT INTO ticket_messages (ticket_id, author, message)
-          VALUES ($1, $2, $3)
-          RETURNING ticket_id, author, message, updated_at, created_at
-    "#,
-      ticket.id as _,
+    sqlx::query!(
+      r#"INSERT INTO ticket_messages (ticket_id, author, direction, message)
+          VALUES ($1, $2, 'inbound', $3)"#,
+      ticket_id as _,
       user_id as _,
       new_ticket.message as _,
     )
-    .map(|r| TicketMessage {
-      ticket_id: r.ticket_id,
-      author: r.author,
-      message: r.message,
-      updated_at: r.updated_at,
-      created_at: r.created_at,
-    })
-    .fetch_one(&mut *tx)
+    .execute(&mut *tx)
     .await?;
+
+    let (ticket, user, mut messages) =
+      Self::load_full_ticket(&mut tx, ticket_id)
+        .await?
+        .expect("ticket was just inserted in this transaction");
 
     tx.commit().await?;
 
+    let (message, ..) = messages.remove(0);
+    let user = user.expect("ticket was just created with a creator");
     Ok((ticket, user, message))
   }
 
@@ -4222,6 +4330,7 @@ gitlab_id: r.user_gitlab_id,
     limit: i64,
     maybe_search_query: Option<&str>,
     maybe_sort: Option<&str>,
+    maybe_status: Option<TicketStatus>,
   ) -> Result<(usize, Vec<FullTicket>)> {
     let mut tx = self.pool.begin().await?;
 
@@ -4230,21 +4339,35 @@ gitlab_id: r.user_gitlab_id,
       @timestamps "updated_at", "created_at";
       "kind" => "tickets.kind",
       "creator" => "users.name",
-      "closed" => "tickets.closed",
+      "status" => "tickets.status",
       "updated_at" => "tickets.updated_at",
       "created_at" => "tickets.created_at",
-    } || "tickets.closed ASC, tickets.created_at DESC");
+    } || "tickets.status ASC, tickets.created_at DESC");
 
-    let tickets = sqlx::query(&format!(
-      r#"SELECT {}, {} FROM tickets
-    INNER JOIN users ON users.id = tickets.creator
-    WHERE users.name ILIKE $1
+    // An email-opened ticket has no joined user to search by name, so the
+    // reporter's own details, the subject line and the ticket number are
+    // searchable too.
+    //
+    // The status filter is a separate AND so that it narrows the search rather
+    // than widening it. `$4` is always bound, and is NULL when no status was
+    // asked for.
+    let where_clause = r#"WHERE ($4::ticket_status IS NULL OR tickets.status = $4)
+       AND (users.name ILIKE $1
+       OR tickets.ticket_number ILIKE $1
+       OR tickets.subject ILIKE $1
+       OR tickets.reporter_name ILIKE $1
+       OR tickets.reporter_email ILIKE $1
        OR EXISTS (
          SELECT 1
          FROM ticket_messages
          WHERE ticket_messages.ticket_id = tickets.id
            AND ticket_messages.message ILIKE $1
-       )
+       ))"#;
+
+    let tickets = sqlx::query(&format!(
+      r#"SELECT {}, {} FROM tickets
+    LEFT JOIN users ON users.id = tickets.creator
+    {where_clause}
     ORDER BY {sort} OFFSET $2 LIMIT $3
 "#,
       crate::db::sql_fragments::TICKET_SELECT_JOINED_RT,
@@ -4253,9 +4376,13 @@ gitlab_id: r.user_gitlab_id,
     .bind(&search)
     .bind(start)
     .bind(limit)
+    .bind(maybe_status)
     .try_map(|r| {
       let ticket = Ticket::from_row(&r)?;
-      let user = User::from_row(&r)?;
+      let user = match r.try_get::<Option<Uuid>, _>("user_id")? {
+        Some(_) => Some(User::from_row(&r)?),
+        None => None,
+      };
 
       Ok((ticket, user))
     })
@@ -4264,53 +4391,22 @@ gitlab_id: r.user_gitlab_id,
 
     let mut out = Vec::with_capacity(tickets.len());
     for (ticket, user) in tickets {
-      let messages = query_concat!(
-      "SELECT ", TICKET_MESSAGE_SELECT_JOINED, ", ", USER_PUBLIC_SELECT_JOINED_RT, "
-        FROM ticket_messages
-        LEFT JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
-      ticket.id as _,
-    )
-        .map(|r| {
-          let message = TicketMessage {
-            ticket_id: r.message_ticket_id,
-            author: r.message_author,
-            message: r.message_message,
-            updated_at: r.message_updated_at,
-            created_at: r.message_created_at,
-          };
-
-          let user = UserPublic {
-            id: r.user_id,
-            name: r.user_name,
-            avatar_url: r.user_avatar_url,
-            github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-            updated_at: r.user_updated_at,
-            created_at: r.user_created_at,
-          };
-
-          (message, user)
-        })
-        .fetch_all(&mut *tx)
-        .await?;
-
+      let messages = Self::load_ticket_messages(&mut tx, ticket.id).await?;
       out.push((ticket, user, messages));
     }
 
-    let total_tickets = sqlx::query!(
+    // The count has no OFFSET/LIMIT, so $2 and $3 go unused here; they are still
+    // bound so that the status filter stays $4 in both statements.
+    let total_tickets = sqlx::query(&format!(
       r#"SELECT COUNT(tickets.created_at) FROM tickets
     LEFT JOIN users ON users.id = tickets.creator
-    WHERE users.name ILIKE $1
-       OR EXISTS (
-         SELECT 1
-         FROM ticket_messages
-         WHERE ticket_messages.ticket_id = tickets.id
-           AND ticket_messages.message ILIKE $1
-       )"#,
-      search,
-    )
-    .map(|r| r.count.unwrap())
+    {where_clause}"#
+    ))
+    .bind(&search)
+    .bind(start)
+    .bind(limit)
+    .bind(maybe_status)
+    .try_map(|r| r.try_get::<i64, _>(0))
     .fetch_one(&mut *tx)
     .await?;
 
@@ -4326,84 +4422,21 @@ gitlab_id: r.user_gitlab_id,
   ) -> Result<Vec<FullTicket>> {
     let mut tx = self.pool.begin().await?;
 
-    let tickets = query_concat!(
-      "SELECT ", TICKET_SELECT_JOINED, ", ", USER_SELECT_FULL_JOINED, "
-    FROM tickets
-    INNER JOIN users ON users.id = tickets.creator
-    WHERE tickets.creator = $1
-    ORDER BY tickets.closed ASC, tickets.created_at DESC
-";
+    let ticket_ids = sqlx::query_scalar!(
+      r#"SELECT id FROM tickets
+        WHERE creator = $1
+        ORDER BY tickets.status ASC, tickets.created_at DESC"#,
       user_id as _,
     )
-    .map(|r| {
-      let ticket = Ticket {
-        id: r.ticket_id,
-        kind: r.ticket_kind,
-        creator: r.ticket_creator,
-        meta: r.ticket_meta,
-        closed: r.ticket_closed,
-        updated_at: r.ticket_updated_at,
-        created_at: r.ticket_created_at,
-      };
-
-      let user = User {
-        id: r.user_id,
-        name: r.user_name,
-        email: r.user_email,
-        avatar_url: r.user_avatar_url,
-        github_id: r.user_github_id,
-        gitlab_id: r.user_gitlab_id,
-        is_blocked: r.user_is_blocked,
-        is_staff: r.user_is_staff,
-        scope_usage: r.user_scope_usage,
-        scope_limit: r.user_scope_limit,
-        invite_count: r.user_invite_count,
-        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-        updated_at: r.user_updated_at,
-        created_at: r.user_created_at,
-      };
-
-      (ticket, user)
-    })
     .fetch_all(&mut *tx)
     .await?;
 
-    let mut out = Vec::with_capacity(tickets.len());
-    for (ticket, user) in tickets {
-      let messages = query_concat!(
-      "SELECT
-            ", TICKET_MESSAGE_SELECT_JOINED, ",
-            ", USER_PUBLIC_SELECT_JOINED_RT, "
-        FROM ticket_messages
-        INNER JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
-      ticket.id as _,
-    )
-        .map(|r| {
-          let message = TicketMessage {
-            ticket_id: r.message_ticket_id,
-            author: r.message_author,
-            message: r.message_message,
-            updated_at: r.message_updated_at,
-            created_at: r.message_created_at,
-          };
-
-          let user = UserPublic {
-            id: r.user_id,
-            name: r.user_name,
-            avatar_url: r.user_avatar_url,
-            github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-            updated_at: r.user_updated_at,
-            created_at: r.user_created_at,
-          };
-
-          (message, user)
-        })
-        .fetch_all(&mut *tx)
-        .await?;
-
-      out.push((ticket, user, messages));
+    let mut out = Vec::with_capacity(ticket_ids.len());
+    for ticket_id in ticket_ids {
+      let Some(full) = Self::load_full_ticket(&mut tx, ticket_id).await? else {
+        continue;
+      };
+      out.push(full);
     }
 
     tx.commit().await?;
@@ -4417,88 +4450,132 @@ gitlab_id: r.user_gitlab_id,
     ticket_id: Uuid,
   ) -> Result<Option<FullTicket>> {
     let mut tx = self.pool.begin().await?;
+    let out = Self::load_full_ticket(&mut tx, ticket_id).await?;
+    tx.commit().await?;
+    Ok(out)
+  }
 
-    let Some((ticket, user)) = query_concat!(
-      "SELECT
-            ", TICKET_SELECT_JOINED, ",
-            ", USER_SELECT_FULL_JOINED, "
-        FROM tickets
-        INNER JOIN users ON users.id = tickets.creator
-        WHERE tickets.id = $1";
-      ticket_id as _,
-    )
-    .map(|r| {
-      let ticket = Ticket {
-        id: r.ticket_id,
-        kind: r.ticket_kind,
-        creator: r.ticket_creator,
-        meta: r.ticket_meta,
-        closed: r.ticket_closed,
-        updated_at: r.ticket_updated_at,
-        created_at: r.ticket_created_at,
-      };
-
-      let user = User {
-        id: r.user_id,
-        name: r.user_name,
-        email: r.user_email,
-        avatar_url: r.user_avatar_url,
-        github_id: r.user_github_id,
-        gitlab_id: r.user_gitlab_id,
-        is_blocked: r.user_is_blocked,
-        is_staff: r.user_is_staff,
-        scope_usage: r.user_scope_usage,
-        scope_limit: r.user_scope_limit,
-        invite_count: r.user_invite_count,
-        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-        updated_at: r.user_updated_at,
-        created_at: r.user_created_at,
-      };
-
-      (ticket, user)
-    })
-    .fetch_optional(&mut *tx)
-    .await?
-    else {
+  /// Finds the ticket an inbound email belongs to by the `Message-ID`s it
+  /// references. Ours are unique across all tickets, so any hit is conclusive.
+  #[instrument(
+    name = "Database::find_ticket_by_email_message_ids",
+    skip(self),
+    err
+  )]
+  pub async fn find_ticket_by_email_message_ids(
+    &self,
+    email_message_ids: &[String],
+  ) -> Result<Option<Uuid>> {
+    if email_message_ids.is_empty() {
       return Ok(None);
-    };
+    }
 
-    let messages = query_concat!(
-      "SELECT
-            ", TICKET_MESSAGE_SELECT_JOINED, ",
-            ", USER_PUBLIC_SELECT_JOINED_RT, "
-        FROM ticket_messages
-        INNER JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
-      ticket_id as _,
+    sqlx::query_scalar!(
+      r#"SELECT ticket_id FROM ticket_messages
+        WHERE email_message_id = ANY($1)
+        ORDER BY created_at DESC
+        LIMIT 1"#,
+      email_message_ids,
     )
-      .map(|r| {
-        let message = TicketMessage {
-          ticket_id: r.message_ticket_id,
-          author: r.message_author,
-          message: r.message_message,
-          updated_at: r.message_updated_at,
-          created_at: r.message_created_at,
-        };
+    .fetch_optional(&self.pool)
+    .await
+  }
 
-        let user = UserPublic {
-          id: r.user_id,
-          name: r.user_name,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
+  #[instrument(name = "Database::find_ticket_by_number", skip(self), err)]
+  pub async fn find_ticket_by_number(
+    &self,
+    ticket_number: &str,
+  ) -> Result<Option<Uuid>> {
+    sqlx::query_scalar!(
+      r#"SELECT id FROM tickets WHERE ticket_number = $1"#,
+      ticket_number,
+    )
+    .fetch_optional(&self.pool)
+    .await
+  }
 
-        (message, user)
-      })
-      .fetch_all(&mut *tx)
-      .await?;
+  /// Opens a ticket from an inbound email, together with the message it arrived
+  /// as and the auto-acknowledgement that will be sent back.
+  ///
+  /// Returns `None` if the email had already been ingested — the unique index on
+  /// `email_message_id` makes a redelivered webhook a no-op rather than a
+  /// duplicate ticket.
+  #[instrument(name = "Database::create_ticket_from_email", skip(self), err)]
+  pub async fn create_ticket_from_email(
+    &self,
+    new_ticket: NewEmailTicket,
+  ) -> Result<Option<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    let ticket_id = sqlx::query_scalar!(
+      r#"INSERT INTO tickets (kind, creator, reporter_email, reporter_name, subject, claim_token, status)
+          VALUES ('other', NULL, $1, $2, $3, $4, 'open')
+          RETURNING id"#,
+      new_ticket.reporter_email,
+      new_ticket.reporter_name,
+      new_ticket.subject,
+      new_ticket.claim_token as _,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    if !insert_inbound_email_message(&mut tx, ticket_id, &new_ticket.message)
+      .await?
+    {
+      return Ok(None);
+    }
+
+    sqlx::query!(
+      r#"INSERT INTO ticket_messages (id, ticket_id, author, direction, message, email_message_id)
+          VALUES ($1, $2, NULL, 'outbound', $3, $4)"#,
+      new_ticket.auto_reply.id as _,
+      ticket_id as _,
+      new_ticket.auto_reply.message,
+      new_ticket.auto_reply.email_message_id,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    let full = Self::load_full_ticket(&mut tx, ticket_id)
+      .await?
+      .expect("ticket was just inserted in this transaction");
 
     tx.commit().await?;
 
-    Ok(Some((ticket, user, messages)))
+    Ok(Some(full))
+  }
+
+  /// Appends an inbound email to an existing ticket, reopening it if it had been
+  /// closed. Returns `None` if the email had already been ingested.
+  #[instrument(name = "Database::ticket_add_email_message", skip(self), err)]
+  pub async fn ticket_add_email_message(
+    &self,
+    ticket_id: Uuid,
+    message: NewTicketEmailMessage,
+  ) -> Result<Option<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    if !insert_inbound_email_message(&mut tx, ticket_id, &message).await? {
+      return Ok(None);
+    }
+
+    // The ball is back in support's court, and a reply to a closed ticket is a
+    // request to reopen it rather than the start of a new conversation. Mail to
+    // a ticket already marked spam changes nothing.
+    sqlx::query!(
+      r#"UPDATE tickets
+          SET status = 'waiting_on_support', closed_at = NULL, updated_at = now()
+          WHERE id = $1 AND status <> 'spam'"#,
+      ticket_id as _,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    let full = Self::load_full_ticket(&mut tx, ticket_id).await?;
+
+    tx.commit().await?;
+
+    Ok(full)
   }
 
   #[instrument(name = "Database::get_ticket_audit_logs", skip(self), err)]
@@ -4551,77 +4628,195 @@ gitlab_id: r.user_gitlab_id,
     Ok(audit_logs)
   }
 
+  /// Appends a message written through the web UI by a signed-in account.
+  ///
+  /// `email_message_id` is the `Message-ID` the notification email for this
+  /// message will be sent with; storing it up front is what lets the
+  /// recipient's reply be threaded back onto this ticket.
   #[instrument(name = "Database::ticket_add_message", skip(self), err)]
   pub async fn ticket_add_message(
     &self,
     id: Uuid,
     author: Uuid,
+    email_message_id: Option<&str>,
     message: NewTicketMessage,
   ) -> Result<(TicketMessage, UserPublic)> {
     let mut tx = self.pool.begin().await?;
 
-    let message = query_concat!(
-      "WITH message AS (
-          INSERT INTO ticket_messages (ticket_id, author, message)
-          VALUES ($1, $2, $3)
-          RETURNING ticket_id, author, message, updated_at, created_at
-        )
-        SELECT
-            message.ticket_id as \"message_ticket_id\",
-            message.author as \"message_author\",
-            message.message as \"message_message\",
-            message.updated_at as \"message_updated_at\",
-            message.created_at as \"message_created_at\",
-            ", USER_PUBLIC_SELECT_JOINED_RT, "
-        FROM message
-        INNER JOIN users ON users.id = message.author
-    ";
+    let author_is_creator = sqlx::query_scalar!(
+      r#"SELECT creator = $2 as "is_creator!" FROM tickets WHERE id = $1"#,
       id as _,
       author as _,
-      message.message as _,
     )
-    .map(|r| {
-      let message = TicketMessage {
-        ticket_id: r.message_ticket_id,
-        author: r.message_author,
-        message: r.message_message,
-        updated_at: r.message_updated_at,
-        created_at: r.message_created_at,
-      };
-
-      let user = UserPublic {
-        id: r.user_id,
-        name: r.user_name,
-        avatar_url: r.user_avatar_url,
-        github_id: r.user_github_id,
-        gitlab_id: r.user_gitlab_id,
-        updated_at: r.user_updated_at,
-        created_at: r.user_created_at,
-      };
-
-      (message, user)
-    })
     .fetch_one(&mut *tx)
     .await?;
 
+    let direction = if author_is_creator {
+      TicketMessageDirection::Inbound
+    } else {
+      TicketMessageDirection::Outbound
+    };
+
+    let message_id = sqlx::query_scalar!(
+      r#"INSERT INTO ticket_messages (ticket_id, author, direction, message, email_message_id)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING id"#,
+      id as _,
+      author as _,
+      direction as _,
+      message.message as _,
+      email_message_id,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Whoever did not just speak is the one now owed a response.
+    let status = if author_is_creator {
+      TicketStatus::WaitingOnSupport
+    } else {
+      TicketStatus::WaitingOnUser
+    };
     sqlx::query!(
-      r#"UPDATE tickets SET updated_at = now() WHERE id = $1"#,
-      id as _
+      r#"UPDATE tickets SET status = $2, updated_at = now()
+          WHERE id = $1 AND status NOT IN ('closed', 'spam')"#,
+      id as _,
+      status as _,
     )
     .execute(&mut *tx)
     .await?;
 
+    let messages = Self::load_ticket_messages(&mut tx, id).await?;
+
     tx.commit().await?;
+
+    let (message, user, _) = messages
+      .into_iter()
+      .find(|(m, ..)| m.id == message_id)
+      .expect("message was just inserted in this transaction");
+
+    Ok((
+      message,
+      user.expect("message was just written by an account"),
+    ))
+  }
+
+  /// Appends a message written through the web UI by the reporter of an
+  /// unclaimed ticket, who proved who they are by holding the claim token
+  /// rather than by signing in.
+  #[instrument(name = "Database::ticket_add_reporter_message", skip(self), err)]
+  pub async fn ticket_add_reporter_message(
+    &self,
+    ticket_id: Uuid,
+    reporter_email: &str,
+    reporter_name: Option<&str>,
+    email_message_id: Option<&str>,
+    message: NewTicketMessage,
+  ) -> Result<TicketMessage> {
+    let mut tx = self.pool.begin().await?;
+
+    let message_id = sqlx::query_scalar!(
+      r#"INSERT INTO ticket_messages (ticket_id, author, author_email, author_name, author_email_verified, direction, message, email_message_id)
+          VALUES ($1, NULL, $2, $3, true, 'inbound', $4, $5)
+          RETURNING id"#,
+      ticket_id as _,
+      reporter_email,
+      reporter_name,
+      message.message as _,
+      email_message_id,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query!(
+      r#"UPDATE tickets
+          SET status = 'waiting_on_support', closed_at = NULL, updated_at = now()
+          WHERE id = $1 AND status <> 'spam'"#,
+      ticket_id as _,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    let messages = Self::load_ticket_messages(&mut tx, ticket_id).await?;
+
+    tx.commit().await?;
+
+    let (message, ..) = messages
+      .into_iter()
+      .find(|(m, ..)| m.id == message_id)
+      .expect("message was just inserted in this transaction");
 
     Ok(message)
   }
 
-  #[instrument(name = "Database::update_ticket", skip(self), err)]
-  pub async fn update_ticket_closed(
+  /// Binds an unclaimed, email-opened ticket to an account. The claim token is
+  /// spent in the process, so a leaked auto-reply cannot be replayed.
+  ///
+  /// Returns `None` if the token does not match an unclaimed ticket.
+  #[instrument(name = "Database::claim_ticket", skip(self), err)]
+  pub async fn claim_ticket(
+    &self,
+    ticket_id: Uuid,
+    claim_token: Uuid,
+    user_id: Uuid,
+  ) -> Result<Option<FullTicket>> {
+    let mut tx = self.pool.begin().await?;
+
+    let claimed = sqlx::query_scalar!(
+      r#"UPDATE tickets
+          SET creator = $3, claim_token = NULL, reporter_email = NULL, reporter_name = NULL
+          WHERE id = $1 AND claim_token = $2
+          RETURNING id"#,
+      ticket_id as _,
+      claim_token as _,
+      user_id as _,
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    if claimed.is_none() {
+      return Ok(None);
+    }
+
+    let full = Self::load_full_ticket(&mut tx, ticket_id).await?;
+
+    tx.commit().await?;
+
+    Ok(full)
+  }
+
+  #[instrument(name = "Database::get_ticket_attachment", skip(self), err)]
+  pub async fn get_ticket_attachment(
+    &self,
+    ticket_id: Uuid,
+    attachment_id: Uuid,
+  ) -> Result<Option<TicketAttachment>> {
+    sqlx::query!(
+      r#"SELECT ticket_attachments.id, ticket_attachments.message_id, ticket_attachments.filename, ticket_attachments.content_type, ticket_attachments.size_bytes, ticket_attachments.storage_key, ticket_attachments.created_at
+        FROM ticket_attachments
+        INNER JOIN ticket_messages ON ticket_messages.id = ticket_attachments.message_id
+        WHERE ticket_attachments.id = $1 AND ticket_messages.ticket_id = $2"#,
+      attachment_id as _,
+      ticket_id as _,
+    )
+    .map(|r| TicketAttachment {
+      id: r.id,
+      message_id: r.message_id,
+      filename: r.filename,
+      content_type: r.content_type,
+      size_bytes: r.size_bytes,
+      storage_key: r.storage_key,
+      created_at: r.created_at,
+    })
+    .fetch_optional(&self.pool)
+    .await
+  }
+
+  #[instrument(name = "Database::update_ticket_status", skip(self), err)]
+  pub async fn update_ticket_status(
     &self,
     staff_id: &Uuid,
     ticket_id: Uuid,
-    closed: bool,
+    status: TicketStatus,
   ) -> Result<FullTicket> {
     let mut tx = self.pool.begin().await?;
 
@@ -4632,100 +4827,28 @@ gitlab_id: r.user_gitlab_id,
       "update_ticket_status",
       json!({
       "ticket_id": ticket_id,
-      "closed": closed,
+      "status": status,
       }),
     )
     .await?;
 
-    let (ticket, user) = query_concat!(
-      "WITH ticket AS (
-          UPDATE tickets SET closed = $1 WHERE id = $2
-          RETURNING id, kind, creator, meta, closed, updated_at, created_at
-        )
-        SELECT
-            ticket.id as \"ticket_id\",
-            ticket.kind as \"ticket_kind: TicketKind\",
-            ticket.creator as \"ticket_creator\",
-            ticket.meta as \"ticket_meta\",
-            ticket.closed as \"ticket_closed\",
-            ticket.updated_at as \"ticket_updated_at\",
-            ticket.created_at as \"ticket_created_at\",
-            ", USER_SELECT_FULL_JOINED, "
-        FROM ticket
-        INNER JOIN users ON users.id = ticket.creator
-    ";
-      closed as _,
+    let closed_at = (status == TicketStatus::Closed).then(Utc::now);
+    sqlx::query!(
+      r#"UPDATE tickets SET status = $1, closed_at = $2 WHERE id = $3"#,
+      status as _,
+      closed_at,
       ticket_id as _,
     )
-    .map(|r| {
-      let ticket = Ticket {
-        id: r.ticket_id,
-        kind: r.ticket_kind,
-        creator: r.ticket_creator,
-        meta: r.ticket_meta,
-        closed: r.ticket_closed,
-        updated_at: r.ticket_updated_at,
-        created_at: r.ticket_created_at,
-      };
-
-      let user = User {
-        id: r.user_id,
-        name: r.user_name,
-        email: r.user_email,
-        avatar_url: r.user_avatar_url,
-        github_id: r.user_github_id,
-        gitlab_id: r.user_gitlab_id,
-        is_blocked: r.user_is_blocked,
-        is_staff: r.user_is_staff,
-        scope_usage: r.user_scope_usage,
-        scope_limit: r.user_scope_limit,
-        invite_count: r.user_invite_count,
-        newer_ticket_messages_count: r.user_newer_ticket_messages_count,
-        updated_at: r.user_updated_at,
-        created_at: r.user_created_at,
-      };
-
-      (ticket, user)
-    })
-    .fetch_one(&mut *tx)
+    .execute(&mut *tx)
     .await?;
 
-    let messages = query_concat!(
-      "SELECT
-            ", TICKET_MESSAGE_SELECT_JOINED, ",
-            ", USER_PUBLIC_SELECT_JOINED_RT, "
-        FROM ticket_messages
-        INNER JOIN users ON users.id = ticket_messages.author
-        WHERE ticket_messages.ticket_id = $1 ORDER BY ticket_messages.created_at";
-      ticket_id as _,
-    )
-      .map(|r| {
-        let message = TicketMessage {
-          ticket_id: r.message_ticket_id,
-          author: r.message_author,
-          message: r.message_message,
-          updated_at: r.message_updated_at,
-          created_at: r.message_created_at,
-        };
-
-        let user = UserPublic {
-          id: r.user_id,
-          name: r.user_name,
-          avatar_url: r.user_avatar_url,
-          github_id: r.user_github_id,
-gitlab_id: r.user_gitlab_id,
-          updated_at: r.user_updated_at,
-          created_at: r.user_created_at,
-        };
-
-        (message, user)
-      })
-      .fetch_all(&mut *tx)
-      .await?;
+    let full = Self::load_full_ticket(&mut tx, ticket_id)
+      .await?
+      .expect("ticket was just updated in this transaction");
 
     tx.commit().await?;
 
-    Ok((ticket, user, messages))
+    Ok(full)
   }
 
   #[allow(clippy::type_complexity)]
@@ -4911,6 +5034,55 @@ async fn finalize_package_creation(
   Ok(None)
 }
 
+/// Writes an inbound email and its attachments onto a ticket.
+///
+/// Returns `false` if this exact email is already on file. Postmark retries a
+/// webhook until it gets a 2xx, so the same message can arrive more than once;
+/// the unique index on `email_message_id` is what makes that harmless, and the
+/// duplicate-key violation is the signal rather than an error worth reporting.
+async fn insert_inbound_email_message(
+  tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+  ticket_id: Uuid,
+  message: &NewTicketEmailMessage,
+) -> Result<bool> {
+  let res = sqlx::query!(
+    r#"INSERT INTO ticket_messages (id, ticket_id, author, author_email, author_name, author_email_verified, direction, message, email_message_id)
+        VALUES ($1, $2, NULL, $3, $4, $5, 'inbound', $6, $7)"#,
+    message.id as _,
+    ticket_id as _,
+    message.author_email,
+    message.author_name,
+    message.author_email_verified,
+    message.message,
+    message.email_message_id,
+  )
+  .execute(&mut **tx)
+  .await;
+
+  match res {
+    Err(sqlx::Error::Database(err)) if err.is_unique_violation() => {
+      return Ok(false);
+    }
+    Err(err) => return Err(err),
+    Ok(_) => {}
+  }
+
+  for attachment in &message.attachments {
+    sqlx::query!(
+      r#"INSERT INTO ticket_attachments (message_id, filename, content_type, size_bytes, storage_key)
+          VALUES ($1, $2, $3, $4, $5)"#,
+      message.id as _,
+      attachment.filename,
+      attachment.content_type,
+      attachment.size_bytes,
+      attachment.storage_key,
+    )
+    .execute(&mut **tx)
+    .await?;
+  }
+
+  Ok(true)
+}
 async fn audit_log(
   tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
   actor_id: &Uuid,

@@ -223,21 +223,44 @@ database — they live in R2.
 | `authorizations`               | OAuth tokens and personal access tokens             |
 | `download_counts`              | JSR and npm download metrics                        |
 | `audit_log`                    | Administrative action history                       |
-| `support_tickets`              | User support tickets and messages                   |
+| `tickets`                      | Support tickets, opened on the web or by email      |
+| `ticket_messages`              | Messages on a ticket, in either direction           |
+| `ticket_attachments`           | Files that arrived attached to an inbound email     |
 
 Migrations are in `api/migrations/` and managed by sqlx. Version columns use
 natural collation so `1.10.0` sorts after `1.9.0`.
 
+## Support tickets
+
+A ticket is opened either through the web UI by a signed-in user, or by anyone
+emailing the support address. Postmark delivers inbound mail to
+`POST /api/hooks/postmark` (`api/src/api/hooks.rs`), authenticated with basic
+auth against `POSTMARK_WEBHOOK_PASSWORD`.
+
+An email-opened ticket has no `creator` — it belongs to `reporter_email` until
+somebody claims it with the token from the auto-reply, which binds it to their
+account. Every ticket email is sent under a `Message-ID` that is recorded on the
+message it announces, so a reply's `In-Reply-To` / `References` headers identify
+the ticket it belongs to; the `TICKET-YYYYMMDD-XXXXX` number in the subject is
+the fallback for clients that drop those headers.
+`ticket_messages.email_message_id` is unique, which is what makes a redelivered
+webhook a no-op rather than a duplicate.
+
+The Postmark inbound stream's webhook URL is configured in the Postmark
+dashboard, not in terraform:
+`https://webhook:<POSTMARK_WEBHOOK_PASSWORD>@api.jsr.io/hooks/postmark`.
+
 ## Storage (Cloudflare R2)
 
-Four R2 buckets hold all published artifacts:
+Five R2 buckets hold all stored files:
 
-| Bucket       | Contents                                    |
-| ------------ | ------------------------------------------- |
-| `publishing` | Temporary tarball uploads during publish    |
-| `modules`    | Published package source files and metadata |
-| `docs`       | Generated HTML documentation                |
-| `npm`        | NPM compatibility tarballs                  |
+| Bucket               | Contents                                    |
+| -------------------- | ------------------------------------------- |
+| `publishing`         | Temporary tarball uploads during publish    |
+| `modules`            | Published package source files and metadata |
+| `docs`               | Generated HTML documentation                |
+| `npm`                | NPM compatibility tarballs                  |
+| `ticket-attachments` | Files attached to inbound support email     |
 
 The `modules` bucket is served directly through the Cloudflare Worker with
 strict access controls — browsers cannot navigate directly to untrusted source

@@ -6,8 +6,10 @@ import { Table, TableData, TableRow } from "../../components/Table.tsx";
 import { ApiTicket } from "../../utils/api_types.ts";
 import { assertOk, path } from "../../utils/api.ts";
 import twas from "twas";
-import TbCheck from "tb-icons/TbCheck";
-import TbClock from "tb-icons/TbClock";
+import {
+  isTicketActive,
+  TicketStatusBadge,
+} from "../../components/TicketStatus.tsx";
 import { TicketTitle } from "../../components/TicketTitle.tsx";
 
 export default define.page<typeof handler>(function AccountInvitesPage({
@@ -30,28 +32,20 @@ export default define.page<typeof handler>(function AccountInvitesPage({
         {data.tickets.map((ticket) => (
           <TableRow key={ticket.id}>
             <TableData>
-              <div class="flex items-center gap-1.5">
-                {ticket.messages.at(-1)!.author.id !== data.user.id &&
-                  !ticket.closed && (
-                  <div class="rounded-full bg-orange-600 h-2.5 w-2.5" />
-                )}
-                <div
-                  class={`${
-                    ticket.closed ? "bg-green-400" : "bg-orange-400"
-                  } rounded-full p-1`}
-                >
-                  {ticket.closed
-                    ? <TbCheck class="text-white" />
-                    : <TbClock class="text-white" />}
-                </div>
-                <span>{ticket.closed ? "closed" : "open"}</span>
-              </div>
+              <TicketStatusBadge
+                status={ticket.status}
+                // The last word came from JSR, so there is something here the
+                // reporter has not answered yet.
+                unread={isTicketActive(ticket.status) &&
+                  ticket.messages.at(-1)!.direction === "outbound"}
+              />
             </TableData>
             <TableData>
               <TicketTitle
                 kind={ticket.kind}
                 meta={ticket.meta}
-                user={ticket.creator}
+                reporter={ticket.reporter}
+                subject={ticket.subject}
               />
             </TableData>
             <TableData
