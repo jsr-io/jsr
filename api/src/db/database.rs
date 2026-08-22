@@ -3745,12 +3745,20 @@ gitlab_id: r.user_gitlab_id,
   #[instrument(name = "Database::list_package_dependents", skip(self), err)]
   pub async fn list_package_dependents(
     &self,
-    kind: DependencyKind,
-    name: &str,
+    scope: &ScopeName,
+    name: &PackageName,
     start: i64,
     limit: i64,
     versions_per_package_limit: i64,
   ) -> Result<(usize, Vec<Dependent>)> {
+    // Dependents may depend on this package either directly via `jsr:`, or
+    // through the npm compatibility layer via `npm:@jsr/scope__name`.
+    let jsr_name = format!("@{scope}/{name}");
+    let npm_name = crate::npm::NpmMappedJsrPackageName {
+      scope,
+      package: name,
+    }
+    .to_string();
     let mut tx = self.pool.begin().await?;
     let dependents = sqlx::query_as!(
       Dependent,
@@ -3763,12 +3771,13 @@ gitlab_id: r.user_gitlab_id,
       FROM
         package_version_dependencies
       WHERE
-        dependency_kind = $1 AND dependency_name = $2
+        (dependency_kind = 'jsr' AND dependency_name = $1)
+        OR (dependency_kind = 'npm' AND dependency_name = $2)
       GROUP BY package_scope, package_name
       ORDER BY package_scope ASC, package_name ASC OFFSET $3 LIMIT $4;
       "#,
-      kind as _,
-      name,
+      jsr_name,
+      npm_name,
       start,
       limit,
       versions_per_package_limit as i32,
@@ -3780,10 +3789,11 @@ gitlab_id: r.user_gitlab_id,
       r#"SELECT COUNT(*) FROM (
         SELECT DISTINCT package_scope, package_name
         FROM package_version_dependencies
-        WHERE dependency_kind = $1 AND dependency_name = $2
+        WHERE (dependency_kind = 'jsr' AND dependency_name = $1)
+          OR (dependency_kind = 'npm' AND dependency_name = $2)
       ) t;"#,
-      kind as _,
-      name,
+      jsr_name,
+      npm_name,
     )
     .map(|r| r.count.unwrap())
     .fetch_one(&mut *tx)
@@ -3797,17 +3807,24 @@ gitlab_id: r.user_gitlab_id,
   #[instrument(name = "Database::count_package_dependents", skip(self), err)]
   pub async fn count_package_dependents(
     &self,
-    kind: DependencyKind,
-    name: &str,
+    scope: &ScopeName,
+    name: &PackageName,
   ) -> Result<usize> {
+    let jsr_name = format!("@{scope}/{name}");
+    let npm_name = crate::npm::NpmMappedJsrPackageName {
+      scope,
+      package: name,
+    }
+    .to_string();
     let total_unique_package_dependents = sqlx::query!(
       r#"SELECT COUNT(*) FROM (
         SELECT DISTINCT package_scope, package_name
         FROM package_version_dependencies
-        WHERE dependency_kind = $1 AND dependency_name = $2
+        WHERE (dependency_kind = 'jsr' AND dependency_name = $1)
+          OR (dependency_kind = 'npm' AND dependency_name = $2)
       ) t;"#,
-      kind as _,
-      name,
+      jsr_name,
+      npm_name,
     )
     .map(|r| r.count.unwrap())
     .fetch_one(&self.pool)
@@ -4959,14 +4976,14 @@ impl DependentCountCache {
   pub async fn count_package_dependents(
     &self,
     db: &Database,
-    kind: DependencyKind,
-    name: &str,
+    scope: &ScopeName,
+    name: &PackageName,
   ) -> Result<usize> {
-    let key = format!("{kind:?}:{name}");
+    let key = format!("@{scope}/{name}");
     if let Some(count) = self.cache.get(&key).await {
       return Ok(count);
     }
-    let count = db.count_package_dependents(kind, name).await?;
+    let count = db.count_package_dependents(scope, name).await?;
     self.cache.insert(key, count).await;
     Ok(count)
   }

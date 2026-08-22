@@ -437,11 +437,7 @@ pub async fn get_handler(req: Request<Body>) -> ApiResult<ApiPackage> {
   let dependent_count_cache =
     req.data::<crate::db::DependentCountCache>().unwrap();
   let dependent_count = dependent_count_cache
-    .count_package_dependents(
-      db,
-      crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
-    )
+    .count_package_dependents(db, &scope, &package)
     .await?;
   api_package.dependent_count = dependent_count as u64;
 
@@ -1254,12 +1250,7 @@ pub async fn version_delete_handler(
   let iam = req.iam();
   let staff = iam.check_admin_access()?;
 
-  let count = db
-    .count_package_dependents(
-      crate::db::DependencyKind::Jsr,
-      &format!("@{}/{}", scope, package),
-    )
-    .await?;
+  let count = db.count_package_dependents(&scope, &package).await?;
 
   if count > 0 {
     return Err(ApiError::DeleteVersionHasDependents);
@@ -2052,12 +2043,10 @@ pub async fn list_dependents_handler(
     .await?
     .ok_or(ApiError::PackageNotFound)?;
 
-  let dep_name = format!("@{}/{}", scope, package);
-
   let (total, deps) = db
     .list_package_dependents(
-      crate::db::DependencyKind::Jsr,
-      &dep_name,
+      &scope,
+      &package,
       start,
       limit,
       versions_per_package_limit,
@@ -4547,6 +4536,73 @@ ggHohNAjhbzDaY2iBW/m3NC5dehGUP4T2GBo/cwGhg==
       ],
     );
     assert_eq!(dependents.total, 2);
+
+    // Packages that depend on this package through the npm compatibility
+    // layer (`npm:@jsr/scope__name`) are also counted as dependents.
+    let package_name = PackageName::try_from("qux").unwrap();
+    let version = Version::try_from("1.2.3").unwrap();
+    let task = crate::publish::tests::process_tarball_setup2(
+      &t,
+      create_mock_tarball("depends_on_ok_npm_mapped"),
+      &package_name,
+      &version,
+      false,
+    )
+    .await;
+    assert_eq!(task.status, PublishingTaskStatus::Success, "{:?}", task);
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/qux/versions/1.2.3/dependencies")
+      .call()
+      .await
+      .unwrap();
+    let deps: Vec<ApiDependency> = resp.expect_ok().await;
+    assert_eq!(
+      deps,
+      vec![ApiDependency {
+        kind: ApiDependencyKind::Npm,
+        name: "@jsr/scope__foo".to_string(),
+        constraint: "1".to_string(),
+        path: "".to_string(),
+        fallback_url: None,
+      }],
+    );
+
+    let mut resp = t
+      .http()
+      .get("/api/scopes/scope/packages/foo/dependents")
+      .call()
+      .await
+      .unwrap();
+    let dependents: ApiList<ApiDependent> = resp.expect_ok().await;
+    assert_eq!(
+      dependents.items,
+      vec![
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "bar".try_into().unwrap(),
+          versions: vec![
+            "1.2.3".try_into().unwrap(),
+            "1.2.4".try_into().unwrap()
+          ],
+          total_versions: 2,
+        },
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "baz".try_into().unwrap(),
+          versions: vec!["1.2.3".try_into().unwrap()],
+          total_versions: 1,
+        },
+        ApiDependent {
+          scope: "scope".try_into().unwrap(),
+          package: "qux".try_into().unwrap(),
+          versions: vec!["1.2.3".try_into().unwrap()],
+          total_versions: 1,
+        },
+      ],
+    );
+    assert_eq!(dependents.total, 3);
   }
 
   #[tokio::test]
