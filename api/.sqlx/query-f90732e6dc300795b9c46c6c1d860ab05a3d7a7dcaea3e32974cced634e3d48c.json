@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET runtime_compat = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = scope AND name = name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = scope AND name = name ORDER BY version DESC LIMIT 1) as \"latest_version\"",
+  "query": "UPDATE packages\n      SET readme_source = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING scope as \"scope: ScopeName\", name as \"name: PackageName\", description, github_repository_id, runtime_compat as \"runtime_compat: RuntimeCompat\", readme_source as \"readme_source: ReadmeSource\", when_featured, is_archived, updated_at, created_at,\n        (SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as \"version_count!\",\n        (SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as \"latest_version\"",
   "describe": {
     "columns": [
       {
@@ -78,7 +78,17 @@
       "Left": [
         "Text",
         "Text",
-        "Jsonb"
+        {
+          "Custom": {
+            "name": "package_readme_source",
+            "kind": {
+              "Enum": [
+                "readme",
+                "jsdoc"
+              ]
+            }
+          }
+        }
       ]
     },
     "nullable": [
@@ -96,5 +106,5 @@
       null
     ]
   },
-  "hash": "9ee1b77a2fbb5b60b0688552a386dc3c4461f3389285880d028c7e3e10b68acc"
+  "hash": "f90732e6dc300795b9c46c6c1d860ab05a3d7a7dcaea3e32974cced634e3d48c"
 }

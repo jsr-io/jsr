@@ -92,7 +92,7 @@ export function PackageNav({
       )}
       {versionCount > 0 && (
         <NavItem
-          href={`${base}/score`}
+          href={`${versionedBase}/score`}
           active={currentTab === "Score"}
         >
           Score

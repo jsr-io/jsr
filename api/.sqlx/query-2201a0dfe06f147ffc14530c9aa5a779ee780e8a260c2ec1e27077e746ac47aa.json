@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE packages\n      SET github_repository_id = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING packages.scope \"package_scope: ScopeName\", packages.name \"package_name: PackageName\", packages.description \"package_description\", packages.github_repository_id \"package_github_repository_id\", packages.runtime_compat \"package_runtime_compat: RuntimeCompat\", packages.readme_source \"package_readme_source: ReadmeSource\", packages.when_featured \"package_when_featured\", packages.is_archived \"package_is_archived\", packages.updated_at \"package_updated_at\", packages.created_at \"package_created_at\",\n(SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as \"package_version_count!\",\n(SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"package_latest_version\",\n(SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND version NOT LIKE '%-%' AND is_yanked = false ORDER BY version DESC LIMIT 1) as \"package_version_meta: PackageVersionMeta\"",
+  "query": "UPDATE packages\n      SET description = $3\n      WHERE scope = $1 AND name = $2\n      RETURNING packages.scope \"package_scope: ScopeName\", packages.name \"package_name: PackageName\", packages.description \"package_description\", packages.github_repository_id \"package_github_repository_id\", packages.runtime_compat \"package_runtime_compat: RuntimeCompat\", packages.readme_source \"package_readme_source: ReadmeSource\", packages.when_featured \"package_when_featured\", packages.is_archived \"package_is_archived\", packages.updated_at \"package_updated_at\", packages.created_at \"package_created_at\",\n(SELECT COUNT(created_at) FROM package_versions WHERE scope = packages.scope AND name = packages.name) as \"package_version_count!\",\n(SELECT version FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as \"package_latest_version\",\n(SELECT meta FROM package_versions WHERE scope = packages.scope AND name = packages.name AND is_yanked = false ORDER BY (version NOT LIKE '%-%') DESC, version DESC LIMIT 1) as \"package_version_meta: PackageVersionMeta\"",
   "describe": {
     "columns": [
       {
@@ -83,7 +83,7 @@
       "Left": [
         "Text",
         "Text",
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -102,5 +102,5 @@
       null
     ]
   },
-  "hash": "e54199d0de7de060337cce63ced8c703b56fada4597246e367539733e3cec363"
+  "hash": "2201a0dfe06f147ffc14530c9aa5a779ee780e8a260c2ec1e27077e746ac47aa"
 }
